@@ -315,16 +315,26 @@ public:
         /**
          * Exponent of the density of an insertion in its score:
          *
-         * score = profit * density^beta * number_of_items^(-gamma)
+         * score = value * density^beta * number_of_items^(-gamma)
          *
-         * where the density is the area of the items of the block divided by
-         * the area of the rectangle from the corner of the empty space to the
-         * top-right corner of the block.
+         * where the value is the one of 'insertion_value' and the density is
+         * the area of the items of the block divided by the area of the
+         * rectangle from the corner of the empty space to the top-right
+         * corner of the block.
          */
         double beta = 2.0;
 
         /** Exponent of the number of items of an insertion in its score. */
         double gamma = 0.4;
+
+        /**
+         * Exponent of the profit density of a block in the value of its
+         * insertions: the area of its items is weighted by its profit per
+         * unit of area to this power. It has no effect when the profits are
+         * proportional to the areas; 1 weights the area by the density
+         * once, which amounts to the profit of the block.
+         */
+        double profit_density_exponent = 2.0;
 
         /**
          * Timer, checked during the greedy completions, which may be long.
@@ -475,6 +485,15 @@ private:
     std::vector<Block> blocks_;
 
     /**
+     * For each item type, true iff its consumption of a resource of the bin
+     * type depends on the number of its copies already in the bin.
+     */
+    std::vector<bool> copy_dependent_resource_consumptions_;
+
+    /** Buffer of 'insertion_resource_consumption'. */
+    mutable std::vector<double> insertion_resource_consumption_;
+
+    /**
      * Rectangles covering the obstacles of the bin, cut out of the empty
      * spaces of the root node.
      */
@@ -557,10 +576,35 @@ private:
             const Block& block) const;
 
     /**
+     * Consumption of each resource of the bin type by the items of 'block'
+     * if it is packed in 'node': 'Block::resource_consumption', shifted for
+     * the item types whose consumption depends on the number of their copies
+     * already in 'node' (see 'shifted_resource_consumption').
+     *
+     * The returned reference may be invalidated by the next call.
+     */
+    const std::vector<double>& insertion_resource_consumption(
+            const Node& node,
+            const Block& block) const;
+
+    /**
      * Profit of packing a block in a node: the profit of its items minus the
      * penalties of the penalized resources whose capacity it exceeds first.
      */
     Profit insertion_profit(
+            const Node& node,
+            const Block& block) const;
+
+    /**
+     * Value of packing a block in a node in the score of its insertions.
+     *
+     * Generalization of the volume of the items of the block of the fitness
+     * function of Guesser et al. (2026) to profits different from the areas:
+     * the area of the items weighted by their profit density. When the
+     * profits are proportional to the areas, all the blocks have the same
+     * density, and the order of the insertions is the one of the paper.
+     */
+    double insertion_value(
             const Node& node,
             const Block& block) const;
 

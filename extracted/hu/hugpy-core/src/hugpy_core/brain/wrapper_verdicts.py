@@ -159,6 +159,12 @@ def apply(conn, worker, document):
 
 
 def refresh(worker, *, force=False):
+    # A wrapper that said it serves no verdict plans is never asked for one,
+    # whichever path triggers the refresh (planner, knob save, console).
+    capabilities = (worker.get('data_service') or {}).get('capabilities') or {}
+    if capabilities.get('verdicts') is False:
+        return {'worker': worker.get('name') or worker['id'], 'source': 'wrapper',
+                'skipped': 'wrapper serves no verdict plans'}
     # A core HTTP process and its independent collector share this gate.
     # The lock prevents duplicate requests across processes, not just threads.
     name = worker.get('name') or worker['id']

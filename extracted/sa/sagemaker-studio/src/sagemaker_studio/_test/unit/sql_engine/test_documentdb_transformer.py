@@ -225,3 +225,10 @@ class TestDocumentDBTransformerInjection:
             assert url.port == 27017
             assert url.database == "my_db"
             assert url.query["tls"] == "true"
+
+    def test_supports_row_limit_is_false(self):
+        assert DocumentDBTransformer.supports_row_limit is False
+
+    def test_row_limit_leaves_statement_unchanged(self):
+        statement = "SELECT a FROM t"
+        assert DocumentDBTransformer.apply_row_limit(statement, "SELECT", 100) == statement

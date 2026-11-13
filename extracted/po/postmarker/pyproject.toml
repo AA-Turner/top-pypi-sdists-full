@@ -1,16 +1,129 @@
 [build-system]
-requires = ["setuptools >= 40.6.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.black]
+[project]
+name = "postmarker"
+dynamic = ["version"]
+description = "Python client library for Postmark API"
+keywords = ["postmark", "postmarkapp", "api", "client", "email", "transactional email", "django", "email backend"]
+authors = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
+maintainers = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Environment :: Web Environment",
+  "Framework :: Django",
+  "Framework :: Django :: 5.2",
+  "Framework :: Django :: 6.0",
+  "Framework :: Django :: 6.1",
+  "Framework :: Pytest",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Communications :: Email",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
+dependencies = ["requests>=2.20.0"]
+
+[project.optional-dependencies]
+css-inline = ["css-inline>=0.24"]
+tests = ["postmarker[css-inline]", "coverage[toml]>=7.2", "pytest>=8", "pytest-django", "pytest-recording>=0.14", "tornado"]
+docs = ["mkdocstrings[python]", "pymdown-extensions", "ruff", "zensical>=0.1.1,<0.2"]
+
+[project.entry-points.pytest11]
+postmark = "postmarker.pytest"
+
+[project.urls]
+Documentation = "https://postmarker.readthedocs.io/en/stable/"
+Changelog = "https://github.com/Stranger6667/postmarker/blob/master/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/Stranger6667/postmarker/issues"
+Funding = "https://github.com/sponsors/Stranger6667"
+"Source Code" = "https://github.com/Stranger6667/postmarker"
+
+[tool.hatch.version]
+path = "src/postmarker/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/test"]
+
+[tool.pytest.ini_options]
+addopts = ["-ra", "--strict-markers", "--strict-config", "--block-network", "--allowed-hosts=127.0.0.1,localhost"]
+xfail_strict = true
+testpaths = ["test"]
+pythonpath = ["."]
+DJANGO_SETTINGS_MODULE = "test.django.settings"
+
+[tool.coverage.run]
+parallel = true
+branch = true
+source_pkgs = ["postmarker"]
+
+[tool.coverage.paths]
+source = ["src", ".tox/*/site-packages", ".tox/*/lib/*/site-packages", ".tox/*/Lib/site-packages"]
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+exclude_also = ["if TYPE_CHECKING:"]
+fail_under = 100
+
+[tool.ruff]
 line-length = 120
-target_version = ["py37"]
+target-version = "py310"
 
-[tool.isort]
-# config compatible with Black
-line_length = 120
-multi_line_output = 3
-default_section = "THIRDPARTY"
-include_trailing_comma = true
-known_first_party = "postmarker"
-known_third_party = ["betamax", "betamax_serializers", "django", "postmarker", "pytest", "requests", "setuptools", "sphinx_rtd_theme", "tornado"]
+[tool.ruff.lint]
+select = [
+  "E",      # pycodestyle errors
+  "W",      # pycodestyle warnings
+  "F",      # pyflakes
+  "C",      # flake8-comprehensions
+  "B",      # flake8-bugbear
+  "D",      # pydocstyle
+  "T201",   # flake8-print
+  "I",      # isort
+  "FURB",   # refurb
+  "PGH003", # blanket-type-ignore
+  "UP",     # pyupgrade
+  "SIM",    # flake8-simplify
+]
+ignore = [
+  "E501",   # Line too long
+  "B008",   # Do not perform function calls in argument defaults
+  "C901",   # Too complex
+  "D100",   # Missing docstring in public module
+  "D101",   # Missing docstring in public class
+  "D102",   # Missing docstring in public method
+  "D103",   # Missing docstring in public function
+  "D104",   # Missing docstring in public package
+  "D105",   # Missing docstring in magic method
+  "D106",   # Missing docstring in public nested class
+  "D107",   # Missing docstring in `__init__`
+  "D202",   # No blank lines allowed after function docstring
+  "D203",   # One blank line before class
+  "D213",   # Multiline summary second line
+  "D401",   # Imperative mood
+  "D407",   # Missing dashed underline after section
+  "SIM105", # contextlib.suppress is less performant in many cases
+  "SIM108", # ternary expressions are not always readable
+  "SIM910", # delete default arguments in .get() in some cases
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["postmarker"]
+
+[tool.typos.default]
+# Verbatim Postmark spam check API message
+extend-ignore-re = ["SpamAssassin error occured"]

@@ -7,7 +7,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Protocol, overload
 
-from pyrit.common.utils import combine_dict, get_kwarg_param
+from pyrit.common import combine_dict, get_kwarg_param
+from pyrit.common.utils import is_numeric_value
 from pyrit.executor.core import StrategyConverterConfig
 from pyrit.executor.workflow.core import (
     WorkflowContext,
@@ -117,7 +118,7 @@ class XPIAResult(WorkflowResult):
             score_value = self.score.get_value()
         except UndeterminedScoreError:
             return False
-        return score_value > 0 if isinstance(score_value, (int, float)) else False
+        return score_value > 0 if is_numeric_value(score_value) else False
 
     @property
     def status(self) -> XPIAStatus:
@@ -368,16 +369,18 @@ class XPIAWorkflow(WorkflowStrategy[XPIAContext, XPIAResult], Identifiable):
         processing_response = await context.processing_callback()
         if self._memory is None:
             raise RuntimeError("Memory not initialized")
-        self._memory.add_message_to_memory(
-            request=Message(
-                message_pieces=[
-                    MessagePiece(
-                        conversation_id=context.processing_conversation_id,
-                        original_value=processing_response,
-                        original_value_data_type="text",
-                        role="assistant",
-                    )
-                ],
+        (
+            await self._memory.add_message_to_memory_async(
+                request=Message(
+                    message_pieces=[
+                        MessagePiece(
+                            conversation_id=context.processing_conversation_id,
+                            original_value=processing_response,
+                            original_value_data_type="text",
+                            role="assistant",
+                        )
+                    ],
+                )
             )
         )
         self._logger.info(f'Received the following response from the processing target "{processing_response}"')

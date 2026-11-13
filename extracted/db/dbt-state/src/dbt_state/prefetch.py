@@ -206,7 +206,8 @@ class MetadataPrefetcher:
         it (its own lock, future and done flag).
 
         Collects the statically known edge FQNs of the  selected models (via `collect_edge_prefetch_fqns`),
-        then triggers an async prefetch. This is only a warm-up: edges discovered later
+        and the targets of incremental models that may read themselves (via
+        `NodeResolution.incremental_target_fqns`), then triggers an async prefetch. This is only a warm-up: edges discovered later
         (e.g. tables reachable only through view definitions) are fetched on demand by `get_schemas`.
 
         Does not block on the result; use `await_prefetch_schemas` to wait for it.
@@ -216,8 +217,10 @@ class MetadataPrefetcher:
             if self._prefetch_schemas_started:
                 return
             self._prefetch_schemas_started = True
+            selected_ids = self._node_resolution.selected_resource_ids
             edge_fqns = sorted(
-                self.collect_edge_prefetch_fqns(self._node_resolution.selected_resource_ids)
+                self.collect_edge_prefetch_fqns(selected_ids)
+                | self._node_resolution.incremental_target_fqns(selected_ids)
             )
             if not edge_fqns:
                 self._prefetch_schemas_done = True

@@ -33,7 +33,7 @@ class ListBusinessesResponseDataItem(UniversalBaseModel):
 
     commission_advance: typing.Optional[PartnerAdvance] = pydantic.Field(default=None)
     """
-    CPA terms for the referring partner. Omitted for other callers. An offer token requires partner:commission_advance:accept permission.
+    CPA terms for the referring partner. Read with referring_account_id, the business's owner sees every rep's terms and a manager sees those of the reps below them, read-only. Omitted for other callers. An offer token is only for the referring partner and requires partner:commission_advance:accept permission.
     """
 
     commission_advance_projections_allowed: typing.Optional[bool] = pydantic.Field(default=None)
@@ -75,7 +75,7 @@ class ListBusinessesResponseDataItem(UniversalBaseModel):
 
     payout_percentages: ListBusinessesResponseDataItemPayoutPercentages = pydantic.Field()
     """
-    The referrer's commission rate for each income source, expressed as a fraction (0.3 = 30%).
+    The commission rate this referral pays for each income source, as a fraction (0.3 = 30%). A solo partner earns it directly; the team of a referring partner business splits it by their shares.
     """
 
     referral_expires_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)

@@ -5,13 +5,19 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from langchain_core._api import deprecated
 from langchain_core.chat_history import BaseChatMessageHistory
-from langchain_core.messages import BaseMessage, ToolMessage, messages_from_dict
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    ToolMessage,
+    messages_from_dict,
+)
 from redis import Redis
 from redis.exceptions import ConnectionError, ResponseError
 from redisvl.exceptions import RedisSearchError  # type: ignore
 from redisvl.index import SearchIndex  # type: ignore
 from redisvl.query import CountQuery, FilterQuery, TextQuery  # type: ignore
 from redisvl.query.filter import Tag  # type: ignore
+from redisvl.redis.connection import normalize_index_definition  # type: ignore
 from ulid import ULID
 
 from langchain_redis.version import __full_lib_name__
@@ -76,7 +82,7 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
 
     Raises:
         ValueError: If `session_id` is empty or `None`.
-        ResponseError: If Redis connection fails or RedisVL operations fail.
+        RedisSearchError: If RedisVL index or search operations fail.
 
     Example:
         ```python
@@ -149,7 +155,7 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
             # In newer Redis-py versions, we can set a default pubsub_configs
             self.redis_client.pubsub_configs = {"push_handler_func": _noop_push_handler}
         try:
-            self.redis_client.client_setinfo("LIB-NAME", __full_lib_name__)  # type: ignore
+            self.redis_client.client_setinfo("LIB-NAME", __full_lib_name__)
         except ResponseError:
             # Fall back to a simple log echo
             self.redis_client.echo(__full_lib_name__)
@@ -167,7 +173,7 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
         """Create and configure the RedisVL SearchIndex.
 
         Raises:
-            ResponseError: If Redis connection fails or RedisVL operations fail.
+            RedisSearchError: If RedisVL index or search operations fail.
         """
         schema = {
             "index": {
@@ -188,17 +194,13 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
         # Check if index already exists and detect prefix conflicts
         if not self.overwrite_index:
             try:
-                existing_info = self.index.info()
-                index_definition = existing_info.get("index_definition", [])
-
-                # Parse the index_definition list to find prefixes
-                existing_prefixes = []
-                try:
-                    prefixes_index = index_definition.index("prefixes") + 1
-                    existing_prefixes = index_definition[prefixes_index]
-                except (ValueError, IndexError):
-                    # Could not find prefixes in the definition
-                    pass
+                # normalize_index_definition returns the FT.INFO index
+                # definition as a dict, handling both the RESP2 flat-list
+                # shape and the RESP3 dict shape, so the prefix check below
+                # works on both protocols.
+                existing_prefixes = (
+                    normalize_index_definition(self.index.info()).get("prefixes") or []
+                )
 
                 if existing_prefixes and self.key_prefix not in existing_prefixes:
                     logger.warning(
@@ -225,13 +227,13 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
 
     @property
     def messages(self) -> List[BaseMessage]:  # type: ignore
-        """Retrieve all messages for the current session, sorted by timestamp.
+        """Retrieve up to 10,000 messages for the current session, sorted by timestamp.
 
         Returns:
             A list of messages in chronological order.
 
         Raises:
-            ResponseError: If Redis connection fails or RedisVL operations fail.
+            RedisSearchError: If RedisVL index or search operations fail.
         """
         messages_query = FilterQuery(
             filter_expression=Tag("session_id") == self.session_id,
@@ -273,11 +275,11 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
             message (BaseMessage): The message to add to the history.
 
                 This should be an instance of a class derived from `BaseMessage`, such
-                as `HumanMessage`, `AIMessage`, or `SystemMessage`.
+                as `HumanMessage`, `AIMessage`, `SystemMessage`, or `ToolMessage`.
 
         Raises:
-            ResponseError: If Redis connection fails or RedisVL operations fail.
-            ValueError: If message is `None` or invalid.
+            RedisVLError: If RedisVL fails to load the message into Redis.
+            ValueError: If message is `None`.
 
         Example:
             ```python
@@ -359,6 +361,15 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
         if isinstance(message, ToolMessage):
             common_data_to_store["data"]["tool_call_id"] = message.tool_call_id
             common_data_to_store["data"]["status"] = message.status
+        elif isinstance(message, AIMessage):
+            # Preserve tool_calls / invalid_tool_calls so that an AIMessage
+            # requesting tool use round-trips correctly. Without this, agent
+            # conversations reloaded from Redis lose all tool_calls, since
+            # AIMessage.tool_calls lives outside `additional_kwargs`.
+            common_data_to_store["data"]["tool_calls"] = message.tool_calls
+            common_data_to_store["data"]["invalid_tool_calls"] = (
+                message.invalid_tool_calls
+            )
 
         return common_data_to_store, self._message_key(message_id)
 
@@ -375,7 +386,7 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
                 history, in order.
 
         Raises:
-            ResponseError: If Redis connection fails or RedisVL operations fail.
+            RedisVLError: If RedisVL fails to load the messages into Redis.
             ValueError: If `messages` contains a `None` entry.
 
         Example:
@@ -419,7 +430,7 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
         the Redis store using RedisVL queries.
 
         Raises:
-            ResponseError: If Redis connection fails or RedisVL operations fail.
+            RedisSearchError: If RedisVL index or search operations fail.
 
         Example:
             ```python
@@ -441,9 +452,8 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
 
         Note:
             - This method only clears messages for the current `session_id`.
-            - It uses RedisVL's FilterQuery to find all relevant messages and then
-                deletes them individually using the Redis client.
-            - The operation removes all messages for the current session only.
+            - It collects the session's message keys with a paginated `FilterQuery`
+                and deletes them in one `drop_keys` call.
             - After clearing, the Redis search index is still maintained, allowing
                 for immediate use of the same `session_id` for new messages if needed.
             - This operation is irreversible. Make sure you want to remove all messages
@@ -473,7 +483,7 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
         """Delete all sessions and the chat history index from Redis.
 
         Raises:
-            ResponseError: If Redis connection fails or RedisVL operations fail.
+            RedisSearchError: If RedisVL index or search operations fail.
         """
         self.index.delete(drop=True)
 
@@ -490,10 +500,14 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
         Returns:
             A list of dictionaries, each representing a matching message.
 
-                Each dictionary contains the message content and metadata.
+                Each dictionary has these keys:
+
+                - `content`, `type`, and `additional_kwargs` (all messages)
+                - `tool_calls` and `invalid_tool_calls` (AI messages only)
+                - `tool_call_id` and `status` (tool messages only)
 
         Raises:
-            ResponseError: If Redis connection fails or RedisVL operations fail.
+            RedisSearchError: If RedisVL index or search operations fail.
 
         Example:
             ```python
@@ -514,7 +528,7 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
             )
             history.add_message(
                 AIMessage(
-                content="Neural networks are a key component of deep learning..."
+                    content="Neural networks are a key component of deep learning..."
                 )
             )
 
@@ -529,14 +543,11 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
 
         Note:
             - The search is performed using RedisVL's TextQuery capabilities, which
-                allows for efficient full-text search.
+                allow for efficient full-text search.
             - The search is case-insensitive and uses Redis' default tokenization
                 and stemming.
             - Only messages from the current session (as defined by `session_id`)
                 are searched.
-            - The returned dictionaries include all stored fields, which typically
-                include `'content'`, `'type'`, and any additional metadata stored
-                with the message.
             - This method is useful for quickly finding relevant parts of a
                 conversation without having to iterate through all messages.
         """
@@ -567,7 +578,7 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
             int: The number of messages in the current session.
 
         Raises:
-            ResponseError: If Redis connection fails or RedisVL operations fail.
+            RedisSearchError: If RedisVL index or search operations fail.
         """
         return self.index.query(
             CountQuery(filter_expression=Tag("session_id") == self.session_id)

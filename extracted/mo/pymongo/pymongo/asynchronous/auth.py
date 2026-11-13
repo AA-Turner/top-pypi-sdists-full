@@ -21,11 +21,9 @@ import hashlib
 import hmac
 import socket
 from base64 import standard_b64decode, standard_b64encode
-from collections.abc import Coroutine, Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
 )
 from urllib.parse import quote
 
@@ -50,6 +48,8 @@ from pymongo.errors import ConfigurationError, OperationFailure
 from pymongo.saslprep import saslprep
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine, Mapping
+
     from pymongo.asynchronous.pool import AsyncConnection
 
 HAVE_KERBEROS = True

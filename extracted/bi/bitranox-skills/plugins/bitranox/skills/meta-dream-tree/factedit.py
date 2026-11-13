@@ -334,14 +334,27 @@ def body_file(anchor: Path, slug: str) -> Path:
 
 
 # Dirs that hold vendored or generated trees, never a memory level. Walking them is most of the
-# cost of a tree-wide search, and a CLAUDE.local.md inside one is a copy, not an owner.
-_SKIP_DIRS = frozenset({".git", ".hg", ".svn", "node_modules", "__pycache__", STORE_DIRNAME,
-                        ".tox", ".nox", ".mypy_cache", ".pytest_cache", ".ruff_cache"})
+# cost of a tree-wide search, and a CLAUDE.local.md inside one is a copy, not an owner. A copy of
+# the engine's `uuid_store.NON_LEVEL_DIRNAMES` (`self_improve_signals.VENDOR_DIRNAMES` plus
+# `target`), for the reason `_skip_dir` gives. It must stay EQUAL to it, not merely overlap: a name
+# only this side skips hides an owner the engine's walk reports, and a name only the engine skips
+# reports an owner the engine never renders. tests/test_factedit.py pins the two name by name.
+_SKIP_DIRS = frozenset({".git", "node_modules", ".venv", "venv", "__pycache__", "site-packages",
+                        ".mypy_cache", ".pytest_cache", ".tox", ".idea", ".ruff_cache", "dist",
+                        "build", ".eggs", "target"})
+# The virtualenv shapes of the engine's `uuid_store.VENV_DIR_PREFIXES`, plus the store and every
+# `<store>-*` sibling of it, copied likewise: `.venv-3.12`, `venv-<user>` and `venv_<project>` all
+# occur on real trees.
+_SKIP_PREFIXES = (".venv", "venv-", "venv_", STORE_DIRNAME)
 SEARCH_BUDGET_S = 10.0
 
 
 def _skip_dir(name: str) -> bool:
-    return name in _SKIP_DIRS or name.startswith(".venv")
+    """A dir the owner search never enters. A `<store>-*` sibling of the store is the backup a
+    slug-store migration leaves under the anchor, whose pointer files are copies, not owners. The
+    engine's own rule (`uuid_store.is_non_level_dirname`) is not imported for it: this runs against
+    whichever engine --engine names, which may predate that rule."""
+    return name in _SKIP_DIRS or name.startswith(_SKIP_PREFIXES)
 
 
 def find_pointer_owners(anchor: Path, slug: str, parse_index: Callable[[str], tuple], *,
@@ -380,7 +393,8 @@ def unknown_fact_message(slug: str, start: Path, anchor: Path, owners: list[Path
     if len(owners) == 1:
         return f"{head}; the tree points at it from {owners[0]}: retry with --level {owners[0]}"
     if owners:
-        return (f"{head}; {len(owners)} levels point at it (a duplicate pointer): "
+        return (f"{head}; {len(owners)} levels point at it (placed by topic, or a duplicate "
+                "pointer that --check-tree names): "
                 + ", ".join(str(o) for o in owners)
                 + f"; retry with --level <one of them>, e.g. --level {owners[0]}")
     body = body_file(anchor, slug)

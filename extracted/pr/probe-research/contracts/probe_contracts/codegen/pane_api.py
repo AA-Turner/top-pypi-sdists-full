@@ -35,6 +35,9 @@ _ENUMS = (
     ("PanePartialReason", "reasons", "Why a resolved entry is `partial`."),
     ("PaneCheckStatus", "check_statuses", "What the render check at push answered."),
     ("PaneCheckState", "check_states", "A state the render check draws the pane in."),
+)
+#: Server-only: project previews have no dashboard (Richard, 2026-11-12), so the TS target skips them.
+_SERVER_ENUMS = (
     ("PanePreviewState", "preview_states", "A project's canvas preview choice."),
     ("PaneWriterKind", "writer_kinds", "Who last wrote a pane or a preview choice, from the credential."),
     ("PanePreviewErrorCode", "preview_error_codes", "The `code` of a preview refusal."),
@@ -60,8 +63,16 @@ def _render_python_enum(name: str, doc: str, members: tuple[PaneApiName, ...]) -
 
 def render_pane_api_python(contracts: Contracts) -> str:
     api = contracts.pane_api or PaneApi.load()
-    enums = "".join(_render_python_enum(name, doc, getattr(api, field)) for name, field, doc in _ENUMS)
+    enums = "".join(_render_python_enum(name, doc, getattr(api, field)) for name, field, doc in _ENUMS + _SERVER_ENUMS)
     caps = "".join(_wrap(c.doc, "#: ") + f"{c.name.upper()} = {c.value}\n" for c in api.caps)
+    # Server-only like _SERVER_ENUMS: the TS target has no previews.
+    preview = api.preview_pane
+    preview_pane = (
+        _wrap(preview.doc, "#: ")
+        + f"PREVIEW_PANE_SLUG = {json.dumps(preview.slug)}\n"
+        + f"PREVIEW_PANE_FLOOR_MARKER = {json.dumps(preview.floor_marker)}\n"
+        + f"PREVIEW_PANE_LINE_MAX_WORDS = {preview.line_max_words}\n"
+    )
     return (
         _PY_HEADER
         + f'"""{textwrap.fill(api.doc, WIDTH - 4, break_long_words=False)}\n"""\n\n'
@@ -71,6 +82,8 @@ def render_pane_api_python(contracts: Contracts) -> str:
         + enums
         + "\n\n"
         + caps
+        + "\n"
+        + preview_pane
     )
 
 

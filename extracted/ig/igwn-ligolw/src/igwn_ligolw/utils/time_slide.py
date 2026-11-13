@@ -108,10 +108,10 @@ def time_slides_vacuum(time_slides, verbose=False):
     to time slide ID 0.
     """
     # convert offsets to deltas
-    time_slides = dict(
-        (time_slide_id, offsetvect.deltas)
+    time_slides = {
+        time_slide_id: offsetvect.deltas
         for time_slide_id, offsetvect in time_slides.items()
-    )
+    }
     with tqdm(total=len(time_slides), disable=not verbose) as progressbar:
         # old --> new mapping
         mapping = {}
@@ -142,7 +142,7 @@ def time_slide_list_merge(slides1, slides2):
     Merges two lists of offset dictionaries into a single list with
     no duplicate (equivalent) time slides.
     """
-    deltas1 = set(frozenset(offsetvect1.deltas.items()) for offsetvect1 in slides1)
+    deltas1 = {frozenset(offsetvect1.deltas.items()) for offsetvect1 in slides1}
     return slides1 + [
         offsetvect2
         for offsetvect2 in slides2

@@ -12,6 +12,11 @@ from typing_extensions import assert_type
 from typing_extensions import Never
 from uuid import uuid4
 
+try:
+    import fastapi, uvicorn
+except ModuleNotFoundError: # pragma: no cover
+    raise RuntimeError("spaces.reloading.server requires FastAPI and uvicorn")
+
 from fastapi import APIRouter
 from fastapi import FastAPI
 from fastapi import HTTPException

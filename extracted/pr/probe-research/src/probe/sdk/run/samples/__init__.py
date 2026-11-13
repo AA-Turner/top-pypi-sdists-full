@@ -12,6 +12,7 @@ _HOMES = {
     "CommandRefused": ".live",
     "Phase": ".phases",
     "ProxySidecar": ".live.proxy",
+    "RolloutCapture": ".rollout",
     "RunSamples": ".samples",
     "attach_producer": ".producer",
     "generated_by": ".refs",

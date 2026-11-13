@@ -34,6 +34,7 @@ from .literals import (
     HistoryItemTypeType,
     MetricStreamOutputFormatType,
     OTelEnrichmentStatusType,
+    QueryTypeType,
     ScanByType,
     StandardUnitType,
     StateValueType,
@@ -81,6 +82,7 @@ __all__ = (
     "DeleteDashboardsInputTypeDef",
     "DeleteInsightRulesInputTypeDef",
     "DeleteInsightRulesOutputTypeDef",
+    "DeleteMetricDataQueryDefinitionInputTypeDef",
     "DeleteMetricStreamInputTypeDef",
     "DeleteResourceMetricsConfigurationInputTypeDef",
     "DescribeAlarmContributorsInputTypeDef",
@@ -130,6 +132,8 @@ __all__ = (
     "GetMetricDataInputPaginateTypeDef",
     "GetMetricDataInputTypeDef",
     "GetMetricDataOutputTypeDef",
+    "GetMetricDataQueryDefinitionInputTypeDef",
+    "GetMetricDataQueryDefinitionOutputTypeDef",
     "GetMetricStatisticsInputMetricGetStatisticsTypeDef",
     "GetMetricStatisticsInputTypeDef",
     "GetMetricStatisticsOutputTypeDef",
@@ -153,6 +157,9 @@ __all__ = (
     "ListDashboardsOutputTypeDef",
     "ListManagedInsightRulesInputTypeDef",
     "ListManagedInsightRulesOutputTypeDef",
+    "ListMetricDataQueryDefinitionsInputPaginateTypeDef",
+    "ListMetricDataQueryDefinitionsInputTypeDef",
+    "ListMetricDataQueryDefinitionsOutputTypeDef",
     "ListMetricStreamsInputTypeDef",
     "ListMetricStreamsOutputTypeDef",
     "ListMetricsInputPaginateTypeDef",
@@ -168,6 +175,7 @@ __all__ = (
     "MetricAlarmTypeDef",
     "MetricCharacteristicsTypeDef",
     "MetricDataQueryAlarmTypeDef",
+    "MetricDataQueryDefinitionSummaryTypeDef",
     "MetricDataQueryOutputTypeDef",
     "MetricDataQueryTypeDef",
     "MetricDataQueryUnionTypeDef",
@@ -213,6 +221,8 @@ __all__ = (
     "PutMetricAlarmInputTypeDef",
     "PutMetricDataInputMetricPutDataTypeDef",
     "PutMetricDataInputTypeDef",
+    "PutMetricDataQueryDefinitionInputTypeDef",
+    "PutMetricDataQueryDefinitionOutputTypeDef",
     "PutMetricStreamInputTypeDef",
     "PutMetricStreamOutputTypeDef",
     "RangeOutputTypeDef",
@@ -384,6 +394,10 @@ class PartialFailureTypeDef(TypedDict):
     FailureDescription: NotRequired[str]
 
 
+class DeleteMetricDataQueryDefinitionInputTypeDef(TypedDict):
+    Id: str
+
+
 class DeleteMetricStreamInputTypeDef(TypedDict):
     Name: str
 
@@ -507,6 +521,10 @@ class MessageDataTypeDef(TypedDict):
     Value: NotRequired[str]
 
 
+class GetMetricDataQueryDefinitionInputTypeDef(TypedDict):
+    Id: str
+
+
 class GetMetricStreamInputTypeDef(TypedDict):
     Name: str
 
@@ -551,6 +569,22 @@ class ListManagedInsightRulesInputTypeDef(TypedDict):
     ResourceARN: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+class ListMetricDataQueryDefinitionsInputTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+MetricDataQueryDefinitionSummaryTypeDef = TypedDict(
+    "MetricDataQueryDefinitionSummaryTypeDef",
+    {
+        "Id": str,
+        "Path": str,
+        "Type": QueryTypeType,
+        "UpdatedAt": NotRequired[datetime],
+    },
+)
 
 
 class ListMetricStreamsInputTypeDef(TypedDict):
@@ -762,6 +796,21 @@ class GetDatasetOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+GetMetricDataQueryDefinitionOutputTypeDef = TypedDict(
+    "GetMetricDataQueryDefinitionOutputTypeDef",
+    {
+        "Id": str,
+        "Arn": str,
+        "Path": str,
+        "Expression": str,
+        "Type": QueryTypeType,
+        "CreatedAt": datetime,
+        "UpdatedAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+
 class GetMetricWidgetImageOutputTypeDef(TypedDict):
     MetricWidgetImage: bytes
     ResponseMetadata: ResponseMetadataTypeDef
@@ -776,6 +825,21 @@ class ListAlarmMuteRulesOutputTypeDef(TypedDict):
 class PutAnomalyDetectorOutputTypeDef(TypedDict):
     AnomalyDetectorId: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+PutMetricDataQueryDefinitionOutputTypeDef = TypedDict(
+    "PutMetricDataQueryDefinitionOutputTypeDef",
+    {
+        "Id": str,
+        "Arn": str,
+        "Path": str,
+        "Expression": str,
+        "Type": QueryTypeType,
+        "CreatedAt": datetime,
+        "UpdatedAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 
 class PutMetricStreamOutputTypeDef(TypedDict):
@@ -922,6 +986,10 @@ class ListDashboardsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListMetricDataQueryDefinitionsInputPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class DescribeAlarmsInputWaitExtraExtraTypeDef(TypedDict):
     AlarmNames: NotRequired[Sequence[str]]
     AlarmNamePrefix: NotRequired[str]
@@ -1042,6 +1110,12 @@ class InsightRuleContributorTypeDef(TypedDict):
     Datapoints: list[InsightRuleContributorDatapointTypeDef]
 
 
+class ListMetricDataQueryDefinitionsOutputTypeDef(TypedDict):
+    Items: list[MetricDataQueryDefinitionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListMetricStreamsOutputTypeDef(TypedDict):
     Entries: list[MetricStreamEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1071,6 +1145,18 @@ class PutInsightRuleInputTypeDef(TypedDict):
     RuleState: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
     ApplyOnTransformedLogs: NotRequired[bool]
+
+
+PutMetricDataQueryDefinitionInputTypeDef = TypedDict(
+    "PutMetricDataQueryDefinitionInputTypeDef",
+    {
+        "Path": str,
+        "Expression": str,
+        "Type": QueryTypeType,
+        "Id": NotRequired[str],
+        "Tags": NotRequired[Sequence[TagTypeDef]],
+    },
+)
 
 
 class TagResourceInputTypeDef(TypedDict):

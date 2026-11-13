@@ -10,6 +10,8 @@ from pyrit.common.lazy_imports import get_lazy_dir, resolve_lazy_export
 
 if TYPE_CHECKING:
     from pyrit.datasets.jailbreak.text_jailbreak import TextJailBreak
+    from pyrit.datasets.seed_datasets.generated.assert_provider import AssertProvider
+    from pyrit.datasets.seed_datasets.generated.target_objective_provider import TargetObjectiveProvider
     from pyrit.datasets.seed_datasets.seed_dataset_provider import SeedDatasetProvider
     from pyrit.datasets.seed_datasets.seed_metadata import (
         SeedDatasetFilter,
@@ -18,6 +20,8 @@ if TYPE_CHECKING:
     )
 
 _LAZY_EXPORTS: dict[str, str | tuple[str, str | None]] = {
+    "AssertProvider": "pyrit.datasets.seed_datasets.generated.assert_provider",
+    "TargetObjectiveProvider": "pyrit.datasets.seed_datasets.generated.target_objective_provider",
     "SeedDatasetFilter": "pyrit.datasets.seed_datasets.seed_metadata",
     "SeedDatasetMetadata": "pyrit.datasets.seed_datasets.seed_metadata",
     "SeedDatasetLoadTime": "pyrit.datasets.seed_datasets.seed_metadata",

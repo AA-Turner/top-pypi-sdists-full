@@ -33,6 +33,8 @@ from ouroboros.bigbang.interview import (
     initial_context_summary_missing,
     prompt_safe_initial_context,
 )
+from ouroboros.bigbang.material_seed import attach_material_references
+from ouroboros.bigbang.opening_seed import anchor_opening_confirmations
 from ouroboros.bigbang.requirement_distillation import (
     anchor_promoted_requirements,
     apply_requirement_distillation,
@@ -1725,14 +1727,20 @@ class SeedGenerator:
             )
         state.requirement_distillation = distillation
         if reference_aware:
-            return Result.ok(
-                build_promoted_reference_seed(
-                    state,
-                    distillation,
-                    ambiguity_score=ambiguity_score.overall_score,
-                    gate_forced=force,
+            try:
+                return Result.ok(
+                    attach_material_references(
+                        build_promoted_reference_seed(
+                            state,
+                            distillation,
+                            ambiguity_score=ambiguity_score.overall_score,
+                            gate_forced=force,
+                        ),
+                        state,
+                    )
                 )
-            )
+            except ValueError:
+                return Result.err(ValidationError("Invalid local material evidence history"))
 
         # Extract structured requirements from interview
         extraction_result = await self._extract_requirements(state)
@@ -1773,7 +1781,9 @@ class SeedGenerator:
 
         # Build the seed
         try:
-            seed = self._build_seed(requirements, metadata)
+            seed = attach_material_references(
+                anchor_opening_confirmations(self._build_seed(requirements, metadata), state), state
+            )
 
             log.info(
                 "seed.generation.completed",
@@ -1836,6 +1846,7 @@ class SeedGenerator:
                 goal=reflect_output.refined_goal,
                 task_type=parent_seed.task_type,
                 brownfield_context=parent_seed.brownfield_context,
+                material_evidence_refs=parent_seed.material_evidence_refs,
                 constraints=reflect_output.refined_constraints,
                 ontology_schema=new_ontology,
                 evaluation_principles=parent_seed.evaluation_principles,
@@ -2038,8 +2049,9 @@ Please try again. Extract requirements from this interview:
 You MUST respond with ONLY the following format, one field per line, no other text:
 
 ACCEPTANCE_CRITERIA rule: an acceptance criterion names a state of the finished work that a user can see is true; an implementation step names a means of reaching that state. Only the first belongs here — deciding means is the execution engine's work at runtime. A criterion intelligible only as a move toward a sibling is that sibling's means and belongs merged into the outcome it serves. How many criteria a goal has is discovered by that judgment.
-ACCEPTANCE_CRITERIA JSON rule: emit exactly one `ACCEPTANCE_CRITERIA:` field containing a non-empty single-line JSON array. Every object must contain `description`, `verify`, `artifacts`, and `expect`, plus `exempt` only when `verify` is NONE (see the exempt rule); no other keys, no aliases.
+ACCEPTANCE_CRITERIA JSON rule: emit exactly one `ACCEPTANCE_CRITERIA:` field containing a non-empty single-line JSON array. Every object must contain `description`, `verify`, `cwd`, `artifacts`, and `expect`, plus `exempt` only when `verify` is NONE (see the exempt rule); no other keys, no aliases.
 ACCEPTANCE_CRITERIA verify rule: `verify` must be one complete single-line shell command. Never use heredoc or multiline syntax (`<<`, `<<'PY'`, `cat <<EOF`, line-continuation scripts); use `python -c "..."`, `python3 -c "..."`, or a test command naming the exact test files or test ids that decide this criterion. Never use a bare whole-suite command such as `python -m pytest -q`: unrelated failing tests make it fail on any work, so it cannot decide the criterion.
+ACCEPTANCE_CRITERIA cwd rule: `cwd` is a portable workspace-relative directory for `verify`, or `NONE` for default resolution (the sole nested Node project for npm/npx/yarn/pnpm, otherwise the workspace root). Artifacts remain relative to the workspace root.
 ACCEPTANCE_CRITERIA artifacts rule: `artifacts` must be a JSON array of exact portable file or directory paths relative to the run workspace, or the string `NONE`. The runner resolves every path literally and requires it to exist. Prefix a top-level path containing spaces with `./`. Never use a descriptive label.
 ACCEPTANCE_CRITERIA expect rule: `expect` is ONLY a literal string printed verbatim in the combined stdout and stderr of `verify`, such as `OK` or `5 passed`. Use `expect: NONE` for exit-code/status conditions like `exit code 0`, `success`, `passed`, or `no errors`; exit-code 0 is already verified separately.
 ACCEPTANCE_CRITERIA exempt rule: prefer a real `verify` command for every criterion — a criterion without one can only be judged from the worker's own account of its work. Use `verify: NONE` only when no command could decide the outcome, and then add `"exempt": "<why no command can decide this>"`. Omit `exempt` (or set it to NONE) whenever `verify` is a command.
@@ -2051,7 +2063,7 @@ ASSUMPTIONS rule: CONSTRAINTS and ACCEPTANCE_CRITERIA hold only what the initial
 GOAL: <clear goal statement>
 CONSTRAINTS: ["<constraint 1>", "<constraint 2>", ...]
 ASSUMPTIONS: ["<assumption 1>", ...]
-ACCEPTANCE_CRITERIA: [{{"description": "<observable outcome>", "verify": "<single-line command or NONE>", "artifacts": ["<path>"], "expect": "<literal output or NONE>", "exempt": "<why no command can decide this, only when verify is NONE>"}}]
+ACCEPTANCE_CRITERIA: [{{"description": "<observable outcome>", "verify": "<single-line command or NONE>", "cwd": "NONE", "artifacts": ["<path>"], "expect": "<literal output or NONE>", "exempt": "<why no command can decide this, only when verify is NONE>"}}]
 ONTOLOGY_NAME: <name>
 ONTOLOGY_DESCRIPTION: <description>
 ONTOLOGY_FIELDS: [{{"name": "<name>", "type": "<string|number|boolean|array|object>", "description": "<description>"}}, ...]
@@ -2155,8 +2167,9 @@ EXIT_CONDITIONS: [{{"name": "<name>", "description": "<description>", "criteria"
 Respond ONLY with the structured format below. Do NOT add explanations, questions, commentary, or prose. Do NOT wrap in markdown code blocks.
 
 ACCEPTANCE_CRITERIA rule: an acceptance criterion names a state of the finished work that a user can see is true; an implementation step names a means of reaching that state. Only the first belongs here — deciding means is the execution engine's work at runtime. Read each criterion beside its siblings and ask which kind it is: one that stands on its own as something a user would value is an outcome, while one intelligible only as a move toward a sibling is that sibling's means and belongs merged into the outcome it serves. Leaving a means in the list is a defect as severe as a missing requirement, because it commits the seed to a path no one has verified. How many criteria a goal has is discovered by making this judgment.
-ACCEPTANCE_CRITERIA JSON rule: emit exactly one `ACCEPTANCE_CRITERIA:` field containing a non-empty single-line JSON array. Every object must contain `description`, `verify`, `artifacts`, and `expect`, plus `exempt` only when `verify` is NONE (see the exempt rule); no other keys, no aliases.
+ACCEPTANCE_CRITERIA JSON rule: emit exactly one `ACCEPTANCE_CRITERIA:` field containing a non-empty single-line JSON array. Every object must contain `description`, `verify`, `cwd`, `artifacts`, and `expect`, plus `exempt` only when `verify` is NONE (see the exempt rule); no other keys, no aliases.
 ACCEPTANCE_CRITERIA verify rule: `verify` must be one complete single-line shell command. Never use heredoc or multiline syntax (`<<`, `<<'PY'`, `cat <<EOF`, line-continuation scripts); use `python -c "..."`, `python3 -c "..."`, or a test command naming the exact test files or test ids that decide this criterion. Never use a bare whole-suite command such as `python -m pytest -q`: unrelated failing tests make it fail on any work, so it cannot decide the criterion.
+ACCEPTANCE_CRITERIA cwd rule: `cwd` is a portable workspace-relative directory for `verify`, or `NONE` for default resolution (the sole nested Node project for npm/npx/yarn/pnpm, otherwise the workspace root). Artifacts remain relative to the workspace root.
 ACCEPTANCE_CRITERIA artifacts rule: `artifacts` must be a JSON array of exact portable file or directory paths relative to the run workspace, or the string `NONE`. The runner resolves every path literally and requires it to exist. Prefix a top-level path containing spaces with `./`. Never use a descriptive label.
 ACCEPTANCE_CRITERIA expect rule: `expect` is ONLY a literal string printed verbatim in the combined stdout and stderr of `verify`, such as `OK` or `5 passed`. Use `expect: NONE` for exit-code/status conditions like `exit code 0`, `success`, `passed`, or `no errors`; exit-code 0 is already verified separately.
 ACCEPTANCE_CRITERIA exempt rule: prefer a real `verify` command for every criterion — a criterion without one can only be judged from the worker's own account of its work. Use `verify: NONE` only when no command could decide the outcome, and then add `"exempt": "<why no command can decide this>"`. Omit `exempt` (or set it to NONE) whenever `verify` is a command.
@@ -2168,7 +2181,7 @@ ASSUMPTIONS rule: CONSTRAINTS and ACCEPTANCE_CRITERIA hold only what the initial
 GOAL: <clear goal statement>
 CONSTRAINTS: ["<constraint 1>", "<constraint 2>", ...]
 ASSUMPTIONS: ["<assumption 1>", ...]
-ACCEPTANCE_CRITERIA: [{{"description": "<observable outcome>", "verify": "<single-line command or NONE>", "artifacts": ["<path>"], "expect": "<literal output or NONE>", "exempt": "<why no command can decide this, only when verify is NONE>"}}]
+ACCEPTANCE_CRITERIA: [{{"description": "<observable outcome>", "verify": "<single-line command or NONE>", "cwd": "NONE", "artifacts": ["<path>"], "expect": "<literal output or NONE>", "exempt": "<why no command can decide this, only when verify is NONE>"}}]
 ONTOLOGY_NAME: <name>
 ONTOLOGY_DESCRIPTION: <description>
 ONTOLOGY_FIELDS: [{{"name": "<name>", "type": "<string|number|boolean|array|object>", "description": "<description>"}}, ...]

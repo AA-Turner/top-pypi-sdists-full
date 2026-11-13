@@ -11,12 +11,10 @@ filtered out of the collection.
 """
 
 from functools import wraps
-from typing import Any
 
 import numpy as np
 import pytest
 
-from numpy_groupies import aggregate_numpy, aggregate_purepy
 from numpy_groupies.driver import aliasing
 from numpy_groupies.registry import (
     aliasing_py,
@@ -25,32 +23,17 @@ from numpy_groupies.registry import (
 )
 from numpy_groupies.tests.reference import aggregate_ref, reference_names
 
-aggregate_numba: Any
-
-try:
-    from numpy_groupies import aggregate_numba
-except ImportError:
-    aggregate_numba = None
-
-# backend registry: module -> short name, in fixture-parametrization order
-_backend_names = {
-    module: name
-    for name, module in (
-        ("purepy", aggregate_purepy),
-        ("numpy", aggregate_numpy),
-        ("numba", aggregate_numba),
-    )
-    if module is not None
-}
-_implementations = list(_backend_names)
-
 
 def impl_name(impl):
     """Short backend name ("purepy", "numpy", ...) for a backend module
-    or its ``_BackendProxy``."""
+    or its ``_BackendProxy``.
+
+    The name of the module of a backend carries the name of the backend:
+    ``npg_purepy`` is the pure python one, ``npg_numpy`` the numpy one.
+    """
     if isinstance(impl, _BackendProxy):
         return impl._name
-    return _backend_names.get(impl)
+    return impl.__name__.rsplit(".", 1)[-1].removeprefix("npg_")
 
 
 def random_group_idx(rng, size, n_groups):
@@ -72,19 +55,11 @@ def random_values(rng, size):
 def is_supported(impl, func):
     """True if the backend runs ``func``.
 
-    The dispatch table of the backend answers it: a function the table does
-    not hold, or one it holds without an implementation behind it, is a
-    function this backend does not have.
-
-    The answer is a lookup and nothing else.  Asking the backend to run the
-    function would be the same question with a price: the numba backend would
-    compile the kernel of the function, and the collection of the suite would
-    compile a kernel per function in every worker of the parallel run - which
-    is where the minutes of a cold run went.
-
-    A func that names no function of the package is the caller's own and is
-    never deselected.
-
+    The dispatch table of the backend answers it; the answer is a lookup and
+    nothing else - asking the backend to run the function would make the numba
+    backend compile a kernel per function in every worker of the parallel run,
+    which is where the minutes of a cold run went.  A func that names no
+    function of the package is the caller's own and is never deselected.
     Accepts a backend module or its ``_BackendProxy``, and a function name
     or callable.
     """
@@ -96,26 +71,14 @@ def is_supported(impl, func):
         func = getattr(func, "__name__", None)
         if not isinstance(func, str):
             return True
-    table = _dispatch_of(impl)
+    # every backend holds a dispatch table: a table of the aliases of the
+    # functions it knows and the implementation of its own behind every one
+    # of them - and one that has none knows no function at all
+    table = getattr(impl, "_dispatch", None)
     if table is None:
         return True
     resolved = table.get(func)
     return resolved is not None and resolved.op is not None
-
-
-def _dispatch_of(impl):
-    """The dispatch table of a backend, or None for one that has none.
-
-    Every backend holds one: a table of the aliases of the functions it knows
-    and the implementation of its own behind every one of them.
-    """
-    if impl is aggregate_purepy:
-        return aggregate_purepy._dispatch
-    if impl is aggregate_numpy:
-        return aggregate_numpy.ops._dispatch
-    if aggregate_numba is not None and impl is aggregate_numba:
-        return aggregate_numba.ops._dispatch
-    return None
 
 
 def _wrap_notimplemented_skip(impl, name=None):
@@ -146,8 +109,13 @@ class _BackendProxy:
 
     def __init__(self, module):
         self._module = module
-        self._name = _backend_names[module]
+        self._name = module.__name__.rsplit(".", 1)[-1].removeprefix("npg_")
         self.aggregate = _wrap_notimplemented_skip(module.aggregate, f"aggregate_{self._name}")
+
+    @property
+    def _dispatch(self):
+        """The dispatch table of the backend under test."""
+        return self._module._dispatch
 
     def __getattr__(self, name):
         if name.startswith("_"):
@@ -165,6 +133,18 @@ class _BackendProxy:
 # added there is asked for from the start - the three nan variants of the
 # cumulative functions are the ones the loop does not know yet.
 func_list = tuple(name for name in function_names() if name in set(reference_names()))
+
+
+def assert_result_dtype(impl, res, dtype):
+    """The dtype of the answer of a backend.
+
+    The pure python implementation carries no dtype of its own - its python
+    numbers are the answer - so the dtype is asked of the backends that have
+    one.  The question is asked in one place, so that the tests over the
+    complex values do not answer it again and again.
+    """
+    if not is_purepy(impl):
+        assert np.asarray(res).dtype == np.dtype(dtype)
 
 
 def assert_same_result(got, want, func, rtol=10**-10, atol=0.0):
@@ -213,8 +193,10 @@ def _assert_same_groups(got, want):
 def is_purepy(impl):
     """True for the implementation that computes with python numbers.
 
-    Those carry no dtype: purepy neither honours a ``dtype`` argument nor hands
-    back a result of the dtype of its input.
+    Those carry no dtype: purepy neither honours a ``dtype`` argument nor
+    hands back a result of the dtype of its input.  Its other gaps have their
+    own names - the temporal ones the ``skip_purepy`` fixture, the
+    multidimensional output the refusal of the backend itself.
     """
     return impl_name(impl) == "purepy"
 
@@ -226,67 +208,6 @@ def is_numba(impl):
     implementation, where the other two only call what they are handed.
     """
     return impl_name(impl) == "numba"
-
-
-# The functions with a well-defined complex result, following numpy semantics -
-# the order statistics included, as numpy orders complex values lexicographically.
-# median is the one order statistic missing: over incomparable values numpy's own
-# partition and its sort disagree, so the group loop cannot tell what a poisoned
-# group mediates to - what its answer has to look like is pinned by
-# test_median_of_a_poisoned_group instead, and a clean group by test_median
-complex_funcs = (
-    "sum",
-    "prod",
-    "mean",
-    "var",
-    "std",
-    "trapezoid",
-    "sumofsquares",
-    "first",
-    "last",
-    "nansum",
-    "nanprod",
-    "nanmean",
-    "nanvar",
-    "nanstd",
-    "nanmedian",
-    "nantrapezoid",
-    "nansumofsquares",
-    "cumsum",
-    "all",
-    "any",
-    "allnan",
-    "anynan",
-    "nanall",
-    "nanany",
-    "len",
-    "nanlen",
-    "nanfirst",
-    "nanlast",
-    "min",
-    "max",
-    "nanmin",
-    "nanmax",
-    "mode",
-    "argmin",
-    "argmax",
-    "nanargmin",
-    "nanargmax",
-)
-# their complex result is the real squared magnitude, not complex a*a
-complex_real_out_funcs = {"var", "std", "sumofsquares", "nanvar", "nanstd", "nansumofsquares"}
-# these count, test or point at a position, so their result is not a number of
-# the input type
-complex_bool_funcs = {"all", "any", "allnan", "anynan", "nanall", "nanany"}
-complex_arg_funcs = ("argmin", "argmax", "nanargmin", "nanargmax")
-complex_int_funcs = {"len", "nanlen", *complex_arg_funcs}
-# order statistics over the values themselves, as opposed to their positions
-complex_order_funcs = ("min", "max", "nanmin", "nanmax", "mode")
-# conjugating the input does not simply conjugate the result for these: it
-# flips the order of two values sharing a real part
-complex_asymmetric_funcs = complex_order_funcs + complex_arg_funcs
-# functions whose output dtype a complex input does not fix
-complex_dtype_funcs = tuple(complex_real_out_funcs | complex_bool_funcs | complex_int_funcs)
 
 
 def aliasing_of(impl):

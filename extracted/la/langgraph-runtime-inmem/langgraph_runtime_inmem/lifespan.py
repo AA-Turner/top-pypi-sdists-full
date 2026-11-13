@@ -136,6 +136,20 @@ async def lifespan(
                 _LAST_LIFESPAN_ERROR = exc
                 await _log_graph_load_failure(exc)
                 raise
+            try:
+                from langgraph_api.priority_settings import (  # noqa: PLC0415
+                    get_priority_callback,
+                )
+            except ImportError:
+                # An older langgraph-api has no priority callback.
+                pass
+            else:
+                # Loaded now so a bad path fails startup, not every run create.
+                if get_priority_callback() is not None:
+                    await logger.awarning(
+                        "The in-memory runtime stores each thread's priority settings"
+                        " but starts runs in the order they were created"
+                    )
             if config.N_JOBS_PER_WORKER > 0:
                 tg.create_task(queue_with_signal())
 

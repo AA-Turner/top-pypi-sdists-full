@@ -53,11 +53,11 @@ class NMEAData:
         NMEA VTG Sentence
     """
 
-    def __init__(self, GGA=GPGGA(), GSA=GPGSA(), RMC=GPRMC(), VTG=GPVTG()):
-        self.GGA = GGA
-        self.GSA = GSA
-        self.RMC = RMC
-        self.VTG = VTG
+    def __init__(self, GGA=None, GSA=None, RMC=None, VTG=None):
+        self.GGA = GGA if GGA is not None else GPGGA()
+        self.GSA = GSA if GSA is not None else GPGSA()
+        self.RMC = RMC if RMC is not None else GPRMC()
+        self.VTG = VTG if VTG is not None else GPVTG()
 
     def __str__(self):
         return (

@@ -76,6 +76,7 @@ from arelle import (
     DialogPackageManager,
     DialogPluginManager,
     DialogURL,
+    Locale,
     ModelDocument,
     TableStructure,
     Updater,
@@ -137,7 +138,12 @@ class CntlrWinMain(Cntlr.Cntlr):
         self.dirty = False
         overrideLang = self.config.get("labelLangOverride")
         localeSetupMessage = self.modelManager.setLocale() # set locale before GUI for menu strings, pass any msg to logger after log pane starts up
-        self.labelLang: str = overrideLang if overrideLang else self.modelManager.defaultLang
+        # an override equal to the system language is what older versions stored for "system default"
+        self.labelLang = (
+            overrideLang
+            if overrideLang and overrideLang != self.modelManager.defaultLang
+            else self.defaultTaxonomyLang()
+        )
         self.data: dict[str, Any] = {}
 
         tkinter.CallWrapper = TkinterCallWrapper  # type: ignore[misc,assignment]
@@ -269,6 +275,7 @@ class CntlrWinMain(Cntlr.Cntlr):
 
         toolsMenu.add_cascade(label=_("Formula"), menu=formulaMenu, underline=0)
         self.modelManager.formulaOptions = FormulaOptions(self.config.get("formulaParameters"))
+        self.modelManager.formulaOptions.messageLang = self.labelLang
 
         toolsMenu.add_command(label=_("Compare DTSes..."), underline=0, command=self.compareDTSes)
         cacheMenu = Menu(self.menubar, tearoff=0)
@@ -569,7 +576,7 @@ class CntlrWinMain(Cntlr.Cntlr):
                 underline=0,
                 onvalue=duplicateTypeArg.value
             )
-        validateMenu.add_cascade(label="Warn on duplicate facts", menu=duplicateFactWarningMenu, underline=0)
+        validateMenu.add_cascade(label=_("Warn on duplicate facts"), menu=duplicateFactWarningMenu, underline=0)
 
     def onTabChanged(self, event: Any, *args: Any) -> None:
         try:
@@ -728,7 +735,7 @@ class CntlrWinMain(Cntlr.Cntlr):
                 if not filename:
                     return False
                 try:
-                    ViewFileTests.viewTests(self.modelManager.modelXbrl, filename)
+                    ViewFileTests.viewTests(self.modelManager.modelXbrl, filename)  # type: ignore[arg-type]
                 except (IOError, EnvironmentError) as err:
                     tkinter.messagebox.showwarning(_("arelle - Error"),
                                         _("Failed to save {0}:\n{1}").format(
@@ -1545,6 +1552,24 @@ class CntlrWinMain(Cntlr.Cntlr):
         self.config["rssWatchOptions"] = self.modelManager.rssWatchOptions
         self.saveConfig()
 
+    @property
+    def labelLang(self) -> str:
+        """Language for taxonomy text: labels in views and formula assertion messages."""
+        return self._labelLang
+
+    @labelLang.setter
+    def labelLang(self, lang: str) -> None:
+        self._labelLang = lang
+        if hasattr(self.modelManager, "formulaOptions"):
+            self.modelManager.formulaOptions.messageLang = lang
+
+    def defaultTaxonomyLang(self) -> str:
+        """Taxonomy text language when none is chosen: the user interface language if one was
+        chosen, else the system's."""
+        if uiLangOverride := self.config.get("userInterfaceLangOverride"):
+            return Locale.posixLocaleToBCP47Lang(uiLangOverride)
+        return self.modelManager.defaultLang
+
     def languagesDialog(self, *args: Any) -> None:
         override = self.labelLang if self.labelLang != self.modelManager.defaultLang else ""
         import tkinter.simpledialog
@@ -1835,7 +1860,7 @@ class CntlrWinMain(Cntlr.Cntlr):
         elif self.hasWin32gui:
             import win32gui
             try:
-                filename, filter, flags = {"open":win32gui.GetOpenFileNameW,  # type: ignore[call-arg]
+                filename, filter, flags = {"open":win32gui.GetOpenFileNameW,
                                            "save":win32gui.GetSaveFileNameW}[action](
                             hwndOwner=(owner if owner else parent).winfo_id(),
                             hInstance=win32gui.GetModuleHandle(None),

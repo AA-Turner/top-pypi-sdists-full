@@ -19,10 +19,13 @@ import inspect
 import json
 import logging
 import shlex
+import sys
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
+from uuid import UUID
 
+from pyrit.common import print_deprecation_message
 from pyrit.common.cli_helpers import (
     CONFIG_FILE_HELP,
     validate_log_level,
@@ -32,7 +35,7 @@ from pyrit.common.cli_helpers import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from pyrit.models.parameter import Parameter
+    from pyrit.models import Parameter
 
 # ---------------------------------------------------------------------------
 # Database type constants
@@ -61,9 +64,9 @@ class ScenarioResultView(str, Enum):
     OVERVIEW = "overview"
     #: One row per individual attack result.
     ATTACKS = "attacks"
-    #: Individual messages for each attack result conversation.
+    #: Per-attack summary plus the message transcript for each attack result.
     CONVERSATIONS = "conversations"
-    #: All of the above.
+    #: The scenario overview followed by every attack's conversation.
     FULL = "full"
 
 
@@ -156,6 +159,102 @@ def validate_integer(value: str, *, name: str = "value", min_value: int | None =
         raise ValueError(f"{name} must be at least {min_value}, got: {int_value}")
 
     return int_value
+
+
+def parse_dataset_limit(value: str) -> int | Literal["all", "default"]:
+    """
+    Parse a positive total limit, ``default``, or ``all``.
+
+    Returns:
+        int | Literal["all", "default"]: The requested total limit.
+
+    Raises:
+        ValueError: If the value is not a supported dataset limit.
+    """
+    from pyrit.models.dataset_limit import normalize_dataset_limit
+
+    return normalize_dataset_limit(value)
+
+
+def parse_dataset_source(value: str) -> Any:
+    """
+    Parse a named source with an optional source cap.
+
+    Returns:
+        DatasetSourceInput: Validated named source.
+
+    Raises:
+        ValueError: If the token is malformed.
+    """
+    from pyrit.models import DatasetSourceInput
+
+    parts = value.split(":")
+    if len(parts) > 2 or not parts[0].strip():
+        raise ValueError("Expected dataset name[:positive-limit|all|default].")
+    return DatasetSourceInput(name=parts[0], max_size=parse_dataset_limit(parts[1]) if len(parts) == 2 else "default")
+
+
+def parse_dataset_fetch(value: str) -> str:
+    """
+    Validate the global preparation policy without importing dataset providers.
+
+    Returns:
+        str: Validated preparation policy.
+
+    Raises:
+        ValueError: If the policy is unsupported.
+    """
+    from pyrit.models import DatasetFetchPolicy
+
+    if value not in {policy.value for policy in DatasetFetchPolicy}:
+        choices = ", ".join(f"'{policy.value}'" for policy in DatasetFetchPolicy)
+        raise ValueError(f"Dataset fetch must be one of: {choices}.")
+    return value
+
+
+def build_dataset_request_fields(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Build the same edit-only dataset request for scanner and shell.
+
+    Returns:
+        dict[str, Any]: Either the new request or legacy dataset fields.
+
+    Raises:
+        ValueError: If new and deprecated flags are mixed.
+    """
+    from pyrit.models import ScenarioDatasetRequest
+
+    new_keys = ("datasets", "max_per_dataset", "max_total", "dataset_fetch")
+    new_form = any(args.get(key) is not None for key in new_keys)
+    if new_form and any(args.get(key) is not None for key in ("dataset_names", "max_dataset_size")):
+        raise ValueError(
+            "Do not mix --datasets/--max-per-dataset/--max-total/--dataset-fetch with deprecated dataset flags."
+        )
+    filters = collapse_dataset_filters(args["dataset_filters"]) if args.get("dataset_filters") else None
+    if new_form:
+        return {
+            "datasets": ScenarioDatasetRequest(
+                sources=args.get("datasets"),
+                max_per_dataset=args.get("max_per_dataset") or "default",
+                max_total=args.get("max_total") or "default",
+                fetch=args.get("dataset_fetch"),
+                filters=filters,
+            )
+        }
+    fields: dict[str, Any] = {}
+    for key in ("dataset_names", "max_dataset_size"):
+        if args.get(key) is not None:
+            from pyrit.common import print_deprecation_message
+
+            print_deprecation_message(
+                old_item="--" + key.replace("_", "-"),
+                new_item="--datasets" if key == "dataset_names" else "--max-total",
+                removed_in="1.4.0",
+            )
+            fields[key] = args[key]
+    if filters:
+        fields["dataset_filters"] = filters
+    return fields
 
 
 # ---------------------------------------------------------------------------
@@ -296,6 +395,12 @@ def parse_memory_labels(json_string: str) -> dict[str, str]:
             raise ValueError(f"All label keys and values must be strings. Got: {key}={value}")
         validated_labels[key] = value
 
+    # TODO(PyRIT 1.4): Remove this notice with Operation name attribution.
+    if "operation" in validated_labels:
+        print_deprecation_message(old_item="--memory-labels operation", new_item="--operation-id", removed_in="1.4.0")
+        # DeprecationWarning is suppressed by default in a CLI, so also print a visible note.
+        print("Note: 'operation' in --memory-labels is deprecated; use --operation-id instead.", file=sys.stderr)
+
     return validated_labels
 
 
@@ -405,16 +510,18 @@ ARG_HELP = {
     "scenario_techniques": "List of technique names to run (e.g., base64 rot13). Append one or more "
     "registered converters to a technique with ':converter.<name>' (repeatable), e.g. "
     "role_play_movie_script:converter.translation_spanish:converter.leetspeak. The converter is appended on top of "
-    "the technique's built-in converters. Use --list-converters to see registered converter names",
+    "the technique's built-in converters. Use the list-converters command to see registered converter names",
     "max_concurrency": "Maximum number of concurrent attack executions (must be >= 1)",
     "max_retries": "Maximum number of automatic retries on exception (must be >= 0)",
     "memory_labels": 'Additional labels as JSON string (e.g., \'{"experiment": "test1"}\')',
     "database": "Database type to use for memory storage",
     "log_level": "Logging level",
-    "dataset_names": "List of dataset names to use instead of scenario defaults (e.g., harmbench advbench). "
-    "Creates a new dataset config; fetches all items unless --max-dataset-size is also specified",
-    "max_dataset_size": "Maximum number of items to use from the dataset (must be >= 1). "
-    "Limits new datasets if --dataset-names provided, otherwise overrides scenario's default limit",
+    "dataset_names": "Deprecated; use --datasets. List of dataset names instead of scenario defaults "
+    "(e.g., harmbench advbench). "
+    "Retains source settings for names already selected by the scenario",
+    "max_dataset_size": "Deprecated; use --max-total. Total attack-group limit "
+    "(positive integer, 'default', or 'all'). "
+    "Omit to retain the scenario default. Per-dataset limits still apply",
     "dataset_filters": "Dataset seed filters as KEY=VALUE tokens "
     "(e.g., harm_categories=cyber data_types=text). Keys filter seeds before sizing. "
     "List values may be comma-separated, but semantics differ per key: "
@@ -422,7 +529,7 @@ ARG_HELP = {
     + ".",
     "target": "Name of a registered target from the TargetRegistry to use as the objective target. "
     "Targets are registered by initializers (e.g., 'target' initializer). "
-    "Use --list-targets to see available target names after initializers have run",
+    "Use the list-targets command to see available target names after initializers have run",
 }
 
 
@@ -450,7 +557,7 @@ def add_results_arguments(*, parser: argparse.ArgumentParser) -> None:
         default=None,
         metavar="{" + ",".join(view.value for view in ScenarioResultView) + "}",
         help="Result granularity: 'overview' (aggregate, default), 'attacks' (per-attack table), "
-        "'conversations' (per-attack message transcripts), or 'full' (attacks + conversations)",
+        "'conversations' (per-attack summary + message transcript), or 'full' (overview + conversations)",
     )
     group.add_argument(
         "--attack-result-ids",
@@ -464,6 +571,20 @@ def add_results_arguments(*, parser: argparse.ArgumentParser) -> None:
         metavar="N",
         help="Show at most N attacks (ignored for --view overview; defaults to 5 for "
         "--view conversations/full when no --attack-result-ids is given)",
+    )
+    group.add_argument(
+        "--format",
+        choices=["pretty", "json", "html"],
+        default="pretty",
+        help="Output format: 'pretty' (default, human-readable), 'json' (structured, one document), "
+        "or 'html' (a shareable full report; requires --output)",
+    )
+    group.add_argument(
+        "--output",
+        "-o",
+        metavar="PATH",
+        help="Write the output to PATH instead of stdout (requires --format json). "
+        "For pretty output, redirect with '> file' instead.",
     )
 
 
@@ -598,6 +719,11 @@ _MEMORY_LABELS_ARG = _ArgSpec(
     result_key="memory_labels",
     parser=parse_memory_labels,
 )
+_OPERATION_ID_ARG = _ArgSpec(
+    flags=["--operation-id"],
+    result_key="operation_id",
+    parser=UUID,
+)
 _LOG_LEVEL_ARG = _ArgSpec(
     flags=["--log-level"],
     result_key="log_level",
@@ -611,7 +737,7 @@ _DATASET_NAMES_ARG = _ArgSpec(
 _MAX_DATASET_SIZE_ARG = _ArgSpec(
     flags=["--max-dataset-size"],
     result_key="max_dataset_size",
-    parser=lambda v: validate_integer(v, name="--max-dataset-size", min_value=1),
+    parser=parse_dataset_limit,
 )
 _DATASET_FILTERS_ARG = _ArgSpec(
     flags=["--dataset-filters"],
@@ -630,9 +756,14 @@ _RUN_ARG_SPECS: list[_ArgSpec] = [
     _MAX_CONCURRENCY_ARG,
     _MAX_RETRIES_ARG,
     _MEMORY_LABELS_ARG,
+    _OPERATION_ID_ARG,
     _DATASET_NAMES_ARG,
     _MAX_DATASET_SIZE_ARG,
     _DATASET_FILTERS_ARG,
+    _ArgSpec(flags=["--datasets"], result_key="datasets", multi_value=True, parser=parse_dataset_source),
+    _ArgSpec(flags=["--max-per-dataset"], result_key="max_per_dataset", parser=parse_dataset_limit),
+    _ArgSpec(flags=["--max-total"], result_key="max_total", parser=parse_dataset_limit),
+    _ArgSpec(flags=["--dataset-fetch"], result_key="dataset_fetch", parser=parse_dataset_fetch),
     _TARGET_ARG,
 ]
 
@@ -660,8 +791,7 @@ def _parse_shell_arguments(*, parts: list[str], arg_specs: list[_ArgSpec]) -> di
         arg_specs: Argument specifications that this command accepts.
 
     Returns:
-        Dictionary mapping each spec's ``result_key`` to its parsed value,
-        defaulting to ``None`` for arguments not present in *parts*.
+        Dictionary mapping supplied arguments to their parsed values. Absent arguments are omitted.
 
     Raises:
         ValueError: On unknown flags or missing values.
@@ -672,8 +802,7 @@ def _parse_shell_arguments(*, parts: list[str], arg_specs: list[_ArgSpec]) -> di
         for flag in spec.flags:
             flag_to_spec[flag] = spec
 
-    # Initialise result with None defaults
-    result: dict[str, Any] = {spec.result_key: None for spec in arg_specs}
+    result: dict[str, Any] = {}
 
     i = 0
     while i < len(parts):
@@ -717,8 +846,8 @@ def parse_run_arguments(*, args_string: str, declared_params: list[Parameter] | 
             ``scenario__<name>`` in the result dict.
 
     Returns:
-        Dictionary mapping built-in result_keys (and ``scenario__*`` keys for
-        any declared params) to their parsed values. ``scenario_name`` is
+        Dictionary mapping supplied built-in result_keys (and ``scenario__*`` keys for
+        supplied declared params) to their parsed values. ``scenario_name`` is
         always populated from the first positional token.
 
     Raises:
@@ -748,9 +877,9 @@ def parse_list_targets_arguments(*, args_string: str) -> dict[str, Any]:
         args_string: Space-separated argument string (e.g., "--initializers target").
 
     Returns:
-        Dictionary with parsed arguments:
-            - initializers: list[str | dict[str, Any]] | None
-            - initialization_scripts: list[str] | None
+        Dictionary containing only supplied arguments:
+            - initializers: list[str | dict[str, Any]]
+            - initialization_scripts: list[str]
 
     Raises:
         ValueError: If parsing or validation fails.
@@ -785,7 +914,7 @@ def _arg_spec_from_parameter(*, param: Parameter) -> _ArgSpec:
         _ArgSpec: Spec with ``scenario__<name>`` result key and a parser
             that routes through ``pyrit.models.parameter.coerce_value``.
     """
-    from pyrit.models.parameter import Parameter
+    from pyrit.models import Parameter
 
     multi = get_origin(param.param_type) is list
     parser: Callable[[str], Any] | None

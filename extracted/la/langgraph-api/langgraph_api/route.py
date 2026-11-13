@@ -2,7 +2,6 @@ import functools
 import inspect
 import typing
 
-import jsonschema_rs
 import orjson
 import structlog
 from starlette._exception_handler import wrap_app_handling_exceptions
@@ -18,20 +17,10 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from langgraph_api import config
 from langgraph_api.serde import json_dumpb
 from langgraph_api.utils import get_auth_ctx, with_user
-from langgraph_api.validation import (
-    sanitize_reserved_keys,
-    should_strip_reserved_metadata,
-)
+from langgraph_api.validation import SchemaValidator, sanitize_and_validate
 
 logger = structlog.getLogger(__name__)
-SchemaType = (
-    jsonschema_rs.Draft4Validator
-    | jsonschema_rs.Draft6Validator
-    | jsonschema_rs.Draft7Validator
-    | jsonschema_rs.Draft201909Validator
-    | jsonschema_rs.Draft202012Validator
-    | None
-)
+SchemaType = SchemaValidator | None
 
 
 def api_request_response(
@@ -65,14 +54,8 @@ class ApiResponse(JSONResponse):
 
 
 def _json_loads(content: bytearray, schema: SchemaType) -> typing.Any:
-    """Parse JSON and validate schema. Used by threadpool for large payloads."""
     json_data = orjson.loads(content)
-    sanitize_reserved_keys(
-        json_data,
-        strip_metadata=should_strip_reserved_metadata(schema),
-    )
-    if schema is not None:
-        schema.validate(json_data)
+    sanitize_and_validate(json_data, schema)
     return json_data
 
 

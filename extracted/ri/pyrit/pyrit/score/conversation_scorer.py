@@ -2,22 +2,36 @@
 # Licensed under the MIT license.
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
+from pyrit.exceptions import ScorerLLMResponseBlockedException
 from pyrit.models import (
+    Acquisition,
+    ChatMessageRole,
     ComponentIdentifier,
-    Condition,
     ContentScorable,
+    ConversationObservationPayload,
+    ConversationScorable,
     Message,
     MessagePiece,
+    MessageScorable,
+    PromptDataType,
     Scorable,
     Score,
     ScoringExpectation,
 )
 from pyrit.score.float_scale.float_scale_scorer import FloatScaleScorer, MessageFloatScaleScorer
 from pyrit.score.message_scorer import MessageScorer
-from pyrit.score.scorer import Scorer
+from pyrit.score.observation import ConversationSource
+from pyrit.score.observation.execution import _collect_observation, _ObservationEvidenceResolver
+from pyrit.score.observation.observation_source import ObservationSource
+from pyrit.score.scorer import Scorer, SnapshotParticipation, _read_snapshot_participation
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
 from pyrit.score.true_false.true_false_scorer import MessageTrueFalseScorer, TrueFalseScorer
+
+if TYPE_CHECKING:
+    from pyrit.prompt_target import PromptTarget
 
 
 class ConversationScorer(MessageScorer, ABC):
@@ -33,28 +47,169 @@ class ConversationScorer(MessageScorer, ABC):
     Note: This class cannot be instantiated directly. Use create_conversation_scorer() factory instead.
     """
 
+    SUPPORTED_SCORABLE_TYPES = (MessageScorable, ConversationScorable)
+    _REQUIRES_CONVERSATION_HISTORY = True
     _DEFAULT_VALIDATOR: ScorerPromptValidator = ScorerPromptValidator(
         supported_data_types=["text"],
         enforce_all_pieces_valid=False,
     )
+    _source: ObservationSource[ConversationScorable]
+    _excluded_data_types: tuple[PromptDataType, ...] = ()
 
-    def matched_conditions(self) -> frozenset[type[Condition]]:
+    def get_chat_target(self) -> "PromptTarget | None":
         """
-        Report the conditions matched by the wrapped scorer.
-
-        Returns:
-            frozenset[type[Condition]]: The matched condition types.
-        """
-        return self._get_wrapped_scorer().matched_conditions()
-
-    def required_conditions(self) -> frozenset[type[Condition]]:
-        """
-        Report the conditions required by the wrapped scorer.
+        Return the wrapped scorer's target.
 
         Returns:
-            frozenset[type[Condition]]: The required condition types.
+            PromptTarget | None: The configured scoring target, if any.
         """
-        return self._get_wrapped_scorer().required_conditions()
+        return self._get_wrapped_scorer().get_chat_target()
+
+    async def find_matching_scores_async(
+        self,
+        *,
+        scores: Sequence[Score],
+        scorable: Scorable,
+        expectation: ScoringExpectation | None = None,
+    ) -> list[Score]:
+        """
+        Match the complete ordered snapshot that a fresh conversation evaluation would acquire.
+
+        Returns:
+            Scores for the exact captured evidence and effective expectation, newest first.
+        """
+        conversation_scorable = await self._get_conversation_scorable_async(scorable=scorable)
+        if conversation_scorable is None:
+            return []
+        prepared = self.prepare_expectation(expectation=expectation)
+        candidates = self.find_matching_scores(scores=scores, scorable=conversation_scorable, expectation=prepared)
+        if not candidates:
+            return []
+        return await self._filter_matching_scores_by_snapshot_async(
+            scores=candidates,
+            scorable=conversation_scorable,
+            expectation=prepared,
+            used_observation_ids={str(score.id): set() for score in candidates},
+            participation_by_score={str(score.id): _read_snapshot_participation(score) for score in candidates},
+        )
+
+    async def _get_conversation_scorable_async(self, *, scorable: Scorable) -> ConversationScorable | None:
+        """
+        Resolve a message trigger to its single complete conversation scope.
+
+        Returns:
+            ConversationScorable | None: The conversation scope, or None for an invalid trigger.
+        """
+        if isinstance(scorable, MessageScorable):
+            messages = await self._memory.get_message_pieces_async(prompt_ids=list(scorable.message_piece_ids))
+            if {piece.id for piece in messages} != set(scorable.message_piece_ids):
+                return None
+            conversation_ids = {piece.conversation_id for piece in messages}
+            if len(conversation_ids) != 1:
+                return None
+            conversation_id = messages[0].conversation_id
+            if conversation_id is None:
+                return None
+            scorable = ConversationScorable(conversation_id=conversation_id)
+        if not isinstance(scorable, ConversationScorable):
+            return None
+        return scorable
+
+    async def _filter_matching_scores_by_snapshot_async(
+        self,
+        *,
+        scores: Sequence[Score],
+        scorable: Scorable,
+        expectation: ScoringExpectation | None,
+        used_observation_ids: dict[str, set[str]],
+        participation_by_score: dict[str, SnapshotParticipation | None],
+    ) -> list[Score]:
+        """
+        Require an unused linked observation of this branch's exact current conversation.
+
+        Returns:
+            list[Score]: Root candidates with a complete current snapshot for this participant.
+        """
+        conversation_scorable = await self._get_conversation_scorable_async(scorable=scorable)
+        if conversation_scorable is None:
+            return []
+        current = await self._source.acquire_async(scorable=conversation_scorable)
+        if current.acquisition != Acquisition.COMPLETE or not isinstance(
+            current.payload, ConversationObservationPayload
+        ):
+            return []
+        observation_ids = {
+            observation_id
+            for score in scores
+            for observation_id in score.observation_ids
+            if str(observation_id) not in used_observation_ids.setdefault(str(score.id), set())
+        }
+        if not observation_ids:
+            return []
+        observations = await self._memory.get_observations_async(observation_ids=list(observation_ids))
+        matching_ids = {
+            observation.id
+            for observation in observations
+            if observation.acquisition == Acquisition.COMPLETE
+            and observation.scorable == conversation_scorable
+            and observation.source_identifier == current.source_identifier
+            and observation.payload == current.payload
+        }
+        matched_scores = []
+        for score in scores:
+            available_ids = {
+                observation_id
+                for observation_id in score.observation_ids
+                if observation_id in matching_ids and str(observation_id) not in used_observation_ids[str(score.id)]
+            }
+            if available_ids:
+                used_observation_ids[str(score.id)].add(str(min(available_ids, key=str)))
+                matched_scores.append(score)
+        return matched_scores
+
+    async def _score_message_scorable_async(
+        self,
+        *,
+        scorable: Scorable,
+        expectation: ScoringExpectation | None,
+        infer_objective_from_request: bool,
+        role_filter: ChatMessageRole | None,
+        skip_on_error_result: bool,
+    ) -> list[Score]:
+        if isinstance(scorable, ConversationScorable):
+            if infer_objective_from_request or role_filter is not None or skip_on_error_result:
+                raise ValueError("Message-only scoring options cannot be used with a ConversationScorable.")
+            expectation = self.prepare_expectation(expectation=expectation)
+            scores = await self._score_conversation_async(scorable=scorable, expectation=expectation)
+            self._stamp_scored_expectation(scores=scores, expectation=expectation)
+            return scores
+        return await super()._score_message_scorable_async(
+            scorable=scorable,
+            expectation=expectation,
+            infer_objective_from_request=infer_objective_from_request,
+            role_filter=role_filter,
+            skip_on_error_result=skip_on_error_result,
+        )
+
+    async def _finalize_message_scores_async(
+        self,
+        *,
+        message: Message,
+        scores: list[Score],
+        anchor: Scorable | None,
+        expectation: ScoringExpectation | None,
+    ) -> None:
+        conversation_anchors = [score.scorable for score in scores]
+        await super()._finalize_message_scores_async(
+            message=message, scores=scores, anchor=anchor, expectation=expectation
+        )
+        for score, conversation_anchor in zip(scores, conversation_anchors, strict=True):
+            if isinstance(conversation_anchor, ConversationScorable):
+                score.scorable = conversation_anchor
+
+    def _get_child_scorers(self) -> tuple[Scorer, ...]:
+        """Return the scorer that evaluates the conversation text."""
+        return (self._get_wrapped_scorer(),)
 
     def _build_scoring_message(self, *, message: Message) -> Message | None:
         """
@@ -108,8 +263,8 @@ class ConversationScorer(MessageScorer, ABC):
         scorer returns ``[]`` when the rendered conversation is not applicable.
 
         The wrapped scorer is invoked through its non-persisting nested path. The outer
-        ``Scorer.score_async`` persists the returned scores exactly once, anchored to the
-        trigger message.
+        scoring operation persists the results once, anchored to the conversation, with
+        the real trigger-message link retained for compatibility.
 
         Args:
             message (Message): A message from the conversation to be scored.
@@ -126,55 +281,110 @@ class ConversationScorer(MessageScorer, ABC):
         if not message.message_pieces:
             return []
 
-        # Get conversation ID from the first message piece
         conversation_id = message.message_pieces[0].conversation_id
-
-        # Retrieve the full conversation from memory using the conversation_id
-        conversation = (
-            self._memory.get_conversation_messages(conversation_id=conversation_id) if conversation_id else []
-        )
-
-        if not conversation:
+        if not conversation_id:
             raise ValueError(f"Conversation with ID {conversation_id} not found in memory.")
-
-        # Build the full conversation text
-        conversation_text = ""
-
-        # Goes through each message in the conversation and appends user/assistant messages only
-        # Explicitly excludes system, tool, developer messages from being scored/included in conversation history
-        # they are allowed in validation but not included in the scored conversation text
-        for conv_message in conversation:
-            for piece in conv_message.message_pieces:
-                # Only include user and assistant messages in the conversation text
-                if piece.api_role in ["user", "assistant", "tool"] and self._validator.is_role_supported(piece):
-                    role_display = "Assistant (simulated)" if piece.is_simulated else piece.api_role.capitalize()
-                    # For blocked pieces with partial content, use the partial content
-                    # instead of the error JSON when should_score_blocked_content is enabled
-                    if (
-                        self.should_score_blocked_content
-                        and piece.is_blocked()
-                        and piece.prompt_metadata.get("partial_content")
-                    ):
-                        text = str(piece.prompt_metadata["partial_content"])
-                    else:
-                        text = piece.converted_value
-                    conversation_text += f"{role_display}: {text}\n"
-
-        if not conversation_text:
-            return []
-
-        wrapped_scorer = self._get_wrapped_scorer()
-        scores = await wrapped_scorer._score_nested_async(
-            scorable=ContentScorable(value=conversation_text),
+        scores = await self._score_conversation_async(
+            scorable=ConversationScorable(conversation_id=conversation_id),
             expectation=expectation,
         )
         trigger_piece = message.message_pieces[0]
         for score in scores:
             score.message_piece_id = trigger_piece.id or trigger_piece.original_prompt_id
-            score.scorable = None
         return scores
 
-    async def _score_piece_async(self, message_piece: MessagePiece, *, objective: str | None = None) -> list[Score]:
+    async def _score_conversation_async(
+        self, *, scorable: ConversationScorable, expectation: ScoringExpectation | None
+    ) -> list[Score]:
+        observation = await self._source.acquire_async(scorable=scorable)
+        if observation.scorable != scorable or not isinstance(observation.payload, ConversationObservationPayload):
+            raise ValueError("Conversation source returned incompatible evidence or scope.")
+        pieces = await _ObservationEvidenceResolver(memory=self._memory).resolve_async(observation=observation)
+        if not isinstance(pieces, tuple):
+            raise TypeError("Conversation evidence must resolve to an ordered tuple of message pieces.")
+        text = self._render_conversation(pieces)
+        if not text:
+            return []
+        _collect_observation(observation)
+        child = self._get_wrapped_scorer()
+        try:
+            scores = await child._score_nested_async(
+                scorable=ContentScorable(value=text),
+                expectation=child._select_expectation(expectation=expectation),
+            )
+        except ScorerLLMResponseBlockedException as error:
+            scores = [
+                self._handle_blocked_judge_response(
+                    error=error, objective=expectation.objective if expectation else None
+                )
+            ]
+        results = []
+        for child_score in scores:
+            score = self._create_wrapper_score(child_score)
+            score.scorable = scorable
+            score.message_piece_id = None
+            if observation.id not in score.observation_ids:
+                score.observation_ids.append(observation.id)
+            results.append(score)
+        return results
+
+    def _render_conversation(self, pieces: tuple[MessagePiece, ...]) -> str:
+        """
+        Render each turn inside a numbered, role-labeled fence with indented content.
+
+        The previous renderer emitted ``{role}: {text}`` with no fencing, so a
+        target reply containing literal ``User:``/``Assistant:`` lines forged
+        additional turns inside its own turn, rewriting the conversation the
+        wrapped judge sees. Each turn is now bounded by ``[BEGIN {ROLE} TURN i]``
+        / ``[END {ROLE} TURN i]`` delimiters and every content line is indented
+        two spaces, so a forged role-prefix or fence closer inside stored
+        content can never start at column 0. Content is preserved verbatim
+        modulo the indent: ``splitlines(keepends=True)`` retains original line
+        separators and trailing newlines while indenting every Unicode line-break
+        variant. The extra newline before the closing fence belongs to the framing.
+
+        Explicitly excluded data types are omitted before strict validation. They remain
+        in the acquired conversation snapshot but are not presented to the wrapped scorer.
+
+        Args:
+            pieces (tuple[MessagePiece, ...]): The conversation pieces to render.
+
+        Returns:
+            str: The fenced transcript.
+
+        Raises:
+            ValueError: If strict validation rejects a role-supported conversation piece.
+        """
+        lines = []
+        turn_index = 0
+        for piece in pieces:
+            if piece.api_role not in ("user", "assistant", "tool") or not self._validator.is_role_supported(piece):
+                continue
+            if piece.converted_value_data_type in self._excluded_data_types:
+                continue
+            if self._validator._enforce_all_pieces_valid and not self._validator.is_message_piece_supported(piece):
+                raise ValueError(
+                    f"Conversation piece {piece.id} with data type {piece.converted_value_data_type} "
+                    "is not supported by this conversation scorer."
+                )
+            role = piece.api_role.capitalize()
+            if piece.is_simulated:
+                role += " (simulated)"
+            partial = piece.prompt_metadata.get("partial_content")
+            text = (
+                str(partial)
+                if self.should_score_blocked_content and piece.is_blocked() and partial
+                else piece.converted_value
+            )
+            fence = f"{role.upper()} TURN {turn_index}"
+            body = "".join("  " + line for line in text.splitlines(keepends=True))
+            lines.append(f"[BEGIN {fence}]\n{body}\n[END {fence}]\n")
+            turn_index += 1
+        return "".join(lines)
+
+    async def _score_piece_with_expectation_async(
+        self, message_piece: MessagePiece, *, expectation: ScoringExpectation | None
+    ) -> list[Score]:
         """
         Not used - ConversationScorer operates at conversation level via
         ``_score_prepared_message_async``.
@@ -207,6 +417,8 @@ def create_conversation_scorer(
     *,
     scorer: Scorer,
     validator: ScorerPromptValidator | None = None,
+    source: ObservationSource[ConversationScorable] | None = None,
+    excluded_data_types: Sequence[PromptDataType] = (),
 ) -> Scorer:
     """
     Create a ConversationScorer that inherits from the same type as the wrapped scorer.
@@ -220,6 +432,10 @@ def create_conversation_scorer(
             conversation-level evaluation. It must support text ``ContentScorable`` evidence.
         validator (ScorerPromptValidator | None): Optional validator override.
             If not provided, uses the conversation scorer's default text validator.
+        source (ObservationSource[ConversationScorable] | None): Whole-conversation acquisition source.
+        excluded_data_types (Sequence[PromptDataType]): Data types to omit from the judged
+            transcript, even under strict validation. The retained snapshot is unchanged.
+            Defaults to no exclusions.
 
     Returns:
         Scorer: A ConversationScorer instance that is also an instance of the wrapped scorer's type.
@@ -257,6 +473,8 @@ def create_conversation_scorer(
             # Initialize with the validator and wrapped scorer
             MessageScorer.__init__(self, validator=validator or ConversationScorer._DEFAULT_VALIDATOR)
             self._wrapped_scorer = scorer
+            self._source = source if source is not None else ConversationSource()
+            self._excluded_data_types = tuple(sorted(set(excluded_data_types)))
 
         def _get_wrapped_scorer(self) -> Scorer:
             """
@@ -278,7 +496,24 @@ def create_conversation_scorer(
                 TypeError: If identifier construction returns an unexpected type.
             """
             identifier = self._create_identifier(
+                params={
+                    "rendering_version": 2,
+                    "supported_roles": self._validator._supported_roles,
+                    "should_score_blocked_content": self.should_score_blocked_content,
+                    **({"excluded_data_types": self._excluded_data_types} if self._excluded_data_types else {}),
+                    **(
+                        {
+                            "enforce_all_pieces_valid": True,
+                            "supported_data_types": self._validator._supported_data_types,
+                            "required_metadata": self._validator._required_metadata,
+                            "max_text_length": self._validator._max_text_length,
+                        }
+                        if self._validator._enforce_all_pieces_valid
+                        else {}
+                    ),
+                },
                 sub_scorers=[self._wrapped_scorer.get_identifier()],
+                children={"source": self._source.get_identifier()},
             )
             if not isinstance(identifier, ComponentIdentifier):
                 raise TypeError("Conversation scorer identifier must be a ComponentIdentifier")

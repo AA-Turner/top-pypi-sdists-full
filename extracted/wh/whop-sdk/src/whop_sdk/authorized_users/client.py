@@ -97,7 +97,7 @@ class AuthorizedUsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -179,7 +179,7 @@ class AuthorizedUsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -210,7 +210,7 @@ class AuthorizedUsersClient:
         Parameters
         ----------
         id : str
-            The unique identifier of the authorized user to retrieve.
+            The unique identifier of the authorized user to retrieve. Team member IDs may start with `ausr_` or `mber_`; treat them as opaque.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -225,7 +225,7 @@ class AuthorizedUsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -252,7 +252,7 @@ class AuthorizedUsersClient:
         Parameters
         ----------
         id : str
-            The ID of the authorized user or user to remove.
+            The ID of the authorized user or user to remove. Team member IDs may start with `ausr_` or `mber_`; treat them as opaque.
 
         account_id : typing.Optional[str]
             The ID of the company the authorized user belongs to. Optional if the authorized user ID is provided.
@@ -270,7 +270,7 @@ class AuthorizedUsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -363,7 +363,7 @@ class AsyncAuthorizedUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -454,7 +454,7 @@ class AsyncAuthorizedUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -491,7 +491,7 @@ class AsyncAuthorizedUsersClient:
         Parameters
         ----------
         id : str
-            The unique identifier of the authorized user to retrieve.
+            The unique identifier of the authorized user to retrieve. Team member IDs may start with `ausr_` or `mber_`; treat them as opaque.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -508,7 +508,7 @@ class AsyncAuthorizedUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -541,7 +541,7 @@ class AsyncAuthorizedUsersClient:
         Parameters
         ----------
         id : str
-            The ID of the authorized user or user to remove.
+            The ID of the authorized user or user to remove. Team member IDs may start with `ausr_` or `mber_`; treat them as opaque.
 
         account_id : typing.Optional[str]
             The ID of the company the authorized user belongs to. Optional if the authorized user ID is provided.
@@ -561,7 +561,7 @@ class AsyncAuthorizedUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

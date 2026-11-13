@@ -22,6 +22,8 @@ class AnalyticsMetric(AppwriteModel):
         Total page and screen view events (events named &quot;pageview&quot; or &quot;screen_view&quot;) in the requested range. The flat aggregate and the time series compute it; null on breakdown rows.
     events : float
         Total events in the requested range.
+    users : Optional[float]
+        Unique identified users in the requested range. Anonymous events are not counted. Null on entry and exit page breakdown rows.
     visits : Optional[float]
         Total sessions with activity in the requested range. Only the flat aggregate computes it; null on breakdown and time-series rows.
     bouncerate : Optional[float]
@@ -42,6 +44,7 @@ class AnalyticsMetric(AppwriteModel):
     sessions: float = Field(..., alias='sessions')
     pageviews: Optional[float] = Field(default=None, alias='pageviews')
     events: float = Field(..., alias='events')
+    users: Optional[float] = Field(default=None, alias='users')
     visits: Optional[float] = Field(default=None, alias='visits')
     bouncerate: Optional[float] = Field(default=None, alias='bounceRate')
     visitduration: Optional[float] = Field(default=None, alias='visitDuration')

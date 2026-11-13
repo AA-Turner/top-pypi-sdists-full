@@ -1404,11 +1404,18 @@ class Thread(_message.Message):
     STATE_UPDATED_AT_FIELD_NUMBER: _builtins.int
     EXTRACTED_JSON_FIELD_NUMBER: _builtins.int
     TTL_FIELD_NUMBER: _builtins.int
+    PRIORITY_FIELD_NUMBER: _builtins.int
+    FAIRNESS_GROUP_FIELD_NUMBER: _builtins.int
     status: _enum_thread_status_pb2.ThreadStatus.ValueType
     extracted_json: _builtins.bytes
     """Extracted values from JSONB columns, populated when extract is specified in search.
     Serialized JSON map of alias -> value.
     """
+    priority: _builtins.int
+    """The thread's priority settings, unset until its first run assigns them. priority is
+    the level its runs take.
+    """
+    fairness_group: _builtins.str
     @_builtins.property
     def thread_id(self) -> Global___UUID: ...
     @_builtins.property
@@ -1446,17 +1453,27 @@ class Thread(_message.Message):
         state_updated_at: _timestamp_pb2.Timestamp | None = ...,
         extracted_json: _builtins.bytes | None = ...,
         ttl: Global___ThreadTTLInfo | None = ...,
+        priority: _builtins.int | None = ...,
+        fairness_group: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_extracted_json", b"_extracted_json", "_ttl", b"_ttl", "config", b"config", "created_at", b"created_at", "error", b"error", "extracted_json", b"extracted_json", "metadata", b"metadata", "state_updated_at", b"state_updated_at", "thread_id", b"thread_id", "ttl", b"ttl", "updated_at", b"updated_at", "values", b"values"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_extracted_json", b"_extracted_json", "_fairness_group", b"_fairness_group", "_priority", b"_priority", "_ttl", b"_ttl", "config", b"config", "created_at", b"created_at", "error", b"error", "extracted_json", b"extracted_json", "fairness_group", b"fairness_group", "metadata", b"metadata", "priority", b"priority", "state_updated_at", b"state_updated_at", "thread_id", b"thread_id", "ttl", b"ttl", "updated_at", b"updated_at", "values", b"values"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_extracted_json", b"_extracted_json", "_ttl", b"_ttl", "config", b"config", "created_at", b"created_at", "error", b"error", "extracted_json", b"extracted_json", "interrupts", b"interrupts", "metadata", b"metadata", "state_updated_at", b"state_updated_at", "status", b"status", "thread_id", b"thread_id", "ttl", b"ttl", "updated_at", b"updated_at", "values", b"values"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_extracted_json", b"_extracted_json", "_fairness_group", b"_fairness_group", "_priority", b"_priority", "_ttl", b"_ttl", "config", b"config", "created_at", b"created_at", "error", b"error", "extracted_json", b"extracted_json", "fairness_group", b"fairness_group", "interrupts", b"interrupts", "metadata", b"metadata", "priority", b"priority", "state_updated_at", b"state_updated_at", "status", b"status", "thread_id", b"thread_id", "ttl", b"ttl", "updated_at", b"updated_at", "values", b"values"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__extracted_json: _TypeAlias = _typing.Literal["extracted_json"]  # noqa: Y015
     _WhichOneofArgType__extracted_json: _TypeAlias = _typing.Literal["_extracted_json", b"_extracted_json"]  # noqa: Y015
+    _WhichOneofReturnType__fairness_group: _TypeAlias = _typing.Literal["fairness_group"]  # noqa: Y015
+    _WhichOneofArgType__fairness_group: _TypeAlias = _typing.Literal["_fairness_group", b"_fairness_group"]  # noqa: Y015
+    _WhichOneofReturnType__priority: _TypeAlias = _typing.Literal["priority"]  # noqa: Y015
+    _WhichOneofArgType__priority: _TypeAlias = _typing.Literal["_priority", b"_priority"]  # noqa: Y015
     _WhichOneofReturnType__ttl: _TypeAlias = _typing.Literal["ttl"]  # noqa: Y015
     _WhichOneofArgType__ttl: _TypeAlias = _typing.Literal["_ttl", b"_ttl"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__extracted_json) -> _WhichOneofReturnType__extracted_json | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__fairness_group) -> _WhichOneofReturnType__fairness_group | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__priority) -> _WhichOneofReturnType__priority | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__ttl) -> _WhichOneofReturnType__ttl | None: ...
 
@@ -2250,11 +2267,14 @@ class Run(_message.Message):
     MULTITASK_STRATEGY_FIELD_NUMBER: _builtins.int
     LANGSMITH_SESSION_NAME_FIELD_NUMBER: _builtins.int
     CANCEL_REASON_FIELD_NUMBER: _builtins.int
+    PRIORITY_FIELD_NUMBER: _builtins.int
     status: _enum_run_status_pb2.RunStatus.ValueType
     multitask_strategy: _enum_multitask_strategy_pb2.MultitaskStrategy.ValueType
     langsmith_session_name: _builtins.str
     cancel_reason: _builtins.str
     """Why the run was cancelled, when it was. Server-generated, never user input."""
+    priority: _builtins.int
+    """Queue priority level, from -5 (most urgent) to 5; a lower level runs first."""
     @_builtins.property
     def run_id(self) -> Global___UUID: ...
     @_builtins.property
@@ -2283,10 +2303,11 @@ class Run(_message.Message):
         multitask_strategy: _enum_multitask_strategy_pb2.MultitaskStrategy.ValueType = ...,
         langsmith_session_name: _builtins.str | None = ...,
         cancel_reason: _builtins.str | None = ...,
+        priority: _builtins.int = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["_cancel_reason", b"_cancel_reason", "_langsmith_session_name", b"_langsmith_session_name", "assistant_id", b"assistant_id", "cancel_reason", b"cancel_reason", "created_at", b"created_at", "kwargs", b"kwargs", "langsmith_session_name", b"langsmith_session_name", "metadata", b"metadata", "run_id", b"run_id", "thread_id", b"thread_id", "updated_at", b"updated_at"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_cancel_reason", b"_cancel_reason", "_langsmith_session_name", b"_langsmith_session_name", "assistant_id", b"assistant_id", "cancel_reason", b"cancel_reason", "created_at", b"created_at", "kwargs", b"kwargs", "langsmith_session_name", b"langsmith_session_name", "metadata", b"metadata", "multitask_strategy", b"multitask_strategy", "run_id", b"run_id", "status", b"status", "thread_id", b"thread_id", "updated_at", b"updated_at"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_cancel_reason", b"_cancel_reason", "_langsmith_session_name", b"_langsmith_session_name", "assistant_id", b"assistant_id", "cancel_reason", b"cancel_reason", "created_at", b"created_at", "kwargs", b"kwargs", "langsmith_session_name", b"langsmith_session_name", "metadata", b"metadata", "multitask_strategy", b"multitask_strategy", "priority", b"priority", "run_id", b"run_id", "status", b"status", "thread_id", b"thread_id", "updated_at", b"updated_at"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__cancel_reason: _TypeAlias = _typing.Literal["cancel_reason"]  # noqa: Y015
     _WhichOneofArgType__cancel_reason: _TypeAlias = _typing.Literal["_cancel_reason", b"_cancel_reason"]  # noqa: Y015
@@ -2300,6 +2321,49 @@ class Run(_message.Message):
 Global___Run: _TypeAlias = Run  # noqa: Y015
 
 @_typing.final
+class PriorityStats(_message.Message):
+    """One priority level's runs: the ones that can start (each thread's oldest pending
+    run that is due, on threads with nothing running), and the running ones.
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PRIORITY_FIELD_NUMBER: _builtins.int
+    N_STARTABLE_FIELD_NUMBER: _builtins.int
+    STARTABLE_RUNS_WAIT_TIME_MAX_SECS_FIELD_NUMBER: _builtins.int
+    STARTABLE_RUNS_WAIT_TIME_MED_SECS_FIELD_NUMBER: _builtins.int
+    N_RUNNING_FIELD_NUMBER: _builtins.int
+    priority: _builtins.int
+    """The level, from -5 (most urgent) to 5."""
+    n_startable: _builtins.int
+    startable_runs_wait_time_max_secs: _builtins.float
+    startable_runs_wait_time_med_secs: _builtins.float
+    n_running: _builtins.int
+    def __init__(
+        self,
+        *,
+        priority: _builtins.int = ...,
+        n_startable: _builtins.int = ...,
+        startable_runs_wait_time_max_secs: _builtins.float | None = ...,
+        startable_runs_wait_time_med_secs: _builtins.float | None = ...,
+        n_running: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_startable_runs_wait_time_max_secs", b"_startable_runs_wait_time_max_secs", "_startable_runs_wait_time_med_secs", b"_startable_runs_wait_time_med_secs", "startable_runs_wait_time_max_secs", b"startable_runs_wait_time_max_secs", "startable_runs_wait_time_med_secs", b"startable_runs_wait_time_med_secs"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_startable_runs_wait_time_max_secs", b"_startable_runs_wait_time_max_secs", "_startable_runs_wait_time_med_secs", b"_startable_runs_wait_time_med_secs", "n_running", b"n_running", "n_startable", b"n_startable", "priority", b"priority", "startable_runs_wait_time_max_secs", b"startable_runs_wait_time_max_secs", "startable_runs_wait_time_med_secs", b"startable_runs_wait_time_med_secs"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__startable_runs_wait_time_max_secs: _TypeAlias = _typing.Literal["startable_runs_wait_time_max_secs"]  # noqa: Y015
+    _WhichOneofArgType__startable_runs_wait_time_max_secs: _TypeAlias = _typing.Literal["_startable_runs_wait_time_max_secs", b"_startable_runs_wait_time_max_secs"]  # noqa: Y015
+    _WhichOneofReturnType__startable_runs_wait_time_med_secs: _TypeAlias = _typing.Literal["startable_runs_wait_time_med_secs"]  # noqa: Y015
+    _WhichOneofArgType__startable_runs_wait_time_med_secs: _TypeAlias = _typing.Literal["_startable_runs_wait_time_med_secs", b"_startable_runs_wait_time_med_secs"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__startable_runs_wait_time_max_secs) -> _WhichOneofReturnType__startable_runs_wait_time_max_secs | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__startable_runs_wait_time_med_secs) -> _WhichOneofReturnType__startable_runs_wait_time_med_secs | None: ...
+
+Global___PriorityStats: _TypeAlias = PriorityStats  # noqa: Y015
+
+@_typing.final
 class RunStats(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -2308,11 +2372,16 @@ class RunStats(_message.Message):
     PENDING_RUNS_WAIT_TIME_MAX_SECS_FIELD_NUMBER: _builtins.int
     PENDING_RUNS_WAIT_TIME_MED_SECS_FIELD_NUMBER: _builtins.int
     PENDING_UNBLOCKED_RUNS_WAIT_TIME_MAX_SECS_FIELD_NUMBER: _builtins.int
+    BY_PRIORITY_FIELD_NUMBER: _builtins.int
     n_pending: _builtins.int
     n_running: _builtins.int
     pending_runs_wait_time_max_secs: _builtins.float
     pending_runs_wait_time_med_secs: _builtins.float
     pending_unblocked_runs_wait_time_max_secs: _builtins.float
+    @_builtins.property
+    def by_priority(self) -> _containers.RepeatedCompositeFieldContainer[Global___PriorityStats]:
+        """Every level, most urgent first, on a deployment with a priority callback; else empty."""
+
     def __init__(
         self,
         *,
@@ -2321,10 +2390,11 @@ class RunStats(_message.Message):
         pending_runs_wait_time_max_secs: _builtins.float | None = ...,
         pending_runs_wait_time_med_secs: _builtins.float | None = ...,
         pending_unblocked_runs_wait_time_max_secs: _builtins.float | None = ...,
+        by_priority: _abc.Iterable[Global___PriorityStats] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["_pending_runs_wait_time_max_secs", b"_pending_runs_wait_time_max_secs", "_pending_runs_wait_time_med_secs", b"_pending_runs_wait_time_med_secs", "_pending_unblocked_runs_wait_time_max_secs", b"_pending_unblocked_runs_wait_time_max_secs", "pending_runs_wait_time_max_secs", b"pending_runs_wait_time_max_secs", "pending_runs_wait_time_med_secs", b"pending_runs_wait_time_med_secs", "pending_unblocked_runs_wait_time_max_secs", b"pending_unblocked_runs_wait_time_max_secs"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_pending_runs_wait_time_max_secs", b"_pending_runs_wait_time_max_secs", "_pending_runs_wait_time_med_secs", b"_pending_runs_wait_time_med_secs", "_pending_unblocked_runs_wait_time_max_secs", b"_pending_unblocked_runs_wait_time_max_secs", "n_pending", b"n_pending", "n_running", b"n_running", "pending_runs_wait_time_max_secs", b"pending_runs_wait_time_max_secs", "pending_runs_wait_time_med_secs", b"pending_runs_wait_time_med_secs", "pending_unblocked_runs_wait_time_max_secs", b"pending_unblocked_runs_wait_time_max_secs"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_pending_runs_wait_time_max_secs", b"_pending_runs_wait_time_max_secs", "_pending_runs_wait_time_med_secs", b"_pending_runs_wait_time_med_secs", "_pending_unblocked_runs_wait_time_max_secs", b"_pending_unblocked_runs_wait_time_max_secs", "by_priority", b"by_priority", "n_pending", b"n_pending", "n_running", b"n_running", "pending_runs_wait_time_max_secs", b"pending_runs_wait_time_max_secs", "pending_runs_wait_time_med_secs", b"pending_runs_wait_time_med_secs", "pending_unblocked_runs_wait_time_max_secs", b"pending_unblocked_runs_wait_time_max_secs"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__pending_runs_wait_time_max_secs: _TypeAlias = _typing.Literal["pending_runs_wait_time_max_secs"]  # noqa: Y015
     _WhichOneofArgType__pending_runs_wait_time_max_secs: _TypeAlias = _typing.Literal["_pending_runs_wait_time_max_secs", b"_pending_runs_wait_time_max_secs"]  # noqa: Y015
@@ -2429,6 +2499,27 @@ class ConnectionPoolStats(_message.Message):
     def WhichOneof(self, oneof_group: _WhichOneofArgType__redis) -> _WhichOneofReturnType__redis | None: ...
 
 Global___ConnectionPoolStats: _TypeAlias = ConnectionPoolStats  # noqa: Y015
+
+@_typing.final
+class PrometheusMetricsResponse(_message.Message):
+    """Prometheus exposition text from the Go core registry for Python /metrics merge."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    BODY_FIELD_NUMBER: _builtins.int
+    body: _builtins.bytes
+    def __init__(
+        self,
+        *,
+        body: _builtins.bytes = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["body", b"body"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___PrometheusMetricsResponse: _TypeAlias = PrometheusMetricsResponse  # noqa: Y015
 
 @_typing.final
 class NextRunRequest(_message.Message):
@@ -2554,6 +2645,8 @@ class CreateRunRequest(_message.Message):
     THREAD_TTL_FIELD_NUMBER: _builtins.int
     ENCRYPTION_CONTEXT_FIELD_NUMBER: _builtins.int
     LANGSMITH_SESSION_NAME_FIELD_NUMBER: _builtins.int
+    PRIORITY_CALLBACK_FIELD_NUMBER: _builtins.int
+    PRIORITY_SETTINGS_FIELD_NUMBER: _builtins.int
     kwargs_json: _builtins.bytes
     user_id: _builtins.str
     status: _enum_run_status_pb2.RunStatus.ValueType
@@ -2564,6 +2657,10 @@ class CreateRunRequest(_message.Message):
     if_not_exists: Global___CreateRunBehavior.ValueType
     after_seconds: _builtins.int
     langsmith_session_name: _builtins.str
+    priority_callback: _builtins.bool
+    """The deployment has a priority callback, so the run takes its thread's stored level,
+    or the default while the thread has none.
+    """
     @_builtins.property
     def assistant_id(self) -> Global___UUID: ...
     @_builtins.property
@@ -2582,6 +2679,13 @@ class CreateRunRequest(_message.Message):
     def thread_ttl(self) -> Global___ThreadTTLConfig: ...
     @_builtins.property
     def encryption_context(self) -> _encryption_pb2.EncryptionContext: ...
+    @_builtins.property
+    def priority_settings(self) -> Global___PrioritySettings:
+        """The priority callback's result, sent by the caller for a thread that has no settings
+        yet. Core writes it on the thread only if the thread still has none, and the run
+        takes the thread's stored level either way.
+        """
+
     def __init__(
         self,
         *,
@@ -2601,10 +2705,12 @@ class CreateRunRequest(_message.Message):
         thread_ttl: Global___ThreadTTLConfig | None = ...,
         encryption_context: _encryption_pb2.EncryptionContext | None = ...,
         langsmith_session_name: _builtins.str | None = ...,
+        priority_callback: _builtins.bool = ...,
+        priority_settings: Global___PrioritySettings | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_after_seconds", b"_after_seconds", "_encryption_context", b"_encryption_context", "_if_not_exists", b"_if_not_exists", "_langsmith_session_name", b"_langsmith_session_name", "_metadata_json", b"_metadata_json", "_multitask_strategy", b"_multitask_strategy", "_prevent_insert_if_inflight", b"_prevent_insert_if_inflight", "_run_id", b"_run_id", "_status", b"_status", "_thread_id", b"_thread_id", "_thread_ttl", b"_thread_ttl", "_user_id", b"_user_id", "after_seconds", b"after_seconds", "assistant_id", b"assistant_id", "encryption_context", b"encryption_context", "if_not_exists", b"if_not_exists", "langsmith_session_name", b"langsmith_session_name", "metadata_json", b"metadata_json", "multitask_strategy", b"multitask_strategy", "prevent_insert_if_inflight", b"prevent_insert_if_inflight", "run_id", b"run_id", "status", b"status", "thread_id", b"thread_id", "thread_ttl", b"thread_ttl", "user_id", b"user_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_after_seconds", b"_after_seconds", "_encryption_context", b"_encryption_context", "_if_not_exists", b"_if_not_exists", "_langsmith_session_name", b"_langsmith_session_name", "_metadata_json", b"_metadata_json", "_multitask_strategy", b"_multitask_strategy", "_prevent_insert_if_inflight", b"_prevent_insert_if_inflight", "_priority_settings", b"_priority_settings", "_run_id", b"_run_id", "_status", b"_status", "_thread_id", b"_thread_id", "_thread_ttl", b"_thread_ttl", "_user_id", b"_user_id", "after_seconds", b"after_seconds", "assistant_id", b"assistant_id", "encryption_context", b"encryption_context", "if_not_exists", b"if_not_exists", "langsmith_session_name", b"langsmith_session_name", "metadata_json", b"metadata_json", "multitask_strategy", b"multitask_strategy", "prevent_insert_if_inflight", b"prevent_insert_if_inflight", "priority_settings", b"priority_settings", "run_id", b"run_id", "status", b"status", "thread_id", b"thread_id", "thread_ttl", b"thread_ttl", "user_id", b"user_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_after_seconds", b"_after_seconds", "_encryption_context", b"_encryption_context", "_if_not_exists", b"_if_not_exists", "_langsmith_session_name", b"_langsmith_session_name", "_metadata_json", b"_metadata_json", "_multitask_strategy", b"_multitask_strategy", "_prevent_insert_if_inflight", b"_prevent_insert_if_inflight", "_run_id", b"_run_id", "_status", b"_status", "_thread_id", b"_thread_id", "_thread_ttl", b"_thread_ttl", "_user_id", b"_user_id", "after_seconds", b"after_seconds", "assistant_filters", b"assistant_filters", "assistant_id", b"assistant_id", "encryption_context", b"encryption_context", "if_not_exists", b"if_not_exists", "kwargs_json", b"kwargs_json", "langsmith_session_name", b"langsmith_session_name", "metadata_json", b"metadata_json", "multitask_strategy", b"multitask_strategy", "prevent_insert_if_inflight", b"prevent_insert_if_inflight", "run_id", b"run_id", "status", b"status", "thread_filters", b"thread_filters", "thread_id", b"thread_id", "thread_ttl", b"thread_ttl", "user_id", b"user_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_after_seconds", b"_after_seconds", "_encryption_context", b"_encryption_context", "_if_not_exists", b"_if_not_exists", "_langsmith_session_name", b"_langsmith_session_name", "_metadata_json", b"_metadata_json", "_multitask_strategy", b"_multitask_strategy", "_prevent_insert_if_inflight", b"_prevent_insert_if_inflight", "_priority_settings", b"_priority_settings", "_run_id", b"_run_id", "_status", b"_status", "_thread_id", b"_thread_id", "_thread_ttl", b"_thread_ttl", "_user_id", b"_user_id", "after_seconds", b"after_seconds", "assistant_filters", b"assistant_filters", "assistant_id", b"assistant_id", "encryption_context", b"encryption_context", "if_not_exists", b"if_not_exists", "kwargs_json", b"kwargs_json", "langsmith_session_name", b"langsmith_session_name", "metadata_json", b"metadata_json", "multitask_strategy", b"multitask_strategy", "prevent_insert_if_inflight", b"prevent_insert_if_inflight", "priority_callback", b"priority_callback", "priority_settings", b"priority_settings", "run_id", b"run_id", "status", b"status", "thread_filters", b"thread_filters", "thread_id", b"thread_id", "thread_ttl", b"thread_ttl", "user_id", b"user_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__after_seconds: _TypeAlias = _typing.Literal["after_seconds"]  # noqa: Y015
     _WhichOneofArgType__after_seconds: _TypeAlias = _typing.Literal["_after_seconds", b"_after_seconds"]  # noqa: Y015
@@ -2620,6 +2726,8 @@ class CreateRunRequest(_message.Message):
     _WhichOneofArgType__multitask_strategy: _TypeAlias = _typing.Literal["_multitask_strategy", b"_multitask_strategy"]  # noqa: Y015
     _WhichOneofReturnType__prevent_insert_if_inflight: _TypeAlias = _typing.Literal["prevent_insert_if_inflight"]  # noqa: Y015
     _WhichOneofArgType__prevent_insert_if_inflight: _TypeAlias = _typing.Literal["_prevent_insert_if_inflight", b"_prevent_insert_if_inflight"]  # noqa: Y015
+    _WhichOneofReturnType__priority_settings: _TypeAlias = _typing.Literal["priority_settings"]  # noqa: Y015
+    _WhichOneofArgType__priority_settings: _TypeAlias = _typing.Literal["_priority_settings", b"_priority_settings"]  # noqa: Y015
     _WhichOneofReturnType__run_id: _TypeAlias = _typing.Literal["run_id"]  # noqa: Y015
     _WhichOneofArgType__run_id: _TypeAlias = _typing.Literal["_run_id", b"_run_id"]  # noqa: Y015
     _WhichOneofReturnType__status: _TypeAlias = _typing.Literal["status"]  # noqa: Y015
@@ -2645,6 +2753,8 @@ class CreateRunRequest(_message.Message):
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__prevent_insert_if_inflight) -> _WhichOneofReturnType__prevent_insert_if_inflight | None: ...
     @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__priority_settings) -> _WhichOneofReturnType__priority_settings | None: ...
+    @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__run_id) -> _WhichOneofReturnType__run_id | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__status) -> _WhichOneofReturnType__status | None: ...
@@ -2656,6 +2766,30 @@ class CreateRunRequest(_message.Message):
     def WhichOneof(self, oneof_group: _WhichOneofArgType__user_id) -> _WhichOneofReturnType__user_id | None: ...
 
 Global___CreateRunRequest: _TypeAlias = CreateRunRequest  # noqa: Y015
+
+@_typing.final
+class PrioritySettings(_message.Message):
+    """A thread's priority settings: priority runs from -5, the most urgent, to 5."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PRIORITY_FIELD_NUMBER: _builtins.int
+    FAIRNESS_GROUP_FIELD_NUMBER: _builtins.int
+    priority: _builtins.int
+    fairness_group: _builtins.str
+    def __init__(
+        self,
+        *,
+        priority: _builtins.int = ...,
+        fairness_group: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["fairness_group", b"fairness_group", "priority", b"priority"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___PrioritySettings: _TypeAlias = PrioritySettings  # noqa: Y015
 
 @_typing.final
 class GetRunRequest(_message.Message):
@@ -2805,6 +2939,64 @@ class CancelRunRequest(_message.Message):
     def WhichOneof(self, oneof_group: _WhichOneofArgType_target) -> _WhichOneofReturnType_target | None: ...
 
 Global___CancelRunRequest: _TypeAlias = CancelRunRequest  # noqa: Y015
+
+@_typing.final
+class CancelAcceptedBeforeRequest(_message.Message):
+    """Interrupts every pending or running run accepted at or before a boundary, across
+    all threads and without auth filters. Only the operator route calls this.
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    ACCEPTED_BEFORE_FIELD_NUMBER: _builtins.int
+    REASON_FIELD_NUMBER: _builtins.int
+    reason: _builtins.str
+    """Server-generated explanation recorded on each run this call cancels."""
+    @_builtins.property
+    def accepted_before(self) -> _timestamp_pb2.Timestamp:
+        """Runs whose ID is a UUIDv7 with a timestamp at or before this instant are
+        targets. In-flight runs whose ID isn't a UUIDv7 are always targets.
+        """
+
+    def __init__(
+        self,
+        *,
+        accepted_before: _timestamp_pb2.Timestamp | None = ...,
+        reason: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["accepted_before", b"accepted_before"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["accepted_before", b"accepted_before", "reason", b"reason"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___CancelAcceptedBeforeRequest: _TypeAlias = CancelAcceptedBeforeRequest  # noqa: Y015
+
+@_typing.final
+class CancelAcceptedBeforeResponse(_message.Message):
+    """Targets still in flight after the call."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    NOT_YET_REACHED_FIELD_NUMBER: _builtins.int
+    FINISHING_FIELD_NUMBER: _builtins.int
+    not_yet_reached: _builtins.int
+    """Targets with no cancel intent yet."""
+    finishing: _builtins.int
+    """Targets that have a cancel intent and haven't stopped yet."""
+    def __init__(
+        self,
+        *,
+        not_yet_reached: _builtins.int = ...,
+        finishing: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["finishing", b"finishing", "not_yet_reached", b"not_yet_reached"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___CancelAcceptedBeforeResponse: _TypeAlias = CancelAcceptedBeforeResponse  # noqa: Y015
 
 @_typing.final
 class SearchRunsRequest(_message.Message):

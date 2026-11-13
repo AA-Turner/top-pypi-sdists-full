@@ -48,6 +48,9 @@ class GetResourceResponse200:
         draft_path (Union[Unset, str]): On a draft-only row, the path its editor has staged when it
             differs from the storage path (e.g. a never-deployed item parked at
             `u/{user}/draft_{uuid}`).
+        grant_type (Union[Unset, str]): The grant of the linked OAuth account: `client_credentials`
+            connects as the app, `authorization_code` as the user who
+            connected it.
         draft_saved_at (Union[Unset, datetime.datetime]):
         draft_base (Union[Unset, str]): The deployed version the draft forked from, as text whatever the
             kind (script hash, flow version id, app version id). Compare to the
@@ -85,6 +88,7 @@ class GetResourceResponse200:
     draft_only: Union[Unset, bool] = UNSET
     agent_memory: Union[Unset, Any] = UNSET
     draft_path: Union[Unset, str] = UNSET
+    grant_type: Union[Unset, str] = UNSET
     draft_saved_at: Union[Unset, datetime.datetime] = UNSET
     draft_base: Union[Unset, str] = UNSET
     no_deployed: Union[Unset, bool] = UNSET
@@ -130,6 +134,7 @@ class GetResourceResponse200:
         draft_only = self.draft_only
         agent_memory = self.agent_memory
         draft_path = self.draft_path
+        grant_type = self.grant_type
         draft_saved_at: Union[Unset, str] = UNSET
         if not isinstance(self.draft_saved_at, Unset):
             draft_saved_at = self.draft_saved_at.isoformat()
@@ -192,6 +197,8 @@ class GetResourceResponse200:
             field_dict["agent_memory"] = agent_memory
         if draft_path is not UNSET:
             field_dict["draft_path"] = draft_path
+        if grant_type is not UNSET:
+            field_dict["grant_type"] = grant_type
         if draft_saved_at is not UNSET:
             field_dict["draft_saved_at"] = draft_saved_at
         if draft_base is not UNSET:
@@ -268,6 +275,8 @@ class GetResourceResponse200:
 
         draft_path = d.pop("draft_path", UNSET)
 
+        grant_type = d.pop("grant_type", UNSET)
+
         _draft_saved_at = d.pop("draft_saved_at", UNSET)
         draft_saved_at: Union[Unset, datetime.datetime]
         if isinstance(_draft_saved_at, Unset):
@@ -316,6 +325,7 @@ class GetResourceResponse200:
             draft_only=draft_only,
             agent_memory=agent_memory,
             draft_path=draft_path,
+            grant_type=grant_type,
             draft_saved_at=draft_saved_at,
             draft_base=draft_base,
             no_deployed=no_deployed,

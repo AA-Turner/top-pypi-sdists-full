@@ -35,8 +35,8 @@ class DiscardReason(StrEnum):
     #: The drain set aside writes the server refused because a newer attempt of
     #: their run took it over (a past write epoch): never deliverable (T24).
     SUPERSEDED = "superseded"
-    #: `probe doctor --fix` dropped dead letters no retry can deliver: a
-    #: superseded attempt's, or a run the server says does not exist (T24).
+    #: `probe doctor --fix` or the rescuer dropped dead letters no retry can deliver: a
+    #: superseded attempt's, a trashed run's, or (doctor only) a run the server says does not exist.
     UNRECOVERABLE = "unrecoverable"
 
 

@@ -37,6 +37,7 @@ from pydantic import (
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
 from ouroboros.core.conductor import ConductorDirective
+from ouroboros.core.material_evidence import MaterialEvidenceRef
 
 _OUTPUT_ASSERTION_CONDITION_RE = re.compile(
     r"^(?:exit\s*(?:code|status)?\s*0|returns?\s*0|success|succeeds|passed|passes|ok exit|no errors?)$",
@@ -208,6 +209,7 @@ def parse_expected_artifact_list(value: str) -> tuple[str, ...]:
 def validate_ac_success_contract_values(
     *,
     verify_command: str | None,
+    verify_cwd: str | None = None,
     expected_artifacts: tuple[str, ...],
     output_assertion: str | None,
 ) -> None:
@@ -220,6 +222,8 @@ def validate_ac_success_contract_values(
     """
     if verify_command is not None and not isinstance(verify_command, str):
         raise ValueError("success contract verify command is invalid")
+    if verify_cwd is not None and not isinstance(verify_cwd, str):
+        raise ValueError("success contract verify cwd is invalid")
     if output_assertion is not None and not isinstance(output_assertion, str):
         raise ValueError("success contract output assertion is invalid")
     try:
@@ -231,7 +235,7 @@ def validate_ac_success_contract_values(
             f"success contract artifact limit exceeded ({MAX_AC_SUCCESS_CONTRACT_ARTIFACTS})"
         )
 
-    contract_chars = len(verify_command or "") + len(output_assertion or "")
+    contract_chars = len(verify_command or "") + len(verify_cwd or "") + len(output_assertion or "")
     for path in expected_artifacts:
         try:
             encoded_path = (
@@ -591,6 +595,16 @@ class AcceptanceCriterionSpec(BaseModel, frozen=True):
     description: str = Field(..., min_length=1)
     semantic_ac_key: str | None = Field(default=None, pattern=r"^ac_[a-f0-9]{16}$")
     verify_command: str | None = Field(default=None)
+    verify_cwd: str | None = Field(
+        default=None,
+        description=(
+            "Workspace-relative directory verify_command runs in (e.g. 'app' "
+            "for a project whose test config lives in a subdirectory). The "
+            "verify gate resolves it under the run workspace and rejects any "
+            "path that escapes it. Default: the sole nested Node project for "
+            "npm/npx/yarn/pnpm, otherwise the workspace root."
+        ),
+    )
     expected_artifacts: tuple[str, ...] = Field(
         default_factory=tuple,
         description=(
@@ -667,7 +681,7 @@ class AcceptanceCriterionSpec(BaseModel, frozen=True):
             return stripped
         return value
 
-    @field_validator("verify_command", mode="before")
+    @field_validator("verify_command", "verify_cwd", mode="before")
     @classmethod
     def _strip_optional_text(cls, value: Any) -> Any:
         if isinstance(value, str):
@@ -717,6 +731,16 @@ class AcceptanceCriterionSpec(BaseModel, frozen=True):
             raise ValueError("verify_exemption_reason is mutually exclusive with verify_command")
         if self.output_assertion and not self.verify_command:
             raise ValueError("output_assertion requires verify_command")
+        if self.verify_cwd:
+            if not self.verify_command:
+                raise ValueError("verify_cwd requires verify_command")
+            cwd_error = (
+                None if self.verify_cwd == "." else expected_artifact_path_error(self.verify_cwd)
+            )
+            if cwd_error is not None:
+                raise ValueError(
+                    f"verify_cwd must be a portable workspace-relative path: {cwd_error}"
+                )
         invalid_artifacts = tuple(
             (artifact, error)
             for artifact in self.expected_artifacts
@@ -729,6 +753,7 @@ class AcceptanceCriterionSpec(BaseModel, frozen=True):
             )
         validate_ac_success_contract_values(
             verify_command=self.verify_command,
+            verify_cwd=self.verify_cwd,
             expected_artifacts=self.expected_artifacts,
             output_assertion=self.output_assertion,
         )
@@ -763,6 +788,8 @@ class AcceptanceCriterionSpec(BaseModel, frozen=True):
             data["semantic_ac_key"] = self.semantic_ac_key
         if self.verify_command:
             data["verify_command"] = self.verify_command
+        if self.verify_cwd:
+            data["verify_cwd"] = self.verify_cwd
         if self.expected_artifacts:
             data["expected_artifacts"] = list(self.expected_artifacts)
         if self.output_assertion:
@@ -795,6 +822,8 @@ def derive_semantic_ac_key(criterion: AcceptanceCriterionInput) -> str:
             "expected_artifacts": list(criterion.expected_artifacts),
             "output_assertion": criterion.output_assertion,
         }
+        if criterion.verify_cwd is not None:
+            payload["verify_cwd"] = criterion.verify_cwd
     else:
         payload = {"description": str(criterion).strip()}
     encoded = json.dumps(
@@ -946,6 +975,11 @@ class Seed(BaseModel, frozen=True):
             "record and never rendered into the worker's execution input"
         ),
     )
+    material_evidence_refs: tuple[MaterialEvidenceRef, ...] = Field(
+        default_factory=tuple,
+        max_length=10,
+        description="Non-authoritative local lookup handles, not facts or requirements",
+    )
     sourced_scope: SourcedScope | None = Field(
         default=None,
         description=(
@@ -1091,6 +1125,13 @@ class Seed(BaseModel, frozen=True):
     @model_validator(mode="after")
     def _validate_plugin_extra_fields(self) -> Seed:
         """Keep plugin-owned extra fields safe for Seed persistence paths."""
+        if self.material_evidence_refs:
+            interview_id = self.metadata.interview_id
+            if not interview_id or re.fullmatch(r"[A-Za-z0-9_-]{1,128}", interview_id) is None:
+                raise ValueError("Material evidence references require a valid local interview ID")
+            keys = {(ref.source_id, ref.evidence_id) for ref in self.material_evidence_refs}
+            if len(keys) != len(self.material_evidence_refs):
+                raise ValueError("Duplicate material evidence references")
         materialized_criteria = tuple(
             criterion.with_materialized_semantic_key()
             if isinstance(criterion, AcceptanceCriterionSpec)
@@ -1131,6 +1172,8 @@ class Seed(BaseModel, frozen=True):
             excluded.add("repo_facts")
         if not self.open_questions:
             excluded.add("open_questions")
+        if not self.material_evidence_refs:
+            excluded.add("material_evidence_refs")
         if self.sourced_scope is None:
             excluded.add("sourced_scope")
         data = self.model_dump(mode="json", by_alias=True, exclude=excluded)

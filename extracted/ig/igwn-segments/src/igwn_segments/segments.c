@@ -42,42 +42,16 @@
 #define MODULE_DOC "C implementations of the infinity, segment, and segmentlist classes from the segments module."
 
 
-PyMODINIT_FUNC PyInit__segments_c(void); /* Silence -Wmissing-prototypes */
-PyMODINIT_FUNC PyInit__segments_c(void)
-{
-	static struct PyModuleDef modef = {
-		PyModuleDef_HEAD_INIT,
-		.m_name = MODULE_NAME,
-		.m_doc = MODULE_DOC,
-		.m_size = -1,
-		.m_methods = NULL,
-	};
-	PyObject *module = PyModule_Create(&modef);
-
-	if(!module)
-		goto done;
-
-	if(PyType_Ready(&segments_Infinity_Type) < 0) {
-		Py_DECREF(module);
-		module = NULL;
-		goto done;
-	}
+static int m_exec(PyObject *module) {
+	if(PyType_Ready(&segments_Infinity_Type) < 0) return -1;
 
 	segments_Segment_Type.tp_base = &PyTuple_Type;
 	if(!segments_Segment_Type.tp_hash)
 		segments_Segment_Type.tp_hash = PyTuple_Type.tp_hash;
-	if(PyType_Ready(&segments_Segment_Type) < 0) {
-		Py_DECREF(module);
-		module = NULL;
-		goto done;
-	}
+	if(PyType_Ready(&segments_Segment_Type) < 0) return -1;
 
 	segments_SegmentList_Type.tp_base = &PyList_Type;
-	if(PyType_Ready(&segments_SegmentList_Type) < 0) {
-		Py_DECREF(module);
-		module = NULL;
-		goto done;
-	}
+	if(PyType_Ready(&segments_SegmentList_Type) < 0) return -1;
 
 	/*
 	 * Create infinity class
@@ -120,6 +94,26 @@ PyMODINIT_FUNC PyInit__segments_c(void)
 	Py_INCREF(&segments_SegmentList_Type);
 	PyModule_AddObject(module, "segmentlist", (PyObject *) &segments_SegmentList_Type);
 
-done:
-	return module;
+	return 0;
+};
+
+
+static PyModuleDef moduledef = {
+	.m_base = PyModuleDef_HEAD_INIT,
+	.m_name = MODULE_NAME,
+	.m_doc = MODULE_DOC,
+	.m_slots = (PyModuleDef_Slot []) {
+		{Py_mod_exec, m_exec},
+#if PY_VERSION_HEX >= 0x030D0000
+		{Py_mod_gil, Py_MOD_GIL_NOT_USED},
+#endif
+		{/* terminal element, all NULL */},
+	},
+};
+
+
+PyMODINIT_FUNC PyInit__segments_c(void); /* Silence -Wmissing-prototypes */
+PyMODINIT_FUNC PyInit__segments_c(void)
+{
+	return PyModuleDef_Init(&moduledef);
 }

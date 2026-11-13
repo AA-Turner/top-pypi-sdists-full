@@ -121,8 +121,14 @@ def build_app(*, start_runtime=True):
             logger.info("arm_ui %s: wrapped the WSGI chain", _ep.name)
         except Exception:  # noqa: BLE001 — a failing arm UI never stops core
             logger.exception("arm_ui %s failed", _ep.name)
-    app.wsgi_app = WorkerAliases(guest_access.wrap(
-        arm_proxy.wrap(wsgi, app, embedded_arms=embedded_arms), app))
+    # Outermost: the key holder's door turns /live-api/<section>/... into /api/<section>/...
+    # before anything that acts on /api paths sees the request.
+    # Inside it, around everything that serves pages: a path below a page's entry point is the
+    # page for a browser and a 404 for a program (/video/jobs/7 without /api is not a page).
+    # Before all of it: /toolserver/... is the toolserver's own API and its own gate, not Core's.
+    from hugpy_core.web import toolserver_door
+    app.wsgi_app = toolserver_door.wrap(ui.LiveApi(ui.PagesForBrowsers(WorkerAliases(guest_access.wrap(
+        arm_proxy.wrap(wsgi, app, embedded_arms=embedded_arms), app)))))
     if start_runtime:
         from hugpy_core.relay import inference_requests
         inference_requests.start(app)

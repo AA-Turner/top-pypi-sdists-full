@@ -9,7 +9,7 @@ import uuid
 from collections import Counter
 from typing import Any
 
-from pyrit.common.apply_defaults import REQUIRED_VALUE, apply_defaults
+from pyrit.common import REQUIRED_VALUE, apply_defaults
 from pyrit.common.path import CONVERTER_SEED_PROMPT_PATH
 from pyrit.converter.converter import Converter, ConverterResult
 from pyrit.exceptions import InvalidJsonException, pyrit_json_retry, remove_markdown_json
@@ -232,9 +232,10 @@ class DecompositionConverter(Converter):
             InvalidJsonException: If the response is missing, unparseable, or fails validation.
         """
         conversation_id = str(uuid.uuid4())
-        self._converter_target.set_system_prompt(
-            system_prompt=self._decomposition_prompt.render_template_value(),
-            conversation_id=conversation_id,
+        (
+            await self._converter_target.set_system_prompt_async(
+                system_prompt=self._decomposition_prompt.render_template_value(), conversation_id=conversation_id
+            )
         )
 
         prompt_metadata = JsonResponseConfig(

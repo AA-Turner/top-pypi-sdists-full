@@ -41,6 +41,10 @@ class PolicyStatusResponse:
         policy (NetworkPolicy | Unset): Egress network policy matching the sidecar `/policy` request body.
             If `defaultAction` is omitted, the sidecar defaults to "deny"; passing an empty
             object or null results in allow-all behavior at startup.
+        dropped_established (int | Unset): Present when the request set `dropEstablished=true`. Best-effort count of
+            TCP conntrack flows whose original destination matched destinations the
+            new policy no longer allows. The sidecar also installs nft drop rules
+            ahead of `ct state established,related accept` for those destinations.
     """
 
     status: str | Unset = UNSET
@@ -48,6 +52,7 @@ class PolicyStatusResponse:
     enforcement_mode: str | Unset = UNSET
     reason: str | Unset = UNSET
     policy: NetworkPolicy | Unset = UNSET
+    dropped_established: int | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         status = self.status
@@ -62,6 +67,8 @@ class PolicyStatusResponse:
         if not isinstance(self.policy, Unset):
             policy = self.policy.to_dict()
 
+        dropped_established = self.dropped_established
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update({})
@@ -75,6 +82,8 @@ class PolicyStatusResponse:
             field_dict["reason"] = reason
         if policy is not UNSET:
             field_dict["policy"] = policy
+        if dropped_established is not UNSET:
+            field_dict["droppedEstablished"] = dropped_established
 
         return field_dict
 
@@ -98,12 +107,15 @@ class PolicyStatusResponse:
         else:
             policy = NetworkPolicy.from_dict(_policy)
 
+        dropped_established = d.pop("droppedEstablished", UNSET)
+
         policy_status_response = cls(
             status=status,
             mode=mode,
             enforcement_mode=enforcement_mode,
             reason=reason,
             policy=policy,
+            dropped_established=dropped_established,
         )
 
         return policy_status_response

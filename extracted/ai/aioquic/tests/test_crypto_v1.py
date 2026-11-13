@@ -1,4 +1,4 @@
-from unittest import TestCase, skipIf
+from unittest import skipIf
 
 from aioquic._crypto import AEAD, HeaderProtection
 from aioquic.buffer import Buffer
@@ -13,7 +13,7 @@ from aioquic.quic.crypto import (
 from aioquic.quic.packet import PACKET_FIXED_BIT, QuicProtocolVersion
 from aioquic.tls import CipherSuite
 
-from .utils import SKIP_TESTS
+from .utils import SKIP_TESTS, TestCase
 
 PROTOCOL_VERSION = QuicProtocolVersion.VERSION_1
 
@@ -126,14 +126,12 @@ class CryptoTest(TestCase):
         return pair
 
     def test_aead_invalid_cipher_name(self) -> None:
-        with self.assertRaises(CryptoError) as cm:
+        with self.assertRaisesMessage(CryptoError, "Invalid cipher name: aes-128-ccm"):
             AEAD(b"aes-128-ccm", bytes(16), bytes(12))
-        self.assertEqual(str(cm.exception), "Invalid cipher name: aes-128-ccm")
 
     def test_aead_invalid_iv_length(self) -> None:
-        with self.assertRaises(CryptoError) as cm:
+        with self.assertRaisesMessage(CryptoError, "Invalid iv length"):
             AEAD(b"aes-128-gcm", bytes(16), bytes(8))
-        self.assertEqual(str(cm.exception), "Invalid iv length")
 
     def test_derive_key_iv_hp(self) -> None:
         # https://datatracker.ietf.org/doc/html/rfc9001#appendix-A.1
@@ -173,7 +171,7 @@ class CryptoTest(TestCase):
             "9ac312a7f877468ebe69422748ad00a15443f18203a07d6060f688f30f21632b"
         )
         key, iv, hp = derive_key_iv_hp(
-            cipher_suite=CipherSuite.CHACHA20_POLY1305_SHA256,
+            cipher_suite=CipherSuite.TLS_CHACHA20_POLY1305_SHA256,
             secret=secret,
             version=PROTOCOL_VERSION,
         )
@@ -195,7 +193,7 @@ class CryptoTest(TestCase):
     def test_decrypt_chacha20(self) -> None:
         pair = CryptoPair()
         pair.recv.setup(
-            cipher_suite=CipherSuite.CHACHA20_POLY1305_SHA256,
+            cipher_suite=CipherSuite.TLS_CHACHA20_POLY1305_SHA256,
             secret=bytes.fromhex(
                 "9ac312a7f877468ebe69422748ad00a15443f18203a07d6060f688f30f21632b"
             ),
@@ -213,7 +211,7 @@ class CryptoTest(TestCase):
     def test_decrypt_chacha20_truncated(self) -> None:
         pair = CryptoPair()
         pair.recv.setup(
-            cipher_suite=CipherSuite.CHACHA20_POLY1305_SHA256,
+            cipher_suite=CipherSuite.TLS_CHACHA20_POLY1305_SHA256,
             secret=bytes.fromhex(
                 "9ac312a7f877468ebe69422748ad00a15443f18203a07d6060f688f30f21632b"
             ),
@@ -295,7 +293,7 @@ class CryptoTest(TestCase):
     def test_encrypt_chacha20(self) -> None:
         pair = CryptoPair()
         pair.send.setup(
-            cipher_suite=CipherSuite.CHACHA20_POLY1305_SHA256,
+            cipher_suite=CipherSuite.TLS_CHACHA20_POLY1305_SHA256,
             secret=bytes.fromhex(
                 "9ac312a7f877468ebe69422748ad00a15443f18203a07d6060f688f30f21632b"
             ),
@@ -347,9 +345,8 @@ class CryptoTest(TestCase):
         self.assertEqual(packet, SHORT_SERVER_ENCRYPTED_PACKET)
 
     def test_header_protection_invalid_cipher_name(self) -> None:
-        with self.assertRaises(CryptoError) as cm:
+        with self.assertRaisesMessage(CryptoError, "Invalid cipher name: aes-128-cbc"):
             HeaderProtection(b"aes-128-cbc", bytes(16))
-        self.assertEqual(str(cm.exception), "Invalid cipher name: aes-128-cbc")
 
     def test_key_update(self) -> None:
         pair1 = self.create_crypto(is_client=True)
@@ -416,7 +413,7 @@ class CryptoTest(TestCase):
         # https://datatracker.ietf.org/doc/html/rfc9001#appendix-A.5
         crypto = CryptoContext()
         crypto.setup(
-            cipher_suite=CipherSuite.CHACHA20_POLY1305_SHA256,
+            cipher_suite=CipherSuite.TLS_CHACHA20_POLY1305_SHA256,
             secret=bytes.fromhex(
                 "9ac312a7f877468ebe69422748ad00a15443f18203a07d6060f688f30f21632b"
             ),

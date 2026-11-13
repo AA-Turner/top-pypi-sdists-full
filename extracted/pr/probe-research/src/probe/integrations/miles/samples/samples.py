@@ -21,6 +21,7 @@ from probe.integrations.miles.samples.mapping import (
     build_train_key,
     get_harbor_key,
     get_status,
+    get_unsupported,
     read_reward,
     read_scheduled_step,
 )
@@ -86,6 +87,7 @@ class RolloutCapture:
         writer = PROCESS.get_samples(ROLLOUT, args)
         if writer is None:
             return
+        self._plan_once(writer, args)
         with self._lock:
             call = self._eval_calls.get(rollout_id, 0)
             self._eval_calls[rollout_id] = call + 1
@@ -120,8 +122,8 @@ class RolloutCapture:
         staleness = getattr(args, "max_weight_staleness", None)
         if getattr(args, "fully_async", False) and isinstance(staleness, int) and staleness >= 0:
             fields["max_staleness"] = staleness
-        if fields:
-            writer.plan(**fields)
+        fields["unsupported"] = get_unsupported(args)
+        writer.plan(**fields)
 
 
 def read_drop_counts(metrics: Mapping | None, *, has_stored_drops: bool) -> dict[str, int]:

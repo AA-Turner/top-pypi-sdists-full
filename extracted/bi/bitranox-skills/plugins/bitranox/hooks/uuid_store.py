@@ -42,6 +42,36 @@ NAMESPACE = _uuid.UUID("6f1b2c9e-8a4d-5f3b-9c7e-2d1a0b3c4d5e")
 STORE_DIRNAME = sig.MEMORY_DIRNAME               # the central body-store dir, co-located at the anchor
                                                  # (single source: self_improve_signals.MEMORY_DIRNAME)
 
+
+NON_LEVEL_DIRNAMES = frozenset(sig.VENDOR_DIRNAMES | {"target"})
+"""Exact directory names no curated level sits under: the vendored, build, cache and VCS dirs of
+`sig.VENDOR_DIRNAMES` (`venv` among them) plus `target`, a Rust build dir."""
+
+VENV_DIR_PREFIXES = (".venv", "venv-", "venv_")
+"""Name prefixes of a virtualenv: one is routinely named for its interpreter, platform, user or
+project (`.venv-3.12`, `.venv-win`, `venv-<user>`, `venv_<project>` all occur on real trees), so
+no set of exact names covers them. `venvnotes` or `myvenv` has no such prefix and stays a level."""
+
+
+def is_non_level_dirname(name):
+    """True for a directory name no curated level or live store sits under: a name in
+    NON_LEVEL_DIRNAMES, a virtualenv by VENV_DIR_PREFIXES, or any name starting with the store's
+    name (the store itself, `.claude-memoryX`, `.claude-memory-<anything>`).
+
+    Installed packages ship CLAUDE.md files of their own, so a walk that enters a virtualenv can
+    find levels in it, and a render would write lines there.
+
+    The prefix covers the backup `migrate_to_slug_store.py --apply` leaves under the anchor
+    (`.claude-memory-migration-backup-<stamp>/`): it holds a copy of the store and of every pointer
+    file the migration touched, and a copy is a snapshot, not a level, so a walk that entered it
+    reported every migrated slug at two levels. THE name rule every walk over a tree's levels
+    prunes by - the engine's (`memory_engine.curated_levels_under`), the decoy-store scan, the
+    migration's own walk, the toolbox's `mem_levels.py` and the dream's `store_manifest.py` and
+    `dedup_scan.py` - so they all report one level set. The dream's backup root is pruned on top
+    of it by resolved path, never by name."""
+    return (name in NON_LEVEL_DIRNAMES or name.startswith(VENV_DIR_PREFIXES)
+            or name.startswith(STORE_DIRNAME))
+
 # The type prefixes a slug may carry (single source; memory_engine aliases this).
 TYPE_PREFIXES = ("project", "feedback", "reference", "user")
 

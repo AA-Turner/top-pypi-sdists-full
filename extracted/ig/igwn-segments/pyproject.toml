@@ -1,7 +1,7 @@
 [build-system]
 requires = [
   "setuptools >=70.0.0",
-  "setuptools_scm >=8",
+  "setuptools_scm >=8,<9",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -26,6 +26,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Intended Audience :: Science/Research",
   "Intended Audience :: End Users/Desktop",
   "Intended Audience :: Developers",
@@ -99,12 +100,15 @@ extend-select = [
   "W",
 ]
 ignore = [
-  "C901",  # complex-structure
-  "E501",  # line-too-long
-  "E741",  # ambiguous-variable-name
-  "N801",  # invalid-class-name
-  "N802",  # invalid-function-name
-  "W191",  # tab-indentation
+  "B015",     # Pointless comparison
+  "C901",     # complex-structure
+  "E501",     # line-too-long
+  "E741",     # ambiguous-variable-name
+  "N801",     # invalid-class-name
+  "N802",     # invalid-function-name
+  "PLR0124",  # Name compared with itself
+  "PLW0642",  # Reassigned `self` variable in instance method
+  "W191",     # tab-indentation
 ]
 
 [tool.ruff.lint.isort]

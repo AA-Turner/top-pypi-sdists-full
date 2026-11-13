@@ -41,14 +41,17 @@ class StepperMotionProfilePoint:
         The maximum velocity of the motion
     acceleration : float, optional
         The rate at which to accelerate
+    deceleration : float, optional
+        The rate at which to decelerate
     time : float, optional
         The time after START to begin this movement
     """
 
-    def __init__(self, targetPosition=0, velocityLimit=0, acceleration=0, time=0):
+    def __init__(self, targetPosition=0, velocityLimit=0, acceleration=0, deceleration=0, time=0):
         self.targetPosition = targetPosition
         self.velocityLimit = velocityLimit
         self.acceleration = acceleration
+        self.deceleration = deceleration
         self.time = time
 
     def __str__(self):
@@ -57,6 +60,7 @@ class StepperMotionProfilePoint:
             "targetPosition: " + str(self.targetPosition) + ", "
             "velocityLimit: " + str(self.velocityLimit) + ", "
             "acceleration: " + str(self.acceleration) + ", "
+            "deceleration: " + str(self.deceleration) + ", "
             "time: " + str(self.time) + ")"
         )
 
@@ -66,6 +70,7 @@ class _CStepperMotionProfilePoint(ctypes.Structure):
         ("_targetPosition", ctypes.c_double),
         ("_velocityLimit", ctypes.c_double),
         ("_acceleration", ctypes.c_double),
+        ("_deceleration", ctypes.c_double),
         ("_time", ctypes.c_double),
     ]
 
@@ -75,6 +80,7 @@ class _CStepperMotionProfilePoint(ctypes.Structure):
         c_struct._targetPosition = obj.targetPosition
         c_struct._velocityLimit = obj.velocityLimit
         c_struct._acceleration = obj.acceleration
+        c_struct._deceleration = obj.deceleration
         c_struct._time = obj.time
         return c_struct
 
@@ -86,6 +92,8 @@ class _CStepperMotionProfilePoint(ctypes.Structure):
             obj.velocityLimit = self._velocityLimit
         if self._acceleration is not None:
             obj.acceleration = self._acceleration
+        if self._deceleration is not None:
+            obj.deceleration = self._deceleration
         if self._time is not None:
             obj.time = self._time
         return obj

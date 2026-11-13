@@ -8,48 +8,32 @@ they all answer the same.
 import numpy as np
 import pytest
 
-from numpy_groupies.aggregate_numpy import unpack as unpack_numpy
-from numpy_groupies.aggregate_purepy import unpack as unpack_purepy
-from numpy_groupies.tests.helpers import random_values
+from numpy_groupies import npg_numba
+from numpy_groupies.npg_numba import gather, mt
+from numpy_groupies.tests.helpers import is_purepy, random_values
 
 
-def test_unpack(rng):
-    """Keep this test, in case unpack might get reimplemented again at some point."""
-    group_idx = np.arange(10)
+@pytest.mark.parametrize("groups", [7, 1000], ids=["few groups", "many groups"])
+def test_unpack_answers_same(impl, rng, groups):
+    """Every backend gathers the same: the result of every group, back on the input.
+
+    The labels are the groups in a shuffled order and every group holds the
+    same number of values, so the gather cannot lean on the order of the
+    labels.  The many-groups case runs it over a longer input; the parallel
+    path of the numba backend has a test of its own.
+    """
+    group_idx = np.repeat(np.arange(groups), 20)
     rng.shuffle(group_idx)
-    group_idx = np.repeat(group_idx, 3)
-    vals = random_values(rng, np.max(group_idx) + 1)
-    np.testing.assert_array_equal(unpack_numpy(group_idx, vals), vals[group_idx])
+    vals = random_values(rng, groups)
+    got = impl.unpack(group_idx, vals)
+    np.testing.assert_array_equal(got, vals[group_idx])
+    if is_purepy(impl):
+        # the result of the pure python implementation is a list - the gather
+        # of a list is a list as well
+        assert isinstance(got, list)
 
 
-def test_unpack_long(rng):
-    group_idx = np.repeat(np.arange(10000), 20)
-    vals = random_values(rng, np.max(group_idx) + 1)
-    np.testing.assert_array_equal(unpack_numpy(group_idx, vals), vals[group_idx])
-
-
-def test_the_pure_python_gather_answers_the_same(rng):
-    """The gather of the pure python implementation is the plain python loop."""
-    group_idx = rng.integers(0, 7, size=100)
-    vals = random_values(rng, 7)
-
-    np.testing.assert_array_equal(unpack_purepy(group_idx, vals), vals[group_idx])
-    # the result of the pure python implementation is a list - the gather of a
-    # list is a list as well
-    assert isinstance(unpack_purepy(group_idx, list(vals)), list)
-
-
-def test_the_numba_gather_answers_the_same(rng):
-    """The gather of the numba implementation is a jitted loop."""
-    from numpy_groupies.aggregate_numba import unpack as unpack_numba
-
-    group_idx = rng.integers(0, 7, size=100)
-    vals = random_values(rng, 7)
-
-    np.testing.assert_array_equal(unpack_numba(group_idx, vals), vals[group_idx])
-
-
-def test_the_parallel_gather_answers_the_same(rng):
+def test_parallel_path_answers_same(rng):
     """The gather of the numba implementation across the threads of the pool.
 
     Below the threshold of the cost model the plain loop runs, so the two
@@ -57,23 +41,20 @@ def test_the_parallel_gather_answers_the_same(rng):
     every value writes the one position of its own and no thread ever writes
     where another one has written.
     """
-    from numpy_groupies.aggregate_numba import mt
-    from numpy_groupies.aggregate_numba import unpack as unpack_numba
 
     for n in (mt.GATHER_MT_MIN_VALUES - 1, mt.GATHER_MT_MIN_VALUES, 4 * mt.GATHER_MT_MIN_VALUES):
         group_idx = rng.integers(0, 7, size=n)
         vals = random_values(rng, 7)
-        np.testing.assert_array_equal(unpack_numba(group_idx, vals), vals[group_idx])
+        np.testing.assert_array_equal(npg_numba.unpack(group_idx, vals), vals[group_idx])
 
 
-def test_the_parallel_gather_keeps_the_shape_of_its_out(rng):
+def test_parallel_path_keeps_shape_of_out(rng):
     """The gather writes into the array of the caller and not into a new one.
 
     The parallel region has to fill every position of that array and nothing
     beside it: an array the size of which is one value off shows the last
     chunk of the last thread running past its end.
     """
-    from numpy_groupies.aggregate_numba import gather, mt
 
     n = 3 * mt.GATHER_MT_MIN_VALUES + 7
     group_idx = rng.integers(0, 1000, n)
@@ -84,7 +65,7 @@ def test_the_parallel_gather_keeps_the_shape_of_its_out(rng):
     np.testing.assert_array_equal(out, ret[group_idx])
 
 
-def test_the_gather_is_parallel_only_where_the_model_says_so(rng):
+def test_parallelism_follows_model(rng):
     """The gather runs in a parallel region only where it pays for itself.
 
     The gather copies one value per value and is bound by the memory: below
@@ -93,10 +74,6 @@ def test_the_gather_is_parallel_only_where_the_model_says_so(rng):
     of the two runs - by the time it takes, and by the number of the threads
     the pool is asked for.
     """
-    import numpy as np
-
-    from numpy_groupies.aggregate_numba import gather, mt
-
     n_threads = mt.mt_thread_count()
     if n_threads < 2:
         pytest.skip("the machine has no second thread to compare against")

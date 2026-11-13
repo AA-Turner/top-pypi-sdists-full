@@ -349,13 +349,13 @@ def build_rldx_libero_observation(*, session_id: str, observation_id: int,
                                   agent_frames: np.ndarray, wrist_frames: np.ndarray,
                                   libero_state: list[float], instruction: str,
                                   chunk_size: int = 16, now_ns: int | None = None) -> Observation:
-    """RLDX-1 LIBERO: four oriented 256px frames per camera as one JPEG strip each."""
-    from dreamscale_transport.rldx import HISTORY_LENGTH, IMAGE_SIZE, LIBERO
+    """RLDX-1.1 LIBERO: four oriented 256px frames per camera as one JPEG strip each."""
+    from dreamscale_transport.rldx import HISTORY_LENGTH, IMAGE_SIZE, LIBERO_11
 
     cameras, payloads = [], {}
-    for key, frames in zip(LIBERO.camera_keys, (agent_frames, wrist_frames), strict=True):
+    for key, frames in zip(LIBERO_11.camera_keys, (agent_frames, wrist_frames), strict=True):
         if frames.shape != (HISTORY_LENGTH, IMAGE_SIZE, IMAGE_SIZE, 3) or frames.dtype != np.uint8:
-            raise ValueError("RLDX-1 LIBERO requires four 256x256 RGB uint8 frames per camera")
+            raise ValueError("RLDX-1.1 LIBERO requires four 256x256 RGB uint8 frames per camera")
         # 256px frames tile JPEG's 16px blocks exactly, so frames never blur into each other.
         camera, payload = _camera_frame(key, np.ascontiguousarray(np.concatenate(frames, axis=1)))
         cameras.append(camera)

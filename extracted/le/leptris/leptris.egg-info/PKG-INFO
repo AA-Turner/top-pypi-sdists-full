@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: leptris
-Version: 1.9.418.0
+Version: 1.9.420.0
 Summary: Python bindings for libleptris — fast XML 1.0 parsing and XPath 1.0, shaped like lxml
 Author: Ribose
 License-Expression: MIT
@@ -86,8 +86,9 @@ platform as part of the release build.
 | Linux aarch64 (glibc / musl) | abi3 + cp314t | native runners |
 | Linux ppc64le | abi3 | full suite under qemu |
 | Linux s390x | abi3 | big-endian; full suite under qemu |
+| Linux riscv64 | abi3 | full suite under qemu (glibc + musl) |
 | Linux i686 (glibc + musl) | abi3 | full suite (musl under qemu) |
-| Linux armv7l (musl) | abi3 | full suite under qemu |
+| Linux armv7l (glibc + musl) | abi3 | full suite under qemu |
 | macOS x86_64 + arm64 | abi3 + cp314t | universal2; x86_64 slice Rosetta-tested |
 | Windows x64 + ARM64 | abi3 + cp314t | suite runs on both architectures |
 | Windows x86 (32-bit) | abi3 | first wheel in 1.9.280.0 (engine #1456) |

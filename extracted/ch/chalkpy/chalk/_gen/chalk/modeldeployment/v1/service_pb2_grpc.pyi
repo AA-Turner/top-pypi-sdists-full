@@ -133,4 +133,6 @@ class ModelDeploymentServiceServicer(metaclass=ABCMeta):
     ) -> CallModelResponse:
         """CallModel synchronously invokes a model scaling group or asynchronously enqueues a model call."""
 
-def add_ModelDeploymentServiceServicer_to_server(servicer: ModelDeploymentServiceServicer, server: Server) -> None: ...
+def add_ModelDeploymentServiceServicer_to_server(
+    servicer: ModelDeploymentServiceServicer, server: Server
+) -> None: ...

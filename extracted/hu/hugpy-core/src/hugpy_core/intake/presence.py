@@ -12,7 +12,9 @@ def allocation(r: dict) -> dict:
             'rss_file_bytes': r.get('rss_file_bytes'), 'rss_shmem_bytes': r.get('rss_shmem_bytes'),
             'n_gpu_layers': r.get('n_gpu_layers'), 'ctx': r.get('ctx'), 'n_cpu_moe': r.get('n_cpu_moe'),
             'vram_bytes': vram,
-            'device': (f'cuda:{card}' if card is not None
+            'gpu_uuid': r.get('gpu_uuid'), 'gpu_backend': r.get('gpu_backend'),
+            'device': (r['gpu_backend'] + (':' + r['gpu_uuid'] if r.get('gpu_uuid') else '') if r.get('gpu_backend')
+                       else f'cuda:{card}' if card is not None
                        else None if vram is None else 'cuda' if vram > 0 else 'cpu'),
             'device_id': int(card) if card is not None else None,
             'last_used': r.get('last_used'), 'loading': bool(r.get('loading')),

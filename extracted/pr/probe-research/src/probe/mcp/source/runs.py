@@ -7,6 +7,7 @@ from typing import Any
 from ...sdk.reads import nonfinite
 from ...sdk.values.run_command_words import CommandListPart
 from ...sdk.client.resources.runs.metrics import SOURCE_READ_CONTRACT
+from probe.mcp.source.people import PeopleFilters
 
 
 @dataclass(frozen=True)
@@ -170,6 +171,7 @@ class RunReadsMixin:
         limit: int,
         exclude_origin_session: str | None = None,
         query: RunListQuery = RunListQuery(),
+        people: PeopleFilters = PeopleFilters(),
     ) -> tuple[list[dict], str | None]:
         """``GET /v1/runs``: one page of the lab's runs, NEWEST FIRST (or in ``query.order``, one top-N page and no
         cursor), and the keyset cursor past it. ``active`` is the server's liveness filter (status running AND a
@@ -186,6 +188,9 @@ class RunReadsMixin:
             latest_metrics=query.latest_metrics,
             limit=limit,
             cursor=cursor,
+            owner=people.owner,
+            since=people.since,
+            until=people.until,
         )
         return list(page.items), page.next_cursor
 
@@ -199,6 +204,7 @@ class RunReadsMixin:
         is_active: bool = False,
         exclude_origin_session: str | None = None,
         run_filter: dict | None = None,
+        people: PeopleFilters = PeopleFilters(),
     ) -> dict:
         """``GET /v1/runs/counts``: `{total, by_status}` for the same filter as `run_list` (the client's own
         query builder, so both count one set). Raises on an API without the route (404) or a count past its
@@ -211,6 +217,9 @@ class RunReadsMixin:
             active=is_active,
             exclude_origin_session=exclude_origin_session,
             filter=run_filter,
+            owner=people.owner,
+            since=people.since,
+            until=people.until,
         )
 
     def run_failures(self, run_ids: list[str]) -> list[dict]:

@@ -8,6 +8,8 @@ import {
   MIN_HISTORY_NIGHTS,
   cellKey,
   compare,
+  cpuSignature,
+  describeCpus,
   flaggedChange,
   formatDelta,
   formatMove,
@@ -15,6 +17,7 @@ import {
   historyCandidates,
   loadCapacityHistory,
   loadDailyHistory,
+  sameCpu,
   sparkline,
 } from "./history.js";
 
@@ -112,7 +115,7 @@ test("capacity history groups nights by cell and skips crashed cells", () => {
   const key = cellKey({ deploymentSlug: "d", computeTier: "L", benchmarkType: "wait_write" });
   assert.deepEqual(history[key].map((n) => n.capacityVUs).sort((a, b) => a - b), [700, 1000]);
   const serverless = history[cellKey({ deploymentSlug: "s", computeTier: "L", benchmarkType: "wait_write" })];
-  assert.deepEqual(serverless, [{ executor: "constant-vus", capacityVUs: 0, runsPerSec: 46.3 }], "a cell with no passing step keeps its ceiling, and a night without an executor is closed-model");
+  assert.deepEqual(serverless, [{ executor: "constant-vus", serverCpus: null, capacityVUs: 0, runsPerSec: 46.3 }], "a cell with no passing step keeps its ceiling, and a night without an executor is closed-model");
 });
 
 test("capacity history remembers which executor measured each night", () => {
@@ -123,6 +126,54 @@ test("capacity history remembers which executor measured each night", () => {
   }));
   const [night] = loadCapacityHistory(root)[cellKey({ deploymentSlug: "d", computeTier: "L", benchmarkType: "wait_write" })];
   assert.equal(night.executor, "constant-arrival-rate");
+});
+
+test("capacity history remembers the CPUs each night ran on", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "cap-cpu-"));
+  writeFileSync(path.join(runDir(root, 1), "staircase_summary_s.json"), JSON.stringify({
+    config: { deploymentSlug: "s", computeTier: "M", benchmarkType: "wait_write" },
+    capacity: { targetVUs: 40, successfulRunsPerSec: 39.6 },
+    serverCpus: { "GenuineIntel 6/79": 1 },
+  }));
+  const [night] = loadCapacityHistory(root)[cellKey({ deploymentSlug: "s", computeTier: "M", benchmarkType: "wait_write" })];
+  assert.equal(cpuSignature(night.serverCpus), "intel broadwell");
+});
+
+test("cpus are named the same inside and outside gVisor, and unknown ones keep their numbers", () => {
+  assert.equal(cpuSignature({ "AuthenticAMD 143/49": 1 }), "amd rome", "gVisor's AMD family 143 is Linux's 23");
+  assert.equal(cpuSignature({ "AuthenticAMD 23/49": 1 }), "amd rome");
+  assert.equal(cpuSignature({ "GenuineIntel 6/79": 1 }), "intel broadwell");
+  assert.equal(cpuSignature({ "GenuineIntel 6/207": 1 }), "GenuineIntel 6/207");
+  assert.equal(cpuSignature({ "AuthenticAMD 175/17": 1 }), "AuthenticAMD 25/17", "an unnamed AMD still gets the Linux family");
+  assert.equal(cpuSignature(null), null);
+  assert.equal(cpuSignature({}), null);
+});
+
+test("several workers are mostly one cpu when three in four ran on it, and the description counts them", () => {
+  const mixed = { "GenuineIntel 6/79": 4, "AuthenticAMD 143/49": 6 };
+  assert.equal(cpuSignature(mixed), "amd rome + intel broadwell");
+  assert.equal(cpuSignature({ "GenuineIntel 6/79": 9, "AuthenticAMD 143/49": 1 }), "mostly intel broadwell");
+  assert.equal(cpuSignature({ "GenuineIntel 6/79": 2, "AuthenticAMD 143/49": 6 }), "mostly amd rome", "exactly three in four");
+  assert.equal(describeCpus(mixed), "6 amd rome, 4 intel broadwell");
+  assert.equal(describeCpus({ "AuthenticAMD 143/49": 1 }), "amd rome", "one worker needs no count");
+  assert.equal(describeCpus(null), null);
+});
+
+test("only nights on the same cpus compare, and nights before the probe only compare with each other", () => {
+  const rome = { serverCpus: { "AuthenticAMD 143/49": 1 }, p95Duration: 4.5 };
+  const broadwell = { serverCpus: { "GenuineIntel 6/79": 1 }, p95Duration: 9.8 };
+  const before = { p95Duration: 5.1 };
+  const nights = [broadwell, rome, before, rome];
+  assert.deepEqual(sameCpu(nights, rome.serverCpus), [rome, rome]);
+  assert.deepEqual(sameCpu(nights, broadwell.serverCpus), [broadwell]);
+  assert.deepEqual(sameCpu(nights, null), [before]);
+
+  const mostlyRome = { serverCpus: { "AuthenticAMD 143/49": 8, "GenuineIntel 6/79": 2 } };
+  const even = { serverCpus: { "AuthenticAMD 143/49": 5, "GenuineIntel 6/79": 5 } };
+  const mostlyBroadwell = { serverCpus: { "AuthenticAMD 143/49": 1, "GenuineIntel 6/79": 9 } };
+  const split = [mostlyBroadwell, even, mostlyRome, rome];
+  assert.deepEqual(sameCpu(split, { "AuthenticAMD 143/49": 9, "GenuineIntel 6/79": 1 }), [mostlyRome], "one slow worker in ten compares with two, not with none, five or nine");
+  assert.deepEqual(sameCpu(split, { "AuthenticAMD 143/49": 4, "GenuineIntel 6/79": 6 }), [even], "six in ten compares with five");
 });
 
 test("sparkline keeps noise mid-height, draws a real step full height, and leaves gaps for missing nights", () => {

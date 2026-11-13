@@ -33,6 +33,7 @@ from .paginator import (
     GetMetricDataPaginator,
     ListAlarmMuteRulesPaginator,
     ListDashboardsPaginator,
+    ListMetricDataQueryDefinitionsPaginator,
     ListMetricsPaginator,
 )
 from .type_defs import (
@@ -45,6 +46,7 @@ from .type_defs import (
     DeleteDashboardsInputTypeDef,
     DeleteInsightRulesInputTypeDef,
     DeleteInsightRulesOutputTypeDef,
+    DeleteMetricDataQueryDefinitionInputTypeDef,
     DeleteMetricStreamInputTypeDef,
     DeleteResourceMetricsConfigurationInputTypeDef,
     DescribeAlarmContributorsInputTypeDef,
@@ -77,6 +79,8 @@ from .type_defs import (
     GetInsightRuleReportOutputTypeDef,
     GetMetricDataInputTypeDef,
     GetMetricDataOutputTypeDef,
+    GetMetricDataQueryDefinitionInputTypeDef,
+    GetMetricDataQueryDefinitionOutputTypeDef,
     GetMetricStatisticsInputTypeDef,
     GetMetricStatisticsOutputTypeDef,
     GetMetricStreamInputTypeDef,
@@ -92,6 +96,8 @@ from .type_defs import (
     ListDashboardsOutputTypeDef,
     ListManagedInsightRulesInputTypeDef,
     ListManagedInsightRulesOutputTypeDef,
+    ListMetricDataQueryDefinitionsInputTypeDef,
+    ListMetricDataQueryDefinitionsOutputTypeDef,
     ListMetricsInputTypeDef,
     ListMetricsOutputTypeDef,
     ListMetricStreamsInputTypeDef,
@@ -110,6 +116,8 @@ from .type_defs import (
     PutManagedInsightRulesOutputTypeDef,
     PutMetricAlarmInputTypeDef,
     PutMetricDataInputTypeDef,
+    PutMetricDataQueryDefinitionInputTypeDef,
+    PutMetricDataQueryDefinitionOutputTypeDef,
     PutMetricStreamInputTypeDef,
     PutMetricStreamOutputTypeDef,
     SetAlarmStateInputTypeDef,
@@ -265,6 +273,16 @@ class CloudWatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/delete_insight_rules.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#delete_insight_rules)
+        """
+
+    def delete_metric_data_query_definition(
+        self, **kwargs: Unpack[DeleteMetricDataQueryDefinitionInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a metric data query definition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/delete_metric_data_query_definition.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#delete_metric_data_query_definition)
         """
 
     def delete_metric_stream(
@@ -449,6 +467,16 @@ class CloudWatchClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#get_metric_data)
         """
 
+    def get_metric_data_query_definition(
+        self, **kwargs: Unpack[GetMetricDataQueryDefinitionInputTypeDef]
+    ) -> GetMetricDataQueryDefinitionOutputTypeDef:
+        """
+        Returns a metric data query definition, including its expression.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_metric_data_query_definition.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#get_metric_data_query_definition)
+        """
+
     def get_metric_statistics(
         self, **kwargs: Unpack[GetMetricStatisticsInputTypeDef]
     ) -> GetMetricStatisticsOutputTypeDef:
@@ -530,6 +558,16 @@ class CloudWatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/list_managed_insight_rules.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#list_managed_insight_rules)
+        """
+
+    def list_metric_data_query_definitions(
+        self, **kwargs: Unpack[ListMetricDataQueryDefinitionsInputTypeDef]
+    ) -> ListMetricDataQueryDefinitionsOutputTypeDef:
+        """
+        Lists the metric data query definitions in your account and Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/list_metric_data_query_definitions.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#list_metric_data_query_definitions)
         """
 
     def list_metric_streams(
@@ -650,6 +688,16 @@ class CloudWatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/put_metric_data.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#put_metric_data)
+        """
+
+    def put_metric_data_query_definition(
+        self, **kwargs: Unpack[PutMetricDataQueryDefinitionInputTypeDef]
+    ) -> PutMetricDataQueryDefinitionOutputTypeDef:
+        """
+        Creates or updates a metric data query definition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/put_metric_data_query_definition.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#put_metric_data_query_definition)
         """
 
     def put_metric_stream(
@@ -810,6 +858,17 @@ class CloudWatchClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_dashboards"]
     ) -> ListDashboardsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_metric_data_query_definitions"]
+    ) -> ListMetricDataQueryDefinitionsPaginator:
         """
         Create a paginator for an operation.
 

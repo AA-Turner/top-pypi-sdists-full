@@ -259,6 +259,9 @@ class DeliveryWaiter:
         """Nothing of the run is queued any more: delivered, or what stayed behind and why."""
         if full.failed:
             outcome = WaitOutcome.REFUSED
+        elif full.set_aside:
+            # Refused for good (the run in the trash, or a newer attempt owns it): not delivered.
+            outcome = WaitOutcome.SET_ASIDE
         elif full.held:
             outcome = WaitOutcome.STALLED
         else:
@@ -277,6 +280,7 @@ class DeliveryWaiter:
             held=view.held,
             failed=view.failed,
             discarded=view.discarded,
+            set_aside=view.set_aside,
             delivered=max(0, view.delivered_total - (start or 0)) if start is not None else 0,
             first_error=view.last_error,
             waited_seconds=self.clock() - getattr(self, "started", self.clock()),

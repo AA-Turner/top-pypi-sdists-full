@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-for-blender
-Version: 2.2.8
+Version: 2.2.9
 Summary: Open source Blender integration through the Model Context Protocol (not affiliated with Blender Foundation)
 Author-email: Siddharth Ahuja <ahujasid@gmail.com>
 License-Expression: MIT
@@ -714,8 +714,8 @@ an image or a 360° panorama. It arrives as Gaussian splats, with a hidden colli
 objects and the panorama as the world background, in metres with the ground at z=0.
 It needs Blender 5.3 or newer, which imports and renders splats; on older versions the option is greyed out.
 It runs through [Premium](#premium) with no key, or on your own World Labs API key.
-Through Premium, standard quality is a quick Marble draft world (one standard generation) and high is
-Marble 1.1 (one high-quality generation).
+Through Premium, every world is Marble 1.1 and uses one high-quality generation (Pro and up).
+On your own key it uses the sidebar's model: Marble 1.1 Plus (default, larger worlds) or Marble 1.1.
 [Get a World Labs API key](https://platform.worldlabs.ai/api-keys); API credits are separate from Marble app credits.
 Tick **World Labs** under **Gaussian Worlds** in the sidebar, choose a **Model**, and paste the key.
 On your own key, a folder of up to 4 photos of one place, in name order going around it, makes one world.

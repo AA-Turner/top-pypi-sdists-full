@@ -19,6 +19,7 @@ USE_DURABILITY = LANGGRAPH_PY_MINOR >= (0, 6)
 # Not in public docs: LANGGRAPH_RUNTIME_EDITION is internal, set by packaging/entrypoint
 _RUNTIME_EDITION = os.getenv("LANGGRAPH_RUNTIME_EDITION", "inmem")
 IS_POSTGRES_BACKEND = _RUNTIME_EDITION == "postgres"
+IS_INMEM_BACKEND = _RUNTIME_EDITION == "inmem"
 IS_POSTGRES_OR_GRPC_BACKEND = IS_POSTGRES_BACKEND
 # Server-side kill switch for the Protocol v2 event-streaming surface
 # (#3296). When false, the v2 routes are not registered (clients hit a

@@ -10,6 +10,7 @@ behavior changes.
 
 from __future__ import annotations
 
+from bisect import bisect_right
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
@@ -384,7 +385,14 @@ def _accepted_tool_start_entries(
         session_attempt_id=session_attempt_id,
         event_id_counts=event_id_counts,
     )
-    owned_idless_completion_indexes = frozenset(idless_completion_by_start.values())
+    call_index = _index_accepted_tool_calls(
+        chronological,
+        scope_id=scope_id,
+        execution_id=execution_id,
+        retry_attempt=retry_attempt,
+        session_attempt_id=session_attempt_id,
+        owned_idless_completion_indexes=frozenset(idless_completion_by_start.values()),
+    )
     entries: list[EvidenceEntry] = []
     for index, event in enumerate(chronological):
         if event.type != "execution.tool.started" or not _event_matches_scope(event, scope_id):
@@ -407,22 +415,8 @@ def _accepted_tool_start_entries(
         if normalized_tool_name in {"Bash", "Edit", "Write", "NotebookEdit"}:
             require_command_verdict = normalized_tool_name == "Bash"
             call_id = _event_tool_call_id(event)
-            if call_id is not None:
-                matching_starts = tuple(
-                    candidate
-                    for candidate in chronological
-                    if candidate.type == "execution.tool.started"
-                    and _event_matches_accepted_attempt(
-                        candidate,
-                        scope_id=scope_id,
-                        execution_id=execution_id,
-                        retry_attempt=retry_attempt,
-                        session_attempt_id=session_attempt_id,
-                    )
-                    and _event_tool_call_id(candidate) == call_id
-                )
-                if len(matching_starts) != 1:
-                    continue
+            if call_id is not None and call_index.start_counts[call_id] != 1:
+                continue
             start_success = _event_has_explicit_tool_success(
                 event,
                 require_command_verdict=require_command_verdict,
@@ -430,14 +424,10 @@ def _accepted_tool_start_entries(
             completion, completion_veto = _correlated_tool_completion(
                 chronological,
                 start_index=index,
-                scope_id=scope_id,
-                execution_id=execution_id,
-                retry_attempt=retry_attempt,
-                session_attempt_id=session_attempt_id,
                 require_command_verdict=require_command_verdict,
                 event_id_counts=event_id_counts,
                 idless_completion_by_start=idless_completion_by_start,
-                owned_idless_completion_indexes=owned_idless_completion_indexes,
+                call_index=call_index,
             )
             if completion_veto or (completion is None and not start_success):
                 continue
@@ -445,6 +435,8 @@ def _accepted_tool_start_entries(
         payload: dict[str, Any] = {
             "tool_name": normalized_tool_name,
             "accepted_leaf_dispatch": True,
+            "execution_id": execution_id,
+            "ac_id": scope_id,
         }
         accepted_call_id = _event_tool_call_id(event)
         if accepted_call_id is not None:
@@ -646,6 +638,17 @@ def _journal_entry_proves_command_artifact(
     task_cwd: str | None,
 ) -> bool:
     """Verify one Phase-1 command artifact still names its captured file."""
+    return _journal_command_artifact(entry, relative_path=relative_path, task_cwd=task_cwd)[0]
+
+
+def _journal_command_artifact(
+    entry: EvidenceEntry,
+    *,
+    relative_path: str,
+    task_cwd: str | None,
+    read_limit: int | None = None,
+) -> tuple[bool, bytes | None]:
+    """Validate Phase-1 authority and optionally read the held no-follow leaf."""
     payload = entry.payload
     provenance = payload.get("command_artifacts")
     if (
@@ -670,49 +673,53 @@ def _journal_entry_proves_command_artifact(
         or not str(provenance["session_attempt_id"]).strip()
         or provenance.get("session_attempt_id") != payload.get("session_attempt_id")
     ):
-        return False
+        return False, None
     artifacts = provenance.get("artifacts")
     if (
         not isinstance(artifacts, (list, tuple))
         or not artifacts
         or len(artifacts) > _MAX_COMMAND_ARTIFACTS
     ):
-        return False
+        return False, None
     validated: list[Mapping[str, object]] = []
     seen_paths: set[str] = set()
     for artifact in artifacts:
         if not isinstance(artifact, Mapping) or frozenset(artifact) != _COMMAND_ARTIFACT_KEYS:
-            return False
+            return False, None
         path = artifact.get("path")
         if (
             not isinstance(path, str)
             or not _is_canonical_command_artifact_path(path)
             or path in seen_paths
         ):
-            return False
+            return False, None
         for key in _COMMAND_ARTIFACT_KEYS - {"path"}:
             value = artifact.get(key)
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-                return False
+                return False, None
         if artifact.get("st_ino") == 0 or not stat.S_ISREG(int(artifact["st_mode"])):
-            return False
+            return False, None
         seen_paths.add(path)
         validated.append(artifact)
     matches = [artifact for artifact in validated if artifact["path"] == relative_path]
     if len(matches) != 1:
-        return False
+        return False, None
     artifact = matches[0]
     if frozenset(artifact) != _COMMAND_ARTIFACT_KEYS:
-        return False
+        return False, None
     workspace_fingerprint = _workspace_chain_fingerprint(provenance.get("workspace_chain"))
     if workspace_fingerprint is None:
-        return False
-    return _nofollow_workspace_artifact_matches(
+        return False, None
+    captured: list[bytes] = []
+    valid = _nofollow_workspace_artifact_matches(
         task_cwd,
         relative_path,
         expected=artifact,
         expected_workspace=workspace_fingerprint,
+        read_limit=read_limit,
+        captured=captured,
     )
+    return valid, captured[0] if valid and captured else None
 
 
 def _nofollow_workspace_artifact_matches(
@@ -721,6 +728,8 @@ def _nofollow_workspace_artifact_matches(
     *,
     expected: Mapping[str, object],
     expected_workspace: DirectoryChainFingerprint,
+    read_limit: int | None = None,
+    captured: list[bytes] | None = None,
 ) -> bool:
     """Match an artifact while its no-follow directory and leaf fds stay held."""
     leased_chain: NoFollowDirectoryChain | None = None
@@ -782,7 +791,21 @@ def _nofollow_workspace_artifact_matches(
             current_leaf
         ):
             return False
-        return leased_chain.postvalidate() and current_chain.postvalidate()
+        if read_limit is not None:
+            if read_limit < 0 or leased_leaf.st_size > read_limit:
+                return False
+            content = os.read(leased_leaf_fd, read_limit + 1)
+            if len(content) != leased_leaf.st_size or len(content) > read_limit:
+                return False
+            if _command_artifact_stat_fingerprint(os.fstat(leased_leaf_fd)) != (
+                _command_artifact_stat_fingerprint(leased_leaf)
+            ):
+                return False
+        if not (leased_chain.postvalidate() and current_chain.postvalidate()):
+            return False
+        if read_limit is not None and captured is not None:
+            captured.append(content)
+        return True
     except (OSError, RuntimeError, ValueError):
         return False
     finally:
@@ -1098,18 +1121,84 @@ def _owned_idless_tool_completions(
     return owned
 
 
-def _correlated_tool_completion(
+@dataclass(frozen=True)
+class _AcceptedToolCallIndex:
+    """Stream-wide correlation facts about the accepted attempt's tool events.
+
+    Built in one pass so each start reads them instead of rescanning the
+    stream. ``start_counts`` and ``completions_by_id`` (stream order) are keyed
+    by sole call id; ``conflicting_completion_aliases`` holds every alias of a
+    completion with conflicting/malformed ids; ``idless_unowned_completions``
+    lists, by normalized tool name, the ascending indexes of id-less
+    completions no id-less start owns; ``last_aliasless_index`` is the last
+    start/completion carrying no alias (-1 if none).
+    """
+
+    start_counts: Counter[str]
+    completions_by_id: dict[str, list[tuple[int, BaseEvent]]]
+    conflicting_completion_aliases: frozenset[str]
+    idless_unowned_completions: dict[str | None, list[int]]
+    last_aliasless_index: int
+
+
+def _index_accepted_tool_calls(
     events: tuple[BaseEvent, ...],
     *,
-    start_index: int,
     scope_id: str,
     execution_id: str,
     retry_attempt: int | None,
     session_attempt_id: str | None,
+    owned_idless_completion_indexes: frozenset[int],
+) -> _AcceptedToolCallIndex:
+    """Evaluate the correlation predicates once per accepted tool event."""
+    start_counts: Counter[str] = Counter()
+    completions_by_id: dict[str, list[tuple[int, BaseEvent]]] = {}
+    conflicting_aliases: set[str] = set()
+    idless_unowned: dict[str | None, list[int]] = {}
+    last_aliasless_index = -1
+    for index, event in enumerate(events):
+        if event.type not in {"execution.tool.started", "execution.tool.completed"}:
+            continue
+        if not _event_matches_accepted_attempt(
+            event,
+            scope_id=scope_id,
+            execution_id=execution_id,
+            retry_attempt=retry_attempt,
+            session_attempt_id=session_attempt_id,
+        ):
+            continue
+        aliases = _event_tool_call_aliases(event)[0]
+        if not aliases:
+            last_aliasless_index = index
+        call_id = _event_tool_call_id(event)
+        if event.type == "execution.tool.started":
+            if call_id is not None:
+                start_counts[call_id] += 1
+        elif call_id is not None:
+            completions_by_id.setdefault(call_id, []).append((index, event))
+        else:
+            if _event_has_conflicting_tool_call_ids(event):
+                conflicting_aliases.update(aliases)
+            if index not in owned_idless_completion_indexes:
+                tool_name = _normalized_event_tool_name(event)
+                idless_unowned.setdefault(tool_name, []).append(index)
+    return _AcceptedToolCallIndex(
+        start_counts=start_counts,
+        completions_by_id=completions_by_id,
+        conflicting_completion_aliases=frozenset(conflicting_aliases),
+        idless_unowned_completions=idless_unowned,
+        last_aliasless_index=last_aliasless_index,
+    )
+
+
+def _correlated_tool_completion(
+    events: tuple[BaseEvent, ...],
+    *,
+    start_index: int,
     require_command_verdict: bool,
     event_id_counts: Mapping[str, int],
     idless_completion_by_start: Mapping[int, int],
-    owned_idless_completion_indexes: frozenset[int],
+    call_index: _AcceptedToolCallIndex,
 ) -> tuple[BaseEvent | None, bool]:
     """Return an exact completion and whether failure/ambiguity vetoes the start."""
     start = events[start_index]
@@ -1126,49 +1215,12 @@ def _correlated_tool_completion(
     start_call_id = _event_tool_call_id(start)
 
     if start_call_id is not None:
-        matching_starts = tuple(
-            candidate
-            for candidate in events
-            if candidate.type == "execution.tool.started"
-            and not _event_has_conflicting_tool_call_ids(candidate)
-            and _event_matches_accepted_attempt(
-                candidate,
-                scope_id=scope_id,
-                execution_id=execution_id,
-                retry_attempt=retry_attempt,
-                session_attempt_id=session_attempt_id,
-            )
-            and _event_tool_call_id(candidate) == start_call_id
-        )
-        if len(matching_starts) != 1:
-            return None, True
-        if any(
-            candidate.type == "execution.tool.completed"
-            and _event_matches_accepted_attempt(
-                candidate,
-                scope_id=scope_id,
-                execution_id=execution_id,
-                retry_attempt=retry_attempt,
-                session_attempt_id=session_attempt_id,
-            )
-            and _event_has_conflicting_tool_call_ids(candidate)
-            and start_call_id in _event_tool_call_aliases(candidate)[0]
-            for candidate in events
+        if (
+            call_index.start_counts[start_call_id] != 1
+            or start_call_id in call_index.conflicting_completion_aliases
         ):
             return None, True
-        matches = tuple(
-            (candidate_index, candidate)
-            for candidate_index, candidate in enumerate(events)
-            if candidate.type == "execution.tool.completed"
-            and _event_matches_accepted_attempt(
-                candidate,
-                scope_id=scope_id,
-                execution_id=execution_id,
-                retry_attempt=retry_attempt,
-                session_attempt_id=session_attempt_id,
-            )
-            and _event_tool_call_id(candidate) == start_call_id
-        )
+        matches = call_index.completions_by_id.get(start_call_id, [])
         if not matches:
             return None, False
         if len(matches) != 1:
@@ -1176,34 +1228,14 @@ def _correlated_tool_completion(
         completion_index, completion = matches[0]
         if completion_index <= start_index or event_id_counts.get(completion.id) != 1:
             return None, True
-        for candidate_index, candidate in enumerate(
-            events[start_index + 1 : completion_index],
-            start=start_index + 1,
-        ):
-            if candidate.type != "execution.tool.completed" or not _event_matches_accepted_attempt(
-                candidate,
-                scope_id=scope_id,
-                execution_id=execution_id,
-                retry_attempt=retry_attempt,
-                session_attempt_id=session_attempt_id,
-            ):
-                continue
-            if _event_tool_call_id(candidate) is not None:
-                continue
-            if candidate_index in owned_idless_completion_indexes:
-                continue
-            candidate_tool_value = (
-                candidate.data.get("tool_name") if isinstance(candidate.data, Mapping) else None
-            )
-            candidate_tool = (
-                candidate_tool_value.strip()
-                if isinstance(candidate_tool_value, str) and candidate_tool_value.strip()
-                else None
-            )
-            if candidate_tool in {None, start_tool.strip()}:
-                # An id-less same-tool (or nameless) terminal could have closed
-                # this named command.  Do not let a later matching completion
-                # revive its authority, even for a crafted durable journal.
+        for tool_name in (None, start_tool.strip()):
+            # An id-less same-tool (or nameless) terminal between the start and
+            # its completion could have closed this named command.  Do not let a
+            # later matching completion revive its authority, even for a
+            # crafted durable journal.
+            positions = call_index.idless_unowned_completions.get(tool_name, [])
+            nearest = bisect_right(positions, start_index)
+            if nearest < len(positions) and positions[nearest] < completion_index:
                 return None, True
         if (
             not isinstance(completion.data, Mapping)
@@ -1229,21 +1261,8 @@ def _correlated_tool_completion(
             return None, True
         return completion, False
 
-    for candidate in events[start_index + 1 :]:
-        if candidate.type not in {"execution.tool.started", "execution.tool.completed"}:
-            continue
-        if not _event_matches_accepted_attempt(
-            candidate,
-            scope_id=scope_id,
-            execution_id=execution_id,
-            retry_attempt=retry_attempt,
-            session_attempt_id=session_attempt_id,
-        ):
-            continue
-        aliases, _malformed = _event_tool_call_aliases(candidate)
-        if not aliases:
-            return None, True
-    return None, False
+    # Without an owned terminal, any later alias-less accepted tool event vetoes.
+    return None, call_index.last_aliasless_index > start_index
 
 
 def _event_result_preview(start: BaseEvent, completion: BaseEvent | None) -> str | None:

@@ -7204,6 +7204,1416 @@ class CfnAlarmProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IAlertRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnAlert(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlert",
+):
+    '''Resource Type definition for AWS::CloudWatch::Alert.
+
+    An alert runs a SQL or PromQL query in a CloudWatch Omni space on a fixed interval, compares the result against warning and critical thresholds, and sends notifications to Amazon SNS topics or integrations when its state changes.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alert.html
+    :cloudformationResource: AWS::CloudWatch::Alert
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_alert = cloudwatch.CfnAlert(self, "MyCfnAlert",
+            name="name",
+            profile_id="profileId",
+            rule=cloudwatch.CfnAlert.RuleProperty(
+                telemetry_rule=cloudwatch.CfnAlert.TelemetryRuleProperty(
+                    condition=cloudwatch.CfnAlert.ConditionProperty(
+                        comparator="comparator",
+                        critical_threshold=123,
+                        threshold_field="thresholdField",
+                        threshold_mode="thresholdMode",
+                        warning_threshold=123
+                    ),
+                    evaluation=cloudwatch.CfnAlert.EvaluationProperty(
+                        interval_seconds=123,
+        
+                        # the properties below are optional
+                        pending_duration_seconds=123,
+                        recovery_duration_seconds=123
+                    ),
+                    query=cloudwatch.CfnAlert.QueryProperty(
+                        expression="expression",
+                        language="language"
+                    ),
+        
+                    # the properties below are optional
+                    no_data=cloudwatch.CfnAlert.NoDataProperty(
+                        treat_as="treatAs"
+                    )
+                )
+            ),
+            space_id="spaceId",
+        
+            # the properties below are optional
+            description="description",
+            notification_rules=[cloudwatch.CfnAlert.NotificationRuleProperty(
+                target=cloudwatch.CfnAlert.TargetProperty(
+                    arn="arn",
+                    type="type",
+        
+                    # the properties below are optional
+                    metadata={
+                        "metadata_key": "metadata"
+                    }
+                ),
+                trigger=cloudwatch.CfnAlert.TriggerProperty(
+                    state_values=["stateValues"]
+                )
+            )],
+            notifications_enabled=False,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        profile_id: builtins.str,
+        rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlert.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        space_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        notification_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlert.NotificationRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        notifications_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudWatch::Alert``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The display name of the alert. Names don't need to be unique within a space; the alert is identified by AlertId.
+        :param profile_id: The ID of the access profile the alert uses to run its query and send notifications.
+        :param rule: The rule that defines how the alert is evaluated.
+        :param space_id: The ID of the space to create the alert in. Changing this value replaces the alert.
+        :param description: A description of the alert.
+        :param notification_rules: The notification rules that determine when and where notifications are sent.
+        :param notifications_enabled: Whether the alert sends notifications. When false, the alert is still evaluated and records its state, but sends nothing. Defaults to true.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__db6a4a7d130f895ced57f270b8801c297b1a150dec5a1150e10dfa51a6f0541a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAlertProps(
+            name=name,
+            profile_id=profile_id,
+            rule=rule,
+            space_id=space_id,
+            description=description,
+            notification_rules=notification_rules,
+            notifications_enabled=notifications_enabled,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAlert")
+    @builtins.classmethod
+    def arn_for_alert(
+        cls,
+        resource: "_aws_cloudwatch_70717108.IAlertRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4672029b8e47aaea79d239bd80a26962f3f630312516f0a11f7534136a36a3d2)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAlert", [resource]))
+
+    @jsii.member(jsii_name="isCfnAlert")
+    @builtins.classmethod
+    def is_cfn_alert(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAlert.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__df4a2b3e5afd172e980ec617b860f6dbd0ca97d643502a55597aff2920ff5a84)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAlert", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a7c29af9a1c83bae1933689b9f4ef5c5586948adf14cf18cf229924a9aa0bda1)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5e68742e3b3c2c8ba062a567153f922efe4dda2a222563eb28efa74dedacd364)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="alertRef")
+    def alert_ref(self) -> "_aws_cloudwatch_70717108.AlertReference":
+        '''A reference to a Alert resource.'''
+        return typing.cast("_aws_cloudwatch_70717108.AlertReference", jsii.get(self, "alertRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAccountId")
+    def attr_account_id(self) -> builtins.str:
+        '''The AWS account ID that owns the alert.
+
+        :cloudformationAttribute: AccountId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAccountId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAlertId")
+    def attr_alert_id(self) -> builtins.str:
+        '''The ID of the alert, assigned by CloudWatch when the alert is created.
+
+        It doesn't change when the alert is updated, and it is the resource ID in the alert's ARN.
+
+        :cloudformationAttribute: AlertId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAlertId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the alert.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The time the alert was created, in ISO 8601 format (UTC).
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The time the alert was last updated, in ISO 8601 format (UTC).
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The display name of the alert.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d840419879bc313eee450c74e8d285e141854ce18d269e02e483f1691d026df0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="profileId")
+    def profile_id(self) -> builtins.str:
+        '''The ID of the access profile the alert uses to run its query and send notifications.'''
+        return typing.cast(builtins.str, jsii.get(self, "profileId"))
+
+    @profile_id.setter
+    def profile_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9845d11275798dc91e91d97b0cb674d08bc78c0e8af5a3b12d2535a29670a541)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "profileId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="rule")
+    def rule(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.RuleProperty"]:
+        '''The rule that defines how the alert is evaluated.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.RuleProperty"], jsii.get(self, "rule"))
+
+    @rule.setter
+    def rule(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.RuleProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__863370ee6290920851289738455ee65da18fd8835b0b8d56604e2c3682cb602f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rule", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="spaceId")
+    def space_id(self) -> builtins.str:
+        '''The ID of the space to create the alert in.'''
+        return typing.cast(builtins.str, jsii.get(self, "spaceId"))
+
+    @space_id.setter
+    def space_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cc7a5b492ff4296641062a0d4a66c54cd2b0f658e3b1dd556f123f01856ab6de)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "spaceId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the alert.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__76dcfb5ed8d38b30ac6e84f270ce0b1814d11817baecad02d6f0a38c13024e58)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="notificationRules")
+    def notification_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.NotificationRuleProperty"]]]]:
+        '''The notification rules that determine when and where notifications are sent.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.NotificationRuleProperty"]]]], jsii.get(self, "notificationRules"))
+
+    @notification_rules.setter
+    def notification_rules(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.NotificationRuleProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cb62d1353e4aada4c058f61f483e46d53294f09f2d8f821a26af4fa62254d185)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "notificationRules", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="notificationsEnabled")
+    def notifications_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether the alert sends notifications.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "notificationsEnabled"))
+
+    @notifications_enabled.setter
+    def notifications_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__51e5afe58087ec1a7e4d1be1ce99cea1d7d0a83213b04c79d4fbb81f74221c2e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "notificationsEnabled", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__77f377297997fb59dec701b1e8cfaa7f27283256f68a13c289c532fc07b332e2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlert.ConditionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "comparator": "comparator",
+            "critical_threshold": "criticalThreshold",
+            "threshold_field": "thresholdField",
+            "threshold_mode": "thresholdMode",
+            "warning_threshold": "warningThreshold",
+        },
+    )
+    class ConditionProperty:
+        def __init__(
+            self,
+            *,
+            comparator: typing.Optional[builtins.str] = None,
+            critical_threshold: typing.Optional[jsii.Number] = None,
+            threshold_field: typing.Optional[builtins.str] = None,
+            threshold_mode: typing.Optional[builtins.str] = None,
+            warning_threshold: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The thresholds that set the alert's state.
+
+            Specify at least one of WarningThreshold and CriticalThreshold.
+
+            :param comparator: The comparison operator. Valid values: GT, GTE, LT, LTE (greater than, greater than or equal to, less than, less than or equal to).
+            :param critical_threshold: The value at which the alert enters the CRITICAL state.
+            :param threshold_field: The result field to compare against the threshold. Required when ThresholdMode is FIELD_VALUE.
+            :param threshold_mode: How the threshold is applied. COUNT_OF_RESULTS compares the number of rows the query returns. FIELD_VALUE compares the value of ThresholdField in each result row; each row is tracked separately.
+            :param warning_threshold: The value at which the alert enters the WARNING state.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-condition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                condition_property = cloudwatch.CfnAlert.ConditionProperty(
+                    comparator="comparator",
+                    critical_threshold=123,
+                    threshold_field="thresholdField",
+                    threshold_mode="thresholdMode",
+                    warning_threshold=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1e60ed1f1518b92a90d97d21bb5aa0fea2b4a4ebeb922f631fc3444638075337)
+                check_type(argname="argument comparator", value=comparator, expected_type=type_hints["comparator"])
+                check_type(argname="argument critical_threshold", value=critical_threshold, expected_type=type_hints["critical_threshold"])
+                check_type(argname="argument threshold_field", value=threshold_field, expected_type=type_hints["threshold_field"])
+                check_type(argname="argument threshold_mode", value=threshold_mode, expected_type=type_hints["threshold_mode"])
+                check_type(argname="argument warning_threshold", value=warning_threshold, expected_type=type_hints["warning_threshold"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if comparator is not None:
+                self._values["comparator"] = comparator
+            if critical_threshold is not None:
+                self._values["critical_threshold"] = critical_threshold
+            if threshold_field is not None:
+                self._values["threshold_field"] = threshold_field
+            if threshold_mode is not None:
+                self._values["threshold_mode"] = threshold_mode
+            if warning_threshold is not None:
+                self._values["warning_threshold"] = warning_threshold
+
+        @builtins.property
+        def comparator(self) -> typing.Optional[builtins.str]:
+            '''The comparison operator.
+
+            Valid values: GT, GTE, LT, LTE (greater than, greater than or equal to, less than, less than or equal to).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-condition.html#cfn-cloudwatch-alert-condition-comparator
+            '''
+            result = self._values.get("comparator")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def critical_threshold(self) -> typing.Optional[jsii.Number]:
+            '''The value at which the alert enters the CRITICAL state.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-condition.html#cfn-cloudwatch-alert-condition-criticalthreshold
+            '''
+            result = self._values.get("critical_threshold")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def threshold_field(self) -> typing.Optional[builtins.str]:
+            '''The result field to compare against the threshold.
+
+            Required when ThresholdMode is FIELD_VALUE.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-condition.html#cfn-cloudwatch-alert-condition-thresholdfield
+            '''
+            result = self._values.get("threshold_field")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def threshold_mode(self) -> typing.Optional[builtins.str]:
+            '''How the threshold is applied.
+
+            COUNT_OF_RESULTS compares the number of rows the query returns. FIELD_VALUE compares the value of ThresholdField in each result row; each row is tracked separately.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-condition.html#cfn-cloudwatch-alert-condition-thresholdmode
+            '''
+            result = self._values.get("threshold_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def warning_threshold(self) -> typing.Optional[jsii.Number]:
+            '''The value at which the alert enters the WARNING state.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-condition.html#cfn-cloudwatch-alert-condition-warningthreshold
+            '''
+            result = self._values.get("warning_threshold")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConditionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlert.EvaluationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "interval_seconds": "intervalSeconds",
+            "pending_duration_seconds": "pendingDurationSeconds",
+            "recovery_duration_seconds": "recoveryDurationSeconds",
+        },
+    )
+    class EvaluationProperty:
+        def __init__(
+            self,
+            *,
+            interval_seconds: jsii.Number,
+            pending_duration_seconds: typing.Optional[jsii.Number] = None,
+            recovery_duration_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''How often the alert is evaluated, and how long a change must last before the state changes.
+
+            :param interval_seconds: The time between evaluations, in seconds. Valid values: 30, 60, 120, 300, 600, 900, 1800, 3600.
+            :param pending_duration_seconds: How long a threshold breach must last before the alert changes state, in seconds. Must be a multiple of IntervalSeconds. 0 changes state immediately.
+            :param recovery_duration_seconds: How long the result must stay within its thresholds before the alert returns to OK, in seconds. Must be a multiple of IntervalSeconds. 0 returns to OK immediately.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-evaluation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                evaluation_property = cloudwatch.CfnAlert.EvaluationProperty(
+                    interval_seconds=123,
+                
+                    # the properties below are optional
+                    pending_duration_seconds=123,
+                    recovery_duration_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3201d56bca571ac4ee536c03f52ad56fd24bf4a80ce976596191feb156ca59a0)
+                check_type(argname="argument interval_seconds", value=interval_seconds, expected_type=type_hints["interval_seconds"])
+                check_type(argname="argument pending_duration_seconds", value=pending_duration_seconds, expected_type=type_hints["pending_duration_seconds"])
+                check_type(argname="argument recovery_duration_seconds", value=recovery_duration_seconds, expected_type=type_hints["recovery_duration_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "interval_seconds": interval_seconds,
+            }
+            if pending_duration_seconds is not None:
+                self._values["pending_duration_seconds"] = pending_duration_seconds
+            if recovery_duration_seconds is not None:
+                self._values["recovery_duration_seconds"] = recovery_duration_seconds
+
+        @builtins.property
+        def interval_seconds(self) -> jsii.Number:
+            '''The time between evaluations, in seconds.
+
+            Valid values: 30, 60, 120, 300, 600, 900, 1800, 3600.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-evaluation.html#cfn-cloudwatch-alert-evaluation-intervalseconds
+            '''
+            result = self._values.get("interval_seconds")
+            assert result is not None, "Required property 'interval_seconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def pending_duration_seconds(self) -> typing.Optional[jsii.Number]:
+            '''How long a threshold breach must last before the alert changes state, in seconds.
+
+            Must be a multiple of IntervalSeconds. 0 changes state immediately.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-evaluation.html#cfn-cloudwatch-alert-evaluation-pendingdurationseconds
+            '''
+            result = self._values.get("pending_duration_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def recovery_duration_seconds(self) -> typing.Optional[jsii.Number]:
+            '''How long the result must stay within its thresholds before the alert returns to OK, in seconds.
+
+            Must be a multiple of IntervalSeconds. 0 returns to OK immediately.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-evaluation.html#cfn-cloudwatch-alert-evaluation-recoverydurationseconds
+            '''
+            result = self._values.get("recovery_duration_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EvaluationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlert.NoDataProperty",
+        jsii_struct_bases=[],
+        name_mapping={"treat_as": "treatAs"},
+    )
+    class NoDataProperty:
+        def __init__(self, *, treat_as: builtins.str) -> None:
+            '''How the alert behaves when an evaluation returns no data.
+
+            If omitted, the alert reports NODATA.
+
+            :param treat_as: The state to report when an evaluation returns no data. Valid values: OK, WARNING, CRITICAL, NODATA.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-nodata.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                no_data_property = cloudwatch.CfnAlert.NoDataProperty(
+                    treat_as="treatAs"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b17d4cdc62b11f46be6b30ed3728fd8a8a3b668cc5a1614f937d3f97d40f5784)
+                check_type(argname="argument treat_as", value=treat_as, expected_type=type_hints["treat_as"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "treat_as": treat_as,
+            }
+
+        @builtins.property
+        def treat_as(self) -> builtins.str:
+            '''The state to report when an evaluation returns no data.
+
+            Valid values: OK, WARNING, CRITICAL, NODATA.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-nodata.html#cfn-cloudwatch-alert-nodata-treatas
+            '''
+            result = self._values.get("treat_as")
+            assert result is not None, "Required property 'treat_as' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NoDataProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlert.NotificationRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"target": "target", "trigger": "trigger"},
+    )
+    class NotificationRuleProperty:
+        def __init__(
+            self,
+            *,
+            target: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlert.TargetProperty", typing.Dict[builtins.str, typing.Any]]],
+            trigger: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlert.TriggerProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''A notification rule: which alert states trigger it, and where the notification is sent.
+
+            :param target: Where the notification is sent.
+            :param trigger: The alert states that trigger the notification rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-notificationrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                notification_rule_property = cloudwatch.CfnAlert.NotificationRuleProperty(
+                    target=cloudwatch.CfnAlert.TargetProperty(
+                        arn="arn",
+                        type="type",
+                
+                        # the properties below are optional
+                        metadata={
+                            "metadata_key": "metadata"
+                        }
+                    ),
+                    trigger=cloudwatch.CfnAlert.TriggerProperty(
+                        state_values=["stateValues"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3f6cf2b55b56cad74883d1c7257880c0fe0f0cec29323772f2f171160a729a9f)
+                check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+                check_type(argname="argument trigger", value=trigger, expected_type=type_hints["trigger"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "target": target,
+                "trigger": trigger,
+            }
+
+        @builtins.property
+        def target(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.TargetProperty"]:
+            '''Where the notification is sent.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-notificationrule.html#cfn-cloudwatch-alert-notificationrule-target
+            '''
+            result = self._values.get("target")
+            assert result is not None, "Required property 'target' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.TargetProperty"], result)
+
+        @builtins.property
+        def trigger(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.TriggerProperty"]:
+            '''The alert states that trigger the notification rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-notificationrule.html#cfn-cloudwatch-alert-notificationrule-trigger
+            '''
+            result = self._values.get("trigger")
+            assert result is not None, "Required property 'trigger' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.TriggerProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NotificationRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlert.QueryProperty",
+        jsii_struct_bases=[],
+        name_mapping={"expression": "expression", "language": "language"},
+    )
+    class QueryProperty:
+        def __init__(self, *, expression: builtins.str, language: builtins.str) -> None:
+            '''The query the alert runs, and the language it is written in.
+
+            :param expression: The query expression. For PromQL, the series value is returned in a field named value.
+            :param language: The query language. Valid values: SQL, PROMQL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-query.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                query_property = cloudwatch.CfnAlert.QueryProperty(
+                    expression="expression",
+                    language="language"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fa0af03079bf4ac991f39b7a1715cc4498751e8f9248ae8b4f2498d838c57f36)
+                check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
+                check_type(argname="argument language", value=language, expected_type=type_hints["language"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "expression": expression,
+                "language": language,
+            }
+
+        @builtins.property
+        def expression(self) -> builtins.str:
+            '''The query expression.
+
+            For PromQL, the series value is returned in a field named value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-query.html#cfn-cloudwatch-alert-query-expression
+            '''
+            result = self._values.get("expression")
+            assert result is not None, "Required property 'expression' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def language(self) -> builtins.str:
+            '''The query language.
+
+            Valid values: SQL, PROMQL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-query.html#cfn-cloudwatch-alert-query-language
+            '''
+            result = self._values.get("language")
+            assert result is not None, "Required property 'language' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "QueryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlert.RuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"telemetry_rule": "telemetryRule"},
+    )
+    class RuleProperty:
+        def __init__(
+            self,
+            *,
+            telemetry_rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlert.TelemetryRuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The rule that defines how the alert is evaluated.
+
+            :param telemetry_rule: A rule that queries telemetry, evaluates the result against a condition, and sets how missing data is handled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-rule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                rule_property = cloudwatch.CfnAlert.RuleProperty(
+                    telemetry_rule=cloudwatch.CfnAlert.TelemetryRuleProperty(
+                        condition=cloudwatch.CfnAlert.ConditionProperty(
+                            comparator="comparator",
+                            critical_threshold=123,
+                            threshold_field="thresholdField",
+                            threshold_mode="thresholdMode",
+                            warning_threshold=123
+                        ),
+                        evaluation=cloudwatch.CfnAlert.EvaluationProperty(
+                            interval_seconds=123,
+                
+                            # the properties below are optional
+                            pending_duration_seconds=123,
+                            recovery_duration_seconds=123
+                        ),
+                        query=cloudwatch.CfnAlert.QueryProperty(
+                            expression="expression",
+                            language="language"
+                        ),
+                
+                        # the properties below are optional
+                        no_data=cloudwatch.CfnAlert.NoDataProperty(
+                            treat_as="treatAs"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9df6f67c44bdb3c4c570d2994ca4cb58234771a589b31585591eee02f78e96ac)
+                check_type(argname="argument telemetry_rule", value=telemetry_rule, expected_type=type_hints["telemetry_rule"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "telemetry_rule": telemetry_rule,
+            }
+
+        @builtins.property
+        def telemetry_rule(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.TelemetryRuleProperty"]:
+            '''A rule that queries telemetry, evaluates the result against a condition, and sets how missing data is handled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-rule.html#cfn-cloudwatch-alert-rule-telemetryrule
+            '''
+            result = self._values.get("telemetry_rule")
+            assert result is not None, "Required property 'telemetry_rule' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.TelemetryRuleProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlert.TargetProperty",
+        jsii_struct_bases=[],
+        name_mapping={"arn": "arn", "type": "type", "metadata": "metadata"},
+    )
+    class TargetProperty:
+        def __init__(
+            self,
+            *,
+            arn: builtins.str,
+            type: builtins.str,
+            metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ) -> None:
+            '''Where the notification is sent.
+
+            :param arn: The ARN of the target. For sns, the ARN of the Amazon SNS topic. For slack and pagerduty, the ARN of a CloudWatch Omni integration.
+            :param type: The target type. Valid values: sns, slack, pagerduty.
+            :param metadata: Settings specific to the target, as key-value pairs (up to 20). The keys depend on the integration type. Not used for sns targets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-target.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                target_property = cloudwatch.CfnAlert.TargetProperty(
+                    arn="arn",
+                    type="type",
+                
+                    # the properties below are optional
+                    metadata={
+                        "metadata_key": "metadata"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3aa571db6bff2779ea8d1ef0ed7cb57d384595a9b5cff79182683d38272bd990)
+                check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "arn": arn,
+                "type": type,
+            }
+            if metadata is not None:
+                self._values["metadata"] = metadata
+
+        @builtins.property
+        def arn(self) -> builtins.str:
+            '''The ARN of the target.
+
+            For sns, the ARN of the Amazon SNS topic. For slack and pagerduty, the ARN of a CloudWatch Omni integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-target.html#cfn-cloudwatch-alert-target-arn
+            '''
+            result = self._values.get("arn")
+            assert result is not None, "Required property 'arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The target type.
+
+            Valid values: sns, slack, pagerduty.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-target.html#cfn-cloudwatch-alert-target-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def metadata(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''Settings specific to the target, as key-value pairs (up to 20).
+
+            The keys depend on the integration type. Not used for sns targets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-target.html#cfn-cloudwatch-alert-target-metadata
+            '''
+            result = self._values.get("metadata")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TargetProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlert.TelemetryRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "condition": "condition",
+            "evaluation": "evaluation",
+            "query": "query",
+            "no_data": "noData",
+        },
+    )
+    class TelemetryRuleProperty:
+        def __init__(
+            self,
+            *,
+            condition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlert.ConditionProperty", typing.Dict[builtins.str, typing.Any]]],
+            evaluation: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlert.EvaluationProperty", typing.Dict[builtins.str, typing.Any]]],
+            query: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlert.QueryProperty", typing.Dict[builtins.str, typing.Any]]],
+            no_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlert.NoDataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''A rule that queries telemetry, evaluates the result against a condition, and sets how missing data is handled.
+
+            :param condition: The thresholds that set the alert's state. Specify at least one of WarningThreshold and CriticalThreshold.
+            :param evaluation: How often the alert is evaluated, and how long a change must last before the state changes.
+            :param query: The query the alert runs, and the language it is written in.
+            :param no_data: How the alert behaves when an evaluation returns no data. If omitted, the alert reports NODATA.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-telemetryrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                telemetry_rule_property = cloudwatch.CfnAlert.TelemetryRuleProperty(
+                    condition=cloudwatch.CfnAlert.ConditionProperty(
+                        comparator="comparator",
+                        critical_threshold=123,
+                        threshold_field="thresholdField",
+                        threshold_mode="thresholdMode",
+                        warning_threshold=123
+                    ),
+                    evaluation=cloudwatch.CfnAlert.EvaluationProperty(
+                        interval_seconds=123,
+                
+                        # the properties below are optional
+                        pending_duration_seconds=123,
+                        recovery_duration_seconds=123
+                    ),
+                    query=cloudwatch.CfnAlert.QueryProperty(
+                        expression="expression",
+                        language="language"
+                    ),
+                
+                    # the properties below are optional
+                    no_data=cloudwatch.CfnAlert.NoDataProperty(
+                        treat_as="treatAs"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__795781b48e067c7a2b7cf3c04af2d869f8ef0fc93b29e097399231c2068c3e87)
+                check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
+                check_type(argname="argument evaluation", value=evaluation, expected_type=type_hints["evaluation"])
+                check_type(argname="argument query", value=query, expected_type=type_hints["query"])
+                check_type(argname="argument no_data", value=no_data, expected_type=type_hints["no_data"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "condition": condition,
+                "evaluation": evaluation,
+                "query": query,
+            }
+            if no_data is not None:
+                self._values["no_data"] = no_data
+
+        @builtins.property
+        def condition(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.ConditionProperty"]:
+            '''The thresholds that set the alert's state.
+
+            Specify at least one of WarningThreshold and CriticalThreshold.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-telemetryrule.html#cfn-cloudwatch-alert-telemetryrule-condition
+            '''
+            result = self._values.get("condition")
+            assert result is not None, "Required property 'condition' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.ConditionProperty"], result)
+
+        @builtins.property
+        def evaluation(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.EvaluationProperty"]:
+            '''How often the alert is evaluated, and how long a change must last before the state changes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-telemetryrule.html#cfn-cloudwatch-alert-telemetryrule-evaluation
+            '''
+            result = self._values.get("evaluation")
+            assert result is not None, "Required property 'evaluation' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.EvaluationProperty"], result)
+
+        @builtins.property
+        def query(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.QueryProperty"]:
+            '''The query the alert runs, and the language it is written in.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-telemetryrule.html#cfn-cloudwatch-alert-telemetryrule-query
+            '''
+            result = self._values.get("query")
+            assert result is not None, "Required property 'query' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.QueryProperty"], result)
+
+        @builtins.property
+        def no_data(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.NoDataProperty"]]:
+            '''How the alert behaves when an evaluation returns no data.
+
+            If omitted, the alert reports NODATA.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-telemetryrule.html#cfn-cloudwatch-alert-telemetryrule-nodata
+            '''
+            result = self._values.get("no_data")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.NoDataProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TelemetryRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlert.TriggerProperty",
+        jsii_struct_bases=[],
+        name_mapping={"state_values": "stateValues"},
+    )
+    class TriggerProperty:
+        def __init__(
+            self,
+            *,
+            state_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The alert states that trigger the notification rule.
+
+            :param state_values: The alert states that trigger this rule. A notification is sent when the alert enters any listed state. If omitted or empty, every state triggers the rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-trigger.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                trigger_property = cloudwatch.CfnAlert.TriggerProperty(
+                    state_values=["stateValues"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__cb5326ffa3aa6558a0ebf60c4f5a8452d9a2a083b5d07cef9a6ea6083dd12187)
+                check_type(argname="argument state_values", value=state_values, expected_type=type_hints["state_values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if state_values is not None:
+                self._values["state_values"] = state_values
+
+        @builtins.property
+        def state_values(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The alert states that trigger this rule.
+
+            A notification is sent when the alert enters any listed state. If omitted or empty, every state triggers the rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alert-trigger.html#cfn-cloudwatch-alert-trigger-statevalues
+            '''
+            result = self._values.get("state_values")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TriggerProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlertProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "profile_id": "profileId",
+        "rule": "rule",
+        "space_id": "spaceId",
+        "description": "description",
+        "notification_rules": "notificationRules",
+        "notifications_enabled": "notificationsEnabled",
+        "tags": "tags",
+    },
+)
+class CfnAlertProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        profile_id: builtins.str,
+        rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlert.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        space_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        notification_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlert.NotificationRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        notifications_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAlert``.
+
+        :param name: The display name of the alert. Names don't need to be unique within a space; the alert is identified by AlertId.
+        :param profile_id: The ID of the access profile the alert uses to run its query and send notifications.
+        :param rule: The rule that defines how the alert is evaluated.
+        :param space_id: The ID of the space to create the alert in. Changing this value replaces the alert.
+        :param description: A description of the alert.
+        :param notification_rules: The notification rules that determine when and where notifications are sent.
+        :param notifications_enabled: Whether the alert sends notifications. When false, the alert is still evaluated and records its state, but sends nothing. Defaults to true.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alert.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            cfn_alert_props = cloudwatch.CfnAlertProps(
+                name="name",
+                profile_id="profileId",
+                rule=cloudwatch.CfnAlert.RuleProperty(
+                    telemetry_rule=cloudwatch.CfnAlert.TelemetryRuleProperty(
+                        condition=cloudwatch.CfnAlert.ConditionProperty(
+                            comparator="comparator",
+                            critical_threshold=123,
+                            threshold_field="thresholdField",
+                            threshold_mode="thresholdMode",
+                            warning_threshold=123
+                        ),
+                        evaluation=cloudwatch.CfnAlert.EvaluationProperty(
+                            interval_seconds=123,
+            
+                            # the properties below are optional
+                            pending_duration_seconds=123,
+                            recovery_duration_seconds=123
+                        ),
+                        query=cloudwatch.CfnAlert.QueryProperty(
+                            expression="expression",
+                            language="language"
+                        ),
+            
+                        # the properties below are optional
+                        no_data=cloudwatch.CfnAlert.NoDataProperty(
+                            treat_as="treatAs"
+                        )
+                    )
+                ),
+                space_id="spaceId",
+            
+                # the properties below are optional
+                description="description",
+                notification_rules=[cloudwatch.CfnAlert.NotificationRuleProperty(
+                    target=cloudwatch.CfnAlert.TargetProperty(
+                        arn="arn",
+                        type="type",
+            
+                        # the properties below are optional
+                        metadata={
+                            "metadata_key": "metadata"
+                        }
+                    ),
+                    trigger=cloudwatch.CfnAlert.TriggerProperty(
+                        state_values=["stateValues"]
+                    )
+                )],
+                notifications_enabled=False,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3fb8c116a7c00afff42fdf59dc1aa914ce0ef70a9338e2b69e775a36f984b1d6)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument profile_id", value=profile_id, expected_type=type_hints["profile_id"])
+            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
+            check_type(argname="argument space_id", value=space_id, expected_type=type_hints["space_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument notification_rules", value=notification_rules, expected_type=type_hints["notification_rules"])
+            check_type(argname="argument notifications_enabled", value=notifications_enabled, expected_type=type_hints["notifications_enabled"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "profile_id": profile_id,
+            "rule": rule,
+            "space_id": space_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if notification_rules is not None:
+            self._values["notification_rules"] = notification_rules
+        if notifications_enabled is not None:
+            self._values["notifications_enabled"] = notifications_enabled
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The display name of the alert.
+
+        Names don't need to be unique within a space; the alert is identified by AlertId.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alert.html#cfn-cloudwatch-alert-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def profile_id(self) -> builtins.str:
+        '''The ID of the access profile the alert uses to run its query and send notifications.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alert.html#cfn-cloudwatch-alert-profileid
+        '''
+        result = self._values.get("profile_id")
+        assert result is not None, "Required property 'profile_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.RuleProperty"]:
+        '''The rule that defines how the alert is evaluated.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alert.html#cfn-cloudwatch-alert-rule
+        '''
+        result = self._values.get("rule")
+        assert result is not None, "Required property 'rule' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.RuleProperty"], result)
+
+    @builtins.property
+    def space_id(self) -> builtins.str:
+        '''The ID of the space to create the alert in.
+
+        Changing this value replaces the alert.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alert.html#cfn-cloudwatch-alert-spaceid
+        '''
+        result = self._values.get("space_id")
+        assert result is not None, "Required property 'space_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the alert.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alert.html#cfn-cloudwatch-alert-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def notification_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.NotificationRuleProperty"]]]]:
+        '''The notification rules that determine when and where notifications are sent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alert.html#cfn-cloudwatch-alert-notificationrules
+        '''
+        result = self._values.get("notification_rules")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlert.NotificationRuleProperty"]]]], result)
+
+    @builtins.property
+    def notifications_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether the alert sends notifications.
+
+        When false, the alert is still evaluated and records its state, but sends nothing. Defaults to true.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alert.html#cfn-cloudwatch-alert-notificationsenabled
+        '''
+        result = self._values.get("notifications_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alert.html#cfn-cloudwatch-alert-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAlertProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IAnomalyDetectorRef)
 class CfnAnomalyDetector(
     _aws_cdk_0cae9daa.CfnResource,
@@ -15922,7 +17332,9 @@ class CfnSpace(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnSpace",
 ):
-    '''Resource type definition for AWS::CloudWatch::Space.
+    '''Resource Type definition for AWS::CloudWatch::Space.
+
+    A space is where you work in CloudWatch Omni. It gives you access to telemetry from the account and Region in which the space is hosted, and controls who can see it.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-space.html
     :cloudformationResource: AWS::CloudWatch::Space
@@ -15971,10 +17383,10 @@ class CfnSpace(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param data_access_role_arn: The Amazon Resource Name (ARN) of the IAM role the space uses to access observability data.
-        :param domain_id: The identifier of the domain the space belongs to.
-        :param name: The name of the space.
-        :param agent_core_evaluation_role_arn: The Amazon Resource Name (ARN) of the IAM role used for AgentCore evaluation.
+        :param data_access_role_arn: The ARN of the IAM role used for data access.
+        :param domain_id: The ID of the domain to create the space in.
+        :param name: A name that identifies the space.
+        :param agent_core_evaluation_role_arn: The ARN of the IAM role used by AgentCore online evaluation. Absent when the space was created without one.
         :param encryption_configuration: The encryption configuration for the space.
         :param tags: An array of key-value pairs to apply to this resource.
         '''
@@ -16062,7 +17474,7 @@ class CfnSpace(
     @builtins.property
     @jsii.member(jsii_name="attrCreatedAt")
     def attr_created_at(self) -> builtins.str:
-        '''The time the space was created.
+        '''The timestamp when the space was created.
 
         :cloudformationAttribute: CreatedAt
         '''
@@ -16071,7 +17483,7 @@ class CfnSpace(
     @builtins.property
     @jsii.member(jsii_name="attrOwnerAccountId")
     def attr_owner_account_id(self) -> builtins.str:
-        '''The AWS account that owns the space.
+        '''AWS account ID that owns this space.
 
         :cloudformationAttribute: OwnerAccountId
         '''
@@ -16080,7 +17492,7 @@ class CfnSpace(
     @builtins.property
     @jsii.member(jsii_name="attrRegion")
     def attr_region(self) -> builtins.str:
-        '''The AWS Region the space resides in.
+        '''The region where this space was created.
 
         :cloudformationAttribute: Region
         '''
@@ -16089,7 +17501,7 @@ class CfnSpace(
     @builtins.property
     @jsii.member(jsii_name="attrSpaceId")
     def attr_space_id(self) -> builtins.str:
-        '''The unique identifier of the space.
+        '''The unique ID of the space.
 
         :cloudformationAttribute: SpaceId
         '''
@@ -16107,7 +17519,7 @@ class CfnSpace(
     @builtins.property
     @jsii.member(jsii_name="attrUpdatedAt")
     def attr_updated_at(self) -> builtins.str:
-        '''The time the space was last updated.
+        '''The timestamp when the space was last updated.
 
         :cloudformationAttribute: UpdatedAt
         '''
@@ -16138,7 +17550,7 @@ class CfnSpace(
     @builtins.property
     @jsii.member(jsii_name="dataAccessRoleArn")
     def data_access_role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role the space uses to access observability data.'''
+        '''The ARN of the IAM role used for data access.'''
         return typing.cast(builtins.str, jsii.get(self, "dataAccessRoleArn"))
 
     @data_access_role_arn.setter
@@ -16151,7 +17563,7 @@ class CfnSpace(
     @builtins.property
     @jsii.member(jsii_name="domainId")
     def domain_id(self) -> builtins.str:
-        '''The identifier of the domain the space belongs to.'''
+        '''The ID of the domain to create the space in.'''
         return typing.cast(builtins.str, jsii.get(self, "domainId"))
 
     @domain_id.setter
@@ -16164,7 +17576,7 @@ class CfnSpace(
     @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
-        '''The name of the space.'''
+        '''A name that identifies the space.'''
         return typing.cast(builtins.str, jsii.get(self, "name"))
 
     @name.setter
@@ -16177,7 +17589,7 @@ class CfnSpace(
     @builtins.property
     @jsii.member(jsii_name="agentCoreEvaluationRoleArn")
     def agent_core_evaluation_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM role used for AgentCore evaluation.'''
+        '''The ARN of the IAM role used by AgentCore online evaluation.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "agentCoreEvaluationRoleArn"))
 
     @agent_core_evaluation_role_arn.setter
@@ -16241,8 +17653,8 @@ class CfnSpace(
         ) -> None:
             '''The encryption configuration for the space.
 
-            :param encryption_strategy: Whether the space is encrypted with an AWS owned key or a customer managed key.
-            :param kms_key_arn: The Amazon Resource Name (ARN) of the customer managed KMS key. Required when encryptionStrategy is CUSTOMER_MANAGED.
+            :param encryption_strategy: Which kind of key to use. Required.
+            :param kms_key_arn: Customer managed KMS key ARN. Required when encryptionStrategy is CUSTOMER_MANAGED, and must be omitted when it is AWS_OWNED. Must be a symmetric ENCRYPT_DECRYPT key in the caller's account and region.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-space-encryptionconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -16272,7 +17684,9 @@ class CfnSpace(
 
         @builtins.property
         def encryption_strategy(self) -> builtins.str:
-            '''Whether the space is encrypted with an AWS owned key or a customer managed key.
+            '''Which kind of key to use.
+
+            Required.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-space-encryptionconfiguration.html#cfn-cloudwatch-space-encryptionconfiguration-encryptionstrategy
             '''
@@ -16282,9 +17696,9 @@ class CfnSpace(
 
         @builtins.property
         def kms_key_arn(self) -> typing.Optional[builtins.str]:
-            '''The Amazon Resource Name (ARN) of the customer managed KMS key.
+            '''Customer managed KMS key ARN.
 
-            Required when encryptionStrategy is CUSTOMER_MANAGED.
+            Required when encryptionStrategy is CUSTOMER_MANAGED, and must be omitted when it is AWS_OWNED. Must be a symmetric ENCRYPT_DECRYPT key in the caller's account and region.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-space-encryptionconfiguration.html#cfn-cloudwatch-space-encryptionconfiguration-kmskeyarn
             '''
@@ -16328,10 +17742,10 @@ class CfnSpaceProps:
     ) -> None:
         '''Properties for defining a ``CfnSpace``.
 
-        :param data_access_role_arn: The Amazon Resource Name (ARN) of the IAM role the space uses to access observability data.
-        :param domain_id: The identifier of the domain the space belongs to.
-        :param name: The name of the space.
-        :param agent_core_evaluation_role_arn: The Amazon Resource Name (ARN) of the IAM role used for AgentCore evaluation.
+        :param data_access_role_arn: The ARN of the IAM role used for data access.
+        :param domain_id: The ID of the domain to create the space in.
+        :param name: A name that identifies the space.
+        :param agent_core_evaluation_role_arn: The ARN of the IAM role used by AgentCore online evaluation. Absent when the space was created without one.
         :param encryption_configuration: The encryption configuration for the space.
         :param tags: An array of key-value pairs to apply to this resource.
 
@@ -16386,7 +17800,7 @@ class CfnSpaceProps:
 
     @builtins.property
     def data_access_role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role the space uses to access observability data.
+        '''The ARN of the IAM role used for data access.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-space.html#cfn-cloudwatch-space-dataaccessrolearn
         '''
@@ -16396,7 +17810,7 @@ class CfnSpaceProps:
 
     @builtins.property
     def domain_id(self) -> builtins.str:
-        '''The identifier of the domain the space belongs to.
+        '''The ID of the domain to create the space in.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-space.html#cfn-cloudwatch-space-domainid
         '''
@@ -16406,7 +17820,7 @@ class CfnSpaceProps:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''The name of the space.
+        '''A name that identifies the space.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-space.html#cfn-cloudwatch-space-name
         '''
@@ -16416,7 +17830,9 @@ class CfnSpaceProps:
 
     @builtins.property
     def agent_core_evaluation_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM role used for AgentCore evaluation.
+        '''The ARN of the IAM role used by AgentCore online evaluation.
+
+        Absent when the space was created without one.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-space.html#cfn-cloudwatch-space-agentcoreevaluationrolearn
         '''
@@ -16531,48 +17947,6 @@ class CfnView(
             type_hints = cached_type_hints(_typecheckingstub__bbf9dc7b73a9c94e92c6caa1e489e46141ce37b5b768a80994593eb4c0bfbd9a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForView", [resource]))
-
-    @jsii.member(jsii_name="fromViewArn")
-    @builtins.classmethod
-    def from_view_arn(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        arn: builtins.str,
-    ) -> "_aws_cloudwatch_70717108.IViewRef":
-        '''Creates a new IViewRef from an ARN.
-
-        :param scope: -
-        :param id: -
-        :param arn: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__f2a58503ea230ae562079d41697496f283f80f95e2ca2a7e5418985f9d509171)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_aws_cloudwatch_70717108.IViewRef", jsii.sinvoke(cls, "fromViewArn", [scope, id, arn]))
-
-    @jsii.member(jsii_name="fromViewName")
-    @builtins.classmethod
-    def from_view_name(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        view_name: builtins.str,
-    ) -> "_aws_cloudwatch_70717108.IViewRef":
-        '''Creates a new IViewRef from a viewName.
-
-        :param scope: -
-        :param id: -
-        :param view_name: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__ed7e14df3cf843f1a41f0889f124e138d496283c45f88791d205df5ca442fe54)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument view_name", value=view_name, expected_type=type_hints["view_name"])
-        return typing.cast("_aws_cloudwatch_70717108.IViewRef", jsii.sinvoke(cls, "fromViewName", [scope, id, view_name]))
 
     @jsii.member(jsii_name="isCfnView")
     @builtins.classmethod
@@ -27922,6 +29296,8 @@ __all__ = [
     "CfnAlarmMuteRule",
     "CfnAlarmMuteRuleProps",
     "CfnAlarmProps",
+    "CfnAlert",
+    "CfnAlertProps",
     "CfnAnomalyDetector",
     "CfnAnomalyDetectorProps",
     "CfnCompositeAlarm",
@@ -28873,6 +30249,184 @@ def _typecheckingstub__bc643fb1b5f1f1f0e0d9896a5988171163c1f79adc28d1e921bdf85f1
     treat_missing_data: typing.Optional[builtins.str] = None,
     unit: typing.Optional[builtins.str] = None,
     warm_up_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.WarmUpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db6a4a7d130f895ced57f270b8801c297b1a150dec5a1150e10dfa51a6f0541a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    profile_id: builtins.str,
+    rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlert.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    space_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    notification_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlert.NotificationRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    notifications_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4672029b8e47aaea79d239bd80a26962f3f630312516f0a11f7534136a36a3d2(
+    resource: _aws_cloudwatch_70717108.IAlertRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df4a2b3e5afd172e980ec617b860f6dbd0ca97d643502a55597aff2920ff5a84(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7c29af9a1c83bae1933689b9f4ef5c5586948adf14cf18cf229924a9aa0bda1(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e68742e3b3c2c8ba062a567153f922efe4dda2a222563eb28efa74dedacd364(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d840419879bc313eee450c74e8d285e141854ce18d269e02e483f1691d026df0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9845d11275798dc91e91d97b0cb674d08bc78c0e8af5a3b12d2535a29670a541(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__863370ee6290920851289738455ee65da18fd8835b0b8d56604e2c3682cb602f(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAlert.RuleProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc7a5b492ff4296641062a0d4a66c54cd2b0f658e3b1dd556f123f01856ab6de(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76dcfb5ed8d38b30ac6e84f270ce0b1814d11817baecad02d6f0a38c13024e58(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb62d1353e4aada4c058f61f483e46d53294f09f2d8f821a26af4fa62254d185(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAlert.NotificationRuleProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51e5afe58087ec1a7e4d1be1ce99cea1d7d0a83213b04c79d4fbb81f74221c2e(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__77f377297997fb59dec701b1e8cfaa7f27283256f68a13c289c532fc07b332e2(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e60ed1f1518b92a90d97d21bb5aa0fea2b4a4ebeb922f631fc3444638075337(
+    *,
+    comparator: typing.Optional[builtins.str] = None,
+    critical_threshold: typing.Optional[jsii.Number] = None,
+    threshold_field: typing.Optional[builtins.str] = None,
+    threshold_mode: typing.Optional[builtins.str] = None,
+    warning_threshold: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3201d56bca571ac4ee536c03f52ad56fd24bf4a80ce976596191feb156ca59a0(
+    *,
+    interval_seconds: jsii.Number,
+    pending_duration_seconds: typing.Optional[jsii.Number] = None,
+    recovery_duration_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b17d4cdc62b11f46be6b30ed3728fd8a8a3b668cc5a1614f937d3f97d40f5784(
+    *,
+    treat_as: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f6cf2b55b56cad74883d1c7257880c0fe0f0cec29323772f2f171160a729a9f(
+    *,
+    target: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlert.TargetProperty, typing.Dict[builtins.str, typing.Any]]],
+    trigger: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlert.TriggerProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa0af03079bf4ac991f39b7a1715cc4498751e8f9248ae8b4f2498d838c57f36(
+    *,
+    expression: builtins.str,
+    language: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9df6f67c44bdb3c4c570d2994ca4cb58234771a589b31585591eee02f78e96ac(
+    *,
+    telemetry_rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlert.TelemetryRuleProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3aa571db6bff2779ea8d1ef0ed7cb57d384595a9b5cff79182683d38272bd990(
+    *,
+    arn: builtins.str,
+    type: builtins.str,
+    metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__795781b48e067c7a2b7cf3c04af2d869f8ef0fc93b29e097399231c2068c3e87(
+    *,
+    condition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlert.ConditionProperty, typing.Dict[builtins.str, typing.Any]]],
+    evaluation: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlert.EvaluationProperty, typing.Dict[builtins.str, typing.Any]]],
+    query: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlert.QueryProperty, typing.Dict[builtins.str, typing.Any]]],
+    no_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlert.NoDataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb5326ffa3aa6558a0ebf60c4f5a8452d9a2a083b5d07cef9a6ea6083dd12187(
+    *,
+    state_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3fb8c116a7c00afff42fdf59dc1aa914ce0ef70a9338e2b69e775a36f984b1d6(
+    *,
+    name: builtins.str,
+    profile_id: builtins.str,
+    rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlert.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    space_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    notification_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlert.NotificationRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    notifications_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30413,22 +31967,6 @@ def _typecheckingstub__f94ca5648fbb2dfe068be89c19e2d199895c82c5c987c24654b9b499b
 
 def _typecheckingstub__bbf9dc7b73a9c94e92c6caa1e489e46141ce37b5b768a80994593eb4c0bfbd9a(
     resource: _aws_cloudwatch_70717108.IViewRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f2a58503ea230ae562079d41697496f283f80f95e2ca2a7e5418985f9d509171(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ed7e14df3cf843f1a41f0889f124e138d496283c45f88791d205df5ca442fe54(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    view_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

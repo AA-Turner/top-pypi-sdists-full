@@ -170,7 +170,7 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "enumfields": ((2, 0), (2, 1)),  # django-enumfields
     "falcon": ((3, 0), (4, 0)),
     "falcon_multipart": ((0, 1), (0, 2)),
-    "fastapi": ((0, 71), (0, 142)),
+    "fastapi": ((0, 71), (0, 162)),
     "flask": ((1, 1), (3, 1)),
     "genshi": ((0, 7), (0, 7)),
     "google-genai": ((1, 0), (2, 31)),
@@ -199,7 +199,7 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "sqlalchemy": ((1,), (2,)),
     "starlette": (
         (0, 17),
-        (1, 7),
+        (1, 10),
     ),  # fastapi==0.71.0 requires starlette==0.17.1
     "urllib3": ((1, 25), (2, 8)),
     "strands": ((1, 21), (1, 61)),

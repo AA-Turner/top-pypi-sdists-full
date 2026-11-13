@@ -23,6 +23,7 @@ from ouroboros.mcp.job_manager import (
     JobSnapshot,
     JobStatus,
 )
+from ouroboros.mcp.job_read_state import JobNotFoundError, pending_job_result
 from ouroboros.mcp.tools import host_dispatch_status
 from ouroboros.mcp.tools.ac_tree_hud_handler import (
     format_subtask_progress_summary,
@@ -31,10 +32,14 @@ from ouroboros.mcp.tools.ac_tree_hud_handler import (
 from ouroboros.mcp.tools.attention_relay import (
     RELAY_SOURCE_EVENT_TYPES,
     classify_relay_events,
+    may_emit_relay,
 )
 from ouroboros.mcp.tools.job_wait_guard import (
     JOB_WAIT_GUARD_VERSION,
     await_job_wait_request,
+)
+from ouroboros.mcp.tools.job_wait_guard import (
+    job_wait_internal_timeout_result as _job_wait_internal_timeout_result,
 )
 from ouroboros.mcp.types import (
     ContentType,
@@ -205,39 +210,6 @@ def _parse_non_negative_int_argument(
     return Result.ok(value)
 
 
-def _job_wait_internal_timeout_result(
-    *,
-    job_id: str,
-    cursor: int,
-    timeout_seconds: int,
-    requested_timeout_seconds: int,
-    view: str,
-    stream: str,
-    wait_for: str,
-) -> MCPToolResult:
-    text = (
-        f"job_wait timed out before producing a snapshot for `{job_id}`. "
-        "Poll `ouroboros_job_status` or call `ouroboros_job_wait` again."
-    )
-    return MCPToolResult(
-        content=(MCPContentItem(type=ContentType.TEXT, text=text),),
-        is_error=False,
-        meta={
-            "job_id": job_id,
-            "cursor": cursor,
-            "changed": False,
-            "view": view,
-            "stream": stream,
-            "wait_for": wait_for,
-            "timeout_seconds": timeout_seconds,
-            "timeout_seconds_requested": requested_timeout_seconds,
-            "timeout_seconds_capped": timeout_seconds != requested_timeout_seconds,
-            "wait_timed_out": True,
-            "result_available": False,
-        },
-    )
-
-
 async def _query_all_execution_subtask_events(
     event_store: EventStore, execution_id: str
 ) -> list[Any]:
@@ -300,33 +272,10 @@ async def _query_recent_execution_progress_events(
     )
 
 
-async def _query_execution_progress_at_cursor(
-    event_store: EventStore,
-    execution_id: str,
-    *,
-    cursor: int | None = None,
-) -> tuple[dict[str, Any], int]:
-    """Return execution progress visible at ``cursor`` and the latest rowid read."""
-    events, event_cursor = await _query_recent_execution_progress_events(
-        event_store,
-        execution_id,
-        cursor=cursor,
-    )
-    progress = dict(_EMPTY_PROGRESS)
-    workflow_event = next(
-        (event for event in reversed(events) if event.type == "workflow.progress.updated"),
-        None,
-    )
-    subtask_events = [
-        event
-        for event in events
-        if event.type
-        in {
-            "execution.node.created",
-            "execution.node.updated",
-            "execution.subtask.updated",
-        }
-    ]
+def _apply_execution_progress(
+    progress: dict[str, Any], workflow_event: BaseEvent | None, subtask_events: list[Any]
+) -> tuple[dict[str, Any], str | None]:
+    """Fold subtask then workflow progress into ``progress``; return the subtask summary."""
     subtask_summary = summarize_subtask_events(subtask_events)
     subtask_progress = format_subtask_progress_summary(subtask_summary)
     if subtask_summary:
@@ -351,6 +300,49 @@ async def _query_execution_progress_at_cursor(
                 "activity": data.get("activity_detail") or data.get("activity") or "running",
             }
         )
+    return subtask_summary, subtask_progress
+
+
+async def _query_execution_progress_at_cursor(
+    event_store: EventStore,
+    execution_id: str,
+    *,
+    cursor: int | None = None,
+    previous: tuple[dict[str, Any], int] | None = None,
+) -> tuple[dict[str, Any], int]:
+    """Return execution progress visible at ``cursor`` and the latest rowid read.
+
+    ``previous`` (an earlier uncursored result) is reused while the newest progress
+    row is still the one it ended at: event rows are append-only, so the window is too.
+    """
+    getter = getattr(event_store, "get_recent_aggregate_events", None)
+    if previous is not None and cursor is None and getter is not None:
+        _head, head_cursor = await getter(
+            "execution", execution_id, event_types=_JOB_PROGRESS_EVENT_TYPES, limit=1
+        )
+        if head_cursor == previous[1]:
+            return dict(previous[0]), head_cursor
+    events, event_cursor = await _query_recent_execution_progress_events(
+        event_store,
+        execution_id,
+        cursor=cursor,
+    )
+    progress = dict(_EMPTY_PROGRESS)
+    workflow_event = next(
+        (event for event in reversed(events) if event.type == "workflow.progress.updated"),
+        None,
+    )
+    subtask_events = [
+        event
+        for event in events
+        if event.type
+        in {
+            "execution.node.created",
+            "execution.node.updated",
+            "execution.subtask.updated",
+        }
+    ]
+    _apply_execution_progress(progress, workflow_event, subtask_events)
     return progress, event_cursor
 
 
@@ -982,30 +974,9 @@ async def _render_job_snapshot_inner(
         subtask_events = await _query_all_execution_subtask_events(
             event_store, snapshot.links.execution_id
         )
-        subtask_summary = summarize_subtask_events(subtask_events)
-        subtask_progress = format_subtask_progress_summary(subtask_summary)
-        if subtask_summary:
-            progress.update(
-                {
-                    "current_phase": "Sub-AC work",
-                    "activity": subtask_progress or "running",
-                    "sub_ac_completed": subtask_summary.get("completed_count"),
-                    "sub_ac_total": subtask_summary.get("total_count"),
-                    "sub_ac_executing": subtask_summary.get("executing_count"),
-                    "sub_ac_pending": subtask_summary.get("pending_count"),
-                    "sub_ac_failed": subtask_summary.get("failed_count"),
-                }
-            )
-        if workflow_event is not None:
-            data = workflow_event.data
-            progress.update(
-                {
-                    "ac_completed": data.get("completed_count"),
-                    "ac_total": data.get("total_count"),
-                    "current_phase": data.get("current_phase") or "Working",
-                    "activity": data.get("activity_detail") or data.get("activity") or "running",
-                }
-            )
+        subtask_summary, subtask_progress = _apply_execution_progress(
+            progress, workflow_event, subtask_events
+        )
         if workflow_event is not None or subtask_summary:
             lines.extend(
                 [
@@ -1266,6 +1237,10 @@ class JobStatusHandler:
             try:
                 snapshot = await self._job_manager.get_snapshot(job_id)
             except ValueError as exc:
+                if isinstance(exc, JobNotFoundError) and (
+                    pending := await pending_job_result(self._job_manager, job_id)
+                ):
+                    return Result.ok(pending)
                 return Result.err(MCPToolError(str(exc), tool_name="ouroboros_job_status"))
 
         text, progress = await _render_job_snapshot(snapshot, self._event_store)
@@ -1609,6 +1584,32 @@ class JobWaitHandler:
                 )
             )
         except ValueError as exc:
+            if isinstance(exc, JobNotFoundError):
+                try:
+                    pending = await await_job_wait_request(
+                        pending_job_result(self._job_manager, job_id),
+                        timeout_seconds=timeout_seconds,
+                        response_timeout=max(
+                            0.0,
+                            started_at + wait_response_timeout - asyncio.get_running_loop().time(),
+                        ),
+                        job_id=job_id,
+                        branch="pending_receipt",
+                    )
+                except TimeoutError:
+                    return Result.ok(
+                        _job_wait_internal_timeout_result(
+                            job_id=job_id,
+                            cursor=cursor,
+                            timeout_seconds=timeout_seconds,
+                            requested_timeout_seconds=requested_timeout_seconds,
+                            view=view,
+                            stream=stream,
+                            wait_for=wait_for,
+                        )
+                    )
+                if pending is not None:
+                    return Result.ok(pending)
             log.debug(
                 "mcp.tool.job_wait.not_found",
                 job_id=job_id,
@@ -1750,7 +1751,10 @@ class JobWaitHandler:
             )
         stream_items = [_event_stream_item(event) for event in stream_events]
         relay_events: list[dict[str, object]] = []
-        if stream == "linked" and (stream_events or snapshot.is_terminal):
+        # A non-terminal page classifies to [] unless one of its events can source a relay.
+        if stream == "linked" and (
+            snapshot.is_terminal or any(may_emit_relay(event.type) for event in stream_events)
+        ):
             history_max_row_id = None if snapshot.is_terminal else snapshot.cursor
             history_events = await _query_linked_history_events(
                 self._event_store,
@@ -1910,6 +1914,7 @@ class JobWaitHandler:
         """Long-poll until a filtered progress signal or terminal job status."""
         deadline = asyncio.get_running_loop().time() + timeout_seconds
         baseline_progress: dict[str, Any] | None = None
+        latest: tuple[dict[str, Any], int] | None = None
         latest_execution_cursor = cursor
 
         while True:
@@ -1929,13 +1934,10 @@ class JobWaitHandler:
                         snapshot.links.execution_id,
                         cursor=cursor,
                     )
-                (
-                    latest_progress,
-                    latest_execution_cursor,
-                ) = await _query_execution_progress_at_cursor(
-                    self._event_store,
-                    snapshot.links.execution_id,
+                latest = await _query_execution_progress_at_cursor(
+                    self._event_store, snapshot.links.execution_id, previous=latest
                 )
+                latest_progress, latest_execution_cursor = latest
                 execution_changed = _job_wait_progress_changed(
                     baseline_progress,
                     latest_progress,
@@ -1966,6 +1968,7 @@ class JobWaitHandler:
         """Long-poll job plus linked child/session event streams."""
         deadline = asyncio.get_running_loop().time() + timeout_seconds
         baseline_progress: dict[str, Any] | None = None
+        latest: tuple[dict[str, Any], int] | None = None
         while True:
             snapshot, changed = await self._job_manager.wait_for_change(
                 job_id,
@@ -1986,13 +1989,10 @@ class JobWaitHandler:
                         snapshot.links.execution_id,
                         cursor=cursor,
                     )
-                (
-                    latest_progress,
-                    _latest_execution_cursor,
-                ) = await _query_execution_progress_at_cursor(
-                    self._event_store,
-                    snapshot.links.execution_id,
+                latest = await _query_execution_progress_at_cursor(
+                    self._event_store, snapshot.links.execution_id, previous=latest
                 )
+                latest_progress = latest[0]
                 progress_changed = _job_wait_progress_changed(
                     baseline_progress,
                     latest_progress,
@@ -2068,6 +2068,10 @@ class JobResultHandler:
             try:
                 snapshot = await self._job_manager.get_snapshot(job_id)
             except ValueError as exc:
+                if isinstance(exc, JobNotFoundError) and (
+                    pending := await pending_job_result(self._job_manager, job_id)
+                ):
+                    return Result.ok(pending)
                 return Result.err(
                     MCPToolError(
                         f"Job handle not found: {job_id}. Result unavailable.",

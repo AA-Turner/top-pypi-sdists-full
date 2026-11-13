@@ -1,13 +1,18 @@
 import asyncio
 import contextlib
+import copy
 import json
 import logging
 import os
 import re
+import secrets
 import shutil
 import ssl
+import sys
+import tempfile
+import time
 from collections import deque
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Iterator, Mapping
 from inspect import signature
 from typing import Any, Literal, Self, cast
 
@@ -24,6 +29,7 @@ from langchain_core.runnables.schema import (
     StandardStreamEvent,
     StreamEvent,
 )
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.serde.base import SerializerProtocol
 from langgraph.store.base import GetOp, Item, ListNamespacesOp, PutOp, SearchOp
 from langgraph.types import Command, PregelTask, Send, StateSnapshot
@@ -52,13 +58,17 @@ from langgraph_api.js.sse import SSEDecoder, aiter_lines_raw
 from langgraph_api.route import ApiResponse
 from langgraph_api.schema import Config
 from langgraph_api.serde import json_dumpb
-from langgraph_api.utils import get_auth_ctx, get_user_id
+from langgraph_api.utils import AuthContext, get_auth_ctx, get_user_id
 
 logger = structlog.stdlib.get_logger(__name__)
 
-# Loopback ports between the Python parent and its JS subprocess. Containers
-# colocated in one pod share a network namespace, so each entrypoint gets its
-# own range (via the offset below); LANGGRAPH_JS_*_PORT overrides any port.
+# Loopback IPC between the Python parent and its JS subprocess.
+# GRAPH_* stay on TCP; the remote server (checkpointer/store + /loopback) is a
+# Unix socket except on Windows, where uvicorn cannot bind AF_UNIX.
+# Containers colocated in one pod share a network namespace, so each
+# entrypoint gets its own TCP range (via the offset below); LANGGRAPH_JS_*_PORT
+# overrides any port. The remote socket path includes the pid so API and queue
+# workers in one container do not collide.
 _BASE_REMOTE_PORT = 5555
 _BASE_GRAPH_PORT = 5556
 _BASE_GRAPH_HTTP_PORT = 5557
@@ -90,12 +100,51 @@ GRAPH_PORT = _resolve_js_port(
 GRAPH_HTTP_PORT = _resolve_js_port(
     _BASE_GRAPH_HTTP_PORT, _JS_PORT_OFFSET, os.getenv("LANGGRAPH_JS_GRAPH_HTTP_PORT")
 )
+REMOTE_SOCKET = (
+    None
+    if sys.platform == "win32"
+    else os.path.join(tempfile.gettempdir(), f"lg-js-r{os.getpid()}.sock")
+)
 SSL = ssl.create_default_context(cafile=certifi.where())
 
 if (port := int(os.getenv("PORT", "8080"))) and port in (GRAPH_PORT, REMOTE_PORT):
     raise ValueError(
         f"PORT={port} is a reserved port for the JS worker. Please choose a different port."
     )
+
+
+def _js_graph_worker_env(**extra: str | None) -> dict[str, str]:
+    """Env for the Node graph worker. Unix only: path of the remote UDS."""
+    env = {
+        "LANGCHAIN_CALLBACKS_BACKGROUND": "true",
+        "CHOKIDAR_USEPOLLING": "true",
+        **os.environ,
+        "LANGGRAPH_JS_REMOTE_PORT": str(REMOTE_PORT),
+        "LANGGRAPH_JS_GRAPH_PORT": str(GRAPH_PORT),
+        "LANGGRAPH_JS_GRAPH_HTTP_PORT": str(GRAPH_HTTP_PORT),
+        **{key: value for key, value in extra.items() if value is not None},
+    }
+    if REMOTE_SOCKET:
+        env["LANGGRAPH_JS_REMOTE_SOCKET"] = REMOTE_SOCKET
+    else:
+        env.pop("LANGGRAPH_JS_REMOTE_SOCKET", None)
+    return env
+
+
+def _checkpointer_httpx_client() -> httpx.AsyncClient:
+    """Client for the remote server: Unix socket, or TCP localhost on Windows."""
+    if REMOTE_SOCKET:
+        return httpx.AsyncClient(
+            base_url="http://loopback",
+            limits=httpx.Limits(max_connections=1),
+            transport=httpx.AsyncHTTPTransport(uds=REMOTE_SOCKET, verify=SSL),
+        )
+    return httpx.AsyncClient(
+        base_url=f"http://localhost:{REMOTE_PORT}",
+        limits=httpx.Limits(max_connections=1),
+        transport=httpx.AsyncHTTPTransport(verify=SSL),
+    )
+
 
 # Per-graph context schema, prefetched at startup so get_context_jsonschema stays sync.
 _context_jsonschema_cache: dict[str, dict[str, Any] | None] = {}
@@ -259,11 +308,14 @@ class RemotePregel(BaseRemotePregel):
             **kwargs,
         }
 
-        async for event in _client_stream("streamEvents", data):
-            if event["event"] == "on_custom_event":
-                yield CustomStreamEvent(**event)
-            else:
-                yield StandardStreamEvent(**event)
+        with loopback_grant() as token:
+            async for event in _client_stream(
+                "streamEvents", {**data, "loopback_token": token}
+            ):
+                if event["event"] == "on_custom_event":
+                    yield CustomStreamEvent(**event)
+                else:
+                    yield StandardStreamEvent(**event)
 
     async def astream_protocol_events(
         self,
@@ -292,8 +344,11 @@ class RemotePregel(BaseRemotePregel):
             **kwargs,
         }
 
-        async for event in _client_stream("streamEvents", data):
-            yield event
+        with loopback_grant() as token:
+            async for event in _client_stream(
+                "streamEvents", {**data, "loopback_token": token}
+            ):
+                yield event
 
     async def fetch_state_schema(self):
         return await _client_invoke(
@@ -540,6 +595,19 @@ class RemotePregel(BaseRemotePregel):
         return config
 
 
+# A crash loop is this many JS process exits within JS_PROCESS_CRASH_LOOP_SECS,
+# and takes the API down. Exits further apart, even many over the server's
+# life, restart the process.
+JS_PROCESS_CRASH_LOOP_EXITS = 4
+JS_PROCESS_CRASH_LOOP_SECS = 600
+
+
+def _is_crash_loop(exits: deque[float]) -> bool:
+    return (
+        len(exits) == exits.maxlen and exits[-1] - exits[0] < JS_PROCESS_CRASH_LOOP_SECS
+    )
+
+
 async def run_js_process(paths_str: str | None, watch: bool = False):
     # check if tsx is available
     tsx_path = shutil.which("tsx")
@@ -548,6 +616,7 @@ async def run_js_process(paths_str: str | None, watch: bool = False):
             "tsx not found in PATH. Please upgrade to latest LangGraph CLI to support running JS graphs."
         )
     attempt = 0
+    exits: deque[float] = deque(maxlen=JS_PROCESS_CRASH_LOOP_EXITS)
     while (current_task := asyncio.current_task()) and not current_task.cancelled():
         client_file = os.path.join(os.path.dirname(__file__), "client.mts")
         client_preload_file = os.path.join(
@@ -570,17 +639,10 @@ async def run_js_process(paths_str: str | None, watch: bool = False):
         try:
             process = await asyncio.create_subprocess_exec(
                 *args,
-                env={
-                    "LANGSERVE_GRAPHS": paths_str,
-                    "LANGCHAIN_CALLBACKS_BACKGROUND": "true",
-                    "NODE_ENV": "development" if watch else "production",
-                    "CHOKIDAR_USEPOLLING": "true",
-                    **os.environ,
-                    # Pin the child to the parent's resolved ports.
-                    "LANGGRAPH_JS_REMOTE_PORT": str(REMOTE_PORT),
-                    "LANGGRAPH_JS_GRAPH_PORT": str(GRAPH_PORT),
-                    "LANGGRAPH_JS_GRAPH_HTTP_PORT": str(GRAPH_HTTP_PORT),
-                },
+                env=_js_graph_worker_env(
+                    LANGSERVE_GRAPHS=paths_str,
+                    NODE_ENV="development" if watch else "production",
+                ),
             )
             logger.info(
                 "Started JS graphs process",
@@ -604,11 +666,11 @@ async def run_js_process(paths_str: str | None, watch: bool = False):
                     await process.wait()
             raise
         except Exception:
-            if attempt >= 3:
+            exits.append(time.monotonic())
+            if _is_crash_loop(exits):
                 raise
-            else:
-                logger.warning(f"Retrying JS process {3 - attempt} more times...")
-                attempt += 1
+            logger.warning("Restarting JS process", recent_exits=len(exits))
+            attempt += 1
 
 
 async def run_js_http_process(
@@ -622,6 +684,7 @@ async def run_js_http_process(
         )
 
     attempt = 0
+    exits: deque[float] = deque(maxlen=JS_PROCESS_CRASH_LOOP_EXITS)
     while (current_task := asyncio.current_task()) and not current_task.cancelled():
         client_file = os.path.join(os.path.dirname(__file__), "client.http.mts")
         args = ("tsx", "watch", client_file) if watch else ("tsx", client_file)
@@ -669,12 +732,12 @@ async def run_js_http_process(
                     await process.wait()
             raise
         except Exception:
-            if attempt >= 3:
+            exits.append(time.monotonic())
+            if _is_crash_loop(exits):
                 logger.exception("JS HTTP process failed")
                 raise
-            else:
-                logger.warning(f"Retrying JS HTTP process {3 - attempt} more times...")
-                attempt += 1
+            logger.warning("Restarting JS HTTP process", recent_exits=len(exits))
+            attempt += 1
 
 
 _BAD_SURROGATE_RE = re.compile(r"\\u[dD][89a-fA-F][0-9a-fA-F]{2}")
@@ -718,6 +781,11 @@ async def _get_passthrough_checkpointer():
     from langgraph_api import _checkpointer as api_checkpointer  # noqa: PLC0415
 
     checkpointer = await api_checkpointer.get_checkpointer()
+    # The in-memory runtime returns the saver Python graphs share, so swap the
+    # serde on a copy; the copy still shares the saved data. Other runtimes
+    # return a fresh saver per call.
+    if isinstance(checkpointer, InMemorySaver):
+        checkpointer = copy.copy(checkpointer)
     # This checkpointer does not attempt to revive LC-objects.
     # Instead, it will pass through the JSON values as-is.
     checkpointer.serde = PassthroughSerialiser()
@@ -975,20 +1043,125 @@ async def run_remote_checkpointer():
         ]
     )
 
-    server = NoSignalServer(
-        uvicorn.Config(
-            remote,
-            port=REMOTE_PORT,
-            # We need to _explicitly_ set these values in order
-            # to avoid reinitialising the logger, which removes
-            # the structlog logger setup before.
-            # See: https://github.com/encode/uvicorn/blob/8f4c8a7f34914c16650ebd026127b96560425fde/uvicorn/config.py#L357-L393
-            log_config=None,
-            log_level=None,
-            access_log=True,
+    log_kwargs = {
+        # We need to _explicitly_ set these values in order
+        # to avoid reinitialising the logger, which removes
+        # the structlog logger setup before.
+        # See: https://github.com/encode/uvicorn/blob/8f4c8a7f34914c16650ebd026127b96560425fde/uvicorn/config.py#L357-L393
+        "log_config": None,
+        "log_level": None,
+        "access_log": True,
+    }
+    if REMOTE_SOCKET:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(REMOTE_SOCKET)
+        server = NoSignalServer(
+            uvicorn.Config(loopback_to_api(remote), uds=REMOTE_SOCKET, **log_kwargs)
         )
-    )
-    await server.serve()
+    else:
+        # Windows: checkpointer/store over TCP, no /loopback client.
+        server = NoSignalServer(
+            uvicorn.Config(remote, host="127.0.0.1", port=REMOTE_PORT, **log_kwargs)
+        )
+    try:
+        await server.serve()
+    finally:
+        if REMOTE_SOCKET:
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(REMOTE_SOCKET)
+
+
+LOOPBACK_PREFIX = "/loopback"
+"""Path on the Unix remote socket under which JS graphs reach this server's API."""
+
+LOOPBACK_RUN_HEADER = b"x-langgraph-loopback-run"
+"""Header the JS worker sends so loopback calls run as the stream's user."""
+
+_LOOPBACK_GRANTS: dict[str, Auth.types.BaseAuthContext | None] = {}
+"""Live JS graph streams, and the auth context each stream's loopback calls use."""
+
+_MISSING = object()
+
+
+@contextlib.contextmanager
+def loopback_grant() -> Iterator[str]:
+    """Map one JS graph stream to the run's auth context.
+
+    Python graphs' in-process calls keep the run's AuthContext ContextVar
+    because they stay on the same asyncio task. A JS graph's call arrives on
+    the Unix-socket uvicorn task, where that var is empty, so the stream
+    carries this token and loopback_to_api restores the context.
+    """
+    token = secrets.token_urlsafe(32)
+    _LOOPBACK_GRANTS[token] = get_auth_ctx()
+    try:
+        yield token
+    finally:
+        _LOOPBACK_GRANTS.pop(token, None)
+
+
+def _loopback_api_path(path: str) -> str | None:
+    """Return the API path for a `/loopback/...` request, or `None` if it isn't one."""
+    if path == LOOPBACK_PREFIX:
+        return "/"
+    if not path.startswith(f"{LOOPBACK_PREFIX}/"):
+        return None
+    return path.removeprefix(LOOPBACK_PREFIX) or "/"
+
+
+def _loopback_grant(
+    scope: types.Scope, grants: Mapping[str, Auth.types.BaseAuthContext | None]
+) -> Auth.types.BaseAuthContext | None | object:
+    """The run's auth context, or _MISSING if this isn't a live loopback call."""
+    token: str | None = None
+    for name, value in scope.get("headers") or ():
+        if name == LOOPBACK_RUN_HEADER:
+            token = value.decode()
+            break
+    if token is None or token not in grants:
+        return _MISSING
+    return grants[token]
+
+
+def loopback_to_api(
+    remote: types.ASGIApp,
+    grants: Mapping[str, Auth.types.BaseAuthContext | None] | None = None,
+) -> types.ASGIApp:
+    """Serve JS graphs' SDK calls in process, the way Python graphs' `get_client()` does.
+
+    A Python graph's SDK client reaches the API in memory at `root_path="/noauth"`,
+    with its run's auth context still set. A JS graph sends the same calls over
+    the Unix remote socket; a live grant header restores that run's user
+    before the API handler runs. Unix only. Windows does not mount this.
+    """
+    if grants is None:
+        grants = _LOOPBACK_GRANTS
+
+    async def app(scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        api_path = (
+            _loopback_api_path(scope.get("path", ""))
+            if scope["type"] == "http"
+            else None
+        )
+        ctx = _loopback_grant(scope, grants) if api_path is not None else _MISSING
+        if api_path is None or ctx is _MISSING:
+            await remote(scope, receive, send)
+            return
+        from langgraph_api.server import app as api  # noqa: PLC0415
+
+        scope = {
+            **scope,
+            "root_path": "/noauth",
+            "path": api_path,
+            "raw_path": api_path.encode(),
+        }
+        reset = AuthContext.set(cast("Auth.types.BaseAuthContext | None", ctx))
+        try:
+            await api(scope, receive, send)
+        finally:
+            AuthContext.reset(reset)
+
+    return app
 
 
 class DisableHttpxLoggingContextManager(contextlib.AbstractContextManager):
@@ -1023,11 +1196,7 @@ async def wait_until_js_ready(
                 limits=httpx.Limits(max_connections=1),
                 transport=httpx.AsyncHTTPTransport(verify=SSL),
             ) as graph_client,
-            httpx.AsyncClient(
-                base_url=f"http://localhost:{REMOTE_PORT}",
-                limits=httpx.Limits(max_connections=1),
-                transport=httpx.AsyncHTTPTransport(verify=SSL),
-            ) as checkpointer_client,
+            _checkpointer_httpx_client() as checkpointer_client,
         ):
             attempt = 0
             graph_ready = False
@@ -1088,11 +1257,7 @@ async def js_healthcheck():
                 limits=httpx.Limits(max_connections=1),
                 transport=httpx.AsyncHTTPTransport(verify=SSL),
             ) as graph_client,
-            httpx.AsyncClient(
-                base_url=f"http://localhost:{REMOTE_PORT}",
-                limits=httpx.Limits(max_connections=1),
-                transport=httpx.AsyncHTTPTransport(verify=SSL),
-            ) as checkpointer_client,
+            _checkpointer_httpx_client() as checkpointer_client,
         ):
             graph_passed = False
             try:

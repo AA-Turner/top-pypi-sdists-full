@@ -78,11 +78,13 @@ class ConnectionParams:
         """Validate parameter formats."""
         # Validate database name format
         # Must start with lettersnumbers or underscore. Subsequent characters also allow
-        # hyphens and @ for federated catalog references (e.g., "child-catalog@s3tablescatalog")
-        if not re.match(r"^[a-zA-Z0-9_][a-zA-Z0-9_@-]{0,63}$", self.database_name):
+        # hyphens and @ for federated catalog references. Max is 127 (the Redshift identifier
+        # limit in bytes): a federated S3 Tables database is "<table-bucket>@s3tablescatalog"
+        # and the bucket alone can be 63 chars.
+        if not re.match(r"^[a-zA-Z0-9_][a-zA-Z0-9_@-]{0,126}$", self.database_name):
             raise InterfaceError(
                 "database_name must start with a letter, number, or underscore,"
-                " followed by letters, numbers, underscores, hyphens, or @ symbols, max 64 characters"
+                " followed by letters, numbers, underscores, hyphens, or @ symbols, max 127 characters"
             )
 
         # Validate cluster identifier if provided

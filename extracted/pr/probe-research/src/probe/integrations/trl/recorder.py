@@ -21,6 +21,11 @@ class Recorder:
         """Wrap the trainer's instance methods (`tracker.install`). Runs on every process: a hook that records
         checks `tracker.is_main` itself."""
 
+    def get_unsupported(self) -> dict[str, str]:
+        """The capture fields (`CaptureField`) this trainer kind cannot give a sample, each with why
+        (`plan(unsupported=)`); none by default."""
+        return {}
+
     def handle_micro_batch(self, inputs: Any) -> None:
         """Before each `training_step`, with the micro-batch it trains."""
 

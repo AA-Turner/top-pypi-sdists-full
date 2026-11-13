@@ -139,8 +139,10 @@ class TestConnectionParams:
         assert result["host"] == "example.com"
         assert result["port"] == 9201
         assert result["index"] == "test_index"
-        assert result["username"] == "user"
-        assert result["password"] == "pass"
+        assert result["username"] == "****"
+        assert result["password"] == "****"
+        assert "user" not in result.values()
+        assert "pass" not in result.values()
         assert result["use_ssl"] is True
         assert result["verify_certs"] is True  # Default value
 

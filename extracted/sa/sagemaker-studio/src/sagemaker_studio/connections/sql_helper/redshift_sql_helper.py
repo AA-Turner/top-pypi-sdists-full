@@ -43,7 +43,13 @@ class RedshiftSqlHelper(SqlHelper):
         region = aws_location.get("awsRegion")
 
         # Use provided database name, otherwise fall back to connection default
-        database_name = kwargs.get("database_name", connection_data["database_name"])
+        database_name = kwargs.get("database_name") or connection_data.get("database_name")
+        if not database_name:
+            connection_name = connection_data.get("name") or connection_data.get("connection_id")
+            raise ValueError(
+                f"Redshift connection '{connection_name}' has no default database. Set one on the "
+                "connection, or pass database_name=... to sql()/sql_stream()."
+            )
         storage = connection_data.get("storage", {})
         workgroup_name = storage.get("workgroupName")
         cluster_identifier = storage.get("clusterName")

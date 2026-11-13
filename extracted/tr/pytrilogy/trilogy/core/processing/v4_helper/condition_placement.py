@@ -21,7 +21,10 @@ from trilogy.core.models.build import (
     BuildComparison,
     BuildConcept,
     BuildConceptArgs,
+    BuildConditional,
+    BuildParenthetical,
     BuildRowsetItem,
+    BuildSubselectComparison,
     BuildWhereClause,
 )
 from trilogy.core.models.build_environment import BuildEnvironment
@@ -48,6 +51,7 @@ from .edges import (
 from .functional_dependency import build_fd_determines_all
 from .models import (
     ConceptAttrs,
+    ConceptSets,
     GroupAttrs,
     GroupBucket,
     RootReason,
@@ -487,10 +491,20 @@ def _choose_groups(
     return tuple(candidates)
 
 
+def _collapsing_hosts_only(
+    chosen_groups: tuple[str, ...], buckets: dict[str, GroupBucket]
+) -> bool:
+    return bool(chosen_groups) and all(
+        gid in buckets and buckets[gid].derivation in _EMITS_GROUP_BY
+        for gid in chosen_groups
+    )
+
+
 def _uncovered_exposing_output_contributor(
     chosen_groups: tuple[str, ...],
     row_inputs: set[str],
     buckets: dict[str, GroupBucket],
+    carried: dict[str, frozenset[str]],
     group_graph: nx.DiGraph,
     mandatory_addrs: set[str],
     environment: BuildEnvironment,
@@ -527,7 +541,7 @@ def _uncovered_exposing_output_contributor(
     for gid in group_graph.predecessors(FINAL_NODE_ID):
         b = buckets.get(gid)
         if b is not None:
-            final_exposable |= set(b.primary_members) | b.carried
+            final_exposable |= set(b.primary_members) | carried[gid]
     collapsing_hosts = [
         buckets[gid]
         for gid in chosen_groups
@@ -537,18 +551,28 @@ def _uncovered_exposing_output_contributor(
     # what their descendants compute. A descendant's grain keys are not
     # counted, since they may ride through from an unfiltered parent.
     covered_members: set[str] = set()
+    regrouped: set[str] = set()
     for gid in covered:
         if gid not in buckets:
             continue
         covered_members |= set(buckets[gid].primary_members)
         if gid in chosen_groups:
-            covered_members |= buckets[gid].carried | set(buckets[gid].grain_components)
+            covered_members |= carried[gid] | set(buckets[gid].grain_components)
+        elif buckets[gid].derivation in GROUPING_DERIVATIONS:
+            regrouped |= set(buckets[gid].grain_components)
+    # every output is the filtered branch's own, a group key it regroups the
+    # kept rows by included (`tree_form` of `min(sum(x) by city, species)`):
+    # FINAL reads nothing an unfiltered row stream adds
+    if _collapsing_hosts_only(chosen_groups, buckets) and mandatory_addrs <= (
+        covered_members | regrouped
+    ):
+        return False
     for gid, b in buckets.items():
         if gid in covered:
             continue
         if b.depth_label in (DepthLabel.D1, DepthLabel.ROOT_D1):
             continue
-        members = set(b.primary_members) | b.carried
+        members = set(b.primary_members) | carried[gid]
         if not (members & mandatory_addrs):
             continue
         if row_inputs <= members:
@@ -603,6 +627,19 @@ _ABSENT_COMPARISONS = (
 )
 
 
+def _reads_a_set(atom: object) -> bool:
+    """Whether `atom` tests membership in a set some group produces. A literal
+    list (`max(x) by k in (7, 1)`, existence `[()]`) reads none: it is decided
+    like `max(x) by k = 7` (`SelectGrain.literal_membership_is_a_comparison`)."""
+    if isinstance(atom, BuildSubselectComparison):
+        return any(atom.existence_arguments)
+    if isinstance(atom, BuildParenthetical):
+        return _reads_a_set(atom.content)
+    if isinstance(atom, BuildConditional):
+        return _reads_a_set(atom.left) or _reads_a_set(atom.right)
+    return isinstance(atom, BuildConceptArgs) and bool(atom.existence_arguments)
+
+
 def holds_on_absent_group(atom: BoolExpr) -> bool:
     """Whether `atom` can hold for a key no group of the aggregate it reads
     formed: a COUNT reads 0 there, any other aggregate NULL. Joining the rows to
@@ -623,8 +660,29 @@ def holds_on_absent_group(atom: BoolExpr) -> bool:
         for operator, test in _ABSENT_COMPARISONS:
             if atom.operator == operator:
                 return bool(test(0, atom.right))
+    if (absent := _literal_membership_on_absent(atom)) is not None:
+        return absent
     proofs = gather_non_null_proofs(atom)
     return not any(c.address in proofs and not c.zero_on_empty for c in aggregates)
+
+
+def _literal_membership_on_absent(atom: BoolExpr) -> bool | None:
+    """`agg(x) by k in (5, 3)` on a key no group formed: the aggregate reads 0
+    (a COUNT) or NULL there, and membership is identity matching."""
+    if not (
+        isinstance(atom, BuildSubselectComparison)
+        and isinstance(atom.left, BuildConcept)
+        and atom.left.is_aggregate
+        and isinstance(atom.right, (tuple, list))
+        and atom.operator in (ComparisonOperator.IN, ComparisonOperator.NOT_IN)
+        and all(
+            v is None or (isinstance(v, (int, float, str)) and not isinstance(v, bool))
+            for v in atom.right
+        )
+    ):
+        return None
+    member = (0 if atom.left.zero_on_empty else None) in atom.right
+    return member if atom.operator == ComparisonOperator.IN else not member
 
 
 def _decided_per_group(
@@ -656,6 +714,7 @@ def _decided_per_group(
 def _reads_past_region_domain(
     row_inputs: set[str],
     buckets: dict[str, GroupBucket],
+    carried: dict[str, frozenset[str]],
     keyspace: Keyspace,
     mandatory_list: list[BuildConcept],
     environment: BuildEnvironment,
@@ -665,12 +724,12 @@ def _reads_past_region_domain(
     FINAL, or at an aggregate the domain feeds. A null-rejecting atom over an
     absent value never gets here: it empties the region, and an empty region
     gets no domain."""
-    for bucket in buckets.values():
+    for gid, bucket in buckets.items():
         if not bucket.extent_spans:
             continue
         region = keyspace.region_of(bucket.extent_spans)
         assert region is not None, bucket.extent_spans
-        held = set(bucket.primary_members) | bucket.carried
+        held = set(bucket.primary_members) | carried[gid]
         if any(
             restated_over_region(
                 address, region, held, keyspace, mandatory_list, environment
@@ -1140,6 +1199,8 @@ class _PlacementScope:
     main_lineage: set[str]
     lineage_ancestors_graph: nx.DiGraph
     host_graph: nx.DiGraph
+    # what each group holds and does not compute (`ConceptSets.carried_by`)
+    carried: dict[str, frozenset[str]]
     group_members: dict[str, set[str]]
     # primary members, plus the key an unnested element is merged into
     group_outputs: dict[str, set[str]]
@@ -1459,6 +1520,7 @@ def _place_atom(atom: BoolExpr, scope: _PlacementScope) -> list[ConditionPlaceme
                         if _reads_past_region_domain(
                             row_inputs,
                             buckets,
+                            scope.carried,
                             keyspace,
                             mandatory_list,
                             environment,
@@ -1489,7 +1551,7 @@ def _place_atom(atom: BoolExpr, scope: _PlacementScope) -> list[ConditionPlaceme
             return out
         restricted = neutral
     if not atom.existence_arguments and _reads_past_region_domain(
-        row_inputs, buckets, keyspace, mandatory_list, environment
+        row_inputs, buckets, scope.carried, keyspace, mandatory_list, environment
     ):
         # an atom over aggregates BY the span (`count(return_id) by
         # item_sk = 0`) is a per-member value. Applied on the input of
@@ -1658,11 +1720,12 @@ def _place_atom(atom: BoolExpr, scope: _PlacementScope) -> list[ConditionPlaceme
     )
     if (
         mandatory_list
-        and not atom.existence_arguments
+        and not _reads_a_set(atom)
         and _uncovered_exposing_output_contributor(
             chosen_groups,
             row_inputs,
             buckets,
+            scope.carried,
             group_graph,
             {c.address for c in mandatory_list},
             environment,
@@ -1723,8 +1786,10 @@ def plan_condition_placements(
     concept_attrs: dict[str, ConceptAttrs] | None = None,
     statement_relation_addresses: frozenset[str] = frozenset(),
     staged_conditions: list[BuildWhereClause] | None = None,
+    sets: ConceptSets | None = None,
 ) -> list[ConditionPlacement]:
-    """Return where each decomposed condition atom should be injected."""
+    """Return where each decomposed condition atom should be injected, reading
+    what each group carries off the stated `sets`."""
     scoped_join_key_groups = scoped_join_key_groups or {}
     # A GLOBAL merge whose collapsed member keeps a row-shape computed origin
     # (`merge recursive_parent into root_parent.id`) null-extends exactly like
@@ -1765,8 +1830,10 @@ def plan_condition_placements(
         gid: set(b.primary_members) | _merged_elements(b, concept_attrs)
         for gid, b in buckets.items()
     }
+    stated = sets or ConceptSets()
+    carried = {gid: stated.carried_by(gid, b) for gid, b in buckets.items()}
     group_members: dict[str, set[str]] = {
-        gid: group_outputs[gid] | b.carried for gid, b in buckets.items()
+        gid: group_outputs[gid] | carried[gid] for gid in buckets
     }
     # Addresses a group can pair a relation on beyond its listed members: the
     # KEYS of its members (a group hosting only `a.aw` still joins on a.aw's
@@ -1843,6 +1910,7 @@ def plan_condition_placements(
         main_lineage=main_lineage,
         lineage_ancestors_graph=lineage_ancestors_graph,
         host_graph=host_graph,
+        carried=carried,
         group_members=group_members,
         group_outputs=group_outputs,
         attrs_by_address=attrs_by_address,

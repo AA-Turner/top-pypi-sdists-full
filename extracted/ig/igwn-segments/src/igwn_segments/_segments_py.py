@@ -49,9 +49,9 @@ __version__ = "1.4.0"
 
 
 __all__ = [
-    "infinity",
-    "PosInfinity",
     "NegInfinity",
+    "PosInfinity",
+    "infinity",
     "segment",
     "segmentlist",
     "segmentlistdict",
@@ -600,10 +600,8 @@ class segmentlist(list):
             raise ValueError("empty list")
         mn, mx = self[0]
         for lo, hi in self:
-            if mn > lo:
-                mn = lo
-            if mx < hi:
-                mx = hi
+            mn = min(mn, lo)
+            mx = max(mx, hi)
         return segment(mn, mx)
 
     def find(self, item):
@@ -1144,7 +1142,7 @@ class segmentlistdict(dict):
         >>> x["H2"] = segmentlist([segment(5, 15)])
         >>> assert x.map(lambda l: 12 in l) == {'H2': True, 'H1': False}
         """
-        return dict((key, func(value)) for key, value in self.items())
+        return {key: func(value) for key, value in self.items()}
 
     def __abs__(self):
         """

@@ -218,6 +218,9 @@ __all__ = (
     "ListTrustedTokenIssuersRequestPaginateTypeDef",
     "ListTrustedTokenIssuersRequestTypeDef",
     "ListTrustedTokenIssuersResponseTypeDef",
+    "NetworkConfigurationInfoOutputTypeDef",
+    "NetworkConfigurationInfoTypeDef",
+    "NetworkConfigurationInfoUnionTypeDef",
     "OidcJwtConfigurationTypeDef",
     "OidcJwtUpdateConfigurationTypeDef",
     "OperationStatusFilterTypeDef",
@@ -505,6 +508,13 @@ class EncryptionConfigurationDetailsTypeDef(TypedDict):
     EncryptionStatusReason: NotRequired[str]
 
 
+class NetworkConfigurationInfoOutputTypeDef(TypedDict):
+    VpceAccessRequired: bool
+    RestrictSourceVpcs: NotRequired[list[str]]
+    AllowSourceIps: NotRequired[list[str]]
+    ExcludeApplicationArns: NotRequired[list[str]]
+
+
 RegionMetadataTypeDef = TypedDict(
     "RegionMetadataTypeDef",
     {
@@ -725,6 +735,13 @@ class TrustedTokenIssuerMetadataTypeDef(TypedDict):
     TrustedTokenIssuerArn: NotRequired[str]
     Name: NotRequired[str]
     TrustedTokenIssuerType: NotRequired[Literal["OIDC_JWT"]]
+
+
+class NetworkConfigurationInfoTypeDef(TypedDict):
+    VpceAccessRequired: bool
+    RestrictSourceVpcs: NotRequired[Sequence[str]]
+    AllowSourceIps: NotRequired[Sequence[str]]
+    ExcludeApplicationArns: NotRequired[Sequence[str]]
 
 
 class OidcJwtConfigurationTypeDef(TypedDict):
@@ -1051,6 +1068,7 @@ class DescribeInstanceResponseTypeDef(TypedDict):
     PrimaryRegion: str
     Regions: list[RegionMetadataTypeDef]
     EncryptionConfigurationDetails: EncryptionConfigurationDetailsTypeDef
+    NetworkConfigurationDetails: NetworkConfigurationInfoOutputTypeDef
     PermissionSetsEnabled: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1082,13 +1100,6 @@ class DescribePermissionSetProvisioningStatusResponseTypeDef(TypedDict):
 class ProvisionPermissionSetResponseTypeDef(TypedDict):
     PermissionSetProvisioningStatus: PermissionSetProvisioningStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateInstanceRequestTypeDef(TypedDict):
-    InstanceArn: str
-    Name: NotRequired[str]
-    EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
-    PermissionSetsEnabled: NotRequired[bool]
 
 
 class ListAccountAssignmentCreationStatusRequestTypeDef(TypedDict):
@@ -1278,6 +1289,11 @@ class ListTrustedTokenIssuersResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+NetworkConfigurationInfoUnionTypeDef = Union[
+    NetworkConfigurationInfoTypeDef, NetworkConfigurationInfoOutputTypeDef
+]
+
+
 class TrustedTokenIssuerConfigurationTypeDef(TypedDict):
     OidcJwtConfiguration: NotRequired[OidcJwtConfigurationTypeDef]
 
@@ -1351,6 +1367,14 @@ class ListInstancesResponseTypeDef(TypedDict):
     Instances: list[InstanceMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class UpdateInstanceRequestTypeDef(TypedDict):
+    InstanceArn: str
+    Name: NotRequired[str]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    PermissionSetsEnabled: NotRequired[bool]
+    NetworkConfiguration: NotRequired[NetworkConfigurationInfoUnionTypeDef]
 
 
 class CreateTrustedTokenIssuerRequestTypeDef(TypedDict):

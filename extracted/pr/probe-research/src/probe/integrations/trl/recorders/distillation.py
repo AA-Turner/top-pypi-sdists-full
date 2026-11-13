@@ -2,7 +2,8 @@
 trainer is on-policy only: the student writes every completion (`_generate`, `distillation_trainer.py:1430-1525`) and
 the teacher grades it through the loss, so each sample is `generated_by policy(step)` + `scored_by teacher(...)`.
 No completion text is gathered across processes here (only with `log_completions`), so the main process records the
-rows it generated. Line refs are `huggingface/trl@4ae4d34a86f3`."""
+rows it generated. With tools, the messages TRL's tool loop built (`_tool_call_loop`) become the sample's turns. Line
+refs are `huggingface/trl@4ae4d34a86f3` `trl/trainer/distillation_trainer.py`."""
 
 from __future__ import annotations
 
@@ -10,9 +11,23 @@ import functools
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from probe.generated.samples import CaptureField
+
 from ..live import LiveBatch
 from ..recorder import Recorder
-from ..rows import render_prompt, to_ints
+from ..rows import TOOL_FIELDS, build_completion, has_response_schema, render_prompt, to_ints
+
+#: What DistillationTrainer cannot give a sample (`plan(unsupported=)`), and why.
+NO_TOOLS = ("DistillationTrainer was given no tools, so it never parses a completion (`_generate`, :1442): each stays "
+            "token ids, recorded as response text, with no messages, tool calls, reasoning or tool files")
+NO_SCHEMA = ("the tokenizer has no response schema TRL knows (`add_response_schema`, :482-486), so DistillationTrainer "
+             "decodes each completion as plain text (:1453-1455): no tool calls run, no reasoning apart from the content")
+NUMBERED_IDS = ("TRL's parser gives tool calls no id: Probe numbers them probe-<turn>-<i> and links each result in "
+                "call order (the tool loop runs each call in turn, :1243-1274), checked by tool name")
+SHARED_TOOLS = ("DistillationTrainer calls every completion's tools through one shared table (`_tool_dict`, :478), so "
+                "a tool call does not say whose sample it serves: its files cannot reach a sample")
+#: The turns a tool-calling completion adds to its sample (`build_completion`).
+TURN_FIELDS = ("turns", "turns_source", "turn_count", "tool_call_count", "extras")
 
 
 class DistillationRecorder(Recorder):
@@ -24,12 +39,25 @@ class DistillationRecorder(Recorder):
     def __init__(self, tracker: Any) -> None:
         super().__init__(tracker)
         self._generated: tuple | None = None
+        #: This call's completions as message lists, from the tool loop (only with tools).
+        self._completions: list | None = None
         self._live = LiveBatch()
+
+    def get_unsupported(self) -> dict[str, str]:
+        """No tools: TRL keeps token ids only. Tools without a response schema: plain text, so no tool runs. With both:
+        call ids are Probe's, and a tool's files cannot reach their sample."""
+        trainer = self.trainer
+        if not getattr(trainer, "tools", None):
+            return dict.fromkeys(CaptureField, NO_TOOLS)
+        if not has_response_schema(getattr(trainer, "_tokenizer", None) or self.tracker.get_tokenizer()):
+            return {**dict.fromkeys(TOOL_FIELDS, NO_SCHEMA), CaptureField.REASONING: NO_SCHEMA}
+        return {CaptureField.TOOL_CALL_IDS: NUMBERED_IDS, CaptureField.ENVIRONMENT_FILES: SHARED_TOOLS}
 
     def install(self) -> None:
         trainer = self.trainer
         generate = trainer._generate
         score = trainer._generate_and_score_completions
+        tool_loop = getattr(trainer, "_tool_call_loop", None)
         guard = self.tracker.guard
 
         @functools.wraps(generate)
@@ -40,7 +68,7 @@ class DistillationRecorder(Recorder):
 
         @functools.wraps(score)
         def call_score(inputs: Any, *args: Any, **kwargs: Any) -> Any:
-            self._generated = None
+            self._generated = self._completions = None
             step = self.tracker.get_step()
             split = "train" if getattr(trainer.model, "training", True) else "eval"
             call = self.tracker.take_call(split, step)
@@ -56,6 +84,16 @@ class DistillationRecorder(Recorder):
 
         self.tracker.install(trainer, "_generate", call_generate)
         self.tracker.install(trainer, "_generate_and_score_completions", call_score)
+        if not callable(tool_loop):
+            return
+
+        @functools.wraps(tool_loop)
+        def call_tool_loop(*args: Any, **kwargs: Any) -> Any:
+            result = tool_loop(*args, **kwargs)
+            self._completions = result[1]  # each completion's messages: replies, tool results, the replies after
+            return result
+
+        self.tracker.install(trainer, "_tool_call_loop", call_tool_loop)
 
     def _start_live(self, inputs: Sequence[Any], step: int, split: str, call: int) -> LiveBatch:
         """The main process's rows as live samples, keyed as `_record` keys them, before the student generates."""
@@ -99,6 +137,9 @@ class DistillationRecorder(Recorder):
                 "finish_reason": "stop" if ids and ids[-1] in stops else "length",
                 "host": self.tracker.host,
             }
+            if self._completions is not None and row < len(self._completions):
+                built = build_completion(self._completions[row])
+                part.update({name: built[name] for name in TURN_FIELDS if name in built})
             arrays: dict[str, Any] = {"token_ids": ids}
             text = self.tracker.decode_tokens(ids)
             if text is not None:

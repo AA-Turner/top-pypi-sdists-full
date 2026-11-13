@@ -81,6 +81,7 @@ __all__ = (
     "CreateKeySigningKeyResponseTypeDef",
     "CreateQueryLoggingConfigRequestTypeDef",
     "CreateQueryLoggingConfigResponseTypeDef",
+    "CreateResourceRecordSetProtectionsRequestTypeDef",
     "CreateReusableDelegationSetRequestTypeDef",
     "CreateReusableDelegationSetResponseTypeDef",
     "CreateTrafficPolicyInstanceRequestTypeDef",
@@ -102,6 +103,7 @@ __all__ = (
     "DeleteKeySigningKeyRequestTypeDef",
     "DeleteKeySigningKeyResponseTypeDef",
     "DeleteQueryLoggingConfigRequestTypeDef",
+    "DeleteResourceRecordSetProtectionsRequestTypeDef",
     "DeleteReusableDelegationSetRequestTypeDef",
     "DeleteTrafficPolicyInstanceRequestTypeDef",
     "DeleteTrafficPolicyRequestTypeDef",
@@ -187,6 +189,9 @@ __all__ = (
     "ListQueryLoggingConfigsRequestPaginateTypeDef",
     "ListQueryLoggingConfigsRequestTypeDef",
     "ListQueryLoggingConfigsResponseTypeDef",
+    "ListResourceRecordSetProtectionsRequestPaginateTypeDef",
+    "ListResourceRecordSetProtectionsRequestTypeDef",
+    "ListResourceRecordSetProtectionsResponseTypeDef",
     "ListResourceRecordSetsRequestPaginateTypeDef",
     "ListResourceRecordSetsRequestTypeDef",
     "ListResourceRecordSetsResponseTypeDef",
@@ -213,6 +218,9 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "QueryLoggingConfigTypeDef",
     "ResourceRecordSetOutputTypeDef",
+    "ResourceRecordSetProtectionConfigTypeDef",
+    "ResourceRecordSetProtectionKeyTypeDef",
+    "ResourceRecordSetProtectionTypeDef",
     "ResourceRecordSetTypeDef",
     "ResourceRecordSetUnionTypeDef",
     "ResourceRecordTypeDef",
@@ -383,6 +391,12 @@ class QueryLoggingConfigTypeDef(TypedDict):
     CloudWatchLogsLogGroupArn: str
 
 
+class ResourceRecordSetProtectionConfigTypeDef(TypedDict):
+    RecordName: str
+    RecordType: RRTypeType
+    Comment: NotRequired[str]
+
+
 class CreateReusableDelegationSetRequestTypeDef(TypedDict):
     CallerReference: str
     HostedZoneId: NotRequired[str]
@@ -462,6 +476,11 @@ class DeleteKeySigningKeyRequestTypeDef(TypedDict):
 
 class DeleteQueryLoggingConfigRequestTypeDef(TypedDict):
     Id: str
+
+
+class ResourceRecordSetProtectionKeyTypeDef(TypedDict):
+    RecordName: str
+    RecordType: RRTypeType
 
 
 class DeleteReusableDelegationSetRequestTypeDef(TypedDict):
@@ -675,6 +694,20 @@ class ListQueryLoggingConfigsRequestTypeDef(TypedDict):
     HostedZoneId: NotRequired[str]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[str]
+
+
+class ListResourceRecordSetProtectionsRequestTypeDef(TypedDict):
+    HostedZoneId: str
+    StartRecordName: NotRequired[str]
+    StartRecordType: NotRequired[RRTypeType]
+    MaxResults: NotRequired[str]
+    NextToken: NotRequired[str]
+
+
+class ResourceRecordSetProtectionTypeDef(TypedDict):
+    RecordName: str
+    RecordType: RRTypeType
+    Comment: NotRequired[str]
 
 
 class ListResourceRecordSetsRequestTypeDef(TypedDict):
@@ -1095,6 +1128,11 @@ class ListQueryLoggingConfigsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class CreateResourceRecordSetProtectionsRequestTypeDef(TypedDict):
+    HostedZoneId: str
+    Protections: Sequence[ResourceRecordSetProtectionConfigTypeDef]
+
+
 class CreateTrafficPolicyInstanceResponseTypeDef(TypedDict):
     TrafficPolicyInstance: TrafficPolicyInstanceTypeDef
     Location: str
@@ -1176,6 +1214,11 @@ class GetDNSSECResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteResourceRecordSetProtectionsRequestTypeDef(TypedDict):
+    HostedZoneId: str
+    Protections: Sequence[ResourceRecordSetProtectionKeyTypeDef]
+
+
 class GetGeoLocationResponseTypeDef(TypedDict):
     GeoLocationDetails: GeoLocationDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1255,6 +1298,13 @@ class ListQueryLoggingConfigsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListResourceRecordSetProtectionsRequestPaginateTypeDef(TypedDict):
+    HostedZoneId: str
+    StartRecordName: NotRequired[str]
+    StartRecordType: NotRequired[RRTypeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListResourceRecordSetsRequestPaginateTypeDef(TypedDict):
     HostedZoneId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1268,6 +1318,12 @@ class ListVPCAssociationAuthorizationsRequestPaginateTypeDef(TypedDict):
 
 class ListCidrLocationsResponseTypeDef(TypedDict):
     CidrLocations: list[LocationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListResourceRecordSetProtectionsResponseTypeDef(TypedDict):
+    ResourceRecordSetProtections: list[ResourceRecordSetProtectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

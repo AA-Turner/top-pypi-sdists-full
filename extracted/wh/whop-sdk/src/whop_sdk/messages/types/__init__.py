@@ -7,9 +7,16 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .create_messages_request_attachments_item import CreateMessagesRequestAttachmentsItem
+    from .create_messages_request_gifs_item import CreateMessagesRequestGifsItem
+    from .create_messages_request_link_previews_item import CreateMessagesRequestLinkPreviewsItem
     from .create_messages_request_poll import CreateMessagesRequestPoll
     from .create_messages_request_poll_options_item import CreateMessagesRequestPollOptionsItem
+    from .list_messages_request_direction import ListMessagesRequestDirection
+    from .list_messages_request_order import ListMessagesRequestOrder
     from .list_messages_response import ListMessagesResponse
+    from .list_messages_response_page_info import ListMessagesResponsePageInfo
+    from .list_reactions_messages_response import ListReactionsMessagesResponse
+    from .list_reactions_messages_response_page_info import ListReactionsMessagesResponsePageInfo
     from .post_chat_message_created_payload import PostChatMessageCreatedPayload
     from .post_chat_message_created_payload_api_version import PostChatMessageCreatedPayloadApiVersion
     from .post_chat_message_created_payload_data import PostChatMessageCreatedPayloadData
@@ -19,11 +26,20 @@ if typing.TYPE_CHECKING:
     from .post_chat_message_created_payload_data_channel_type import PostChatMessageCreatedPayloadDataChannelType
     from .post_chat_message_created_payload_type import PostChatMessageCreatedPayloadType
     from .update_messages_request_attachments_item import UpdateMessagesRequestAttachmentsItem
+    from .update_messages_request_gifs_item import UpdateMessagesRequestGifsItem
+    from .update_messages_request_link_previews_item import UpdateMessagesRequestLinkPreviewsItem
 _dynamic_imports: typing.Dict[str, str] = {
     "CreateMessagesRequestAttachmentsItem": ".create_messages_request_attachments_item",
+    "CreateMessagesRequestGifsItem": ".create_messages_request_gifs_item",
+    "CreateMessagesRequestLinkPreviewsItem": ".create_messages_request_link_previews_item",
     "CreateMessagesRequestPoll": ".create_messages_request_poll",
     "CreateMessagesRequestPollOptionsItem": ".create_messages_request_poll_options_item",
+    "ListMessagesRequestDirection": ".list_messages_request_direction",
+    "ListMessagesRequestOrder": ".list_messages_request_order",
     "ListMessagesResponse": ".list_messages_response",
+    "ListMessagesResponsePageInfo": ".list_messages_response_page_info",
+    "ListReactionsMessagesResponse": ".list_reactions_messages_response",
+    "ListReactionsMessagesResponsePageInfo": ".list_reactions_messages_response_page_info",
     "PostChatMessageCreatedPayload": ".post_chat_message_created_payload",
     "PostChatMessageCreatedPayloadApiVersion": ".post_chat_message_created_payload_api_version",
     "PostChatMessageCreatedPayloadData": ".post_chat_message_created_payload_data",
@@ -33,6 +49,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PostChatMessageCreatedPayloadDataChannelType": ".post_chat_message_created_payload_data_channel_type",
     "PostChatMessageCreatedPayloadType": ".post_chat_message_created_payload_type",
     "UpdateMessagesRequestAttachmentsItem": ".update_messages_request_attachments_item",
+    "UpdateMessagesRequestGifsItem": ".update_messages_request_gifs_item",
+    "UpdateMessagesRequestLinkPreviewsItem": ".update_messages_request_link_previews_item",
 }
 
 
@@ -59,9 +77,16 @@ def __dir__():
 
 __all__ = [
     "CreateMessagesRequestAttachmentsItem",
+    "CreateMessagesRequestGifsItem",
+    "CreateMessagesRequestLinkPreviewsItem",
     "CreateMessagesRequestPoll",
     "CreateMessagesRequestPollOptionsItem",
+    "ListMessagesRequestDirection",
+    "ListMessagesRequestOrder",
     "ListMessagesResponse",
+    "ListMessagesResponsePageInfo",
+    "ListReactionsMessagesResponse",
+    "ListReactionsMessagesResponsePageInfo",
     "PostChatMessageCreatedPayload",
     "PostChatMessageCreatedPayloadApiVersion",
     "PostChatMessageCreatedPayloadData",
@@ -71,4 +96,6 @@ __all__ = [
     "PostChatMessageCreatedPayloadDataChannelType",
     "PostChatMessageCreatedPayloadType",
     "UpdateMessagesRequestAttachmentsItem",
+    "UpdateMessagesRequestGifsItem",
+    "UpdateMessagesRequestLinkPreviewsItem",
 ]

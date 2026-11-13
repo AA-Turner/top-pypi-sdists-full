@@ -144,12 +144,8 @@ def sync_detailed(
     20,000 characters (`truncated`), the conversation keeps its first 50
     comments (`commentsTruncated`, with the full `commentCount`), and a
     reaction names at most its first 10 people while `count` is the full
-    number. An avatar is the forge's own URL, passed through unchanged
-    and never proxied; this app sets no Content-Security-Policy today, so
-    the browser loads it directly. A future policy's `img-src` has to
-    allow avatars.githubusercontent.com, repository-images.githubusercontent.com
-    (a GitHub repository's logo, see `logoUrl` on a repo in GET
-    /api/v1/dashboard) and the Forgejo host.
+    number. An avatar is the forge's own URL, passed through unchanged;
+    the page loads it through GET /api/v1/images, never from the forge.
 
     A forge that can't be read is an error, never an empty thread.
 
@@ -209,12 +205,8 @@ def sync(
     20,000 characters (`truncated`), the conversation keeps its first 50
     comments (`commentsTruncated`, with the full `commentCount`), and a
     reaction names at most its first 10 people while `count` is the full
-    number. An avatar is the forge's own URL, passed through unchanged
-    and never proxied; this app sets no Content-Security-Policy today, so
-    the browser loads it directly. A future policy's `img-src` has to
-    allow avatars.githubusercontent.com, repository-images.githubusercontent.com
-    (a GitHub repository's logo, see `logoUrl` on a repo in GET
-    /api/v1/dashboard) and the Forgejo host.
+    number. An avatar is the forge's own URL, passed through unchanged;
+    the page loads it through GET /api/v1/images, never from the forge.
 
     A forge that can't be read is an error, never an empty thread.
 
@@ -269,12 +261,8 @@ async def asyncio_detailed(
     20,000 characters (`truncated`), the conversation keeps its first 50
     comments (`commentsTruncated`, with the full `commentCount`), and a
     reaction names at most its first 10 people while `count` is the full
-    number. An avatar is the forge's own URL, passed through unchanged
-    and never proxied; this app sets no Content-Security-Policy today, so
-    the browser loads it directly. A future policy's `img-src` has to
-    allow avatars.githubusercontent.com, repository-images.githubusercontent.com
-    (a GitHub repository's logo, see `logoUrl` on a repo in GET
-    /api/v1/dashboard) and the Forgejo host.
+    number. An avatar is the forge's own URL, passed through unchanged;
+    the page loads it through GET /api/v1/images, never from the forge.
 
     A forge that can't be read is an error, never an empty thread.
 
@@ -334,12 +322,8 @@ async def asyncio(
     20,000 characters (`truncated`), the conversation keeps its first 50
     comments (`commentsTruncated`, with the full `commentCount`), and a
     reaction names at most its first 10 people while `count` is the full
-    number. An avatar is the forge's own URL, passed through unchanged
-    and never proxied; this app sets no Content-Security-Policy today, so
-    the browser loads it directly. A future policy's `img-src` has to
-    allow avatars.githubusercontent.com, repository-images.githubusercontent.com
-    (a GitHub repository's logo, see `logoUrl` on a repo in GET
-    /api/v1/dashboard) and the Forgejo host.
+    number. An avatar is the forge's own URL, passed through unchanged;
+    the page loads it through GET /api/v1/images, never from the forge.
 
     A forge that can't be read is an error, never an empty thread.
 

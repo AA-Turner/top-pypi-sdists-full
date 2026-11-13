@@ -244,7 +244,6 @@ class RawEventsClient:
         duration: typing.Optional[int] = OMIT,
         event_id: typing.Optional[str] = OMIT,
         event_time: typing.Optional[dt.datetime] = OMIT,
-        plan_id: typing.Optional[str] = OMIT,
         product_id: typing.Optional[str] = OMIT,
         referrer_url: typing.Optional[str] = OMIT,
         resumed: typing.Optional[bool] = OMIT,
@@ -253,6 +252,7 @@ class RawEventsClient:
         url: typing.Optional[str] = OMIT,
         user: typing.Optional[CreateEventsRequestUser] = OMIT,
         value: typing.Optional[float] = OMIT,
+        variant_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CreateEventsResponse]:
         """
@@ -266,7 +266,7 @@ class RawEventsClient:
         event_name : str
             The type of event.
 
-            Use a standard event (lead, submit_application, contact, complete_registration, schedule, view_content, add_to_cart) or pass your own name directly for a custom event.
+            Use a standard event (lead, submit_application, contact, complete_registration, schedule, view_content, add_to_cart, initiate_checkout) or pass your own name directly for a custom event.
 
         action_source : typing.Optional[CreateEventsRequestActionSource]
             Where the event originated.
@@ -295,9 +295,6 @@ class RawEventsClient:
         event_time : typing.Optional[dt.datetime]
             When the event occurred. Defaults to now.
 
-        plan_id : typing.Optional[str]
-            The variant associated with the event.
-
         product_id : typing.Optional[str]
             The product associated with the event.
 
@@ -321,6 +318,9 @@ class RawEventsClient:
 
         value : typing.Optional[float]
             Monetary value associated with the event.
+
+        variant_id : typing.Optional[str]
+            The variant associated with the event.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -348,7 +348,6 @@ class RawEventsClient:
                 "event_id": event_id,
                 "event_name": event_name,
                 "event_time": event_time,
-                "plan_id": plan_id,
                 "product_id": product_id,
                 "referrer_url": referrer_url,
                 "resumed": resumed,
@@ -359,6 +358,7 @@ class RawEventsClient:
                     object_=user, annotation=typing.Optional[CreateEventsRequestUser], direction="write"
                 ),
                 "value": value,
+                "variant_id": variant_id,
             },
             headers={
                 "content-type": "application/json",
@@ -800,7 +800,6 @@ class AsyncRawEventsClient:
         duration: typing.Optional[int] = OMIT,
         event_id: typing.Optional[str] = OMIT,
         event_time: typing.Optional[dt.datetime] = OMIT,
-        plan_id: typing.Optional[str] = OMIT,
         product_id: typing.Optional[str] = OMIT,
         referrer_url: typing.Optional[str] = OMIT,
         resumed: typing.Optional[bool] = OMIT,
@@ -809,6 +808,7 @@ class AsyncRawEventsClient:
         url: typing.Optional[str] = OMIT,
         user: typing.Optional[CreateEventsRequestUser] = OMIT,
         value: typing.Optional[float] = OMIT,
+        variant_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CreateEventsResponse]:
         """
@@ -822,7 +822,7 @@ class AsyncRawEventsClient:
         event_name : str
             The type of event.
 
-            Use a standard event (lead, submit_application, contact, complete_registration, schedule, view_content, add_to_cart) or pass your own name directly for a custom event.
+            Use a standard event (lead, submit_application, contact, complete_registration, schedule, view_content, add_to_cart, initiate_checkout) or pass your own name directly for a custom event.
 
         action_source : typing.Optional[CreateEventsRequestActionSource]
             Where the event originated.
@@ -851,9 +851,6 @@ class AsyncRawEventsClient:
         event_time : typing.Optional[dt.datetime]
             When the event occurred. Defaults to now.
 
-        plan_id : typing.Optional[str]
-            The variant associated with the event.
-
         product_id : typing.Optional[str]
             The product associated with the event.
 
@@ -877,6 +874,9 @@ class AsyncRawEventsClient:
 
         value : typing.Optional[float]
             Monetary value associated with the event.
+
+        variant_id : typing.Optional[str]
+            The variant associated with the event.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -904,7 +904,6 @@ class AsyncRawEventsClient:
                 "event_id": event_id,
                 "event_name": event_name,
                 "event_time": event_time,
-                "plan_id": plan_id,
                 "product_id": product_id,
                 "referrer_url": referrer_url,
                 "resumed": resumed,
@@ -915,6 +914,7 @@ class AsyncRawEventsClient:
                     object_=user, annotation=typing.Optional[CreateEventsRequestUser], direction="write"
                 ),
                 "value": value,
+                "variant_id": variant_id,
             },
             headers={
                 "content-type": "application/json",

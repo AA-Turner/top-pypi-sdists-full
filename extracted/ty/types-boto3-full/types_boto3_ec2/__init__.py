@@ -86,6 +86,7 @@ Usage::
         DescribeMacHostsPaginator,
         DescribeMacModificationTasksPaginator,
         DescribeManagedPrefixListsPaginator,
+        DescribeMetricCategoriesPaginator,
         DescribeMovingAddressesPaginator,
         DescribeNatGatewaysPaginator,
         DescribeNetworkAclsPaginator,
@@ -352,6 +353,7 @@ Usage::
     describe_mac_hosts_paginator: DescribeMacHostsPaginator = client.get_paginator("describe_mac_hosts")
     describe_mac_modification_tasks_paginator: DescribeMacModificationTasksPaginator = client.get_paginator("describe_mac_modification_tasks")
     describe_managed_prefix_lists_paginator: DescribeManagedPrefixListsPaginator = client.get_paginator("describe_managed_prefix_lists")
+    describe_metric_categories_paginator: DescribeMetricCategoriesPaginator = client.get_paginator("describe_metric_categories")
     describe_moving_addresses_paginator: DescribeMovingAddressesPaginator = client.get_paginator("describe_moving_addresses")
     describe_nat_gateways_paginator: DescribeNatGatewaysPaginator = client.get_paginator("describe_nat_gateways")
     describe_network_acls_paginator: DescribeNetworkAclsPaginator = client.get_paginator("describe_network_acls")
@@ -531,6 +533,7 @@ from .paginator import (
     DescribeMacHostsPaginator,
     DescribeMacModificationTasksPaginator,
     DescribeManagedPrefixListsPaginator,
+    DescribeMetricCategoriesPaginator,
     DescribeMovingAddressesPaginator,
     DescribeNatGatewaysPaginator,
     DescribeNetworkAclsPaginator,
@@ -771,6 +774,7 @@ __all__ = (
     "DescribeMacHostsPaginator",
     "DescribeMacModificationTasksPaginator",
     "DescribeManagedPrefixListsPaginator",
+    "DescribeMetricCategoriesPaginator",
     "DescribeMovingAddressesPaginator",
     "DescribeNatGatewaysPaginator",
     "DescribeNetworkAclsPaginator",

@@ -1347,16 +1347,18 @@ def magphase(D: np.ndarray, *, power: float = 1) -> tuple[np.ndarray, np.ndarray
     mag = np.abs(D)
 
     # Prevent NaNs and return magnitude 0, phase 1+0j for zero
-    zeros_to_ones = mag == 0
-    mag_nonzero = mag + zeros_to_ones
+    zero_mask = mag == 0
     # Compute real and imaginary separately, because complex division can
     # produce NaNs when denormalized numbers are involved (< ~2e-39 for
     # complex64, ~5e-309 for complex128)
     phase = np.empty_like(D, dtype=util.dtype_r2c(D.dtype))
-    phase.real = D.real / mag_nonzero + zeros_to_ones
-    phase.imag = D.imag / mag_nonzero
+    np.divide(D.real, mag, out=phase.real, where=~zero_mask)
+    phase.real[zero_mask] = 1.0
+    np.divide(D.imag, mag, out=phase.imag, where=~zero_mask)
+    phase.imag[zero_mask] = 0.0
 
-    mag **= power
+    if power != 1:
+        mag **= power
 
     return mag, phase
 
@@ -1385,20 +1387,6 @@ def phase_vocoder(
         https://www.ee.columbia.edu/~dpwe/resources/matlab/pvoc/
 
     .. [#] https://breakfastquay.com/rubberband/
-
-    Examples
-    --------
-    >>> # Play at double speed
-    >>> y, sr   = librosa.loadx('trumpet')
-    >>> D       = librosa.stft(y, n_fft=2048, hop_length=512)
-    >>> D_fast  = librosa.phase_vocoder(D, rate=2.0, hop_length=512)
-    >>> y_fast  = librosa.istft(D_fast, hop_length=512)
-
-    >>> # Or play at 1/3 speed
-    >>> y, sr   = librosa.loadx('trumpet')
-    >>> D       = librosa.stft(y, n_fft=2048, hop_length=512)
-    >>> D_slow  = librosa.phase_vocoder(D, rate=1./3, hop_length=512)
-    >>> y_slow  = librosa.istft(D_slow, hop_length=512)
 
     Parameters
     ----------
@@ -1445,6 +1433,20 @@ def phase_vocoder(
     See Also
     --------
     pyrubberband
+
+    Examples
+    --------
+    >>> # Play at double speed
+    >>> y, sr   = librosa.loadx('trumpet')
+    >>> D       = librosa.stft(y, n_fft=2048, hop_length=512)
+    >>> D_fast  = librosa.phase_vocoder(D, rate=2.0, hop_length=512)
+    >>> y_fast  = librosa.istft(D_fast, hop_length=512)
+
+    >>> # Or play at 1/3 speed
+    >>> y, sr   = librosa.loadx('trumpet')
+    >>> D       = librosa.stft(y, n_fft=2048, hop_length=512)
+    >>> D_slow  = librosa.phase_vocoder(D, rate=1./3, hop_length=512)
+    >>> y_slow  = librosa.istft(D_slow, hop_length=512)
     """
     n_frames = D.shape[-1]
 
@@ -1768,7 +1770,7 @@ def power_to_db(
         For multi-channel inputs, with `axes='auto'`, peaks
         are calculated independently for each channel.
 
-    axes: None, "auto", int, or tuple of int
+    axes : None, "auto", int, or tuple of int
         Axis or axes along which to compute the reference value (if `ref` is callable).
         If `auto`, then axes will be inferred as the trailing dimensions of `S`:
 
@@ -1873,13 +1875,15 @@ def power_to_db(
     else:
         ref_value = np.abs(ref)
 
-    log_spec: np.ndarray = 10.0 * np.log10(np.maximum(amin, magnitude))
+    log_spec: np.ndarray = np.asarray(np.maximum(amin, magnitude))
+    np.log10(log_spec, out=log_spec)
+    log_spec *= 10.0
     log_spec -= 10.0 * np.log10(np.maximum(amin, ref_value))
 
     if top_db is not None:
         if top_db < 0:
             raise ParameterError("top_db must be non-negative")
-        log_spec = np.maximum(log_spec, log_spec.max(axis=axes, keepdims=True) - top_db)
+        np.maximum(log_spec, log_spec.max(axis=axes, keepdims=True) - top_db, out=log_spec)
 
     return log_spec[()]
 
@@ -2085,7 +2089,7 @@ def db_to_amplitude(
 def perceptual_weighting(
     S: np.ndarray, frequencies: np.ndarray, *, kind: str = "A", **kwargs: Any
 ) -> np.ndarray:
-    """Perceptual weighting of a power spectrogram::
+    """Perceptual weighting of a power spectrogram
 
         S_p[..., f, :] = frequency_weighting(f, 'A') + 10*log(S[..., f, :] / ref)
 
@@ -2999,19 +3003,20 @@ def _spectrogram(
             raise ParameterError(
                 "Input signal must be provided to compute a spectrogram"
             )
-        S = (
-            np.abs(
-                stft(
-                    y,
-                    n_fft=n_fft,
-                    hop_length=hop_length,
-                    win_length=win_length,
-                    center=center,
-                    window=window,
-                    pad_mode=pad_mode,
-                )
+        S = np.abs(
+            stft(
+                y,
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+                center=center,
+                window=window,
+                pad_mode=pad_mode,
             )
-            ** power
         )
+        if power == 2:
+            np.square(S, out=S)
+        elif power != 1:
+            S **= power
 
     return S, n_fft

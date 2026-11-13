@@ -1,4 +1,4 @@
-"""Where Probe listens inside a Miles worker with no Miles commit: three module-level functions, each
+"""Where Probe listens inside a Miles worker with no Miles commit: module-level functions, each
 wrapped in this process only, when (and if) its module loads. Each wrapper calls Miles' function first,
 unchanged, then records; a Probe failure never reaches Miles.
 
@@ -7,6 +7,7 @@ unchanged, then records; a Probe failure never reaches Miles.
 | `backends/training_utils/metrics/train_dump.py:11` `save_debug_train_data`; fork `utils/train_dump_utils.py:9` | after each train step, every rank (`megatron_utils/actor.py:881`; fork :492) | trainer parts, seal, commit |
 | `backends/training_utils/weight_update/updater.py:140` `WeightUpdater.update_weights` | each weight sync, every rank | weight versions |
 | `dashboard/hooks.py:423` `push_sandbox_reports` | each `report_sandbox` | attempt starts, heartbeats |
+| `loss/objective.py` `loss_function`, `data/rollout.py` `DataIterator.get_next`, `torch_native/actor.py` `log_train_step`, `megatron_utils/model.py` `train_one_step` | each micro-batch / optimizer update, every train rank | per-sample training metrics (`../training/`) |
 
 The rollout process's live samples (rl-next W36, `../live/`) wrap four more as they load: `utils/http_utils.py` `post`
 (a running try's request id), `rollout/inference_rollout/inference_rollout_common.py` (each generate function, and the
@@ -17,11 +18,7 @@ rollout's session), and `rollout/base_types.py` `RolloutFnTrainInput` (the step 
 from __future__ import annotations
 
 import functools
-import importlib.abc
-import importlib.util
 import logging
-import sys
-import threading
 from collections.abc import Callable
 from typing import Any
 
@@ -34,6 +31,11 @@ HTTP_MODULE = "miles.utils.http_utils"
 ROLLOUT_COMMON_MODULE = "miles.rollout.inference_rollout.inference_rollout_common"
 ENDPOINT_MODULE = "miles.rollout.generate_utils.openai_endpoint_utils"
 BASE_TYPES_MODULE = "miles.rollout.base_types"
+#: Per-sample training metrics (`../training/`): the loss, the micro-batches' rows, each backend's update end.
+OBJECTIVE_MODULE = "miles.backends.training_utils.loss.objective"
+ROLLOUT_DATA_MODULE = "miles.backends.training_utils.data.rollout"
+TORCH_NATIVE_MODULE = "miles.backends.training_utils.torch_native.actor"
+MEGATRON_MODEL_MODULE = "miles.backends.megatron_utils.model"
 _MARK = "__probe_wrapped__"
 
 
@@ -108,6 +110,30 @@ def wrap_base_types(module: Any) -> None:
     wrap_rollout_inputs(module)
 
 
+def wrap_objective(module: Any) -> None:
+    from probe.integrations.miles.training import install_objective
+
+    install_objective(module)
+
+
+def wrap_rollout_data(module: Any) -> None:
+    from probe.integrations.miles.training import install_stamp
+
+    install_stamp(module)
+
+
+def wrap_torch_native(module: Any) -> None:
+    from probe.integrations.miles.training import install_torch_native
+
+    install_torch_native(module)
+
+
+def wrap_megatron_model(module: Any) -> None:
+    from probe.integrations.miles.training import install_megatron
+
+    install_megatron(module)
+
+
 WRAPS: dict[str, Callable[[Any], None]] = {
     **dict.fromkeys(TRAIN_DUMP_MODULES, wrap_train_dump),
     UPDATER_MODULE: wrap_weight_updater,
@@ -116,55 +142,20 @@ WRAPS: dict[str, Callable[[Any], None]] = {
     ROLLOUT_COMMON_MODULE: wrap_rollout_common,
     ENDPOINT_MODULE: wrap_endpoint,
     BASE_TYPES_MODULE: wrap_base_types,
+    # The loss module first: the actor modules bind `loss_function` by name when they load (`from ... import`).
+    OBJECTIVE_MODULE: wrap_objective,
+    ROLLOUT_DATA_MODULE: wrap_rollout_data,
+    TORCH_NATIVE_MODULE: wrap_torch_native,
+    MEGATRON_MODEL_MODULE: wrap_megatron_model,
 }
 
 
-class _AfterImport(importlib.abc.MetaPathFinder):
-    """Runs a module's wrap right after the module first loads in this process."""
-
-    def __init__(self, wraps: dict[str, Callable[[Any], None]]) -> None:
-        self._wraps = wraps
-        self._busy = threading.local()
-
-    def find_spec(self, fullname, path, target=None):
-        wrap = self._wraps.get(fullname)
-        if wrap is None or getattr(self._busy, "name", None) == fullname:
-            return None
-        self._busy.name = fullname
-        try:
-            spec = importlib.util.find_spec(fullname)
-        finally:
-            self._busy.name = None
-        if spec is None or spec.loader is None or not hasattr(spec.loader, "exec_module"):
-            return None
-        spec.loader = _WrappingLoader(spec.loader, wrap)
-        return spec
-
-
-class _WrappingLoader(importlib.abc.Loader):
-    def __init__(self, inner, wrap: Callable[[Any], None]) -> None:
-        self._inner, self._wrap = inner, wrap
-
-    def create_module(self, spec):
-        return self._inner.create_module(spec)
-
-    def exec_module(self, module) -> None:
-        self._inner.exec_module(module)
-        _record("wrap " + module.__name__, lambda: self._wrap(module))
-
-
-_finder: _AfterImport | None = None
-
-
 def install_worker_wraps() -> None:
-    """Wrap the modules already loaded here, and the rest as they load. Idempotent."""
-    global _finder
+    """Wrap the modules already loaded here, and the rest as they load (`watch_import`). Idempotent."""
+    from probe.sdk.run.samples.points import watch_import
+
     for name, wrap in WRAPS.items():
-        if (module := sys.modules.get(name)) is not None:
-            _record("wrap " + name, lambda module=module, wrap=wrap: wrap(module))
-    if _finder is None:
-        _finder = _AfterImport(WRAPS)
-        sys.meta_path.insert(0, _finder)
+        watch_import(name, wrap, framework="Miles")
 
 
 _warned: set[str] = set()

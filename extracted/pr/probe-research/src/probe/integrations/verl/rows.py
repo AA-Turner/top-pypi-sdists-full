@@ -10,7 +10,10 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from probe.generated.samples import FinishReason, SampleErrorReason
+from probe.generated.samples import FinishReason, SampleErrorReason, TurnsSource
+from probe.sdk.run.samples.rollout import RolloutCapture
+
+from .tool_loop import FINISH_FIELD
 
 #: Dataset `extra_info` keys (`utils/dataset/rl_dataset.py:400-410`) naming the task and its scenario.
 TASK_KEY_FIELD = "task_id"
@@ -108,6 +111,9 @@ class VerlRow:
     #: The loop's last model call's stop reason (`STOP_REASONS`), and a validation row's live key as the loop carried it.
     stop_reason: str | None = None
     attempt_key: str | None = None
+    #: The agent loop's capture as it carried it (`tool_loop`: `RolloutCapture.export` and the finish it saw): the
+    #: messages as sent, `turns_source` and `environment`; None when the loop recorded none (decoded turns instead).
+    rollout: Mapping[str, Any] | None = None
 
     def get_loss_mask(self) -> list[int] | None:
         """1 for a model token, 0 for a tool or environment token (verl's `response_mask`), cut to the response."""
@@ -223,9 +229,14 @@ class RowMapper:
             part["reward_parts"] = dict(row.reward_parts)
         if row.turn_count is not None:
             part["turn_count"] = row.turn_count
-        turns = self._build_turns(row)
-        if turns:
-            part["turns"] = turns
+        rollout = row.rollout if isinstance(row.rollout, Mapping) else None
+        if not (rollout and (rollout.get("turns") or rollout.get("turns_blob"))):
+            turns = self._build_turns(row)
+            if turns:
+                part["turns"] = turns
+                part["turns_source"] = TurnsSource.DECODED.value
+        if rollout and rollout.get(FINISH_FIELD) == _LENGTH and part.get("finish_reason") in (None, _STOP, UNKNOWN_FINISH):
+            part["finish_reason"] = _LENGTH  # F4: the loop ran past `response_length`; the engine said `completed`
         if row.segment_count is not None and row.segment_count > 1:
             part["segment"], part["segment_count"] = row.segment, row.segment_count
         extras = get_extras(extra, row.data_source)
@@ -236,6 +247,8 @@ class RowMapper:
         arrays = self._get_inference_arrays(row)
         if arrays:
             part["token_arrays"] = arrays
+        if rollout:  # the messages as sent, `turns_source`, `environment`; its `extras` merged into the part's
+            RolloutCapture.update_part(part, rollout)
         return part
 
     def _get_inference_arrays(self, row: VerlRow) -> dict | None:
@@ -251,7 +264,8 @@ class RowMapper:
         return arrays
 
     def _build_turns(self, row: VerlRow) -> list[dict]:
-        """A multi-turn response as its messages: the dataset's prompt messages, then each run of model tokens
+        """The fallback when the loop captured no messages (another agent loop class, a worker that could not join),
+        marked `turns_source=decoded`: a multi-turn response as its messages: the dataset's prompt messages, then each run of model tokens
         (`response_mask` 1) and of tool or environment tokens (0) decoded alone, one turn per model reply. A response
         with no 0 run is single-turn: no turns."""
         mask = row.get_loss_mask()

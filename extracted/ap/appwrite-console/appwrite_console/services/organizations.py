@@ -14,6 +14,7 @@ from ..enums.addon_key import AddonKey
 from ..models.addon_price import AddonPrice
 from ..models.aggregation_team_list import AggregationTeamList
 from ..models.aggregation_team import AggregationTeam
+from ..models.alert import Alert
 from ..models.billing_address import BillingAddress
 from ..models.credit_list import CreditList
 from ..models.credit import Credit
@@ -702,6 +703,59 @@ class Organizations(Service):
 
         return self._parse_response(response, model=AggregationTeam)
 
+    def update_alert(
+        self,
+        organization_id: str,
+        alert_id: str,
+        acknowledged: bool,
+    ) -> Alert:
+        """
+        Acknowledge one of the organization's firing alerts, or undo that. Everyone who can read the alert sees who acknowledged it and when; it keeps firing until its monitor recovers. You can acknowledge the alerts you can read: a project's when your role reads that project's alerts, and budget alerts when it reads billing.
+
+        Parameters
+        ----------
+        organization_id : str
+            Organization ID.
+        alert_id : str
+            Alert ID.
+        acknowledged : bool
+            Whether the alert is acknowledged. False undoes an acknowledgement.
+        Returns
+        -------
+        Alert
+            API response as a typed Pydantic model
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/organizations/{organizationId}/alerts/{alertId}'
+        api_params = {}
+        if organization_id is None or organization_id == '':
+            raise AppwriteException('Missing required parameter: "organization_id"')
+        if alert_id is None or alert_id == '':
+            raise AppwriteException('Missing required parameter: "alert_id"')
+        if acknowledged is None:
+            raise AppwriteException('Missing required parameter: "acknowledged"')
+        api_path = api_path.replace('{organizationId}', self._encode_path(organization_id))
+        api_path = api_path.replace('{alertId}', self._encode_path(alert_id))
+        api_params['acknowledged'] = self._normalize_value(acknowledged)
+
+        response = self.client.call(
+            'patch',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'content-type': 'application/json',
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return self._parse_response(response, model=Alert)
+
     def set_billing_address(
         self,
         organization_id: str,
@@ -896,10 +950,12 @@ class Organizations(Service):
         organization_id: str,
         budget: Optional[float],
         alerts: Optional[List[float]] = None,
+        notify: Optional[List[str]] = None,
+        critical: Optional[List[float]] = None,
         model_type: Type[T] = dict,
     ) -> Organization[T]:
         """
-        Update the budget limit for an organization.
+        Update the budget limit for an organization, the percentages of it that raise an alert, and the organization roles those alerts are emailed to.
 
         Parameters
         ----------
@@ -909,6 +965,10 @@ class Organizations(Service):
             Budget limit for additional usage set for the organization
         alerts : Optional[List[float]]
             Budget alert limit percentage
+        notify : Optional[List[str]]
+            Organization roles whose confirmed members are emailed when a budget alert fires. Omit to keep the current roles; owners and billing members until changed.
+        critical : Optional[List[float]]
+            Budget alert percentages, from `alerts` or 100 for the cap, whose push notifications are critical and ring on devices that allow it even on silent. Omit to keep the current ones.
         model_type : Type[T], optional
             Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
 
@@ -931,6 +991,10 @@ class Organizations(Service):
         api_params['budget'] = self._normalize_value(budget)
         if alerts is not None:
             api_params['alerts'] = self._normalize_value(alerts)
+        if notify is not None:
+            api_params['notify'] = self._normalize_value(notify)
+        if critical is not None:
+            api_params['critical'] = self._normalize_value(critical)
 
         response = self.client.call(
             'patch',

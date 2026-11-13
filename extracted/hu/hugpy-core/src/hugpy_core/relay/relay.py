@@ -36,13 +36,17 @@ def worker_payload(kwargs: dict, worker: "dict | None" = None) -> dict:
     """The worker's /infer body. With ``worker`` given, the pair's operator knobs
     (hugpy_core.model_workers.user_settings) ride along as ``knobs``."""
     out = {k: kwargs[k] for k in WORKER_PAYLOAD_KEYS if kwargs.get(k) is not None}
+    if worker is not None and out.get("model_key"):
+        # the request names the model as this worker serves it (a short or default name is not one)
+        from hugpy_core.relay.pick import served_name
+        out["model_key"] = served_name(out["model_key"], worker)
     # The former engine request schema merged adjacent plain turns before
     # dispatch. Core's relay takes raw dicts, so restore that behavior here for
     # both /v1 and the console stream, including older /infer workers.
     if out.get("messages"):
         from hugpy_resources.imports.functions import merge_consecutive_messages
         out["messages"] = merge_consecutive_messages(out["messages"])
-    if worker is not None and out.get("model_key"):
+    if worker is not None and out.get("model_key") and not is_native(worker):
         from hugpy_core.models.modeldb import get_knobs
         knobs = get_knobs(out["model_key"], worker["id"])
         # a call's own knobs (OpenAI `knobs`, e.g. from `model@options`) override
@@ -77,10 +81,14 @@ def event_from_worker_line(d: dict) -> Optional[Dict[str, Any]]:
     return None
 
 
+def is_native(worker: dict) -> bool:
+    return (worker.get('data_service') or {}).get('implementation') == 'hugpy-wrapper-native'
+
+
 def is_front_door(worker: dict) -> bool:
     """A box reached through the router: its wrapper speaks OpenAI /v1, not /infer."""
     eng = worker.get("engine")
-    return isinstance(eng, dict) and eng.get("name") == "fitevict"
+    return is_native(worker) or isinstance(eng, dict) and eng.get("name") == "fitevict"
 
 
 def _openai_body(payload: dict) -> dict:
@@ -120,7 +128,7 @@ def front_door_stream(worker: dict, payload: dict, timeout: float = 600.0) -> It
     tokens per round — the wrapper's own default is 128, which a thinking model spends
     entirely on reasoning — and when a round stops on the cap, the reply is continued
     from where it stopped (the answer so far as the assistant's prefill)."""
-    unbounded = payload.get("max_new_tokens") is None
+    unbounded = payload.get("max_new_tokens") is None and not is_native(worker)
     p = dict(payload)
     if unbounded:
         p["max_new_tokens"] = UNBOUNDED_ROUND
@@ -155,6 +163,8 @@ def _front_door_round(worker: dict, payload: dict, timeout: float) -> Iterator[D
         headers["X-Hugpy-Station-Lease"] = str(payload["_station_lease"])
     if payload.get("request_id"):
         headers["X-Hugpy-Parent-Request-Id"] = str(payload["request_id"])
+    if is_native(worker) and payload.get("request_id"):
+        headers["Idempotency-Key"] = str(payload["request_id"])
     req = urllib.request.Request(url, data=json.dumps(_openai_body(payload)).encode("utf-8"),
                                  headers=headers, method="POST")
     try:
@@ -279,7 +289,7 @@ def worker_cancel(worker: dict, request_id: str) -> "tuple[int, dict]":
     """POST {worker}/infer/cancel/<rid>; returns (status, body)."""
     from urllib.parse import quote
     from hugpy_core.registry.transport import headers as worker_headers
-    sql = (worker.get('data_service') or {}).get('implementation') == 'hugpy-wrapper-sql'
+    sql = is_native(worker) or (worker.get('data_service') or {}).get('implementation') == 'hugpy-wrapper-sql'
     path = ('/v1/requests/' + quote(request_id, safe='') + '/cancel' if sql
             else '/infer/cancel/' + quote(request_id, safe=''))
     url = worker["url"].rstrip("/") + path

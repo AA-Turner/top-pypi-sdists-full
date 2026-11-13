@@ -28,7 +28,7 @@ def release(package='hugpy-wrapper', version=None):
     from packaging.version import Version
     Version(value['version'])
     if value.get('artifact') is not None:
-        from fitevict.cli.update import validate_artifact
+        from hugpy_core.lifted.artifacts import validate_artifact
         validate_artifact(value['artifact'])
     return value
 

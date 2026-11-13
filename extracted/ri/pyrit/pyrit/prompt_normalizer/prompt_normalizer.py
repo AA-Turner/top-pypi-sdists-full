@@ -6,13 +6,19 @@ import copy
 import logging
 import os
 import tempfile
+import threading
 import traceback
 import wave
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from contextlib import AbstractAsyncContextManager, nullcontext
+from contextvars import copy_context
+from functools import partial
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 from uuid import uuid4
 
+from pyrit.common.attack_result_scope import get_current_attack_result_id
+from pyrit.converter import Converter
 from pyrit.exceptions import (
     ComponentRole,
     EmptyResponseException,
@@ -26,6 +32,7 @@ from pyrit.models import (
     Conversation,
     Message,
     MessagePiece,
+    RequestTraceContext,
     construct_response_from_request,
 )
 from pyrit.prompt_normalizer import ConverterConfiguration, NormalizerRequest
@@ -34,6 +41,18 @@ from pyrit.prompt_target.batch_helper import batch_task_async
 from pyrit.prompt_target.common.target_send_context import TargetSendContext
 
 logger = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
+
+
+def _is_write_only_response(responses: object) -> bool:
+    """
+    Distinguish a write-only target's empty list from a malformed None response.
+
+    Returns:
+        bool: Whether the target returned an empty list.
+    """
+    return isinstance(responses, list) and len(responses) == 0
 
 
 class PromptNormalizer:
@@ -55,15 +74,28 @@ class PromptNormalizer:
             raise RuntimeError("Memory is not initialized")
         return self._memory
 
-    def __init__(self, start_token: str = "⟪", end_token: str = "⟫") -> None:
+    def __init__(
+        self,
+        start_token: str = "⟪",
+        end_token: str = "⟫",
+        *,
+        converter_guard: Callable[[Converter], AbstractAsyncContextManager[None]] | None = None,
+    ) -> None:
         """
         Initialize the PromptNormalizer.
 
         start_token and end_token are used to delineate which part of a prompt is converted.
+        ``converter_guard`` optionally coordinates shared converter instances during conversion only.
+
+        Raises:
+            ValueError: If either token is empty.
         """
+        if not start_token or not end_token:
+            raise ValueError("Start and end tokens must be non-empty.")
         self._memory = CentralMemory.get_memory_instance()
         self._start_token = start_token
         self._end_token = end_token
+        self._converter_guard = converter_guard
         self.id = str(uuid4())
 
     async def send_prompt_async(
@@ -109,8 +141,14 @@ class PromptNormalizer:
         request = copy.deepcopy(message)
         conversation_id = conversation_id if conversation_id else str(uuid4())
         target_identifier = target.get_identifier()
-        self.memory.add_conversation_to_memory(
-            conversation=Conversation(conversation_id=conversation_id, target_identifier=target_identifier)
+        (
+            await self.memory.add_conversation_to_memory_async(
+                conversation=Conversation(
+                    conversation_id=conversation_id,
+                    target_identifier=target_identifier,
+                    attack_result_id=get_current_attack_result_id(),
+                )
+            )
         )
 
         for piece in request.message_pieces:
@@ -131,14 +169,14 @@ class PromptNormalizer:
                 normalizer_overrides=normalizer_overrides,
                 send_context=send_context,
             )
-            self.memory.add_message_to_memory(request=request)
+            (await self.memory.add_message_to_memory_async(request=request))
         except EmptyResponseException as ex:
             if send_context and send_context.target_invocation_count == target_invocation_count_before_send:
                 cid = request.message_pieces[0].conversation_id if request.message_pieces else None
                 raise Exception(f"Error normalizing prompt with conversation ID: {cid}") from ex
 
             # Empty responses are retried, but we don't want them to stop execution
-            self.memory.add_message_to_memory(request=request)
+            (await self.memory.add_message_to_memory_async(request=request))
 
             responses = [
                 construct_response_from_request(
@@ -155,7 +193,7 @@ class PromptNormalizer:
                 raise Exception(f"Error normalizing prompt with conversation ID: {cid}") from ex
 
             # Ensure request to memory before processing exception
-            self.memory.add_message_to_memory(request=request)
+            (await self.memory.add_message_to_memory_async(request=request))
 
             error_response = construct_response_from_request(
                 request=request.message_pieces[0],
@@ -163,9 +201,11 @@ class PromptNormalizer:
                 response_type="error",
                 error="processing",
             )
+            error_response.get_piece().prompt_metadata.pop(RequestTraceContext.METADATA_KEY, None)
+            error_response.get_piece().prompt_metadata.pop(RequestTraceContext.REQUEST_METADATA_KEY, None)
 
             await self._calc_hash_async(request=error_response)
-            self.memory.add_message_to_memory(request=error_response)
+            (await self.memory.add_message_to_memory_async(request=error_response))
             cid = request.message_pieces[0].conversation_id if request and request.message_pieces else None
             raise Exception(f"Error sending prompt with conversation ID: {cid}") from ex
 
@@ -173,7 +213,7 @@ class PromptNormalizer:
         if not responses or not any(responses):
             # An empty list is valid for write-only targets (e.g., TextTarget)
             # that don't produce responses. Return the request as-is.
-            if responses is not None and len(responses) == 0:
+            if _is_write_only_response(responses):
                 return request
             empty_response = construct_response_from_request(
                 request=request.message_pieces[0],
@@ -181,8 +221,10 @@ class PromptNormalizer:
                 response_type="text",
                 error="empty",
             )
+            empty_response.get_piece().prompt_metadata.pop(RequestTraceContext.METADATA_KEY, None)
+            empty_response.get_piece().prompt_metadata.pop(RequestTraceContext.REQUEST_METADATA_KEY, None)
             await self._calc_hash_async(request=empty_response)
-            self.memory.add_message_to_memory(request=empty_response)
+            (await self.memory.add_message_to_memory_async(request=empty_response))
             return empty_response
 
         # Process all response messages (targets return list[Message])
@@ -194,13 +236,15 @@ class PromptNormalizer:
             # enforcing it here keeps the persisted conversation coherent regardless of target.
             for piece in resp.message_pieces:
                 piece.conversation_id = conversation_id
+                piece.prompt_metadata.pop(RequestTraceContext.METADATA_KEY, None)
+                piece.prompt_metadata.pop(RequestTraceContext.REQUEST_METADATA_KEY, None)
             is_last = i == len(responses) - 1
             if is_last:
                 await self.convert_values_async(
                     converter_configurations=response_converter_configurations, message=resp
                 )
             await self._calc_hash_async(request=resp)
-            self.memory.add_message_to_memory(request=resp)
+            (await self.memory.add_message_to_memory_async(request=resp))
 
         # Return the last response for backward compatibility
         return responses[-1]
@@ -299,12 +343,14 @@ class PromptNormalizer:
                                 outer_context.objective_target_conversation_id if outer_context else None
                             ),
                         ):
-                            converter_result = await converter.convert_tokens_async(
-                                prompt=converted_text,
-                                input_type=converted_text_data_type,
-                                start_token=self._start_token,
-                                end_token=self._end_token,
-                            )
+                            guard = self._converter_guard(converter) if self._converter_guard else nullcontext()
+                            async with guard:
+                                converter_result = await converter.convert_tokens_async(
+                                    prompt=converted_text,
+                                    input_type=converted_text_data_type,
+                                    start_token=self._start_token,
+                                    end_token=self._end_token,
+                                )
                         converted_text = converter_result.output_text
                         converted_text_data_type = converter_result.output_type
                     except Exception:
@@ -351,7 +397,7 @@ class PromptNormalizer:
         if not converter_configurations:
             return raw_pcm
 
-        input_path = _write_pcm_to_temp_wav(
+        input_path = await _write_pcm_to_temp_wav_async(
             raw_pcm=raw_pcm,
             sample_rate_hz=sample_rate_hz,
             num_channels=num_channels,
@@ -370,7 +416,9 @@ class PromptNormalizer:
                 converter_configurations=converter_configurations,
                 message=message,
             )
-            actual_rate, actual_channels, actual_width, converted_pcm = _read_pcm_from_wav(piece.converted_value)
+            actual_rate, actual_channels, actual_width, converted_pcm = await _finish_file_io_async(
+                partial(_read_pcm_from_wav, piece.converted_value)
+            )
             if (actual_rate, actual_channels, actual_width) != (
                 sample_rate_hz,
                 num_channels,
@@ -384,7 +432,7 @@ class PromptNormalizer:
                 )
             return converted_pcm
         finally:
-            Path(input_path).unlink(missing_ok=True)
+            await _finish_file_io_async(partial(Path(input_path).unlink, missing_ok=True))
 
     async def _calc_hash_async(self, request: Message) -> None:
         """Add a request to the memory."""
@@ -404,7 +452,7 @@ class PromptNormalizer:
             message (Message): The message to hash and persist.
         """
         await self._calc_hash_async(request=message)
-        self.memory.add_message_to_memory(request=message)
+        (await self.memory.add_message_to_memory_async(request=message))
 
     async def add_prepended_conversation_to_memory_async(
         self,
@@ -434,8 +482,14 @@ class PromptNormalizer:
 
         # Create a deep copy of the prepended conversation to avoid modifying the original
         prepended_conversation = copy.deepcopy(prepended_conversation)
-        self.memory.add_conversation_to_memory(
-            conversation=Conversation(conversation_id=conversation_id, target_identifier=target_identifier)
+        (
+            await self.memory.add_conversation_to_memory_async(
+                conversation=Conversation(
+                    conversation_id=conversation_id,
+                    target_identifier=target_identifier,
+                    attack_result_id=get_current_attack_result_id(),
+                )
+            )
         )
 
         for request in prepended_conversation:
@@ -448,9 +502,139 @@ class PromptNormalizer:
                 # and if not, this won't hurt anything
                 piece.id = uuid4()
 
-            self.memory.add_message_to_memory(request=request)
+            (await self.memory.add_message_to_memory_async(request=request))
 
         return prepended_conversation
+
+
+def _submit_file_io(operation: Callable[[], _T]) -> asyncio.Future[_T]:
+    """
+    Keep the worker's completion handle outside shutdown's task cancellation.
+
+    Returns:
+        asyncio.Future[_T]: The executor's completion handle.
+    """
+    # Shutdown cancels all Tasks, even shielded to_thread Tasks. Preserve to_thread's
+    # context propagation while retaining the executor Future instead.
+    context = copy_context()
+    return asyncio.get_running_loop().run_in_executor(None, context.run, operation)
+
+
+async def _finish_file_io_async(operation: Callable[[], _T]) -> _T:
+    """
+    Finish file I/O before propagating cancellation, even during loop shutdown.
+
+    Returns:
+        _T: The operation's result.
+
+    Raises:
+        asyncio.CancelledError: After the worker finishes if the caller was cancelled.
+    """
+    work = _submit_file_io(operation)
+    try:
+        return await asyncio.shield(work)
+    except asyncio.CancelledError:
+        while not work.done():
+            try:
+                await asyncio.shield(work)
+            except asyncio.CancelledError:
+                continue
+            except Exception:
+                break
+        if not work.cancelled() and (error := work.exception()) is not None:
+            raise asyncio.CancelledError from error
+        raise
+
+
+class _TempWavWrite:
+    """Coordinate ownership between a WAV writer and a cancelled caller."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._abandoned = False
+        self._path: str | None = None
+
+    def record_path(self, path: str) -> bool:
+        """Return whether the caller still owns a completed write."""
+        with self._lock:
+            if self._abandoned:
+                return False
+            self._path = path
+            return True
+
+    def abandon(self) -> str | None:
+        """
+        Transfer ownership of a completed write to cleanup.
+
+        Returns:
+            str | None: The completed path, or None if the worker still owns it.
+        """
+        with self._lock:
+            self._abandoned = True
+            return self._path
+
+
+async def _write_pcm_to_temp_wav_async(
+    *,
+    raw_pcm: bytes,
+    sample_rate_hz: int,
+    num_channels: int,
+    sample_width_bytes: int,
+) -> str:
+    """
+    Write the PCM to a new temp WAV file in a worker thread and return its path.
+
+    A worker thread cannot be stopped, so a cancelled caller would never learn the path of the
+    file the thread goes on to create. In that case the file is removed once the write finishes.
+
+    Args:
+        raw_pcm (bytes): Raw PCM audio samples (no WAV header).
+        sample_rate_hz (int): Sample rate of the PCM in Hz.
+        num_channels (int): Channel count.
+        sample_width_bytes (int): Bytes per sample.
+
+    Returns:
+        str: The path of the new temp WAV file.
+
+    Raises:
+        asyncio.CancelledError: If the caller is cancelled before the write finishes.
+    """
+    ownership = _TempWavWrite()
+
+    def write_owned_wav() -> str:
+        path = _write_pcm_to_temp_wav(
+            raw_pcm=raw_pcm,
+            sample_rate_hz=sample_rate_hz,
+            num_channels=num_channels,
+            sample_width_bytes=sample_width_bytes,
+        )
+        if not ownership.record_path(path):
+            _remove_abandoned_temp_wav(path)
+        return path
+
+    write = _submit_file_io(write_owned_wav)
+    try:
+        return await asyncio.shield(write)
+    except asyncio.CancelledError:
+        path = ownership.abandon()
+        if path is not None:
+            cleanup = _submit_file_io(partial(_remove_abandoned_temp_wav, path))
+            cleanup.add_done_callback(_report_abandoned_temp_wav_failure)
+        write.add_done_callback(_report_abandoned_temp_wav_failure)
+        raise
+
+
+def _remove_abandoned_temp_wav(path: str) -> None:
+    """Remove a temp WAV whose caller was cancelled."""
+    Path(path).unlink(missing_ok=True)
+
+
+def _report_abandoned_temp_wav_failure(work: asyncio.Future[Any]) -> None:
+    """Report failures from a write or removal after its caller was cancelled."""
+    if work.cancelled():
+        logger.error("An abandoned temporary WAV operation was unexpectedly cancelled.")
+    elif (error := work.exception()) is not None:
+        logger.error("Failed to finish an abandoned temporary WAV operation.", exc_info=error)
 
 
 def _write_pcm_to_temp_wav(

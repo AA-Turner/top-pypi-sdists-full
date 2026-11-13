@@ -1,7 +1,10 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+import copy
+import math
 import uuid
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
@@ -9,7 +12,6 @@ if TYPE_CHECKING:
 
 from pyrit.models import (
     ComponentIdentifier,
-    Condition,
     Scorable,
     ScorableUnion,
     Score,
@@ -18,8 +20,27 @@ from pyrit.models import (
 )
 from pyrit.score.float_scale.float_scale_score_aggregator import FloatScaleAggregatorFunc, FloatScaleScoreAggregator
 from pyrit.score.float_scale.float_scale_scorer import FloatScaleScorer
+from pyrit.score.observation.execution import _merge_observation_ids
 from pyrit.score.score_utils import ORIGINAL_FLOAT_VALUE_KEY
+from pyrit.score.scorer import Scorer, SnapshotParticipation, _set_snapshot_participation
 from pyrit.score.true_false.true_false_scorer import TrueFalseScorer
+
+
+def _build_threshold_rationale(*, scorer_type: str, verdict: str, scale_rationale: str | None) -> str:
+    """
+    Join the threshold verdict with the wrapped scorer's rationale.
+
+    The wrapped scorer does not always supply a rationale (``AzureContentFilterScorer``
+    routinely does not). Omitting the label in that case keeps the persisted rationale
+    readable everywhere it is shown instead of ending on a dangling heading.
+
+    Returns:
+        str: The composed rationale.
+    """
+    lines = [f"based on {scorer_type}", verdict]
+    if scale_rationale and scale_rationale.strip():
+        lines.append(f"Rationale for scale score: {scale_rationale.strip()}")
+    return "\n".join(lines)
 
 
 class FloatScaleThresholdScorer(TrueFalseScorer):
@@ -39,12 +60,13 @@ class FloatScaleThresholdScorer(TrueFalseScorer):
 
         Args:
             scorer (FloatScaleScorer): The underlying float scale scorer to use.
-            threshold (float): The threshold value between 0 and 1. Scores >= threshold are True, otherwise False.
+            threshold (float): A finite threshold in (0, 1]. Scores >= threshold are True, otherwise False.
             float_scale_aggregator (FloatScaleAggregatorFunc): The aggregator function to use for combining
-                multiple float scale scores. Defaults to FloatScaleScoreAggregator.MAX.
+                multiple float scale scores. Defaults to FloatScaleScoreAggregator.MAX. It must combine the
+                scores into exactly one result; a by-category aggregator is rejected when scoring.
 
         Raises:
-            ValueError: If the threshold is not between 0 and 1.
+            ValueError: If the threshold is non-finite or not in (0, 1].
         """
         self._scorer = scorer
         self._threshold = threshold
@@ -52,7 +74,7 @@ class FloatScaleThresholdScorer(TrueFalseScorer):
 
         super().__init__()
 
-        if threshold <= 0 or threshold > 1:
+        if not math.isfinite(threshold) or threshold <= 0 or threshold > 1:
             raise ValueError("The threshold must be between 0 and 1")
 
     @property
@@ -85,23 +107,52 @@ class FloatScaleThresholdScorer(TrueFalseScorer):
         """
         return self._scorer.get_chat_target()
 
-    def matched_conditions(self) -> frozenset[type[Condition]]:
+    def with_scorer_block_policy(self, *, raise_if_scorer_blocks: bool) -> Scorer:
         """
-        Report what the wrapped scorer matches.
+        Apply the policy to the wrapped float-scale scorer.
+
+        Args:
+            raise_if_scorer_blocks (bool): The policy to apply to LLM-backed leaves.
 
         Returns:
-            frozenset[type[Condition]]: The condition types the wrapped scorer routes.
+            Scorer: ``self`` when the wrapped scorer is unchanged, otherwise a copy wrapping
+            the updated scorer.
         """
-        return self._scorer.matched_conditions()
+        scoped_inner = cast(
+            "FloatScaleScorer", self._scorer.with_scorer_block_policy(raise_if_scorer_blocks=raise_if_scorer_blocks)
+        )
+        if scoped_inner is self._scorer:
+            return self
+        scoped = copy.copy(self)
+        scoped._scorer = scoped_inner
+        return scoped
 
-    def required_conditions(self) -> frozenset[type[Condition]]:
+    def _get_child_scorers(self) -> tuple[Scorer, ...]:
+        """Return the scorer whose value is compared to the threshold."""
+        return (self._scorer,)
+
+    async def _filter_matching_scores_by_snapshot_async(
+        self,
+        *,
+        scores: Sequence[Score],
+        scorable: Scorable,
+        expectation: ScoringExpectation | None,
+        used_observation_ids: dict[str, set[str]],
+        participation_by_score: dict[str, SnapshotParticipation | None],
+    ) -> list[Score]:
         """
-        Report what the wrapped scorer requires.
+        Validate the wrapped float scorer's evidence before reusing its threshold result.
 
         Returns:
-            frozenset[type[Condition]]: The required condition types.
+            list[Score]: The candidates linked to the wrapped scorer's current snapshot.
         """
-        return self._scorer.required_conditions()
+        return await self._filter_matching_scores_by_children_async(
+            scores=scores,
+            scorable=scorable,
+            expectation=expectation,
+            used_observation_ids=used_observation_ids,
+            participation_by_score=participation_by_score,
+        )
 
     async def _score_scorable_async(
         self,
@@ -120,16 +171,21 @@ class FloatScaleThresholdScorer(TrueFalseScorer):
             list[Score]: ``[]`` when the wrapped scorer is non-applicable; otherwise, a list
                 containing one completed or undetermined true/false score.
         """
-        scores = await self._scorer._score_nested_async(scorable=scorable, expectation=expectation)
+        scores = await self._scorer._score_nested_async(
+            scorable=scorable, expectation=self._scorer._select_expectation(expectation=expectation)
+        )
         if not scores:
             return []
-        return self._apply_threshold(
+        thresholded = self._apply_threshold(
             scores=scores,
             expectation=expectation,
             # Score rejects a kind outside the union when it is constructed below.
             scorable=cast("ScorableUnion | None", scorable),
             message_piece_id=self._piece_id_from_scorable(scorable),
         )
+        for result in thresholded:
+            _set_snapshot_participation(score=result, child_scores={0: scores[0]})
+        return thresholded
 
     def _apply_threshold(
         self,
@@ -144,11 +200,24 @@ class FloatScaleThresholdScorer(TrueFalseScorer):
 
         Returns:
             list[Score]: A list containing one completed or undetermined true/false score.
+
+        Raises:
+            ValueError: If the configured aggregator does not combine the scores into exactly one result.
         """
         objective = expectation.objective if expectation else None
 
         # The wrapped scorer's non-applicable result returns before aggregation.
         aggregate_results = self._float_scale_aggregator(scores)
+        if len(aggregate_results) != 1:
+            # A by-category aggregator returns one result per category, and the
+            # threshold can only be applied to a single value. Silently taking the
+            # first one would decide the verdict from one category and drop the rest.
+            raise ValueError(
+                f"{self._float_scale_aggregator.__name__} returned {len(aggregate_results)} results. "  # type: ignore[ty:unresolved-attribute]
+                "FloatScaleThresholdScorer requires an aggregator that combines the scores into exactly "
+                "one result, such as FloatScaleScoreAggregator.MAX; a by-category aggregator such as "
+                "FloatScaleScorerByCategory.MAX cannot be thresholded."
+            )
         aggregate_score = aggregate_results[0]
         aggregate_value = aggregate_score.value
         scorer_type = self._scorer.get_identifier().class_name
@@ -161,15 +230,17 @@ class FloatScaleThresholdScorer(TrueFalseScorer):
                     score_value=None,
                     status=ScoreStatus.UNDETERMINED,
                     score_value_description=aggregate_score.description,
-                    score_rationale=(
-                        f"based on {scorer_type}\nNo verdict was reachable, so the threshold "
-                        f"{self._threshold} could not be applied.\n{aggregate_score.rationale}"
+                    score_rationale=_build_threshold_rationale(
+                        scorer_type=scorer_type,
+                        verdict=(f"No verdict was reachable, so the threshold {self._threshold} could not be applied."),
+                        scale_rationale=aggregate_score.rationale,
                     ),
                     score_category=aggregate_score.category,
                     score_metadata=dict(aggregate_score.metadata),
                     scorer_class_identifier=self.get_identifier(),
                     message_piece_id=message_piece_id,
                     scorable=scorable,
+                    observation_ids=_merge_observation_ids(scores=scores),
                     objective=objective,
                 )
             ]
@@ -183,25 +254,26 @@ class FloatScaleThresholdScorer(TrueFalseScorer):
         else:
             comparison_symbol = "="
 
-        score = scores[0]
+        score = self._create_wrapper_score(scores[0])
+        score.scorable = scorable
+        score.message_piece_id = message_piece_id
         score.score_type = "true_false"
-        score.score_value = str(threshold_result)
-        score.status = ScoreStatus.COMPLETE
+        score.set_value(bool(threshold_result))
         # Carry the aggregate's category, metadata and rationale rather than the first
         # constituent score's. The threshold decision is made on the aggregate, so
         # describing it with scores[0] mislabels the result whenever the wrapped scorer
         # returns more than one score (e.g. AzureContentFilterScorer, one per harm
         # category): the value would say True while the category, rationale and metadata
         # described a different, possibly zero-valued, category.
-        score.score_rationale = (
-            f"based on {scorer_type}\n"
-            f"Normalized scale score: {aggregate_value} {comparison_symbol} threshold {self._threshold}\n"
-            f"Rationale for scale score: {aggregate_score.rationale}"
+        score.score_rationale = _build_threshold_rationale(
+            scorer_type=scorer_type,
+            verdict=f"Normalized scale score: {aggregate_value} {comparison_symbol} threshold {self._threshold}",
+            scale_rationale=aggregate_score.rationale,
         )
         score.score_value_description = aggregate_score.description
         score.score_category = aggregate_score.category
-        score.id = uuid.uuid4()
         score.scorer_class_identifier = self.get_identifier()
+        score.observation_ids = _merge_observation_ids(scores=scores)
         # Store the original float value in metadata for granular comparison
         score.score_metadata = {
             **aggregate_score.metadata,

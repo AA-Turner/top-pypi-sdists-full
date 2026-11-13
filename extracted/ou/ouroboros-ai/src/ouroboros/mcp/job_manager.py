@@ -18,6 +18,7 @@ import structlog
 from ouroboros.core.errors import PersistenceError
 from ouroboros.events.base import BaseEvent
 from ouroboros.mcp.failure_taxonomy import classify_failure
+from ouroboros.mcp.job_read_state import JobNotFoundError, PendingJobReceipts, cached_job_snapshot
 from ouroboros.mcp.job_snapshot import (
     JobEventFold,
     JobLinks,
@@ -435,19 +436,14 @@ class JobManager:
         self._live_snapshots: dict[str, JobSnapshot] = {}
         self._fold_cache: dict[str, JobEventFold] = {}
         self._telemetry = JobTelemetryBoundary()
+        self.pending_receipts = PendingJobReceipts(self._event_store)
 
     def get_cached_snapshot(self, job_id: str) -> JobSnapshot | None:
         """Return cache only when durable reconciliation is unnecessary.
 
         Non-terminal cache is valid only while this manager owns a live task.
         """
-        snapshot = self._live_snapshots.get(job_id)
-        if snapshot is None or snapshot.is_terminal:
-            return snapshot
-        task = self._tasks.get(job_id)
-        if task is not None and not task.done():
-            return snapshot
-        return None
+        return cached_job_snapshot(self._live_snapshots, self._tasks, job_id)
 
     def _merge_live_snapshot(self, job_id: str, data: dict[str, Any], *, cursor: int) -> None:
         """Keep a non-authoritative live snapshot for responsive MCP polling."""
@@ -556,6 +552,7 @@ class JobManager:
         self._reserved_job_ids.discard(job_id)
         self._forced_inline_allocations.discard(job_id)
         self._known_job_ids.discard(job_id)
+        self.pending_receipts.discard(job_id)
 
     def settle_external_job_acceptance(self, job_id: str) -> None:
         """Convert a detached reservation into a known externally owned job."""
@@ -1302,7 +1299,16 @@ class JobManager:
         if not session_id or not execution_id:
             return None
 
-        session_events = await self._event_store.replay("session", session_id)
+        terminal_statuses = {
+            "orchestrator.session.completed": "completed",
+            "orchestrator.session.failed": "failed",
+            "orchestrator.session.cancelled": "cancelled",
+        }
+        # Only the first start and the last terminal row are read below, so the
+        # replay skips the session's progress rows (same order, fewer rows).
+        session_events = await self._event_store.replay(
+            "session", session_id, event_types={"orchestrator.session.started", *terminal_statuses}
+        )
         start_event = next(
             (event for event in session_events if event.type == "orchestrator.session.started"),
             None,
@@ -1318,16 +1324,7 @@ class JobManager:
         current_format = ACCEPTANCE_ROOT_INDICES_PROGRESS_KEY in start_event.data
 
         terminal_event = next(
-            (
-                event
-                for event in reversed(session_events)
-                if event.type
-                in {
-                    "orchestrator.session.completed",
-                    "orchestrator.session.failed",
-                    "orchestrator.session.cancelled",
-                }
-            ),
+            (event for event in reversed(session_events) if event.type in terminal_statuses),
             None,
         )
         if terminal_event is None:
@@ -1346,11 +1343,7 @@ class JobManager:
                     details={"session_id": session_id, "execution_id": execution_id},
                 )
             return None
-        terminal_status = {
-            "orchestrator.session.completed": "completed",
-            "orchestrator.session.failed": "failed",
-            "orchestrator.session.cancelled": "cancelled",
-        }[terminal_event.type]
+        terminal_status = terminal_statuses[terminal_event.type]
         raw_plan = terminal_event.data.get("acceptance_finalizations")
         if not isinstance(raw_plan, list):
             raise PersistenceError(
@@ -1954,31 +1947,34 @@ class JobManager:
         await self._maybe_cleanup_expired()
         events, cursor = await self._event_store.get_events_after("job", job_id, last_row_id=0)
         if not events:
-            raise ValueError(f"Job not found: {job_id}")
+            raise JobNotFoundError(f"Job not found: {job_id}")
+        self.pending_receipts.discard(job_id)
         fold = fold_job_events(None, events, cursor=cursor)
         # A full replay is authoritative: refresh the tail cache so polling
         # loops resume from here and self-heal any divergence.
         self._fold_cache[job_id] = fold
         return await self._finalize_fold_snapshot(job_id, fold)
 
-    async def _get_snapshot_tail(self, job_id: str) -> JobSnapshot:
+    async def _get_snapshot_tail(self, job_id: str, *, exact: bool = False) -> JobSnapshot:
         """``get_snapshot`` variant for polling loops: fold only new events.
 
-        Resumes the cached fold at its rowid cursor instead of replaying the
-        job's whole stream every tick. Falls back to a full replay when no
-        fold is cached yet. The derived reconcilers still run on every call —
-        only the per-tick replay cost drops to O(new events).
+        Resumes the cached fold at its rowid cursor instead of replaying the job's
+        whole stream; falls back to that replay when no fold is cached yet. With
+        ``exact`` the result and side effects equal ``get_snapshot``'s: it also
+        replays when the fold may differ (``JobEventFold.replay_equivalent``).
         """
         await self._ensure_initialized()
         await self._maybe_cleanup_expired()
         fold = self._fold_cache.get(job_id)
-        if fold is None:
+        if fold is not None:
+            events, cursor = await self._event_store.get_events_after(
+                "job", job_id, last_row_id=fold.cursor
+            )
+            fold = fold_job_events(fold, events, cursor=cursor)  # no-op for an empty page
+        if fold is None or (exact and not fold.replay_equivalent):
             return await self.get_snapshot(job_id)
-        events, cursor = await self._event_store.get_events_after(
-            "job", job_id, last_row_id=fold.cursor
-        )
-        if events:
-            fold = fold_job_events(fold, events, cursor=cursor)
+        if exact:
+            self.pending_receipts.discard(job_id)
         return await self._finalize_fold_snapshot(job_id, fold)
 
     async def _finalize_fold_snapshot(self, job_id: str, fold: JobEventFold) -> JobSnapshot:
@@ -2344,11 +2340,9 @@ class JobManager:
 
         while True:
             events, new_cursor = await self._event_store.get_events_after("job", job_id, cursor)
+            snapshot = await self._get_snapshot_tail(job_id, exact=bool(events))
             if events:
-                snapshot = await self.get_snapshot(job_id)
                 return replace(snapshot, cursor=new_cursor), True
-
-            snapshot = await self._get_snapshot_tail(job_id)
             if snapshot.is_terminal or asyncio.get_running_loop().time() >= deadline:
                 return snapshot, False
 

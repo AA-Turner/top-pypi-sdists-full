@@ -3153,6 +3153,7 @@ class CfnTrail(
             is_multi_region_trail=False,
             is_organization_trail=False,
             kms_key_id="kmsKeyId",
+            recursive_logging=False,
             s3_key_prefix="s3KeyPrefix",
             sns_topic_name="snsTopicName",
             tags=[CfnTag(
@@ -3181,6 +3182,7 @@ class CfnTrail(
         is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         is_organization_trail: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         kms_key_id: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IAliasRef", "_aws_kms_18db7412.IKeyRef"]] = None,
+        recursive_logging: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         s3_key_prefix: typing.Optional[builtins.str] = None,
         sns_topic_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3203,6 +3205,7 @@ class CfnTrail(
         :param is_multi_region_trail: Specifies whether the trail applies only to the current Region or to all Regions. The default is false. If the trail exists only in the current Region and this value is set to true, shadow trails (replications of the trail) will be created in the other Regions. If the trail exists in all Regions and this value is set to false, the trail will remain in the Region where it was created, and its shadow trails in other Regions will be deleted. As a best practice, consider using trails that log events in all Regions.
         :param is_organization_trail: Specifies whether the trail is applied to all accounts in an organization in AWS Organizations , or only for the current AWS account . The default is false, and cannot be true unless the call is made on behalf of an AWS account that is the management account for an organization in AWS Organizations . If the trail is not an organization trail and this is set to ``true`` , the trail will be created in all AWS accounts that belong to the organization. If the trail is an organization trail and this is set to ``false`` , the trail will remain in the current AWS account but be deleted from all member accounts in the organization. .. epigraph:: Only the management account for the organization can convert an organization trail to a non-organization trail, or convert a non-organization trail to an organization trail.
         :param kms_key_id: Specifies the AWS key ID to use to encrypt the logs and digest files delivered by CloudTrail. The value can be an alias name prefixed by "alias/", a fully specified ARN to an alias, a fully specified ARN to a key, or a globally unique identifier. CloudTrail also supports AWS multi-Region keys. For more information about multi-Region keys, see `Using multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* . Examples: - alias/MyAliasName - arn:aws:kms:us-east-2:123456789012:alias/MyAliasName - arn:aws:kms:us-east-2:123456789012:key/12345678-1234-1234-1234-123456789012 - 12345678-1234-1234-1234-123456789012
+        :param recursive_logging: Specifies whether recursive logging is enabled for the trail. When set to false, CloudTrail will suppress recursive delivery events (such as PutObject events generated when CloudTrail delivers log files to the trail S3 bucket). The default is true.
         :param s3_key_prefix: Specifies the Amazon S3 key prefix that comes after the name of the bucket you have designated for log file delivery. For more information, see `Finding Your CloudTrail Log Files <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/get-and-view-cloudtrail-log-files.html#cloudtrail-find-log-files>`_ . The maximum length is 200 characters.
         :param sns_topic_name: Specifies the name or ARN of the Amazon SNS topic defined for notification of log file delivery. The maximum length is 256 characters.
         :param tags: A custom set of tags (key-value pairs) for this trail.
@@ -3226,6 +3229,7 @@ class CfnTrail(
             is_multi_region_trail=is_multi_region_trail,
             is_organization_trail=is_organization_trail,
             kms_key_id=kms_key_id,
+            recursive_logging=recursive_logging,
             s3_key_prefix=s3_key_prefix,
             sns_topic_name=sns_topic_name,
             tags=tags,
@@ -3592,6 +3596,24 @@ class CfnTrail(
             type_hints = cached_type_hints(_typecheckingstub__4fac6d2810385893265f6ef2611c9d8ceaa7635731b1ae56291d8e43a83cc907)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="recursiveLogging")
+    def recursive_logging(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Specifies whether recursive logging is enabled for the trail.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "recursiveLogging"))
+
+    @recursive_logging.setter
+    def recursive_logging(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8f48a60df24d7ecde2f6c68a43b8b2c3aef039c1e7ac6ee800dcbadc6b405527)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recursiveLogging", value)
 
     @builtins.property
     @jsii.member(jsii_name="s3KeyPrefix")
@@ -4427,6 +4449,7 @@ class CfnTrail(
         "is_multi_region_trail": "isMultiRegionTrail",
         "is_organization_trail": "isOrganizationTrail",
         "kms_key_id": "kmsKeyId",
+        "recursive_logging": "recursiveLogging",
         "s3_key_prefix": "s3KeyPrefix",
         "sns_topic_name": "snsTopicName",
         "tags": "tags",
@@ -4450,6 +4473,7 @@ class CfnTrailProps:
         is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         is_organization_trail: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         kms_key_id: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IAliasRef", "_aws_kms_18db7412.IKeyRef"]] = None,
+        recursive_logging: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         s3_key_prefix: typing.Optional[builtins.str] = None,
         sns_topic_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4470,6 +4494,7 @@ class CfnTrailProps:
         :param is_multi_region_trail: Specifies whether the trail applies only to the current Region or to all Regions. The default is false. If the trail exists only in the current Region and this value is set to true, shadow trails (replications of the trail) will be created in the other Regions. If the trail exists in all Regions and this value is set to false, the trail will remain in the Region where it was created, and its shadow trails in other Regions will be deleted. As a best practice, consider using trails that log events in all Regions.
         :param is_organization_trail: Specifies whether the trail is applied to all accounts in an organization in AWS Organizations , or only for the current AWS account . The default is false, and cannot be true unless the call is made on behalf of an AWS account that is the management account for an organization in AWS Organizations . If the trail is not an organization trail and this is set to ``true`` , the trail will be created in all AWS accounts that belong to the organization. If the trail is an organization trail and this is set to ``false`` , the trail will remain in the current AWS account but be deleted from all member accounts in the organization. .. epigraph:: Only the management account for the organization can convert an organization trail to a non-organization trail, or convert a non-organization trail to an organization trail.
         :param kms_key_id: Specifies the AWS key ID to use to encrypt the logs and digest files delivered by CloudTrail. The value can be an alias name prefixed by "alias/", a fully specified ARN to an alias, a fully specified ARN to a key, or a globally unique identifier. CloudTrail also supports AWS multi-Region keys. For more information about multi-Region keys, see `Using multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* . Examples: - alias/MyAliasName - arn:aws:kms:us-east-2:123456789012:alias/MyAliasName - arn:aws:kms:us-east-2:123456789012:key/12345678-1234-1234-1234-123456789012 - 12345678-1234-1234-1234-123456789012
+        :param recursive_logging: Specifies whether recursive logging is enabled for the trail. When set to false, CloudTrail will suppress recursive delivery events (such as PutObject events generated when CloudTrail delivers log files to the trail S3 bucket). The default is true.
         :param s3_key_prefix: Specifies the Amazon S3 key prefix that comes after the name of the bucket you have designated for log file delivery. For more information, see `Finding Your CloudTrail Log Files <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/get-and-view-cloudtrail-log-files.html#cloudtrail-find-log-files>`_ . The maximum length is 200 characters.
         :param sns_topic_name: Specifies the name or ARN of the Amazon SNS topic defined for notification of log file delivery. The maximum length is 256 characters.
         :param tags: A custom set of tags (key-value pairs) for this trail.
@@ -4532,6 +4557,7 @@ class CfnTrailProps:
                 is_multi_region_trail=False,
                 is_organization_trail=False,
                 kms_key_id="kmsKeyId",
+                recursive_logging=False,
                 s3_key_prefix="s3KeyPrefix",
                 sns_topic_name="snsTopicName",
                 tags=[CfnTag(
@@ -4556,6 +4582,7 @@ class CfnTrailProps:
             check_type(argname="argument is_multi_region_trail", value=is_multi_region_trail, expected_type=type_hints["is_multi_region_trail"])
             check_type(argname="argument is_organization_trail", value=is_organization_trail, expected_type=type_hints["is_organization_trail"])
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument recursive_logging", value=recursive_logging, expected_type=type_hints["recursive_logging"])
             check_type(argname="argument s3_key_prefix", value=s3_key_prefix, expected_type=type_hints["s3_key_prefix"])
             check_type(argname="argument sns_topic_name", value=sns_topic_name, expected_type=type_hints["sns_topic_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -4586,6 +4613,8 @@ class CfnTrailProps:
             self._values["is_organization_trail"] = is_organization_trail
         if kms_key_id is not None:
             self._values["kms_key_id"] = kms_key_id
+        if recursive_logging is not None:
+            self._values["recursive_logging"] = recursive_logging
         if s3_key_prefix is not None:
             self._values["s3_key_prefix"] = s3_key_prefix
         if sns_topic_name is not None:
@@ -4795,6 +4824,19 @@ class CfnTrailProps:
         '''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IAliasRef", "_aws_kms_18db7412.IKeyRef"]], result)
+
+    @builtins.property
+    def recursive_logging(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Specifies whether recursive logging is enabled for the trail.
+
+        When set to false, CloudTrail will suppress recursive delivery events (such as PutObject events generated when CloudTrail delivers log files to the trail S3 bucket). The default is true.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-recursivelogging
+        '''
+        result = self._values.get("recursive_logging")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def s3_key_prefix(self) -> typing.Optional[builtins.str]:
@@ -6135,6 +6177,7 @@ def _typecheckingstub__2259d5765ec84e4697f55f0d491871f1aa010feb94b3445a33a9e4b9f
     is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     is_organization_trail: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     kms_key_id: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IAliasRef, _aws_kms_18db7412.IKeyRef]] = None,
+    recursive_logging: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     s3_key_prefix: typing.Optional[builtins.str] = None,
     sns_topic_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6261,6 +6304,12 @@ def _typecheckingstub__4fac6d2810385893265f6ef2611c9d8ceaa7635731b1ae56291d8e43a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8f48a60df24d7ecde2f6c68a43b8b2c3aef039c1e7ac6ee800dcbadc6b405527(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a62410d04026f326fad72a00ba17b36e83eb965baeada846126607f600de0f7f(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -6355,6 +6404,7 @@ def _typecheckingstub__fe29eec9c2fc5386dadc73c14bab1f4c61dc9a7cd9ad26812bf169694
     is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     is_organization_trail: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     kms_key_id: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IAliasRef, _aws_kms_18db7412.IKeyRef]] = None,
+    recursive_logging: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     s3_key_prefix: typing.Optional[builtins.str] = None,
     sns_topic_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,

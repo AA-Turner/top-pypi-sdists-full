@@ -2,6 +2,7 @@ import { sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
 import { Benchmarks } from './benchmark-runners/dist/benchmarks.js';
 import { get_profile } from './benchmark-runners/dist/benchmark_profiles.js';
+import { countByCpu, probeServerCpus } from './cpu-probe.js';
 
 // Custom metrics
 const runDuration = new Trend('run_duration');
@@ -199,6 +200,8 @@ export function handleSummary(data) {
   const successfulRuns = data.metrics.successful_runs?.values?.count || 0;
   const failedRuns = data.metrics.failed_runs?.values?.count || 0;
   const totalRuns = successfulRuns + failedRuns;
+  const serverCpus = countByCpu(probeServerCpus(BASE_URL, LANGSMITH_API_KEY));
+  console.log(`Server CPUs (workers seen): ${JSON.stringify(serverCpus)}`);
 
   const summary = {
     startTimestamp: data.setup_data.startTime,
@@ -218,6 +221,8 @@ export function handleSummary(data) {
           : null,
       clientOverheadMs: trendMs(data.metrics.client_overhead),
       httpReqBlockedP95Ms: data.metrics.http_req_blocked?.values?.["p(95)"] ?? null,
+      // In metrics, not beside them, so every report's history carries it without another reader.
+      serverCpus,
       errors: {
         timeout: data.metrics.timeout_errors ? data.metrics.timeout_errors.values.count : 0,
         connection: data.metrics.connection_errors ? data.metrics.connection_errors.values.count : 0,

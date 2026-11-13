@@ -7,7 +7,7 @@ from ...foundation.front_door.front_door import serve_pieces
 
 # Every piece loads here, as the old module ran whole on import (statically, so the deploy
 # gate's import walk in scripts/ci/test_gate.py sees each one; serve_pieces loads the nested ones).
-from . import catalog, documents, entities, lineage, projects, runs, search, sessions, source  # noqa: F401
+from . import catalog, documents, entities, lineage, people, projects, runs, search, sessions, source  # noqa: F401
 
 #: The old module's pieces, in the split's load order: a write through the door reaches these only.
 _PIECES = (
@@ -15,6 +15,7 @@ _PIECES = (
     "probe.mcp.source.documents",
     "probe.mcp.source.entities",
     "probe.mcp.source.lineage",
+    "probe.mcp.source.people",
     "probe.mcp.source.projects",
     "probe.mcp.source.runs",
     "probe.mcp.source.search",
@@ -62,6 +63,8 @@ _HOMES = {
     "nonfinite": "probe.mcp.source.runs",
     "SOURCE_READ_CONTRACT": "probe.mcp.source.runs",
     "RunListQuery": "probe.mcp.source.runs",
+    # probe.mcp.source.people
+    "PeopleFilters": "probe.mcp.source.people",
     # probe.mcp.source.entities
     "Anchor": "probe.mcp.source.entities",
     "_RETIRED_REF_KIND": "probe.mcp.source.entities",

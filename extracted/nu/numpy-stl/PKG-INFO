@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numpy-stl
-Version: 4.1.3
+Version: 4.1.4
 Summary: Library to make reading, writing and modifying both binary and ascii STL files easy.
 Author: Rick van Hattem
 Author-email: Rick van Hattem <Wolph@Wol.ph>
@@ -41,6 +41,10 @@ Requires-Dist: tox-gh-actions>=3.0 ; extra == 'tox'
 Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/WoLpH/numpy-stl/
 Project-URL: Funding, https://github.com/sponsors/wolph
+Project-URL: Repository, https://github.com/wolph/numpy-stl
+Project-URL: Documentation, https://numpy-stl.readthedocs.io/
+Project-URL: Issues, https://github.com/wolph/numpy-stl/issues
+Project-URL: Changelog, https://github.com/wolph/numpy-stl/releases
 Provides-Extra: dev
 Provides-Extra: docs
 Provides-Extra: fast

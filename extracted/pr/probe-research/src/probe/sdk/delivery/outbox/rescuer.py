@@ -179,10 +179,12 @@ def maybe_restore(journal) -> bool:
 def maybe_rescue(journal, status: dict) -> bool:
     """The CLI's every-command check (`cli.main._outbox_notice`): at most once per
     `RESCUE_EVERY_SECONDS` per outbox root (`RESCUE_IDLE_SECONDS` after a rescue with nothing
-    to send), and only when writes are held back or a credential queue holds discards, start
-    `rescue` in a process of its own; also while the one-time restore is not done
-    (`claim_restore`). Two stats when not due; the interval is claimed under a lock so
-    concurrent commands start one. Never raises; True when one started."""
+    to send), and only when writes are held back, a credential queue holds discards or a dead
+    letter no retry can deliver waits (`Journal.has_final_letter`, ~200 files at most; the rescue
+    sweeps it), start `rescue` in a process of its own;
+    also while the one-time restore is not done (`claim_restore`). Two stats when not due; the
+    interval is claimed under a lock so concurrent commands start one. Never raises; True when
+    one started."""
     if not rescue_enabled() or os.environ.get("PROBE_OUTBOX_WORKER"):
         return False
     try:
@@ -191,7 +193,11 @@ def maybe_rescue(journal, status: dict) -> bool:
         stamp = _rescue_stamp(journal)
         if not _rescue_due(stamp) or not _claim(journal, stamp):
             return False
-        if not _writes_held_back(journal, status) and not _discards_held_in_queues(journal):
+        if (
+            not _writes_held_back(journal, status)
+            and not _discards_held_in_queues(journal)
+            and not journal.has_final_letter()
+        ):
             return False
     except Exception:  # noqa: BLE001 -- the every-command path never raises
         return False
@@ -342,10 +348,12 @@ def rescue(directory: str) -> int:
     (`_rescue_roots`), deliver the adopted writes in one foreground pass (`drain_adopted`),
     then let workers take over. First it moves every credential queue's discards to its root
     (`journal.relocate_discards`; reports `outbox.discarded`, reason `relocated`); then, once
-    per root until done, the one-time restore (`_restore_root`). One rescuer at a time per
+    per root until done, the one-time restore (`_restore_root`); after the adoption pass, the
+    dead letters no retry can deliver leave (`_sweep_final_letters`). One rescuer at a time per
     user (`journal.rescue_lock_path`); one finding nothing to send, and nothing put off,
-    defers the next look by `RESCUE_IDLE_SECONDS`. Prints to drainer.log; reports
-    `outbox.rescued` (and `outbox.restored`)."""
+    defers the next look by `RESCUE_IDLE_SECONDS` (a sweep is done in one pass: it never keeps
+    the next look close). Prints to drainer.log; reports `outbox.rescued` (and
+    `outbox.restored`)."""
     from ..journal.failures.discards import (
         DiscardCounts,
         relocate_discards)
@@ -430,6 +438,7 @@ def rescue(directory: str) -> int:
                 flush=True,
             )
         deferred += _settle_restore(restoring, restored)
+        _sweep_final_letters(_rescue_roots(root))
         if rescued:
             from .... import analytics as telemetry
 
@@ -452,6 +461,32 @@ def rescue(directory: str) -> int:
         except Exception:  # noqa: BLE001
             pass
     return 0
+
+
+def _sweep_final_letters(roots: list) -> None:
+    """Move every root's dead letters no retry can deliver to its ``discarded/``
+    (`Journal.drop_final_letters`: a past write epoch, a trashed run; no network) and report
+    them, `outbox.discarded` reason `unrecoverable`. A paused root is skipped. Never raises."""
+    from ..journal.failures.discards import DiscardCounts
+    from ....foundation.durable.durable import now_iso
+
+    dropped = DiscardCounts()
+    for one in roots:
+        try:
+            if not one.paused:
+                dropped.merge(one.drop_final_letters())
+        except Exception as exc:  # noqa: BLE001 -- one root never stops the rest
+            print(f"setting final dead letters aside skipped {one.dir}: {type(exc).__name__}", flush=True)
+    if not dropped.writes:
+        return
+    print(f"set aside {dropped.writes} dead letter(s) no retry can deliver ({now_iso()})", flush=True)
+    try:
+        from .... import analytics as telemetry
+
+        telemetry.emit_outbox_discarded(dropped, reason=telemetry.DiscardReason.UNRECOVERABLE,
+                                        surface=telemetry.get_worker_surface())
+    except Exception:  # noqa: BLE001 -- telemetry never stops the rescue
+        pass
 
 
 # -- ONE-TIME: the restore's steps in `rescue` (`journal/failures/restores.py`; delete with it)

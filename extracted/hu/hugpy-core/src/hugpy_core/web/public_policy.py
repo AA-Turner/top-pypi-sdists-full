@@ -6,7 +6,7 @@ from hugpy_core.config import model_preferences
 CHAT_MODELS = (
     "Qwen3.5-0.8B",
     "flux2-klein-9b-uncensored-text-encoder",
-    "Qwen3-Coder-Next-Q4_K_M",
+    "Qwen3-Coder-Next-GGUF",
 )
 # Public choices are a separate contract from the operator's task bindings.
 # In particular, an empty binding table must not select an arbitrary fleet model.
@@ -37,7 +37,7 @@ LOCAL_OPERATIONS = {
     "/api/media/document_inspect", "/api/media/document_page", "/api/media/document_search",
     "/api/session/ping", "/api/session/end", "/api/session/file",
     "/api/media/session/ping", "/api/media/session/end", "/api/media/session/file",
-    "/api/video/ingest",
+    "/api/video/ingest", "/api/video/upload",
 }
 READ = {
     "/api/version", "/api/media/health", "/api/media/capabilities", "/api/media/manifest",

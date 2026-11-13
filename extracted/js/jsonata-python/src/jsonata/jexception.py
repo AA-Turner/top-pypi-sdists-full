@@ -111,10 +111,16 @@ class JException(RuntimeError):
         if formatted == "{{{message}}}":
             return str(args[0]) if args else ""
 
-        # Replace any {{var}} with format "{}"
-        formatted = re.sub("\\{\\{\\w+\\}\\}", "{}", formatted)
+        # Replace each {{var}} or {{{var}}} with the next argument, in order. Like
+        # jsonata-js, a missing argument reads "undefined" (e.g. a signature error
+        # for a function that wasn't called by name).
+        values = iter(args)
 
-        formatted = formatted.format(*args)
+        def replace(_match: re.Match) -> str:
+            value = next(values, None)
+            return "undefined" if value is None else str(value)
+
+        formatted = re.sub("\\{\\{\\{\\w+\\}\\}\\}|\\{\\{\\w+\\}\\}", replace, formatted)
 
         if details:
             formatted = formatted + " {code=" + error
@@ -195,7 +201,8 @@ class JException(RuntimeError):
         "T2011": "The insert/update clause of the transform expression must evaluate to an object: {{value}}",
         "T2012": "The delete clause of the transform expression must evaluate to a string or array of strings: {{value}}",
         "T2013": "The transform expression clones the input object using the $clone() function.  This has been overridden in the current scope by a non-function.",
-        "D2014": "The size of the sequence allocated by the range operator (..) must not exceed 1e6.  Attempted to allocate {{value}}.",
+        "D2014": "The size of the sequence allocated by the range operator (..) must not exceed 1e7.  Attempted to allocate {{value}}.",
+        "D2015": "The maximum sequence length of {{value}} was exceeded.",
         "D3001": "Attempting to invoke string Object on Infinity or NaN",
         "D3010": "Second argument of replace Object cannot be an empty string",
         "D3011": "Fourth argument of replace Object must evaluate to a positive number",

@@ -1,5 +1,5 @@
 """The RL sample store's contract: one attempt = one sample, its task and scenario, provenance, capture, live
-attempts and their commands, and the wire."""
+attempts and their commands, per-sample metrics (`points/`), and the wire."""
 
 from .batch import (
     MAX_BATCH_BYTES,
@@ -10,6 +10,7 @@ from .batch import (
     SampleBatchIn,
     SampleBatchOut,
     SampleBatchQueued,
+    SamplePointsIn,
     SealIn,
     TaskIn,
     WeightVersionIn,
@@ -17,6 +18,7 @@ from .batch import (
 from .capture import (
     BundleKind,
     Capture,
+    CaptureField,
     CaptureReason,
     CaptureReasonCode,
     Plan,
@@ -127,6 +129,7 @@ from .samples import (
     TokenStats,
     TrialFile,
     derive_duration_s,
+    measure_turn_text,
 )
 from .task import (
     MAX_INLINE_TEXT_BYTES,
@@ -139,7 +142,16 @@ from .task import (
     Task,
     validate_scenario,
 )
-from .turns import Message, MessageSource, SampleEvent, SampleEventKind, Turn, TurnToolCall
+from .turns import (
+    Message,
+    MessageSource,
+    MessageToolCall,
+    SampleEvent,
+    SampleEventKind,
+    Turn,
+    TurnsSource,
+    TurnToolCall,
+)
 from .weights import WeightVersion
 
 __all__ = [
@@ -179,6 +191,7 @@ __all__ = [
     "BundleKind",
     "BundleRef",
     "Capture",
+    "CaptureField",
     "CaptureReason",
     "CaptureReasonCode",
     "CheckpointLineage",
@@ -208,6 +221,7 @@ __all__ = [
     "LogSource",
     "Message",
     "MessageSource",
+    "MessageToolCall",
     "MetricMode",
     "ModelRef",
     "ModelRefKind",
@@ -234,6 +248,7 @@ __all__ = [
     "SampleOut",
     "SampleOutcome",
     "SamplePartIn",
+    "SamplePointsIn",
     "SampleResult",
     "SampleSplit",
     "SampleStats",
@@ -262,6 +277,7 @@ __all__ = [
     "TrialFile",
     "Turn",
     "TurnToolCall",
+    "TurnsSource",
     "WeightList",
     "WeightVersion",
     "WeightVersionIn",
@@ -274,6 +290,7 @@ __all__ = [
     "derive_sample_id",
     "derive_task_id",
     "encode_scenario",
+    "measure_turn_text",
     "validate_drop_reason",
     "validate_producer",
     "validate_scenario",

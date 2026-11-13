@@ -113,7 +113,7 @@ class ListPayoutsResponseDataItem(UniversalBaseModel):
 
     source: typing.Optional[ListPayoutsResponseDataItemSource] = pydantic.Field(default=None)
     """
-    How the payout was created. `automatic` means a scheduled auto-payout; `null` on payouts created before source tracking or through internal tooling.
+    How the payout was created. `automatic` means a scheduled auto-payout. `null` when the payout has no recorded source.
     """
 
     speed: ListPayoutsResponseDataItemSpeed = pydantic.Field()
@@ -138,7 +138,7 @@ class ListPayoutsResponseDataItem(UniversalBaseModel):
 
     trace_code: typing.Optional[str] = pydantic.Field(default=None)
     """
-    ACH trace number the recipient's bank can use to locate this payout. Assigned when the payout is submitted to the bank, so it is `null` before then and on payouts not sent over ACH.
+    Payment network reference for this payout, such as an ACH trace number, an RTP or FedNow end-to-end ID, a wire IMAD, or a SWIFT UETR. `null` until the reference is available, and on payouts that have none.
     """
 
     if IS_PYDANTIC_V2:

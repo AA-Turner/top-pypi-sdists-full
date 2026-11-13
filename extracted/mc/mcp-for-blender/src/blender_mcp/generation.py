@@ -302,12 +302,10 @@ def _rodin_images(image: str) -> list:
     return images
 
 
-def submit_world(send: Send, name: str, prompt: str | None, image: str | None, quality: str | None) -> Job:
-    """Start a World Labs world. The addon reads image files and folders itself."""
-    params = {"text_prompt": prompt, "image": image, "name": name}
-    if quality:
-        params["quality"] = quality
-    result = send("create_worldlabs_job", params)
+def submit_world(send: Send, name: str, prompt: str | None, image: str | None) -> Job:
+    """Start a World Labs world. The addon reads image files and folders itself
+    and picks the model: the sidebar's on the user's key, Marble 1.1 through Premium."""
+    result = send("create_worldlabs_job", {"text_prompt": prompt, "image": image, "name": name})
     _relay(result)
     if not isinstance(result, dict) or not result.get("job_id") or result.get("kind") not in WORLDLABS_KINDS:
         raise GenerationError(f"World Labs returned no job: {result}")

@@ -127,6 +127,8 @@ def mock_internal_utils():
 def manager():
     """Create a testable EmrEc2SparkSessionManager with a pre-resolved connection."""
     mgr = EmrEc2SparkSessionManager(connection=_make_connection())
+    mgr._utils = MagicMock()
+    mgr._utils._get_domain_region.return_value = _TEST_REGION
     return mgr
 
 
@@ -473,6 +475,15 @@ class TestGetServiceSpecificConfigs:
         )
         assert configs["spark.openlineage.transport.type"] == "amazon_datazone_api"
         assert configs["spark.openlineage.transport.domainId"] == "dzd-test-domain"
+        assert configs["spark.openlineage.transport.region"] == _TEST_REGION
+        assert configs["spark.openlineage.columnLineage.datasetLineageEnabled"] == "true"
+
+    def test_glue_account_id_from_argument(self, manager):
+        manager.project = MagicMock()
+        manager.project.domain_id = "dzd-test"
+        configs = manager._get_service_specific_configs(account_id="111122223333")
+        assert configs["spark.glue.accountId"] == "111122223333"
+        assert "spark.glue.accountId" not in manager._get_service_specific_configs()
 
     def test_openlineage_domain_id_from_project(self, manager):
         """domainId should come from self.project.domain_id."""
@@ -504,7 +515,6 @@ class TestGetServiceSpecificConfigs:
         manager.project = MagicMock()
         manager.project.domain_id = "dzd-test"
         configs = manager._get_service_specific_configs()
-        assert "spark.glue.accountId" not in configs
         assert "spark.glue.JOB_NAME" not in configs
         assert "spark.openlineage.facets.custom_environment_variables" not in configs
 

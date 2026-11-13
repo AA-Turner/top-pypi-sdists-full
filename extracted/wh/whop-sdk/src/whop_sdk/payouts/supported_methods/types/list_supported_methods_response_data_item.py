@@ -5,6 +5,7 @@ import typing
 import pydantic
 from ....core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .list_supported_methods_response_data_item_delivery_type import ListSupportedMethodsResponseDataItemDeliveryType
+from .list_supported_methods_response_data_item_fee_structure import ListSupportedMethodsResponseDataItemFeeStructure
 from .list_supported_methods_response_data_item_object import ListSupportedMethodsResponseDataItemObject
 from .list_supported_methods_response_data_item_quotes_item import ListSupportedMethodsResponseDataItemQuotesItem
 from .list_supported_methods_response_data_item_required_fields_item import (
@@ -16,6 +17,11 @@ class ListSupportedMethodsResponseDataItem(UniversalBaseModel):
     delivery_type: ListSupportedMethodsResponseDataItemDeliveryType = pydantic.Field()
     """
     How funds are delivered, for example `bank_deposit`.
+    """
+
+    fee_structure: ListSupportedMethodsResponseDataItemFeeStructure = pydantic.Field()
+    """
+    Fee terms for payouts to this method: a percentage of the payout amount plus a fixed fee. The quotes carry the exact fee for a specific amount.
     """
 
     icon_url: typing.Optional[str] = pydantic.Field(default=None)
@@ -34,6 +40,11 @@ class ListSupportedMethodsResponseDataItem(UniversalBaseModel):
     """
 
     object: ListSupportedMethodsResponseDataItemObject
+    parent_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The ID of the supported payout method that lists this one, such as the bank deposit method that lists a named bank. Show this method as a choice inside that method, not as a separate method. Null for every other method.
+    """
+
     quotes: typing.Optional[typing.List[ListSupportedMethodsResponseDataItemQuotesItem]] = pydantic.Field(default=None)
     """
     Fee and delivery estimates for the requested amount, one per destination currency. Null unless an amount was provided.

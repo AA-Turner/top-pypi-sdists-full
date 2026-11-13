@@ -56,6 +56,7 @@ from . import (
     _ground_refl,
     _ground_spec,
     _medium_spec,
+    _rotational_symmetry,
     _schedule,
     _sinusoidal_nec4,
     _sommerfeld,
@@ -64,6 +65,7 @@ from . import (
     _wire_loading,
     _wire_spec,
 )
+from . import _mesh_walk
 from . import bspline as _bspline
 from . import _lapack
 from .bspline import SINGULAR_ENRICHMENT_NEVER
@@ -412,6 +414,44 @@ _ETA_REQUIRED = (
 _REDUCE_TILE = 32
 
 
+# The sparse-regime reduction in C++ (`reduce_phi_band`, momwire#1905) when
+# the accelerator carries it: scipy's `csr_matvecs` order, element by element,
+# threaded over observer rows. False routes every call through the scipy
+# tiles below, the reference the kernel is gated against bit for bit
+# (tests/test_sin_phi_reduce_1905.py).
+_PHI_REDUCE_ACCEL = True
+# Every platform. On x86-64 the kernel is scipy's arithmetic to the bit
+# (scipy's complex multiply-add is unfused there). On arm64 scipy's build
+# contracts it to FMA and the kernel, compiled with -ffp-contract=off, does
+# not, so the two differ at round-off; the gates there hold a tolerance and
+# report the measured drift (tests/phi_reduce_drift.py, PR #1909).
+_HAVE_PHI_REDUCE_ACCEL = _acc is not None and bool(
+    getattr(_acc, "phi_reduce_1905", False)
+)
+
+
+def _phi_reduce_takes(Phi, Ms, out):
+    """Whether `_acc.reduce_phi_band` can take this band: complex128 rows
+    that are contiguous, CSC Ms with complex128 data whose shape matches."""
+    if not (_PHI_REDUCE_ACCEL and _HAVE_PHI_REDUCE_ACCEL):
+        return False
+    if out.ndim != 2 or out.dtype != np.complex128:
+        return False
+    n, cols = out.shape
+    if cols > 1 and out.strides[1] != 16:
+        return False
+    for P, M in zip(Phi, Ms):
+        if P.ndim != 2 or P.dtype != np.complex128 or P.shape[0] != n:
+            return False
+        if P.shape[1] > 1 and P.strides[1] != 16:
+            return False
+        if not isinstance(M, scipy.sparse.csc_matrix) or M.dtype != np.complex128:
+            return False
+        if M.shape != (P.shape[1], cols):
+            return False
+    return True
+
+
 def _reduce_phi_rows_in_place(Phi, Ms, band):
     """`Φ₀@M₀ + Φ₁@M₁ + Φ₂@M₂`, `(x = A; x += B; x += C)`, written into
     `Phi[0]`'s storage band by band of `band` observer rows; returns that
@@ -485,6 +525,18 @@ def _reduce_phi_band(Phi, Ms, out):
     plus two strided `+=` into `out`: 0.67 s of a 1.40 s profiled solve at
     N = 2816 on Haswell, against 0.22 s for the tiles.
 
+    When the accelerator carries it (momwire#1905), the sparse regime runs
+    as `_acc.reduce_phi_band` instead: the same arithmetic, written out —
+    each output element a zero plus its column's stored entries in stored
+    order, one unfused `complex_wrapper` multiply-add each, then
+    `(A + B) + C` — over all observer rows at once, threaded over them. A
+    row reads only its own Φ rows, and its sums are buffered before they are
+    written, so `out` may still be `Phi[0]`. The tiles above are only where
+    scipy's operands live, so the kernel needs none; they remain the route
+    for anything it cannot take (`_phi_reduce_takes`) and when the
+    accelerator is absent. scipy's tiles ran on one thread: 0.44 s of a
+    0.79 s fill at 8 threads on the 4,392-segment ELT whip.
+
     A DENSE `Ms[i]` (N < `_DENSE_ASSEMBLY_THRESHOLD`) goes to BLAS zgemm,
     whose k-blocking follows the operand shape, so it is reduced whole
     band, exactly as written above.
@@ -493,6 +545,12 @@ def _reduce_phi_band(Phi, Ms, out):
         out[...] = Phi[0] @ Ms[0]
         out += Phi[1] @ Ms[1]
         out += Phi[2] @ Ms[2]
+        return out
+    if _phi_reduce_takes(Phi, Ms, out):
+        args = []
+        for M in Ms:
+            args += [M.indptr, M.indices, M.data]
+        _acc.reduce_phi_band(out, Phi[0], Phi[1], Phi[2], *args)
         return out
     MT = [M.T for M in Ms]  # CSR views over the CSC arrays, no copy
     for a, b in _reduce_tiles(out.shape[0]):
@@ -1056,6 +1114,19 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         has no collocation RHS at all, and under point matching the segment
         gap already IS the zero-width gap at the mesh's own resolution
         (momwire#212, report §17).
+
+    `rotational_symmetry`
+        The sector (block-circulant) route, opt-in (momwire#1912):
+        `BSplineSolver`'s (momwire#1029, #1897) on this basis. False (the
+        default) changes nothing. True asks for a deck that is N copies of
+        one sector about a vertical axis, whose port set the rotation maps
+        onto itself: the fill is then ONE sector's match points (and the
+        axial wires') against every source, and the solve the (m + p)
+        harmonic-0 block, plus each other harmonic's m x m block when a
+        port off the axis needs it. Served on `compute_impedance`,
+        `compute_port_solution` / `compute_y_matrix` and their swept forms,
+        in free space or one ground medium. A deck that is not that shape is
+        refused at construction, naming the condition (`_rotational_check`).
     """
 
     # momwire#1333: coincident wires joined to DIFFERENT wires are kept as
@@ -1105,7 +1176,11 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             "charge_support": ("basis-implied",),
             "kernel": ("reduced", "extended"),
             "quadrature": ("converged",),
-            "solve_strategy": ("dense",),
+            # Default first. "sector" is the opt-in `rotational_symmetry=True`
+            # route (momwire#1912), BSplineSolver's (momwire#1029) on this
+            # basis. The Galerkin subclass replaces the cell: it does not
+            # serve the route.
+            "solve_strategy": ("dense", "sector"),
             "feed_model": ("segment-gap",),
         },
         grounds=frozenset({"pec", "refl-coef", "sommerfeld"}),
@@ -1186,6 +1261,8 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         junction_rule="nec2",
         transmitted_anchors=None,
         point_cplx_staged=None,
+        pair_reuse=None,
+        rotational_symmetry=False,
     ):
         # momwire#1644: which condition on charge a junction's basis functions
         # take. "nec2" (the default) is NEC-2's log rule at every segment end,
@@ -1297,6 +1374,24 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         self._point_cplx_staged = _features.enabled(
             "point_cplx_staged", point_cplx_staged
         )
+        # momwire#1911: `pair_reuse` (bspline's feature, #1809) on the
+        # point-matched fill: each congruent pair's field tensors once
+        # (`_sin_pair_reuse`). This fill finds its own classes, so any truthy
+        # value is on, a front end's bspline hint included; "verify" also
+        # checks a sample of each band against the direct kernel. None defers
+        # to MOMWIRE_X_PAIR_REUSE; off is the fill, bit for bit.
+        self._pair_reuse_verify = isinstance(pair_reuse, str) and (
+            pair_reuse == "verify"
+        )
+        self._pair_reuse_on = _features.enabled(
+            "pair_reuse", None if pair_reuse is None else bool(pair_reuse)
+        )
+        self._sin_reuse_plans: dict = {}
+        # Why the last fill did not reuse (None when it did, or was not asked),
+        # the last fill's census per block, and verify's worst agreement.
+        self.pair_reuse_declined = None
+        self.pair_reuse_census: dict = {}
+        self.pair_reuse_verify_max = 0.0
         self.wavelength = wavelength
         self.halfdriver_factor = halfdriver_factor
         self.wire_radius = wire_radius
@@ -1552,6 +1647,145 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 self._radius_per_wire,
                 served=self._nec4_served_junctions(),
             )
+        # momwire#1912: the opt-in sector (block-circulant) route, as on
+        # `BSplineSolver` (momwire#1029). LAST, because the check reads the
+        # normalized junctions, feeds and loading above, and it refuses AT
+        # CONSTRUCTION. `None` is the whole of the default path: no attribute
+        # the dense fill or solve reads changes, and no route code runs.
+        self._rotational_map = None
+        self._rotational_copy_spread = None
+        self.rotational_symmetry = bool(rotational_symmetry)
+        if self.rotational_symmetry:
+            self._rotational_map = self._rotational_check()
+
+    def _rotational_ground_kind(self):
+        """The ground's name for the rotational-symmetry rule — the same
+        seam, and the same answers, as `BSplineSolver`'s: every ground this
+        family names is invariant under rotation about a vertical axis."""
+        if self.ground_z is None:
+            return "free"
+        if self.ground_eps is None:
+            return "pec"
+        return self.ground_model
+
+    def _rotational_check(self):
+        """The §3 rule (`_rotational_symmetry.sector_map`) plus the scope of
+        THIS family's route (momwire#1912), each refused by name before any
+        fill.
+
+        Served: every point-matched fill this family has — free space, a PEC
+        or reflection-coefficient image, a Sommerfeld half-space with the
+        deck above it, touching it, wholly inside it, or on both sides of it
+        (the mixed fill, crossing node included: #1029's buried screen). Not
+        yet: the Galerkin subclass (its own fill and testing) and the NEC-4
+        dialect's junction (its cap columns are a whole-matrix pass)."""
+        RS = _rotational_symmetry
+        if hasattr(self, "_node_drive_declared"):
+            raise RS.RotationalSymmetryRefused(
+                f"rotational symmetry: {type(self).__name__} does not serve "
+                "the sector route yet (momwire#1912 serves the point-matched "
+                "SinusoidalSolver). Drop rotational_symmetry=True to solve "
+                "this deck densely."
+            )
+        if self.junction_rule != "nec2":
+            raise RS.RotationalSymmetryRefused(
+                "rotational symmetry: the NEC-4 junction rule "
+                f"(junction_rule={self.junction_rule!r}) is not served on the "
+                "sector route yet; its cap columns are filled over the whole "
+                "matrix. Drop rotational_symmetry=True to solve this deck "
+                "densely."
+            )
+        return RS.sector_map(self)
+
+    def _rotational_segments(self, geom):
+        """`(sectors, axial, rows, row_of, D)`: the route's segment groups,
+        the observer rows its fill holds (sector 0's and the axial group's,
+        sorted), where each lives in the row-compact fill, and the reversed-
+        member signs (None when no member runs backwards)."""
+        RS = _rotational_symmetry
+        n = int(geom["n_segs"])
+        first = geom["wire_first"]
+        sectors, axial = RS.segment_groups(self, first, n)
+        rows = np.union1d(sectors[0], axial).astype(np.int64)
+        row_of = np.full(n, -1, dtype=np.int64)
+        row_of[rows] = np.arange(rows.size, dtype=np.int64)
+        return sectors, axial, rows, row_of, RS.segment_signs(self, first, n)
+
+    def _rotational_fill(self, geom, rows):
+        """`(G, seg_view, k_solve)`: the row-compact point-matched fill of
+        `rows` against every source, inside the solve's medium, the view it
+        was filled through, and the wavenumber that view is read at (a
+        wholly-buried solve's k_m, as on the dense path)."""
+        with self._operating_medium(geom) as medium:
+            G, seg_view = self._assemble_Z(
+                geom, self.k, self._medium_eta(medium), obs_rows=rows
+            )
+            return G, seg_view, self.k
+
+    def _compute_impedance_rotational(self):
+        """`compute_impedance` on the sector route (momwire#1912): one fill
+        of sector 0's rows and the axial rows against every source, one
+        (m + p) harmonic-0 solve, the coefficients in the dense ordering."""
+        RS = _rotational_symmetry
+        geom = self._build_geometry()
+        sectors, axial, rows, row_of, D = self._rotational_segments(geom)
+        v, voltages = self._feed_drive_vector(geom)
+        if D is not None:
+            v = D * v
+        no_kcl = np.zeros((0, int(geom["n_segs"])), dtype=np.float64)
+        # The drive guard BEFORE the fill, as bspline's (momwire#1029 2b).
+        RS.check_drive(v, no_kcl, sectors)
+        self._checkpoint()  # after geometry and drive, before the one-sector fill
+        G, seg_view, _k = self._rotational_fill(geom, rows)
+        if D is not None:
+            G *= D[None, :]
+        self._checkpoint()  # before the harmonic-0 solve
+        alpha = RS.solve(self, G, v, no_kcl, sectors, axial, row_of=row_of)
+        del G
+        if D is not None:
+            alpha = D * alpha
+        # No LU of the whole G exists on the route, so nothing is stashed for
+        # the wire-loading adjoint oracle; a stale one would be a wrong answer.
+        self.Z_factors = None
+        return self._feed_impedances(alpha, geom, seg_view, voltages), alpha
+
+    def _compute_port_solution_rotational(self):
+        """`compute_port_solution` on the sector route (momwire#1912): every
+        port from the one row-compact fill, through the harmonics its columns
+        need (`harmonic_blocks` / `solve_ports`, with no constraint rows —
+        this basis carries its junction conditions in its coefficients)."""
+        RS = _rotational_symmetry
+        geom = self._build_geometry()
+        sectors, axial, rows, row_of, D = self._rotational_segments(geom)
+        n_segs = int(geom["n_segs"])
+        feed_segs = geom["feed_segs"]
+        n_ports = len(feed_segs)
+        B = np.zeros((n_segs, n_ports), dtype=np.complex128)
+        for j, fi in enumerate(feed_segs):
+            B[fi, j] = -1.0 / geom["seg_h"][fi]
+        Bt = B if D is None else D[:, None] * B
+        no_kcl = np.zeros((0, n_segs), dtype=np.float64)
+        harmonics = RS.harmonics_needed(Bt, no_kcl, sectors)
+        self._checkpoint()  # after geometry and ports, before the one-sector fill
+        G, seg_view, k_solve = self._rotational_fill(geom, rows)
+        if D is not None:
+            G *= D[None, :]
+        blocks = RS.harmonic_blocks(self, G, sectors, axial, harmonics, row_of=row_of)
+        del G
+        self._checkpoint()  # before the harmonic solves
+        alphas = RS.solve_ports(blocks, Bt, no_kcl, sectors, axial)
+        if D is not None:
+            alphas = D[:, None] * alphas
+        Y = np.zeros((n_ports, n_ports), dtype=np.complex128)
+        for j in range(n_ports):
+            for i, fi in enumerate(feed_segs):
+                Y[i, j] = self._feed_segment_current(alphas[:, j], seg_view, fi)
+        return PortSolution(
+            y=Y,
+            coeffs=alphas,
+            port_currents=Y,  # the same object: the readout IS the Y matrix
+            basis=_SegmentBasis(geom=geom, seg_view=seg_view, k=k_solve),
+        )
 
     def _nec4_served_junctions(self):
         """The junctions the NEC-4 junction solve will take, decided at
@@ -2015,52 +2249,60 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         """
         if self._cached_geometry is not None:
             return self._cached_geometry
-        # Build per-edge chunks (n_e segments per edge) in vectorized form,
-        # then concatenate. Inner k_seg Python loop (171 iters × 5 list
-        # appends + 4 numpy temporaries) was ~12% of py-spy samples at N=21.
-        seg_l_chunks: list[np.ndarray] = []
-        seg_r_chunks: list[np.ndarray] = []
-        seg_c_chunks: list[np.ndarray] = []
-        seg_t_chunks: list[np.ndarray] = []
-        seg_h_chunks: list[np.ndarray] = []
-        wire_first_seg: list[int] = []
-        wire_last_seg: list[int] = []
-        running_count = 0
-
-        for w_idx, (pl, npe_list) in enumerate(
-            zip(self.wires_polylines, self.n_per_edge_per_wire)
-        ):
-            wire_first = running_count
-            for e_idx in range(pl.shape[0] - 1):
-                p0 = pl[e_idx]
-                p1 = pl[e_idx + 1]
-                vec = p1 - p0
-                edge_len = float(norm3(vec))
-                if edge_len < 1e-15:
-                    raise ValueError(f"wire {w_idx} edge {e_idx} has zero length")
-                tan = vec / edge_len
-                n_e = npe_list[e_idx]
-                h_e = edge_len / n_e
-                # frac in [0, 1] sampled at n_e+1 points; consecutive points
-                # bound each segment.
-                frac = np.linspace(0.0, 1.0, n_e + 1)
-                pts = p0 + frac[:, None] * vec  # (n_e+1, 3)
-                pl_l_arr = pts[:-1]  # (n_e, 3)
-                pl_r_arr = pts[1:]  # (n_e, 3)
-                seg_l_chunks.append(pl_l_arr)
-                seg_r_chunks.append(pl_r_arr)
-                seg_c_chunks.append(0.5 * (pl_l_arr + pl_r_arr))
-                seg_t_chunks.append(np.broadcast_to(tan, (n_e, 3)).copy())
-                seg_h_chunks.append(np.full(n_e, h_e, dtype=np.float64))
-                running_count += n_e
-            wire_last_seg.append(running_count - 1)
-            wire_first_seg.append(wire_first)
-
-        seg_l = np.concatenate(seg_l_chunks, axis=0)
-        seg_r = np.concatenate(seg_r_chunks, axis=0)
-        seg_c = np.concatenate(seg_c_chunks, axis=0)
-        seg_t = np.concatenate(seg_t_chunks, axis=0)
-        seg_h = np.concatenate(seg_h_chunks)
+        # Every edge of every wire at once (momwire#1916 part D): the per-edge
+        # loop this replaces ran ~6 numpy calls per edge, 0.03 s a solver on
+        # the ELT whip's 4,067 edges. Same operations, element for element:
+        # `norm3`'s length, `vec / len` for the tangent, `len / n_e` for the
+        # step, numpy's `linspace(0, 1, n_e + 1)` (`i * (1 / n_e)`, its last
+        # point 1.0) for the fractions, then `p0 + frac * vec`.
+        # The edge count is the polyline's; its segment counts are read up
+        # to it, as the loop's `npe_list[e_idx]` did.
+        counts, edges_per_wire = _mesh_walk.edge_counts(
+            [
+                [npe[e] for e in range(pl.shape[0] - 1)]
+                for pl, npe in zip(self.wires_polylines, self.n_per_edge_per_wire)
+            ]
+        )
+        p0, p1 = _mesh_walk.edge_endpoints(self.wires_polylines, edges_per_wire)
+        vec = p1 - p0
+        edge_len = norm3(vec) if vec.shape[0] else np.zeros(0)
+        short = np.flatnonzero(edge_len < 1e-15)
+        if short.size:
+            e = int(short[0])
+            w_of = np.repeat(np.arange(edges_per_wire.size), edges_per_wire)
+            w_idx = int(w_of[e])
+            e_idx = e - int(np.sum(edges_per_wire[:w_idx]))
+            raise ValueError(f"wire {w_idx} edge {e_idx} has zero length")
+        tan = vec / edge_len[:, None]
+        h_e = edge_len / counts.astype(np.float64)
+        n_segs = int(counts.sum())
+        edge_of_seg = np.repeat(np.arange(counts.size, dtype=np.int64), counts)
+        seg_start = np.zeros(counts.size + 1, dtype=np.int64)
+        np.cumsum(counts, out=seg_start[1:])
+        i_in_edge = np.arange(n_segs, dtype=np.int64) - seg_start[:-1][edge_of_seg]
+        step = 1.0 / counts.astype(np.float64)
+        frac_l = i_in_edge.astype(np.float64) * step[edge_of_seg]
+        i_r = i_in_edge + 1
+        frac_r = np.where(
+            i_r == counts[edge_of_seg],
+            1.0,
+            i_r.astype(np.float64) * step[edge_of_seg],
+        )
+        seg_l = p0[edge_of_seg] + frac_l[:, None] * vec[edge_of_seg]
+        seg_r = p0[edge_of_seg] + frac_r[:, None] * vec[edge_of_seg]
+        seg_c = 0.5 * (seg_l + seg_r)
+        seg_t = tan[edge_of_seg]
+        seg_h = h_e[edge_of_seg]
+        segs_per_wire = np.zeros(edges_per_wire.size, dtype=np.int64)
+        if counts.size:
+            np.add.at(
+                segs_per_wire,
+                np.repeat(np.arange(edges_per_wire.size), edges_per_wire),
+                counts,
+            )
+        ends = np.cumsum(segs_per_wire)
+        wire_first_seg: list[int] = (ends - segs_per_wire).tolist()
+        wire_last_seg: list[int] = (ends - 1).tolist()
         n_segs = seg_l.shape[0]
 
         # Per-segment N^- / N^+ neighbours — built directly as flat arrays
@@ -2080,19 +2322,22 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         np_sigma_chunks: list[np.ndarray] = []
 
         # In-wire neighbours: per wire, segs [first+1..last] each get nm
-        # = (i-1, +1) and segs [first..last-1] each get np = (i+1, +1).
-        # Two np.arange pairs per wire instead of an n_segs Python loop.
-        for w_idx in range(len(self.wires_polylines)):
-            first = wire_first_seg[w_idx]
-            last = wire_last_seg[w_idx]
-            if last > first:
-                m = last - first
-                nm_basis_chunks.append(np.arange(first + 1, last + 1, dtype=np.int64))
-                nm_seg_chunks.append(np.arange(first, last, dtype=np.int64))
-                nm_sigma_chunks.append(np.ones(m, dtype=np.int8))
-                np_basis_chunks.append(np.arange(first, last, dtype=np.int64))
-                np_seg_chunks.append(np.arange(first + 1, last + 1, dtype=np.int64))
-                np_sigma_chunks.append(np.ones(m, dtype=np.int8))
+        # = (i-1, +1) and segs [first..last-1] each get np = (i+1, +1): every
+        # segment but a wire's first (last), in order, as one array each.
+        not_first = np.ones(n_segs, dtype=bool)
+        not_last = np.ones(n_segs, dtype=bool)
+        if n_segs:
+            not_first[np.asarray(wire_first_seg, dtype=np.int64)] = False
+            not_last[np.asarray(wire_last_seg, dtype=np.int64)] = False
+        nm_b = np.flatnonzero(not_first).astype(np.int64)
+        np_b = np.flatnonzero(not_last).astype(np.int64)
+        if nm_b.size:
+            nm_basis_chunks.append(nm_b)
+            nm_seg_chunks.append(nm_b - 1)
+            nm_sigma_chunks.append(np.ones(nm_b.size, dtype=np.int8))
+            np_basis_chunks.append(np_b)
+            np_seg_chunks.append(np_b + 1)
+            np_sigma_chunks.append(np.ones(np_b.size, dtype=np.int8))
 
         # Junctions AT the ground plane (#151): NEC's conect() connects a
         # ground-touching end to ground ONLY — it never searches for real
@@ -6226,7 +6471,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             return None
         return True, True
 
-    def _contact_charge_correction(self, G, geom, k, seg_view, eta=None):
+    def _contact_charge_correction(self, G, geom, k, seg_view, eta=None, obs_rows=None):
         """Subtract the #282 residual contact charge from a collocated fill,
         in place. No-op without a finite ground or without a contact, so
         PEC and elevated geometries keep their base arithmetic exactly.
@@ -6249,6 +6494,14 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         obs_c, obs_t = geom["seg_centers"], geom["seg_tangents"]
         a_obs = self._seg_radius(geom)
         obs_seg = np.arange(geom["n_segs"], dtype=np.int64)
+        if obs_rows is not None:
+            # The row-compact fill (momwire#1912): its rows' observers only.
+            # Each row's correction is its own observer's, so this is the
+            # dense correction's arithmetic on those rows.
+            obs_seg = np.asarray(obs_rows, dtype=np.int64)
+            obs_c = np.asarray(obs_c)[obs_seg]
+            obs_t = np.asarray(obs_t)[obs_seg]
+            a_obs = np.asarray(a_obs)[obs_seg]
         for i, sgn, node in nodes:
             R = self._contact_charge_kernel(geom, k, node, obs_c, obs_t, a_obs, eta=eta)
             masks = self._contact_ek_masks(geom, i, sgn, obs_seg)
@@ -6307,8 +6560,15 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         blocks = 1 + (self.ground_z is not None) + self._sommerfeld_ground()
         return max(3 * blocks, 3 + 2) * N * 16
 
-    def _assemble_Z(self, geom, k, eta=None):
+    def _assemble_Z(self, geom, k, eta=None, obs_rows=None):
         """Point-matched Z, filled in observer-row chunks (momwire#332).
+
+        `obs_rows` (momwire#1912, the sector route): a sorted index array of
+        observer segments. The fill is then ROW-COMPACT — `(len(obs_rows),
+        N)`, row r holding observer `obs_rows[r]` against every source — and
+        walks only those rows' runs, cut by the same budget. Each output row
+        depends on its own observer row of Φ only (below), so a compact row
+        is the dense row's arithmetic. None is the square fill, unchanged.
 
         The row band is the natural chunk: every Φ block below is
         rectangular in the observer count already (the mixed-radius
@@ -6332,7 +6592,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         if self._is_mixed(geom):
             # Two media, three pair classes (momwire#1222) — the SG D2 shape
             # at one observer per segment.
-            return self._assemble_Z_mixed(geom, eta)
+            return self._assemble_Z_mixed(geom, eta, obs_rows=obs_rows)
         seg_view = self._basis_coefs(geom, k)
         N = geom["n_segs"]
         # Build (N, N) coefficient matrices M_{A,B,C}[n, j] = effective
@@ -6456,16 +6716,40 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             else _schedule.mb_rows(self.swept_mem_mb, self._fill_row_bytes(N))
         )
 
-        G = np.zeros((N, N), dtype=np.complex128)
+        # momwire#1911: `pair_reuse`, or None for the fill below as it was.
+        reuse = self._sin_pair_reuse_route(geom, k, cos_shape, fg, eta)
+
+        if obs_rows is None:
+            spans = [(0, N)]
+            G = np.zeros((N, N), dtype=np.complex128)
+        else:
+            obs_rows = np.asarray(obs_rows, dtype=np.int64)
+            spans = _schedule.runs(obs_rows)
+            G = np.zeros((obs_rows.size, N), dtype=np.complex128)
+        at = 0  # where the next chunk's rows land in a row-compact G
         seg_c = geom["seg_centers"]
         seg_t = geom["seg_tangents"]
         # One checkpoint per observer chunk of the fill, called by the walk
         # at the top of each chunk (momwire#1337 phase 2).
-        for i0, i1 in _schedule.chunks([(0, N)], chunk, self._checkpoint):
+        for i0, i1 in _schedule.chunks(spans, chunk, self._checkpoint):
             rows = (i0, i1)
-            Phi_c, Phi_s, Phi_co = self._field_tensor(
-                geom, k, obs_rows=rows, cos_shape=cos_shape, eta=eta
-            )
+            if reuse is not None and reuse.reduce_into(
+                rows,
+                (M_A, M_B, M_C),
+                G[i0:i1] if obs_rows is None else G[at : at + (i1 - i0)],
+                fg is not None,
+            ):
+                # momwire#1916: the classes gathered inside the reduction,
+                # the bits of the band below, no per-pair Φ materialised.
+                if obs_rows is not None:
+                    at += i1 - i0
+                continue
+            if reuse is None:
+                Phi_c, Phi_s, Phi_co = self._field_tensor(
+                    geom, k, obs_rows=rows, cos_shape=cos_shape, eta=eta
+                )
+            else:
+                Phi_c, Phi_s, Phi_co = reuse("direct", rows)
             if fg is not None:
                 # Image ground: subtract the sub-assembly built from the
                 # image field tensor. The image source's mirrored geometry +
@@ -6521,21 +6805,240 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                         np.multiply(c2, Pi, out=Pi)
                         Pi -= Si
                     del S
-                else:
+                elif reuse is None:
                     Phi_i = fg.image_field(obs_rows=rows, cos_shape=cos_shape)
+                else:
+                    Phi_i = reuse("image", rows)
                 Phi_c -= Phi_i[0]
                 Phi_s -= Phi_i[1]
                 Phi_co -= Phi_i[2]
                 del Phi_i
             # `(A + B) + C` into the band's rows of Z, by observer tiles
             # beside the three Φ (`_reduce_phi_band`, momwire#1290).
-            _reduce_phi_band((Phi_c, Phi_s, Phi_co), (M_A, M_B, M_C), G[i0:i1])
-            del Phi_c, Phi_s, Phi_co
+            if obs_rows is None:
+                dst = G[i0:i1]
+            else:
+                dst = G[at : at + (i1 - i0)]
+                at += i1 - i0
+            _reduce_phi_band((Phi_c, Phi_s, Phi_co), (M_A, M_B, M_C), dst)
+            del Phi_c, Phi_s, Phi_co, dst
         if self._nec4_live(geom):
+            if obs_rows is not None:  # pragma: no cover - refused at construction
+                raise AssertionError("the sector route has no NEC-4 cap columns")
             self._nec4_cap_columns(G, geom, k, seg_view, fg, eta)
-        self._contact_charge_correction(G, geom, k, seg_view, eta=eta)
-        self._apply_loading(G, geom, seg_view, k)
+        self._contact_charge_correction(
+            G, geom, k, seg_view, eta=eta, obs_rows=obs_rows
+        )
+        self._apply_loading(G, geom, seg_view, k, obs_rows=obs_rows)
         return G, seg_view
+
+    def _sin_pair_reuse_route(self, geom, k, cos_shape, fg, eta):
+        """`pair_reuse` for one `_assemble_Z` fill (momwire#1911): a callable
+        `(block, rows) -> (Φ_c, Φ_s, Φ_co)` serving the band from each
+        congruent pair's one evaluation (`_sin_pair_reuse`), `block` being
+        "direct" or "image"; or None, the shipped fill.
+
+        Served where the fill would take the real-k C++ kernel at the literal
+        shapes: free space and the PEC image, thin-wire or extended kernel.
+        Anything else declines with its reason in `pair_reuse_declined` and
+        fills as before: the NEC-4 junction kernel, the folded `cos-1` shapes
+        (kΔ below `_WELL_SCALED_KD`, which take numpy), a complex k (buried),
+        a finite ground (refl-coef or Sommerfeld: their image blocks are
+        weighted per pair or composed with a remainder), and no accelerator.
+        """
+        if not self._pair_reuse_on:
+            return None
+        ek = self.extended_kernel
+        if self._nec4_live(geom):
+            reason = "the NEC-4 junction kernel"
+        elif cos_shape != "cos":
+            reason = "the folded cos-1 shapes (k*delta below the well-scaled bound)"
+        elif _complex_k(k) or self._active_medium is not None:
+            reason = "a fill inside a ground medium"
+        elif not (_HAVE_FIELD_TENSOR_EK if ek else _HAVE_FIELD_TENSOR):
+            reason = "no C++ field-tensor kernel"
+        elif fg is not None and (fg.mode != "fold" or self.ground_eps is not None):
+            reason = "a finite ground"
+        else:
+            reason = None
+        self.pair_reuse_declined = reason
+        if reason is not None:
+            return None
+
+        from . import _sin_pair_reuse as _pr
+
+        eta = self._fill_eta(k, eta)
+        N = geom["n_segs"]
+        seg_c = np.ascontiguousarray(geom["seg_centers"], dtype=np.float64)
+        seg_t = np.ascontiguousarray(geom["seg_tangents"], dtype=np.float64)
+        seg_h = np.ascontiguousarray(geom["seg_h"], dtype=np.float64)
+        # The source radius (EK's per-source table) and the observer radius
+        # (each kernel call's scalar), as `_field_tensor` passes them.
+        src_a = np.ascontiguousarray(self._seg_radius(geom), dtype=np.float64)
+        a_seg = (
+            np.full(N, float(self._uniform_radius))
+            if self._uniform_radius is not None
+            else src_a
+        )
+        gx, gw = self._leggauss_cached(self.n_qp_const)
+        if ek:
+            ind1, ind2 = self._ek_gating(geom)
+            ind1 = np.ascontiguousarray(ind1, dtype=np.int8)
+            ind2 = np.ascontiguousarray(ind2, dtype=np.int8)
+            src_type, obs_type = _pr.segment_types(seg_h, a_seg, src_a, ind1, ind2)
+        else:
+            ind1 = ind2 = None
+            src_type, obs_type = _pr.segment_types(seg_h, a_seg)
+
+        def kernel(obs_c, obs_t, src_c, src_t, h, a, ns=None):
+            """The shipped kernel this fill would call, on given arrays;
+            `ns` the source segments they stand for (EK's per-source
+            tables)."""
+            ns = slice(None) if ns is None else ns
+            args = (
+                np.ascontiguousarray(obs_c, dtype=np.float64),
+                np.ascontiguousarray(obs_t, dtype=np.float64),
+                np.ascontiguousarray(src_c, dtype=np.float64),
+                np.ascontiguousarray(src_t, dtype=np.float64),
+                np.ascontiguousarray(h, dtype=np.float64),
+                float(a),
+                float(k),
+                float(eta),
+                gx,
+                gw,
+            )
+            if ek:
+                return _acc.sinusoidal_field_tensor_ek(
+                    *args,
+                    np.ascontiguousarray(src_a[ns]),
+                    np.ascontiguousarray(ind1[ns]),
+                    np.ascontiguousarray(ind2[ns]),
+                    self._cancel_flag,
+                )
+            return _acc.sinusoidal_field_tensor(*args, self._cancel_flag)
+
+        origin = np.zeros((1, 3))
+        axis = np.array([[0.0, 0.0, 1.0]])
+
+        def canonical(src_c, src_t, ns, g_obs):
+            # One observer row at the origin along +z (`_sin_pair_reuse.
+            # canonical_sources`), each source its class representative's.
+            return kernel(origin, axis, src_c, src_t, seg_h[ns], a_seg[g_obs], ns)
+
+        # The census transient: ~20 float64/int64 per pair in a band.
+        census_rows = _schedule.mb_rows(self.swept_mem_mb, 20 * 8 * N)
+        blocks = {}
+        rep_cache = {}
+        self.pair_reuse_census = {}
+
+        def sources(block):
+            if block == "direct":
+                return seg_c, seg_t
+            c, t = self._image_source_centers_tangents(geom)
+            return (
+                np.ascontiguousarray(c, dtype=np.float64),
+                np.ascontiguousarray(t, dtype=np.float64),
+            )
+
+        def plan_for(block):
+            if block in blocks:
+                return blocks[block]
+            src_c, src_t = sources(block)
+            # Keyed on content, not identity: a solve rebuilds `geom` per
+            # call, and the classes hold no k, so a sweep pays the census once.
+            key = (
+                block,
+                ek,
+                seg_c.tobytes(),
+                seg_t.tobytes(),
+                src_c.tobytes(),
+                src_t.tobytes(),
+                seg_h.tobytes(),
+                a_seg.tobytes(),
+                src_a.tobytes(),
+                None if ind1 is None else (ind1.tobytes(), ind2.tobytes()),
+            )
+            held = self._sin_reuse_plans.get(block)
+            if held is not None and held[0] == key:
+                plan = held[1]
+            else:
+                # The process's cache, not only this solver's: a solver per
+                # frequency (the portal) finds the first one's classes. The
+                # band height is in the key because the class numbering
+                # follows the bands, and a renumbered plan can move Z an ulp.
+                plan = _pr.shared_plan(
+                    (*key, census_rows),
+                    lambda: _pr.build_plan(
+                        seg_c,
+                        seg_t,
+                        src_c,
+                        src_t,
+                        seg_h,
+                        a_seg,
+                        src_type,
+                        obs_type,
+                        census_rows,
+                    ),
+                )
+                self._sin_reuse_plans[block] = (key, plan)
+            self.pair_reuse_census[block] = (plan.n_pairs, plan.n_classes, plan.n_near)
+            blocks[block] = (plan, src_c, src_t)
+            return blocks[block]
+
+        def values(block):
+            plan, src_c, src_t = plan_for(block)
+            rep = rep_cache.get(block)
+            if rep is None:
+
+                def direct_rows(m0, m1, ns):
+                    return kernel(
+                        seg_c[m0:m1],
+                        seg_t[m0:m1],
+                        src_c[ns],
+                        src_t[ns],
+                        seg_h[ns],
+                        a_seg[m0],
+                        ns,
+                    )
+
+                rep = rep_cache[block] = (
+                    _pr.evaluate(plan, canonical),
+                    _pr.evaluate_near(plan, direct_rows),
+                )
+            return plan, rep
+
+        def reduce_into(rows, Ms, dst, image):
+            # The fused gather + reduction where it applies; verify checks
+            # materialised Φ, so it takes the band path below.
+            if self._pair_reuse_verify or not _pr.reduce_takes(Ms, dst):
+                return False
+            parts = [values("direct")] + ([values("image")] if image else [])
+            _pr.reduce_band([(p, r[0], r[1]) for p, r in parts], rows, Ms, dst)
+            return True
+
+        def serve(block, rows):
+            plan, rep = values(block)
+            src_c, src_t = blocks[block][1:]
+            phis = _pr.scatter(rep[0], plan, rows, rep[1])
+            if self._pair_reuse_verify:
+
+                def direct(m, ns):
+                    return kernel(
+                        seg_c[m : m + 1],
+                        seg_t[m : m + 1],
+                        src_c[ns],
+                        src_t[ns],
+                        seg_h[ns],
+                        a_seg[m],
+                        ns,
+                    )
+
+                worst = _pr.verify_band(phis, rows, N, direct)
+                self.pair_reuse_verify_max = max(self.pair_reuse_verify_max, worst)
+            return phis
+
+        serve.reduce_into = reduce_into
+        return serve
 
     def _nec4_cap_columns(self, G, geom, k, seg_view, fg, eta):
         """Add each free end's cap-charge field to its basis column, in
@@ -6558,7 +7061,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 col = col - img
             G[:, i] += col
 
-    def _assemble_Z_mixed(self, geom, eta):
+    def _assemble_Z_mixed(self, geom, eta, obs_rows=None):
         """Point-matched Z of a MIXED deck (momwire#1222): wires wholly above
         and wholly below the interface, none crossing it.
 
@@ -6585,6 +7088,13 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         — as in `_assemble_Z` and razor's buried fill. The three whole Φ
         tables this replaces were 3 Z resident beside it (1.65 GB at invl
         x32). Why it is the same bits is argued at the band loop below.
+
+        `obs_rows` (momwire#1912, the sector route): the ROW-COMPACT fill of
+        those observer segments against every source, as `_assemble_Z`'s.
+        Each class walks only its observers among them, the transmitted
+        blocks are built for them only, and the crossing rows are added for
+        them only — every element still has its one writer, so a compact row
+        is the square fill's row. None is the square fill, unchanged.
         """
         below = self._below_segments(geom)
         medium = self._fill_medium(geom)
@@ -6637,9 +7147,19 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         # nothing either one reads is state the other writes (the transmitted
         # grid and the class remainders sit in caches keyed exactly, so a hit
         # and a miss are the same floats), and the gates below measure it.
+        if obs_rows is None:
+            on_row = None
+        else:
+            obs_rows = np.asarray(obs_rows, dtype=np.int64)
+            on_row = np.zeros(N, dtype=bool)
+            on_row[obs_rows] = True
+            row_of = np.full(N, -1, dtype=np.int64)
+            row_of[obs_rows] = np.arange(obs_rows.size, dtype=np.int64)
         cross = {}
         for src_keep, obs_below in () if crossing else ((below, False), (~below, True)):
             obs_keep = below if obs_below else ~below
+            if on_row is not None:
+                obs_keep = obs_keep & on_row
             block, _rows, cols = self._transmitted_block(
                 geom,
                 medium,
@@ -6687,20 +7207,25 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         # (`_fill_row_bytes`' reduction phase, slack since the tiled
         # reduction of momwire#1290), N sources each. Beside it sits one
         # class band's `P − Pi` (budgeted by that class's own sizing).
-        whole = N < _DENSE_ASSEMBLY_THRESHOLD
+        # A compact fill always reduces band by band: the whole-table form
+        # is the square one's (and below the dense threshold either is tiny).
+        whole = N < _DENSE_ASSEMBLY_THRESHOLD and obs_rows is None
         zband = self._mixed_band_rows(N)
         if whole:
             Phi = [np.zeros((N, N), dtype=np.complex128) for _ in range(3)]
-        else:
+        elif obs_rows is None:
             G = np.zeros((N, N), dtype=np.complex128)
+        else:
+            G = np.zeros((obs_rows.size, N), dtype=np.complex128)
         for (keep, k_cls, med, eta_cls), obs_below in (
             ((~below, medium.k_p, None, eta_p), False),
             ((below, medium.k_m, medium, self._medium_eta(medium)), True),
         ):
             idx = np.nonzero(keep)[0]
+            obs_idx = None if on_row is None else idx[on_row[idx]]
             tx = cross.get(obs_below)
             for s, e, row, D in self._class_bands(
-                geom, keep, idx, k_cls, med, eta_cls, cos_shape, plan
+                geom, keep, idx, k_cls, med, eta_cls, cos_shape, plan, obs_idx=obs_idx
             ):
                 # No checkpoint per Z band: the class band above took one.
                 for z0, z1 in _schedule.chunks([(s, e)], zband):
@@ -6721,7 +7246,11 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                         a = row + z0 - s
                         for P, t in zip(dst, t_block):
                             P[:, cols] += t[a : a + z1 - z0]
-                    if not whole:
+                    if on_row is not None:
+                        # a run of observer rows is a run of compact rows
+                        r0 = int(row_of[z0])
+                        _reduce_phi_band(dst, Ms, G[r0 : r0 + (z1 - z0)])
+                    elif not whole:
                         _reduce_phi_band(dst, Ms, G[z0:z1])
                     # Every name on a buffer row or a D array is dropped, the
                     # loop variables included, before the generator computes
@@ -6733,8 +7262,10 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             G = _reduce_phi_rows_in_place(Phi, Ms, N)
             del Phi
         if crossing:
-            self._crossing_point_rows(geom, seg_view, medium, below, into=G)
-        self._apply_loading(G, geom, seg_view, None, medium=medium)
+            self._crossing_point_rows(
+                geom, seg_view, medium, below, into=G, obs_rows=obs_rows
+            )
+        self._apply_loading(G, geom, seg_view, None, medium=medium, obs_rows=obs_rows)
         return G, seg_view
 
     def _mixed_band_rows(self, N):
@@ -6749,7 +7280,9 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             return N
         return max(1, int(self.swept_mem_mb * 1024 * 1024 // ((3 + 2) * 16 * N)))
 
-    def _crossing_point_rows(self, geom, seg_view, medium, below, into=None):
+    def _crossing_point_rows(
+        self, geom, seg_view, medium, below, into=None, obs_rows=None
+    ):
         """The crossing deck's cross rows (momwire#1223): each medium's
         midpoints observing the other medium's part of every basis, through
         `_crossing_fill.point_observer_block`. Returned as a full (N, N) to
@@ -6773,7 +7306,19 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         n = int(geom["n_segs"])
         if into is None:
             out = np.zeros((n, n), dtype=np.complex128)
+        if obs_rows is not None:
+            # A row-compact `into` (momwire#1912): only its observers, each
+            # added at its compact row. The sources stay every segment.
+            obs_rows = np.asarray(obs_rows, dtype=np.int64)
+            row_of = np.full(n, -1, dtype=np.int64)
+            row_of[obs_rows] = np.arange(obs_rows.size, dtype=np.int64)
         for obs, src, above in ((a_idx, ax_b, True), (b_idx, ax_a, False)):
+            dst_rows = obs
+            if obs_rows is not None:
+                obs = obs[row_of[obs] >= 0]
+                dst_rows = row_of[obs]
+                if obs.size == 0:
+                    continue
             if into is None:
                 out[obs] = _crossing_fill.point_observer_block(
                     ctx, centres[obs], tangents[obs], src, observers_above=above
@@ -6788,7 +7333,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                     src,
                     observers_above=above,
                     into=into,
-                    into_rows=obs,
+                    into_rows=dst_rows,
                 )
         return out if into is None else into
 
@@ -6806,7 +7351,9 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 dst[row : row + d.shape[0]] = d
         return out
 
-    def _class_bands(self, geom, keep, idx, k, medium, eta, cos_shape, plan):
+    def _class_bands(
+        self, geom, keep, idx, k, medium, eta, cos_shape, plan, obs_idx=None
+    ):
         """One medium's block of a mixed deck, band by observer band: its own
         sources seen at its own midpoints, at its own (k, eta), with its own
         ground — `Φ − (coef·Φ_img − S)`, the single-medium band loop's
@@ -6823,6 +7370,10 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         centres/tangents; the observers stay the whole geometry's rows, walked
         in the class's contiguous runs, so the radius and every observer-side
         table is the one the whole-deck fill would use.
+
+        `obs_idx` (momwire#1912): walk only these of the class's observers
+        (sorted, a subset of `idx`); `row` then counts along them. The
+        sources are the class's whole `idx` either way.
         """
         gz = self.ground_z
         seg_c = geom["seg_centers"]
@@ -6867,7 +7418,8 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         # checkpoint per band, called by the walk at the top of each band
         # (momwire#1337 phase 2). The walk is lazy, so that checkpoint fires
         # after the consumer has dropped the previous band, as before.
-        for s, e in _schedule.chunks(_schedule.runs(idx), chunk, self._checkpoint):
+        walk = idx if obs_idx is None else obs_idx
+        for s, e in _schedule.chunks(_schedule.runs(walk), chunk, self._checkpoint):
             band = (s, e)
             Phi = self._field_tensor(
                 geom_src,
@@ -6959,7 +7511,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         i0, i1 = obs_rows
         return [(max(s, i0), min(e, i1), a) for s, e, a in runs if s < i1 and e > i0]
 
-    def _apply_loading(self, G, geom, seg_view, k, medium=None):
+    def _apply_loading(self, G, geom, seg_view, k, medium=None, obs_rows=None):
         """NEC's impedance boundary condition, in place; no-op when loading
         is off. The system point-matches E_scat(n) = −E_app(n) at segment
         centres; a distributed series impedance changes the wire surface
@@ -6996,6 +7548,13 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         rows = np.repeat(np.arange(n_segs, dtype=np.int64), starts[1:] - starts[:-1])
         cols = seg_view["jbasis"]
         i_center = seg_view["sigma"] * seg_view["AC"]  # not A + C (#606)
+        if obs_rows is not None:
+            # The row-compact fill (momwire#1912): the entries on its rows,
+            # written where each row lives. The same products, so the same
+            # numbers the dense fill subtracts there.
+            return self._apply_loading_compact(
+                G, seg_view, k, spec, rows, cols, i_center, obs_rows, n_segs
+            )
         # Each (seg, basis) pair is unique in seg_view (see _basis_coefs),
         # so plain fancy-index subtraction is exact.
         G[rows, cols] -= z_seg[rows] * i_center
@@ -7003,6 +7562,30 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             k_e = np.asarray(seg_view["k_entry"]) if "k_entry" in seg_view else k
             G[rows, cols] -= (
                 spec.zq_seg[rows] * (k_e * k_e) * seg_view["sigma"] * seg_view["C"]
+            )
+        return G
+
+    @staticmethod
+    def _apply_loading_compact(
+        G, seg_view, k, spec, rows, cols, i_center, obs_rows, n_segs
+    ):
+        """`_apply_loading` on a row-compact G (momwire#1912)."""
+        row_of = np.full(int(n_segs), -1, dtype=np.int64)
+        row_of[np.asarray(obs_rows, dtype=np.int64)] = np.arange(
+            len(obs_rows), dtype=np.int64
+        )
+        keep = row_of[rows] >= 0
+        r, c = rows[keep], cols[keep]
+        G[row_of[r], c] -= spec.z_seg[r] * i_center[keep]
+        if spec.zq_seg is not None:
+            k_e = np.asarray(seg_view["k_entry"]) if "k_entry" in seg_view else k
+            if np.ndim(k_e):
+                k_e = k_e[keep]
+            G[row_of[r], c] -= (
+                spec.zq_seg[r]
+                * (k_e * k_e)
+                * seg_view["sigma"][keep]
+                * seg_view["C"][keep]
             )
         return G
 
@@ -7248,6 +7831,8 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         Eq 187 delta-gap sources).
         """
         refuse_undriven([v for _, _, v in self.feeds])  # momwire#1164
+        if self._rotational_map is not None:
+            return self._compute_impedance_rotational()
         geom = self._build_geometry()
         self._checkpoint()  # after geometry, before the field-tensor fill
         # The whole solve inside the medium (momwire#1222): a wholly-buried
@@ -7312,7 +7897,13 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
 
         `basis` is stable across the ports of this one solution and NOT
         across solves — re-solve and the previous handle is stale.
+
+        Under `rotational_symmetry=True` (momwire#1912) every port is solved
+        from one row-compact sector fill instead, through each harmonic its
+        columns excite; the returned object is the same shape and contract.
         """
+        if self._rotational_map is not None:
+            return self._compute_port_solution_rotational()
         geom = self._build_geometry()
         with self._operating_medium(geom) as medium:
             G, seg_view = self._assemble_Z(geom, self.k, self._medium_eta(medium))
@@ -7380,6 +7971,15 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             z_out = np.zeros(k_array.shape[0], dtype=np.complex128)
         else:
             z_out = np.zeros((k_array.shape[0], n_feeds), dtype=np.complex128)
+        if self._rotational_map is not None:
+            # The sector route (momwire#1912) loops its own per-k entry, as
+            # bspline's does: there is no k axis on its row-compact fill.
+            with self._k_restored():
+                for i, kk in enumerate(k_array):
+                    self._checkpoint()  # top of each frequency iteration
+                    self._set_k(kk)
+                    z_out[i], _alpha = self._compute_impedance_rotational()
+            return z_out
         geom = self._build_geometry()
         v, voltages = self._feed_drive_vector(geom)
         with self._k_restored():
@@ -7495,36 +8095,27 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             # left-edge and the last seg's right-edge hit wire endpoints
             # (weight 1.0); every other edge hits an interior knot shared
             # with another segment's edge, so each contributes weight 0.5.
-            eval_seg_parts = []
-            eval_s_parts = []
-            eval_target_parts = []
-            eval_weight_parts = []
-            wire_knot_offsets = [0]
-            for w_idx in range(n_wires):
-                first = geom["wire_first"][w_idx]
-                last = geom["wire_last"][w_idx]
-                n_w_segs = last - first + 1
-                h_w = seg_h[first : last + 1]
-                base = wire_knot_offsets[-1]
-                seg_arr = np.arange(first, last + 1, dtype=np.int64)
-                # Left edges (s = -h/2) feed knot 0..M-1
-                left_target = base + np.arange(n_w_segs, dtype=np.int64)
-                left_weight = np.full(n_w_segs, 0.5)
-                left_weight[0] = 1.0
-                # Right edges (s = +h/2) feed knot 1..M
-                right_target = base + np.arange(1, n_w_segs + 1, dtype=np.int64)
-                right_weight = np.full(n_w_segs, 0.5)
-                right_weight[-1] = 1.0
-                eval_seg_parts.append(np.concatenate([seg_arr, seg_arr]))
-                eval_s_parts.append(np.concatenate([-0.5 * h_w, +0.5 * h_w]))
-                eval_target_parts.append(np.concatenate([left_target, right_target]))
-                eval_weight_parts.append(np.concatenate([left_weight, right_weight]))
-                wire_knot_offsets.append(base + n_w_segs + 1)
-
-            eval_seg = np.concatenate(eval_seg_parts)
-            eval_s = np.concatenate(eval_s_parts)
-            eval_target = np.concatenate(eval_target_parts)
-            eval_weight = np.concatenate(eval_weight_parts)
+            # Every wire's block at once (momwire#1916 part D), in the
+            # per-wire order: its M left edges, then its M right edges.
+            first = np.asarray(geom["wire_first"], dtype=np.int64)
+            m_w = np.asarray(geom["wire_last"], dtype=np.int64) - first + 1
+            knot_base = np.zeros(n_wires, dtype=np.int64)
+            np.cumsum(m_w[:-1] + 1, out=knot_base[1:])
+            wire_knot_offsets = [0, *np.cumsum(m_w + 1).tolist()]
+            blk = np.zeros(n_wires + 1, dtype=np.int64)
+            np.cumsum(2 * m_w, out=blk[1:])
+            w_of = np.repeat(np.arange(n_wires, dtype=np.int64), 2 * m_w)
+            p = np.arange(int(blk[-1]), dtype=np.int64) - blk[:-1][w_of]
+            m_of = m_w[w_of]
+            right = p >= m_of
+            j = np.where(right, p - m_of, p)  # segment within the wire
+            eval_seg = first[w_of] + j
+            h_e = seg_h[eval_seg]
+            eval_s = np.where(right, +0.5 * h_e, -0.5 * h_e)
+            eval_target = knot_base[w_of] + j + right
+            # 1.0 at a wire's two end knots, 0.5 at every shared one.
+            ends = np.where(right, j == m_of - 1, j == 0)
+            eval_weight = np.where(ends, 1.0, 0.5)
 
             I_evals = self._evaluate_basis_at_points(seg_view, eval_seg, eval_s, alpha)
             I_flat = np.zeros(wire_knot_offsets[-1], dtype=np.complex128)
@@ -7617,6 +8208,41 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         xi = (sv - arc_at_knot[seg_in_wire]) - 0.5 * wire_h[seg_in_wire]
         return first + seg_in_wire, xi
 
+    def _slope_eval_points_all(self, geom, s_array, arc_at_knot, knot_off, m_w):
+        """`_slope_eval_points` for every wire at once: `(segment, ξ,
+        offsets)`, wire w's samples at ``offsets[w]:offsets[w+1]``.
+
+        Each wire's `searchsorted` is one search over every wire's knots,
+        keyed ``w + 1j·arc``: numpy orders complex values by real part, then
+        imaginary, so a sample's rank among them is exactly its rank in its
+        own wire's knots plus the knots of the wires before it. The clip, the
+        span and ξ are then `_slope_eval_points`' expressions, element for
+        element."""
+        n_wires = len(s_array)
+        sv = [np.asarray(v, dtype=np.float64).reshape(-1) for v in s_array]
+        counts = np.fromiter((v.size for v in sv), dtype=np.int64, count=n_wires)
+        offsets = [0, *np.cumsum(counts).tolist()]
+        if offsets[-1] == 0:
+            return np.zeros(0, dtype=np.int64), np.zeros(0), offsets
+        flat = np.concatenate(sv)
+        w_of = np.repeat(np.arange(n_wires, dtype=np.int64), counts)
+        wire_end = arc_at_knot[knot_off[1:] - 1]
+        flat = np.clip(flat, 0.0, wire_end[w_of])
+        knot_w = np.repeat(np.arange(n_wires, dtype=np.float64), m_w + 1)
+        keys = np.empty(arc_at_knot.size, dtype=np.complex128)
+        keys.real[:] = knot_w
+        keys.imag[:] = arc_at_knot
+        query = np.empty(flat.size, dtype=np.complex128)
+        query.real[:] = w_of
+        query.imag[:] = flat
+        rank = np.searchsorted(keys, query, side="right") - knot_off[:-1][w_of]
+        seg_in_wire = np.clip(rank - 1, 0, m_w[w_of] - 1)
+        knot = knot_off[:-1][w_of] + seg_in_wire
+        first = np.asarray(geom["wire_first"], dtype=np.int64)
+        seg = first[w_of] + seg_in_wire
+        xi = (flat - arc_at_knot[knot]) - 0.5 * geom["seg_h"][seg]
+        return seg, xi, offsets
+
     @_wire_spec.reads_input_wires("per_wire")
     def current_slopes(self, coeffs, s_array=None):
         """Per-wire ``dI/ds`` — the solved current's arc-length derivative.
@@ -7674,34 +8300,38 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         seg_h = geom["seg_h"]
         n_wires = len(self.wires_polylines)
 
+        first = np.asarray(geom["wire_first"], dtype=np.int64)
+        m_w = np.asarray(geom["wire_last"], dtype=np.int64) - first + 1
+        # Each wire's `arc_at_knot`, concatenate([[0.0], cumsum(wire_h)]),
+        # for every wire at once (`_mesh_walk.segmented_cumsum` is each
+        # slice's cumsum, bit for bit).
+        knot_off = np.zeros(n_wires + 1, dtype=np.int64)
+        np.cumsum(m_w + 1, out=knot_off[1:])
+        seg_off = np.zeros(n_wires + 1, dtype=np.int64)
+        np.cumsum(m_w, out=seg_off[1:])
+        w_of_seg = np.repeat(np.arange(n_wires, dtype=np.int64), m_w)
+        wire_segs = first[w_of_seg] + (
+            np.arange(int(seg_off[-1]), dtype=np.int64) - seg_off[:-1][w_of_seg]
+        )
+        arc_at_knot = np.zeros(int(knot_off[-1]), dtype=np.float64)
+        not_head = np.ones(arc_at_knot.size, dtype=bool)
+        not_head[knot_off[:-1]] = False
+        arc_at_knot[not_head] = _mesh_walk.segmented_cumsum(seg_h[wire_segs], seg_off)
+
         if s_array is None:
             # Every knot of every wire, in the same per-wire layout
             # `currents_at_knots` returns.
-            s_array = []
-            for w_idx in range(n_wires):
-                first = geom["wire_first"][w_idx]
-                last = geom["wire_last"][w_idx]
-                s_array.append(
-                    np.concatenate([[0.0], np.cumsum(seg_h[first : last + 1])])
-                )
+            s_array = [arc_at_knot[a:b] for a, b in zip(knot_off[:-1], knot_off[1:])]
 
         # One batched evaluation for the whole structure: the per-wire walk
         # only decides WHERE, which keeps the trig and the scatter-add single
         # calls however many wires there are.
-        segs, xis, offsets = [], [], [0]
-        for w_idx in range(n_wires):
-            seg, xi = self._slope_eval_points(geom, w_idx, s_array[w_idx])
-            segs.append(seg)
-            xis.append(xi)
-            offsets.append(offsets[-1] + seg.shape[0])
+        segs, xis, offsets = self._slope_eval_points_all(
+            geom, s_array, arc_at_knot, knot_off, m_w
+        )
         if offsets[-1] == 0:
             return [np.zeros(0, dtype=np.complex128) for _ in range(n_wires)]
-        flat = self._evaluate_basis_slope_at_points(
-            seg_view,
-            np.concatenate(segs).astype(np.int64),
-            np.concatenate(xis),
-            alpha,
-        )
+        flat = self._evaluate_basis_slope_at_points(seg_view, segs, xis, alpha)
         return [
             np.asarray(flat[offsets[i] : offsets[i + 1]], dtype=np.complex128)
             for i in range(n_wires)

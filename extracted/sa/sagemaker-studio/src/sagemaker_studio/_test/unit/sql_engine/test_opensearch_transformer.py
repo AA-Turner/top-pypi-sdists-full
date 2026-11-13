@@ -136,3 +136,17 @@ def test_get_loggers_returns_expected_list():
     assert "opensearch" in loggers
     assert "opensearchpy" in loggers
     assert "sagemaker_studio.sql_engine._sqlalchemy_opensearch" in loggers
+
+
+# ---------------------------------------------------------------------------
+# supports_row_limit
+# ---------------------------------------------------------------------------
+
+
+def test_supports_row_limit_is_false():
+    assert OpenSearchTransformer.supports_row_limit is False
+
+
+def test_row_limit_leaves_statement_unchanged():
+    statement = "SELECT a FROM t"
+    assert OpenSearchTransformer.apply_row_limit(statement, "SELECT", 100) == statement

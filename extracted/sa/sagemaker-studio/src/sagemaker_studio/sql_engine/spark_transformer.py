@@ -7,6 +7,8 @@ from .resource_fetching_definition import ResourceFetchingDefinition
 class SparkTransformer(DatabaseTransformer):
     """Database transformer for Spark SQL direct execution."""
 
+    supports_row_limit = True  # Spark accepts a trailing "LIMIT n"
+
     @classmethod
     def get_dialect(cls) -> Optional[str]:
         return "spark"

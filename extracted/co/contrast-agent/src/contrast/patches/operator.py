@@ -20,6 +20,7 @@ from contrast.agent.assess.policy.propagators import PROPAGATOR_ACTIONS, BasePro
 from contrast.agent.assess.policy.propagators.base_propagator import SUPPORTED_TYPES
 from contrast.agent.assess.utils import is_trackable
 from contrast.agent.policy import patch_manager
+from contrast.patches.pure_python_strlike_patches import propagate_bytearray_append
 from contrast.patches.string_templatelib import propagate_to_template
 from contrast.patches.utils import analyze_policy, get_propagation_node
 from contrast.utils.decorators import fail_quietly
@@ -122,9 +123,19 @@ def build_add_hook(original_func, patch_policy):
             # dataflow through that user code.
             return wrapped(*args, **kwargs)
 
+        # `bytearray += ...` mutates args[0] in place, so its pre-call length must be
+        # captured now to know where the appended data lands.
+        pre_append_len = len(args[0]) if isinstance(args[0], bytearray) else None
+
         with scope.contrast_scope():
             result = wrapped(*args, **kwargs)
         if not is_trackable(result) or scope.in_contrast_or_propagation_scope():
+            return result
+
+        if pre_append_len is not None and result is args[0]:
+            propagate_bytearray_append(
+                policy_node, result, args[1], pre_append_len, None, result, args, kwargs
+            )
             return result
 
         analyze_policy(policy_node.name, result, args, kwargs)

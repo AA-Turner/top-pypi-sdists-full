@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
+import socket
 from types import SimpleNamespace
 from typing import Any
 
@@ -16,6 +18,7 @@ from ouroboros.boundary.events import (
     BOUNDARY_AGGREGATE_TYPE,
     PACKAGE_FROZEN,
 )
+from ouroboros.core.execution_preferences import ResolvedExecutionPreferences
 from ouroboros.core.types import Result
 from ouroboros.mcp.tools.execution_handlers import ExecuteSeedHandler
 from ouroboros.orchestrator.session import SessionStatus, SessionTracker
@@ -78,6 +81,7 @@ def _patch_execute_path(
         worktree_path=str(repo),
         branch="ooo/test",
         lock_path=str(tmp_path / "lock"),
+        lock_owner={"pid": os.getpid(), "host": socket.gethostname(), "lease_id": "a" * 32},
     )
 
     class FakeSessionRepository:
@@ -338,6 +342,7 @@ async def test_the_public_background_receipt_reports_the_check_package_as_pendin
         worktree_path=str(repo),
         branch="ooo/test",
         lock_path=str(tmp_path / "lock"),
+        lock_owner={"pid": os.getpid(), "host": socket.gethostname(), "lease_id": "b" * 32},
     )
 
     class FakeRunner:
@@ -413,6 +418,8 @@ class _TerminalFirstExecuteHandler:
         session_id_override: str | None = None,
         synchronous: bool = False,
         check_package: Any = None,
+        _preference_snapshot: tuple[ResolvedExecutionPreferences, str | None, str | None]
+        | None = None,
     ) -> Result:
         from ouroboros.mcp.types import ContentType, MCPContentItem, MCPToolResult
 

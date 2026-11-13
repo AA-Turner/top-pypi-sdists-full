@@ -5,13 +5,11 @@
 import gc
 import multiprocessing
 import os
-import shutil
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from contextvars import copy_context
-from pathlib import Path
 from typing import Any
 from typing import Callable
 
@@ -394,8 +392,6 @@ def _pack(offload_dir: str):
 def pack():
     if len(cuda_aliases) == 0:
         return 0
-    shutil.rmtree(Config.zerogpu_offload_dir, ignore_errors=True)
-    Path(Config.zerogpu_offload_dir).mkdir(parents=True)
     mmap_addrs = [tensor.data_ptr() for tensor in cuda_aliases.values() if tensor is not None]
     with unmap_capture(mmap_addrs) as unmapped_paths:
         total_size = _pack(Config.zerogpu_offload_dir)
@@ -414,6 +410,7 @@ def pack():
 
 def init(nvidia_uuid: str):
     os.environ['CUDA_VISIBLE_DEVICES'] = nvidia_uuid
+    # TODO: bad_fork check + SystemExit with proper error on main process
     torch.Tensor([0]).cuda()
 
 def size():

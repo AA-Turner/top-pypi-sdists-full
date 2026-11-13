@@ -35,6 +35,7 @@ from .paginator import (
     ListDetectorsPaginator,
     ListFiltersPaginator,
     ListFindingsPaginator,
+    ListInvestigationRecordsPaginator,
     ListInvestigationsPaginator,
     ListInvitationsPaginator,
     ListIPSetsPaginator,
@@ -164,6 +165,8 @@ from .type_defs import (
     ListFiltersResponseTypeDef,
     ListFindingsRequestTypeDef,
     ListFindingsResponseTypeDef,
+    ListInvestigationRecordsRequestTypeDef,
+    ListInvestigationRecordsResponseTypeDef,
     ListInvestigationsRequestTypeDef,
     ListInvestigationsResponseTypeDef,
     ListInvitationsRequestTypeDef,
@@ -972,6 +975,16 @@ class GuardDutyClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#list_ip_sets)
         """
 
+    def list_investigation_records(
+        self, **kwargs: Unpack[ListInvestigationRecordsRequestTypeDef]
+    ) -> ListInvestigationRecordsResponseTypeDef:
+        """
+        This API is currently available as a preview.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/list_investigation_records.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#list_investigation_records)
+        """
+
     def list_investigations(
         self, **kwargs: Unpack[ListInvestigationsRequestTypeDef]
     ) -> ListInvestigationsResponseTypeDef:
@@ -1386,6 +1399,17 @@ class GuardDutyClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_ip_sets"]
     ) -> ListIPSetsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_investigation_records"]
+    ) -> ListInvestigationRecordsPaginator:
         """
         Create a paginator for an operation.
 

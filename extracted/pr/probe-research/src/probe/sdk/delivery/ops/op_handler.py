@@ -31,14 +31,16 @@ class OpHandler(Protocol):
 
 
 #: What the drain calls whose code lives above it, "module:function": two op kinds'
-#: handlers (an offline run's create, a multipart upload's slice) and the offline
-#: create's two hooks (bind local ids -> None; hold lineage until the run exists -> bool).
+#: handlers (an offline run's create, a multipart upload's slice), the offline
+#: create's two hooks (bind local ids -> None; hold lineage until the run exists -> bool)
+#: and the samples batch's send-time gate (client, body -> body; `gate_samples_body`).
 #: Looked up per call so the drain never imports them.
 OP_HANDLERS = {
     "create_run": "probe.sdk.delivery.ops.op_handlers.create_run:deliver_create",
     "local_run_refs": "probe.sdk.delivery.ops.op_handlers.create_run:bind_local_refs",
     "lineage_gate": "probe.sdk.delivery.offline.lineage:lineage_gate",
     "multipart_upload": "probe.sdk.delivery.ops.op_handlers.multipart_upload:execute_op",
+    "samples_gate": "probe.sdk.run.samples.wire:gate_turn_capture",
 }
 #: The storage handler multipart_upload ops stage through: the drain gcs its staging,
 #: lists its queue and aborts a dead-lettered upload with it.
@@ -49,6 +51,16 @@ def op_handler(name: str) -> Callable[..., Any]:
     """What `OP_HANDLERS` names (an `OpHandler` for an op kind), looked up on every call (a patch on it is seen)."""
     module, _, attribute = OP_HANDLERS[name].partition(":")
     return getattr(importlib.import_module(module), attribute)
+
+
+def gate_samples_body(client: Any, method: str, path: str, body: Any) -> Any:
+    """``body`` as ``client``'s server stores it when it is a `/samples/batch` POST: the fields an older server would
+    drop with a 2xx come off, with a warning (RL sample capture D7). Every other write is returned as is."""
+    if not isinstance(body, dict) or str(method).upper() != "POST":
+        return body
+    if routes.classify(method, path).op is not routes.WriteOp.SAMPLES:
+        return body
+    return op_handler("samples_gate")(client, body)
 
 
 def multipart_storage(piece: str = "") -> Any:
@@ -168,10 +180,11 @@ def _send_http(client, op: dict, run_ids: dict[str, str]) -> dict | None:
         return placed["response"]
     # A queued metrics or samples POST may be acked once durable in the server's queue (I15d).
     queued_kind = routes.classify(op["method"], op["path"]).op
-    is_queued = queued_kind in (routes.WriteOp.METRICS, routes.WriteOp.SAMPLES)
+    is_queued = queued_kind in (routes.WriteOp.METRICS, routes.WriteOp.SAMPLES, routes.WriteOp.SAMPLE_POINTS)
     ack = build_async_ack_kwargs(client) if is_queued and op["method"].upper() == "POST" else {}
+    body = gate_samples_body(client, op["method"], op["path"], op.get("body"))
     try:
-        return client.transport.request(op["method"], op["path"], json_body=op.get("body"), **ack)
+        return client.transport.request(op["method"], op["path"], json_body=body, **ack)
     except errors.ValidationError:
         resolved = _resolve_queued_run_ref(client, routes.run_ref_of(op["path"]), run_ids)
         if resolved is None:
@@ -182,7 +195,7 @@ def _send_http(client, op: dict, run_ids: dict[str, str]) -> dict | None:
         return client.transport.request(
             op["method"],
             op["path"].replace(resolved[0], resolved[1], 1),
-            json_body=op.get("body"),
+            json_body=body,
             **ack,
         )
 

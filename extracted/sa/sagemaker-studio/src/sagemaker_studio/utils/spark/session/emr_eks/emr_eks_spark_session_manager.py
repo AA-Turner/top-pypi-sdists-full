@@ -21,11 +21,11 @@ from sagemaker_studio.utils.loggerutils import sync_with_metrics
 from sagemaker_studio.utils.spark.session.constants import SPARK_CONNECT_LOG_FILE
 from sagemaker_studio.utils.spark.session.emr_eks.interceptors import EmrEksChannelBuilder
 from sagemaker_studio.utils.spark.session.spark_config_builder import (
+    _parse_emr_release_version,
     apply_compatibility_mode_configs,
     build_spark_configs,
     extract_connection_spark_configs,
     generate_s3_access_grants_configs,
-    openlineage_supported_for_emr_release,
     supports_native_fgac,
 )
 from sagemaker_studio.utils.spark.session.spark_session_manager import SparkSessionManager
@@ -40,9 +40,20 @@ _MODEL_PATH = os.path.normpath(
 # Connection spark-defaults key carrying the EMR release label (set by the env add-on).
 _SPARK_DEFAULTS_CLASSIFICATION = "spark-defaults"
 _RELEASE_LABEL_KEY = "spark.emr.releaseLabel"
+_GLUE_OPENLINEAGE_JAR = "local:///usr/share/aws/glue-openlineage-spark/lib/GlueOpenLineageSpark.jar"
 _POLL_INTERVAL = 5  # seconds
 _MAX_POLL = 120  # max describe attempts (~10 min at _POLL_INTERVAL)
 _SESSION_IDLE_TIMEOUT_MINUTES = 30
+
+
+def _ensure_lineage_jar(spark_configs: dict, service_configs: dict):
+    """Re-append the lineage jar if a connection/user spark.jars replaced it."""
+    jar = (service_configs or {}).get("spark.jars")
+    if not jar:
+        return
+    merged = spark_configs.get("spark.jars", "")
+    if jar not in merged.split(","):
+        spark_configs["spark.jars"] = f"{merged},{jar}" if merged else jar
 
 
 def _parse_emr_eks_arn(arn: str):
@@ -255,7 +266,7 @@ class EmrEksSparkSessionManager(SparkSessionManager):
         )
         return str(value).lower() == "true"
 
-    def _get_service_specific_configs(self) -> dict:
+    def _get_service_specific_configs(self, account_id=None) -> dict:
         """Build EMR on EKS-specific spark configs (Layer 2).
 
         Applies FTA/compatibility-mode configs unless the connection requests native
@@ -279,16 +290,10 @@ class EmrEksSparkSessionManager(SparkSessionManager):
         else:
             configs = apply_compatibility_mode_configs({})
 
-        # OpenLineage for releases below emr-spark-8.2.0 (mirrors EC2/Glue).
-        # Also honours the ClientConfig toggle.
+        # DataZone OpenLineage (mirrors Glue). Honours the ClientConfig toggle.
         emr_containers_config = self.config.overrides.get("emr-containers", {})
         if not emr_containers_config.get("enable_open_lineage", True):
             logger.info("OpenLineage disabled via ClientConfig overrides")
-        elif not openlineage_supported_for_emr_release(self.release_label):
-            logger.info(
-                f"OpenLineage injected server-side for release {self.release_label}; "
-                "client configs not added"
-            )
         else:
             try:
                 configs.update(
@@ -296,8 +301,17 @@ class EmrEksSparkSessionManager(SparkSessionManager):
                         "spark.extraListeners": "io.openlineage.spark.agent.OpenLineageSparkListener",
                         "spark.openlineage.transport.type": "amazon_datazone_api",
                         "spark.openlineage.transport.domainId": self.project.domain_id,
+                        "spark.openlineage.transport.region": self._utils._get_domain_region(),
+                        "spark.openlineage.columnLineage.datasetLineageEnabled": "true",
                     }
                 )
+                if account_id:
+                    configs["spark.glue.accountId"] = account_id
+                version = _parse_emr_release_version(self.release_label)
+                is_emr_spark = str(self.release_label).startswith("emr-spark-")
+                if is_emr_spark and version and version >= [8, 2]:
+                    # https://tiny.amazon.com/j4lbdal
+                    configs["spark.jars"] = _GLUE_OPENLINEAGE_JAR
                 logger.info("OpenLineage configs added for EMR on EKS")
             except Exception as e:
                 logger.warning(f"Failed to add OpenLineage configs: {e}")
@@ -320,13 +334,14 @@ class EmrEksSparkSessionManager(SparkSessionManager):
         user_id, account_id = self._get_user_id_account_id()
 
         # Assemble spark configs using build_spark_configs (consistent with EC2/Serverless)
-        service_configs = self._get_service_specific_configs()
+        service_configs = self._get_service_specific_configs(account_id=account_id)
         spark_configs = build_spark_configs(
             account_id=account_id,
             service_configs=service_configs,
             connection_configs=self.connection_spark_configs,
             user_configs=self._user_spark_conf,
         )
+        _ensure_lineage_jar(spark_configs, service_configs)
 
         return dict(
             name=f"sc-endpoint-{str(uuid.uuid4())[:8]}",

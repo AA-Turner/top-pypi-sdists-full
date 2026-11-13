@@ -39,8 +39,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from types import ModuleType
 
-    from pyrit.models import Parameter
-    from pyrit.models.identifiers.component_identifier import ComponentIdentifier
+    from pyrit.models import ComponentIdentifier, Parameter
     from pyrit.setup.pyrit_initializer import PyRITInitializer
 
 logger = logging.getLogger(__name__)
@@ -201,8 +200,8 @@ class InitializerRegistry(ParamBagRegistry["PyRITInitializer", InitializerMetada
         """
         Build metadata for an initializer class.
 
-        Instantiates the initializer with no arguments and reads its
-        ``required_env_vars`` / ``supported_parameters`` off the instance.
+        Reads class-level parameter declarations and instantiates the initializer
+        with no arguments for its ``required_env_vars``.
 
         Args:
             name: The registry name of the initializer.
@@ -221,7 +220,7 @@ class InitializerRegistry(ParamBagRegistry["PyRITInitializer", InitializerMetada
                 class_description=description,
                 registry_name=name,
                 required_env_vars=tuple(instance.required_env_vars),
-                supported_parameters=tuple(instance.supported_parameters),
+                supported_parameters=tuple(cls.supported_parameters()),
             )
         except Exception as e:
             logger.warning(f"Failed to get metadata for {name}: {e}")
@@ -248,7 +247,7 @@ class InitializerRegistry(ParamBagRegistry["PyRITInitializer", InitializerMetada
             initializer_params (dict[str, Any] | None): Declared parameters to set
                 before initialization. Coerced to ``self.params`` via
                 ``set_params_from_args`` and validated against
-                ``supported_parameters``. Defaults to no parameters.
+                ``supported_parameters()``. Omitted inputs use declared defaults.
 
         Returns:
             PyRITInitializer: The configured initializer, ready for ``initialize_async``.
@@ -257,9 +256,8 @@ class InitializerRegistry(ParamBagRegistry["PyRITInitializer", InitializerMetada
             KeyError: If the name is not registered.
             ValueError: If the configured parameters are invalid.
         """
-        instance = self._create_and_configure(name, params=initializer_params or None)
-        if initializer_params:
-            instance.validate_params()
+        instance = self._create_and_configure(name, params=initializer_params or {})
+        instance.validate_params()
         return instance
 
     @staticmethod
@@ -281,12 +279,15 @@ class InitializerRegistry(ParamBagRegistry["PyRITInitializer", InitializerMetada
         if not spec or not spec.loader:
             raise ValueError(f"Could not load initializer script: {file_path}")
         module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        exec(compile(file_path.read_text(encoding="utf-8"), str(file_path), "exec"), module.__dict__)
         return module
 
     @staticmethod
     def _module_defined_initializers(
-        *, module: ModuleType, base_class: type[PyRITInitializer]
+        *,
+        module: ModuleType,
+        base_class: type[PyRITInitializer],
+        strict: bool = False,
     ) -> list[type[PyRITInitializer]]:
         """
         Find concrete ``PyRITInitializer`` subclasses defined in *module*.
@@ -297,23 +298,43 @@ class InitializerRegistry(ParamBagRegistry["PyRITInitializer", InitializerMetada
         Args:
             module: The imported module to scan.
             base_class: The ``PyRITInitializer`` base class.
+            strict: Raise if an explicitly declared export cannot be loaded.
 
         Returns:
             list[type]: Concrete initializer classes defined in the module.
         """
-        return [
-            attr
-            for attr_name in dir(module)
+        static_members = dict(inspect.getmembers_static(module))
+        member_names = set(static_members)
+        declared_exports = vars(module).get("__all__", ())
+        if isinstance(declared_exports, (list, tuple)):
+            member_names.update(name for name in declared_exports if isinstance(name, str))
+
+        initializers: list[type[PyRITInitializer]] = []
+        for attr_name in sorted(member_names):
+            if attr_name in static_members:
+                attr = static_members[attr_name]
+            else:
+                try:
+                    attr = getattr(module, attr_name)
+                except Exception as error:
+                    if strict:
+                        raise
+                    logger.warning(f"Failed to load declared export '{attr_name}' from {module.__name__}: {error}")
+                    continue
             if (
-                inspect.isclass(attr := getattr(module, attr_name))
+                inspect.isclass(attr)
                 and issubclass(attr, base_class)
                 and attr is not base_class
                 and not inspect.isabstract(attr)
                 and attr.__module__ == module.__name__
-            )
-        ]
+            ):
+                initializers.append(attr)
 
-    def create_from_script_paths(self, *, script_paths: Sequence[str | Path]) -> list[PyRITInitializer]:
+        return initializers
+
+    def create_from_script_paths(
+        self, *, script_paths: Sequence[str | Path], strict: bool = False
+    ) -> list[PyRITInitializer]:
         """
         Load initializer instances from external Python script files.
 
@@ -327,6 +348,7 @@ class InitializerRegistry(ParamBagRegistry["PyRITInitializer", InitializerMetada
             script_paths (Sequence[str | Path]): Python (.py) file paths to load
                 initializers from. Relative paths resolve against the current
                 working directory.
+            strict (bool): Raise rather than skip a class whose constructor fails.
 
         Returns:
             list[PyRITInitializer]: Instantiated initializers, in load order.
@@ -351,11 +373,17 @@ class InitializerRegistry(ParamBagRegistry["PyRITInitializer", InitializerMetada
                     file_path=script_path, module_name=f"init_script_{script_path.stem}"
                 )
                 file_instances: list[PyRITInitializer] = []
-                for init_cls in self._module_defined_initializers(module=module, base_class=PyRITInitializer):
+                for init_cls in self._module_defined_initializers(
+                    module=module,
+                    base_class=PyRITInitializer,
+                    strict=strict,
+                ):
                     try:
                         file_instances.append(init_cls())
                         logger.debug(f"Found and instantiated {init_cls.__name__} in {script_path.name}")
                     except Exception as e:
+                        if strict:
+                            raise
                         logger.warning(f"Could not instantiate {init_cls.__name__} from {script_path.name}: {e}")
 
                 if not file_instances:
@@ -411,18 +439,27 @@ class InitializerRegistry(ParamBagRegistry["PyRITInitializer", InitializerMetada
         logger.info(f"Registered custom initializer: {name} ({discovered.__name__})")
         return name
 
-    def register_stored_initializers(self) -> None:
-        """Register all valid custom initializers from the configured storage source."""
+    def register_stored_initializers(self, *, strict: bool = False) -> None:
+        """
+        Register custom initializers from the configured storage source.
+
+        Raises:
+            ValueError: If strict registration encounters a conflicting name or invalid script.
+        """
         self._ensure_discovered()
         for name, script_content in self._get_custom_storage().list_scripts().items():
             try:
                 validate_registry_name(name)
                 if name in self._classes:
+                    if strict:
+                        raise ValueError("Stored initializer conflicts with an existing registration.")
                     logger.warning(f"Skipping stored custom initializer '{name}': name is already registered.")
                     continue
                 discovered = self._load_custom_initializer_class(name=name, script_content=script_content)
                 self.register_class(discovered, name=name)
             except Exception:
+                if strict:
+                    raise
                 logger.exception(f"Skipping stored custom initializer '{name}': registration failed.")
 
     def list_stored_initializer_sources(self) -> tuple[str, list[tuple[str, str, str]]]:
@@ -487,7 +524,11 @@ class InitializerRegistry(ParamBagRegistry["PyRITInitializer", InitializerMetada
                 raise ValueError(f"Failed to write initializer script: {error}") from error
             try:
                 module = self._load_module_from_path(file_path=script_path, module_name=f"custom_initializer.{name}")
-                discovered_classes = self._module_defined_initializers(module=module, base_class=PyRITInitializer)
+                discovered_classes = self._module_defined_initializers(
+                    module=module,
+                    base_class=PyRITInitializer,
+                    strict=True,
+                )
             except Exception as error:
                 raise ValueError(f"Failed to load initializer script '{name}': {error}") from error
 

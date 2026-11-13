@@ -17,6 +17,11 @@ def main():
 
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
+    # A ready sandbox has a running executor; the image's own command may not
+    # have run yet. Wait up to 10 s for the file it writes before reading it.
+    def cat_when_present(path):
+        return f"for i in $(seq 50); do [ -f {path} ] && break; sleep 0.2; done; cat {path}"
+
     # Example 1: Custom command with args
     print("=== Example 1: Custom command ===")
     sandbox = None
@@ -32,7 +37,9 @@ def main():
             env={"LOG_LEVEL": "DEBUG"},
             timeout=300,
         )
-        result = sandbox.exec("cat /tmp/command-was-here && echo 'File exists'")
+        result = sandbox.exec(
+            f"{cat_when_present('/tmp/command-was-here')} && echo 'File exists'"
+        )
         print(f"  {result.stdout.strip()}")
         assert result.exit_code == 0, "Expected /tmp/command-was-here to exist"
         print("  OK: custom command created the file")
@@ -62,7 +69,7 @@ def main():
             timeout=300,
         )
         # The file was created by python3 (the entrypoint), not bash
-        result = sandbox.exec("cat /tmp/started-by-python")
+        result = sandbox.exec(cat_when_present("/tmp/started-by-python"))
         content = result.stdout.strip()
         print(f"  Marker content: {content}")
         assert content == "yes", f"Expected 'yes', got '{content}'"

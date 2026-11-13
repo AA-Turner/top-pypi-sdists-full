@@ -31,9 +31,11 @@ class ListDraftsResponse200Item:
         mine (bool): The row belongs to the current user (own draft or the legacy no-owner row) and is therefore
             actionable. Always true in the default listing; with `all_users=true`, other users' rows are false (view-only).
         summary (Union[Unset, str]): Best-effort, read from the draft JSON's `summary` field when the editor shape
-            carries one.
+            carries one, or its `description` for an agent's draft.
         draft_path (Union[Unset, str]): User-typed friendly path from the draft JSON's `draft_path`, when set and
             different from the storage path (e.g. a never-deployed item parked at `u/{user}/draft_{uuid}`).
+        resource_type (Union[Unset, str]): A `resource` draft's type, the deployed row's when there is one, else the one
+            the draft names. `ai_agent` marks an agent's draft.
         unchanged_from_parent (Union[Unset, bool]): Only present when `compare_to_workspace` was passed. True when this
             draft is identical to the parent's draft at the same path/kind/owner (cloned in on fork and never edited here).
         draft_users (Union[Unset, List['ListDraftsResponse200ItemDraftUsersItem']]): Draft authors at this (path, kind)
@@ -51,6 +53,7 @@ class ListDraftsResponse200Item:
     mine: bool
     summary: Union[Unset, str] = UNSET
     draft_path: Union[Unset, str] = UNSET
+    resource_type: Union[Unset, str] = UNSET
     unchanged_from_parent: Union[Unset, bool] = UNSET
     draft_users: Union[Unset, List["ListDraftsResponse200ItemDraftUsersItem"]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -67,6 +70,7 @@ class ListDraftsResponse200Item:
         mine = self.mine
         summary = self.summary
         draft_path = self.draft_path
+        resource_type = self.resource_type
         unchanged_from_parent = self.unchanged_from_parent
         draft_users: Union[Unset, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.draft_users, Unset):
@@ -93,6 +97,8 @@ class ListDraftsResponse200Item:
             field_dict["summary"] = summary
         if draft_path is not UNSET:
             field_dict["draft_path"] = draft_path
+        if resource_type is not UNSET:
+            field_dict["resource_type"] = resource_type
         if unchanged_from_parent is not UNSET:
             field_dict["unchanged_from_parent"] = unchanged_from_parent
         if draft_users is not UNSET:
@@ -123,6 +129,8 @@ class ListDraftsResponse200Item:
 
         draft_path = d.pop("draft_path", UNSET)
 
+        resource_type = d.pop("resource_type", UNSET)
+
         unchanged_from_parent = d.pop("unchanged_from_parent", UNSET)
 
         draft_users = []
@@ -142,6 +150,7 @@ class ListDraftsResponse200Item:
             mine=mine,
             summary=summary,
             draft_path=draft_path,
+            resource_type=resource_type,
             unchanged_from_parent=unchanged_from_parent,
             draft_users=draft_users,
         )

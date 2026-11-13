@@ -218,6 +218,9 @@ def test_the_stable_manifest_is_the_corpus():
         assert G._sha(golden) == e["printout_sha256"], e["golden"]
 
 
+# Every case stays in the default lane, whatever its median: the tripwire has
+# to run on every PR (the back-yard decks read 5.7-7.1 s and were kept here
+# at 0.89.0, 0.90.0 and 0.91.0).
 @pytest.mark.parametrize(
     ("corpus", "deck", "dialect", "basis"),
     CASES,

@@ -5,8 +5,9 @@ the answer came, no answer in time), TRIES tries in all after PAUSES_S, the try 
 going out from the other address family (IPv4 after the first, then IPv6); each retry said on stderr; every try failed,
 one sentence - what was read, how many tries over how long, the last failure, that the network between this machine and
 the platform failed and that nothing was changed. A write - POST, PUT, PATCH, DELETE - goes out once, as before: it may
-have reached the platform. A test answers through its own transport: RetryReads(inner) wraps it, and _transport() makes
-every connection the network gets.
+have reached the platform. One made to go out over IPv4 alone (local_address, a Transport's ipv4) keeps every try to it.
+A test answers through its own transport: RetryReads(inner) wraps it, and _transport() makes every connection the network
+gets.
 
 WHY: a user's reads timed out, were reset or took 33 s while the platform answered every one that reached it in
 0.7-3.3 s; the machine's connections went out over IPv6 and IPv4 by turns then, and every read command was one try with
@@ -52,20 +53,21 @@ class RetryReads(httpx.BaseTransport):
     """A client's transport: its reads asked again while their connection fails, its writes sent once. `inner`: the
     transport a test answers through (every try goes to it); None, the network's - a new connection for each retry."""
 
-    def __init__(self, inner: httpx.BaseTransport | None = None) -> None:
+    def __init__(self, inner: httpx.BaseTransport | None = None, *, local_address: str | None = None) -> None:
         self._inner = inner
+        self._local = local_address
         self._first: httpx.BaseTransport | None = None
 
     def _pooled(self) -> httpx.BaseTransport:
         if self._first is None:
-            self._first = self._inner or _transport()
+            self._first = self._inner or _transport(**({"local_address": self._local} if self._local else {}))
         return self._first
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         if request.method != "GET":
             return self._pooled().handle_request(request)
         request.extensions["timeout"] = {**request.extensions.get("timeout", {}), "connect": CONNECT_S, "read": READ_S}
-        started, side, last = time.monotonic(), None, None
+        started, side, last = time.monotonic(), self._local, None
         for n in range(1, TRIES + 1):
             fresh = None
             try:
@@ -95,7 +97,7 @@ class RetryReads(httpx.BaseTransport):
                     fresh.close()
                 if n == TRIES:
                     break
-                if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)):
+                if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)) and self._local is None:
                     side = _FROM[1] if side == _FROM[0] else _FROM[0]
                 _say(f"{transport_said(exc)}; asking the platform again in {PAUSES_S[n - 1]:g} s on a new connection "
                      f"(try {n + 1} of {TRIES})")

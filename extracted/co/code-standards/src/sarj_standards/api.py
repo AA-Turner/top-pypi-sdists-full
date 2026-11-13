@@ -24,6 +24,7 @@ from .libs.adoption.manifest import load as load_manifest
 from .libs.adoption.scaffold import detect
 from .libs.adoption.service import (
     InitPlan,
+    InitSucceeded,
     apply_init,
     apply_sync,
     plan_init,
@@ -107,6 +108,19 @@ class AnalysisMode(StrEnum):
     CORPUS = "corpus"
     OBSERVE = "observe"
     RAW = "raw"
+
+
+def _native_python_workers(group_jobs: int) -> int:
+    if group_jobs == 1:
+        return 1
+    available = os.process_cpu_count() or 1
+    budget = os.environ.get("SARJ_LOCAL_CHECK_WORKERS")  # ruff: ignore[banned-api] -- honor the native supervisor's explicit worker budget.
+    if budget is None:
+        return available
+    try:
+        return max(1, min(available, int(budget)))
+    except ValueError:
+        return 1
 
 
 def _analysis_manifest(root: Path, mode: AnalysisMode) -> Manifest | None:
@@ -210,10 +224,10 @@ class Standards:
         applied = apply_init(plan, install=install)
         findings = (
             ()
-            if applied.error is None
+            if isinstance(applied, InitSucceeded) or applied.error is None
             else (
                 Finding(
-                    f"setup.{applied.failure.value if applied.failure is not None else 'apply'}.failed",
+                    f"setup.{applied.failure.value}.failed",
                     "error",
                     applied.error,
                 ),
@@ -389,7 +403,7 @@ class Standards:
                 policy=selection_policy,
                 grouped=selected_groups,
                 rule_selection=rule_selection,
-                python_jobs=1 if jobs == 1 else os.process_cpu_count() or 1,
+                python_jobs=_native_python_workers(jobs),
                 staged=staged,
                 use_guard_contracts=normalized_mode in {AnalysisMode.POLICY, AnalysisMode.OBSERVE},
                 module_summaries=adopted is not None and adopted.terraform_module_summaries,
@@ -843,7 +857,7 @@ def _analysis_changed_scope(
         or (shell_format and item.source == "shfmt" and item.rule_id == "format")
     )
     scope = diagnostic_baseline.changed_line_scope(root, staged=staged, paths=paths) if paths else None
-    if trusted and scope is not None and not scope.failed and scope.paths and budget.counts:
+    if trusted and isinstance(scope, diagnostic_baseline.KnownChangedLines) and scope.paths and budget.counts:
         from .libs.linting import format_only  # ruff: ignore[import-outside-top-level] -- native proof is only needed when changed source intersects an accepted diagnostic budget.
 
         equivalent = format_only.equivalent_paths(root, scope.paths, staged=staged)
@@ -870,7 +884,10 @@ def _with_shell_format_severity(
                     required
                     or (
                         changed_scope is not None
-                        and (changed_scope.failed or item.location.path in changed_scope.paths)
+                        and (
+                            isinstance(changed_scope, diagnostic_baseline.UnavailableChangedLines)
+                            or item.location.path in changed_scope.paths
+                        )
                     )
                 )
                 else item

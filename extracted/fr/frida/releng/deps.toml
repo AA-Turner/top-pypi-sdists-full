@@ -1,5 +1,5 @@
 [dependencies]
-version = "20261106"
+version = "20261109"
 bootstrap_version = "20250801"
 
 [ninja]
@@ -118,7 +118,7 @@ options = [
 
 [glib]
 name = "GLib"
-version = "f11db6352345ad21deb5f5783bb988bfca2a3d85"
+version = "c6df0665dab0f971f66c5c46055b7d0b6085d1b1"
 url = "https://github.com/frida-forks/glib.git"
 options = [
     "-Dcocoa=disabled",
@@ -228,7 +228,7 @@ url = "https://github.com/frida-forks/sqlite.git"
 [libunwind]
 when = "machine.os in {'linux', 'android', 'freebsd', 'qnx'} and not machine.is_freestanding"
 name = "libunwind"
-version = "733d7d1c73f3512d2a50add2337157fa385a7e6e"
+version = "61860c614cded2a09ff48c8dee569c4179e33697"
 url = "https://github.com/frida-forks/libunwind.git"
 options = [
     "-Dcoredump=disabled",
@@ -294,7 +294,7 @@ options = [
 [lwip]
 when = "not machine.is_freestanding"
 name = "lwIP"
-version = "6ab74462bd4a5afb13394942ab031d7bee005b4c"
+version = "857ac9ef0de0e47c8b8f7a0b66f09673238368d0"
 url = "https://github.com/frida-forks/lwip.git"
 options = [
     "-Dipv4=disabled",

@@ -9087,6 +9087,14 @@ class CfnGameSessionQueue(
             filter_configuration=gamelift.CfnGameSessionQueue.FilterConfigurationProperty(
                 allowed_locations=["allowedLocations"]
             ),
+            log_configuration=gamelift.CfnGameSessionQueue.LogConfigurationProperty(
+                delivery_destinations=[gamelift.CfnGameSessionQueue.DeliveryDestinationProperty(
+                    log_destination="logDestination",
+        
+                    # the properties below are optional
+                    destination_arn="destinationArn"
+                )]
+            ),
             notification_target="notificationTarget",
             player_latency_policies=[gamelift.CfnGameSessionQueue.PlayerLatencyPolicyProperty(
                 maximum_individual_player_latency_milliseconds=123,
@@ -9113,6 +9121,7 @@ class CfnGameSessionQueue(
         custom_event_data: typing.Optional[builtins.str] = None,
         destinations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGameSessionQueue.DestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         filter_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGameSessionQueue.FilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGameSessionQueue.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         notification_target: typing.Optional[builtins.str] = None,
         player_latency_policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGameSessionQueue.PlayerLatencyPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         priority_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGameSessionQueue.PriorityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9127,6 +9136,7 @@ class CfnGameSessionQueue(
         :param custom_event_data: Information to be added to all events that are related to this game session queue.
         :param destinations: A list of fleets and/or fleet aliases that can be used to fulfill game session placement requests in the queue. Destinations are identified by either a fleet ARN or a fleet alias ARN, and are listed in order of placement preference.
         :param filter_configuration: A list of locations where a queue is allowed to place new game sessions. Locations are specified in the form of AWS Region codes, such as ``us-west-2`` . If this parameter is not set, game sessions can be placed in any queue location.
+        :param log_configuration: A policy that determines where a game session queue's placement logs are delivered.
         :param notification_target: An SNS topic ARN that is set up to receive game session placement notifications. See `Setting up notifications for game session placement <https://docs.aws.amazon.com/gamelift/latest/developerguide/queue-notification.html>`_ .
         :param player_latency_policies: A set of policies that enforce a sliding cap on player latency when processing game sessions placement requests. Use multiple policies to gradually relax the cap over time if Amazon GameLift Servers can't make a placement. Policies are evaluated in order starting with the lowest maximum latency value.
         :param priority_configuration: Custom settings to use when prioritizing destinations and locations for game session placements. This configuration replaces the FleetIQ default prioritization process. Priority types that are not explicitly named will be automatically applied at the end of the prioritization process.
@@ -9142,6 +9152,7 @@ class CfnGameSessionQueue(
             custom_event_data=custom_event_data,
             destinations=destinations,
             filter_configuration=filter_configuration,
+            log_configuration=log_configuration,
             notification_target=notification_target,
             player_latency_policies=player_latency_policies,
             priority_configuration=priority_configuration,
@@ -9357,6 +9368,24 @@ class CfnGameSessionQueue(
         jsii.set(self, "filterConfiguration", value)
 
     @builtins.property
+    @jsii.member(jsii_name="logConfiguration")
+    def log_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGameSessionQueue.LogConfigurationProperty"]]:
+        '''A policy that determines where a game session queue's placement logs are delivered.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGameSessionQueue.LogConfigurationProperty"]], jsii.get(self, "logConfiguration"))
+
+    @log_configuration.setter
+    def log_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGameSessionQueue.LogConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__39b53849cd2b8ca90272a06f3b49fce3db902912bff5bd0bb34cdccc3e2ebbec)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "logConfiguration", value)
+
+    @builtins.property
     @jsii.member(jsii_name="notificationTarget")
     def notification_target(self) -> typing.Optional[builtins.str]:
         '''An SNS topic ARN that is set up to receive game session placement notifications.'''
@@ -9433,6 +9462,86 @@ class CfnGameSessionQueue(
             type_hints = cached_type_hints(_typecheckingstub__5ad24ec0156a0a24d8fe08ecf8470df28f9f1501a3ab442e887e2d1c5ef03df4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "timeoutInSeconds", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_gamelift.CfnGameSessionQueue.DeliveryDestinationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "log_destination": "logDestination",
+            "destination_arn": "destinationArn",
+        },
+    )
+    class DeliveryDestinationProperty:
+        def __init__(
+            self,
+            *,
+            log_destination: builtins.str,
+            destination_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The destination to deliver a game session queue's placement logs to.
+
+            Omit DestinationArn for a CLOUDWATCH or S3 destination to have GameLift create one; FIREHOSE requires DestinationArn.
+
+            :param log_destination: The type of service that receives the game session queue's placement logs.
+            :param destination_arn: The Amazon Resource Name (ARN) of the resource that receives the placement logs. The resource type must match LogDestination (a CloudWatch Logs log group, S3 bucket, or Firehose delivery stream). Required for FIREHOSE; optional for CLOUDWATCH and S3.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-gamesessionqueue-deliverydestination.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_gamelift as gamelift
+                
+                delivery_destination_property = gamelift.CfnGameSessionQueue.DeliveryDestinationProperty(
+                    log_destination="logDestination",
+                
+                    # the properties below are optional
+                    destination_arn="destinationArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6032f4f8ed43caa46fae6c5ec17825865e3fdd39b6719e9686092ae5039113a6)
+                check_type(argname="argument log_destination", value=log_destination, expected_type=type_hints["log_destination"])
+                check_type(argname="argument destination_arn", value=destination_arn, expected_type=type_hints["destination_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "log_destination": log_destination,
+            }
+            if destination_arn is not None:
+                self._values["destination_arn"] = destination_arn
+
+        @builtins.property
+        def log_destination(self) -> builtins.str:
+            '''The type of service that receives the game session queue's placement logs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-gamesessionqueue-deliverydestination.html#cfn-gamelift-gamesessionqueue-deliverydestination-logdestination
+            '''
+            result = self._values.get("log_destination")
+            assert result is not None, "Required property 'log_destination' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def destination_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the resource that receives the placement logs.
+
+            The resource type must match LogDestination (a CloudWatch Logs log group, S3 bucket, or Firehose delivery stream). Required for FIREHOSE; optional for CLOUDWATCH and S3.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-gamesessionqueue-deliverydestination.html#cfn-gamelift-gamesessionqueue-deliverydestination-destinationarn
+            '''
+            result = self._values.get("destination_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DeliveryDestinationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_gamelift.CfnGameSessionQueue.DestinationProperty",
@@ -9600,6 +9709,71 @@ class CfnGameSessionQueue(
 
         def __repr__(self) -> str:
             return "GameSessionQueueDestinationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_gamelift.CfnGameSessionQueue.LogConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"delivery_destinations": "deliveryDestinations"},
+    )
+    class LogConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            delivery_destinations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGameSessionQueue.DeliveryDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''A policy that determines where a game session queue's placement logs are delivered.
+
+            :param delivery_destinations: The set of destinations that receive the game session queue's placement logs. A queue can deliver logs to between 1 and 3 destinations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-gamesessionqueue-logconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_gamelift as gamelift
+                
+                log_configuration_property = gamelift.CfnGameSessionQueue.LogConfigurationProperty(
+                    delivery_destinations=[gamelift.CfnGameSessionQueue.DeliveryDestinationProperty(
+                        log_destination="logDestination",
+                
+                        # the properties below are optional
+                        destination_arn="destinationArn"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7f00e75b24d1e2d7d6393d3eb30a89025cf8d3685954b4d293543a945108d0e9)
+                check_type(argname="argument delivery_destinations", value=delivery_destinations, expected_type=type_hints["delivery_destinations"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "delivery_destinations": delivery_destinations,
+            }
+
+        @builtins.property
+        def delivery_destinations(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGameSessionQueue.DeliveryDestinationProperty"]]]:
+            '''The set of destinations that receive the game session queue's placement logs.
+
+            A queue can deliver logs to between 1 and 3 destinations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-gamesessionqueue-logconfiguration.html#cfn-gamelift-gamesessionqueue-logconfiguration-deliverydestinations
+            '''
+            result = self._values.get("delivery_destinations")
+            assert result is not None, "Required property 'delivery_destinations' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGameSessionQueue.DeliveryDestinationProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LogConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -9780,6 +9954,7 @@ class CfnGameSessionQueue(
         "custom_event_data": "customEventData",
         "destinations": "destinations",
         "filter_configuration": "filterConfiguration",
+        "log_configuration": "logConfiguration",
         "notification_target": "notificationTarget",
         "player_latency_policies": "playerLatencyPolicies",
         "priority_configuration": "priorityConfiguration",
@@ -9795,6 +9970,7 @@ class CfnGameSessionQueueProps:
         custom_event_data: typing.Optional[builtins.str] = None,
         destinations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGameSessionQueue.DestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         filter_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGameSessionQueue.FilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGameSessionQueue.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         notification_target: typing.Optional[builtins.str] = None,
         player_latency_policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGameSessionQueue.PlayerLatencyPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         priority_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGameSessionQueue.PriorityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9807,6 +9983,7 @@ class CfnGameSessionQueueProps:
         :param custom_event_data: Information to be added to all events that are related to this game session queue.
         :param destinations: A list of fleets and/or fleet aliases that can be used to fulfill game session placement requests in the queue. Destinations are identified by either a fleet ARN or a fleet alias ARN, and are listed in order of placement preference.
         :param filter_configuration: A list of locations where a queue is allowed to place new game sessions. Locations are specified in the form of AWS Region codes, such as ``us-west-2`` . If this parameter is not set, game sessions can be placed in any queue location.
+        :param log_configuration: A policy that determines where a game session queue's placement logs are delivered.
         :param notification_target: An SNS topic ARN that is set up to receive game session placement notifications. See `Setting up notifications for game session placement <https://docs.aws.amazon.com/gamelift/latest/developerguide/queue-notification.html>`_ .
         :param player_latency_policies: A set of policies that enforce a sliding cap on player latency when processing game sessions placement requests. Use multiple policies to gradually relax the cap over time if Amazon GameLift Servers can't make a placement. Policies are evaluated in order starting with the lowest maximum latency value.
         :param priority_configuration: Custom settings to use when prioritizing destinations and locations for game session placements. This configuration replaces the FleetIQ default prioritization process. Priority types that are not explicitly named will be automatically applied at the end of the prioritization process.
@@ -9834,6 +10011,14 @@ class CfnGameSessionQueueProps:
                 filter_configuration=gamelift.CfnGameSessionQueue.FilterConfigurationProperty(
                     allowed_locations=["allowedLocations"]
                 ),
+                log_configuration=gamelift.CfnGameSessionQueue.LogConfigurationProperty(
+                    delivery_destinations=[gamelift.CfnGameSessionQueue.DeliveryDestinationProperty(
+                        log_destination="logDestination",
+            
+                        # the properties below are optional
+                        destination_arn="destinationArn"
+                    )]
+                ),
                 notification_target="notificationTarget",
                 player_latency_policies=[gamelift.CfnGameSessionQueue.PlayerLatencyPolicyProperty(
                     maximum_individual_player_latency_milliseconds=123,
@@ -9856,6 +10041,7 @@ class CfnGameSessionQueueProps:
             check_type(argname="argument custom_event_data", value=custom_event_data, expected_type=type_hints["custom_event_data"])
             check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
             check_type(argname="argument filter_configuration", value=filter_configuration, expected_type=type_hints["filter_configuration"])
+            check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
             check_type(argname="argument notification_target", value=notification_target, expected_type=type_hints["notification_target"])
             check_type(argname="argument player_latency_policies", value=player_latency_policies, expected_type=type_hints["player_latency_policies"])
             check_type(argname="argument priority_configuration", value=priority_configuration, expected_type=type_hints["priority_configuration"])
@@ -9870,6 +10056,8 @@ class CfnGameSessionQueueProps:
             self._values["destinations"] = destinations
         if filter_configuration is not None:
             self._values["filter_configuration"] = filter_configuration
+        if log_configuration is not None:
+            self._values["log_configuration"] = log_configuration
         if notification_target is not None:
             self._values["notification_target"] = notification_target
         if player_latency_policies is not None:
@@ -9927,6 +10115,17 @@ class CfnGameSessionQueueProps:
         '''
         result = self._values.get("filter_configuration")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGameSessionQueue.FilterConfigurationProperty"]], result)
+
+    @builtins.property
+    def log_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGameSessionQueue.LogConfigurationProperty"]]:
+        '''A policy that determines where a game session queue's placement logs are delivered.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-logconfiguration
+        '''
+        result = self._values.get("log_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGameSessionQueue.LogConfigurationProperty"]], result)
 
     @builtins.property
     def notification_target(self) -> typing.Optional[builtins.str]:
@@ -13434,6 +13633,7 @@ def _typecheckingstub__2435e37790a5987d49478948c0c1ac36c9e463fa29441c46ba0aa4d56
     custom_event_data: typing.Optional[builtins.str] = None,
     destinations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGameSessionQueue.DestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     filter_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGameSessionQueue.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGameSessionQueue.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     notification_target: typing.Optional[builtins.str] = None,
     player_latency_policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGameSessionQueue.PlayerLatencyPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     priority_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGameSessionQueue.PriorityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -13507,6 +13707,12 @@ def _typecheckingstub__08e5b9b16ae8732de19b82da87c71cb00a9d06d7a37c8d217314158c0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__39b53849cd2b8ca90272a06f3b49fce3db902912bff5bd0bb34cdccc3e2ebbec(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnGameSessionQueue.LogConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2f838580d46a0a1a08c09d8b8b17de066bfb74896289f61432e755d32429e2a4(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -13537,6 +13743,14 @@ def _typecheckingstub__5ad24ec0156a0a24d8fe08ecf8470df28f9f1501a3ab442e887e2d1c5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6032f4f8ed43caa46fae6c5ec17825865e3fdd39b6719e9686092ae5039113a6(
+    *,
+    log_destination: builtins.str,
+    destination_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9d1ad7f562ade1312178a63d9196a21119d0e6500b9d651931481a59d709d462(
     *,
     destination_arn: typing.Optional[builtins.str] = None,
@@ -13554,6 +13768,13 @@ def _typecheckingstub__a18c067b373a2989add73f26fd5a7da221d485dae82bf0842dcedf801
 def _typecheckingstub__682a2ca85600f7cf3e8fc279fa7f5c2ecab05f65cc96301b5afab09b2da5c684(
     *,
     destination_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f00e75b24d1e2d7d6393d3eb30a89025cf8d3685954b4d293543a945108d0e9(
+    *,
+    delivery_destinations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGameSessionQueue.DeliveryDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13580,6 +13801,7 @@ def _typecheckingstub__6b18cdd98f5e3e7424d6d930e416c9690c2e3cdcc56ac70f4688a8984
     custom_event_data: typing.Optional[builtins.str] = None,
     destinations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGameSessionQueue.DestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     filter_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGameSessionQueue.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGameSessionQueue.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     notification_target: typing.Optional[builtins.str] = None,
     player_latency_policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGameSessionQueue.PlayerLatencyPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     priority_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGameSessionQueue.PriorityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

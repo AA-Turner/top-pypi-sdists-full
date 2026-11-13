@@ -339,8 +339,10 @@ class QueuedSink:
         from ..transport.deadlines import deadline_scope
 
         try:
+            from ..ops.op_handler import gate_samples_body
+
             with deadline_scope(now + client.DIRECT_SEND_TIMEOUT_SECONDS):
-                client.transport.request(method, path, json_body=body)
+                client.transport.request(method, path, json_body=gate_samples_body(client, method, path, body))
         except Exception as exc:  # noqa: BLE001 -- the write falls back to the queue
             try:
                 # Only a failure saying the SERVER is down or refusing everyone opens the

@@ -817,29 +817,28 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
                   file=sys.stderr, flush=True)
 
     def _say_where(self, where: Any) -> None:
-        """Where the worker this robot now acts on runs, as the platform names its regions - "US East", never a
-        provider's region - and about how far from the robot when no worker nearer it had room: said once each time
-        its worker changes, on stderr as the seat's other notices are. A close-loop seat (where["close_loop"]) - a
-        running worker a region away the robot still closes its loop on - says it still closes the loop, by the robot's
-        own network ("network") or the default round trip ("default"), rather than only that the round trip is longer.
-        Nothing from a platform that says none.
+        """How far from this robot the worker it now acts on runs, when no worker nearer it had room - or, a close-loop
+        seat (where["close_loop"]), that this worker, already running, still closes the robot's loop by the robot's own
+        network ("network") or the default round trip ("default"), rather than only that the round trip is longer: said
+        once each time its worker changes, on stderr as the seat's other notices are. No region is named, ours or a
+        provider's, whatever a platform sends; nothing of a worker near it, nor from a platform that says nothing.
+        
 
 """
-        if not isinstance(where, dict) or not isinstance(where.get("region"), str) or not where["region"]:
+        if not isinstance(where, dict):
             return
         far = where.get("far_km")
-        km = (f", about {round(float(far), -2):,.0f} km from this robot"
-              if isinstance(far, (int, float)) and far > 0 else "")
+        km = f"about {round(float(far), -2):,.0f} km from this robot" if isinstance(far, (int, float)) and far > 0 else ""
         loop = where.get("close_loop")
         if loop in ("network", "default"):
             est = "your network's estimate" if loop == "network" else "the default round trip"
-            tail = (f"{km}: none in its own region had room, but this worker was already running and "
-                    f"by {est} it still closes the loop")
+            said = ((f"its worker runs {km}: " if km else "") + "no worker in this robot's own region had room, but "
+                    f"this one was already running and by {est} it still closes the loop")
         elif km:
-            tail = f"{km}: no worker nearer it had room, so each act's round trip is that much longer"
+            said = f"its worker runs {km}: no worker nearer it had room, so each act's round trip is that much longer"
         else:
-            tail = ""
-        print(f"[sequences] {self._model}: its worker runs in {where['region']}{tail}", file=sys.stderr, flush=True)
+            return
+        print(f"[sequences] {self._model}: {said}", file=sys.stderr, flush=True)
 
 
 

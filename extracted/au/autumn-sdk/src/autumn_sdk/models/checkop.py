@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from .balance import Balance, BalanceTypedDict
+from .creditdimension_union import CreditDimensionUnion, CreditDimensionUnionTypedDict
 from autumn_sdk.types import (
     BaseModel,
     Nullable,
@@ -27,7 +28,7 @@ class CheckGlobals(BaseModel):
         Optional[str],
         pydantic.Field(alias="x-api-version"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
-    ] = "2.5.0"
+    ] = "2.6.0"
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -61,7 +62,7 @@ class LockTypedDict(TypedDict):
     enabled: Literal[True]
     r"""Must be true to enable locking."""
     expires_at: NotRequired[float]
-    r"""Unix timestamp (ms) when the lock automatically expires and releases the held balance."""
+    r"""Unix timestamp (ms) when the lock automatically expires and releases the held balance. At most 24 hours from now. If omitted, a lock that is never finalized is confirmed 24 hours after it was created, and the held balance stays deducted."""
     overage_behavior: NotRequired[CheckOverageBehavior]
     r"""How to handle a lock that exceeds the available balance. \"reject\" (default) returns allowed: false and reserves nothing. \"cap\" reserves only what fits and returns allowed: true. \"overflow\" reserves the full value: the balance can go negative, though spend limits still apply. balances.finalize reuses the behavior chosen here."""
 
@@ -79,7 +80,7 @@ class Lock(BaseModel):
     r"""Must be true to enable locking."""
 
     expires_at: Optional[float] = None
-    r"""Unix timestamp (ms) when the lock automatically expires and releases the held balance."""
+    r"""Unix timestamp (ms) when the lock automatically expires and releases the held balance. At most 24 hours from now. If omitted, a lock that is never finalized is confirmed 24 hours after it was created, and the held balance stays deducted."""
 
     overage_behavior: Optional[CheckOverageBehavior] = None
     r"""How to handle a lock that exceeds the available balance. \"reject\" (default) returns allowed: false and reserves nothing. \"cap\" reserves only what fits and returns allowed: true. \"overflow\" reserves the full value: the balance can go negative, though spend limits still apply. balances.finalize reuses the behavior chosen here."""
@@ -194,123 +195,6 @@ CheckCombine2 = Union[
 r"""How grants of this feature from several plans combine: 'sum' adds them up, 'max' / 'min' keep the highest / lowest grant among plan items with no price. Omitted when 'sum'."""
 
 
-class CheckDimensions12TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-
-class CheckDimensions12(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-CheckDimensionsToEnum6 = Literal["inf",]
-
-
-CheckDimensionsToUnion6TypedDict = TypeAliasType(
-    "CheckDimensionsToUnion6TypedDict", Union[float, CheckDimensionsToEnum6]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-CheckDimensionsToUnion6 = TypeAliasType(
-    "CheckDimensionsToUnion6", Union[float, CheckDimensionsToEnum6]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-class CheckDimensionsTier6TypedDict(TypedDict):
-    to: CheckDimensionsToUnion6TypedDict
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class CheckDimensionsTier6(BaseModel):
-    to: CheckDimensionsToUnion6
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class CheckDimensions11TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    tiers: List[CheckDimensionsTier6TypedDict]
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-    tier_behavior: Literal["graduated"]
-
-
-class CheckDimensions11(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    tiers: List[CheckDimensionsTier6]
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    tier_behavior: Annotated[
-        Annotated[Literal["graduated"], AfterValidator(validate_const("graduated"))],
-        pydantic.Field(alias="tier_behavior"),
-    ] = "graduated"
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-CheckDimensionsUnion6TypedDict = TypeAliasType(
-    "CheckDimensionsUnion6TypedDict",
-    Union[CheckDimensions12TypedDict, CheckDimensions11TypedDict],
-)
-
-
-CheckDimensionsUnion6 = TypeAliasType(
-    "CheckDimensionsUnion6", Union[CheckDimensions12, CheckDimensions11]
-)
-
-
 class CheckMultipliers6TypedDict(TypedDict):
     match: Dict[str, str]
     r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
@@ -353,7 +237,7 @@ class CheckCreditSchema6TypedDict(TypedDict):
     metered_feature_id: Literal[""]
     billing_units: NotRequired[float]
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-    dimensions: NotRequired[Dict[str, CheckDimensionsUnion6TypedDict]]
+    dimensions: NotRequired[Dict[str, CreditDimensionUnionTypedDict]]
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
     multipliers: NotRequired[Dict[str, CheckMultipliers6TypedDict]]
     r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
@@ -371,7 +255,7 @@ class CheckCreditSchema6(BaseModel):
     billing_units: Optional[float] = None
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
 
-    dimensions: Optional[Dict[str, CheckDimensionsUnion6]] = None
+    dimensions: Optional[Dict[str, CreditDimensionUnion]] = None
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
 
     multipliers: Optional[Dict[str, CheckMultipliers6]] = None
@@ -392,123 +276,6 @@ class CheckCreditSchema6(BaseModel):
                     m[k] = val
 
         return m
-
-
-class CheckDimensions10TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-
-class CheckDimensions10(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-CheckDimensionsToEnum5 = Literal["inf",]
-
-
-CheckDimensionsToUnion5TypedDict = TypeAliasType(
-    "CheckDimensionsToUnion5TypedDict", Union[float, CheckDimensionsToEnum5]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-CheckDimensionsToUnion5 = TypeAliasType(
-    "CheckDimensionsToUnion5", Union[float, CheckDimensionsToEnum5]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-class CheckDimensionsTier5TypedDict(TypedDict):
-    to: CheckDimensionsToUnion5TypedDict
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class CheckDimensionsTier5(BaseModel):
-    to: CheckDimensionsToUnion5
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class CheckDimensions9TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    tiers: List[CheckDimensionsTier5TypedDict]
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-    tier_behavior: Literal["graduated"]
-
-
-class CheckDimensions9(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    tiers: List[CheckDimensionsTier5]
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    tier_behavior: Annotated[
-        Annotated[Literal["graduated"], AfterValidator(validate_const("graduated"))],
-        pydantic.Field(alias="tier_behavior"),
-    ] = "graduated"
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-CheckDimensionsUnion5TypedDict = TypeAliasType(
-    "CheckDimensionsUnion5TypedDict",
-    Union[CheckDimensions10TypedDict, CheckDimensions9TypedDict],
-)
-
-
-CheckDimensionsUnion5 = TypeAliasType(
-    "CheckDimensionsUnion5", Union[CheckDimensions10, CheckDimensions9]
-)
 
 
 class CheckMultipliers5TypedDict(TypedDict):
@@ -554,7 +321,7 @@ class CheckCreditSchema5TypedDict(TypedDict):
     r"""Credits consumed per billing-unit group."""
     billing_units: NotRequired[float]
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-    dimensions: NotRequired[Dict[str, CheckDimensionsUnion5TypedDict]]
+    dimensions: NotRequired[Dict[str, CreditDimensionUnionTypedDict]]
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
     multipliers: NotRequired[Dict[str, CheckMultipliers5TypedDict]]
     r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
@@ -570,7 +337,7 @@ class CheckCreditSchema5(BaseModel):
     billing_units: Optional[float] = None
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
 
-    dimensions: Optional[Dict[str, CheckDimensionsUnion5]] = None
+    dimensions: Optional[Dict[str, CreditDimensionUnion]] = None
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
 
     multipliers: Optional[Dict[str, CheckMultipliers5]] = None
@@ -591,123 +358,6 @@ class CheckCreditSchema5(BaseModel):
                     m[k] = val
 
         return m
-
-
-class CheckDimensions8TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-
-class CheckDimensions8(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-CheckDimensionsToEnum4 = Literal["inf",]
-
-
-CheckDimensionsToUnion4TypedDict = TypeAliasType(
-    "CheckDimensionsToUnion4TypedDict", Union[float, CheckDimensionsToEnum4]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-CheckDimensionsToUnion4 = TypeAliasType(
-    "CheckDimensionsToUnion4", Union[float, CheckDimensionsToEnum4]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-class CheckDimensionsTier4TypedDict(TypedDict):
-    to: CheckDimensionsToUnion4TypedDict
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class CheckDimensionsTier4(BaseModel):
-    to: CheckDimensionsToUnion4
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class CheckDimensions7TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    tiers: List[CheckDimensionsTier4TypedDict]
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-    tier_behavior: Literal["graduated"]
-
-
-class CheckDimensions7(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    tiers: List[CheckDimensionsTier4]
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    tier_behavior: Annotated[
-        Annotated[Literal["graduated"], AfterValidator(validate_const("graduated"))],
-        pydantic.Field(alias="tier_behavior"),
-    ] = "graduated"
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-CheckDimensionsUnion4TypedDict = TypeAliasType(
-    "CheckDimensionsUnion4TypedDict",
-    Union[CheckDimensions8TypedDict, CheckDimensions7TypedDict],
-)
-
-
-CheckDimensionsUnion4 = TypeAliasType(
-    "CheckDimensionsUnion4", Union[CheckDimensions8, CheckDimensions7]
-)
 
 
 class CheckMultipliers4TypedDict(TypedDict):
@@ -780,7 +430,7 @@ class CheckCreditSchema4TypedDict(TypedDict):
     tiers: List[CheckTier2TypedDict]
     billing_units: NotRequired[float]
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-    dimensions: NotRequired[Dict[str, CheckDimensionsUnion4TypedDict]]
+    dimensions: NotRequired[Dict[str, CreditDimensionUnionTypedDict]]
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
     multipliers: NotRequired[Dict[str, CheckMultipliers4TypedDict]]
     r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
@@ -796,7 +446,7 @@ class CheckCreditSchema4(BaseModel):
     billing_units: Optional[float] = None
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
 
-    dimensions: Optional[Dict[str, CheckDimensionsUnion4]] = None
+    dimensions: Optional[Dict[str, CreditDimensionUnion]] = None
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
 
     multipliers: Optional[Dict[str, CheckMultipliers4]] = None
@@ -1614,6 +1264,16 @@ class CheckFreeTrial2(BaseModel):
         return m
 
 
+CheckAutoTopupLimitType2 = Union[
+    Literal[
+        "count",
+        "amount",
+    ],
+    UnrecognizedStr,
+]
+r"""What `limit` caps: the number of auto top-ups (`count`, default) or the total amount charged for them, in the customer's currency (`amount`)."""
+
+
 CheckAutoTopupInterval2 = Union[
     Literal[
         "hour",
@@ -1627,31 +1287,36 @@ r"""The time interval for the purchase limit window."""
 
 
 class CheckPurchaseLimit2TypedDict(TypedDict):
-    r"""Optional rate limit to cap how often auto top-ups occur."""
+    r"""Optional limit on auto top-ups per window, by number of top-ups or amount charged."""
 
     interval: CheckAutoTopupInterval2
     r"""The time interval for the purchase limit window."""
     limit: float
-    r"""Maximum number of auto top-ups allowed within the interval."""
+    r"""Maximum allowed within the interval: a number of auto top-ups when limit_type is count, or a total charge (e.g. 500 for $500, pre-tax) when limit_type is amount."""
+    limit_type: NotRequired[CheckAutoTopupLimitType2]
+    r"""What `limit` caps: the number of auto top-ups (`count`, default) or the total amount charged for them, in the customer's currency (`amount`)."""
     interval_count: NotRequired[float]
     r"""Number of intervals in the purchase limit window."""
 
 
 class CheckPurchaseLimit2(BaseModel):
-    r"""Optional rate limit to cap how often auto top-ups occur."""
+    r"""Optional limit on auto top-ups per window, by number of top-ups or amount charged."""
 
     interval: CheckAutoTopupInterval2
     r"""The time interval for the purchase limit window."""
 
     limit: float
-    r"""Maximum number of auto top-ups allowed within the interval."""
+    r"""Maximum allowed within the interval: a number of auto top-ups when limit_type is count, or a total charge (e.g. 500 for $500, pre-tax) when limit_type is amount."""
+
+    limit_type: Optional[CheckAutoTopupLimitType2] = None
+    r"""What `limit` caps: the number of auto top-ups (`count`, default) or the total amount charged for them, in the customer's currency (`amount`)."""
 
     interval_count: Optional[float] = 1
     r"""Number of intervals in the purchase limit window."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["interval_count"])
+        optional_fields = set(["limit_type", "interval_count"])
         serialized = handler(self)
         m = {}
 
@@ -1676,7 +1341,7 @@ class CheckAutoTopup2TypedDict(TypedDict):
     enabled: NotRequired[bool]
     r"""Whether auto top-up is enabled."""
     purchase_limit: NotRequired[CheckPurchaseLimit2TypedDict]
-    r"""Optional rate limit to cap how often auto top-ups occur."""
+    r"""Optional limit on auto top-ups per window, by number of top-ups or amount charged."""
     invoice_mode: NotRequired[bool]
     r"""When true, auto top-up creates a send_invoice invoice instead of auto-charging."""
 
@@ -1695,7 +1360,7 @@ class CheckAutoTopup2(BaseModel):
     r"""Whether auto top-up is enabled."""
 
     purchase_limit: Optional[CheckPurchaseLimit2] = None
-    r"""Optional rate limit to cap how often auto top-ups occur."""
+    r"""Optional limit on auto top-ups per window, by number of top-ups or amount charged."""
 
     invoice_mode: Optional[bool] = None
     r"""When true, auto top-up creates a send_invoice invoice instead of auto-charging."""
@@ -1717,7 +1382,7 @@ class CheckAutoTopup2(BaseModel):
         return m
 
 
-CheckLimitType2 = Union[
+CheckSpendLimitLimitType2 = Union[
     Literal[
         "absolute",
         "usage_percentage",
@@ -1732,7 +1397,7 @@ class CheckSpendLimit2TypedDict(TypedDict):
     r"""Optional feature ID this spend limit applies to."""
     enabled: NotRequired[bool]
     r"""Whether the overage spend limit is enabled."""
-    limit_type: NotRequired[CheckLimitType2]
+    limit_type: NotRequired[CheckSpendLimitLimitType2]
     r"""How overage_limit is interpreted: an absolute overage cap (default) or a percentage of the main-plan allowance."""
     overage_limit: NotRequired[float]
     r"""Overage cap for the feature: absolute units, or a percent (e.g. 120) when limit_type is usage_percentage."""
@@ -1747,7 +1412,7 @@ class CheckSpendLimit2(BaseModel):
     enabled: Optional[bool] = False
     r"""Whether the overage spend limit is enabled."""
 
-    limit_type: Optional[CheckLimitType2] = None
+    limit_type: Optional[CheckSpendLimitLimitType2] = None
     r"""How overage_limit is interpreted: an absolute overage cap (default) or a percentage of the main-plan allowance."""
 
     overage_limit: Optional[float] = None
@@ -1906,7 +1571,7 @@ class CheckUsageAlertFilter2(BaseModel):
 
 class CheckUsageAlert2TypedDict(TypedDict):
     threshold: float
-    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage (0-100)."""
+    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage. remaining and remaining_percentage accept negative values with basis balance, to alert once the balance is overdrawn."""
     threshold_type: CheckThresholdType2
     r"""Whether the threshold is an absolute count or a percentage of the usage allowance or remaining balance."""
     feature_id: NotRequired[str]
@@ -1923,7 +1588,7 @@ class CheckUsageAlert2TypedDict(TypedDict):
 
 class CheckUsageAlert2(BaseModel):
     threshold: float
-    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage (0-100)."""
+    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage. remaining and remaining_percentage accept negative values with basis balance, to alert once the balance is overdrawn."""
 
     threshold_type: CheckThresholdType2
     r"""Whether the threshold is an absolute count or a percentage of the usage allowance or remaining balance."""
@@ -2363,123 +2028,6 @@ CheckCombine1 = Union[
 r"""How grants of this feature from several plans combine: 'sum' adds them up, 'max' / 'min' keep the highest / lowest grant among plan items with no price. Omitted when 'sum'."""
 
 
-class CheckDimensions6TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-
-class CheckDimensions6(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-CheckDimensionsToEnum3 = Literal["inf",]
-
-
-CheckDimensionsToUnion3TypedDict = TypeAliasType(
-    "CheckDimensionsToUnion3TypedDict", Union[float, CheckDimensionsToEnum3]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-CheckDimensionsToUnion3 = TypeAliasType(
-    "CheckDimensionsToUnion3", Union[float, CheckDimensionsToEnum3]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-class CheckDimensionsTier3TypedDict(TypedDict):
-    to: CheckDimensionsToUnion3TypedDict
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class CheckDimensionsTier3(BaseModel):
-    to: CheckDimensionsToUnion3
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class CheckDimensions5TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    tiers: List[CheckDimensionsTier3TypedDict]
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-    tier_behavior: Literal["graduated"]
-
-
-class CheckDimensions5(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    tiers: List[CheckDimensionsTier3]
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    tier_behavior: Annotated[
-        Annotated[Literal["graduated"], AfterValidator(validate_const("graduated"))],
-        pydantic.Field(alias="tier_behavior"),
-    ] = "graduated"
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-CheckDimensionsUnion3TypedDict = TypeAliasType(
-    "CheckDimensionsUnion3TypedDict",
-    Union[CheckDimensions6TypedDict, CheckDimensions5TypedDict],
-)
-
-
-CheckDimensionsUnion3 = TypeAliasType(
-    "CheckDimensionsUnion3", Union[CheckDimensions6, CheckDimensions5]
-)
-
-
 class CheckMultipliers3TypedDict(TypedDict):
     match: Dict[str, str]
     r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
@@ -2522,7 +2070,7 @@ class CheckCreditSchema3TypedDict(TypedDict):
     metered_feature_id: Literal[""]
     billing_units: NotRequired[float]
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-    dimensions: NotRequired[Dict[str, CheckDimensionsUnion3TypedDict]]
+    dimensions: NotRequired[Dict[str, CreditDimensionUnionTypedDict]]
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
     multipliers: NotRequired[Dict[str, CheckMultipliers3TypedDict]]
     r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
@@ -2540,7 +2088,7 @@ class CheckCreditSchema3(BaseModel):
     billing_units: Optional[float] = None
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
 
-    dimensions: Optional[Dict[str, CheckDimensionsUnion3]] = None
+    dimensions: Optional[Dict[str, CreditDimensionUnion]] = None
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
 
     multipliers: Optional[Dict[str, CheckMultipliers3]] = None
@@ -2561,123 +2109,6 @@ class CheckCreditSchema3(BaseModel):
                     m[k] = val
 
         return m
-
-
-class CheckDimensions4TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-
-class CheckDimensions4(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-CheckDimensionsToEnum2 = Literal["inf",]
-
-
-CheckDimensionsToUnion2TypedDict = TypeAliasType(
-    "CheckDimensionsToUnion2TypedDict", Union[float, CheckDimensionsToEnum2]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-CheckDimensionsToUnion2 = TypeAliasType(
-    "CheckDimensionsToUnion2", Union[float, CheckDimensionsToEnum2]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-class CheckDimensionsTier2TypedDict(TypedDict):
-    to: CheckDimensionsToUnion2TypedDict
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class CheckDimensionsTier2(BaseModel):
-    to: CheckDimensionsToUnion2
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class CheckDimensions3TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    tiers: List[CheckDimensionsTier2TypedDict]
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-    tier_behavior: Literal["graduated"]
-
-
-class CheckDimensions3(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    tiers: List[CheckDimensionsTier2]
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    tier_behavior: Annotated[
-        Annotated[Literal["graduated"], AfterValidator(validate_const("graduated"))],
-        pydantic.Field(alias="tier_behavior"),
-    ] = "graduated"
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-CheckDimensionsUnion2TypedDict = TypeAliasType(
-    "CheckDimensionsUnion2TypedDict",
-    Union[CheckDimensions4TypedDict, CheckDimensions3TypedDict],
-)
-
-
-CheckDimensionsUnion2 = TypeAliasType(
-    "CheckDimensionsUnion2", Union[CheckDimensions4, CheckDimensions3]
-)
 
 
 class CheckMultipliers2TypedDict(TypedDict):
@@ -2723,7 +2154,7 @@ class CheckCreditSchema2TypedDict(TypedDict):
     r"""Credits consumed per billing-unit group."""
     billing_units: NotRequired[float]
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-    dimensions: NotRequired[Dict[str, CheckDimensionsUnion2TypedDict]]
+    dimensions: NotRequired[Dict[str, CreditDimensionUnionTypedDict]]
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
     multipliers: NotRequired[Dict[str, CheckMultipliers2TypedDict]]
     r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
@@ -2739,7 +2170,7 @@ class CheckCreditSchema2(BaseModel):
     billing_units: Optional[float] = None
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
 
-    dimensions: Optional[Dict[str, CheckDimensionsUnion2]] = None
+    dimensions: Optional[Dict[str, CreditDimensionUnion]] = None
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
 
     multipliers: Optional[Dict[str, CheckMultipliers2]] = None
@@ -2760,123 +2191,6 @@ class CheckCreditSchema2(BaseModel):
                     m[k] = val
 
         return m
-
-
-class CheckDimensions2TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-
-class CheckDimensions2(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-CheckDimensionsToEnum1 = Literal["inf",]
-
-
-CheckDimensionsToUnion1TypedDict = TypeAliasType(
-    "CheckDimensionsToUnion1TypedDict", Union[float, CheckDimensionsToEnum1]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-CheckDimensionsToUnion1 = TypeAliasType(
-    "CheckDimensionsToUnion1", Union[float, CheckDimensionsToEnum1]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-class CheckDimensionsTier1TypedDict(TypedDict):
-    to: CheckDimensionsToUnion1TypedDict
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class CheckDimensionsTier1(BaseModel):
-    to: CheckDimensionsToUnion1
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class CheckDimensions1TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    tiers: List[CheckDimensionsTier1TypedDict]
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-    tier_behavior: Literal["graduated"]
-
-
-class CheckDimensions1(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    tiers: List[CheckDimensionsTier1]
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    tier_behavior: Annotated[
-        Annotated[Literal["graduated"], AfterValidator(validate_const("graduated"))],
-        pydantic.Field(alias="tier_behavior"),
-    ] = "graduated"
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-CheckDimensionsUnion1TypedDict = TypeAliasType(
-    "CheckDimensionsUnion1TypedDict",
-    Union[CheckDimensions2TypedDict, CheckDimensions1TypedDict],
-)
-
-
-CheckDimensionsUnion1 = TypeAliasType(
-    "CheckDimensionsUnion1", Union[CheckDimensions2, CheckDimensions1]
-)
 
 
 class CheckMultipliers1TypedDict(TypedDict):
@@ -2949,7 +2263,7 @@ class CheckCreditSchema1TypedDict(TypedDict):
     tiers: List[CheckTier1TypedDict]
     billing_units: NotRequired[float]
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-    dimensions: NotRequired[Dict[str, CheckDimensionsUnion1TypedDict]]
+    dimensions: NotRequired[Dict[str, CreditDimensionUnionTypedDict]]
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
     multipliers: NotRequired[Dict[str, CheckMultipliers1TypedDict]]
     r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
@@ -2965,7 +2279,7 @@ class CheckCreditSchema1(BaseModel):
     billing_units: Optional[float] = None
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
 
-    dimensions: Optional[Dict[str, CheckDimensionsUnion1]] = None
+    dimensions: Optional[Dict[str, CreditDimensionUnion]] = None
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
 
     multipliers: Optional[Dict[str, CheckMultipliers1]] = None
@@ -3783,6 +3097,16 @@ class CheckFreeTrial1(BaseModel):
         return m
 
 
+CheckAutoTopupLimitType1 = Union[
+    Literal[
+        "count",
+        "amount",
+    ],
+    UnrecognizedStr,
+]
+r"""What `limit` caps: the number of auto top-ups (`count`, default) or the total amount charged for them, in the customer's currency (`amount`)."""
+
+
 CheckAutoTopupInterval1 = Union[
     Literal[
         "hour",
@@ -3796,31 +3120,36 @@ r"""The time interval for the purchase limit window."""
 
 
 class CheckPurchaseLimit1TypedDict(TypedDict):
-    r"""Optional rate limit to cap how often auto top-ups occur."""
+    r"""Optional limit on auto top-ups per window, by number of top-ups or amount charged."""
 
     interval: CheckAutoTopupInterval1
     r"""The time interval for the purchase limit window."""
     limit: float
-    r"""Maximum number of auto top-ups allowed within the interval."""
+    r"""Maximum allowed within the interval: a number of auto top-ups when limit_type is count, or a total charge (e.g. 500 for $500, pre-tax) when limit_type is amount."""
+    limit_type: NotRequired[CheckAutoTopupLimitType1]
+    r"""What `limit` caps: the number of auto top-ups (`count`, default) or the total amount charged for them, in the customer's currency (`amount`)."""
     interval_count: NotRequired[float]
     r"""Number of intervals in the purchase limit window."""
 
 
 class CheckPurchaseLimit1(BaseModel):
-    r"""Optional rate limit to cap how often auto top-ups occur."""
+    r"""Optional limit on auto top-ups per window, by number of top-ups or amount charged."""
 
     interval: CheckAutoTopupInterval1
     r"""The time interval for the purchase limit window."""
 
     limit: float
-    r"""Maximum number of auto top-ups allowed within the interval."""
+    r"""Maximum allowed within the interval: a number of auto top-ups when limit_type is count, or a total charge (e.g. 500 for $500, pre-tax) when limit_type is amount."""
+
+    limit_type: Optional[CheckAutoTopupLimitType1] = None
+    r"""What `limit` caps: the number of auto top-ups (`count`, default) or the total amount charged for them, in the customer's currency (`amount`)."""
 
     interval_count: Optional[float] = 1
     r"""Number of intervals in the purchase limit window."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["interval_count"])
+        optional_fields = set(["limit_type", "interval_count"])
         serialized = handler(self)
         m = {}
 
@@ -3845,7 +3174,7 @@ class CheckAutoTopup1TypedDict(TypedDict):
     enabled: NotRequired[bool]
     r"""Whether auto top-up is enabled."""
     purchase_limit: NotRequired[CheckPurchaseLimit1TypedDict]
-    r"""Optional rate limit to cap how often auto top-ups occur."""
+    r"""Optional limit on auto top-ups per window, by number of top-ups or amount charged."""
     invoice_mode: NotRequired[bool]
     r"""When true, auto top-up creates a send_invoice invoice instead of auto-charging."""
 
@@ -3864,7 +3193,7 @@ class CheckAutoTopup1(BaseModel):
     r"""Whether auto top-up is enabled."""
 
     purchase_limit: Optional[CheckPurchaseLimit1] = None
-    r"""Optional rate limit to cap how often auto top-ups occur."""
+    r"""Optional limit on auto top-ups per window, by number of top-ups or amount charged."""
 
     invoice_mode: Optional[bool] = None
     r"""When true, auto top-up creates a send_invoice invoice instead of auto-charging."""
@@ -3886,7 +3215,7 @@ class CheckAutoTopup1(BaseModel):
         return m
 
 
-CheckLimitType1 = Union[
+CheckSpendLimitLimitType1 = Union[
     Literal[
         "absolute",
         "usage_percentage",
@@ -3901,7 +3230,7 @@ class CheckSpendLimit1TypedDict(TypedDict):
     r"""Optional feature ID this spend limit applies to."""
     enabled: NotRequired[bool]
     r"""Whether the overage spend limit is enabled."""
-    limit_type: NotRequired[CheckLimitType1]
+    limit_type: NotRequired[CheckSpendLimitLimitType1]
     r"""How overage_limit is interpreted: an absolute overage cap (default) or a percentage of the main-plan allowance."""
     overage_limit: NotRequired[float]
     r"""Overage cap for the feature: absolute units, or a percent (e.g. 120) when limit_type is usage_percentage."""
@@ -3916,7 +3245,7 @@ class CheckSpendLimit1(BaseModel):
     enabled: Optional[bool] = False
     r"""Whether the overage spend limit is enabled."""
 
-    limit_type: Optional[CheckLimitType1] = None
+    limit_type: Optional[CheckSpendLimitLimitType1] = None
     r"""How overage_limit is interpreted: an absolute overage cap (default) or a percentage of the main-plan allowance."""
 
     overage_limit: Optional[float] = None
@@ -4075,7 +3404,7 @@ class CheckUsageAlertFilter1(BaseModel):
 
 class CheckUsageAlert1TypedDict(TypedDict):
     threshold: float
-    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage (0-100)."""
+    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage. remaining and remaining_percentage accept negative values with basis balance, to alert once the balance is overdrawn."""
     threshold_type: CheckThresholdType1
     r"""Whether the threshold is an absolute count or a percentage of the usage allowance or remaining balance."""
     feature_id: NotRequired[str]
@@ -4092,7 +3421,7 @@ class CheckUsageAlert1TypedDict(TypedDict):
 
 class CheckUsageAlert1(BaseModel):
     threshold: float
-    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage (0-100)."""
+    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage. remaining and remaining_percentage accept negative values with basis balance, to alert once the balance is overdrawn."""
 
     threshold_type: CheckThresholdType1
     r"""Whether the threshold is an absolute count or a percentage of the usage allowance or remaining balance."""
@@ -4525,19 +3854,7 @@ try:
 except NameError:
     pass
 try:
-    CheckDimensions11.model_rebuild()
-except NameError:
-    pass
-try:
     CheckCreditSchema6.model_rebuild()
-except NameError:
-    pass
-try:
-    CheckDimensions9.model_rebuild()
-except NameError:
-    pass
-try:
-    CheckDimensions7.model_rebuild()
 except NameError:
     pass
 try:
@@ -4553,19 +3870,7 @@ try:
 except NameError:
     pass
 try:
-    CheckDimensions5.model_rebuild()
-except NameError:
-    pass
-try:
     CheckCreditSchema3.model_rebuild()
-except NameError:
-    pass
-try:
-    CheckDimensions3.model_rebuild()
-except NameError:
-    pass
-try:
-    CheckDimensions1.model_rebuild()
 except NameError:
     pass
 try:

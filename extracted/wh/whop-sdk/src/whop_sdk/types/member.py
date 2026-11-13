@@ -5,11 +5,13 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .member_access_level import MemberAccessLevel
+from .member_last_activity import MemberLastActivity
 from .member_most_recent_action import MemberMostRecentAction
 from .member_status import MemberStatus
+from .member_unsubscribe_status import MemberUnsubscribeStatus
+from .member_user import MemberUser
 from .money import Money
 from .user_earnings_amount import UserEarningsAmount
-from .user_summary import UserSummary
 
 
 class Member(UniversalBaseModel):
@@ -58,6 +60,16 @@ class Member(UniversalBaseModel):
     When the member last opened the account's content, as an ISO 8601 timestamp. `null` if they never have.
     """
 
+    last_activity: typing.Optional[MemberLastActivity] = pydantic.Field(default=None)
+    """
+    What happened at `last_activity_at`. `object` says which kind of activity it is. `null` without `support_chat:read` on the account, or when `last_activity_at` is `null`.
+    """
+
+    last_activity_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    When the member and the account last interacted, as an ISO 8601 timestamp. For example, a message in the member's support chat.
+    """
+
     most_recent_action: typing.Optional[MemberMostRecentAction] = pydantic.Field(default=None)
     """
     The member's latest lifecycle state on the account, derived from their memberships, such as `paid_subscriber`, `canceling`, or `churned`. `null` until it is first computed.
@@ -66,6 +78,11 @@ class Member(UniversalBaseModel):
     most_recent_action_at: typing.Optional[str] = pydantic.Field(default=None)
     """
     When `most_recent_action` took effect, as an ISO 8601 timestamp. `null` when `most_recent_action` is `null`.
+    """
+
+    name: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The name the account gave this customer with `PATCH /members/:id`. Invoices show it as the customer name on every invoice for this member, in place of the user's own name. `null` when the account has not set one.
     """
 
     phone_number: typing.Optional[str] = pydantic.Field(default=None)
@@ -83,12 +100,17 @@ class Member(UniversalBaseModel):
     The member's current token balance for this account, computed from token transactions.
     """
 
+    unsubscribe_status: typing.Optional[MemberUnsubscribeStatus] = pydantic.Field(default=None)
+    """
+    `unsubscribed` once the member opts out of the account's marketing communications, `null` while they're subscribed. Only the member can change it.
+    """
+
     usd_total_spent: Money = pydantic.Field()
     """
     How much the member has spent on the account's products, in USD.
     """
 
-    user: typing.Optional[UserSummary] = pydantic.Field(default=None)
+    user: typing.Optional[MemberUser] = pydantic.Field(default=None)
     """
     The user behind this member. `null` when the buyer is another business rather than a person.
     """

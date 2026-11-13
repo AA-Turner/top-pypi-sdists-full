@@ -17,6 +17,7 @@ Usage::
         ListHealthChecksPaginator,
         ListHostedZonesPaginator,
         ListQueryLoggingConfigsPaginator,
+        ListResourceRecordSetProtectionsPaginator,
         ListResourceRecordSetsPaginator,
         ListVPCAssociationAuthorizationsPaginator,
         ResourceRecordSetsChangedWaiter,
@@ -34,6 +35,7 @@ Usage::
     list_health_checks_paginator: ListHealthChecksPaginator = client.get_paginator("list_health_checks")
     list_hosted_zones_paginator: ListHostedZonesPaginator = client.get_paginator("list_hosted_zones")
     list_query_logging_configs_paginator: ListQueryLoggingConfigsPaginator = client.get_paginator("list_query_logging_configs")
+    list_resource_record_set_protections_paginator: ListResourceRecordSetProtectionsPaginator = client.get_paginator("list_resource_record_set_protections")
     list_resource_record_sets_paginator: ListResourceRecordSetsPaginator = client.get_paginator("list_resource_record_sets")
     list_vpc_association_authorizations_paginator: ListVPCAssociationAuthorizationsPaginator = client.get_paginator("list_vpc_association_authorizations")
     ```
@@ -47,6 +49,7 @@ from .paginator import (
     ListHealthChecksPaginator,
     ListHostedZonesPaginator,
     ListQueryLoggingConfigsPaginator,
+    ListResourceRecordSetProtectionsPaginator,
     ListResourceRecordSetsPaginator,
     ListVPCAssociationAuthorizationsPaginator,
 )
@@ -63,6 +66,7 @@ __all__ = (
     "ListHealthChecksPaginator",
     "ListHostedZonesPaginator",
     "ListQueryLoggingConfigsPaginator",
+    "ListResourceRecordSetProtectionsPaginator",
     "ListResourceRecordSetsPaginator",
     "ListVPCAssociationAuthorizationsPaginator",
     "ResourceRecordSetsChangedWaiter",

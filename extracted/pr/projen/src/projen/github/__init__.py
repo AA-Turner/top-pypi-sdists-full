@@ -3899,6 +3899,8 @@ class GitHub(
         dependency_review: typing.Optional[builtins.bool] = None,
         dependency_review_options: typing.Optional[typing.Union["DependencyReviewOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         download_lfs: typing.Optional[builtins.bool] = None,
+        kodiak: typing.Optional[builtins.bool] = None,
+        kodiak_options: typing.Optional[typing.Union["KodiakOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         merge_queue: typing.Optional[builtins.bool] = None,
         merge_queue_options: typing.Optional[typing.Union["MergeQueueOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         mergify: typing.Optional[builtins.bool] = None,
@@ -3918,6 +3920,8 @@ class GitHub(
         :param dependency_review: (experimental) Enable the dependency-review-action workflow on pull requests. Adds a separate workflow that runs ``actions/dependency-review-action`` to scan pull requests for newly introduced vulnerable or non-compliant dependencies. Default: false
         :param dependency_review_options: (experimental) Options for the dependency review workflow. Only used when ``dependencyReview`` is ``true``. Default: - default options
         :param download_lfs: (experimental) Download files in LFS in workflows. Default: true if the associated project has ``lfsPatterns``, ``false`` otherwise
+        :param kodiak: (experimental) Whether Kodiak (``.kodiak.toml``) should be enabled on this repository. Default: false
+        :param kodiak_options: (experimental) Options for Kodiak. Default: - default options
         :param merge_queue: (experimental) Whether a merge queue should be used on this repository to merge pull requests. Requires additional configuration of the repositories branch protection rules. Default: false
         :param merge_queue_options: (experimental) Options for MergeQueue. Default: - default options
         :param mergify: (experimental) Whether mergify should be enabled on this repository or not. Default: true
@@ -3941,6 +3945,8 @@ class GitHub(
             dependency_review=dependency_review,
             dependency_review_options=dependency_review_options,
             download_lfs=download_lfs,
+            kodiak=kodiak,
+            kodiak_options=kodiak_options,
             merge_queue=merge_queue,
             merge_queue_options=merge_queue_options,
             mergify=mergify,
@@ -4147,6 +4153,15 @@ class GitHub(
         return typing.cast(builtins.bool, jsii.get(self, "workflowsEnabled"))
 
     @builtins.property
+    @jsii.member(jsii_name="kodiak")
+    def kodiak(self) -> typing.Optional["Kodiak"]:
+        '''(experimental) The ``Kodiak`` component configured on this repository This is ``undefined`` if Kodiak is not enabled for this repository.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["Kodiak"], jsii.get(self, "kodiak"))
+
+    @builtins.property
     @jsii.member(jsii_name="mergeQueue")
     def merge_queue(self) -> typing.Optional["MergeQueue"]:
         '''(experimental) The ``MergeQueue`` component configured on this repository This is ``undefined`` if merge queues are not enabled for this repository.
@@ -4231,6 +4246,8 @@ class GitHubActionsProvider(
         "dependency_review": "dependencyReview",
         "dependency_review_options": "dependencyReviewOptions",
         "download_lfs": "downloadLfs",
+        "kodiak": "kodiak",
+        "kodiak_options": "kodiakOptions",
         "merge_queue": "mergeQueue",
         "merge_queue_options": "mergeQueueOptions",
         "mergify": "mergify",
@@ -4253,6 +4270,8 @@ class GitHubOptions:
         dependency_review: typing.Optional[builtins.bool] = None,
         dependency_review_options: typing.Optional[typing.Union["DependencyReviewOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         download_lfs: typing.Optional[builtins.bool] = None,
+        kodiak: typing.Optional[builtins.bool] = None,
+        kodiak_options: typing.Optional[typing.Union["KodiakOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         merge_queue: typing.Optional[builtins.bool] = None,
         merge_queue_options: typing.Optional[typing.Union["MergeQueueOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         mergify: typing.Optional[builtins.bool] = None,
@@ -4271,6 +4290,8 @@ class GitHubOptions:
         :param dependency_review: (experimental) Enable the dependency-review-action workflow on pull requests. Adds a separate workflow that runs ``actions/dependency-review-action`` to scan pull requests for newly introduced vulnerable or non-compliant dependencies. Default: false
         :param dependency_review_options: (experimental) Options for the dependency review workflow. Only used when ``dependencyReview`` is ``true``. Default: - default options
         :param download_lfs: (experimental) Download files in LFS in workflows. Default: true if the associated project has ``lfsPatterns``, ``false`` otherwise
+        :param kodiak: (experimental) Whether Kodiak (``.kodiak.toml``) should be enabled on this repository. Default: false
+        :param kodiak_options: (experimental) Options for Kodiak. Default: - default options
         :param merge_queue: (experimental) Whether a merge queue should be used on this repository to merge pull requests. Requires additional configuration of the repositories branch protection rules. Default: false
         :param merge_queue_options: (experimental) Options for MergeQueue. Default: - default options
         :param mergify: (experimental) Whether mergify should be enabled on this repository or not. Default: true
@@ -4288,6 +4309,8 @@ class GitHubOptions:
         '''
         if isinstance(dependency_review_options, dict):
             dependency_review_options = DependencyReviewOptions(**dependency_review_options)
+        if isinstance(kodiak_options, dict):
+            kodiak_options = KodiakOptions(**kodiak_options)
         if isinstance(merge_queue_options, dict):
             merge_queue_options = MergeQueueOptions(**merge_queue_options)
         if isinstance(mergify_options, dict):
@@ -4304,6 +4327,8 @@ class GitHubOptions:
             check_type(argname="argument dependency_review", value=dependency_review, expected_type=type_hints["dependency_review"])
             check_type(argname="argument dependency_review_options", value=dependency_review_options, expected_type=type_hints["dependency_review_options"])
             check_type(argname="argument download_lfs", value=download_lfs, expected_type=type_hints["download_lfs"])
+            check_type(argname="argument kodiak", value=kodiak, expected_type=type_hints["kodiak"])
+            check_type(argname="argument kodiak_options", value=kodiak_options, expected_type=type_hints["kodiak_options"])
             check_type(argname="argument merge_queue", value=merge_queue, expected_type=type_hints["merge_queue"])
             check_type(argname="argument merge_queue_options", value=merge_queue_options, expected_type=type_hints["merge_queue_options"])
             check_type(argname="argument mergify", value=mergify, expected_type=type_hints["mergify"])
@@ -4325,6 +4350,10 @@ class GitHubOptions:
             self._values["dependency_review_options"] = dependency_review_options
         if download_lfs is not None:
             self._values["download_lfs"] = download_lfs
+        if kodiak is not None:
+            self._values["kodiak"] = kodiak
+        if kodiak_options is not None:
+            self._values["kodiak_options"] = kodiak_options
         if merge_queue is not None:
             self._values["merge_queue"] = merge_queue
         if merge_queue_options is not None:
@@ -4399,6 +4428,28 @@ class GitHubOptions:
         '''
         result = self._values.get("download_lfs")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def kodiak(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether Kodiak (``.kodiak.toml``) should be enabled on this repository.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("kodiak")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def kodiak_options(self) -> typing.Optional["KodiakOptions"]:
+        '''(experimental) Options for Kodiak.
+
+        :default: - default options
+
+        :stability: experimental
+        '''
+        result = self._values.get("kodiak_options")
+        return typing.cast(typing.Optional["KodiakOptions"], result)
 
     @builtins.property
     def merge_queue(self) -> typing.Optional[builtins.bool]:
@@ -6567,6 +6618,522 @@ class _IAddConditionsLaterProxy:
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAddConditionsLater).__jsii_proxy_class__ = lambda : _IAddConditionsLaterProxy
+
+
+class Kodiak(
+    _projen_04054675.Component,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.github.Kodiak",
+):
+    '''(experimental) Configure pull request merging via Kodiak (``.kodiak.toml``).
+
+    :see: https://kodiakhq.com/
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        github: "GitHub",
+        *,
+        approve: typing.Optional[typing.Union["KodiakApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        merge: typing.Optional[typing.Union["KodiakMergeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        update: typing.Optional[typing.Union["KodiakUpdateOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        version: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''
+        :param github: -
+        :param approve: (experimental) Auto-approval settings (``[approve]``). Default: - no auto-approval rules configured
+        :param merge: (experimental) Merge settings (``[merge]``). Default: - default Kodiak merge behavior
+        :param update: (experimental) Branch update settings (``[update]``). Default: - default Kodiak update behavior
+        :param version: (experimental) Kodiak configuration format version. Default: 1
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__124682c2424d4a9aecce040b1b7953a31df2389614d2e0b0b0f2d450139c9eb0)
+            check_type(argname="argument github", value=github, expected_type=type_hints["github"])
+        options = KodiakOptions(
+            approve=approve, merge=merge, update=update, version=version
+        )
+
+        jsii.create(self.__class__, self, [github, options])
+
+
+@jsii.data_type(
+    jsii_type="projen.github.KodiakApproveOptions",
+    jsii_struct_bases=[],
+    name_mapping={"auto_approve_usernames": "autoApproveUsernames"},
+)
+class KodiakApproveOptions:
+    def __init__(
+        self,
+        *,
+        auto_approve_usernames: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Options for Kodiak ``[approve]``.
+
+        :param auto_approve_usernames: (experimental) Automatically approve pull requests opened by these usernames. Default: - no usernames auto-approved
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a30dc63db3298de34b6ddcbf598e058937d6a9ca5cc526e51069a00a4959df1a)
+            check_type(argname="argument auto_approve_usernames", value=auto_approve_usernames, expected_type=type_hints["auto_approve_usernames"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if auto_approve_usernames is not None:
+            self._values["auto_approve_usernames"] = auto_approve_usernames
+
+    @builtins.property
+    def auto_approve_usernames(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Automatically approve pull requests opened by these usernames.
+
+        :default: - no usernames auto-approved
+
+        :stability: experimental
+        '''
+        result = self._values.get("auto_approve_usernames")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "KodiakApproveOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.github.KodiakAutomergeDependencies",
+    jsii_struct_bases=[],
+    name_mapping={"usernames": "usernames", "versions": "versions"},
+)
+class KodiakAutomergeDependencies:
+    def __init__(
+        self,
+        *,
+        usernames: typing.Optional[typing.Sequence[builtins.str]] = None,
+        versions: typing.Optional[typing.Sequence["KodiakDependencyVersion"]] = None,
+    ) -> None:
+        '''(experimental) Options for Kodiak ``[merge.automerge_dependencies]``.
+
+        :param usernames: (experimental) Restrict dependency auto-merging to specific bot or user logins. Default: - no username filter
+        :param versions: (experimental) Restrict auto-merging to specific semver upgrade levels. Default: - no dependency upgrade levels are auto-merged
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8d38315a0edc7ed32ba90e972998b5620721a41f86df6e6e2ea1addcd59a6218)
+            check_type(argname="argument usernames", value=usernames, expected_type=type_hints["usernames"])
+            check_type(argname="argument versions", value=versions, expected_type=type_hints["versions"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if usernames is not None:
+            self._values["usernames"] = usernames
+        if versions is not None:
+            self._values["versions"] = versions
+
+    @builtins.property
+    def usernames(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Restrict dependency auto-merging to specific bot or user logins.
+
+        :default: - no username filter
+
+        :stability: experimental
+        '''
+        result = self._values.get("usernames")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def versions(self) -> typing.Optional[typing.List["KodiakDependencyVersion"]]:
+        '''(experimental) Restrict auto-merging to specific semver upgrade levels.
+
+        :default: - no dependency upgrade levels are auto-merged
+
+        :stability: experimental
+        '''
+        result = self._values.get("versions")
+        return typing.cast(typing.Optional[typing.List["KodiakDependencyVersion"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "KodiakAutomergeDependencies(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="projen.github.KodiakDependencyVersion")
+class KodiakDependencyVersion(enum.Enum):
+    '''(experimental) Dependency version bump levels eligible for Kodiak auto-merge.
+
+    :stability: experimental
+    '''
+
+    MAJOR = "MAJOR"
+    '''(experimental) Major semver updates.
+
+    :stability: experimental
+    '''
+    MINOR = "MINOR"
+    '''(experimental) Minor semver updates.
+
+    :stability: experimental
+    '''
+    PATCH = "PATCH"
+    '''(experimental) Patch semver updates.
+
+    :stability: experimental
+    '''
+
+
+@jsii.data_type(
+    jsii_type="projen.github.KodiakMergeOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "automerge_dependencies": "automergeDependencies",
+        "automerge_label": "automergeLabel",
+        "delete_branch_on_merge": "deleteBranchOnMerge",
+        "do_not_merge": "doNotMerge",
+        "method": "method",
+        "prioritize_ready_to_merge": "prioritizeReadyToMerge",
+        "require_automerge_label": "requireAutomergeLabel",
+    },
+)
+class KodiakMergeOptions:
+    def __init__(
+        self,
+        *,
+        automerge_dependencies: typing.Optional[typing.Union["KodiakAutomergeDependencies", typing.Dict[builtins.str, typing.Any]]] = None,
+        automerge_label: typing.Optional[builtins.str] = None,
+        delete_branch_on_merge: typing.Optional[builtins.bool] = None,
+        do_not_merge: typing.Optional[builtins.bool] = None,
+        method: typing.Optional["MergeMethod"] = None,
+        prioritize_ready_to_merge: typing.Optional[builtins.bool] = None,
+        require_automerge_label: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Options for Kodiak ``[merge]``.
+
+        :param automerge_dependencies: (experimental) Configure automatic merging for dependency update bots such as Dependabot or Renovate. Default: - dependency auto-merge is not configured
+        :param automerge_label: (experimental) Label required on a pull request to trigger auto-merge. Default: "automerge"
+        :param delete_branch_on_merge: (experimental) Automatically delete the head branch after merging. Default: false
+        :param do_not_merge: (experimental) Prevent Kodiak from merging pull requests while still allowing updates. Default: false
+        :param method: (experimental) Merge strategy used when merging pull requests. Default: - the first merge method enabled on the repository (merge, then squash, then rebase)
+        :param prioritize_ready_to_merge: (experimental) Prioritize pull requests that are already up-to-date and passing checks. Default: false
+        :param require_automerge_label: (experimental) Whether pull requests must have ``automergeLabel`` to be merged by Kodiak. Default: true
+
+        :stability: experimental
+        '''
+        if isinstance(automerge_dependencies, dict):
+            automerge_dependencies = KodiakAutomergeDependencies(**automerge_dependencies)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7232e0af7ecb8c371be6944dc0dd7c2b6d072637e017f8c883458b6867029aac)
+            check_type(argname="argument automerge_dependencies", value=automerge_dependencies, expected_type=type_hints["automerge_dependencies"])
+            check_type(argname="argument automerge_label", value=automerge_label, expected_type=type_hints["automerge_label"])
+            check_type(argname="argument delete_branch_on_merge", value=delete_branch_on_merge, expected_type=type_hints["delete_branch_on_merge"])
+            check_type(argname="argument do_not_merge", value=do_not_merge, expected_type=type_hints["do_not_merge"])
+            check_type(argname="argument method", value=method, expected_type=type_hints["method"])
+            check_type(argname="argument prioritize_ready_to_merge", value=prioritize_ready_to_merge, expected_type=type_hints["prioritize_ready_to_merge"])
+            check_type(argname="argument require_automerge_label", value=require_automerge_label, expected_type=type_hints["require_automerge_label"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if automerge_dependencies is not None:
+            self._values["automerge_dependencies"] = automerge_dependencies
+        if automerge_label is not None:
+            self._values["automerge_label"] = automerge_label
+        if delete_branch_on_merge is not None:
+            self._values["delete_branch_on_merge"] = delete_branch_on_merge
+        if do_not_merge is not None:
+            self._values["do_not_merge"] = do_not_merge
+        if method is not None:
+            self._values["method"] = method
+        if prioritize_ready_to_merge is not None:
+            self._values["prioritize_ready_to_merge"] = prioritize_ready_to_merge
+        if require_automerge_label is not None:
+            self._values["require_automerge_label"] = require_automerge_label
+
+    @builtins.property
+    def automerge_dependencies(self) -> typing.Optional["KodiakAutomergeDependencies"]:
+        '''(experimental) Configure automatic merging for dependency update bots such as Dependabot or Renovate.
+
+        :default: - dependency auto-merge is not configured
+
+        :stability: experimental
+        '''
+        result = self._values.get("automerge_dependencies")
+        return typing.cast(typing.Optional["KodiakAutomergeDependencies"], result)
+
+    @builtins.property
+    def automerge_label(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Label required on a pull request to trigger auto-merge.
+
+        :default: "automerge"
+
+        :stability: experimental
+        '''
+        result = self._values.get("automerge_label")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def delete_branch_on_merge(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Automatically delete the head branch after merging.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("delete_branch_on_merge")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def do_not_merge(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Prevent Kodiak from merging pull requests while still allowing updates.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("do_not_merge")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def method(self) -> typing.Optional["MergeMethod"]:
+        '''(experimental) Merge strategy used when merging pull requests.
+
+        :default: - the first merge method enabled on the repository (merge, then squash, then rebase)
+
+        :stability: experimental
+        '''
+        result = self._values.get("method")
+        return typing.cast(typing.Optional["MergeMethod"], result)
+
+    @builtins.property
+    def prioritize_ready_to_merge(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Prioritize pull requests that are already up-to-date and passing checks.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("prioritize_ready_to_merge")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def require_automerge_label(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether pull requests must have ``automergeLabel`` to be merged by Kodiak.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("require_automerge_label")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "KodiakMergeOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.github.KodiakOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "approve": "approve",
+        "merge": "merge",
+        "update": "update",
+        "version": "version",
+    },
+)
+class KodiakOptions:
+    def __init__(
+        self,
+        *,
+        approve: typing.Optional[typing.Union["KodiakApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        merge: typing.Optional[typing.Union["KodiakMergeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        update: typing.Optional[typing.Union["KodiakUpdateOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        version: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''(experimental) Configure Kodiak (``.kodiak.toml``).
+
+        :param approve: (experimental) Auto-approval settings (``[approve]``). Default: - no auto-approval rules configured
+        :param merge: (experimental) Merge settings (``[merge]``). Default: - default Kodiak merge behavior
+        :param update: (experimental) Branch update settings (``[update]``). Default: - default Kodiak update behavior
+        :param version: (experimental) Kodiak configuration format version. Default: 1
+
+        :see: https://kodiakhq.com/docs/config-reference
+        :stability: experimental
+        '''
+        if isinstance(approve, dict):
+            approve = KodiakApproveOptions(**approve)
+        if isinstance(merge, dict):
+            merge = KodiakMergeOptions(**merge)
+        if isinstance(update, dict):
+            update = KodiakUpdateOptions(**update)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b8c3f8494d6e4102e99560bcc6da888269a4807c102745887604b904cb6f9585)
+            check_type(argname="argument approve", value=approve, expected_type=type_hints["approve"])
+            check_type(argname="argument merge", value=merge, expected_type=type_hints["merge"])
+            check_type(argname="argument update", value=update, expected_type=type_hints["update"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if approve is not None:
+            self._values["approve"] = approve
+        if merge is not None:
+            self._values["merge"] = merge
+        if update is not None:
+            self._values["update"] = update
+        if version is not None:
+            self._values["version"] = version
+
+    @builtins.property
+    def approve(self) -> typing.Optional["KodiakApproveOptions"]:
+        '''(experimental) Auto-approval settings (``[approve]``).
+
+        :default: - no auto-approval rules configured
+
+        :stability: experimental
+        '''
+        result = self._values.get("approve")
+        return typing.cast(typing.Optional["KodiakApproveOptions"], result)
+
+    @builtins.property
+    def merge(self) -> typing.Optional["KodiakMergeOptions"]:
+        '''(experimental) Merge settings (``[merge]``).
+
+        :default: - default Kodiak merge behavior
+
+        :stability: experimental
+        '''
+        result = self._values.get("merge")
+        return typing.cast(typing.Optional["KodiakMergeOptions"], result)
+
+    @builtins.property
+    def update(self) -> typing.Optional["KodiakUpdateOptions"]:
+        '''(experimental) Branch update settings (``[update]``).
+
+        :default: - default Kodiak update behavior
+
+        :stability: experimental
+        '''
+        result = self._values.get("update")
+        return typing.cast(typing.Optional["KodiakUpdateOptions"], result)
+
+    @builtins.property
+    def version(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Kodiak configuration format version.
+
+        :default: 1
+
+        :stability: experimental
+        '''
+        result = self._values.get("version")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "KodiakOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.github.KodiakUpdateOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "always": "always",
+        "autoupdate_label": "autoupdateLabel",
+        "ignored_usernames": "ignoredUsernames",
+    },
+)
+class KodiakUpdateOptions:
+    def __init__(
+        self,
+        *,
+        always: typing.Optional[builtins.bool] = None,
+        autoupdate_label: typing.Optional[builtins.str] = None,
+        ignored_usernames: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Options for Kodiak ``[update]``.
+
+        :param always: (experimental) Automatically update out-of-date pull requests rather than waiting until queued for merge. Default: false
+        :param autoupdate_label: (experimental) Only update pull requests carrying this label. Default: - no label-based auto-update (see ``update.always``)
+        :param ignored_usernames: (experimental) Usernames whose pull requests should not be automatically updated. Default: - no usernames ignored
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__47e2262cac055d11fc244929b7256d2f235f9d3bf84aa401626156051ed297f8)
+            check_type(argname="argument always", value=always, expected_type=type_hints["always"])
+            check_type(argname="argument autoupdate_label", value=autoupdate_label, expected_type=type_hints["autoupdate_label"])
+            check_type(argname="argument ignored_usernames", value=ignored_usernames, expected_type=type_hints["ignored_usernames"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if always is not None:
+            self._values["always"] = always
+        if autoupdate_label is not None:
+            self._values["autoupdate_label"] = autoupdate_label
+        if ignored_usernames is not None:
+            self._values["ignored_usernames"] = ignored_usernames
+
+    @builtins.property
+    def always(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Automatically update out-of-date pull requests rather than waiting until queued for merge.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("always")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def autoupdate_label(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Only update pull requests carrying this label.
+
+        :default: - no label-based auto-update (see ``update.always``)
+
+        :stability: experimental
+        '''
+        result = self._values.get("autoupdate_label")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ignored_usernames(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Usernames whose pull requests should not be automatically updated.
+
+        :default: - no usernames ignored
+
+        :stability: experimental
+        '''
+        result = self._values.get("ignored_usernames")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "KodiakUpdateOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.enum(jsii_type="projen.github.MergeMethod")
@@ -11726,6 +12293,13 @@ __all__ = [
     "GithubWorkflow",
     "GithubWorkflowOptions",
     "IAddConditionsLater",
+    "Kodiak",
+    "KodiakApproveOptions",
+    "KodiakAutomergeDependencies",
+    "KodiakDependencyVersion",
+    "KodiakMergeOptions",
+    "KodiakOptions",
+    "KodiakUpdateOptions",
     "MergeMethod",
     "MergeQueue",
     "MergeQueueOptions",
@@ -12154,6 +12728,8 @@ def _typecheckingstub__65db11e8703472c7fa4e013294c649e43b7f8634b29ca11be71b46d8c
     dependency_review: typing.Optional[builtins.bool] = None,
     dependency_review_options: typing.Optional[typing.Union[DependencyReviewOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     download_lfs: typing.Optional[builtins.bool] = None,
+    kodiak: typing.Optional[builtins.bool] = None,
+    kodiak_options: typing.Optional[typing.Union[KodiakOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     merge_queue: typing.Optional[builtins.bool] = None,
     merge_queue_options: typing.Optional[typing.Union[MergeQueueOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     mergify: typing.Optional[builtins.bool] = None,
@@ -12213,6 +12789,8 @@ def _typecheckingstub__c22e66f011c96f13a6f4e5b07bb676bf98b477678e968ee61f79ee107
     dependency_review: typing.Optional[builtins.bool] = None,
     dependency_review_options: typing.Optional[typing.Union[DependencyReviewOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     download_lfs: typing.Optional[builtins.bool] = None,
+    kodiak: typing.Optional[builtins.bool] = None,
+    kodiak_options: typing.Optional[typing.Union[KodiakOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     merge_queue: typing.Optional[builtins.bool] = None,
     merge_queue_options: typing.Optional[typing.Union[MergeQueueOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     mergify: typing.Optional[builtins.bool] = None,
@@ -12492,6 +13070,64 @@ def _typecheckingstub__c779b00d3df0cff3a9570cc6ed35339952399a898d5854423c3329b55
     file_name: typing.Optional[builtins.str] = None,
     force: typing.Optional[builtins.bool] = None,
     limit_concurrency: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__124682c2424d4a9aecce040b1b7953a31df2389614d2e0b0b0f2d450139c9eb0(
+    github: GitHub,
+    *,
+    approve: typing.Optional[typing.Union[KodiakApproveOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    merge: typing.Optional[typing.Union[KodiakMergeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    update: typing.Optional[typing.Union[KodiakUpdateOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    version: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a30dc63db3298de34b6ddcbf598e058937d6a9ca5cc526e51069a00a4959df1a(
+    *,
+    auto_approve_usernames: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d38315a0edc7ed32ba90e972998b5620721a41f86df6e6e2ea1addcd59a6218(
+    *,
+    usernames: typing.Optional[typing.Sequence[builtins.str]] = None,
+    versions: typing.Optional[typing.Sequence[KodiakDependencyVersion]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7232e0af7ecb8c371be6944dc0dd7c2b6d072637e017f8c883458b6867029aac(
+    *,
+    automerge_dependencies: typing.Optional[typing.Union[KodiakAutomergeDependencies, typing.Dict[builtins.str, typing.Any]]] = None,
+    automerge_label: typing.Optional[builtins.str] = None,
+    delete_branch_on_merge: typing.Optional[builtins.bool] = None,
+    do_not_merge: typing.Optional[builtins.bool] = None,
+    method: typing.Optional[MergeMethod] = None,
+    prioritize_ready_to_merge: typing.Optional[builtins.bool] = None,
+    require_automerge_label: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8c3f8494d6e4102e99560bcc6da888269a4807c102745887604b904cb6f9585(
+    *,
+    approve: typing.Optional[typing.Union[KodiakApproveOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    merge: typing.Optional[typing.Union[KodiakMergeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    update: typing.Optional[typing.Union[KodiakUpdateOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    version: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__47e2262cac055d11fc244929b7256d2f235f9d3bf84aa401626156051ed297f8(
+    *,
+    always: typing.Optional[builtins.bool] = None,
+    autoupdate_label: typing.Optional[builtins.str] = None,
+    ignored_usernames: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

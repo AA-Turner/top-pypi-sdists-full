@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: imagequant
-Version: 1.1.5
+Version: 1.1.6
 Summary: Image Quantization Library
 Home-page: https://github.com/wanadev/imagequant-python
 Author: Wanadev
@@ -178,6 +178,12 @@ Changelog
 * **[NEXT]** (changes on ``master`` that have not been released yet):
 
   * Nothing yet ;)
+
+* **v1.1.6:**
+
+  * misc: Added Python 3.15 support (@flozz)
+  * misc!: Removed Python 3.10 support (@flozz)
+  * misc!: Dropped Linux i686 support (@flozz)
 
 * **v1.1.5:**
 

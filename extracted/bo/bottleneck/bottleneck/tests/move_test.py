@@ -1,10 +1,12 @@
 """Test moving window functions."""
 
 import numpy as np
-from numpy.testing import assert_equal, assert_array_almost_equal, assert_raises
-import bottleneck as bn
-from .util import arrays, array_order
 import pytest
+from numpy.testing import assert_array_almost_equal, assert_equal, assert_raises
+
+import bottleneck as bn
+
+from .util import array_order, arrays
 
 
 @pytest.mark.parametrize("func", bn.get_functions("move"), ids=lambda x: x.__name__)
@@ -17,7 +19,7 @@ def test_move(func):
     fmt += "\nInput array:\n%s\n"
     aaae = assert_array_almost_equal
     func_name = func.__name__
-    func0 = eval("bn.slow.%s" % func_name)
+    func0 = eval(f"bn.slow.{func_name}")
     if func_name == "move_var":
         decimal = 3
     else:
@@ -59,13 +61,13 @@ def test_arg_parsing(func, decimal=5):
     """test argument parsing."""
 
     name = func.__name__
-    func0 = eval("bn.slow.%s" % name)
+    func0 = eval(f"bn.slow.{name}")
 
     a = np.array([1.0, 2, 3])
 
-    fmt = "\n%s" % func
+    fmt = f"\n{func}"
     fmt += "%s\n"
-    fmt += "\nInput array:\n%s\n" % a
+    fmt += f"\nInput array:\n{a}\n"
 
     actual = func(a, 2)
     desired = func0(a, 2)
@@ -152,7 +154,7 @@ def test_move_median_with_nans():
     func = bn.move_median
     func0 = bn.slow.move_median
     rs = np.random.RandomState([1, 2, 3])
-    for i in range(100):
+    for _ in range(100):
         a = np.arange(size, dtype=np.float64)
         idx = rs.rand(*a.shape) < 0.1
         a[idx] = np.inf
@@ -175,7 +177,7 @@ def test_move_median_without_nans():
     func = bn.move_median
     func0 = bn.slow.move_median
     rs = np.random.RandomState([1, 2, 3])
-    for i in range(100):
+    for _ in range(100):
         a = np.arange(size, dtype=np.int64)
         rs.shuffle(a)
         for window in range(2, size + 1):
@@ -210,3 +212,30 @@ def test_move_std_sqrt():
     a3 = np.array([[a, a], [a, a]])
     b = bn.move_std(a3, window=3, axis=2)
     assert np.isfinite(b[:, :, 2:]).all(), err_msg % 3
+
+
+# ----------------------------------------------------------------------------
+# Regression test for issue #437
+
+
+def test_move_mean_window_1():
+    """Test move_mean with window=1, min_count=1 (issue #437).
+
+    When window=1 and min_count=1, move_mean should return the input array
+    unchanged, since a moving average with window size 1 is the identity
+    function. However a previous, general purpose implementation introduced small
+    floating point errors.
+
+    See: https://github.com/pydata/bottleneck/issues/437
+    """
+    # Minimal test case from issue #437 (simplified from 119 to 3 elements)
+    a = [0.008196721311475436, -0.01626016260162607, 0.012396694214876205]
+
+    b = bn.move_mean(a, window=1, min_count=1)
+
+    # With window=1, the result should be exactly equal to the input
+    err_msg = (
+        "move_mean with window=1 and min_count=1 should return the input array "
+        "unchanged, but got differences. This is issue #437."
+    )
+    assert_equal(b, a, err_msg)

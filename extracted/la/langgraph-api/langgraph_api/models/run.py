@@ -36,7 +36,8 @@ from langgraph_api.tracing_session import resolve_tracing_session_name
 from langgraph_api.utils import AsyncConnectionProto, get_auth_ctx, get_user_id
 from langgraph_api.utils.headers import get_configurable_headers
 from langgraph_api.utils.uuids import uuid7
-from langgraph_api.webhook import validate_webhook_url_or_raise
+from langgraph_api.validation import strip_reserved
+from langgraph_api.webhook import validate_or_drop_webhook
 
 if IS_POSTGRES_OR_GRPC_BACKEND:
     from langgraph_api.grpc.ops import Runs
@@ -232,15 +233,12 @@ async def create_valid_run(
             detail="Cannot specify both configurable and context. Prefer setting context alone. Context was introduced in LangGraph 0.6.0 and is the long term planned replacement for configurable.",
         )
 
-    # ``tools`` and ``lifecycle`` are emitted only by the protocol v2
-    # streaming pipeline (``stream_v2.py`` / ``StreamMessagesHandlerV2``
-    # plus the registered stream transformers). Accepting them on legacy
-    # streaming routes would either no-op (``lifecycle``, never emitted
-    # without a transformer) or leak v2-shaped events into v1 consumers
-    # (``tools``). Reject up front so callers get a clear 422 instead of
-    # a silently empty stream.
+    # ``lifecycle`` is emitted only by the protocol v2 streaming pipeline
+    # (``stream_v2.py`` plus the registered stream transformers), so legacy
+    # routes reject it up front instead of returning a silently empty stream.
+    # ``tools`` is accepted on legacy routes and dropped in ``stream.py``.
     if not configurable.get(EVENT_STREAMING_V2_CONFIG_KEY):
-        v2_only = {"tools", "lifecycle"}.intersection(stream_mode)
+        v2_only = {"lifecycle"}.intersection(stream_mode)
         if v2_only:
             raise HTTPException(
                 status_code=422,
@@ -258,14 +256,21 @@ async def create_valid_run(
     else:
         context = configurable.copy()
 
-    if cron_id is not None:
-        configurable["cron_id"] = cron_id
-
     if checkpoint_id:
         configurable["checkpoint_id"] = str(checkpoint_id)
     if checkpoint := payload.get("checkpoint"):
+        # Cron payloads stored before requests had checkpoint stripped can still carry server-owned keys.
+        strip_reserved(
+            checkpoint,
+            "checkpoint",
+            message="Stripped reserved keys from stored checkpoint",
+        )
         configurable.update(checkpoint)
     configurable.update(get_configurable_headers(headers))
+    # cron_id is server-owned: drop any value merged from the request, then stamp the scheduler's.
+    configurable.pop("cron_id", None)
+    if cron_id is not None:
+        configurable["cron_id"] = cron_id
     inject_current_trace_context(configurable)
     inject_current_dd_trace_context(configurable)
     ctx = get_auth_ctx()
@@ -298,8 +303,7 @@ async def create_valid_run(
         checkpoint_during = payload.get("checkpoint_during")
         durability = "async" if checkpoint_during in (None, True) else "exit"
 
-    if webhook := payload.get("webhook"):
-        await validate_webhook_url_or_raise(str(webhook))
+    await validate_or_drop_webhook(payload)
 
     langsmith_session_name = (
         resolve_tracing_session_name(payload) if api_config.TRACING else None

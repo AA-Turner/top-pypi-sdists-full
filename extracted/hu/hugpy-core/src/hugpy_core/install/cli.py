@@ -13,6 +13,9 @@ def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "legacy":
         argv.pop(0)
+    if argv and argv[0] == "addon":
+        from hugpy_core.install.addons import main as addon_main
+        return addon_main(argv[1:])
     if argv and argv[0] in INSTALLER_VERBS:
         if "--system" in argv:
             from hugpy_core.install.system import main as system_main

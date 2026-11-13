@@ -84,6 +84,8 @@ class TestSoftcopyVOILUTTransformation(unittest.TestCase):
         )
         assert lut.WindowCenter == 40.0
         assert lut.WindowWidth == 400.0
+        assert lut.WindowCenterWidthExplanation == 'Soft Tissue Window'
+        assert lut['WindowCenterWidthExplanation'].VM == 1
 
     def test_construction_multiple(self):
         lut = SoftcopyVOILUTTransformation(
@@ -1469,6 +1471,36 @@ class TestXSoftcopyPresentationState(unittest.TestCase):
             gsps.SoftcopyVOILUTSequence[0].WindowCenterWidthExplanation == exps
         )
 
+    def test_construction_with_copy_voi_lut_with_expl(self):
+        new_series = []
+        for dcm in self._ct_series:
+            new_dcm = deepcopy(dcm)
+            new_dcm.WindowCenterWidthExplanation = 'SOFT TISSUE'
+            new_series.append(new_dcm)
+        gsps = GrayscaleSoftcopyPresentationState(
+            referenced_images=new_series,
+            series_instance_uid=self._series_uid,
+            series_number=123,
+            sop_instance_uid=self._sop_uid,
+            instance_number=456,
+            manufacturer='Foo Corp.',
+            manufacturer_model_name='Bar, Mark 2',
+            software_versions='0.0.1',
+            device_serial_number='12345',
+            content_label='DOODLE',
+            graphic_layers=[self._layer],
+            graphic_annotations=[self._ann_ct],
+            concept_name=codes.DCM.PresentationState,
+            institution_name='MGH',
+            institutional_department_name='Radiology',
+            content_creator_name='Doe^John'
+        )
+        assert len(gsps.SoftcopyVOILUTSequence) == 1
+        reread = write_and_read_dataset(gsps)
+        voi_item = reread.SoftcopyVOILUTSequence[0]
+        assert voi_item.WindowCenterWidthExplanation == 'SOFT TISSUE'
+        assert voi_item['WindowCenterWidthExplanation'].VM == 1
+
     def test_construction_with_copy_voi_lut_empty(self):
         file_path = Path(__file__)
         data_dir = file_path.parent.parent.joinpath('data')
@@ -2164,6 +2196,65 @@ class TestXSoftcopyPresentationState(unittest.TestCase):
             image_profile.profile.profile_description ==
             'sRGB v4 ICC preference perceptual intent beta'
         )
+
+    def test_construction_color_top_level_icc_profile(self):
+        # Color images other than slide microscopy images include the ICC
+        # Profile at the top level of the dataset rather than within the
+        # Optical Path Sequence
+        icc_profile = pkgutil.get_data(
+            'highdicom',
+            '_icc_profiles/sRGB_v4_ICC_preference.icc'
+        )
+        image = deepcopy(self._sm_image)
+        del image.OpticalPathSequence
+        image.ICCProfile = icc_profile
+
+        pr = ColorSoftcopyPresentationState(
+            referenced_images=[image],
+            series_instance_uid=self._series_uid,
+            series_number=123,
+            sop_instance_uid=self._sop_uid,
+            instance_number=456,
+            manufacturer='Foo Corp.',
+            manufacturer_model_name='Bar, Mark 2',
+            software_versions='0.0.1',
+            device_serial_number='12345',
+            content_label='DOODLE',
+            graphic_layers=[self._layer],
+            graphic_annotations=[self._ann_sm],
+        )
+        assert pr.ICCProfile == icc_profile
+
+    def test_construction_color_inconsistent_icc_profiles(self):
+        icc_profile = pkgutil.get_data(
+            'highdicom',
+            '_icc_profiles/sRGB_v4_ICC_preference.icc'
+        )
+        image = deepcopy(self._sm_image)
+        del image.OpticalPathSequence
+        image.ICCProfile = icc_profile
+        other_image = deepcopy(self._sm_image)
+        other_image.SOPInstanceUID = UID()
+        assert (
+            other_image.OpticalPathSequence[0].ICCProfile != icc_profile
+        )
+
+        with pytest.raises(
+            ValueError,
+            match='Found more than one ICC Profile',
+        ):
+            ColorSoftcopyPresentationState(
+                referenced_images=[image, other_image],
+                series_instance_uid=self._series_uid,
+                series_number=123,
+                sop_instance_uid=self._sop_uid,
+                instance_number=456,
+                manufacturer='Foo Corp.',
+                manufacturer_model_name='Bar, Mark 2',
+                software_versions='0.0.1',
+                device_serial_number='12345',
+                content_label='DOODLE',
+            )
 
     def test_construction_creator_id(self):
         gsps = GrayscaleSoftcopyPresentationState(

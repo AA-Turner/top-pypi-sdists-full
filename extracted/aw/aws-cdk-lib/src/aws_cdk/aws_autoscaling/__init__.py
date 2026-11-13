@@ -14984,7 +14984,7 @@ class CronOptions:
         :param month: The month to run this rule at. Default: - Every month
         :param week_day: The day of the week to run this rule at. Default: - Any day of the week
 
-        :see: http://crontab.org/
+        :see: https://crontab.org/
         :exampleMetadata: infused
 
         Example::
@@ -18873,7 +18873,7 @@ class Schedule(
 
         :param expression: The expression to use. Must be in a format that AutoScaling will recognize
 
-        :see: http://crontab.org/
+        :see: https://crontab.org/
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a472ca2650776afb4c410eee0e25a484de0070b51e7dfc154b5506f87b8a6994)

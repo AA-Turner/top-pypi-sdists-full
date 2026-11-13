@@ -56,12 +56,12 @@ class ApiKeysClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[ApiKey, ListApiKeysResponse]:
         """
-        Lists the API keys of an account or app, newest first. Responses never include the full secret — only its obfuscated form.
+        Lists the API keys of an account, app, or your own user, newest first. Responses never include the full secret — only its obfuscated form.
 
         Parameters
         ----------
         resource_id : str
-            The account (`biz_`) or app (`app_`) tag to list API keys for.
+            The account (`biz_`), app (`app_`), or your own user (`user_`) tag to list API keys for.
 
         resource_type : ListApiKeysRequestResourceType
             The type of resource that owns the API keys.
@@ -103,7 +103,7 @@ class ApiKeysClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -144,7 +144,7 @@ class ApiKeysClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiKey:
         """
-        Creates an API key for an account or app. The response is the only place the full `secret_key` is returned — store it immediately. Requires a user session; API keys cannot manage API keys.
+        Creates an API key for an account, an app, or your own user. A user API key acts as you and can only grant `ad_campaign:basic:read`, `ad_campaign:update`, `ad_pixel:manage`, `member:journey:read`. The response is the only place the full `secret_key` is returned — store it immediately. Requires a user session; API keys cannot manage API keys.
 
         Parameters
         ----------
@@ -155,7 +155,7 @@ class ApiKeysClient:
             The permissions policy for the API key: explicit permission statements, or a system role to inherit from. Statements without a `resources` array default to the owning account (Account API keys) or every key-addressable resource (App API keys).
 
         resource_id : str
-            The account (`biz_`) or app (`app_`) tag to create the API key for.
+            The account (`biz_`), app (`app_`), or your own user (`user_`) tag to create the API key for.
 
         resource_type : CreateApiKeysRequestResourceType
             The type of resource that will own this API key.
@@ -183,7 +183,7 @@ class ApiKeysClient:
         from whop_sdk.api_keys import CreateApiKeysRequestPermissions
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -227,7 +227,7 @@ class ApiKeysClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -258,7 +258,7 @@ class ApiKeysClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -291,7 +291,7 @@ class ApiKeysClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -349,7 +349,7 @@ class ApiKeysClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -390,7 +390,7 @@ class ApiKeysClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -433,12 +433,12 @@ class AsyncApiKeysClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[ApiKey, ListApiKeysResponse]:
         """
-        Lists the API keys of an account or app, newest first. Responses never include the full secret — only its obfuscated form.
+        Lists the API keys of an account, app, or your own user, newest first. Responses never include the full secret — only its obfuscated form.
 
         Parameters
         ----------
         resource_id : str
-            The account (`biz_`) or app (`app_`) tag to list API keys for.
+            The account (`biz_`), app (`app_`), or your own user (`user_`) tag to list API keys for.
 
         resource_type : ListApiKeysRequestResourceType
             The type of resource that owns the API keys.
@@ -482,7 +482,7 @@ class AsyncApiKeysClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -530,7 +530,7 @@ class AsyncApiKeysClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiKey:
         """
-        Creates an API key for an account or app. The response is the only place the full `secret_key` is returned — store it immediately. Requires a user session; API keys cannot manage API keys.
+        Creates an API key for an account, an app, or your own user. A user API key acts as you and can only grant `ad_campaign:basic:read`, `ad_campaign:update`, `ad_pixel:manage`, `member:journey:read`. The response is the only place the full `secret_key` is returned — store it immediately. Requires a user session; API keys cannot manage API keys.
 
         Parameters
         ----------
@@ -541,7 +541,7 @@ class AsyncApiKeysClient:
             The permissions policy for the API key: explicit permission statements, or a system role to inherit from. Statements without a `resources` array default to the owning account (Account API keys) or every key-addressable resource (App API keys).
 
         resource_id : str
-            The account (`biz_`) or app (`app_`) tag to create the API key for.
+            The account (`biz_`), app (`app_`), or your own user (`user_`) tag to create the API key for.
 
         resource_type : CreateApiKeysRequestResourceType
             The type of resource that will own this API key.
@@ -571,7 +571,7 @@ class AsyncApiKeysClient:
         from whop_sdk.api_keys import CreateApiKeysRequestPermissions
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -623,7 +623,7 @@ class AsyncApiKeysClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -662,7 +662,7 @@ class AsyncApiKeysClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -705,7 +705,7 @@ class AsyncApiKeysClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -771,7 +771,7 @@ class AsyncApiKeysClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -820,7 +820,7 @@ class AsyncApiKeysClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

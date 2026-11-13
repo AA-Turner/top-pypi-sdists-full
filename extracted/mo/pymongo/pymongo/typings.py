@@ -20,7 +20,6 @@ from collections.abc import Mapping, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
-    Optional,
     TypeVar,
     Union,
 )
@@ -35,6 +34,7 @@ if TYPE_CHECKING:
     from pymongo.asynchronous.database import AsyncDatabase
     from pymongo.asynchronous.mongo_client import AsyncMongoClient
     from pymongo.asynchronous.pool import AsyncConnection
+    from pymongo.asynchronous.pool import Pool as AsyncPool
     from pymongo.asynchronous.server import Server as AsyncServer
     from pymongo.collation import Collation
     from pymongo.synchronous.bulk import _Bulk
@@ -43,12 +43,12 @@ if TYPE_CHECKING:
     from pymongo.synchronous.collection import Collection
     from pymongo.synchronous.database import Database
     from pymongo.synchronous.mongo_client import MongoClient
-    from pymongo.synchronous.pool import Connection
+    from pymongo.synchronous.pool import Connection, Pool
     from pymongo.synchronous.server import Server
 
 
 # Common Shared Types.
-_Address = tuple[str, Optional[int]]
+_Address = tuple[str, int | None]
 _CollationIn = Union[Mapping[str, Any], "Collation"]
 _Pipeline = Sequence[Mapping[str, Any]]
 ClusterTime = Mapping[str, Any]
@@ -61,12 +61,13 @@ _AgnosticCollection = Union["AsyncCollection[_DocumentType]", "Collection[_Docum
 _AgnosticDatabase = Union["AsyncDatabase[_DocumentType]", "Database[_DocumentType]"]
 _AgnosticConnection = Union["AsyncConnection", "Connection"]
 _AgnosticServer = Union["AsyncServer", "Server"]
+_AgnosticPool = Union["AsyncPool", "Pool"]
 _AgnosticClientSession = Union["AsyncClientSession", "ClientSession"]
 _AgnosticBulk = Union["_AsyncBulk", "_Bulk"]
 _AgnosticClientBulk = Union["_AsyncClientBulk", "_ClientBulk"]
 
 
-def strip_optional(elem: Optional[_T]) -> _T:
+def strip_optional(elem: _T | None) -> _T:
     """This function is to allow us to cast all the elements of an iterator from Optional[_T] to _T
     while inside a list comprehension.
     """

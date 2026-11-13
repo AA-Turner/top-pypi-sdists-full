@@ -79,6 +79,7 @@ from .routes import (
     protocols_router,
     sandbox_router,
     set_a2a_app,
+    spaces_router,
     start_a2a_task_managers,
     stop_a2a_task_managers,
     tool_approvals_legacy_router,
@@ -1132,6 +1133,7 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
     _node_enabled = is_node_enabled()
     _durable_lifecycle: Any = None  # DurableLifecycle instance (when enabled)
     from .agentcore.settings import is_agentcore_target
+    from .ate.settings import is_ate_target
 
     _agentcore = is_agentcore_target()
 
@@ -1357,6 +1359,21 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
                         f"Loaded {len(agent_spec.mcp_servers)} MCP servers from agent spec"
                     )
 
+                # Under kagent, the RemoteMCPServer tools of the Agent's
+                # template are the agent's too, beside the agentspec's.
+                from .kagent.settings import is_kagent_target, kagent_settings
+
+                if is_kagent_target():
+                    from .types import MCPServer
+
+                    for body in kagent_settings().mcp_servers:
+                        kagent_server = MCPServer(**body)
+                        mcp_manager.add_server(kagent_server)
+                        all_mcp_servers.append(kagent_server)
+                        logger.info(
+                            f"Loaded kagent MCP server: {kagent_server.id} at {kagent_server.url}"
+                        )
+
                 async def start_all_mcp_servers() -> None:
                     """Start all MCP servers for the default agent."""
                     for mcp_server in all_mcp_servers:
@@ -1456,10 +1473,12 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
 
         # Add A2A mounts (FastA2A apps) after agents are registered
         for mount in get_a2a_mounts():
-            # Mount under /api/v1/a2a/agents/{agent_id}
-            full_mount = Mount(
-                f"{config.api_prefix}/a2a/agents{mount.path}", app=mount.app
-            )
+            # Mount under /api/v1/a2a/agents/{agent_id}, unless the agent was
+            # mounted when it registered (the agent of ``serve --agent-id``).
+            full_path = f"{config.api_prefix}/a2a/agents{mount.path}"
+            if any(getattr(r, "path", None) == full_path for r in app.routes):
+                continue
+            full_mount = Mount(full_path, app=mount.app)
             app.routes.append(full_mount)
             logger.info(
                 f"Mounted A2A route: {config.api_prefix}/a2a/agents{mount.path}"
@@ -1678,6 +1697,8 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
     app.include_router(mcp_lent_router, prefix=config.api_prefix)
     app.include_router(inference_relay_router, prefix=config.api_prefix)
     app.include_router(sandbox_router, prefix=config.api_prefix)
+    # A skill's file kept in the owner's Space, from the pod's loopback.
+    app.include_router(spaces_router, prefix=config.api_prefix)
     app.include_router(tool_approvals_router, prefix=config.api_prefix)
     app.include_router(tool_approvals_legacy_router)
     app.include_router(tool_approvals_ws_router)
@@ -1696,6 +1717,12 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
         from .agentcore.contract import router as agentcore_router
 
         app.include_router(agentcore_router)
+    if is_ate_target():
+        # Agent Substrate's actor contract, at the root: the wakeup probe and
+        # the actor's identity (read at each wake, never at start).
+        from .ate.contract import router as ate_router
+
+        app.include_router(ate_router)
 
     # Note: AG-UI mounts and example mounts are added dynamically during lifespan startup
 

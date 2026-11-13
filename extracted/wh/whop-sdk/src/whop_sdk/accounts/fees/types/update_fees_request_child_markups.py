@@ -14,12 +14,12 @@ from .update_fees_request_child_markups_transfers import UpdateFeesRequestChildM
 
 class UpdateFeesRequestChildMarkups(UniversalBaseModel):
     """
-    Default markups for connected accounts. Available on accounts without a parent, even before any accounts connect.
+    Default markups for subaccounts. Available on accounts without a parent, even before any accounts connect.
     """
 
     card_spend: typing.Optional[UpdateFeesRequestChildMarkupsCardSpend] = pydantic.Field(default=None)
     """
-    The markup on card purchases settled by the connected account. `null` clears the custom markup.
+    The markup on card purchases settled by the subaccount. `null` clears the custom markup.
     """
 
     crypto_swaps: typing.Optional[UpdateFeesRequestChildMarkupsCryptoSwaps] = pydantic.Field(default=None)
@@ -43,7 +43,7 @@ class UpdateFeesRequestChildMarkups(UniversalBaseModel):
         pydantic.Field(default=None)
     )
     """
-    Markups on withdrawals, keyed by payout method.
+    Markups on withdrawals, keyed by payout method. Percentage and fixed components may be negative, down to negative 100, to subsidize Whop's fee from the platform's balance in the withdrawal currency. The creator's total fee cannot go below zero. An unfunded subsidy keeps the payout pending until funded or failed by the creation deadline.
     """
 
     transfers: typing.Optional[UpdateFeesRequestChildMarkupsTransfers] = pydantic.Field(default=None)

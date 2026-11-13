@@ -278,6 +278,87 @@ class AlarmReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.AlertReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "alert_arn": "alertArn",
+        "alert_id": "alertId",
+        "space_id": "spaceId",
+    },
+)
+class AlertReference:
+    def __init__(
+        self,
+        *,
+        alert_arn: builtins.str,
+        alert_id: builtins.str,
+        space_id: builtins.str,
+    ) -> None:
+        '''A reference to a Alert resource.
+
+        :param alert_arn: The ARN of the Alert resource.
+        :param alert_id: The AlertId of the Alert resource.
+        :param space_id: The SpaceId of the Alert resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudwatch as interfaces_cloudwatch
+            
+            alert_reference = interfaces_cloudwatch.AlertReference(
+                alert_arn="alertArn",
+                alert_id="alertId",
+                space_id="spaceId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e64c21fae1d6b0ea9a74d506be09ffaf22bad8ae3c0c09cf468037a649ef6d20)
+            check_type(argname="argument alert_arn", value=alert_arn, expected_type=type_hints["alert_arn"])
+            check_type(argname="argument alert_id", value=alert_id, expected_type=type_hints["alert_id"])
+            check_type(argname="argument space_id", value=space_id, expected_type=type_hints["space_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alert_arn": alert_arn,
+            "alert_id": alert_id,
+            "space_id": space_id,
+        }
+
+    @builtins.property
+    def alert_arn(self) -> builtins.str:
+        '''The ARN of the Alert resource.'''
+        result = self._values.get("alert_arn")
+        assert result is not None, "Required property 'alert_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def alert_id(self) -> builtins.str:
+        '''The AlertId of the Alert resource.'''
+        result = self._values.get("alert_id")
+        assert result is not None, "Required property 'alert_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def space_id(self) -> builtins.str:
+        '''The SpaceId of the Alert resource.'''
+        result = self._values.get("space_id")
+        assert result is not None, "Required property 'space_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AlertReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.AnomalyDetectorReference",
     jsii_struct_bases=[],
     name_mapping={"anomaly_detector_id": "anomalyDetectorId"},
@@ -774,6 +855,51 @@ class _IAlarmRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAlarmRef).__jsii_proxy_class__ = lambda : _IAlarmRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IAlertRef")
+class IAlertRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Alert.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="alertRef")
+    def alert_ref(self) -> "AlertReference":
+        '''(experimental) A reference to a Alert resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAlertRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Alert.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudwatch.IAlertRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="alertRef")
+    def alert_ref(self) -> "AlertReference":
+        '''(experimental) A reference to a Alert resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AlertReference", jsii.get(self, "alertRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAlertRef).__jsii_proxy_class__ = lambda : _IAlertRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IAnomalyDetectorRef")
@@ -1989,6 +2115,7 @@ __all__ = [
     "AccessProfileReference",
     "AlarmMuteRuleReference",
     "AlarmReference",
+    "AlertReference",
     "AnomalyDetectorReference",
     "CompositeAlarmReference",
     "DashboardReference",
@@ -1999,6 +2126,7 @@ __all__ = [
     "IAccessProfileRef",
     "IAlarmMuteRuleRef",
     "IAlarmRef",
+    "IAlertRef",
     "IAnomalyDetectorRef",
     "ICompositeAlarmRef",
     "IDashboardRef",
@@ -2054,6 +2182,15 @@ def _typecheckingstub__a217ba13c11edc5835368167ddbaa01cba65af05c8b67482c46acd94b
     *,
     alarm_arn: builtins.str,
     alarm_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e64c21fae1d6b0ea9a74d506be09ffaf22bad8ae3c0c09cf468037a649ef6d20(
+    *,
+    alert_arn: builtins.str,
+    alert_id: builtins.str,
+    space_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2169,5 +2306,5 @@ def _typecheckingstub__05ebab8b587ee4cf5b5a00c1b85685b2fcfa1e308f34bc1df1b2dece2
     """Type checking stubs"""
     pass
 
-for cls in [IAccessGrantRef, IAccessProfileRef, IAlarmMuteRuleRef, IAlarmRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IDomainAccessGrantForOrganizationRef, IDomainForOrganizationRef, IDomainRef, IInsightRuleRef, IIntegrationRef, ILogAlarmRef, IMetricStreamRef, IOTelEnrichmentRef, IOmniDashboardRef, IResourceMetricsConfigurationRef, ISpaceRef, IViewRef]:
+for cls in [IAccessGrantRef, IAccessProfileRef, IAlarmMuteRuleRef, IAlarmRef, IAlertRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IDomainAccessGrantForOrganizationRef, IDomainForOrganizationRef, IDomainRef, IInsightRuleRef, IIntegrationRef, ILogAlarmRef, IMetricStreamRef, IOTelEnrichmentRef, IOmniDashboardRef, IResourceMetricsConfigurationRef, ISpaceRef, IViewRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

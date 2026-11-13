@@ -10,6 +10,9 @@ The SemanticEvaluator uses the LiteLLM adapter for LLM calls.
 
 from dataclasses import dataclass, field
 import json
+import math
+import threading
+from typing import TYPE_CHECKING
 
 from ouroboros.config import get_llm_backend_for_role, get_llm_model_for_role
 from ouroboros.core.errors import ProviderError, ValidationError
@@ -27,10 +30,39 @@ from ouroboros.providers.base import CompletionConfig, LLMAdapter, Message, Mess
 
 # Default model for semantic evaluation (Standard tier)
 # Can be overridden via SemanticConfig.model
-DEFAULT_SEMANTIC_MODEL = get_llm_model_for_role(
-    "semantic_evaluation",
-    backend=get_llm_backend_for_role("semantic_evaluation"),
-)
+#
+# Resolved from configuration on first access rather than at import, so importing
+# this module (the CLI does at startup) parses no config.yaml. The first value is
+# kept for the rest of the process, like the import-time constant it replaces.
+if TYPE_CHECKING:
+    DEFAULT_SEMANTIC_MODEL: str
+
+_DEFAULT_SEMANTIC_MODEL_LOCK = threading.Lock()
+
+
+def _default_semantic_model() -> str:
+    with _DEFAULT_SEMANTIC_MODEL_LOCK:
+        namespace = globals()
+        if "DEFAULT_SEMANTIC_MODEL" not in namespace:
+            # Once bound, module attribute lookup no longer reaches __getattr__.
+            namespace["DEFAULT_SEMANTIC_MODEL"] = get_llm_model_for_role(
+                "semantic_evaluation",
+                backend=get_llm_backend_for_role("semantic_evaluation"),
+            )
+        value: str = namespace["DEFAULT_SEMANTIC_MODEL"]
+        return value
+
+
+if not TYPE_CHECKING:  # hidden from type checkers so unknown names stay errors
+
+    def __getattr__(name: str) -> str:
+        if name == "DEFAULT_SEMANTIC_MODEL":
+            return _default_semantic_model()
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    def __dir__() -> list[str]:
+        return sorted({*globals(), "DEFAULT_SEMANTIC_MODEL"})
+
 
 # JSON schema for structured semantic evaluation output
 SEMANTIC_RESULT_SCHEMA: dict[str, object] = {
@@ -129,16 +161,16 @@ def build_evaluation_prompt(
         else "None specified"
     )
 
-    # Declared success contract (PR-H): when the seed attached a structured
-    # AcceptanceCriterionSpec carrying verify_command / expected_artifacts /
-    # output_assertion, surface it to the judge so it grades against the
-    # declared contract instead of the bare AC wording.  Bare-string ACs (no
-    # contract) render nothing here — identical to today's behavior.
+    # Declared success contract: surface every execution-semantic field to the
+    # judge so it grades the same contract the runtime executes and resumes.
+    # Bare-string ACs render nothing here.
     spec = context.current_ac_spec
     if spec is not None and spec.has_success_contract:
         contract_lines = ["\n## DECLARED SUCCESS CONTRACT"]
         if spec.verify_command:
             contract_lines.append(f"- verify_command: {spec.verify_command}")
+        if spec.verify_cwd:
+            contract_lines.append(f"- verify_cwd: {spec.verify_cwd}")
         if spec.expected_artifacts:
             artifacts = ", ".join(spec.expected_artifacts)
             contract_lines.append(f"- expected_artifacts: {artifacts}")
@@ -269,13 +301,24 @@ def parse_semantic_response(response_text: str) -> Result[SemanticResult, Valida
     if "reward_hacking_risk" not in data:
         data["reward_hacking_risk"] = 0.0
 
-    # Validate and clamp numeric ranges
+    # Reject malformed values before clamping: bool is an int in Python, and
+    # min/max can turn NaN or infinity into a valid-looking boundary score.
+    def bounded_number(field_name: str) -> float:
+        raw = data[field_name]
+        if isinstance(raw, bool):
+            raise ValueError(f"{field_name} must be a finite number")
+        value = float(raw)
+        if not math.isfinite(value):
+            raise ValueError(f"{field_name} must be a finite number")
+        return max(0.0, min(1.0, value))
+
+    # Preserve clamping of finite out-of-range numbers for existing providers.
     try:
-        score = max(0.0, min(1.0, float(data["score"])))
-        goal_alignment = max(0.0, min(1.0, float(data["goal_alignment"])))
-        drift_score = max(0.0, min(1.0, float(data["drift_score"])))
-        uncertainty = max(0.0, min(1.0, float(data["uncertainty"])))
-        reward_hacking_risk = max(0.0, min(1.0, float(data["reward_hacking_risk"])))
+        score = bounded_number("score")
+        goal_alignment = bounded_number("goal_alignment")
+        drift_score = bounded_number("drift_score")
+        uncertainty = bounded_number("uncertainty")
+        reward_hacking_risk = bounded_number("reward_hacking_risk")
 
         # Optional transparency fields (#367).  Accept missing/empty
         # gracefully so the parser stays backward compatible with older
@@ -306,7 +349,7 @@ def parse_semantic_response(response_text: str) -> Result[SemanticResult, Valida
                 evidence=evidence,
             )
         )
-    except (TypeError, ValueError) as e:
+    except (TypeError, ValueError, OverflowError) as e:
         return Result.err(
             ValidationError(
                 f"Invalid field types: {e}",

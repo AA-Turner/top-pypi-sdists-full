@@ -191,6 +191,22 @@ async def validate_webhook_url_or_raise(url: str) -> None:
         ) from exc
 
 
+async def validate_or_drop_webhook(payload: dict) -> None:
+    """Validate the webhook on a run or cron write, or drop it if webhooks are disabled.
+
+    The drop happens before validation, so with ``http.disable_webhooks`` a
+    client-supplied URL is never resolved (validation does a DNS lookup) or stored.
+    """
+    webhook = payload.get("webhook")
+    if not webhook:
+        return
+    if HTTP_CONFIG and HTTP_CONFIG.get("disable_webhooks"):
+        payload.pop("webhook")
+        logger.info("Webhooks disabled, dropping webhook from request")
+        return
+    await validate_webhook_url_or_raise(str(webhook))
+
+
 async def call_webhook(result: "WorkerResult") -> None:
     if HTTP_CONFIG and HTTP_CONFIG.get("disable_webhooks"):
         logger.info(

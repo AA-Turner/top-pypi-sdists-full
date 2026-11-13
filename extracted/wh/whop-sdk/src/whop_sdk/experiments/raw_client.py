@@ -170,6 +170,7 @@ class RawExperimentsClient:
         control: typing.Optional[CreateExperimentsRequestControl] = OMIT,
         feature_flag_only: typing.Optional[bool] = OMIT,
         hypothesis: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
         name: typing.Optional[str] = OMIT,
         related_resource: typing.Optional[ExperimentResourceReference] = OMIT,
         targeting_rules: typing.Optional[typing.Sequence[CreateExperimentsRequestTargetingRulesItem]] = OMIT,
@@ -177,7 +178,7 @@ class RawExperimentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Experiment]:
         """
-        Creates an experiment or feature flag in `draft` status for an account. Nothing is served until you activate it with `POST /experiments/:id/activate`. Requires `experiment:manage` on the account.
+        Creates an experiment or feature flag in `draft` status for an account. Nothing is served until you activate it with `POST /experiments/:id/activate`, which needs Economic Intelligence on for the account. Requires `experiment:manage` on the account.
 
         Parameters
         ----------
@@ -197,6 +198,9 @@ class RawExperimentsClient:
 
         hypothesis : typing.Optional[str]
             Required for full experiments; rejected on feature flags. Structure it as "If we [change] for [cohort], then [measurable behavior] will [increase/decrease], resulting in [business outcome], because [evidence]. Created by [name]." Evidence should be something real — a baseline number, a funnel breakdown — not a guess, and [name] is you, not something to leave blank.
+
+        metadata : typing.Optional[typing.Dict[str, str]]
+            Up to 20 key-value pairs you can attach to the experiment for your own use, such as which pages it changes. Keys are at most 40 characters and values at most 500.
 
         name : typing.Optional[str]
             Human-readable display name. Defaults to `flag_key` when omitted.
@@ -231,6 +235,7 @@ class RawExperimentsClient:
                 "feature_flag_only": feature_flag_only,
                 "flag_key": flag_key,
                 "hypothesis": hypothesis,
+                "metadata": metadata,
                 "name": name,
                 "related_resource": convert_and_respect_annotation_metadata(
                     object_=related_resource, annotation=ExperimentResourceReference, direction="write"
@@ -542,7 +547,7 @@ class RawExperimentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Experiment]:
         """
-        Starts (or resumes) an experiment or feature flag so evaluation begins serving it. Activating a draft stamps `started_at`; resuming a paused experiment keeps the original start. Only drafts and paused experiments can be activated. Requires `experiment:manage` on the owning account.
+        Starts (or resumes) an experiment or feature flag so evaluation begins serving it. Activating a draft stamps `started_at`; resuming a paused experiment keeps the original start. Only drafts and paused experiments can be activated. Requires `experiment:manage` on the owning account. Activating needs Economic Intelligence on for the owning account: while the account's `economic_intelligence` is `false`, this returns a `403` and the experiment keeps its status. Turn it on with `PATCH /accounts/:account_id/preferences`. Creating, editing, pausing and ending an experiment don't need it.
 
         Parameters
         ----------
@@ -915,6 +920,7 @@ class AsyncRawExperimentsClient:
         control: typing.Optional[CreateExperimentsRequestControl] = OMIT,
         feature_flag_only: typing.Optional[bool] = OMIT,
         hypothesis: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
         name: typing.Optional[str] = OMIT,
         related_resource: typing.Optional[ExperimentResourceReference] = OMIT,
         targeting_rules: typing.Optional[typing.Sequence[CreateExperimentsRequestTargetingRulesItem]] = OMIT,
@@ -922,7 +928,7 @@ class AsyncRawExperimentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Experiment]:
         """
-        Creates an experiment or feature flag in `draft` status for an account. Nothing is served until you activate it with `POST /experiments/:id/activate`. Requires `experiment:manage` on the account.
+        Creates an experiment or feature flag in `draft` status for an account. Nothing is served until you activate it with `POST /experiments/:id/activate`, which needs Economic Intelligence on for the account. Requires `experiment:manage` on the account.
 
         Parameters
         ----------
@@ -942,6 +948,9 @@ class AsyncRawExperimentsClient:
 
         hypothesis : typing.Optional[str]
             Required for full experiments; rejected on feature flags. Structure it as "If we [change] for [cohort], then [measurable behavior] will [increase/decrease], resulting in [business outcome], because [evidence]. Created by [name]." Evidence should be something real — a baseline number, a funnel breakdown — not a guess, and [name] is you, not something to leave blank.
+
+        metadata : typing.Optional[typing.Dict[str, str]]
+            Up to 20 key-value pairs you can attach to the experiment for your own use, such as which pages it changes. Keys are at most 40 characters and values at most 500.
 
         name : typing.Optional[str]
             Human-readable display name. Defaults to `flag_key` when omitted.
@@ -976,6 +985,7 @@ class AsyncRawExperimentsClient:
                 "feature_flag_only": feature_flag_only,
                 "flag_key": flag_key,
                 "hypothesis": hypothesis,
+                "metadata": metadata,
                 "name": name,
                 "related_resource": convert_and_respect_annotation_metadata(
                     object_=related_resource, annotation=ExperimentResourceReference, direction="write"
@@ -1287,7 +1297,7 @@ class AsyncRawExperimentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Experiment]:
         """
-        Starts (or resumes) an experiment or feature flag so evaluation begins serving it. Activating a draft stamps `started_at`; resuming a paused experiment keeps the original start. Only drafts and paused experiments can be activated. Requires `experiment:manage` on the owning account.
+        Starts (or resumes) an experiment or feature flag so evaluation begins serving it. Activating a draft stamps `started_at`; resuming a paused experiment keeps the original start. Only drafts and paused experiments can be activated. Requires `experiment:manage` on the owning account. Activating needs Economic Intelligence on for the owning account: while the account's `economic_intelligence` is `false`, this returns a `403` and the experiment keeps its status. Turn it on with `PATCH /accounts/:account_id/preferences`. Creating, editing, pausing and ending an experiment don't need it.
 
         Parameters
         ----------

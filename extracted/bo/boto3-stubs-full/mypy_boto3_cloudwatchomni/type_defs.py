@@ -37,6 +37,8 @@ from .literals import (
     IdentityProviderType,
     IntegrationStatusType,
     IntegrationTypeType,
+    MetricAggregationTemporalityType,
+    MetricMonotonicityType,
     NodeCategoryType,
     NodeTypeType,
     NotificationStatusType,
@@ -1278,6 +1280,8 @@ class MetricMetadataTypeDef(TypedDict):
     metricType: NotRequired[str]
     attributes: NotRequired[dict[str, str]]
     semantics: NotRequired[MetricSemanticsTypeDef]
+    aggregationTemporality: NotRequired[MetricAggregationTemporalityType]
+    monotonicity: NotRequired[MetricMonotonicityType]
 
 
 class TelemetryRuleTypeDef(TypedDict):

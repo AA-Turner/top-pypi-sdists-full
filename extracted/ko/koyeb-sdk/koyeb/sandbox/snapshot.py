@@ -6,6 +6,7 @@ Koyeb Sandbox Snapshot - Snapshot functionality for Koyeb sandboxes
 
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -446,6 +447,51 @@ class DeclarativeSnapshot:
         self._copy_ops.append((src, dst))
         return self
 
+    def _apply_operations(self) -> None:
+        """Apply the declared recipe onto the live builder sandbox."""
+        # Apply working directory
+        if self._workdir:
+            self._operations.append(f"set_workdir: {self._workdir}")
+            self._builder_sandbox.filesystem.mkdir(self._workdir)
+
+        # Write files
+        for path, content in self._files.items():
+            self._operations.append(f"create_file: {path}")
+            self._builder_sandbox.filesystem.write_file(path, content)
+
+        # Copy local files/directories
+        for src, dst in self._copy_ops:
+            self._operations.append(f"copy: {src} -> {dst}")
+            self._copy(src, dst)
+
+        # Run commands
+        for command in self._commands:
+            self._operations.append(f"run: {command}")
+            result = self._builder_sandbox.exec(command, timeout=300)
+            if not result.success:
+                raise SandboxError(
+                    f"Command failed: {command}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+                )
+
+    def _copy(self, src: str, dst: str) -> None:
+        """Copy one local file or directory into the builder sandbox.
+
+        On executors v0.0.24+ a directory travels as one archive push
+        through filesystem.sync — binary-safe, with modes, mtimes and
+        symlinks kept — and a single file through the streamed
+        upload_file. Old executors keep the per-file legacy walk.
+        """
+        fs = self._builder_sandbox.filesystem
+        if os.path.isdir(src):
+            # The client probe is this package's own seam; a fresh
+            # builder sandbox makes sync's push a full copy.
+            if fs._get_client().has_files_routes():
+                fs.sync(src, dst)
+                return
+            self._copy_directory(src, dst)
+            return
+        fs.upload_file(src, dst)
+
     def run(self, command: str, cwd: Optional[str] = None) -> DeclarativeSnapshot:
         """
         Run a command during build.
@@ -494,36 +540,7 @@ class DeclarativeSnapshot:
                 host=self._host,
             )
 
-            # Apply working directory
-            if self._workdir:
-                self._operations.append(f"set_workdir: {self._workdir}")
-                self._builder_sandbox.filesystem.mkdir(self._workdir)
-
-            # Write files
-            for path, content in self._files.items():
-                self._operations.append(f"create_file: {path}")
-                self._builder_sandbox.filesystem.write_file(path, content)
-
-            # Copy local files/directories
-            for src, dst in self._copy_ops:
-                self._operations.append(f"copy: {src} -> {dst}")
-                if os.path.isdir(src):
-                    # Copy directory recursively
-                    self._copy_directory(src, dst)
-                else:
-                    # Copy single file
-                    with open(src, "r") as f:
-                        content = f.read()
-                    self._builder_sandbox.filesystem.write_file(dst, content)
-
-            # Run commands
-            for command in self._commands:
-                self._operations.append(f"run: {command}")
-                result = self._builder_sandbox.exec(command, timeout=300)
-                if not result.success:
-                    raise SandboxError(
-                        f"Command failed: {command}\nstdout: {result.stdout}\nstderr: {result.stderr}"
-                    )
+            self._apply_operations()
 
             # Create snapshot
             snapshot = self._builder_sandbox.snapshot(

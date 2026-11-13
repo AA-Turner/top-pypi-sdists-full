@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agent-framework-foundry
-Version: 1.16.1
+Version: 1.16.2
 Summary: Microsoft Foundry integrations for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.11
@@ -20,7 +20,7 @@ Requires-Dist: agent-framework-core>=1.24.0,<2
 Requires-Dist: agent-framework-openai>=1.18.0,<2
 Requires-Dist: aiohttp>=3.9,<4
 Requires-Dist: azure-ai-inference>=1.0.0b9,<1.0.0b10
-Requires-Dist: azure-ai-projects>=2.2.0,<2.10.0
+Requires-Dist: azure-ai-projects>=2.2.0,<3
 Requires-Dist: httpx>=0.28,<1
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues

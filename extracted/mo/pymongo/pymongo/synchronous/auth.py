@@ -21,11 +21,9 @@ import hashlib
 import hmac
 import socket
 from base64 import standard_b64decode, standard_b64encode
-from collections.abc import Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
 )
 from urllib.parse import quote
 
@@ -50,6 +48,8 @@ from pymongo.synchronous.auth_oidc import (
 from pymongo.synchronous.helpers import _getaddrinfo
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
+
     from pymongo.synchronous.pool import Connection
 
 HAVE_KERBEROS = True

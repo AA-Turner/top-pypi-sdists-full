@@ -137,7 +137,9 @@ def _init_disabled(kw: dict, *, bind: bool = True) -> "Run":
     global _process_default
     from ..run.disabled import DisabledRun
 
-    run = DisabledRun(name=kw.get("name"), config=kw.get("config"), tags=kw.get("tags"))
+    run = DisabledRun(
+        name=kw.get("name"), config=kw.get("config"), tags=kw.get("tags"), run_type=kw.get("run_type")
+    )
     from ..capture.logs import early as _early
 
     _early.end_held_window()  # records nothing: the tee `import probe` started stops too

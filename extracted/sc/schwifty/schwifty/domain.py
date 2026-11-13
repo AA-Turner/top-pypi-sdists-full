@@ -74,6 +74,13 @@ class Range:
 
 @dataclass
 class IBANSpec(DictCompatMixin):
+    """The format of the IBAN and national account number (BBAN) of a country.
+
+    ``bban_spec`` and ``iban_spec`` use the notation of the SWIFT IBAN registry, e.g. ``8!n`` for
+    exactly eight digits. ``positions`` gives the range of each component within the BBAN. An
+    ``aspirational`` country uses IBANs without being part of the SWIFT IBAN registry.
+    """
+
     country: str
     bban_spec: str
     bban_length: int
@@ -103,6 +110,22 @@ class BankStatus(enum.StrEnum):
     CLOSED = enum.auto()
     #: The bank code is no longer listed by the official source, which doesn't say why.
     DELISTED = enum.auto()
+
+
+class SEPAScheme(enum.StrEnum):
+    """A SEPA scheme that a payment service provider takes part in.
+
+    The values are the abbreviations of the SCL directory of the Deutsche Bundesbank.
+    """
+
+    #: SEPA Credit Transfer.
+    CREDIT_TRANSFER = "SCT"
+    #: SEPA Core Direct Debit.
+    CORE_DIRECT_DEBIT = "COR"
+    #: SEPA Business-to-Business Direct Debit.
+    B2B_DIRECT_DEBIT = "B2B"
+    #: SEPA Card Clearing.
+    CARD_CLEARING = "SCC"
 
 
 @dataclass(slots=True)

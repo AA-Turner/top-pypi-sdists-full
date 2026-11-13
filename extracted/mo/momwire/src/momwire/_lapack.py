@@ -101,9 +101,16 @@ contract:
   ``trans`` 0/1/2, one or many right-hand sides.
 - ``solve``: ``check_finite``, ``LinAlgError`` on an exactly singular
   matrix, and the ill-conditioning ``LinAlgWarning`` when the reciprocal
-  condition estimate falls below machine epsilon. The estimate (a 1-norm and
-  gecon) comes from scipy's LAPACK reading the host's factors; it only
-  decides the warning, never a value.
+  condition estimate (a 1-norm and gecon, scipy's LAPACK reading the
+  factors) falls below machine epsilon. The estimate only decides the
+  warning, never a value, and it costs about five single-threaded passes
+  over the factors (0.09 s a frequency on the whip at n = 4392, against
+  0.01-0.025 s for getrs), so it runs only when asked
+  (``MOMWIRE_CONDITION_CHECK=1``, :func:`condition_check`) or when the
+  free pivot screen (:func:`_pivots_suspect`) says the factors look
+  near-singular. A call this route hands to ``scipy.linalg.solve`` itself
+  (a 1 x 1, a rectangular matrix, a structure scipy would not solve as
+  general) warns as scipy does.
 - ``solve_stacked``/``inv_stacked``: numpy's broadcasting of stacked
   matrices, a 1-D right-hand side read as a vector, the common result dtype,
   ``LinAlgError`` on an exactly singular slice, and no finiteness check.
@@ -128,6 +135,7 @@ from __future__ import annotations
 
 import ctypes
 import functools
+import os
 import sys
 import threading
 import time
@@ -452,10 +460,71 @@ def _scipy_takes_gesv(a, dtype):
     return bool(np.any(row != np.conj(col)))
 
 
+#: `solve` prepares A with the accelerator's `fortran_copy_1norm` when it
+#: carries it (momwire#1916); False keeps numpy's isfinite, numpy's copy and
+#: scipy's lange, the reference that kernel is gated against.
+_SOLVE_PREP_ACCEL = True
+
+#: Below this order the three numpy / scipy passes cost less than a call.
+_SOLVE_PREP_MIN_N = 64
+
+
+def _solve_prep(a1, dtype):
+    """`(Fortran copy, all finite, lange("1") norm)` of `a1` in one threaded
+    pass (`_accel_solve_prep.cpp`), or None where that kernel does not apply:
+    switched off, no accelerator, a small or non-C-contiguous matrix, or a
+    dtype it does not take (or that the solve casts to)."""
+    if not _SOLVE_PREP_ACCEL or a1.shape[0] < _SOLVE_PREP_MIN_N:
+        return None
+    if a1.dtype != dtype or dtype not in (np.complex128, np.float64):
+        return None
+    if not a1.flags.c_contiguous:
+        return None
+    try:
+        from ._accel import acc
+    except ImportError:  # pragma: no cover - the accelerator module is optional
+        return None
+    if acc is None or not getattr(acc, "solve_prep_1916", False):
+        return None
+    lu, finite, anorm = acc.fortran_copy_1norm(a1)
+    return lu, bool(finite), float(anorm)
+
+
+#: The environment variable that turns `solve`'s condition estimate on.
+CONDITION_CHECK_ENV = "MOMWIRE_CONDITION_CHECK"
+
+
+def condition_check() -> bool:
+    """Whether `solve` estimates the reciprocal condition (gecon) on every
+    matrix, not only on the ones the pivot screen flags:
+    ``MOMWIRE_CONDITION_CHECK`` set to anything but empty or ``0``. Read per
+    call, so a process can turn it on mid-run."""
+    return os.environ.get(CONDITION_CHECK_ENV, "") not in ("", "0")
+
+
+#: The pivot screen's bar: `solve` runs gecon when the smallest pivot of the
+#: factors is below this fraction of the largest. The warning itself still
+#: takes gecon's rcond below machine epsilon, so the bar only decides when
+#: the estimate is paid for. min|u_ii| / max|u_ii| is not a bound on rcond
+#: (row growth in L can hide ill-conditioning from U's diagonal), so the bar
+#: sits six orders above epsilon: the ELT whip, well conditioned, reads
+#: 7.4e-4 to 7.7e-4 across its 13 frequencies (n = 4392).
+PIVOT_SCREEN = 1e-10
+
+
+def _pivots_suspect(lu) -> bool:
+    """The free screen: True when U's diagonal spans more than
+    1 / `PIVOT_SCREEN` (or holds a zero or a NaN). n reads of the factors."""
+    d = np.abs(np.diagonal(lu))
+    hi = d.max()
+    return not (hi > 0 and d.min() >= PIVOT_SCREEN * hi)
+
+
 @_factor_stage
 def solve(a, b):
     """``scipy.linalg.solve(a, b)``, on the host's getrf + getrs when one is
-    published."""
+    published. The condition estimate runs under :func:`condition_check`
+    or when :func:`_pivots_suspect` flags the factors."""
     a1 = np.asarray(a)
     b0 = np.asarray(b)
     dtype = np.result_type(a1.dtype, b0.dtype)
@@ -469,11 +538,24 @@ def solve(a, b):
         or (fns is None and not _scipy_takes_gesv(a1, dtype))
     ):
         return scipy.linalg.solve(a, b)
-    if not (np.isfinite(a1).all() and np.isfinite(b0).all()):
-        raise ValueError("array must not contain infs or NaNs")
-    lu = _fortran_copy(a1, dtype)
-    lange, gecon = scipy.linalg.get_lapack_funcs(("lange", "gecon"), (lu,))
-    anorm = lange("1", lu)  # for the warning only, as scipy's solve takes it
+    always = condition_check()
+    prep = _solve_prep(a1, dtype)
+    if prep is not None:
+        # The copy, the finiteness check and lange's 1-norm in one threaded
+        # pass (momwire#1916): the same matrix, error and norm.
+        lu, a_finite, anorm = prep
+        if not (a_finite and np.isfinite(b0).all()):
+            raise ValueError("array must not contain infs or NaNs")
+        lange, gecon = scipy.linalg.get_lapack_funcs(("lange", "gecon"), (lu,))
+    else:
+        if not (np.isfinite(a1).all() and np.isfinite(b0).all()):
+            raise ValueError("array must not contain infs or NaNs")
+        lu = _fortran_copy(a1, dtype)
+        lange, gecon = scipy.linalg.get_lapack_funcs(("lange", "gecon"), (lu,))
+        # For the estimate only, as scipy's solve takes it. Taken whether or
+        # not the estimate runs: the screen decides after getrf has
+        # overwritten A. The prepared pass above has it for free.
+        anorm = lange("1", lu)
     n = a1.shape[0]
     x = _fortran_copy(b0.reshape(n, 1) if b0.ndim == 1 else b0, dtype)
     if fns is not None:
@@ -485,6 +567,8 @@ def solve(a, b):
         info = _getrs(fns, lu, ipiv, x)
         if info != 0:
             raise ValueError(f"illegal value in argument {-info} of the host's getrs")
+        if not (always or _pivots_suspect(lu)):
+            return x.reshape(b0.shape)
     else:
         # No host LAPACK, and a matrix SciPy is proven to solve as general
         # (`_scipy_takes_gesv`): SciPy's own getrf + getrs, the pair its
@@ -498,17 +582,63 @@ def solve(a, b):
             if info > 0:
                 raise np.linalg.LinAlgError("singular matrix")
             raise ValueError(f"illegal value in argument {-info} of getrf")
-        x, info = getrs(lu, ipiv, x, overwrite_b=True)
+        estimate = always or _pivots_suspect(lu)
+        beside = estimate and n >= _GECON_BESIDE_MIN_N
+        cond = _gecon_beside(gecon, lu, anorm) if beside else None
+        try:
+            x, info = getrs(lu, ipiv, x, overwrite_b=True)
+        finally:
+            rcond = None if cond is None else cond()
         if info != 0:
             raise ValueError(f"illegal value in argument {-info} of getrs")
+        if not estimate:
+            return x.reshape(b0.shape)
+        if rcond is not None:
+            return _warn_ill(rcond, dtype, x.reshape(b0.shape))
     rcond, _info = gecon(lu, anorm, norm="1")
+    return _warn_ill(rcond, dtype, x.reshape(b0.shape))
+
+
+#: At and above this order the no-host `solve` runs gecon on a second
+#: thread beside getrs (momwire#1916). Both only read the factors, so neither
+#: moves the other's bits; gecon is single-threaded, so it costs a core for
+#: as long as getrs takes, which then costs nothing: 0.09 s of gecon and
+#: 0.01-0.025 s of getrs per whip frequency (n = 4392, Rocketlake 8T).
+_GECON_BESIDE_MIN_N = 1024
+
+
+def _gecon_beside(gecon, lu, anorm):
+    """Start `gecon(lu, anorm, norm="1")` on a thread; returns the join,
+    which gives rcond, or None where the thread raised (the caller then runs
+    gecon itself, so its error is the caller's)."""
+    box = {}
+
+    def run():
+        try:
+            box["rcond"] = gecon(lu, anorm, norm="1")[0]
+        except Exception:  # noqa: BLE001 - the caller reruns gecon and sees it
+            pass
+
+    t = threading.Thread(target=run, name="momwire-gecon", daemon=True)
+    t.start()
+
+    def join():
+        t.join()
+        return box.get("rcond")
+
+    return join
+
+
+def _warn_ill(rcond, dtype, x):
+    """`solve`'s ill-conditioning warning, as scipy.linalg.solve raises it
+    (named at `solve`'s caller); returns `x`."""
     if rcond < np.finfo(dtype).eps:
         warnings.warn(
             f"An ill-conditioned matrix detected: rcond = {rcond:.6g}.",
             LinAlgWarning,
-            stacklevel=3,
+            stacklevel=4,
         )
-    return x.reshape(b0.shape)
+    return x
 
 
 # ---------------------------------------------------------------------------

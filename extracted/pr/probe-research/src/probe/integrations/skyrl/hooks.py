@@ -9,12 +9,15 @@ import math
 from collections.abc import Mapping
 from typing import Any
 
+from probe.sdk.run.samples.points import TrainingGuard
+
 from .. import _rl_owner
 from .harbor import HarborJoin, is_harbor_generator
 from .live import SkyrlLive
 from .outputs import CallVersions
 from .phases import PhaseClock
 from .recorder import SkyrlRecorder
+from .training import EvalPoints, setup_trainer_wraps, stamp_training_keys
 
 #: A partial batch collected when the epoch ran out is thrown away untrained (`fully_async_trainer.py:560-575`).
 EPOCH_END_DROP = "filter:epoch_exhausted"
@@ -37,6 +40,10 @@ class SkyrlHooks:
         self.harbor: HarborJoin | None = None
         #: This process's timed blocks, sent as phases with the metrics row that reports them (`phases.py`).
         self.phases = PhaseClock()
+        #: Each eval pass's per-trajectory rewards as per-sample metrics (`training/driver.py`).
+        self.eval_points = EvalPoints(recorder.samples)
+        #: Fails open for the per-sample metrics calls, saying what a failure costs them (`training/`).
+        self.training_guard = TrainingGuard("SkyRL")
 
     # -- the generator -----------------------------------------------------------------------------------
     def wrap_generator(self, generator: Any, inference_client: Any) -> Any:
@@ -71,6 +78,8 @@ class SkyrlHooks:
                     self.live.exit_call(token)
             parts = self.guard.call("a generate call", self._record_generation, input_batch, output, first, scheduled,
                                     call_id)
+            if parts:
+                self.training_guard.call("per-sample eval metrics", self.eval_points.log, input_batch, output, parts)
             if keys:
                 self.guard.call("a live sample", self.live.end_rows, parts or [], keys)
             return output
@@ -104,10 +113,15 @@ class SkyrlHooks:
 
             @functools.wraps(convert)
             def call_convert(generator_output: Any, uids: Any) -> Any:
-                self.guard.call("a training batch", self._record_sync_batch, trainer, generator_output)
-                return convert(generator_output, uids)
+                row_keys = self.guard.call("a training batch", self._record_sync_batch, trainer, generator_output)
+                batch = convert(generator_output, uids)
+                if row_keys is not None:  # each row's key rides to the policy workers (per-sample metrics, T3)
+                    self.training_guard.call("per-sample training metrics", stamp_training_keys, trainer, batch,
+                                             row_keys)  # fmt: skip
+                return batch
 
             object.__setattr__(trainer, "convert_to_training_input", call_convert)
+            self.training_guard.call("per-sample training metrics", setup_trainer_wraps, trainer, self.training_guard)
         trainer.add_callback(ProbeCallback(self))
         return trainer
 
@@ -160,8 +174,8 @@ class SkyrlHooks:
         return self.recorder.record_generation(input_batch, output, versions, harbor=trials, scheduled_step=scheduled,
                                                call_id=call_id)
 
-    def _record_sync_batch(self, trainer: Any, generator_output: Mapping[str, Any]) -> None:
-        self.recorder.record_batch(int(trainer.global_step), generator_output, should_drop_leftovers=True)
+    def _record_sync_batch(self, trainer: Any, generator_output: Mapping[str, Any]) -> list[list[str]]:
+        return self.recorder.record_batch(int(trainer.global_step), generator_output, should_drop_leftovers=True)
 
     def _record_groups(self, trainer: Any, kept: Any, dropped: Any) -> None:
         """The fully async trainer's mini-batch: each kept group's rows train at this step, each dropped

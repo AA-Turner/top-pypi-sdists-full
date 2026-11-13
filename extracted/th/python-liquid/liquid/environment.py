@@ -1,611 +1,777 @@
-"""Shared configuration from which templates can be loaded and parsed."""
-
+# pyright: reportUnknownArgumentType=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportReturnType=false
 from __future__ import annotations
 
-import warnings
-from functools import lru_cache
-from typing import TYPE_CHECKING
-from typing import Any
-from typing import Callable
-from typing import ClassVar
-from typing import Iterator
-from typing import Mapping
-from typing import Optional
-from typing import Type
-from typing import Union
+import datetime as dt
+import json
+import math
+from collections.abc import (
+    Awaitable,
+    Callable,
+    Collection,
+    Container,
+    Generator,
+    Mapping,
+    Sequence,
+)
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, ClassVar
 
-from . import builtin
-from .analyze_tags import InnerTagMap
-from .analyze_tags import TagAnalysis
-from .builtin import DictLoader
-from .exceptions import BlockNestingError
-from .exceptions import LiquidError
-from .exceptions import LiquidSyntaxError
-from .exceptions import TemplateInheritanceError
-from .exceptions import lookup_warning
-from .extra import add_tags_and_filters as register_extra_tags_and_filters
-from .lex import get_lexer
-from .mode import Mode
-from .parser import get_parser
-from .stream import TokenStream
-from .template import BoundTemplate
-from .undefined import Undefined
+import dateutil
+import markupsafe
+
+from . import filters, tags
+from ._chain_map import ReadOnlyChainMap
+from ._drop import liquid_primitive
+from ._io import StringBuffer
+from ._lexer_legacy import LegacyLexer
+from ._nothing import Nothing
+from ._parser_legacy import LegacyParser
+from ._resource_limits import ResourceLimits
+from ._template import Template
+from .drops import Undefined
+from .exceptions import LiquidTypeError
+from .loaders import DictLoader
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
-    from .ast import Node
-    from .context import RenderContext
-    from .loader import BaseLoader
-    from .tag import Tag
-    from .token import Token
+    from ._context import RenderContext
+    from ._filter import Filter
+    from ._lexer import Lexer
+    from ._loader import Loader
+    from ._markup import Tag
+    from ._parser import Parser
+    from .tokens import Token
 
 
 class Environment:
-    """Shared configuration from which templates can be loaded and parsed.
+    """Liquid template parsing and rendering configuration.
 
-    An `Environment` is where you might register custom tags and filters, or store
-    global context variables that should be included with every template.
+    Parameters
+    ----------
+    autoescape
+        When ``True``, apply HTML-escaping to variables before writing them to the output
+        buffer.
+    bare_brackets
+        When ``True``, allow variables to start with a bracketed segment `[var]`.
+    conventional_operator_precedence
+        When ``True``, give logical ``and`` and ``or`` operators conventional precedence
+        (``and`` binds tighter than ``or``) instead of legacy Liquid's right-associative
+        behavior.
+    extra
+        Enable all built-in, non-standard tags and filters.
+    globals
+        A mapping of variables that will be attached to the Liquid environment. These
+        variables will be available to all templates rendered from the environment.
+    iterable_strings
+        When ``True``, allow strings to be iterated with the ``{% for %}`` tag.
+    loader
+        A template loader used by `get_template`, the `{% render %}` tag and any other
+        tags that need to load templates.
+    parser
+        The parser to use. Built-in parsers are :class:`liquid.LegacyParser`,
+        :class:`liquid.ExtendedParser`, :class:`liquid.LaxLegacyParser` and
+        :class:`liquid.LaxExtendedParser`.
+    resource_limits
+        Limits used during template parsing an rendering to prevent malicious template
+        authors from consuming to much memory or too many CPU cycles.
+    shorthand_indexes
+        When ``True``, allow dotted indexes in variable paths. ``a.1`` as well as
+        ``a[1]``.
+    strict_filters
+        When ``True``, raise an exception if a filter is unknown or is given unacceptable
+        arguments. Otherwise silently ignore the filter invocation.
+    tokenizer
+        The tokenizer to use. Built-in tokenizers are :class:`liquid.LegacyLexer` and
+        :class:`liquid.ExtendedLexer`.
+    undefined
+        The class used to represent undefined template variables. Could be one of
+        :class:`liquid.Undefined`, :class:`liquid.StrictUndefined` or
+        :class:`liquid.FalsyUndefined`.
 
-    Args:
-        extra: If `True`, register all extra tags and filters. Defaults to `False`.
-        tag_start_string: The sequence of characters indicating the start of a
-            liquid tag.
-        tag_end_string: The sequence of characters indicating the end of a liquid
-            tag.
-        statement_start_string: The sequence of characters indicating the start of
-            an output statement.
-        statement_end_string: The sequence of characters indicating the end of an
-            output statement.
-        template_comments: If `True`, enable template comments, where, by default,
-            anything between `{#` and `#}` is considered a comment.
-        comment_start_string: The sequence of characters indicating the start of a
-            comment. `template_comments` must be `True` for `comment_start_string`
-            to have any effect.
-        comment_end_string: The sequence of characters indicating the end of a
-            comment.  `template_comments` must be `True` for `comment_end_string`
-            to have any effect.
-        tolerance: Indicates how tolerant to be of errors. Must be one of
-            `Mode.LAX`, `Mode.WARN` or `Mode.STRICT`.
-        loader: A template loader. If you want to use the builtin "render" or
-            "include" tags, a loader must be configured.
-        undefined: A subclass of `Undefined` that represents undefined values. Could be
-            one of the built-in undefined types, `Undefined`, `DebugUndefined` or
-            `StrictUndefined`.
-        strict_filters: If `True`, will raise an exception upon finding an
-            undefined filter. Otherwise undefined filters are silently ignored.
-        autoescape: If `True`, all render context values will be HTML-escaped before
-            output unless they've been explicitly marked as "safe".
-        globals: An optional mapping that will be added to the render context of any
-            template loaded from this environment.
+    Attributes
+    ----------
+    tags : dict[str, Tag]
+        A mapping of tag names to tag implementations. It's OK to update this dictionary
+        after instantiating an environment, or override `setup_tags_and_filters`.
+    filters : dict[str, Filter]
+        A mapping of filter names to filter implementations. It's OK to update this
+        dictionary after instantiating an environment, or override
+        `setup_tags_and_filters`.
     """
 
-    block_nesting_limit: ClassVar[int] = 30
-    """The maximum markup block nesting depth allowed before a `BlockNestingError`
-    exception is raised."""
+    standard_tags: ClassVar[dict[str, Tag]] = {
+        "assign": tags.AssignTag,
+        "break": tags.BreakTag,
+        "capture": tags.CaptureTag,
+        "case": tags.CaseTag,
+        "comment": tags.CommentTag,
+        "continue": tags.ContinueTag,
+        "cycle": tags.CycleTag,
+        "decrement": tags.DecrementTag,
+        "doc": tags.DocTag,
+        "echo": tags.EchoTag,
+        "for": tags.ForTag,
+        "if": tags.IfTag,
+        "ifchanged": tags.IfChangedTag,
+        "include": tags.IncludeTag,
+        "increment": tags.IncrementTag,
+        "liquid": tags.LiquidTag,
+        "raw": tags.RawTag,
+        "render": tags.RenderTag,
+        "tablerow": tags.TableRowTag,
+        "unless": tags.UnlessTag,
+        "#": tags.InlineCommentTag,
+    }
 
-    context_depth_limit: ClassVar[int] = 30
-    """The maximum number of times a render context can be extended or wrapped before
-    raising a `ContextDepthError`."""
+    extra_tags: ClassVar[dict[str, Tag]] = {
+        "block": tags.BlockTag,
+        "call": tags.CallTag,
+        "extends": tags.ExtendsTag,
+        "macro": tags.MacroTag,
+        "translate": tags.TranslateTag,
+        "with": tags.WithTag,
+    }
 
-    loop_iteration_limit: ClassVar[Optional[int]] = None
-    """The maximum number of loop iterations allowed before a LoopIterationLimitError is
-    raised."""
+    standard_filters: ClassVar[dict[str, Filter]] = {
+        "abs": filters.abs_,
+        "append": filters.append,
+        "at_least": filters.at_least,
+        "at_most": filters.at_most,
+        "base64_decode": filters.base64_decode,
+        "base64_encode": filters.base64_encode,
+        "base64_url_safe_decode": filters.base64_url_safe_decode,
+        "base64_url_safe_encode": filters.base64_url_safe_encode,
+        "ceil": filters.ceil,
+        "capitalize": filters.capitalize,
+        "compact": filters.compact,
+        "concat": filters.concat,
+        "date": filters.date,
+        "default": filters.default,
+        "divided_by": filters.divided_by,
+        "downcase": filters.downcase,
+        "escape_once": filters.escape_once,
+        "escape": filters.escape,
+        "h": filters.escape,
+        "escapejs": filters.escapejs,
+        "find": filters.find,
+        "find_index": filters.find_index,
+        "first": filters.first,
+        "floor": filters.floor,
+        "has": filters.has,
+        "join": filters.join,
+        "last": filters.last,
+        "lstrip": filters.lstrip,
+        "map": filters.map_,
+        "minus": filters.minus,
+        "modulo": filters.modulo,
+        "newline_to_br": filters.newline_to_br,
+        "plus": filters.plus,
+        "prepend": filters.prepend,
+        "reject": filters.reject,
+        "remove": filters.remove,
+        "remove_first": filters.remove_first,
+        "remove_last": filters.remove_last,
+        "replace": filters.replace,
+        "replace_first": filters.replace_first,
+        "replace_last": filters.replace_last,
+        "reverse": filters.reverse,
+        "round": filters.round_,
+        "rstrip": filters.rstrip,
+        "safe": filters.safe,
+        "size": filters.size,
+        "slice": filters.slice_,
+        "sort": filters.sort,
+        "sort_natural": filters.sort_natural,
+        "split": filters.split,
+        "squish": filters.squish,
+        "strip": filters.strip,
+        "strip_html": filters.strip_html,
+        "strip_newlines": filters.strip_newlines,
+        "sum": filters.sum_,
+        "times": filters.times,
+        "truncate": filters.truncate,
+        "truncatewords": filters.truncate_words,
+        "uniq": filters.uniq,
+        "upcase": filters.upcase,
+        "url_decode": filters.url_decode,
+        "url_encode": filters.url_encode,
+        "where": filters.where,
+    }
 
-    local_namespace_limit: ClassVar[Optional[int]] = None
-    """The maximum number of bytes (according to `sys.getsizeof`) allowed in a
-    template's local namespace before a LocalNamespaceLimitError is raised. We only
-    count the size of the namespaces values, not the size of keys/names."""
-
-    output_stream_limit: ClassVar[Optional[int]] = None
-    """The maximum number of bytes that can be written to a template's output stream
-    before raising an OutputStreamLimitError."""
-
-    template_class: Type[BoundTemplate] = BoundTemplate
-    """Instances of `template_class` are returned from `from_string`, `get_template`
-    and `get_template_async`. It should be the `BoundTemplate` class or a subclass of
-    it."""
-
-    suppress_blank_control_flow_blocks: bool = True
-    """When `True`, don't render control flow blocks that contain only whitespace."""
-
-    shorthand_indexes: bool = False
-    """When `True`, accept indexes without enclosing square brackets in paths to
-    variables. Defaults to `False`."""
-
-    string_sequences: bool = False
-    """When `True`, strings are treated as sequences. That is, characters (Unicode code
-    points) in a string can be looped over and selected by index. Defaults to `False`.
-    """
-
-    string_first_and_last: bool = False
-    """When `True`, the special `first` and `last` properties will return the first and
-    last charters of a string. Otherwise `first` and `last` will resolve to Undefined
-    when applied to a string. Defaults to `False`."""
-
-    logical_not_operator: bool = False
-    """When `True`, allow the use of the logical `not` operator in logical expressions.
-    Defaults to `False`.
-    """
-
-    logical_parentheses: bool = False
-    """When `True`, allow the use of parentheses in logical expressions to group terms.
-    Defaults to `False.`"""
-
-    ternary_expressions: bool = False
-    """When `True`, allow the use of ternary expression in output statements, assign
-    tags and echo tags. Defaults to `False`."""
-
-    keyword_assignment: bool = False
-    """When `True` accept `=` or `:` as the separator token between argument names
-    and argument values. By default only `:` is allowed."""
+    extra_filters: ClassVar[dict[str, Filter]] = {
+        "currency": filters.Currency(),
+        "datetime": filters.DateTime(),
+        "decimal": filters.Number(),
+        "gettext": filters.GetText(),
+        "index": filters.index,
+        "json": filters.JSON(),
+        "money_with_currency": filters.Currency(default_format="¤#,##0.00 ¤¤"),
+        "money_without_currency": filters.Currency(default_format="#,##0.00"),
+        "money_without_trailing_zeros": filters.Currency(
+            default_format="¤#,###", currency_digits=False
+        ),
+        "money": filters.Currency(),
+        "ngettext": filters.NGetText(),
+        "npgettext": filters.NPGetText(),
+        "pgettext": filters.PGetText(),
+        "sort_numeric": filters.sort_numeric,
+        "script_tag": filters.script_tag,
+        "stylesheet_tag": filters.stylesheet_tag,
+        "t": filters.Translate(),
+        "unit": filters.Unit(),
+    }
 
     def __init__(
         self,
         *,
-        extra: bool = False,
-        tag_start_string: str = r"{%",
-        tag_end_string: str = r"%}",
-        statement_start_string: str = r"{{",
-        statement_end_string: str = r"}}",
-        tolerance: Mode = Mode.STRICT,
-        loader: Optional[BaseLoader] = None,
-        undefined: Type[Undefined] = Undefined,
-        strict_filters: bool = True,
         autoescape: bool = False,
-        globals: Optional[Mapping[str, object]] = None,  # noqa: A002
-        template_comments: bool = False,
-        comment_start_string: str = "{#",
-        comment_end_string: str = "#}",
-    ):
-        self.tag_start_string = tag_start_string
-        self.tag_end_string = tag_end_string
-        self.statement_start_string = statement_start_string
-        self.statement_end_string = statement_end_string
-
-        # An instance of a template loader implementing `liquid.loaders.BaseLoader`.
-        # `get_template()` will delegate to this loader.
+        bare_brackets: bool = True,
+        conventional_operator_precedence: bool = False,
+        extra: bool = False,
+        globals: Mapping[str, object] | None = None,
+        iterable_strings: bool = False,
+        loader: Loader | None = None,
+        parser: type[Parser] = LegacyParser,
+        resource_limits: ResourceLimits | None = None,
+        shorthand_indexes: bool = False,
+        strict_filters: bool = True,
+        tokenizer: type[Lexer] = LegacyLexer,
+        undefined: type[Undefined] = Undefined,
+    ) -> None:
         self.loader = loader or DictLoader({})
+        self.globals = globals
+        self.undefined_type = undefined
 
-        # A mapping of template variable names to python objects. These variables will
-        # be added to the global namespace of any template rendered from this
-        # environment using `from_string` or `get_template`.
-        self.globals: Mapping[str, object] = globals or {}
+        self.allow_bare_brackets = bare_brackets
+        self.strict_filters = strict_filters
+        self.autoescape = autoescape
+        self.iterable_strings = iterable_strings
+        self.shorthand_indexes = shorthand_indexes
+        self.conventional_operator_precedence = conventional_operator_precedence
 
-        # Extended template comment syntax control.
-        self.template_comments = template_comments
-        self.comment_start_string = comment_start_string
-        self.comment_end_string = comment_end_string
-        if not self.template_comments:
-            self.comment_start_string = ""
-            self.comment_end_string = ""
+        self.tokenizer = tokenizer
+        self.parser = parser
 
-        self.undefined: Type[Undefined] = undefined
-        self.strict_filters: bool = strict_filters
-        self.autoescape: bool = autoescape
-        self.mode: Mode = tolerance
+        self.resource_limits = resource_limits or ResourceLimits()
 
         self.tags: dict[str, Tag] = {}
-        """The environment's tag register, mapping tag names to instances of `Tag`."""
+        self.filters: dict[str, Filter] = {}
 
-        self.filters: dict[str, Callable[..., Any]] = {}
-        """The environment's filter register, mapping filter names to callables."""
+        self.buffer_factory: Callable[[], StringBuffer] = StringBuffer
+
+        self.persistent_registers: Collection[str] = ("extends",)
 
         self.setup_tags_and_filters(extra=extra)
 
-    def __hash__(self) -> int:
-        return hash(
-            (
-                self.statement_start_string,
-                self.statement_end_string,
-                self.tag_start_string,
-                self.tag_end_string,
-                self.comment_start_string,
-                self.comment_end_string,
-                self.mode,
-            )
-        )
-
-    def tokenizer(self) -> Callable[[str], Iterator[Token]]:
-        """Return a tokenizer for this environment."""
-        return get_lexer(
-            self.tag_start_string,
-            self.tag_end_string,
-            self.statement_start_string,
-            self.statement_end_string,
-            self.comment_start_string,
-            self.comment_end_string,
-        )
-
-    def add_tag(self, tag: Type[Tag]) -> None:
-        """Register a liquid tag with the environment.
-
-        Built-in tags are registered for you automatically with every new `Environment`.
-
-        Args:
-            tag: The tag to register.
-        """
-        self.tags[tag.name] = tag(self)
-
-    def add_filter(self, name: str, func: Callable[..., Any]) -> None:
-        """Register a filter function with the environment.
-
-        Args:
-            name: The filter's name. Does not need to match the function name. This is
-                what you'll use to apply the filter to an expression in a liquid
-                template.
-            func: Any callable that accepts at least one argument, the result of the
-                expression the filter is applied to. If the filter needs access to the
-                active environment or render context, use `liquid.filer.with_context`
-                and/or `liquid.filter.with_environment` decorators.
-        """
-        self.filters[name] = func
-
     def setup_tags_and_filters(self, *, extra: bool = False) -> None:
-        """Add default tags and filters to this environment.
+        self.tags.update(self.standard_tags)
+        self.filters.update(self.standard_filters)
 
-        If _extra_ is `True`, register all extra, non-standard tags and filters too.
-        """
-        builtin.register(self)
         if extra:
-            register_extra_tags_and_filters(self)
-
-    def _parse(self, source: str) -> list[Node]:
-        """Parse _source_ as a Liquid template.
-
-        More often than not you'll want to use `Environment.from_string` instead.
-        """
-        parser = get_parser(self)
-        token_iter = self.tokenizer()(source)
-        return parser.parse(TokenStream(token_iter))
-
-    def from_string(
-        self,
-        source: str,
-        name: str = "",
-        path: Optional[Union[str, Path]] = None,
-        globals: Optional[Mapping[str, object]] = None,  # noqa: A002
-        matter: Optional[Mapping[str, object]] = None,
-    ) -> BoundTemplate:
-        """Parse the given string as a liquid template.
-
-        Args:
-            source: The liquid template source code.
-            name: Optional name of the template. Available as `Template.name`.
-            path: Optional path or identifier to the origin of the template.
-            globals: An optional mapping of render context variables attached
-                to the resulting template.
-            matter: Optional mapping of render context variables associated
-                with the template. Could be "front matter" or other meta data.
-        """
-        try:
-            nodes = self._parse(source)
-        except (LiquidSyntaxError, TemplateInheritanceError, BlockNestingError) as err:
-            err.template_name = path
-            raise err
-        except Exception as err:  # noqa: BLE001
-            raise LiquidError("unexpected liquid parsing error", token=None) from err
-        return self.template_class(
-            env=self,
-            name=name,
-            path=path,
-            nodes=nodes,
-            globals=self.make_globals(globals),
-            matter=matter,
-        )
-
-    def parse(
-        self,
-        source: str,
-        name: str = "",
-        path: Optional[Union[str, Path]] = None,
-        globals: Optional[Mapping[str, object]] = None,  # noqa: A002
-        matter: Optional[Mapping[str, object]] = None,
-    ) -> BoundTemplate:
-        """Parse the given string as a liquid template.
-
-        Args:
-            source: The liquid template source code.
-            name: Optional name of the template. Available as `Template.name`.
-            path: Optional path or identifier to the origin of the template.
-            globals: An optional mapping of render context variables attached
-                to the resulting template.
-            matter: Optional mapping of render context variables associated
-                with the template. Could be "front matter" or other meta data.
-        """
-        return self.from_string(
-            source, name=name, path=path, globals=globals, matter=matter
-        )
-
-    def render(self, source: str, **data: object) -> str:
-        """Parse and render source text."""
-        return self.parse(source).render(**data)
-
-    async def render_async(self, source: str, **data: object) -> str:
-        """Parse and render source text."""
-        return await self.parse(source).render_async(**data)
+            self.tags.update(self.extra_tags)
+            self.filters.update(self.extra_filters)
 
     def get_template(
         self,
         name: str,
         *,
-        globals: Mapping[str, object] | None = None,  # noqa: A002
+        globals: Mapping[str, object] | None = None,
         context: RenderContext | None = None,
         **kwargs: object,
-    ) -> BoundTemplate:
-        """Load and parse a template using the configured loader.
+    ) -> Template:
+        """Load and parse the template identified by `name` using the configured loader.
 
-        Args:
-            name: The template's name. The loader is responsible for interpreting
-                the name. It could be the name of a file or some other identifier.
-            globals: A mapping of render context variables attached to the
-                resulting template.
-            context: An optional render context that can be used to narrow the template
-                source search space.
-            kwargs: Arbitrary arguments that can be used to narrow the template source
-                search space.
+        Parameters
+        ----------
+        name
+            The template's name or identifier. The template loader is responsible for
+            interpreting `name`. It could be the name of a file on the file system or
+            the value in a field in a database.
+        globals
+            A mapping of variables that will be attached to the resulting template.
+        context
+            The current render context, if one is available.
+        kwargs
+            Arbitrary arguments passed to the template loader that can be used to narrow
+            the template search space.
 
-        Raises:
-            TemplateNotFound: If a template with the given name can not be found.
+        Raises
+        ------
+        LiquidSyntaxError
+            If the template source text contains invalid Liquid markup.
+        TemplateNotFoundError
+            If `name` is not known to the configured template loader.
         """
-        try:
-            return self.loader.load(
-                env=self,
-                name=name,
-                globals=self.make_globals(globals),
-                context=context,
-                **kwargs,
-            )
-        except LiquidError as err:
-            if not err.template_name:
-                err.template_name = name
-            raise
+        return self.loader.load(self, name, globals, context, **kwargs)
 
     async def get_template_async(
         self,
         name: str,
         *,
-        globals: Mapping[str, object] | None = None,  # noqa: A002
+        globals: Mapping[str, object] | None = None,
         context: RenderContext | None = None,
         **kwargs: object,
-    ) -> BoundTemplate:
-        """An async version of `get_template()`."""
-        try:
-            return await self.loader.load_async(
-                env=self,
-                name=name,
-                globals=self.make_globals(globals),
-                context=context,
-                **kwargs,
-            )
-        except LiquidError as err:
-            if not err.template_name:
-                err.template_name = name
-            raise
+    ) -> Template:
+        """Load and parse the template identified by `name` using the configured loader.
 
-    def analyze_tags_from_string(
+        Parameters
+        ----------
+        name
+            The template's name or identifier. The template loader is responsible for
+            interpreting `name`. It could be the name of a file on the file system or
+            the value in a field in a database.
+        globals
+            A mapping of variables that will be attached to the resulting template.
+        context
+            The current render context, if one is available.
+        kwargs
+            Arbitrary arguments passed to the template loader that can be used to narrow
+            the template search space.
+
+        Raises
+        ------
+        LiquidSyntaxError
+            If the template source text contains invalid Liquid markup.
+        TemplateNotFoundError
+            If `name` is not known to the configured template loader.
+        """
+        return await self.loader.load_async(self, name, globals, context, **kwargs)
+
+    def parse(
         self,
         source: str,
-        name: str = "<string>",
         *,
-        inner_tags: Optional[InnerTagMap] = None,
-    ) -> TagAnalysis:
-        """Analyze tags in template source text.
+        name: str = "",
+        path: str | None = None,
+        globals: Mapping[str, object] | None = None,
+        matter: Mapping[str, object] | None = None,
+        up_to_date: Callable[[], bool | Awaitable[bool]] | None = None,
+    ) -> Template:
+        """Parse `source` as a Liquid template.
 
-        Unlike template static or contextual analysis, a tag audit does not parse the
-        template source text into an AST, nor does it attempt to load partial templates
-        from `{% include %}` or `{% render %}` tags.
-
-        Args:
-            source: The source text of the template.
-            name: A name or identifier for the template.
-            inner_tags: A mapping of block tags to a list of allowed "inner" tags for
-                the block. For example, `{% if %}` blocks are allowed to contain
-                `{% elsif %}` and `{% else %}` tags.
+        Parameters
+        ----------
+        source
+            Liquid template source code.
+        name
+            An optional name for the template. This name will appear in exception
+            messages.
+        path
+            An optional path to `name`, if `source` represents a file or other resource
+            with a path.
+        globals
+            A mapping of variables that will be attached to the resulting template.
+        matter
+            A mapping of variables associated with `source`. This could be front matter
+            or meta data read from a database, for example.
+        up_to_date
+            A function use by the resulting template to determine if it needs to be
+            loaded again after consulting a template cache.
         """
-        return TagAnalysis(
-            env=self,
-            name=name,
-            tokens=list(self.tokenizer()(source)),
-            inner_tags=inner_tags,
+        return Template(
+            self,
+            source,
+            name,
+            self.parser.parse(self, source, name),
+            path=path,
+            globals=self.make_globals(globals),
+            matter=matter,
+            up_to_date=up_to_date,
         )
 
-    def analyze_tags(
-        self,
-        name: str,
-        *,
-        context: Optional["RenderContext"] = None,
-        inner_tags: Optional[InnerTagMap] = None,
-        **kwargs: str,
-    ) -> TagAnalysis:
-        """Audit template tags without parsing source text into an abstract syntax tree.
+    def render(self, source: str, data: Mapping[str, object] | None = None) -> str:
+        """Parse and render `source` with variables from `data`
 
-        This is useful for identifying unknown, misplaced and unbalanced tags in a
-        template's source text. See also `liquid.template.BoundTemplate.analyze`.
-
-        Args:
-            name: The template's name or identifier, as you would use with
-                `Environment.get_template`. Use `Environment.analyze_tags_from_string`
-                to audit tags in template text without using a template loader.
-            context: An optional render context the loader might use to modify the
-                template search space. If given, uses
-                `liquid.loaders.BaseLoader.get_source_with_context` from the current
-                loader.
-            inner_tags: A mapping of block tags to a list of allowed "inner" tags for
-                the block. For example, `{% if %}` blocks are allowed to contain
-                `{% elsif %}` and `{% else %}` tags.
-            kwargs: Loader context.
+        Parameters
+        ----------
+        source
+            Template source code.
+        data
+            Template variables.
         """
-        template_source = self.loader.get_source(
-            self, template_name=name, context=context, **kwargs
-        )
+        return self.parse(source).render(data)
 
-        return self.analyze_tags_from_string(
-            template_source.text,
-            name=template_source.name,
-            inner_tags=inner_tags,
-        )
+    async def render_async(
+        self, source: str, data: Mapping[str, object] | None = None
+    ) -> str:
+        """Parse and render `source` asynchronously with variables from `data`.
 
-    async def analyze_tags_async(
-        self,
-        name: str,
-        *,
-        context: Optional["RenderContext"] = None,
-        inner_tags: Optional[InnerTagMap] = None,
-        **kwargs: str,
-    ) -> TagAnalysis:
-        """An async version of `Environment.analyze_tags`."""
-        template_source = await self.loader.get_source_async(
-            env=self, template_name=name, context=context, **kwargs
-        )
+        Parameters
+        ----------
+        source
+            Template source code.
+        data
+            Template variables.
+        """
+        return await self.parse(source).render_async(data)
 
-        return self.analyze_tags_from_string(
-            template_source.text,
-            name=template_source.name,
-            inner_tags=inner_tags,
-        )
+    def tokenize(self, source: str) -> list[Token]:
+        return self.tokenizer.tokenize(self, source)
 
     def make_globals(
-        self,
-        globals: Optional[Mapping[str, object]] = None,  # noqa: A002
-    ) -> dict[str, object]:
-        """Combine environment globals with template globals."""
-        if globals:
-            # Template globals take priority over environment globals.
-            return {**self.globals, **globals}
-        return dict(self.globals)
+        self, data: Mapping[str, object] | None
+    ) -> Mapping[str, object] | None:
+        if data is None:
+            return self.globals
 
-    def error(
-        self,
-        exc: Union[Type[LiquidError], LiquidError],
-        msg: Optional[str] = None,
-        token: Optional[Token] = None,
-    ) -> None:
-        """Raise, warn or ignore the given exception according to the current mode."""
-        if not isinstance(exc, LiquidError):
-            exc = exc(msg, token=token)
-        elif not exc.token:
-            exc.token = token
+        if self.globals is None:
+            return data
 
-        if self.mode == Mode.STRICT:
-            raise exc
-        if self.mode == Mode.WARN:
-            warnings.warn(
-                str(exc), category=lookup_warning(exc.__class__), stacklevel=2
+        return ReadOnlyChainMap(data, self.globals)
+
+    def serialize(self, obj: object, context: RenderContext, span: Token) -> str:
+        """Stringify `obj` suitable for output."""
+        if liquid_primitive(obj):
+            obj = obj.__liquid__("output", context)
+
+        if isinstance(obj, str):
+            result = obj
+
+        elif isinstance(obj, Sequence):
+            result = (markupsafe.Markup("") if self.autoescape else "").join(
+                self.to_str(item, context, span) for item in _flatten(obj)
             )
 
+        else:
+            result = self.to_str(obj, context, span)
 
-@lru_cache(maxsize=10)
-def get_implicit_environment(
-    *,
-    extra: bool = False,
-    tag_start_string: str,
-    tag_end_string: str,
-    statement_start_string: str,
-    statement_end_string: str,
-    tolerance: Mode,
-    loader: Optional[BaseLoader],
-    undefined: Type[Undefined],
-    strict_filters: bool,
-    autoescape: bool,
-    globals: Optional[Mapping[str, object]],  # noqa: A002
-    template_comments: bool,
-    comment_start_string: str,
-    comment_end_string: str,
-) -> Environment:
-    """Return an `Environment` initialized with the given arguments."""
-    return Environment(
-        extra=extra,
-        tag_start_string=tag_start_string,
-        tag_end_string=tag_end_string,
-        statement_start_string=statement_start_string,
-        statement_end_string=statement_end_string,
-        tolerance=tolerance,
-        loader=loader,
-        undefined=undefined,
-        strict_filters=strict_filters,
-        autoescape=autoescape,
-        globals=globals,
-        template_comments=template_comments,
-        comment_start_string=comment_start_string,
-        comment_end_string=comment_end_string,
-    )
+        return markupsafe.escape(result) if self.autoescape else result
+
+    def trim(self, text: str, left: str | None, right: str | None) -> str:
+        if left == "-" and right == "-":
+            return text.strip()
+
+        if left == "-":
+            return text.lstrip()
+
+        if right == "-":
+            return text.rstrip()
+
+        return text
+
+    def truthy(self, obj: object, context: RenderContext) -> bool:
+        if liquid_primitive(obj):
+            return bool(obj.__liquid__("boolean", context))
+
+        return not (obj is False or obj is None)
+
+    def eq(
+        self, left: object, right: object, context: RenderContext, span: Token
+    ) -> bool:
+        if liquid_primitive(right):
+            right = right.__liquid__("object", context)
+
+        if type(left) is bool and type(right) is int:
+            return False
+
+        if type(right) is bool and type(left) is int:
+            return False
+
+        return left == right
+
+    def lt(
+        self, left: object, right: object, context: RenderContext, span: Token
+    ) -> bool:
+        if isinstance(left, str):
+            if isinstance(right, str):
+                return left < right
+            return left < self.to_str(right, context, span)
+
+        if type(left) is bool or type(right) is bool:
+            return False
+
+        if isinstance(left, (int, float, Decimal)):
+            if isinstance(right, (int, float, Decimal)):
+                return left < right
+            if liquid_primitive(right):
+                return left < self.to_numeric(right, context, 0)
+
+        if self.is_nil(left) or self.is_nil(right):
+            return False
+
+        try:
+            return left < right  # type: ignore
+        except TypeError:
+            raise LiquidTypeError(
+                f"{left.__class__.__name__} and {right.__class__.__name__} are not comparable",
+                token=span,
+                source=context.template.source,
+                name=context.template.name,
+            )
+
+    def le(
+        self, left: object, right: object, context: RenderContext, span: Token
+    ) -> bool:
+        if isinstance(left, str):
+            if isinstance(right, str):
+                return left <= right
+            if liquid_primitive(right):
+                return left <= self.to_str(right, context, span)
+
+        if type(left) is bool or type(right) is bool:
+            return False
+
+        if isinstance(left, (int, float, Decimal)):
+            if isinstance(right, (int, float, Decimal)):
+                return left <= right
+            if liquid_primitive(right):
+                return left <= self.to_numeric(right, context, 0)
+
+        if self.is_nil(left) or self.is_nil(right):
+            return False
+
+        try:
+            result = left < right  # type: ignore
+        except TypeError:
+            raise LiquidTypeError(
+                f"{left.__class__.__name__} and {right.__class__.__name__} are not comparable",
+                token=span,
+                source=context.template.source,
+                name=context.template.name,
+            )
+
+        return result or self.eq(left, right, context, span)
+
+    def contains(
+        self, left: object, right: object, context: RenderContext, span: Token
+    ) -> bool:
+        if not (self.truthy(left, context) and self.truthy(right, context)):
+            return False
+
+        if isinstance(left, str):
+            return left.find(self.to_str(right, context, span)) != -1
+
+        if isinstance(left, Sequence):
+            try:
+                return left.index(right) != -1 and self.truthy(right, context)
+            except ValueError:
+                return False
+
+        if isinstance(left, Container):
+            try:
+                return right in left
+            except TypeError:
+                return False
+
+        raise LiquidTypeError(
+            f"{left.__class__.__name__} is not a container",
+            token=span,
+            source=context.template.source,
+            name=context.template.name,
+        )
+
+    def undefined(
+        self, name: str, span: Token, source: str, template_name: str
+    ) -> object:
+        return self.undefined_type(name, span, source, template_name)
+
+    def to_int(self, obj: object, context: RenderContext, span: Token) -> int:
+        if isinstance(obj, int | float | Decimal):
+            return math.trunc(obj)
+
+        if self.is_nil(obj):
+            return 0
+
+        try:
+            return math.trunc(float(str(obj)))
+        except (TypeError, ValueError):
+            raise LiquidTypeError(
+                "invalid integer",
+                token=span,
+                source=context.template.source,
+                name=context.template.name,
+            )
+
+    def to_numeric(
+        self, obj: object, context: RenderContext, default: int | Decimal = 0
+    ) -> float | int | Decimal:
+        if liquid_primitive(obj):
+            obj = obj.__liquid__("numeric", context)
+
+        if type(obj) is bool:
+            return default
+
+        if isinstance(obj, int | float | Decimal):
+            return obj
+
+        if isinstance(obj, str):
+            try:
+                return int(obj)
+            except ValueError:
+                pass
+
+            try:
+                return float(obj)
+            except ValueError:
+                return default
+
+        return default
+
+    def to_str(self, obj: object, context: RenderContext, span: Token) -> str:
+        if liquid_primitive(obj):
+            obj = obj.__liquid__("string", context)
+
+        if obj is None:
+            return ""
+
+        if isinstance(obj, str):
+            return obj
+
+        if isinstance(obj, Mapping | Sequence):
+            return self._inspect(obj, context)
+
+        if type(obj) is bool:
+            return str(obj).lower()
+
+        return str(obj)
+
+    def to_array(
+        self, obj: object, context: RenderContext, span: Token
+    ) -> list[object]:
+        if liquid_primitive(obj):
+            obj = obj.__liquid__("array", context)
+
+        if isinstance(obj, list):
+            return obj
+
+        if isinstance(obj, str) and not self.iterable_strings:
+            return [] if not obj else [obj]
+
+        if isinstance(obj, Sequence):
+            return list(obj)  # pyright: ignore[reportUnknownArgumentType]
+
+        if isinstance(obj, Mapping):
+            return [(k, v) for k, v in obj.items()]  # pyright: ignore[reportUnknownVariableType]
+
+        if self.is_nil(obj) or type(obj) is bool:
+            return []
+
+        return [obj]
+
+    def to_date(
+        self, obj: object, context: RenderContext, span: Token
+    ) -> dt.datetime | None:
+        """Return `obj` coerced to a datetime, or ``None`` on failure.
+
+        Parameters
+        ----------
+        obj
+            The object to convert to a datetime.
+        context
+            The active render context.
+        span
+            A token suitable for use with error messages.
+        """
+        if isinstance(obj, dt.datetime):
+            return obj
+
+        if isinstance(obj, str):
+            if not obj:
+                return None
+
+            if obj.lower() in ("now", "today"):
+                return dt.datetime.now()
+
+            if obj.isdigit():
+                return dt.datetime.fromtimestamp(int(obj))
+
+            try:
+                return dateutil.parser.parse(obj)
+            except dateutil.parser.ParserError:
+                return None
+
+        if isinstance(obj, int):
+            try:
+                return dt.datetime.fromtimestamp(obj)
+            except (OverflowError, OSError):
+                # Testing on Windows shows that it can't handle some
+                # negative integers.
+                return None
+
+        return None
+
+    def is_nil(self, obj: object) -> bool:
+        return obj is None or isinstance(obj, (Undefined, Nothing))
+
+    def _inspect(
+        self,
+        obj: object,
+        context: RenderContext,
+        circular_placeholder: str = '"[Circular]"',
+    ) -> str:
+        """Stringify `value` using Ruby `=>` notation."""
+        seen: set[int] = set()
+
+        def stringify(val: Any) -> str | None:
+            if val is None:
+                return "null"
+
+            if isinstance(val, bool):
+                return "true" if val else "false"
+
+            if isinstance(val, (int, float)):
+                if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+                    return "null"
+                return str(val)
+
+            if isinstance(val, Decimal):
+                if val.is_nan() or val.is_infinite():
+                    return "null"
+                return str(val)
+
+            # Handle strings, bytes, and bytearrays as scalars (not Sequences)
+            if isinstance(val, (str, bytes, bytearray)):
+                if isinstance(val, (bytes, bytearray)):
+                    val = val.decode("utf-8", errors="replace")
+                return json.dumps(val)
+
+            if isinstance(val, Mapping):
+                val_id = id(val)
+                if val_id in seen:
+                    return circular_placeholder
+
+                seen.add(val_id)
+                try:
+                    entries: list[str] = []
+                    for k, v in val.items():
+                        formatted_val = stringify(v)
+                        if formatted_val is not None:
+                            formatted_key = json.dumps(str(k))
+                            entries.append(f"{formatted_key}=>{formatted_val}")
+                    return "{" + ", ".join(entries) + "}"
+                finally:
+                    seen.remove(val_id)
+
+            if isinstance(val, Sequence):
+                val_id = id(val)
+                if val_id in seen:
+                    return circular_placeholder
+
+                seen.add(val_id)
+                try:
+                    items: list[str] = []
+                    for item in val:
+                        formatted_val = stringify(item)
+                        items.append("null" if formatted_val is None else formatted_val)
+                    return "[" + ", ".join(items) + "]"
+                finally:
+                    seen.remove(val_id)
+
+            # Fallback for custom objects
+            return json.dumps(str(val))
+
+        result = stringify(obj)
+        return "null" if result is None else result
 
 
-# `Template` is a factory function masquerading as a class. The desire to have an
-# intuitive API and to please the static type checker outweighs this abuse of Python
-# naming conventions. At least for now.
+def _flatten(it: Sequence[object], level: int = 5) -> list[object]:
 
+    def flatten_(it: Sequence[object], level: int = 5) -> Generator[object]:
+        for obj in it:
+            if level < 1 or not isinstance(obj, (list, tuple)):
+                yield obj
+            else:
+                yield from flatten_(obj, level=level - 1)
 
-def Template(  # noqa: N802, D417
-    source: str,
-    *,
-    extra: bool = False,
-    tag_start_string: str = r"{%",
-    tag_end_string: str = r"%}",
-    statement_start_string: str = r"{{",
-    statement_end_string: str = r"}}",
-    tolerance: Mode = Mode.STRICT,
-    undefined: Type[Undefined] = Undefined,
-    strict_filters: bool = True,
-    autoescape: bool = False,
-    globals: Optional[Mapping[str, object]] = None,  # noqa: A002
-    template_comments: bool = False,
-    comment_start_string: str = "{#",
-    comment_end_string: str = "#}",
-) -> BoundTemplate:
-    """Parse a template, automatically creating an `Environment` to bind it to.
-
-    Other than `source`, all arguments are passed to the implicit `Environment`,
-    which might have been cached from previous calls to `Template`.
-
-    Args:
-        extra: If `True`, register all extra tags and filters. Defaults to `False`.
-        tag_start_string: The sequence of characters indicating the start of a
-            liquid tag.
-        tag_end_string: The sequence of characters indicating the end of a liquid
-            tag.
-        statement_start_string: The sequence of characters indicating the start of
-            an output statement.
-        statement_end_string: The sequence of characters indicating the end of an
-            output statement.
-        template_comments: If `True`, enable template comments, where, by default,
-            anything between `{#` and `#}` is considered a comment.
-        comment_start_string: The sequence of characters indicating the start of a
-            comment. `template_comments` must be `True` for `comment_start_string`
-            to have any effect.
-        comment_end_string: The sequence of characters indicating the end of a
-            comment.  `template_comments` must be `True` for `comment_end_string`
-            to have any effect.
-        tolerance: Indicates how tolerant to be of errors. Must be one of
-            `Mode.LAX`, `Mode.WARN` or `Mode.STRICT`.
-        undefined: A subclass of `Undefined` that represents undefined values. Could be
-            one of the built-in undefined types, `Undefined`, `DebugUndefined` or
-            `StrictUndefined`.
-        strict_filters: If `True`, will raise an exception upon finding an
-            undefined filter. Otherwise undefined filters are silently ignored.
-        autoescape: If `True`, all render context values will be HTML-escaped before
-            output unless they've been explicitly marked as "safe".
-        globals: An optional mapping that will be added to the render context of any
-            template loaded from this environment.
-    """
-    # Resorting to named arguments (repeated 3 times) as I've twice missed a bug
-    # because of positional arguments.
-    env = get_implicit_environment(
-        extra=extra,
-        tag_start_string=tag_start_string,
-        tag_end_string=tag_end_string,
-        statement_start_string=statement_start_string,
-        statement_end_string=statement_end_string,
-        tolerance=tolerance,
-        loader=None,
-        undefined=undefined,
-        strict_filters=strict_filters,
-        autoescape=autoescape,
-        globals=None,
-        template_comments=template_comments,
-        comment_start_string=comment_start_string,
-        comment_end_string=comment_end_string,
-    )
-
-    return env.from_string(source, globals=globals)
+    return list(flatten_(it, level))

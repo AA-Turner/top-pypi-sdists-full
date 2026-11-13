@@ -526,7 +526,7 @@ def inspector_gui(m: geemap.Map | None = None):
         toolbar_control = ipyleaflet.WidgetControl(
             widget=toolbar_widget, position="topright"
         )
-        toolbar_control.cleanup = cleanup
+        toolbar_control.cleanup = cleanup  # pyrefly: ignore[missing-attribute]
 
         if toolbar_control not in m.controls:
             m.add_control(toolbar_control)
@@ -733,12 +733,10 @@ def ee_plot_gui(m, position: str = "topright", **kwargs):
         if hasattr(m, "_chart_labels"):
             m._chart_labels = None
 
-    m._plot_dropdown_control.cleanup = cleanup
+    m._plot_dropdown_control.cleanup = cleanup  # pyrefly: ignore[missing-attribute]
 
     def close_click(_) -> None:
-        # pytype: disable=attribute-error
         m._plot_dropdown_control.cleanup()
-        # pytype: enable=attribute-error
 
     close_btn.on_click(close_click)
 
@@ -1102,7 +1100,7 @@ def open_data_widget(m):
         layout=ipywidgets.Layout(width="454px"),
     )
     file_chooser.filter_pattern = "*.shp"
-    file_chooser.use_dir_icons = True
+    file_chooser.use_dir_icons = True  # pyrefly: ignore[missing-attribute]
 
     style = {"description_width": "initial"}
     layer_name = ipywidgets.Text(
@@ -1223,7 +1221,7 @@ def open_data_widget(m):
 
     def chooser_callback(chooser) -> None:
         del chooser  # Unused.
-        filepath.value = file_chooser.selected
+        filepath.value = file_chooser.selected  # pyrefly: ignore[bad-argument-type]
 
         if file_type.value == "CSV":
             df = pd.read_csv(filepath.value)  # pyrefly: ignore[no-matching-overload]
@@ -1294,7 +1292,7 @@ def open_data_widget(m):
             m.remove_control(m._tool_output_ctrl)
             m._tool_output_ctrl = None
 
-    tool_output_ctrl.cleanup = cleanup
+    tool_output_ctrl.cleanup = cleanup  # pyrefly: ignore[missing-attribute]
 
     def ok_cancel_clicked(change) -> None:
         if change["new"] == "Apply":
@@ -1376,7 +1374,7 @@ def open_data_widget(m):
             with tool_output:
                 display(main_widget)
         elif change["new"] == "Close":
-            tool_output_ctrl.cleanup()
+            tool_output_ctrl.cleanup()  # pyrefly: ignore[missing-attribute]
         ok_cancel.value = None
 
     file_type.observe(file_type_changed, names="value")
@@ -1450,7 +1448,7 @@ def convert_js2py(m):
 
     full_widget.children = [text_widget, buttons]
     widget_control = ipyleaflet.WidgetControl(widget=full_widget, position="topright")
-    widget_control.cleanup = cleanup
+    widget_control.cleanup = cleanup  # pyrefly: ignore[missing-attribute]
     m.add_control(widget_control)
     m._convert_ctrl = widget_control
 
@@ -1575,16 +1573,14 @@ def collect_samples(m):
     ]
 
     widget_control = ipyleaflet.WidgetControl(widget=full_widget, position="topright")
-    widget_control.cleanup = cleanup
+    widget_control.cleanup = cleanup  # pyrefly: ignore[missing-attribute]
     m.add_control(widget_control)
     m.training_ctrl = widget_control
 
 
 def get_tools_dict():
     """Returns a dictionary of tools."""
-    # pytype: disable=attribute-error
-    pkg_dir = str(importlib.resources.files("geemap").joinpath("geemap.py").parent)
-    # pytype: enable=attribute-error
+    pkg_dir = str(importlib.resources.files("geemap").joinpath("geemap.py").parent)  # pyrefly: ignore[missing-attribute]
     toolbox_csv = os.path.join(pkg_dir, "data/template/toolbox.csv")
 
     df = pd.read_csv(toolbox_csv).set_index("index")
@@ -1821,11 +1817,11 @@ def build_toolbox(tools_dict, max_width: str = "1080px", max_height: str = "600p
     def cleanup() -> None:
         full_widget.close()
 
-    full_widget.cleanup = cleanup
+    full_widget.cleanup = cleanup  # pyrefly: ignore[missing-attribute]
 
     def close_btn_clicked(b) -> None:
         del b  # Unused.
-        full_widget.cleanup()
+        full_widget.cleanup()  # pyrefly: ignore[missing-attribute]
 
     close_btn.on_click(close_btn_clicked)
 
@@ -2283,9 +2279,7 @@ def timelapse_gui(m: geemap.Map | None = None, basemap: str = "HYBRID"):
             m.tool_control.cleanup()  # pyrefly: ignore[missing-attribute]
 
     close_btn.on_click(
-        # pytype: disable=attribute-error
-        lambda _: m.tool_control.cleanup()
-        # pytype: enable=attribute-error
+        lambda _: m.tool_control.cleanup()  # pyrefly: ignore[missing-attribute]
     )
     close_button.observe(close_btn_click, "value")
 
@@ -2294,7 +2288,7 @@ def timelapse_gui(m: geemap.Map | None = None, basemap: str = "HYBRID"):
         toolbar_control = ipyleaflet.WidgetControl(
             widget=toolbar_widget, position="topright"
         )
-        toolbar_control.cleanup = cleanup
+        toolbar_control.cleanup = cleanup  # pyrefly: ignore[missing-attribute]
         if toolbar_control not in m.controls:
             m.add_control(toolbar_control)
             m.tool_control = toolbar_control
@@ -2907,7 +2901,7 @@ def time_slider(m: geemap.Map | None = None):
                         int(end_year.value),
                         start_date,
                         end_date,
-                        cloud.value,
+                        cloud.value,  # pyrefly: ignore[bad-argument-type]
                     )
                 elif collection.value == "USDA NAIP Imagery":
                     if int(start_year.value) < 2009 and (
@@ -2929,7 +2923,7 @@ def time_slider(m: geemap.Map | None = None):
                 region=roi,
                 vis_params=vis_params,
                 labels=layer_labels,
-                time_interval=speed.value,
+                time_interval=speed.value,  # pyrefly: ignore[bad-argument-type]
             )
 
             output.outputs = ()
@@ -2983,7 +2977,7 @@ def time_slider(m: geemap.Map | None = None):
 
     def close_btn_click(change) -> None:
         if change["new"]:
-            m.tool_control.cleanup()  # pytype: disable=attribute-error
+            m.tool_control.cleanup()  # pyrefly: ignore[missing-attribute]
 
     close_button.observe(close_btn_click, "value")
 
@@ -3192,7 +3186,7 @@ def time_slider(m: geemap.Map | None = None):
         toolbar_control = ipyleaflet.WidgetControl(
             widget=toolbar_widget, position="topright"
         )
-        toolbar_control.cleanup = cleanup
+        toolbar_control.cleanup = cleanup  # pyrefly: ignore[missing-attribute]
 
         if toolbar_control not in m.controls:
             m.add_control(toolbar_control)
@@ -3389,7 +3383,7 @@ def plot_transect(m=None):
 
     def close_btn_click(change) -> None:
         if change["new"]:
-            m.tool_control.cleanup()  # pytype: disable=attribute-error
+            m.tool_control.cleanup()  # pyrefly: ignore[missing-attribute]
 
     close_button.observe(close_btn_click, "value")
 
@@ -3435,7 +3429,7 @@ def plot_transect(m=None):
         elif change["new"] == "Reset":
             output.outputs = ()
         elif change["new"] == "Close":
-            m.tool_control.cleanup()  # pytype: disable=attribute-error
+            m.tool_control.cleanup()  # pyrefly: ignore[missing-attribute]
 
         buttons.value = None
 
@@ -3446,7 +3440,7 @@ def plot_transect(m=None):
         toolbar_control = ipyleaflet.WidgetControl(
             widget=toolbar_widget, position="topright"
         )
-        toolbar_control.cleanup = cleanup
+        toolbar_control.cleanup = cleanup  # pyrefly: ignore[missing-attribute]
         if toolbar_control not in m.controls:
             m.add_control(toolbar_control)
             m.tool_control = toolbar_control
@@ -3463,7 +3457,7 @@ def sankee_gui(m=None):
     Returns:
         ipywidgets: The interactive GUI.
     """
-    import sankee
+    import sankee  # pyrefly: ignore[missing-import]
 
     widget_width = "250px"
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
@@ -3816,7 +3810,7 @@ def sankee_gui(m=None):
 
     def close_btn_click(change) -> None:
         if change["new"]:
-            m.tool_control.cleanup()  # pytype: disable=attribute-error
+            m.tool_control.cleanup()  # pyrefly: ignore[missing-attribute]
 
     close_button.observe(close_btn_click, "value")
 
@@ -3917,7 +3911,7 @@ def sankee_gui(m=None):
             plot_widget.children = []
 
         elif change["new"] == "Close":
-            m.tool_control.cleanup()  # pytype: disable=attribute-error
+            m.tool_control.cleanup()  # pyrefly: ignore[missing-attribute]
 
         buttons.value = None
 
@@ -3928,7 +3922,7 @@ def sankee_gui(m=None):
         toolbar_control = ipyleaflet.WidgetControl(
             widget=toolbar_widget, position="topright"
         )
-        toolbar_control.cleanup = cleanup
+        toolbar_control.cleanup = cleanup  # pyrefly: ignore[missing-attribute]
         if toolbar_control not in m.controls:
             m.add_control(toolbar_control)
             m.tool_control = toolbar_control
@@ -4039,17 +4033,13 @@ def split_basemaps(
 
     def left_change(change) -> None:
         del change  # Unused.
-        # pytype: disable=attribute-error
-        split_control.left_layer.url = layers_dict[left_dropdown.value].url
-        # pytype: enable=attribute-error
+        split_control.left_layer.url = layers_dict[left_dropdown.value].url  # pyrefly: ignore[missing-attribute]
 
     left_dropdown.observe(left_change, "value")
 
     def right_change(change) -> None:
         del change  # Unused.
-        # pytype: disable=attribute-error
-        split_control.right_layer.url = layers_dict[right_dropdown.value].url
-        # pytype: enable=attribute-error
+        split_control.right_layer.url = layers_dict[right_dropdown.value].url  # pyrefly: ignore[missing-attribute]
 
     right_dropdown.observe(right_change, "value")
 

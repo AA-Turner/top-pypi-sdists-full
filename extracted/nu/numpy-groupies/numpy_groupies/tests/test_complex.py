@@ -3,20 +3,70 @@
 import numpy as np
 import pytest
 
-from numpy_groupies import aggregate_numpy
+from numpy_groupies import npg_numba, npg_numpy
 from numpy_groupies.tests.helpers import (
-    aggregate_numba,
-    complex_arg_funcs,
-    complex_asymmetric_funcs,
-    complex_bool_funcs,
-    complex_funcs,
-    complex_int_funcs,
-    complex_order_funcs,
-    complex_real_out_funcs,
+    assert_result_dtype,
     impl_name,
-    is_purepy,
 )
 from numpy_groupies.tests.reference import aggregate_ref
+
+# The functions with a well-defined complex result, following numpy semantics -
+# the order statistics included, as numpy orders complex values lexicographically.
+# median is the one order statistic missing: over incomparable values numpy's own
+# partition and its sort disagree, so the group loop cannot tell what a poisoned
+# group mediates to - what its answer has to look like is pinned by
+# test_median_of_a_poisoned_group instead, and a clean group by test_median
+complex_funcs = (
+    "sum",
+    "prod",
+    "mean",
+    "var",
+    "std",
+    "trapezoid",
+    "sumofsquares",
+    "first",
+    "last",
+    "nansum",
+    "nanprod",
+    "nanmean",
+    "nanvar",
+    "nanstd",
+    "nanmedian",
+    "nantrapezoid",
+    "nansumofsquares",
+    "cumsum",
+    "all",
+    "any",
+    "allnan",
+    "anynan",
+    "nanall",
+    "nanany",
+    "len",
+    "nanlen",
+    "nanfirst",
+    "nanlast",
+    "min",
+    "max",
+    "nanmin",
+    "nanmax",
+    "mode",
+    "argmin",
+    "argmax",
+    "nanargmin",
+    "nanargmax",
+)
+# their complex result is the real squared magnitude, not complex a*a
+complex_real_out_funcs = frozenset({"var", "std", "sumofsquares", "nanvar", "nanstd", "nansumofsquares"})
+# these count, test or point at a position, so their result is not a number of
+# the input type
+complex_bool_funcs = frozenset({"all", "any", "allnan", "anynan", "nanall", "nanany"})
+complex_arg_funcs = ("argmin", "argmax", "nanargmin", "nanargmax")
+complex_int_funcs = frozenset({"len", "nanlen", *complex_arg_funcs})
+# order statistics over the values themselves, as opposed to their positions
+complex_order_funcs = ("min", "max", "nanmin", "nanmax", "mode")
+# conjugating the input does not simply conjugate the result for these: it
+# flips the order of two values sharing a real part
+complex_asymmetric_funcs = complex_order_funcs + complex_arg_funcs
 
 
 @pytest.mark.parametrize("dtype", [np.complex64, np.complex128])
@@ -51,21 +101,18 @@ def test_matches_reference(impl, func, a_dtype):
     expected = aggregate_ref(group_idx, a, func=func, size=3)
 
     res = np.asarray(res)
-    if is_purepy(impl):
-        # the pure python implementation computes with python numbers, which
-        # are always double precision
-        pass
-    elif func in complex_bool_funcs:
-        assert res.dtype == np.dtype(bool)
+    if func in complex_bool_funcs:
+        assert_result_dtype(impl, res, np.dtype(bool))
     elif func in complex_int_funcs:
-        assert np.issubdtype(res.dtype, np.integer)
+        # the counts and the positions are int64 in every backend
+        assert_result_dtype(impl, res, np.int64)
     elif func in complex_real_out_funcs:
         # the squared magnitude is real, with the real counterpart dtype of
         # the input (complex64 -> float32), exactly like np.var
         expected_real_dtype = {np.complex64: np.float32, np.complex128: np.float64}[a_dtype]
-        assert res.dtype == expected_real_dtype
+        assert_result_dtype(impl, res, expected_real_dtype)
     else:
-        assert res.dtype == a_dtype
+        assert_result_dtype(impl, res, a_dtype)
     np.testing.assert_allclose(res, expected, rtol=1e-5)
 
 
@@ -78,24 +125,22 @@ def test_median(impl, a_dtype):
 
     res = impl.aggregate(group_idx, a, func="median", size=2)
     res = np.asarray(res)
-    if not is_purepy(impl):
-        assert res.dtype == a_dtype
+    assert_result_dtype(impl, res, a_dtype)
     expected = [np.median(vals) for vals in (a[:4], a[4:])]
     np.testing.assert_allclose(res, expected, rtol=1e-5)
 
 
 @pytest.mark.parametrize("poisoned_part", ["real", "imag", "both"])
 @pytest.mark.parametrize("a_dtype", [np.complex64, np.complex128], ids=["complex64", "complex128"])
-def test_median_of_a_poisoned_group(impl, a_dtype, poisoned_part):
+def test_median_of_poisoned_group(impl, a_dtype, poisoned_part):
     """A group poisoned by one of its values answers a nan in every part.
 
-    The nan sits in one part of one of the values, but the answer is about the
-    group: the part the nan never touched is not a zero the group claimed, and a
-    plain nan (which the implementations used to answer with) drops that part
-    altogether - purepy dropped it so completely that the whole answer came back
-    as a float.  ``median`` is not in ``complex_funcs`` for exactly these cases:
-    the reference cannot decide them, since ``np.median`` selects the middle of a
-    partition and over incomparable values partition and sort disagree.
+    The answer is about the group: a plain nan (which the implementations used
+    to answer with) drops the part the nan never touched - purepy dropped it
+    so completely that the whole answer came back as a float.  ``median`` is
+    not in ``complex_funcs`` for exactly these cases: the reference cannot
+    decide them, since ``np.median`` selects the middle of a partition and
+    over incomparable values partition and sort disagree.
     """
     group_idx = np.zeros(3, dtype=int)
     real = np.array([1.0, 5.0, np.nan if poisoned_part in ("real", "both") else 3.0])
@@ -103,7 +148,7 @@ def test_median_of_a_poisoned_group(impl, a_dtype, poisoned_part):
     a = (real + 1j * imag).astype(a_dtype)
 
     res = np.asarray(impl.aggregate(group_idx, a, func="median", size=1))
-    assert res.dtype == a_dtype
+    assert_result_dtype(impl, res, a_dtype)
     assert np.isnan(res[0].real) and np.isnan(res[0].imag), res[0]
 
 
@@ -115,7 +160,7 @@ def test_sort(impl, a_dtype, reverse):
     a = np.array([3 + 1j, 1 + 2j, 1 - 5j, 1 + 5j]).astype(a_dtype)
 
     res = np.asarray(impl.aggregate(group_idx, a, func="sort", reverse=reverse))
-    assert res.dtype == a_dtype
+    assert_result_dtype(impl, res, a_dtype)
     order = slice(None, None, -1) if reverse else slice(None)
     expected = np.concatenate([np.sort(a[group_idx == grp])[order] for grp in range(2)])
     np.testing.assert_array_equal(res, expected)
@@ -123,7 +168,7 @@ def test_sort(impl, a_dtype, reverse):
 
 @pytest.mark.parametrize("a_dtype", [np.complex64, np.complex128], ids=["complex64", "complex128"])
 @pytest.mark.parametrize("reverse", [False, True], ids=["ascending", "descending"])
-def test_sort_moves_the_incomparable_values_last(impl, a_dtype, reverse):
+def test_sort_moves_incomparable_values_last(impl, a_dtype, reverse):
     # numpy reaches a value with a nan in either part by no comparison at all -
     # also one whose real part differs from the others - and sorts it behind
     # every value it cannot be compared with, in either direction.  The pure
@@ -138,7 +183,7 @@ def test_sort_moves_the_incomparable_values_last(impl, a_dtype, reverse):
     )
 
     res = np.asarray(impl.aggregate(group_idx, a, func="sort", reverse=reverse))
-    assert res.dtype == a_dtype
+    assert_result_dtype(impl, res, a_dtype)
     # not the ascending order turned around: the incomparable values stay last
     # - the group loop is the reference, not the numpy backend the test also
     # runs on
@@ -153,10 +198,7 @@ def test_empty_group(impl, a_dtype):
     a = np.array([1 + 2j, 3 + 1j, 5 + 5j, 4 - 3j]).astype(a_dtype)
 
     res = np.asarray(impl.aggregate(group_idx, a, func="mean", size=3))
-    if not is_purepy(impl):
-        # the pure python implementation computes with python numbers, which
-        # are always double precision
-        assert res.dtype == a_dtype
+    assert_result_dtype(impl, res, a_dtype)
     # the nan default of a complex output is a nan in *both* parts, so all
     # implementations fill an empty group identically
     assert np.isnan(res[1].real) and np.isnan(res[1].imag)
@@ -273,8 +315,7 @@ def test_accepts_complex_scalar_dtype_classes(impl, dtype, func, as_list):
     values = list(a) if as_list else a
     result = np.asarray(impl.aggregate(group_idx, values, func=func, dtype=dtype))
     np.testing.assert_allclose(result, expected, rtol=1e-6)
-    if not is_purepy(impl):
-        assert result.dtype == np.dtype(dtype)
+    assert_result_dtype(impl, result, dtype)
 
 
 @pytest.mark.parametrize(
@@ -288,16 +329,14 @@ def test_accepts_complex_scalar_dtype_classes(impl, dtype, func, as_list):
         ("all", bool),
     ],
 )
-def test_accepts_the_real_result_dtypes(impl, func, dtype):
+def test_accepts_real_result_dtypes(impl, func, dtype):
     # var, std and sumofsquares measure a real squared magnitude, and the
     # counting and testing functions never were complex to begin with
     group_idx = np.array([0, 0, 1, 1, 2])
     a = np.array([1 + 2j, 3 - 1j, -2 + 4j, 5 + 5j, 6 - 6j]).astype(np.complex64)
 
     res = np.asarray(impl.aggregate(group_idx, a, func=func, size=3, dtype=dtype))
-    if not is_purepy(impl):
-        # the pure python implementation ignores the dtype argument entirely
-        assert res.dtype == np.dtype(dtype)
+    assert_result_dtype(impl, res, dtype)
 
 
 @pytest.mark.parametrize("func", ["sum", "prod", "mean", "var", "std", "min", "max"])
@@ -383,7 +422,7 @@ def test_axis(impl, rng, axis):
     else:
         expected = np.stack([a[:, group_idx == grp].sum(axis=1) for grp in groups], axis=1)
     np.testing.assert_allclose(res, expected, rtol=1e-9)
-    assert res.dtype == a.dtype
+    assert_result_dtype(impl, res, a.dtype)
 
 
 @pytest.mark.parametrize("func", ["sum", "mean", "var", "max", "first", "last"])
@@ -405,7 +444,7 @@ def test_list_input(impl):
 
     res = np.asarray(impl.aggregate(group_idx, a, func="mean", size=2))
     np.testing.assert_allclose(res, [np.mean(a[:2]), np.mean(a[2:])], rtol=1e-5)
-    assert res.dtype == np.complex128
+    assert_result_dtype(impl, res, np.complex128)
 
 
 @pytest.mark.parametrize("func", complex_order_funcs + complex_arg_funcs)
@@ -439,17 +478,15 @@ def test_order_functions_follow_numpy_lexicographic(impl, func):
 def test_order_functions_are_not_rejected_by_numba(func):
     # the numba kernels used to refuse complex values here; they compare the two
     # parts themselves now, so they have to agree with the numpy implementation
-    if aggregate_numba is None:
-        pytest.skip("numba implementation not available")
     group_idx = np.array([0, 0, 1, 1, 2, 2])
     a = np.array([1 + 9j, 1 - 1j, 3 + 0j, 2 + 5j, -0.0 + 0j, 0.0 - 0j])
 
-    res = np.asarray(aggregate_numba.aggregate(group_idx, a, func=func, size=3))
+    res = np.asarray(npg_numba.aggregate(group_idx, a, func=func, size=3))
     expected = np.asarray(aggregate_ref(group_idx, a, func=func, size=3))
     np.testing.assert_array_equal(res, expected)
 
 
-def test_nan_in_one_part_of_the_order_functions(impl):
+def test_nan_in_one_part_of_order_functions(impl):
     # a nan in either part is a nan of the value, wherever it sits in it.  The
     # value is built with complex(): `np.nan * 1j` puts a nan in both parts
     group_idx = np.array([0, 0, 0, 0, 1, 1, 1, 1])
@@ -468,7 +505,7 @@ def test_nan_in_one_part_of_the_order_functions(impl):
     np.testing.assert_array_equal(np.asarray(impl.aggregate(group_idx, a, func="nanmax", size=2)), [4 + 5j, 7 + 8j])
 
 
-def test_order_functions_use_the_extreme_value_of_the_order():
+def test_order_functions_use_extreme_value_of_order():
     # the extreme of a complex dtype is inf+infj, not inf+0j: the reductions
     # seed with it, and the nan variants mask the nans with it
     group_idx = np.array([0, 1])
@@ -480,7 +517,7 @@ def test_order_functions_use_the_extreme_value_of_the_order():
         np.testing.assert_array_equal(np.asarray(aggregate_ref(group_idx, a, func=func, size=2)), [0, 1])
 
     # masking with inf+0j would leave no value equal to the found minimum
-    impls = [aggregate_numpy.aggregate] + ([aggregate_numba.aggregate] if aggregate_numba is not None else [])
+    impls = [npg_numpy.aggregate, npg_numba.aggregate]
     both_in_one_group = np.array([0, 0])
     for impl in impls:
         for values, func in (
@@ -494,7 +531,7 @@ def test_order_functions_use_the_extreme_value_of_the_order():
 
 
 @pytest.mark.parametrize("func", ["min", "max"])
-def test_an_incomparable_value_poisons_the_extreme(impl, func):
+def test_incomparable_value_poisons_extreme(impl, func):
     """a group holding values that cannot be compared has no comparable extreme.
 
     All three backends name a value with a nan in it, but not the same one: this

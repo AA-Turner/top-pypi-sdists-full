@@ -5,9 +5,9 @@ import pathlib
 import uuid
 from typing import Any
 
-from pyrit.common.apply_defaults import apply_defaults
+from pyrit.common import apply_defaults
 from pyrit.common.path import CONVERTER_SEED_PROMPT_PATH
-from pyrit.converter.converter import ConverterResult
+from pyrit.converter import ConverterResult
 from pyrit.executor.promptgen.fuzzer.fuzzer_converter_base import (
     FuzzerConverter,
 )
@@ -78,9 +78,10 @@ class FuzzerCrossOverConverter(FuzzerConverter):
 
         conversation_id = str(uuid.uuid4())
 
-        self.converter_target.set_system_prompt(
-            system_prompt=self.system_prompt,
-            conversation_id=conversation_id,
+        (
+            await self.converter_target.set_system_prompt_async(
+                system_prompt=self.system_prompt, conversation_id=conversation_id
+            )
         )
 
         formatted_prompt = f"===={self.template_label} BEGINS====\n{prompt}\n===={self.template_label} ENDS===="

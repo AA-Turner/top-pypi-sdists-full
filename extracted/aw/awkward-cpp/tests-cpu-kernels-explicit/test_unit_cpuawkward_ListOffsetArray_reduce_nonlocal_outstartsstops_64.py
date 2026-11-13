@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-09-17 AT 19:00:59
+# AUTO GENERATED ON 2026-11-12 AT 19:21:42
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -15,6 +15,23 @@ import pytest
 from awkward_cpp.cpu_kernels import lib
 
 def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_1():
+    outstarts = [123, 123]
+    outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
+    outstops = [123, 123]
+    outstops = (ctypes.c_int64*len(outstops))(*outstops)
+    distincts = [0, -1, 2, -1, -1, 5]
+    distincts = (ctypes.c_int64*len(distincts))(*distincts)
+    lendistincts = 6
+    outlength = 2
+    funcC = getattr(lib, 'awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64')
+    ret_pass = funcC(outstarts, outstops, distincts, lendistincts, outlength)
+    pytest_outstarts = [0, 3]
+    assert outstarts[:len(pytest_outstarts)] == pytest.approx(pytest_outstarts)
+    pytest_outstops = [3, 6]
+    assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
+    assert not ret_pass.str
+
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_2():
     outstarts = []
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = []
@@ -31,7 +48,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_1():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_2():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_3():
     outstarts = [123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123]
@@ -48,7 +65,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_2():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_3():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_4():
     outstarts = [123, 123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123, 123]
@@ -65,7 +82,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_3():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_4():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_5():
     outstarts = [123, 123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123, 123]
@@ -82,7 +99,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_4():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_5():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_6():
     outstarts = [123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123]
@@ -99,7 +116,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_5():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_6():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_7():
     outstarts = [123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123]
@@ -116,7 +133,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_6():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_7():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_8():
     outstarts = [123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123]
@@ -133,7 +150,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_7():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_8():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_9():
     outstarts = [123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123]
@@ -150,7 +167,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_8():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_9():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_10():
     outstarts = [123, 123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123, 123]
@@ -167,7 +184,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_9():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_10():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_11():
     outstarts = [123, 123, 123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123, 123, 123]
@@ -184,7 +201,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_10():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_11():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_12():
     outstarts = [123, 123, 123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123, 123, 123]
@@ -201,7 +218,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_11():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_12():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_13():
     outstarts = [123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123]
@@ -218,7 +235,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_12():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_13():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_14():
     outstarts = [123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123]
@@ -235,7 +252,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_13():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_14():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_15():
     outstarts = [123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123]
@@ -252,7 +269,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_14():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_15():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_16():
     outstarts = [123, 123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123, 123]
@@ -269,7 +286,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_15():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_16():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_17():
     outstarts = [123, 123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123, 123]
@@ -286,7 +303,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_16():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_17():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_18():
     outstarts = [123, 123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123, 123]
@@ -303,7 +320,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_17():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_18():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_19():
     outstarts = [123, 123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123, 123]
@@ -320,7 +337,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_18():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_19():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_20():
     outstarts = [123, 123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123, 123]
@@ -337,7 +354,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_19():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_20():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_21():
     outstarts = [123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123]
@@ -354,7 +371,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_20():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_21():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_22():
     outstarts = [123, 123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123, 123]
@@ -371,7 +388,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_21():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_22():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_23():
     outstarts = [123, 123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123, 123]
@@ -388,7 +405,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_22():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_23():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_24():
     outstarts = [123, 123, 123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123, 123, 123]
@@ -405,7 +422,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_23():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_24():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_25():
     outstarts = [123, 123, 123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123, 123, 123]
@@ -422,7 +439,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_24():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_25():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_26():
     outstarts = [123, 123, 123, 123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123, 123, 123, 123]
@@ -439,7 +456,7 @@ def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_25():
     assert outstops[:len(pytest_outstops)] == pytest.approx(pytest_outstops)
     assert not ret_pass.str
 
-def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_26():
+def test_unit_cpuawkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_27():
     outstarts = [123]
     outstarts = (ctypes.c_int64*len(outstarts))(*outstarts)
     outstops = [123]

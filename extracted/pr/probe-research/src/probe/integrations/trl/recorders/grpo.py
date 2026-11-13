@@ -8,14 +8,19 @@ import functools
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from probe.generated.samples import CaptureField
+from probe.sdk.run.samples.rollout import RolloutCapture
 from probe.sdk.run.samples.tokens import summarize_tokens
 
 from ..harbor import is_harbor_env, make_harbor_scorer, read_harbor_task
 from ..live import LiveBatch
 from ..recorder import Recorder
+from ..tool_rollouts import ToolRollouts
 from ..rows import (
     MAX_SCENARIO_TEXT,
+    TOOL_FIELDS,
     build_completion,
+    has_response_schema,
     make_prompt_key,
     pick_rows,
     render_prompt,
@@ -32,6 +37,22 @@ ROW_COLUMN = "_probe_row"
 UNSCORED = "reward_fn: no reward function scored this completion"
 #: Where a `rollout_func`'s own fields ride a row's facts (`_generate` returns them, `:2320`, `:2435`).
 ROLLOUT_FIELDS = "rollout_fields"
+#: Where a row's facts carry the tools TRL runs as coroutines for it: their results come after the sync ones (O1).
+#: Always set, so a row without facts (unknown tools) links no reply TRL may have reordered.
+ASYNC_TOOLS = "async_tools"
+#: Where a row's facts carry its async calls that raised when TRL called them: their results come with the sync ones.
+#: Set on every process whose tools were watched; a row without it links no reply holding an async call.
+FAILED_ASYNC_CALLS = "failed_async_calls"
+#: What GRPO cannot give a sample (`plan(unsupported=)`), and why. TRL's parser names no tool call (`parse_response`).
+NUMBERED_IDS = ("TRL's parser gives tool calls no id: Probe numbers them probe-<turn>-<i> and links each result by "
+                "TRL's own order (sync and failed calls first, then async ones), checked by tool name")
+NO_SCHEMA = ("the tokenizer has no response schema, so TRL decodes each completion as plain text: no tool calls, "
+             "no reasoning apart from the content")
+RLOO_TEXT = "RLOO decodes each completion as plain text: no tool calls, no reasoning apart from the content"
+PLAIN_TEXT = ("this run's dataset is plain text, not conversational: TRL keeps each completion as one string, with no "
+              "messages, tool calls, tools run or reasoning apart from the text")
+OTHER_RANKS = ("only the main process records: tools on the other ranks run where Probe has no run, so their "
+               "samples carry no files")
 
 
 class GrpoRecorder(Recorder):
@@ -50,6 +71,35 @@ class GrpoRecorder(Recorder):
         #: This call's live samples (`live.py`), and each row's task facts read once (`_read_facts`).
         self._live = LiveBatch()
         self._facts: dict[int, tuple[Any, dict]] = {}
+        #: This call's rows' tool calls, each inside its sample's rollout capture (sync GRPO, main process).
+        self._tool_rollouts = ToolRollouts()
+        self._call_prefix: str | None = None
+        self._is_plain_text_declared = False
+
+    def get_unsupported(self) -> dict[CaptureField, str]:
+        """GRPO: call ids are Probe's, and without a response schema TRL keeps no tool calls or reasoning; with
+        several processes only the main one's samples carry files. RLOO decodes plain text."""
+        trainer = self.trainer
+        if any(cls.__name__ == "RLOOTrainer" for cls in type(trainer).__mro__):
+            return {**dict.fromkeys(TOOL_FIELDS, RLOO_TEXT), CaptureField.REASONING: RLOO_TEXT}
+        tokenizer = getattr(trainer, "_tokenizer", None) or self.tracker.get_tokenizer()
+        if not has_response_schema(tokenizer):
+            unsupported = dict.fromkeys((CaptureField.TOOL_CALL_IDS, CaptureField.TOOL_CALL_ARGUMENTS,
+                                         CaptureField.TOOL_RESULT_LINKS, CaptureField.REASONING), NO_SCHEMA)
+        else:
+            unsupported = {CaptureField.TOOL_CALL_IDS: NUMBERED_IDS}
+        if int(getattr(getattr(trainer, "accelerator", None), "num_processes", 1) or 1) > 1:
+            unsupported[CaptureField.ENVIRONMENT_FILES] = OTHER_RANKS
+        return unsupported
+
+    def _send_plain_text_plan(self, completions: Sequence[Any]) -> None:
+        """The first string completion of a training row (a plain-text training dataset; an eval set's own shape
+        says nothing of it): no field but the text can be held. Re-declared whole, as a producer's map replaces its
+        earlier one."""
+        if self._is_plain_text_declared or not any(isinstance(completion, str) for completion in completions):
+            return
+        self._is_plain_text_declared = True
+        self.tracker.samples.plan(unsupported=dict.fromkeys(CaptureField, PLAIN_TEXT))
 
     def install(self) -> None:
         trainer = self.trainer
@@ -60,6 +110,9 @@ class GrpoRecorder(Recorder):
 
         @functools.wraps(generate)
         def call_generate(prompts: Any, *args: Any, **kwargs: Any) -> Any:
+            # A start that fails leaves this batch unwatched (its links refused), never the last batch's failures.
+            self._tool_rollouts.reset()
+            guard.call("a rollout's files", self._start_tool_rollouts, len(prompts))
             result = generate(prompts, *args, **kwargs)
             guard.call("a generation", self._record_generation, prompts, result)
             return result
@@ -77,6 +130,7 @@ class GrpoRecorder(Recorder):
             step = self.tracker.get_step()
             split = "train" if getattr(trainer.model, "training", True) else "eval"
             call = self.tracker.take_call(split, step)
+            self._call_prefix = f"{split}:{step}:{call}"
             self._live = guard.call("a live sample", self._start_live, inputs, step, split, call) or LiveBatch()
             try:
                 output = score(inputs, *args, **kwargs)
@@ -103,6 +157,8 @@ class GrpoRecorder(Recorder):
         environments = getattr(trainer, "environments", None) or []
         stops = set(getattr(trainer, "eos_token_ids", None) or ())
         stops.add(getattr(getattr(trainer, "_tokenizer", None), "pad_token_id", None))
+        sync_dicts = getattr(trainer, "_sync_tool_dicts", None) or []  # this call's, built before `_generate` (:2480)
+        async_dicts = getattr(trainer, "_async_tool_dicts", None) or []
         facts = []
         for index, ids in enumerate(completion_ids):
             row = self._inputs[index] if index < len(self._inputs) else {}
@@ -115,10 +171,23 @@ class GrpoRecorder(Recorder):
             if fields:
                 fact[ROLLOUT_FIELDS] = fields
             fact["finish_reason"] = "length" if len(ids) and ids[-1] not in stops else "stop"  # `:2401-2403`
+            fact[ASYNC_TOOLS] = _get_async_names(sync_dicts, async_dicts, index)
+            failed = self._tool_rollouts.get_failed_async_calls(index)
+            if failed is not None:
+                fact[FAILED_ASYNC_CALLS] = failed
             facts.append(fact)
         log_extra = getattr(trainer, "_log_completion_extra", None)
         if callable(log_extra):
             log_extra(ROW_COLUMN, facts)
+
+    def _start_tool_rollouts(self, count: int) -> None:
+        """This process's rows' tools, watched on every process for the async calls that fail when called (every
+        row's result links need them); on the main process with an open run each also runs inside its sample's
+        rollout capture (keyed as `_record` keys it), so a tool's `probe.samples.attach_file` reaches its sample."""
+        run = self.tracker.run if self._call_prefix is not None and self.tracker.is_recording() else None
+        process = int(getattr(self.trainer.accelerator, "process_index", 0) or 0)
+        self._tool_rollouts.start(self.trainer, run,
+                                  [f"{self._call_prefix}:{process}:{position}" for position in range(count)])  # fmt: skip
 
     def _read_facts(self, index: int, row: Any, prompt: Any, environments: Sequence[Any]) -> dict:
         """One row's task facts: the dataset's, read once per call (the live start and the generation share them, so
@@ -178,6 +247,8 @@ class GrpoRecorder(Recorder):
         count = len(prompts)
         offset = wanted - count
         completions = pick_rows(logs["completion"], count)
+        if split == "train":
+            self.tracker.guard.call("what TRL cannot capture", self._send_plain_text_plan, completions)
         rewards = {name: pick_rows(values, count) for name, values in logs["rewards"].items()}
         advantages = pick_rows(logs["advantages"], count)
         extras = {name: pick_rows(values, count) for name, values in logs["extra"].items()
@@ -210,6 +281,9 @@ class GrpoRecorder(Recorder):
             arrays = self._get_token_arrays(index % local, output) if index // local == process else None
             if arrays is not None:
                 part["token_arrays"] = arrays[0]
+            if index // local == process:
+                RolloutCapture.update_part(part, self.tracker.guard.call(
+                    "a rollout's files", self._tool_rollouts.finish, index % local))  # fmt: skip
             self._live.link(part)
             parts.append(part)
             groups.setdefault(part["group_key"], {
@@ -235,7 +309,8 @@ class GrpoRecorder(Recorder):
             "task_key": str(fact.get("task_key") or make_prompt_key(prompt)),
             "scenario": dict(fact.get("scenario") or {}),
             "prompt": render_prompt(prompt),
-            **build_completion(completion),
+            **build_completion(completion, async_tools=fact.get(ASYNC_TOOLS),
+                               failed_async_calls=fact.get(FAILED_ASYNC_CALLS)),
             "host": self.tracker.host,
         }
         for name in ("label", "finish_reason", "prompt_tokens", "response_tokens", "environment_type"):
@@ -256,7 +331,7 @@ class GrpoRecorder(Recorder):
         if numbers:
             part["metrics"] = numbers
         if others:
-            part["extras"] = others
+            part["extras"] = {**(part.get("extras") or {}), **others}
         part["scored_by"] = [make_harbor_scorer()] if fact.get("scorer") else self._get_scorers()
         return part
 
@@ -309,6 +384,17 @@ class GrpoRecorder(Recorder):
                 scorers.append(scorer)
             self._scorers = scorers
         return list(self._scorers)
+
+
+def _get_async_names(sync_dicts: Sequence[Any], async_dicts: Sequence[Any], index: int) -> list[str]:
+    """The names TRL runs as coroutines for completion ``index``: its async tools a sync tool of the same name does
+    not shadow (TRL looks a name up in the sync dict first, `:2069-2072`)."""
+    sync_tools = sync_dicts[index] if index < len(sync_dicts) else None
+    async_tools = async_dicts[index] if index < len(async_dicts) else None
+    if not isinstance(async_tools, Mapping):
+        return []
+    shadowed = sync_tools if isinstance(sync_tools, Mapping) else {}
+    return sorted(str(name) for name in async_tools if name not in shadowed)
 
 
 def _pick_rollout_fields(fields: Mapping[str, Any], row: int) -> dict[str, Any]:

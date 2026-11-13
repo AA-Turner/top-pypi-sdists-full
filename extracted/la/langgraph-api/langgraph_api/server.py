@@ -17,16 +17,13 @@ if not (
     truststore.inject_into_ssl()
 
 
-import jsonschema_rs
 import structlog
-from langgraph.errors import EmptyInputError, InvalidUpdateError
 from langgraph_sdk.client import configure_loopback_transports
 from starlette.applications import Starlette
-from starlette.exceptions import HTTPException
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import BaseRoute, Mount
-from starlette.types import Receive, Scope, Send
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 import langgraph_api.config as config
 from langgraph_api.api import (
@@ -38,22 +35,15 @@ from langgraph_api.api import (
     user_router,
 )
 from langgraph_api.api.openapi import set_custom_spec
-from langgraph_api.errors import (
-    http_exception_handler,
-    overloaded_error_handler,
-    remote_exception_handler,
-    validation_error_handler,
-    value_error_handler,
-)
+from langgraph_api.errors import app_exception_handlers
 from langgraph_api.js.base import is_js_path
-from langgraph_api.js.errors import RemoteException
 from langgraph_api.middleware.ensure_store import EnsureStoreAccessible
 from langgraph_api.middleware.http_logger import AccessLoggerMiddleware
 from langgraph_api.middleware.private_network import PrivateNetworkMiddleware
 from langgraph_api.middleware.request_id import RequestIdMiddleware
+from langgraph_api.operator_routes import OperatorRoutesMiddleware
 from langgraph_api.utils import SchemaGenerator
 from langgraph_runtime.lifespan import lifespan
-from langgraph_runtime.retry import OVERLOADED_EXCEPTIONS
 
 logging.captureWarnings(True)
 logger = structlog.stdlib.get_logger(__name__)
@@ -76,37 +66,12 @@ if JS_PROXY_MIDDLEWARE_ENABLED:
 
 global_middleware.extend(
     [
-        (
-            Middleware(
-                CORSMiddleware,
-                allow_origins=config.CORS_ALLOW_ORIGINS,
-                allow_credentials="*" not in config.CORS_ALLOW_ORIGINS,
-                allow_methods=["*"],
-                allow_headers=["*"],
-                expose_headers=[
-                    "x-pagination-total",
-                    "x-pagination-next",
-                    "content-location",
-                ],
-            )
-            if config.CORS_CONFIG is None
-            else Middleware(
-                CORSMiddleware,
-                **config.CORS_CONFIG,
-            )
-        ),
+        Middleware(CORSMiddleware, **config.CORS_SETTINGS),
         Middleware(AccessLoggerMiddleware, logger=logger),
         Middleware(RequestIdMiddleware, mount_prefix=config.MOUNT_PREFIX),
     ]
 )
-exception_handlers = {
-    HTTPException: http_exception_handler,
-    ValueError: value_error_handler,
-    InvalidUpdateError: value_error_handler,
-    EmptyInputError: value_error_handler,
-    jsonschema_rs.ValidationError: validation_error_handler,
-    RemoteException: remote_exception_handler,
-} | {exc: overloaded_error_handler for exc in OVERLOADED_EXCEPTIONS}
+exception_handlers = app_exception_handlers()
 
 
 def update_openapi_spec(app):
@@ -132,23 +97,42 @@ def update_openapi_spec(app):
         set_custom_spec(spec)
 
 
+def _with_leaf_path_params(route: BaseRoute, app: ASGIApp) -> ASGIApp:
+    """Resolves FastAPI 0.137+ included-router path params before middleware runs."""
+
+    async def resolved(scope: Scope, receive: Receive, send: Send) -> None:
+        # Uses FastAPI's private `_IncludedRouter._match`; CI exercises this path on latest FastAPI.
+        branch, child_scope = route, {}
+        while isinstance(branch, type(route)):
+            _, child_scope, branch, _ = branch._match(scope)
+        if "path_params" in child_scope:
+            scope["path_params"] = child_scope["path_params"]
+        await app(scope, receive, send)
+
+    return resolved
+
+
 def apply_middleware(
     routes: list[BaseRoute], middleware: list[Middleware]
 ) -> list[BaseRoute]:
-    """Applies middleware to a list of routes.
-
-    Routes are modified in place (only the `app` attribute is modified);
-    the modified routes are returned for convenience.
-    """
-    middleware_routes = []
+    """Applies middleware to routes in place, preserving route metadata."""
     for route in routes:
+        # Routes with an `app` are wrapped after matching and the method check;
+        # app-less FastAPI 0.137+ included routers are wrapped at `handle`.
+        attr = "app" if hasattr(route, "app") else "handle"
+        wrapped = getattr(route, attr)
         for cls, args, kwargs in reversed(middleware):
-            if hasattr(route, "app"):
-                route.app = cls(route.app, *args, **kwargs)
+            wrapped = cls(wrapped, *args, **kwargs)
+        if attr == "handle" and middleware:
+            if hasattr(route, "_match"):
+                wrapped = _with_leaf_path_params(route, wrapped)
             else:
-                raise ValueError(f"Cannot apply middleware: route {route} has no app")
-        middleware_routes.append(route)
-    return middleware_routes
+                logger.warning(
+                    "Middleware cannot resolve path params for route",
+                    route_type=type(route).__name__,
+                )
+        setattr(route, attr, wrapped)
+    return routes
 
 
 def validate_router_lifespan_hooks(router: typing.Any) -> None:
@@ -314,3 +298,7 @@ if config.MOUNT_PREFIX:
     # This ensures that when MOUNT_PREFIX is set and request.app points to the wrapper app,
     # request.app.state still provides access to the state set on the original app.
     app.state = original_app.state
+
+# Operator routes must run before every other middleware, including the customer's
+# and the JS proxy, so a customer app can't block or filter them. Keep this last.
+app.add_middleware(OperatorRoutesMiddleware, mount_prefix=config.MOUNT_PREFIX)

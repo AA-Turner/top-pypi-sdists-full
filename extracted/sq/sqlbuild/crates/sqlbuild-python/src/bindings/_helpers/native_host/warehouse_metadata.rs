@@ -11,7 +11,8 @@ use sqlbuild_config::command_connection::constants::{
 use sqlbuild_core::constants::{
     AUDIT_RESULTS_TABLE_NAME, COLUMN_MIGRATION_TABLE_NAME, CONSUMPTION_TABLE_NAME,
     FINGERPRINT_TABLE_NAME, JANITOR_EVENTS_TABLE_NAME, MICROBATCH_TABLE_NAME, MIGRATION_TABLE_NAME,
-    NODE_RESULTS_TABLE_NAME, OLD_NAME_VIEW_TABLE_NAME, SOURCE_FRESHNESS_TABLE_NAME,
+    NODE_RESULTS_TABLE_NAME, OBSERVATIONS_TABLE_NAME, OLD_NAME_VIEW_TABLE_NAME,
+    SOURCE_FRESHNESS_TABLE_NAME,
 };
 use sqlbuild_core::models::SqlValue;
 use sqlbuild_orchestration::warehouse_metadata::constants::MAX_HISTORY_RECORDS;
@@ -26,6 +27,7 @@ use sqlbuild_state::events::constants::{
 use sqlbuild_state::freshness::constants::{
     OBSERVED_AT_COLUMN, SOURCE_FRESHNESS_COLUMN_TYPES, SQLITE_ADAPTER,
 };
+use sqlbuild_state::observations::constants::OBSERVATION_COLUMN_TYPES;
 use sqlbuild_state::state_tables::main::read_history_sql::read_history_sql;
 use sqlbuild_state::state_tables::models::HistoryRead;
 
@@ -36,6 +38,7 @@ use crate::bindings::_helpers::compiled_project::values::plain_value;
 use crate::bindings::_helpers::fingerprints::latest_rows::row_fingerprint;
 use crate::bindings::_helpers::freshness::state_io::row_record;
 use crate::bindings::_helpers::freshness::support::presumed_utc_datetime;
+use crate::bindings::_helpers::native_host::constants::HISTORY_STREAM_PAGES;
 use crate::bindings::_helpers::native_host::warehouse_catalog::read_catalog;
 use crate::bindings::_helpers::native_host::warehouse_statistics::read_statistics;
 use crate::bindings::_helpers::query_command::project::{
@@ -44,30 +47,35 @@ use crate::bindings::_helpers::query_command::project::{
 use crate::bindings::_helpers::records::fields::field;
 use crate::bindings::_helpers::records::{construct::record_class, ids::RecordId};
 
-pub(crate) fn read_history(
-    py: Python<'_>,
-    arguments: &KeywordArguments<'_>,
-    request: &WarehouseHistoryRead,
-) -> PyResult<WarehouseHistoryPage> {
-    let location = match request {
-        WarehouseHistoryRead::Statistics(read) => &read.location,
-        WarehouseHistoryRead::Catalog(read) => &read.location,
-        WarehouseHistoryRead::SourceFreshness(read) => &read.location,
-        WarehouseHistoryRead::Fingerprints(read) => &read.location,
-        WarehouseHistoryRead::AuditResults(read)
-        | WarehouseHistoryRead::JanitorEvents(read)
-        | WarehouseHistoryRead::Migrations(read)
-        | WarehouseHistoryRead::OldNameViews(read)
-        | WarehouseHistoryRead::Microbatches(read)
-        | WarehouseHistoryRead::ColumnMigrations(read) => &read.location,
-        WarehouseHistoryRead::NodeResults(read) => &read.location,
-        WarehouseHistoryRead::Consumption(read) => &read.location,
-    };
-    if location.schema.trim().is_empty() {
-        return Err(PyValueError::new_err(
-            "metadata state schema must not be blank",
-        ));
-    }
+/// One read-only adapter session serves every page of one synchronization.
+pub(crate) struct HistorySession<'py> {
+    adapter: Bound<'py, PyAny>,
+    connection: Bound<'py, PyAny>,
+    /// A local database file, whose read-only connection would block other processes' writers.
+    pub(crate) local: bool,
+}
+
+/// One ordered SELECT per table scan; each page fetches the next rows of the same result.
+pub(crate) struct HistoryStream<'py> {
+    /// The request that opened the stream, without its cursor, limit or token.
+    scan: Value,
+    /// A DB-API cursor, or DuckDB's connection; dropped, never closed, when discarded.
+    cursor: Bound<'py, PyAny>,
+    /// The cursor the last delivered page ended at; only a request for exactly it continues.
+    next_after: Vec<Option<String>>,
+    /// Rows the bounded SELECT can still return; at zero the next page reads from its cursor.
+    remaining: usize,
+    qualified: String,
+    columns: Vec<String>,
+    timestamp: String,
+    cursor_indexes: Vec<usize>,
+    since: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+pub(crate) fn open_history_session<'py>(
+    py: Python<'py>,
+    arguments: &KeywordArguments<'py>,
+) -> PyResult<HistorySession<'py>> {
     let ProjectAdapter {
         project_dir,
         discovered,
@@ -84,10 +92,10 @@ pub(crate) fn read_history(
         true,
     )?;
     let adapter_name: String = adapter.getattr("adapter_name")?.extract()?;
-    if let Some((_, path_key)) = LOCAL_DATABASE_PATH_KEYS
+    let local_path_key = LOCAL_DATABASE_PATH_KEYS
         .iter()
-        .find(|(name, _)| *name == adapter_name)
-    {
+        .find(|(name, _)| *name == adapter_name);
+    if let Some((_, path_key)) = local_path_key {
         let config = connection_config.cast::<PyDict>()?;
         let path: Option<String> = config
             .get_item(path_key)?
@@ -108,20 +116,75 @@ pub(crate) fn read_history(
         }
     }
     let connection = adapter.call_method1("connect", (connection_config,))?;
-    let read = read_page(py, (&adapter, &connection), request);
-    let closed = adapter.call_method1("close", (&connection,));
-    let page = read?;
-    closed?;
-    Ok(page)
+    Ok(HistorySession {
+        adapter,
+        connection,
+        local: local_path_key.is_some(),
+    })
 }
 
-fn read_page(
-    py: Python<'_>,
-    (adapter, connection): (&Bound<'_, PyAny>, &Bound<'_, PyAny>),
+pub(crate) fn close_history_session(
+    session: HistorySession<'_>,
+    stream: Option<HistoryStream<'_>>,
+) -> PyResult<()> {
+    discard_stream(&session.connection, stream)?;
+    session
+        .adapter
+        .call_method1("close", (&session.connection,))?;
+    Ok(())
+}
+
+/// Returns the page and the scan's still-open stream, which only its next page continues.
+pub(crate) fn read_history<'py>(
+    py: Python<'py>,
+    (session, stream): (&HistorySession<'py>, Option<HistoryStream<'py>>),
     request: &WarehouseHistoryRead,
-) -> PyResult<WarehouseHistoryPage> {
+) -> PyResult<(WarehouseHistoryPage, Option<HistoryStream<'py>>)> {
+    let location = match request {
+        WarehouseHistoryRead::Statistics(read) => &read.location,
+        WarehouseHistoryRead::Catalog(read) => &read.location,
+        WarehouseHistoryRead::SourceFreshness(read) => &read.location,
+        WarehouseHistoryRead::Fingerprints(read) => &read.location,
+        WarehouseHistoryRead::AuditResults(read)
+        | WarehouseHistoryRead::JanitorEvents(read)
+        | WarehouseHistoryRead::Migrations(read)
+        | WarehouseHistoryRead::OldNameViews(read)
+        | WarehouseHistoryRead::Microbatches(read)
+        | WarehouseHistoryRead::ColumnMigrations(read)
+        | WarehouseHistoryRead::Observations(read) => &read.location,
+        WarehouseHistoryRead::NodeResults(read) => &read.location,
+        WarehouseHistoryRead::Consumption(read) => &read.location,
+    };
+    if location.schema.trim().is_empty() {
+        return Err(PyValueError::new_err(
+            "metadata state schema must not be blank",
+        ));
+    }
+    read_page(py, (session, stream), request)
+}
+
+/// Any request but the open scan's next page discards that result before running other SQL.
+fn read_page<'py>(
+    py: Python<'py>,
+    (session, stream): (&HistorySession<'py>, Option<HistoryStream<'py>>),
+    request: &WarehouseHistoryRead,
+) -> PyResult<(WarehouseHistoryPage, Option<HistoryStream<'py>>)> {
+    let (scan, after_value) = scan_identity(request)?;
+    let continued = match stream {
+        Some(stream)
+            if stream.scan == scan && after_value.as_ref() == Some(&json!(stream.next_after)) =>
+        {
+            Some(stream)
+        }
+        other => {
+            discard_stream(&session.connection, other)?;
+            None
+        }
+    };
+    let (adapter, connection) = (&session.adapter, &session.connection);
     let freshness_columns = SOURCE_FRESHNESS_COLUMN_TYPES.map(|(name, _)| name);
     let consumption_columns = CONSUMPTION_COLUMN_TYPES.map(|(name, _)| name);
+    let observation_columns = OBSERVATION_COLUMN_TYPES.map(|(name, _)| name);
     let event_columns: Vec<String> = match request {
         WarehouseHistoryRead::AuditResults(_) => py
             .import("sqlbuild.executor.audit_results.constants")?
@@ -140,10 +203,10 @@ fn read_page(
     let event_columns: Vec<&str> = event_columns.iter().map(String::as_str).collect();
     let (location, after, since, limit, table, columns, timestamp) = match request {
         WarehouseHistoryRead::Statistics(read) => {
-            return read_statistics(py, (adapter, connection), read);
+            return Ok((read_statistics(py, (adapter, connection), read)?, None));
         }
         WarehouseHistoryRead::Catalog(read) => {
-            return read_catalog(py, (adapter, connection), read);
+            return Ok((read_catalog(py, (adapter, connection), read)?, None));
         }
         WarehouseHistoryRead::SourceFreshness(read) => (
             &read.location,
@@ -235,12 +298,24 @@ fn read_page(
             consumption_columns.as_slice(),
             RECORDED_AT_COLUMN,
         ),
+        WarehouseHistoryRead::Observations(read) => (
+            &read.location,
+            read.after.as_ref().map(|cursor| cursor.as_slice()),
+            read.observed_since,
+            read.limit,
+            OBSERVATIONS_TABLE_NAME,
+            observation_columns.as_slice(),
+            OBSERVED_AT_COLUMN,
+        ),
     };
     let limit = limit.unwrap_or(MAX_HISTORY_RECORDS);
     if limit == 0 || limit > MAX_HISTORY_RECORDS {
         return Err(PyValueError::new_err(
             "metadata page limit is outside the supported bounds",
         ));
+    }
+    if let Some(stream) = continued {
+        return stream_page(py, (session, request), stream, limit);
     }
     let database = location.database.as_ref().map_or_else(
         || py.None().into_bound(py),
@@ -259,10 +334,27 @@ fn read_page(
     )?
     .is_truthy()?;
     if !exists {
-        return Ok(WarehouseHistoryPage {
+        let page = WarehouseHistoryPage {
             records: Vec::new(),
             next_after: None,
-        });
+            change_token: None,
+            unchanged: false,
+        };
+        return Ok((page, None));
+    }
+    let change_token: Option<String> = if after.is_none() {
+        relation_change_token(py, (adapter, connection), (&database, &schema, &name))?
+    } else {
+        None
+    };
+    if change_token.is_some() && change_token.as_deref() == unchanged_token(request) {
+        let page = WarehouseHistoryPage {
+            records: Vec::new(),
+            next_after: None,
+            change_token,
+            unchanged: true,
+        };
+        return Ok((page, None));
     }
     let catalog_columns = call_with(
         &adapter.getattr("get_columns")?,
@@ -327,6 +419,7 @@ fn read_page(
             "input_version",
             RECORDED_AT_COLUMN,
         ]),
+        WarehouseHistoryRead::Observations(_) => Some(&["observation_id", OBSERVED_AT_COLUMN]),
         _ => None,
     };
     let mut cursor_indexes: Vec<usize> = columns
@@ -393,6 +486,11 @@ fn read_page(
         })
         .collect();
     let projection: Vec<&str> = projection.iter().map(String::as_str).collect();
+    let window = if session.local {
+        limit
+    } else {
+        limit * HISTORY_STREAM_PAGES
+    };
     let sql = read_history_sql(
         &qualified,
         after.map(|_| literals.as_slice()),
@@ -403,31 +501,61 @@ fn read_page(
             observed_since: observed_since.as_deref(),
             adapter: &adapter_name,
             has_event_id,
-            limit,
+            limit: window,
         },
     )
     .map_err(PyValueError::new_err)?;
-    let result = call_with(
-        &adapter.getattr("query")?,
+    let cursor = call_with(
+        &adapter.getattr("execute")?,
         &[
             ("connection", connection.clone()),
             ("sql", PyString::new(py, &sql).into_any()),
-            (
-                "limit",
-                pyo3::IntoPyObjectExt::into_bound_py_any(limit, py)?,
-            ),
         ],
     )?;
+    let stream = HistoryStream {
+        scan,
+        cursor,
+        next_after: Vec::new(),
+        remaining: window,
+        qualified,
+        columns: columns.iter().map(|column| (*column).to_owned()).collect(),
+        timestamp: timestamp.to_owned(),
+        cursor_indexes,
+        since,
+    };
+    let (mut page, stream) = stream_page(py, (session, request), stream, limit)?;
+    page.change_token = change_token;
+    Ok((page, stream))
+}
+
+/// Fetch one page from the scan's result; a full page keeps the stream open for the next.
+fn stream_page<'py>(
+    py: Python<'py>,
+    (session, request): (&HistorySession<'py>, &WarehouseHistoryRead),
+    mut stream: HistoryStream<'py>,
+    limit: usize,
+) -> PyResult<(WarehouseHistoryPage, Option<HistoryStream<'py>>)> {
+    let columns: Vec<&str> = stream.columns.iter().map(String::as_str).collect();
+    let tuple = py.import("builtins")?.getattr("tuple")?;
     let mut records: Vec<WarehouseHistoryRecord> = Vec::new();
     let mut next_after = None;
     let mut read_count = 0;
-    for row in field(&result, "rows")?.try_iter()? {
+    let fetch = limit.min(stream.remaining);
+    for row in stream
+        .cursor
+        .call_method1("fetchmany", (fetch,))?
+        .try_iter()?
+    {
         read_count += 1;
-        let row = row?;
-        let record = decode_record(py, (request, &row, &qualified), (columns, timestamp))?;
-        let mut cursor = vec![None; cursor_indexes.len()];
+        let row = tuple.call1((row?,))?;
+        let record = decode_record(
+            py,
+            (request, &row, &stream.qualified),
+            (&columns, &stream.timestamp),
+        )?;
+        let mut cursor = vec![None; stream.cursor_indexes.len()];
         for (index, value) in cursor.iter_mut().enumerate() {
-            let raw = row.get_item(cursor_indexes[index])?;
+            let raw = row.get_item(stream.cursor_indexes[index])?;
             *value = if raw.is_none() {
                 None
             } else {
@@ -450,18 +578,110 @@ fn read_page(
             WarehouseHistoryRecord::ColumnMigration(record) => record.created_at,
             WarehouseHistoryRecord::NodeResult(record) => record.ts,
             WarehouseHistoryRecord::Consumption(record) => record.recorded_at,
+            WarehouseHistoryRecord::Observation(record) => record.observed_at,
         };
-        if since.is_none_or(|since| observed >= since) {
+        if stream.since.is_none_or(|since| observed >= since) {
             records.push(record);
         }
         next_after = Some(cursor);
     }
-    if read_count < limit {
-        next_after = None;
-    }
-    Ok(WarehouseHistoryPage {
+    stream.remaining -= read_count;
+    let open = match &next_after {
+        Some(after) if read_count == fetch && stream.remaining > 0 => {
+            stream.next_after.clone_from(after);
+            Some(stream)
+        }
+        Some(_) if read_count == fetch => {
+            discard_stream(&session.connection, Some(stream))?;
+            None
+        }
+        _ => {
+            next_after = None;
+            discard_stream(&session.connection, Some(stream))?;
+            None
+        }
+    };
+    let page = WarehouseHistoryPage {
         records,
         next_after,
+        change_token: None,
+        unchanged: false,
+    };
+    Ok((page, open))
+}
+
+/// A scan's identity without its position, and the position, so a next page continues its result.
+fn scan_identity(request: &WarehouseHistoryRead) -> PyResult<(Value, Option<Value>)> {
+    let mut value =
+        serde_json::to_value(request).map_err(|error| PyValueError::new_err(error.to_string()))?;
+    let mut after = None;
+    if let Some(read) = value
+        .as_object_mut()
+        .and_then(|kinds| kinds.values_mut().next())
+        .and_then(Value::as_object_mut)
+    {
+        after = read.remove("after").filter(|after| !after.is_null());
+        read.remove("limit");
+        read.remove("unchanged_token");
+    }
+    Ok((value, after))
+}
+
+/// Free the driver statement (SQL Server allows one active result); DuckDB's is the connection.
+fn discard_stream(
+    connection: &Bound<'_, PyAny>,
+    stream: Option<HistoryStream<'_>>,
+) -> PyResult<()> {
+    if let Some(stream) = stream
+        && !stream.cursor.is(connection)
+    {
+        stream.cursor.call_method0("close")?;
+    }
+    Ok(())
+}
+
+/// The token a complete earlier read recorded; only state-table scans carry one.
+fn unchanged_token(request: &WarehouseHistoryRead) -> Option<&str> {
+    match request {
+        WarehouseHistoryRead::SourceFreshness(read) => read.unchanged_token.as_deref(),
+        WarehouseHistoryRead::Fingerprints(read) => read.unchanged_token.as_deref(),
+        WarehouseHistoryRead::AuditResults(read)
+        | WarehouseHistoryRead::JanitorEvents(read)
+        | WarehouseHistoryRead::Migrations(read)
+        | WarehouseHistoryRead::OldNameViews(read)
+        | WarehouseHistoryRead::Microbatches(read)
+        | WarehouseHistoryRead::ColumnMigrations(read)
+        | WarehouseHistoryRead::Observations(read) => read.unchanged_token.as_deref(),
+        WarehouseHistoryRead::NodeResults(read) => read.unchanged_token.as_deref(),
+        WarehouseHistoryRead::Consumption(read) => read.unchanged_token.as_deref(),
+        WarehouseHistoryRead::Catalog(_) | WarehouseHistoryRead::Statistics(_) => None,
+    }
+}
+
+/// The adapter's change token for one table; without one, or when reading it fails, the scan reads as before.
+fn relation_change_token(
+    py: Python<'_>,
+    (adapter, connection): (&Bound<'_, PyAny>, &Bound<'_, PyAny>),
+    (database, schema, name): (&Bound<'_, PyAny>, &Bound<'_, PyAny>, &Bound<'_, PyAny>),
+) -> PyResult<Option<String>> {
+    let reader = py
+        .import("sqlbuild.adapter.relations.types")?
+        .getattr("RelationChangeTokenReader")?;
+    if !adapter.is_instance(&reader)? {
+        return Ok(None);
+    }
+    let token = call_with(
+        &adapter.getattr("read_relation_change_token")?,
+        &[
+            ("connection", connection.clone()),
+            ("database", database.clone()),
+            ("schema", schema.clone()),
+            ("name", name.clone()),
+        ],
+    );
+    Ok(match token {
+        Ok(token) if !token.is_none() => Some(token.extract()?),
+        _ => None,
     })
 }
 
@@ -490,7 +710,8 @@ fn decode_record(
         ),
         WarehouseHistoryRead::AuditResults(read)
         | WarehouseHistoryRead::Migrations(read)
-        | WarehouseHistoryRead::ColumnMigrations(read) => {
+        | WarehouseHistoryRead::ColumnMigrations(read)
+        | WarehouseHistoryRead::Observations(read) => {
             return decode_event_record(&read.location, row, (columns, &[timestamp]));
         }
         WarehouseHistoryRead::NodeResults(NodeResultsRead { location, .. })

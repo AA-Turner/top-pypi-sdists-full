@@ -15,9 +15,19 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from probe.generated.samples import CaptureField
+
 from ..recorder import Recorder
 from ..rollout_loop import ProbeRolloutLoop, take_rollout_key
-from ..rows import RowReader, build_completion, render_prompt, to_finite, to_ints, to_numbers
+from ..rows import (
+    TOOL_FIELDS,
+    RowReader,
+    build_completion,
+    render_prompt,
+    to_finite,
+    to_ints,
+    to_numbers,
+)
 
 #: The worker sends a bare group id for a group it dropped whole (all rewards equal, `async_rollout_worker.py:997`):
 #: no sample of it reaches the trainer, so it is a seal count. TRL sends a `filter_prompt` rejection the same way.
@@ -28,6 +38,19 @@ UNSCORED = "reward_fn: no reward function scored this rollout"
 #: Kept samples waiting for their micro-batch: the batcher holds one micro-batch, so this never fills unless the
 #: collator stops being watched; past it the oldest is forgotten (it then reads `generated`, never consumed).
 MAX_WAITING = 10_000
+
+
+#: What AsyncGRPO cannot give a sample (`plan(unsupported=)`), and why.
+ASYNC_NUMBERED_IDS = ("TRL's parser gives tool calls no id: Probe numbers them probe-<turn>-<i> and links each result "
+                      "in call order (the rollout process awaits each call in turn), checked by tool name")
+ASYNC_FILES = ("AsyncGRPO runs tools in its rollout process, where the sample is not written: a tool's files cannot "
+               "reach its sample")
+#: AsyncDistillation's rollout is one plain student reply: its worker takes no tools (`async_distillation/
+#: async_rollout_worker.py:688`) and decodes the reply as text (`:549-551`).
+DISTILL_NO_TOOLS = ("AsyncDistillation runs no tools: each rollout is one student reply, so there are no tool calls, "
+                    "results or tool files")
+DISTILL_TEXT = ("AsyncDistillation decodes each student reply as plain text (async_rollout_worker.py:549-551): no "
+                "reasoning apart from the content")
 
 
 @dataclass
@@ -41,6 +64,8 @@ class _Drained:
     version: int | None = None
     #: The live sample (rollout) it came from, carried in its `metrics` by the rollout process.
     attempt_key: str | None = None
+    #: Its key's parts, (model version, group or prompt, index): the per-sample loss rows rebuild the key from them.
+    place: tuple[int, int, int] | None = None
 
 
 class _QueueTap:
@@ -73,11 +98,23 @@ class AsyncQueueRecorder(Recorder):
         #: id(sample.input_ids) -> the drained sample: the yielded dict carries that same array to the collator.
         self._kept: dict[int, _Drained] = {}
         self._batches: deque[list[_Drained]] = deque()
+        #: The last collated batch's samples' key parts, in collation order (None: not kept), until taken.
+        self._places: list[tuple[int, int, int] | None] = []
         self._is_collator_watched = False
         self._indexes: Counter = Counter()
         #: weight version -> the optimizer step after which it went live.
         self._version_steps: dict[int, int] = {}
         self._last_version: int | None = None
+
+    def get_unsupported(self) -> dict[CaptureField, str]:
+        """AsyncGRPO: call ids are Probe's (the rollout process awaits each call in order,
+        `async_rollout_worker.py:1209-1246`); tools run in TRL's rollout process, not where the sample is written.
+        Reasoning is never declared: the rollout process always adds a response schema and parses each reply
+        (`async_rollout_worker.py:458-463,1183`), whatever the trainer's tokenizer holds. AsyncDistillation runs no
+        tools and keeps plain text."""
+        if any(cls.__name__ == "AsyncDistillationTrainer" for cls in type(self.trainer).__mro__):
+            return {**dict.fromkeys(TOOL_FIELDS, DISTILL_NO_TOOLS), CaptureField.REASONING: DISTILL_TEXT}
+        return {CaptureField.TOOL_CALL_IDS: ASYNC_NUMBERED_IDS, CaptureField.ENVIRONMENT_FILES: ASYNC_FILES}
 
     def install(self) -> None:
         trainer = self.trainer
@@ -186,7 +223,9 @@ class AsyncQueueRecorder(Recorder):
         owner = getattr(item, "group_id", getattr(item, "prompt_id", 0))
         index = self._indexes[(version, owner)]
         self._indexes[(version, owner)] += 1
-        self._pending = _Drained(item, f"{version}:{owner}:{index}", time.time(), size, attempt_key=attempt_key)
+        place = (version, owner, index) if isinstance(owner, int) else None
+        self._pending = _Drained(item, f"{version}:{owner}:{index}", time.time(), size, attempt_key=attempt_key,
+                                 place=place)  # fmt: skip
 
     def _check_staleness(self, version: Any) -> None:
         """The reader's own rule (`:306-310`): staleness = its version - the sample's; past `max_staleness` it
@@ -211,6 +250,13 @@ class AsyncQueueRecorder(Recorder):
     def _record_batch(self, examples: Any) -> None:
         found = [self._kept.pop(id(example["input_ids"]), None) for example in _flatten(examples)]
         self._batches.append([drained for drained in found if drained is not None])
+        self._places = [drained.place if drained is not None else None for drained in found]
+
+    def take_batch_places(self) -> list[tuple[int, int, int] | None]:
+        """The batch just collated: each sample's key parts, in collation order (every rank's row in turn, each row's
+        samples in order), once."""
+        places, self._places = self._places, []
+        return places
 
     def _record_version(self, step: int) -> None:
         version = getattr(self.trainer, "model_version", None)
@@ -254,7 +300,7 @@ class AsyncQueueRecorder(Recorder):
         if metrics:
             part["metrics"] = metrics
         if row_index is not None:
-            part["extras"] = {"dataset_row": row_index}
+            part["extras"] = {**(part.get("extras") or {}), "dataset_row": row_index}
         part["token_arrays"] = self._get_token_arrays(sample, mask)
         return part
 

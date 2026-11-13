@@ -1,4 +1,5 @@
-"""Turns: a multi-turn attempt's messages, each with its source and trainable flag, plus its lifecycle events."""
+"""Turns: a multi-turn attempt's messages (each with its source, trainable flag, tool calls and reasoning), plus its
+lifecycle events."""
 
 from __future__ import annotations
 
@@ -22,6 +23,25 @@ class MessageSource(StrEnum):
     SYSTEM = "system"
 
 
+class TurnsSource(StrEnum):
+    """Where a sample's turns came from, so a reader can tell the messages as sent from text Probe rebuilt."""
+
+    AS_SENT = "as_sent"  # the messages the agent loop or framework built
+    DECODED = "decoded"  # Probe rebuilt them from token ids (no structured messages were held)
+
+
+class MessageToolCall(BaseModel):
+    """One tool call an assistant message asked for, as the framework handed it to the tool (not `ToolCall`: that
+    name collided in OpenAPI, #4640). Its run's stats are the `TurnToolCall` with the same `id`."""
+
+    #: As the framework named it; `probe-<turn>-<i>` when Probe numbered it (the plan declares `tool_call_ids`).
+    id: str | None = Field(default=None, max_length=256)
+    name: str = Field(max_length=256)
+    #: The arguments as the framework handed them to the tool (JSON text), credentials scrubbed by value; the model's
+    #: exact bytes stay in the token bundle.
+    arguments: str = ""
+
+
 class Message(BaseModel):
     #: The chat role as the framework sent it (user, assistant, tool, system).
     role: str = Field(max_length=64)
@@ -31,11 +51,16 @@ class Message(BaseModel):
     content: str = ""
     name: str | None = Field(default=None, max_length=256)
     tool_call_id: str | None = Field(default=None, max_length=256)
+    #: The model's reasoning, apart from `content`, only where the model or engine gives it (None, never "").
+    reasoning: str | None = None
+    tool_calls: list[MessageToolCall] = Field(default_factory=list)
 
 
 class TurnToolCall(BaseModel):
     """One tool call's stats: what ran, whether it worked, how long it took."""
 
+    #: The `MessageToolCall` this run executed.
+    id: str | None = Field(default=None, max_length=256)
     name: str = Field(max_length=256)
     is_ok: bool | None = None
     duration_s: float | None = Field(default=None, ge=0)

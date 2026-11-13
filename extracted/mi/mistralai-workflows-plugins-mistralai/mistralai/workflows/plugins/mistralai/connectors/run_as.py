@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import warnings
 from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Literal
 
-from mistralai.workflows.client import should_use_executor_credentials
+from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
+from mistralai.workflows.exceptions import WorkflowError
 
 if TYPE_CHECKING:
     from mistralai.workflows.core.auth.run_as import ConnectorRunAs as ConnectorRunAs
@@ -24,7 +26,23 @@ else:
         __getattr__ = _deprecated_alias_getattr(__name__)
 
 
-RunAsArg = Literal["auto", "deployment"] | None
+RunAsArg = RunAs | Literal["auto", "deployment"] | None
+
+
+def require_connector_run_as(run_as: RunAs) -> RunAs:
+    if run_as == RunAs.EXECUTOR:
+        raise ValueError(
+            "Invalid connector run_as 'executor'; it is for SDK clients only, expected 'auto' or 'deployment'"
+        )
+    return run_as
+
+
+def require_connector_activity_run_as(run_as: RunAs) -> RunAs:
+    """Like :func:`require_connector_run_as`, but fails the activity without retrying."""
+    try:
+        return require_connector_run_as(run_as)
+    except ValueError as exc:
+        raise WorkflowError(str(exc), non_retryable=True) from None
 
 
 def normalize_run_as(value: RunAsArg) -> RunAs:
@@ -36,9 +54,10 @@ def normalize_run_as(value: RunAsArg) -> RunAs:
     if value is None:
         return RunAs.AUTO
     try:
-        return RunAs(value)
+        run_as = RunAs(value)
     except ValueError:
         raise ValueError(f"Invalid connector run_as {value!r}; expected 'auto', 'deployment', or None") from None
+    return require_connector_run_as(run_as)
 
 
 def use_executor_credentials_for(run_as: RunAs = RunAs.AUTO) -> bool:
@@ -46,10 +65,19 @@ def use_executor_credentials_for(run_as: RunAs = RunAs.AUTO) -> bool:
 
     ``DEPLOYMENT`` always uses the deployment's service identity; ``AUTO`` follows
     the workflow's ``on_behalf_of`` flag.
+
+    Deprecated: removed in v4. Pass ``run_as`` to ``connector()`` or ``get_mistral_client()`` instead.
     """
-    if run_as == RunAs.DEPLOYMENT:
+    warnings.warn(
+        "use_executor_credentials_for() is deprecated and will be removed in v4; "
+        "pass run_as to connector() or get_mistral_client() instead.",
+        FutureWarning,
+        stacklevel=2,
+    )
+    if require_connector_run_as(run_as) == RunAs.DEPLOYMENT:
         return False
-    return should_use_executor_credentials()
+    context = retrieve_context()
+    return bool(context and context.on_behalf_of)
 
 
 def pinned_run_as_values(

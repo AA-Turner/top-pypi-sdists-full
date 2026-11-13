@@ -188,6 +188,13 @@ class Thread(TypedDict):
     """The current state of the thread."""
     interrupts: dict[str, list[Interrupt]]
     """The current interrupts of the thread, a map of task_id to list of interrupts."""
+    run_priority: int | None
+    """The queue priority level of the thread's runs, from -5 (highest priority) to 5
+    (lowest priority). Set at the thread's first run; None until then."""
+    fairness_group: str | None
+    """A label for the thread's runs, such as a tenant or customer ID, kept for sharing
+    workers fairly between tenants; scheduling doesn't use it yet. Set at the thread's
+    first run with a default of "default"; None until then."""
     ttl: NotRequired[ThreadTTLInfo]
     """TTL information if set for this thread. Only present when ?include=ttl is passed."""
     extracted: NotRequired[dict[str, Any]]
@@ -263,6 +270,8 @@ class Run(TypedDict):
     """LangSmith tracing session (project) name for this run, if tracing is enabled."""
     cancel_reason: str | None
     """Why the run was cancelled, if it was. Server-generated."""
+    priority: int
+    """Queue priority level of the run, from -5 to 5; a lower level starts first."""
 
 
 class RunSend(TypedDict):
@@ -317,12 +326,36 @@ class ThreadUpdateResponse(TypedDict):
     checkpoint: Checkpoint
 
 
+class QueueLevelStats(TypedDict):
+    """One priority level's part of the queue: its runs that can start (each thread's
+    oldest pending run that is due, on threads with nothing running), and its running
+    runs."""
+
+    priority: int
+    """The level, from -5 to 5, where a lower level starts first."""
+    n_startable: int
+    startable_runs_wait_time_max_secs: float | None
+    startable_runs_wait_time_med_secs: float | None
+    n_running: int
+
+
 class QueueStats(TypedDict):
     n_pending: int
     n_running: int
     pending_runs_wait_time_max_secs: float | None
     pending_runs_wait_time_med_secs: float | None
     pending_unblocked_runs_wait_time_max_secs: float | None
+    by_priority: NotRequired[list[QueueLevelStats]]
+    """Every level, most urgent (-5) first; only on a deployment with a priority callback."""
+
+
+class RunCancelProgress(TypedDict):
+    """Targets of a cancel-by-boundary still in flight."""
+
+    not_yet_reached: int
+    """Targets with no cancel intent yet."""
+    finishing: int
+    """Targets that have a cancel intent and haven't stopped yet."""
 
 
 # Canonical field sets for select= validation and type aliases for ops
@@ -353,6 +386,8 @@ ThreadSelectField = Literal[
     "status",
     "values",
     "interrupts",
+    "run_priority",
+    "fairness_group",
 ]
 THREAD_FIELDS: set[str] = set(ThreadSelectField.__args__)
 
@@ -382,6 +417,7 @@ RunSelectField = Literal[
     "multitask_strategy",
     "langsmith_session_name",
     "cancel_reason",
+    "priority",
 ]
 RUN_FIELDS: set[str] = set(RunSelectField.__args__)
 

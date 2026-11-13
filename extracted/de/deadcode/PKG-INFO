@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: deadcode
-Version: 2.6.1
+Version: 2.6.2
 Summary: Find and fix unused Python code using command line.
 Project-URL: homepage, https://github.com/albertas/deadcode
 Project-URL: documentation, https://deadcode.readthedocs.io/
@@ -136,14 +136,13 @@ ignore-definitions-if-inherits-from = [
 ignore-names-in-files = ["*/settings.py", "*/urls.py"]
 ```
 
-The example targets Django 5.2 LTS (5.2.19). The Django REST Framework 3.18.3 entries are additions to the same two keys; see the
-[Django REST Framework section of the Django guide](https://deadcode.readthedocs.io/en/latest/django.html#django-rest-framework). The three keys replace the
+The example targets Django 5.2 LTS (5.2.19). The three keys replace the
 older overlapping name, body, and definition options: one inheritance entry hides a framework subclass name and body, and one decorator entry hides a
 decorated definition name and body. deadcode parses `MIDDLEWARE` registrations and resolves absolute-import qualified names, so a registered middleware
 name and a `models.Model` base need no separate name pattern.
 
 Read the [Django guide](https://deadcode.readthedocs.io/en/latest/django.html) for the framework areas, the current and legacy
-middleware forms, both import forms, database signals, the Django REST Framework entries, and the expected behaviour.
+middleware forms, both import forms, database signals, and the expected behaviour.
 
 ## Pre-commit hook
 Create a `.pre-commit-config.yaml` file in the root of your project directory, if it doesn't exist, and add the following to the file:
@@ -153,7 +152,7 @@ Create a `.pre-commit-config.yaml` file in the root of your project directory, i
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
   - repo: https://github.com/albertas/deadcode
-    rev: v2.6.1
+    rev: v2.6.2
     hooks:
       - id: deadcode
 ```
@@ -169,6 +168,7 @@ run the same hook while developing deadcode itself, use `make pre-commit`.
 |`--dry`                                    | -    | Show changes which would be made in files. |
 |`--only`                                   | list | Filenames (or path expressions), that will be reflected in the output (and modified if needed). |
 |`--exclude`                                | list | Filenames (or path expressions), which will be completely skipped without being analysed. |
+|`--ignore`                                 | list | Ignores findings (and fixes) for the provided rule codes for the whole run. |
 |`--ignore-names`                           | list | Removes provided list of names from the output. Glob expressions to match multiple names can also be provided, e.g. `*Mixin` will match all classes ending with `Mixin`. |
 |`--ignore-names-in-files`                  | list | Ignores unused names in files, which filenames match provided path expressions. |
 |`--ignore-names-if-inherits-from`          | list | Ignores names of classes which inherit from any of the provided class names. The class name may be a plain name, a dotted path such as `graphene.ObjectType`, or a glob such as `*.ObjectType`; a dotted base also matches its final component (`ObjectType`). Only the class name is suppressed; its members and body are controlled by `--ignore-bodies-if-inherits-from` and `--ignore-definitions-if-inherits-from`. |
@@ -262,6 +262,31 @@ A comment on the first decorator line is still accepted.
 | DC13  | unreachable-code     | Code after terminal statement, e.g. `return`, `raise`, `continue`, `break`
 | DC    | ignore-expression    | Do not show any findings for an expression, which starts on current line (this code can only be used in `# noqa: DC` comments)
 
+## Ignoring rules globally
+Use `--ignore` to suppress findings for one or more rule codes for the whole run:
+
+```shell
+deadcode . --ignore DC12
+```
+
+The same option can be set in `pyproject.toml`:
+
+```toml
+[tool.deadcode]
+ignore = ["DC12"]
+```
+
+A pre-commit hook can pass the option through `args`:
+
+```yaml
+repos:
+  - repo: https://github.com/albertas/deadcode
+    rev: v2.6.2
+    hooks:
+      - id: deadcode
+        args: [--ignore, DC12]
+```
+
 ## Ignoring unittest lifecycle methods
 `unittest` lifecycle methods (`setUp`, `tearDown`, `setUpClass`, `tearDownClass`, `asyncSetUp`, `asyncTearDown`, `setUpModule`, `tearDownModule`) declared in test files are ignored by default, alongside the existing pytest hooks.
 Declarations with those names outside test files are still reported as unused code.
@@ -281,6 +306,12 @@ commits are made by the maintainer on `main`.
 - `make test` - runs the test suite in parallel with `pytest-xdist`, using one worker per logical CPU minus one.
   Set `PYTEST_XDIST_WORKERS` to change the worker count (`make test PYTEST_XDIST_WORKERS=2`), or pass
   `PYTEST_ME_PLEASE="-n 0"` to run serially.
+
+### Enhancement proposals
+
+A change that adds an analyser feature, changes rule semantics, or changes a documented process needs a Deadcode Enhancement Proposal (DEP).
+The published process and template page is <https://deadcode.readthedocs.io/en/stable/dep.html>. The repository index of existing proposals is
+`enhancement_proposals/dep_0.md`.
 
 ## Security
 
@@ -365,13 +396,22 @@ A checked entry is implemented on `main` and is included in the next release; pu
 - [ ] Investigate ways of extracting and backporting Python3.10+ `ast` implementation to lower Python versions.
 
 ## Release notes
-- next:
+- **v2.6.2** `2026-11-13`:
+    - Features:
+        - Document a staged Rust accelerator plan for issue #67 and list it in the DEP index
+        - Publish the Deadcode Enhancement Proposal (DEP) process, template, and index.
+        - Add a documentation page planning an experiment on large open source Python projects with candidate repositories, metrics and a measurement protocol.
+        - Add DEP 4 proposing source-code tree pruning, with a survey of the JavaScript bundle-pruning tools that solve it and the capabilities expanding deadcode would require.
+        - Stop reporting type-checker comments such as `# ty: ignore` as commented-out code (DC12).; Add `--ignore` to suppress findings by rule code via the CLI, `pyproject.toml` and pre-commit.
+        - Add DEP 5 documenting how an unused definition shadowed by a used name could be detected.
+        - Add DEP 7 documenting native SARIF output support and publish it in the DEP index
+- **v2.6.1** `2026-11-11`:
     - Features:
         - Audit runtime and development dependencies for known vulnerabilities in CI on every pull request and weekly.
         - Declare the package development status as Beta.
         - Add a Django usage guide covering models, admin, views, forms, middleware, signals and more, plus Django `MIDDLEWARE` registration parsing and Django-aware qualified matching through absolute imports.
-        - Ignore Django test lifecycle methods in test files.
         - Django `MIDDLEWARE` registrations are treated as used and absolute-import qualified expressions resolve to their modules.
+    - Bugfixes:
         - Support boolean flags such as `fix = true` and `dry = true` in `[tool.deadcode]` configuration.
 - **v2.6.0** `2026-11-08`:
     - Features:

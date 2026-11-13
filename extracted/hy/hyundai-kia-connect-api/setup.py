@@ -21,15 +21,15 @@ test_requirements = [
 setup(
     author="Fuat Akgun",
     author_email="fuatakgun@gmail.com",
-    python_requires=">=3.12",
+    python_requires=">=3.13",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
-        "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
         "Typing :: Typed",
     ],
     description="Python API for Hyundai, Kia, and Genesis car infotainment systems",
@@ -52,6 +52,6 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api",
-    version="5.2.1",
+    version="5.3.0",
     zip_safe=False,
 )

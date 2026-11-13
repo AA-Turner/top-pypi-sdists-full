@@ -1121,6 +1121,121 @@ def test_get_service_specific_configs_raises_on_unsupported_release(manager):
             manager._get_service_specific_configs(unsupported_app)
 
 
+# --- Tests for DataZone OpenLineage configs ---
+
+_DATAZONE_JAR = "/usr/share/aws/datazone-openlineage-spark/lib/DataZoneOpenLineageSpark-1.0.jar"
+_GLUE_JAR = "/usr/share/aws/glue-openlineage-spark/lib/GlueOpenLineageSpark.jar"
+
+
+def _lineage_configs(manager, release_label):
+    manager.project = MagicMock(domain_id="dzd-test", id="proj-123")
+    app = {"releaseLabel": release_label}
+    with patch.object(manager, "_get_s3_access_grants_configs", return_value={}):
+        return manager._get_service_specific_configs(
+            app, user_id="test-user", account_id="1234567890"
+        )
+
+
+def test_openlineage_configs_added(manager):
+    configs = _lineage_configs(manager, "emr-7.14.0")
+    assert configs["spark.extraListeners"] == "io.openlineage.spark.agent.OpenLineageSparkListener"
+    assert configs["spark.openlineage.transport.type"] == "amazon_datazone_api"
+    assert configs["spark.openlineage.transport.domainId"] == "dzd-test"
+    assert configs["spark.openlineage.transport.region"] == "us-west-2"
+    assert configs["spark.openlineage.columnLineage.datasetLineageEnabled"] == "true"
+    assert configs["spark.glue.accountId"] == "1234567890"
+    assert configs["spark.glue.JOB_NAME"] == "Interactive/proj-123/test-user"
+
+
+def test_openlineage_jar_by_release():
+    """Glue jar for emr-spark >= 8.2.0, DataZone jar otherwise (same rule as Sessions pkg)."""
+    cases = {
+        "emr-7.14.0": _DATAZONE_JAR,
+        "emr-7.14.0-latest": _DATAZONE_JAR,
+        "emr-spark-8.1.0": _DATAZONE_JAR,
+        "emr-spark-8.1.0-latest": _DATAZONE_JAR,
+        "emr-spark-8.2.0": _GLUE_JAR,
+        "emr-spark-8.2.0-latest": _GLUE_JAR,
+        "emr-spark-8.3.0": _GLUE_JAR,
+        "emr-spark-9.0.0": _GLUE_JAR,
+        "": _DATAZONE_JAR,
+    }
+    for label, expected in cases.items():
+        with patch(
+            "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.InternalUtils"
+        ) as mock_utils:
+            mock_utils.return_value._get_domain_region.return_value = "us-west-2"
+            mgr = EMRServerlessSparkSessionManager(connection_name="c")
+            mgr.project = MagicMock(domain_id="dzd-test", id="proj-123")
+            configs = mgr._get_openlineage_configs(label, "test-user", "1234567890")
+        assert configs["spark.jars"] == expected, label
+
+
+def test_ensure_lineage_jar_appends_after_user_override():
+    from sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager import (
+        _ensure_lineage_jar,
+    )
+
+    merged = {"spark.jars": "s3://bucket/custom.jar"}
+    _ensure_lineage_jar(merged, {"spark.jars": _GLUE_JAR})
+    assert merged["spark.jars"] == f"s3://bucket/custom.jar,{_GLUE_JAR}"
+    _ensure_lineage_jar(merged, {"spark.jars": _GLUE_JAR})
+    assert merged["spark.jars"] == f"s3://bucket/custom.jar,{_GLUE_JAR}"
+    untouched = {}
+    _ensure_lineage_jar(untouched, {})
+    assert untouched == {}
+
+
+def test_openlineage_disabled_via_overrides(mock_boto3_clients, mock_internal_utils):
+    from sagemaker_studio.project import ClientConfig
+
+    mgr = EMRServerlessSparkSessionManager(
+        connection_name="test_connection",
+        config=ClientConfig(overrides={"emr-serverless": {"enable_open_lineage": False}}),
+    )
+    configs = _lineage_configs(mgr, "emr-7.14.0")
+    assert "spark.extraListeners" not in configs
+    assert "spark.openlineage.transport.type" not in configs
+    assert configs["spark.dynamicAllocation.executorIdleTimeout"] == "120s"
+
+
+def test_openlineage_graceful_failure_without_project(manager):
+    """If project lookup fails, other service configs are still returned."""
+    app = {"releaseLabel": "emr-7.14.0"}
+    with patch.object(manager, "_get_s3_access_grants_configs", return_value={}):
+        configs = manager._get_service_specific_configs(app)
+    assert "spark.extraListeners" not in configs
+    assert configs["spark.dynamicAllocation.executorIdleTimeout"] == "120s"
+
+
+@patch(
+    "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager._SparkSession"
+)
+@patch(
+    "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.CustomChannelBuilder"
+)
+def test_create_passes_identity_to_service_configs(_mock_builder, _mock_spark, manager):
+    """create() forwards user_id/account_id so JOB_NAME and accountId can be set."""
+    manager._lazy_init = MagicMock()
+    manager.application_id = "app-1"
+    manager.connection_spark_configs = {}
+    app = {"state": "STARTED", "releaseLabel": "emr-7.14.0"}
+    manager._ensure_application_started = MagicMock(return_value=app)
+    manager._get_user_id_account_id = MagicMock(return_value=("test-user", "1234567890"))
+    manager._get_service_specific_configs = MagicMock(return_value={})
+    manager._start_emr_serverless_session = MagicMock(
+        return_value=("sess-1", "sc://endpoint", {"authToken": "t", "authTokenExpiresAt": None})
+    )
+    with patch(
+        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.build_spark_configs",
+        return_value={},
+    ):
+        manager.create()
+    manager._get_service_specific_configs.assert_called_once_with(
+        app, user_id="test-user", account_id="1234567890"
+    )
+
+
 def test_supports_native_fgac():
     """_supports_native_fgac gates at emr-7.14 / emr-spark-8.1."""
     fn = EMRServerlessSparkSessionManager._supports_native_fgac

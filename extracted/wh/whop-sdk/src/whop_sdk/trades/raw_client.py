@@ -11,6 +11,7 @@ from ..core.pagination import AsyncPager, SyncPager
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
+from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.bad_request_error import BadRequestError
 from ..errors.conflict_error import ConflictError
 from ..errors.forbidden_error import ForbiddenError
@@ -22,6 +23,9 @@ from ..types.v1error_response import V1ErrorResponse
 from .types.create_trades_request_instrument_type import CreateTradesRequestInstrumentType
 from .types.create_trades_request_order_type import CreateTradesRequestOrderType
 from .types.create_trades_request_side import CreateTradesRequestSide
+from .types.create_trades_request_stop_loss import CreateTradesRequestStopLoss
+from .types.create_trades_request_take_profit import CreateTradesRequestTakeProfit
+from .types.create_trades_request_time_in_force import CreateTradesRequestTimeInForce
 from .types.create_trades_request_type import CreateTradesRequestType
 from .types.list_trades_request_direction import ListTradesRequestDirection
 from .types.list_trades_request_order import ListTradesRequestOrder
@@ -53,7 +57,7 @@ class RawTradesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Trade, ListTradesResponse]:
         """
-        Lists trades you can access, newest first. User credentials see their own trades and those of accounts they belong to, including connected accounts; account credentials see their account and its connected accounts.
+        Lists trades you can access, newest first. User credentials see their own trades and those of accounts they belong to, including subaccounts; account credentials see their account and its subaccounts.
 
         Parameters
         ----------
@@ -197,6 +201,10 @@ class RawTradesClient:
         side: typing.Optional[CreateTradesRequestSide] = OMIT,
         size: typing.Optional[str] = OMIT,
         slippage_bps: typing.Optional[int] = OMIT,
+        stop_loss: typing.Optional[CreateTradesRequestStopLoss] = OMIT,
+        take_profit: typing.Optional[CreateTradesRequestTakeProfit] = OMIT,
+        time_in_force: typing.Optional[CreateTradesRequestTimeInForce] = OMIT,
+        trigger_price: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Trade]:
         """
@@ -208,7 +216,7 @@ class RawTradesClient:
             The account or user whose wallet trades, prefixed `biz_` or `user_`.
 
         type : CreateTradesRequestType
-            `order` places one order from the trading balance, setting cross `leverage` first on a perpetual; when the balance is short, it bridges the USDT0 it needs from the wallet first. `deposit` bridges `amount` USDT0 from the wallet to the trading balance. `withdraw` sends `amount` USDC (or `all`) from the trading balance back to the wallet. `close` closes the whole position in `market` with a market reduce-only order; when the account is then flat, a `withdraw` trade sends the trading balance back to the wallet.
+            `order` places one order. A perpetual order trades from the trading balance, setting cross `leverage` first; when the balance is short, it bridges the USDT0 it needs from the wallet first. A spot order swaps between USDT0 and the asset in the wallet. `deposit` bridges `amount` USDT0 from the wallet to the trading balance. `withdraw` sends `amount` USDC (or `all`) from the trading balance back to the wallet. `close` closes the whole position in `market` with a market reduce-only order; when the account is then flat, a `withdraw` trade sends the trading balance back to the wallet.
 
         amount : typing.Optional[str]
             Only for a deposit or withdraw, and required for both. For a deposit, the USDT0 to send from the wallet, with at most 6 decimals. For a withdraw, the USDC to send back, at least 1 with at most 6 decimals, or `all`.
@@ -217,22 +225,22 @@ class RawTradesClient:
             Only for an order. Your own ID for the trade, 1 to 128 characters, unique for the account. Sending it again with the same order returns the same trade; with a different order it answers `409`.
 
         instrument_type : typing.Optional[CreateTradesRequestInstrumentType]
-            `perpetual` or `spot`. Required for an order. A spot order first switches the trading account to Hyperliquid's unified account mode, where spot and perpetuals share one USDC balance.
+            `perpetual` or `spot`. Required for an order. A spot order is a market order that swaps in the wallet and does not use the trading balance.
 
         leverage : typing.Optional[int]
             Only for a perpetual order. The cross leverage, from 1 to the market's maximum. Required unless `reduce_only`; not accepted on a reduce-only order.
 
         market : typing.Optional[str]
-            The market: a perpetual such as `BTC`, or for spot a pair priced in USDC such as `HYPE/USDC`. Required for an order or close, and a close takes only a perpetual; not accepted for a deposit or withdraw.
+            The market: a perpetual such as `BTC` or `xyz:TSLA`, or for spot an asset the wallet can swap into, such as `BTC` or `XAUT`. Required for an order or close, and a close takes only a perpetual; not accepted for a deposit or withdraw.
 
         metadata : typing.Optional[typing.Dict[str, str]]
             Only for an order. Free-form string-to-string annotations: up to 50 keys of at most 40 characters, values up to 500 characters.
 
         notional : typing.Optional[str]
-            Only for an order. The order value in USD, as a decimal string; the size is rounded down to the market's decimals. Send exactly one of `size` or `notional`.
+            Only for an order. The order value in USD, as a decimal string; the size is rounded down to the market's decimals. Send exactly one of `size` or `notional`; a spot buy takes `notional`, the USDT0 to spend.
 
         order_type : typing.Optional[CreateTradesRequestOrderType]
-            `market` fills now within `slippage_bps` of the mid price; `limit` fills now at `price` or better. Anything unfilled is canceled. Required for an order.
+            `market` fills now within `slippage_bps` of the mid price, and anything unfilled is canceled; `limit` fills at `price` or better, and how long it stays on the book follows `time_in_force`. `take_profit` and `stop_loss` reduce the open perpetual position with a market order once the price crosses `trigger_price`; the trade stays `processing` until then. Required for an order.
 
         price : typing.Optional[str]
             Only for an order. The limit price in USD, as a decimal string Hyperliquid accepts without rounding. Required for a limit order; not accepted for a market order.
@@ -241,13 +249,25 @@ class RawTradesClient:
             Only for a perpetual order. Only reduce an open position; defaults to `false`. A reduce-only order takes no `leverage`.
 
         side : typing.Optional[CreateTradesRequestSide]
-            `buy` or `sell`. Required for an order.
+            `buy` or `sell`. Required for an order, except a `take_profit` or `stop_loss`, where it defaults to the side that reduces the position.
 
         size : typing.Optional[str]
-            Only for an order. The size in units of the market, as a decimal string, with at most the market's size decimals. Send exactly one of `size` or `notional`. The order must be worth at least 10 USD, unless reduce-only, and at most 5000 USD.
+            Only for an order. The size in units of the market, as a decimal string, with at most the market's size decimals. Send exactly one of `size` or `notional`; a spot sell takes `size`. A perpetual order must be worth at least 10 USD, unless reduce-only. A `take_profit` or `stop_loss` takes `size` or nothing for the whole position, and a set `size` must be worth at least 10 USD at `trigger_price`.
 
         slippage_bps : typing.Optional[int]
-            Only for a market order or a close. The worst price as basis points from the mid price, from 1 to 1000; defaults to 100.
+            Only for a market order or a close. The worst price as basis points from the mid price, from 1 to 1000; defaults to 100 for a perpetual, and to the swap route's own default for spot.
+
+        stop_loss : typing.Optional[CreateTradesRequestStopLoss]
+            Only for a perpetual order that opens or adds to a position. A stop-loss for the order's full size, armed once the order fills and sent with it as its own trade, whose `parent_id` is this trade.
+
+        take_profit : typing.Optional[CreateTradesRequestTakeProfit]
+            Only for a perpetual order that opens or adds to a position. A take-profit for the order's full size, armed once the order fills and sent with it as its own trade, whose `parent_id` is this trade.
+
+        time_in_force : typing.Optional[CreateTradesRequestTimeInForce]
+            Only for a perpetual limit order. `good_til_canceled` rests on the book until it fills; `add_liquidity_only` is canceled instead of filling at once; `immediate_or_cancel` fills what it can now and cancels the rest. Defaults to `good_til_canceled`. The trade stays `processing` while the order rests.
+
+        trigger_price : typing.Optional[str]
+            Required for a `take_profit` or `stop_loss`, and only for them. The USD price, as a decimal string Hyperliquid accepts without rounding, at which it sends a market order. Closing a long, a take-profit triggers above the current price and a stop-loss below; closing a short, the reverse. It is always reduce-only, needs an open position, and takes no `price`, `notional`, `leverage`, `time_in_force` or `slippage_bps`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -276,6 +296,14 @@ class RawTradesClient:
                 "side": side,
                 "size": size,
                 "slippage_bps": slippage_bps,
+                "stop_loss": convert_and_respect_annotation_metadata(
+                    object_=stop_loss, annotation=CreateTradesRequestStopLoss, direction="write"
+                ),
+                "take_profit": convert_and_respect_annotation_metadata(
+                    object_=take_profit, annotation=CreateTradesRequestTakeProfit, direction="write"
+                ),
+                "time_in_force": time_in_force,
+                "trigger_price": trigger_price,
                 "type": type,
             },
             headers={
@@ -433,6 +461,92 @@ class RawTradesClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def cancel(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Trade]:
+        """
+        Cancels the order of a trade while it rests on the book, such as a `good_til_canceled` limit order. Answers with the trade still `processing`; read it with `GET /trades/:id` until its `status` is `completed` or `failed`. A part that filled before the cancel landed stays filled, and money bridged in for an order that did not fill goes back to the wallet. Calling it again sends no second cancel. Answers `409` when the trade has no order on the book.
+
+        Parameters
+        ----------
+        id : str
+            Trade ID, prefixed `tint_`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[Trade]
+            cancel sent
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"trades/{encode_path_param(id)}/cancel",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Trade,
+                    parse_obj_as(
+                        type_=Trade,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
 
 class AsyncRawTradesClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -453,7 +567,7 @@ class AsyncRawTradesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Trade, ListTradesResponse]:
         """
-        Lists trades you can access, newest first. User credentials see their own trades and those of accounts they belong to, including connected accounts; account credentials see their account and its connected accounts.
+        Lists trades you can access, newest first. User credentials see their own trades and those of accounts they belong to, including subaccounts; account credentials see their account and its subaccounts.
 
         Parameters
         ----------
@@ -600,6 +714,10 @@ class AsyncRawTradesClient:
         side: typing.Optional[CreateTradesRequestSide] = OMIT,
         size: typing.Optional[str] = OMIT,
         slippage_bps: typing.Optional[int] = OMIT,
+        stop_loss: typing.Optional[CreateTradesRequestStopLoss] = OMIT,
+        take_profit: typing.Optional[CreateTradesRequestTakeProfit] = OMIT,
+        time_in_force: typing.Optional[CreateTradesRequestTimeInForce] = OMIT,
+        trigger_price: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Trade]:
         """
@@ -611,7 +729,7 @@ class AsyncRawTradesClient:
             The account or user whose wallet trades, prefixed `biz_` or `user_`.
 
         type : CreateTradesRequestType
-            `order` places one order from the trading balance, setting cross `leverage` first on a perpetual; when the balance is short, it bridges the USDT0 it needs from the wallet first. `deposit` bridges `amount` USDT0 from the wallet to the trading balance. `withdraw` sends `amount` USDC (or `all`) from the trading balance back to the wallet. `close` closes the whole position in `market` with a market reduce-only order; when the account is then flat, a `withdraw` trade sends the trading balance back to the wallet.
+            `order` places one order. A perpetual order trades from the trading balance, setting cross `leverage` first; when the balance is short, it bridges the USDT0 it needs from the wallet first. A spot order swaps between USDT0 and the asset in the wallet. `deposit` bridges `amount` USDT0 from the wallet to the trading balance. `withdraw` sends `amount` USDC (or `all`) from the trading balance back to the wallet. `close` closes the whole position in `market` with a market reduce-only order; when the account is then flat, a `withdraw` trade sends the trading balance back to the wallet.
 
         amount : typing.Optional[str]
             Only for a deposit or withdraw, and required for both. For a deposit, the USDT0 to send from the wallet, with at most 6 decimals. For a withdraw, the USDC to send back, at least 1 with at most 6 decimals, or `all`.
@@ -620,22 +738,22 @@ class AsyncRawTradesClient:
             Only for an order. Your own ID for the trade, 1 to 128 characters, unique for the account. Sending it again with the same order returns the same trade; with a different order it answers `409`.
 
         instrument_type : typing.Optional[CreateTradesRequestInstrumentType]
-            `perpetual` or `spot`. Required for an order. A spot order first switches the trading account to Hyperliquid's unified account mode, where spot and perpetuals share one USDC balance.
+            `perpetual` or `spot`. Required for an order. A spot order is a market order that swaps in the wallet and does not use the trading balance.
 
         leverage : typing.Optional[int]
             Only for a perpetual order. The cross leverage, from 1 to the market's maximum. Required unless `reduce_only`; not accepted on a reduce-only order.
 
         market : typing.Optional[str]
-            The market: a perpetual such as `BTC`, or for spot a pair priced in USDC such as `HYPE/USDC`. Required for an order or close, and a close takes only a perpetual; not accepted for a deposit or withdraw.
+            The market: a perpetual such as `BTC` or `xyz:TSLA`, or for spot an asset the wallet can swap into, such as `BTC` or `XAUT`. Required for an order or close, and a close takes only a perpetual; not accepted for a deposit or withdraw.
 
         metadata : typing.Optional[typing.Dict[str, str]]
             Only for an order. Free-form string-to-string annotations: up to 50 keys of at most 40 characters, values up to 500 characters.
 
         notional : typing.Optional[str]
-            Only for an order. The order value in USD, as a decimal string; the size is rounded down to the market's decimals. Send exactly one of `size` or `notional`.
+            Only for an order. The order value in USD, as a decimal string; the size is rounded down to the market's decimals. Send exactly one of `size` or `notional`; a spot buy takes `notional`, the USDT0 to spend.
 
         order_type : typing.Optional[CreateTradesRequestOrderType]
-            `market` fills now within `slippage_bps` of the mid price; `limit` fills now at `price` or better. Anything unfilled is canceled. Required for an order.
+            `market` fills now within `slippage_bps` of the mid price, and anything unfilled is canceled; `limit` fills at `price` or better, and how long it stays on the book follows `time_in_force`. `take_profit` and `stop_loss` reduce the open perpetual position with a market order once the price crosses `trigger_price`; the trade stays `processing` until then. Required for an order.
 
         price : typing.Optional[str]
             Only for an order. The limit price in USD, as a decimal string Hyperliquid accepts without rounding. Required for a limit order; not accepted for a market order.
@@ -644,13 +762,25 @@ class AsyncRawTradesClient:
             Only for a perpetual order. Only reduce an open position; defaults to `false`. A reduce-only order takes no `leverage`.
 
         side : typing.Optional[CreateTradesRequestSide]
-            `buy` or `sell`. Required for an order.
+            `buy` or `sell`. Required for an order, except a `take_profit` or `stop_loss`, where it defaults to the side that reduces the position.
 
         size : typing.Optional[str]
-            Only for an order. The size in units of the market, as a decimal string, with at most the market's size decimals. Send exactly one of `size` or `notional`. The order must be worth at least 10 USD, unless reduce-only, and at most 5000 USD.
+            Only for an order. The size in units of the market, as a decimal string, with at most the market's size decimals. Send exactly one of `size` or `notional`; a spot sell takes `size`. A perpetual order must be worth at least 10 USD, unless reduce-only. A `take_profit` or `stop_loss` takes `size` or nothing for the whole position, and a set `size` must be worth at least 10 USD at `trigger_price`.
 
         slippage_bps : typing.Optional[int]
-            Only for a market order or a close. The worst price as basis points from the mid price, from 1 to 1000; defaults to 100.
+            Only for a market order or a close. The worst price as basis points from the mid price, from 1 to 1000; defaults to 100 for a perpetual, and to the swap route's own default for spot.
+
+        stop_loss : typing.Optional[CreateTradesRequestStopLoss]
+            Only for a perpetual order that opens or adds to a position. A stop-loss for the order's full size, armed once the order fills and sent with it as its own trade, whose `parent_id` is this trade.
+
+        take_profit : typing.Optional[CreateTradesRequestTakeProfit]
+            Only for a perpetual order that opens or adds to a position. A take-profit for the order's full size, armed once the order fills and sent with it as its own trade, whose `parent_id` is this trade.
+
+        time_in_force : typing.Optional[CreateTradesRequestTimeInForce]
+            Only for a perpetual limit order. `good_til_canceled` rests on the book until it fills; `add_liquidity_only` is canceled instead of filling at once; `immediate_or_cancel` fills what it can now and cancels the rest. Defaults to `good_til_canceled`. The trade stays `processing` while the order rests.
+
+        trigger_price : typing.Optional[str]
+            Required for a `take_profit` or `stop_loss`, and only for them. The USD price, as a decimal string Hyperliquid accepts without rounding, at which it sends a market order. Closing a long, a take-profit triggers above the current price and a stop-loss below; closing a short, the reverse. It is always reduce-only, needs an open position, and takes no `price`, `notional`, `leverage`, `time_in_force` or `slippage_bps`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -679,6 +809,14 @@ class AsyncRawTradesClient:
                 "side": side,
                 "size": size,
                 "slippage_bps": slippage_bps,
+                "stop_loss": convert_and_respect_annotation_metadata(
+                    object_=stop_loss, annotation=CreateTradesRequestStopLoss, direction="write"
+                ),
+                "take_profit": convert_and_respect_annotation_metadata(
+                    object_=take_profit, annotation=CreateTradesRequestTakeProfit, direction="write"
+                ),
+                "time_in_force": time_in_force,
+                "trigger_price": trigger_price,
                 "type": type,
             },
             headers={
@@ -820,6 +958,94 @@ class AsyncRawTradesClient:
                 )
             if _response.status_code == 404:
                 raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def cancel(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[Trade]:
+        """
+        Cancels the order of a trade while it rests on the book, such as a `good_til_canceled` limit order. Answers with the trade still `processing`; read it with `GET /trades/:id` until its `status` is `completed` or `failed`. A part that filled before the cancel landed stays filled, and money bridged in for an order that did not fill goes back to the wallet. Calling it again sends no second cancel. Answers `409` when the trade has no order on the book.
+
+        Parameters
+        ----------
+        id : str
+            Trade ID, prefixed `tint_`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[Trade]
+            cancel sent
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"trades/{encode_path_param(id)}/cancel",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Trade,
+                    parse_obj_as(
+                        type_=Trade,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,

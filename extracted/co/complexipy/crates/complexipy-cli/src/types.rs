@@ -28,14 +28,16 @@ pub struct Config {
     #[serde(default)]
     #[cfg_attr(
         test,
-        schemars(description = "Report only these refactoring rules, such as `C001`.")
+        schemars(
+            description = "Report only these refactoring rules or rule groups, such as `C001` or `complexity`."
+        )
     )]
     pub select: StringOrList<String>,
     #[serde(default)]
     #[cfg_attr(
         test,
         schemars(
-            description = "Never report these refactoring rules, such as `C007`. Wins over `select`."
+            description = "Never report these refactoring rules or rule groups, such as `C007` or `readability`. Wins over `select`."
         )
     )]
     pub ignore: StringOrList<String>,
@@ -128,6 +130,14 @@ pub struct Config {
         )
     )]
     pub report_ignored: bool,
+    #[serde(default)]
+    #[cfg_attr(
+        test,
+        schemars(
+            description = "Apply `exclude` to files passed explicitly as arguments, such as the file names pre-commit passes."
+        )
+    )]
+    pub force_exclude: bool,
 }
 
 fn default_max_complexity() -> u64 {
@@ -172,6 +182,7 @@ pub struct RunConfig {
     pub check_script: bool,
     pub no_ignore: bool,
     pub report_ignored: bool,
+    pub force_exclude: bool,
     pub plain: bool,
     pub suggest_refactors: bool,
     pub fix: bool,
@@ -290,6 +301,7 @@ impl DiffBaseline {
 pub struct FunctionRow {
     pub name: String,
     pub complexity: u64,
+    pub line_start: u64,
     pub passed: bool,
     pub path: String,
     pub file_name: String,

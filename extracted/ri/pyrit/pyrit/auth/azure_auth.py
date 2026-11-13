@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import re
 import time
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
@@ -206,11 +207,33 @@ def ensure_async_token_provider(
             str: The token string from the synchronous provider.
         """
         result = api_key()
-        if inspect.isawaitable(result):
-            return await result  # type: ignore[ty:invalid-return-type]
-        return result
+        if isinstance(result, str):
+            return result
+        return await result
 
     return async_token_provider
+
+
+class AsyncAzureAuth:
+    """Own an async Azure credential for one event loop."""
+
+    def __init__(self, token_scope: str) -> None:
+        """Configure the scope without retrieving a token."""
+        self._token_scope = token_scope
+        self._credential = AsyncDefaultAzureCredential()
+
+    async def get_access_token_async(self) -> AccessToken:
+        """
+        Retrieve or refresh the credential's cached token.
+
+        Returns:
+            AccessToken: The token for the configured scope.
+        """
+        return await self._credential.get_token(self._token_scope)
+
+    async def close_async(self) -> None:
+        """Close the credential before its event loop stops."""
+        await self._credential.close()
 
 
 class AzureAuth(Authenticator):
@@ -227,7 +250,8 @@ class AzureAuth(Authenticator):
 
         Args:
             token_scope (str): The token scope for authentication.
-            tenant_id (str, optional): The tenant ID. Defaults to "".
+            tenant_id (str, optional): The tenant ID to request the token for. If empty, the credential
+                chain uses its default tenant. Defaults to "".
         """
         self._tenant_id = tenant_id
         self._token_scope = token_scope
@@ -238,7 +262,10 @@ class AzureAuth(Authenticator):
         Set up default Azure credentials and retrieve access token.
         """
         self.azure_creds = DefaultAzureCredential()
-        self.access_token = self.azure_creds.get_token(self._token_scope)
+        # DefaultAzureCredential rejects a tenant_id constructor argument, but get_token accepts one
+        # and forwards it to each credential in the chain.
+        token_kwargs = {"tenant_id": self._tenant_id} if self._tenant_id else {}
+        self.access_token = self.azure_creds.get_token(self._token_scope, **token_kwargs)
         self.token = self.access_token.token
 
     def refresh_token(self) -> str:
@@ -441,6 +468,30 @@ def get_azure_openai_auth(endpoint: str) -> Callable[[], Awaitable[str]]:
     """
     scope = get_default_azure_scope(endpoint)
     return get_azure_async_token_provider(scope)
+
+
+def validate_speech_region_shape(region: str) -> str:
+    """
+    Check that a value has the shape of an Azure region name, such as ``eastus``.
+
+    The Speech SDK builds the service's host name from the region, so only letters and digits are accepted.
+    This checks the form of the name only, not whether a region by that name exists.
+
+    Args:
+        region (str): The region to check.
+
+    Returns:
+        str: The region without surrounding whitespace.
+
+    Raises:
+        ValueError: If the region contains anything other than letters and digits.
+    """
+    stripped = region.strip()
+    if not re.fullmatch(r"[A-Za-z0-9]+", stripped):
+        raise ValueError(
+            "azure_speech_region must be an Azure region name such as 'eastus', using only letters and digits."
+        )
+    return stripped
 
 
 def get_speech_config(resource_id: str | None, key: str | None, region: str) -> speechsdk.SpeechConfig:

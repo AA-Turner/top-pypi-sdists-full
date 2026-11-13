@@ -8,10 +8,9 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from pyrit.common.apply_defaults import REQUIRED_VALUE, apply_defaults
+from pyrit.common import REQUIRED_VALUE, apply_defaults, warn_if_set
 from pyrit.common.path import EXECUTOR_RED_TEAM_PATH
-from pyrit.common.utils import warn_if_set
-from pyrit.exceptions import ComponentRole, execution_context
+from pyrit.exceptions import AdversarialChatResponseBlockedException, ComponentRole, execution_context
 from pyrit.executor.attack.component import (
     ConversationManager,
     PrependedConversationConfig,
@@ -19,7 +18,17 @@ from pyrit.executor.attack.component import (
     get_adversarial_chat_messages,
 )
 from pyrit.executor.attack.component.modality_router import _ModalityFeedbackRouter
-from pyrit.executor.attack.core.attack_config import AttackAdversarialConfig, AttackConverterConfig, AttackScoringConfig
+from pyrit.executor.attack.core.attack_config import (
+    AdversarialPromptRequirements,
+    AttackAdversarialConfig,
+    AttackConverterConfig,
+    AttackScoringConfig,
+)
+from pyrit.executor.attack.core.attack_preparation import (
+    AttackPreparationFailure,
+    AttackPreparationFailureKind,
+)
+from pyrit.executor.attack.core.attack_scoring import score_attack_response_async
 from pyrit.executor.attack.core.attack_strategy import attack_outcome_from_score
 from pyrit.executor.attack.multi_turn.multi_turn_attack_strategy import (
     ConversationSession,
@@ -36,18 +45,15 @@ from pyrit.models import (
     ConversationType,
     Message,
     Score,
-    ScoringExpectation,
 )
 from pyrit.prompt_normalizer import PromptNormalizer
-from pyrit.prompt_target import CapabilityName
-from pyrit.prompt_target.common.target_requirements import TargetRequirements
-from pyrit.score import MessageScorable
+from pyrit.prompt_target import CapabilityName, TargetRequirements
 from pyrit.score.score_utils import score_is_true
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from pyrit.prompt_target.common.prompt_target import PromptTarget
+    from pyrit.prompt_target import PromptTarget
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +92,12 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
     The strategy supports customization through system prompts, seed prompts, and converters,
     allowing for various attack techniques and scenarios.
     """
+
+    ADVERSARIAL_PROMPT_REQUIREMENTS = AdversarialPromptRequirements(
+        default_system_prompt_path=RTASystemPromptPaths.TEXT_GENERATION.value,
+        system_prompt_parameters=("objective",),
+        accepts_user_messages=True,
+    )
 
     @apply_defaults
     def __init__(
@@ -143,6 +155,7 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
         warn_if_set(config=attack_scoring_config, log=self._logger, unused_fields=["refusal_scorer"])
 
         self._objective_scorer = attack_scoring_config.objective_scorer
+        self._auxiliary_scorers = attack_scoring_config.auxiliary_scorers
         self._use_score_as_feedback = attack_scoring_config.use_score_as_feedback
 
         # Initialize adversarial configuration
@@ -166,12 +179,13 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
         # The manager owns adversarial-prompt resolution: it resolves the system prompt, coerces the
         # first / next-message templates (applying the canonical defaults when unset), and fails fast
         # when a response schema is declared on both the system prompt and the first message.
+        requirements = self.get_adversarial_prompt_requirements()
         self._resolved_adversarial = _AdversarialConversationManager.resolve_config(
             config=attack_adversarial_config,
-            default_system_prompt_path=RTASystemPromptPaths.TEXT_GENERATION.value,
-            system_prompt_required_parameters=["objective"],
+            default_system_prompt_path=requirements.default_system_prompt_path,
+            system_prompt_required_parameters=list(requirements.system_prompt_parameters),
             system_prompt_error_message="Adversarial seed prompt must have an objective",
-            resolve_user_messages=True,
+            resolve_user_messages=requirements.accepts_user_messages,
         )
         self._adversarial_chat_system_prompt_template = self._resolved_adversarial.system_prompt
         self._adversarial_chat_first_message = self._resolved_adversarial.first_message
@@ -183,11 +197,22 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
         self._conversation_manager = ConversationManager(prompt_normalizer=self._prompt_normalizer)
 
         # set the maximum number of turns for the attack
-        if max_turns <= 0:
-            raise ValueError("Maximum turns must be a positive integer.")
+        RedTeamingAttack.validate_constructor_parameters({"max_turns": max_turns})
 
         self._max_turns = max_turns
         self._score_last_turn_only = score_last_turn_only
+
+    @classmethod
+    def validate_constructor_parameters(cls, params: dict[str, Any]) -> None:
+        """
+        Validate the turn bound without constructing an attack.
+
+        Raises:
+            ValueError: If turns are not positive.
+        """
+        super().validate_constructor_parameters(params)
+        if "max_turns" in params and params["max_turns"] <= 0:
+            raise ValueError("Maximum turns must be a positive integer.")
 
     def get_attack_scoring_config(self) -> AttackScoringConfig | None:
         """
@@ -199,6 +224,7 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
         """
         return AttackScoringConfig(
             objective_scorer=self._objective_scorer,
+            auxiliary_scorers=self._auxiliary_scorers,
             use_score_as_feedback=self._use_score_as_feedback,
         )
 
@@ -287,7 +313,7 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
         # The adversarial conversation manager owns rendering and setting the system prompt.
         # ``set_system_prompt`` rejects any conversation that already has messages, so this must run
         # before we hydrate the adversarial chat with the swapped prepended turns below.
-        self._build_adversarial_manager(context=context).set_adversarial_system_prompt()
+        (await self._build_adversarial_manager(context=context).set_adversarial_system_prompt_async())
 
         # Set up adversarial chat with prepended conversation
         if context.prepended_conversation:
@@ -297,14 +323,17 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
                 adversarial_chat_conversation_id=context.session.adversarial_chat_conversation_id,
             )
 
-            self._memory.add_conversation_to_memory(
-                conversation=Conversation(
-                    conversation_id=context.session.adversarial_chat_conversation_id,
-                    target_identifier=self._adversarial_chat.get_identifier(),
+            (
+                await self._memory.add_conversation_to_memory_async(
+                    conversation=Conversation(
+                        conversation_id=context.session.adversarial_chat_conversation_id,
+                        attack_result_id=context.attack_result_id,
+                        target_identifier=self._adversarial_chat.get_identifier(),
+                    )
                 )
             )
             for msg in adversarial_messages:
-                self._memory.add_message_to_memory(request=msg)
+                (await self._memory.add_message_to_memory_async(request=msg))
 
     async def _perform_async(self, *, context: MultiTurnAttackContext[Any]) -> AttackResult:
         """
@@ -342,9 +371,41 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
             logger.info(f"Executing turn {context.executed_turns + 1}/{self._max_turns}")
 
             # Determine what to send next
-            message_to_send = await self._generate_next_prompt_async(
-                context=context, adversarial_manager=adversarial_manager
-            )
+            try:
+                message_to_send = await self._generate_next_prompt_async(
+                    context=context, adversarial_manager=adversarial_manager
+                )
+            except AdversarialChatResponseBlockedException as blocked:
+                # The adversarial model produced no attacker turn, so nothing new was put to the
+                # objective target. That is an absence of data, not a defensive win for the
+                # target, so the outcome stays UNDETERMINED either way.
+                #
+                # The preparation marker specifically means the objective target was never
+                # reached, which resume relies on to re-run the objective. Once a turn has
+                # executed the target has already been probed under this conversation id, so a
+                # mid-run block is a truncated run rather than a preparation failure: marking it
+                # would re-run the objective under fresh conversation ids and orphan the turns
+                # that did land.
+                if context.executed_turns:
+                    return self._create_attack_result(
+                        context=context,
+                        outcome=AttackOutcome.UNDETERMINED,
+                        outcome_reason=(
+                            f"Adversarial chat was blocked after {context.executed_turns} completed turn(s), "
+                            f"truncating the attack before it reached its turn limit. Details: {blocked}"
+                        ),
+                    )
+                kind = AttackPreparationFailureKind.from_exception(blocked)
+                preparation_failure = AttackPreparationFailure(
+                    kind=kind,
+                    reason=f"{kind.default_reason} Details: {blocked}",
+                )
+                return self._create_attack_result(
+                    context=context,
+                    outcome=AttackOutcome.UNDETERMINED,
+                    outcome_reason=preparation_failure.reason,
+                    metadata=preparation_failure.to_metadata(),
+                )
 
             # Send the generated message to the objective target
             context.last_response = await self._send_prompt_to_objective_target_async(
@@ -366,16 +427,42 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
             # Increment the executed turns
             context.executed_turns += 1
 
-        # Prepare the result
+        if context.last_score is not None:
+            return self._create_attack_result(context=context, outcome=attack_outcome_from_score(context.last_score))
+        if context.last_response is not None:
+            # The last response was scored but the scorer produced nothing, so nothing was measured
+            return self._create_attack_result(
+                context=context,
+                outcome=AttackOutcome.UNDETERMINED,
+                outcome_reason="Objective scorer returned no score",
+            )
+        return self._create_attack_result(context=context, outcome=AttackOutcome.FAILURE)
+
+    def _create_attack_result(
+        self,
+        *,
+        context: MultiTurnAttackContext[Any],
+        outcome: AttackOutcome,
+        outcome_reason: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> AttackResult:
+        """
+        Create a result from the current attack context.
+
+        Returns:
+            AttackResult: The completed attack result.
+        """
         return AttackResult(
             atomic_attack_identifier=AtomicAttackIdentifier.build(attack_identifier=self.get_identifier()),
             conversation_id=context.session.conversation_id,
             objective=context.objective,
-            outcome=(attack_outcome_from_score(context.last_score) if context.last_score else AttackOutcome.FAILURE),
+            outcome=outcome,
+            outcome_reason=outcome_reason,
             executed_turns=context.executed_turns,
             last_response=context.last_response.get_piece() if context.last_response else None,
-            last_score=context.last_score,
+            automated_score=context.last_score,
             related_conversations=context.related_conversations,
+            metadata=metadata or {},
             labels=context.memory_labels,
         )
 
@@ -480,7 +567,7 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
         """
         logger.info(f"Sending prompt to target: {message.get_value()[:50]}...")
 
-        self._rotate_conversation_for_single_turn_target(context=context)
+        (await self._rotate_conversation_for_single_turn_target_async(context=context))
 
         with execution_context(
             component_role=ComponentRole.OBJECTIVE_TARGET,
@@ -533,17 +620,18 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
             return None
 
         with execution_context(
-            component_role=ComponentRole.OBJECTIVE_SCORER,
+            component_role=ComponentRole.UNKNOWN,
             attack_strategy_name=self.__class__.__name__,
-            component_identifier=self._objective_scorer.get_identifier(),
             objective_target_conversation_id=context.session.conversation_id,
             objective=context.objective,
         ):
             # score_async handles blocked, filtered, other errors
-            scoring_results = await self._objective_scorer.score_async(
-                scorable=MessageScorable.from_message(context.last_response),
-                expectation=ScoringExpectation(objective=context.objective),
+            scoring_results = await score_attack_response_async(
+                response=context.last_response,
+                objective_scorer=self._objective_scorer,
+                auxiliary_scorers=self._auxiliary_scorers,
+                expectation=context.expectation,
             )
 
-        objective_scores = scoring_results
+        objective_scores = scoring_results["objective_scores"]
         return objective_scores[0] if objective_scores else None

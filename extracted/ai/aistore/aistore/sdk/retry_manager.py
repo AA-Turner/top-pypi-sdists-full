@@ -1,19 +1,21 @@
 #
 # Copyright (c) 2023-2026, NVIDIA CORPORATION. All rights reserved.
 #
-from typing import Callable, Optional
+from typing import Callable, Optional, TypeVar
 
 import requests
 import tenacity
-from requests import PreparedRequest, Response
+from requests import PreparedRequest
 
 from aistore.sdk.const import HTTP_METHOD_GET, URL_PATH_OBJECTS
+from aistore.sdk.errors import ClientClosedError
 from aistore.sdk.lock_poller import LockPoller
 from aistore.sdk.request_executor import RequestExecutor
 from aistore.sdk.retry_config import RetryConfig
 from aistore.sdk import utils
 
 logger = utils.get_logger(__name__)
+T = TypeVar("T")
 
 
 # pylint: disable=too-few-public-methods
@@ -39,6 +41,10 @@ class RetryManager:
     def _build_retrying(self) -> tenacity.Retrying:
         """Compose `network_retry` with the cold-get write-lock polling hook."""
         retrying = self._retry_config.network_retry.copy()
+        # ensure that when no retry filter is provided, we do not retry on client close
+        retrying.retry = (
+            tenacity.retry_unless_exception_type(ClientClosedError) & retrying.retry
+        )
         # Preserve existing or user-provided before_sleep
         existing_before_sleep = retrying.before_sleep
         if existing_before_sleep:
@@ -102,6 +108,8 @@ class RetryManager:
         )
         try:
             self._lock_poller.wait_for_unlock(req)
+        except ClientClosedError:
+            raise
         except Exception as retry_err:
             # Allow tenacity to continue retrying and do not re-raise
             logger.error("Error while polling for object write-lock: %s", retry_err)
@@ -148,9 +156,7 @@ class RetryManager:
         )
         return True
 
-    def with_retry(
-        self, request_func: Callable[..., Response], *args, **kwargs
-    ) -> Response:
+    def with_retry(self, request_func: Callable[..., T], *args, **kwargs) -> T:
         """
         **Why `tenacity.retry` over `urllib3.Retry`?**
         `urllib3.Retry` always retries the **same failing URL**, which is problematic if a target is down or restarting.
@@ -158,11 +164,11 @@ class RetryManager:
         This request will then get redirected to the latest selected target.
 
         Args:
-            request_func (Callable): Function that makes a request to AIS and returns a requests.Response object.
+            request_func (Callable): Operation that makes a request to AIS and returns its result.
             *args: Args for request_func.
             **kwargs: Kwargs for request_func.
 
         Returns:
-            Response object from the provided request_func.
+            Result from the provided request_func.
         """
         return self._retrying(request_func, *args, **kwargs)

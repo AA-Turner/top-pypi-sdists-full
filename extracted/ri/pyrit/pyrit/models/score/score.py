@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
+import numbers
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from dataclasses import field as dataclass_field
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Annotated, Any, Literal
 from uuid import uuid4
@@ -17,11 +19,14 @@ from pydantic import (
     ConfigDict,
     Field,
     PlainSerializer,
+    PrivateAttr,
     field_validator,
     model_validator,
 )
 
+from pyrit.common import print_deprecation_message
 from pyrit.models.identifiers.component_identifier import ComponentIdentifier
+from pyrit.models.score.expectation import ScoringExpectation
 from pyrit.models.score.scorable import (  # noqa: TC001  (runtime-required by Pydantic field annotations)
     MessageScorable,
     ScorableUnion,
@@ -52,6 +57,9 @@ class UndeterminedScoreError(ValueError):
     """Raised when a caller reads the value of a score that has none."""
 
 
+#: The verdicts a true/false score stores, compared case-insensitively.
+_TRUE_FALSE_VALUES = ("true", "false")
+
 # Annotated alias that round-trips ``ComponentIdentifier`` fields through the flat
 # dict storage shape. ``ComponentIdentifier`` is a Pydantic model with a custom flat
 # serializer. Defined here (rather than in ``message_piece.py``) because ``score.py``
@@ -71,6 +79,19 @@ class Score(BaseModel):
         extra="forbid",
         validate_assignment=False,
     )
+
+    _snapshot_participation: dict[str, Any] | None = PrivateAttr(default=None)
+
+    def __eq__(self, other: object) -> bool:
+        """
+        Compare canonical score fields without private freshness state.
+
+        Returns:
+            Whether the same concrete score model has equal canonical values.
+        """
+        if not isinstance(other, Score):
+            return NotImplemented
+        return type(self) is type(other) and self.__dict__ == other.__dict__
 
     id: uuid.UUID | str = Field(default_factory=uuid4)
 
@@ -109,14 +130,76 @@ class Score(BaseModel):
     scorable: ScorableUnion | None = None
 
     # Timestamp of when the score was created
-    timestamp: AwareDatetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    timestamp: AwareDatetime = Field(default_factory=lambda: datetime.now(tz=UTC))
 
-    # The task based on which the text is scored (the original attacker model's objective).
-    objective: str | None = None
+    # The full, versioned expectation this score was judged against (objective + conditions).
+    # This is the durable record of what the score was scored for.
+    scored_expectation: ScoringExpectation | None = Field(default=None, frozen=True)
+
+    # Derived, read-only compatibility view over ``scored_expectation.objective``. Existing
+    # readers that expect a bare objective keep working; it is set from the expectation, and an
+    # explicit value that disagrees with the expectation is rejected.
+    objective: str | None = Field(default=None, frozen=True)
+
+    # The managed evidence records used to reach this verdict.
+    observation_ids: list[uuid.UUID] = Field(default_factory=list)
 
     # ------------------------------------------------------------------ #
     # Validators
     # ------------------------------------------------------------------ #
+    @model_validator(mode="before")
+    @classmethod
+    def _validate_compatibility_objective(cls, data: Any) -> Any:
+        """
+        Fold a legacy ``objective`` input into ``scored_expectation``.
+
+        ``objective`` is a read-only view now, so an incoming value is never set directly. It
+        becomes an objective-only expectation when none is supplied, and otherwise must agree
+        with the expectation it accompanies.
+
+        Args:
+            data (Any): Raw input to the model.
+
+        Returns:
+            Any: The input with ``objective`` removed and ``scored_expectation`` populated.
+
+        Raises:
+            ValueError: If an explicit objective disagrees with ``scored_expectation``.
+        """
+        if not isinstance(data, dict) or "objective" not in data:
+            return data
+        data = dict(data)
+        objective = data.pop("objective")
+        expectation = data.get("scored_expectation")
+        if expectation is None:
+            if objective is not None:
+                data["scored_expectation"] = ScoringExpectation(objective=objective)
+        else:
+            if isinstance(expectation, ScoringExpectation):
+                expectation_objective = expectation.objective
+            elif isinstance(expectation, dict):
+                expectation_objective = expectation.get("objective")
+            else:
+                expectation_objective = None
+            if objective != expectation_objective:
+                raise ValueError(
+                    f"objective {objective!r} conflicts with scored_expectation.objective {expectation_objective!r}."
+                )
+        return data
+
+    @field_validator("scored_expectation", mode="before")
+    @classmethod
+    def _load_scored_expectation(cls, value: Any) -> Any:
+        """
+        Rebuild a scored expectation from its persisted representation.
+
+        Returns:
+            Any: The validated expectation or the unchanged input.
+        """
+        if isinstance(value, dict):
+            return ScoringExpectation.model_validate_persisted(value)
+        return value
+
     @field_validator("score_metadata", mode="before")
     @classmethod
     def _default_metadata(cls, value: Any) -> Any:
@@ -127,6 +210,23 @@ class Score(BaseModel):
             ``{}`` when ``value`` is ``None``, otherwise ``value`` unchanged.
         """
         return {} if value is None else value
+
+    @field_validator("observation_ids")
+    @classmethod
+    def _validate_observation_ids(cls, observation_ids: list[uuid.UUID]) -> list[uuid.UUID]:
+        """
+        Reject duplicate observation links while preserving their order.
+
+        Returns:
+            list[uuid.UUID]: The validated observation IDs.
+
+        Raises:
+            ValueError: If an observation ID is repeated.
+        """
+        normalized = [str(observation_id) for observation_id in observation_ids]
+        if len(set(normalized)) != len(normalized):
+            raise ValueError("A score must reference each observation once.")
+        return observation_ids
 
     @model_validator(mode="after")
     def _validate_score_value(self) -> Score:
@@ -141,6 +241,8 @@ class Score(BaseModel):
                 score-type constraints.
         """
         self._check_score_value()
+        if self.observation_ids and self.scorable is None:
+            raise ValueError("A score with observations requires a scorable anchor.")
         return self
 
     @model_validator(mode="after")
@@ -170,6 +272,17 @@ class Score(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def _sync_compatibility_objective(self) -> Score:
+        """
+        Refresh the derived, read-only ``objective`` view from ``scored_expectation``.
+
+        Returns:
+            Score: ``self`` with ``objective`` mirroring ``scored_expectation.objective``.
+        """
+        object.__setattr__(self, "objective", self.scored_expectation.objective if self.scored_expectation else None)
+        return self
+
     def _check_score_value(self) -> None:
         """
         Validate ``score_value`` against ``status`` and ``score_type`` constraints.
@@ -186,7 +299,7 @@ class Score(BaseModel):
             raise ValueError("A complete score requires a score_value. Set status to UNDETERMINED instead.")
 
         score_value = str(self.score_value)
-        if self.score_type == "true_false" and score_value.lower() not in ("true", "false"):
+        if self.score_type == "true_false" and score_value.lower() not in _TRUE_FALSE_VALUES:
             raise ValueError(f"True False scorers must have a score value of 'true' or 'false' not {score_value}")
         if self.score_type == "float_scale":
             try:
@@ -199,6 +312,64 @@ class Score(BaseModel):
     # ------------------------------------------------------------------ #
     # Public API
     # ------------------------------------------------------------------ #
+    def __setattr__(self, name: str, value: Any) -> None:
+        """
+        Deprecate direct writes to a true/false score's value, and keep them valid.
+
+        A true/false verdict is set through ``set_value`` so the value and ``status`` change
+        together. Direct assignment keeps working until 2.0 but rejects a string that is not
+        a verdict. Float scores are unchanged.
+
+        Args:
+            name (str): The attribute being set.
+            value (Any): The new value.
+
+        Raises:
+            ValueError: If a true/false score is assigned a value other than true, false or None.
+        """
+        if name == "score_value" and getattr(self, "score_type", None) == "true_false":
+            print_deprecation_message(
+                old_item="Assigning Score.score_value on a true/false score",
+                new_item="Score.set_value",
+                removed_in="2.0.0",
+            )
+            if value is not None and str(value).lower() not in _TRUE_FALSE_VALUES:
+                raise ValueError(f"True False scorers must have a score value of 'true' or 'false' not {value}")
+        super().__setattr__(name, value)
+
+    def set_value(self, value: bool | float | None) -> None:
+        """
+        Set this score's verdict, keeping ``score_value`` and ``status`` consistent.
+
+        A true/false score takes a bool and stores ``"true"`` or ``"false"``. A float scale score
+        takes a number in [0, 1]. ``None`` marks either type undetermined. Nothing changes if
+        the value is rejected.
+
+        Args:
+            value (bool | float | None): The verdict, or None when no verdict was reachable.
+
+        Raises:
+            TypeError: If the value does not match the score type, or the score type is neither.
+            ValueError: If a float scale value is outside [0, 1].
+        """
+        if self.score_type not in ("true_false", "float_scale"):
+            raise TypeError(f"set_value supports true_false and float_scale scores, not {self.score_type!r}.")
+        if value is None:
+            new_value, status = None, ScoreStatus.UNDETERMINED
+        elif self.score_type == "true_false":
+            if not isinstance(value, bool):
+                raise TypeError(f"A true/false score takes a bool, got {type(value).__name__}.")
+            new_value, status = ("true" if value else "false"), ScoreStatus.COMPLETE
+        else:
+            if isinstance(value, bool) or not isinstance(value, numbers.Real):
+                raise TypeError(f"A float scale score takes a number, got {type(value).__name__}.")
+            if not 0 <= value <= 1:
+                raise ValueError(f"Float scale scorers must have a score value between 0 and 1. Got {value}")
+            new_value, status = str(float(value)), ScoreStatus.COMPLETE
+        # BaseModel.__setattr__ records both fields as set without the deprecated-write path.
+        BaseModel.__setattr__(self, "score_value", new_value)
+        BaseModel.__setattr__(self, "status", status)
+
     @property
     def is_undetermined(self) -> bool:
         """Whether no verdict was reachable for this score."""
@@ -265,10 +436,30 @@ class UnvalidatedScore:
     score_metadata: dict[str, str | int | float] | None
     scorer_class_identifier: ComponentIdentifier
     message_piece_id: uuid.UUID | str | None
-    objective: str | None
+    objective: str | None = None
+    scored_expectation: ScoringExpectation | None = None
     id: uuid.UUID | str | None = None
     timestamp: datetime | None = None
     scorable: ScorableUnion | None = None
+    observation_ids: list[uuid.UUID] = dataclass_field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        """
+        Keep ``objective`` and ``scored_expectation`` consistent.
+
+        Raises:
+            ValueError: If an explicit objective disagrees with ``scored_expectation``.
+        """
+        if self.scored_expectation is None:
+            if self.objective is not None:
+                self.scored_expectation = ScoringExpectation(objective=self.objective)
+        elif self.objective is None:
+            self.objective = self.scored_expectation.objective
+        elif self.objective != self.scored_expectation.objective:
+            raise ValueError(
+                f"objective {self.objective!r} conflicts with scored_expectation.objective "
+                f"{self.scored_expectation.objective!r}."
+            )
 
     def to_score(self, *, score_value: str, score_type: ScoreType) -> Score:
         """
@@ -293,6 +484,8 @@ class UnvalidatedScore:
             scorer_class_identifier=self.scorer_class_identifier,
             message_piece_id=self.message_piece_id,
             scorable=self.scorable,
-            timestamp=self.timestamp if self.timestamp else datetime.now(tz=timezone.utc),
-            objective=self.objective,
+            timestamp=self.timestamp if self.timestamp else datetime.now(tz=UTC),
+            scored_expectation=self.scored_expectation
+            or (ScoringExpectation(objective=self.objective) if self.objective is not None else None),
+            observation_ids=self.observation_ids,
         )

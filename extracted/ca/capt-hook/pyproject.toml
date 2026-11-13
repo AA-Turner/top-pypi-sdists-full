@@ -1,7 +1,7 @@
 [project]
 name = "capt-hook"
 # Inert sentinel — the real version is stamped from the release tag (uv version --frozen).
-version = "12.121.70"
+version = "12.121.76"
 description = "Stop repeating yourself to Claude."
 readme = "README.md"
 license = "PolyForm-Noncommercial-1.0.0"
@@ -44,7 +44,7 @@ dependencies = [
     "filelock>=3.24.0",
     "pathspec>=0.12",
     "loguru>=0.7.3",
-    "spawnllm[sdk]>=0.17.6,<0.18",
+    "spawnllm[sdk]>=0.17.8,<0.18",
     "mcp>=2.0,<3",
 ]
 

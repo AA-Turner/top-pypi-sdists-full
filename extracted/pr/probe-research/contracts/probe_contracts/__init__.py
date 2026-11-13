@@ -37,6 +37,7 @@ _RECORDS = (
     "RunCounts",
     "RunEdit",
     "RunStatus",
+    "RunType",
     "ScaleArgs",
     "SetConfigArgs",
     "ShiftStepArgs",

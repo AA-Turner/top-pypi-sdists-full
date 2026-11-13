@@ -6,11 +6,12 @@
 # provision-a-symlink installer. bin/hook is a committed symlink to it, so
 # hooks, MCP servers, and the CLI reach this script with the tool's own
 # arguments. Its whole job is to find binrun — named in BINRUN_BIN, installed at
-# the pinned tag under ~/.daemonkit/binrun/<tag>, on PATH, or bootstrapped once
-# from the pinned release — and hand off to "binrun <descriptor> $@", which
-# resolves and execs the version-exact artifact the sidecar bin/hook.binrun
-# descriptor pins. Every failure here exits 1: exit 2 is reserved for a real
-# hook verdict, and the only other codes come from the exec'd artifact itself.
+# the pinned tag under ~/.daemonkit/binrun/<tag>, bootstrapped once from the
+# pinned release, or on PATH when that bootstrap fails — and hand off to
+# "binrun <descriptor> $@", which resolves and execs the version-exact artifact
+# the sidecar bin/hook.binrun descriptor pins. Every failure here exits 1:
+# exit 2 is reserved for a real hook verdict, and the only other codes come from
+# the exec'd artifact itself.
 #
 # bash, not sh: this runs once per hook invocation, and an endpoint-security agent
 # that deep-inspects /bin/sh as a living-off-the-land interpreter can put seconds on
@@ -22,11 +23,11 @@ set -eu
 # and its checksums.txt sha256 values for binrun_<version>_<os>_<arch>.tar.gz.
 # Bump all five together when adopting a newer binrun.
 RUNNER_REPO="yasyf/binrun"
-RUNNER_TAG="v0.9.0"
-RUNNER_SHA_darwin_arm64="db63eb56ef291e6c0a57d4120de21e9457802e53768d60af131658b12239466e"
-RUNNER_SHA_darwin_amd64="3e61231d4d4b471ea873084a59e46308a2ea8a3bd90c588e97c0d19228de302c"
-RUNNER_SHA_linux_amd64="fa1991af7943c1465429de7792f88bdfe35174c6bfea5a13d91980cdab914870"
-RUNNER_SHA_linux_arm64="27c8e6e53d6e7eceaed45b3e6eb0d373eae7e7fc5e7fa3cb67e66adeb660438d"
+RUNNER_TAG="v0.10.1"
+RUNNER_SHA_darwin_arm64="71fc60cdfbaabfdfb5524ad10baf4e341f822cf2df29c9d4d82fbbd37960754d"
+RUNNER_SHA_darwin_amd64="c3a3c72522110f71c408d96df2cede994adb76b91003baac973d46dddca1f894"
+RUNNER_SHA_linux_amd64="fbd3a8021989dc2e7fd577cc26192f4b5259ad6383c5205e528c2df85fa4bf38"
+RUNNER_SHA_linux_arm64="d01a295e792c0865fd3115b3cccbc75cb6358d94c4dddec631119728a4abc627"
 # ------------------------------------------------------------------------------
 
 # ${0%/*}, not dirname: skips an exec an endpoint-security agent can serialize fleet-wide.
@@ -76,14 +77,36 @@ fail() {
 }
 
 # daemonkit's realhome: DAEMONKIT_HOME names a home directory, and its fallback is
-# the passwd home, not $HOME. binrun resolves its cache the same way.
-passwd_user="$(id -un)"
-eval "passwd_home=~$passwd_user"
-# An unexpanded tilde means the name has no passwd entry to take a home from.
-case "$passwd_home" in \~*) fail "no passwd home for '$passwd_user'" ;; esac
+# the passwd home, not $HOME. binrun resolves its cache the same way. $USER skips
+# the `id` exec when its passwd home is an absolute directory we own.
+passwd_home=
+if [ -z "${DAEMONKIT_HOME:-}" ]; then
+  case "${USER:-}" in
+    "" | [!A-Za-z0-9_]* | *[!A-Za-z0-9._-]*) ;;
+    *) eval "passwd_home=~$USER" ;;
+  esac
+  case "$passwd_home" in /*) ;; *) passwd_home= ;; esac
+  if [ ! -O "$passwd_home" ]; then
+    passwd_user="$(id -un)"
+    eval "passwd_home=~$passwd_user"
+    # An unexpanded tilde means the name has no passwd entry to take a home from.
+    case "$passwd_home" in \~*) fail "no passwd home for '$passwd_user'" ;; esac
+  fi
+fi
 RUNNER_HOME="${DAEMONKIT_HOME:-$passwd_home}/.daemonkit"
 RUNNER_DIR="$RUNNER_HOME/binrun/$RUNNER_TAG"
 RUNNER_BIN="$RUNNER_DIR/binrun"
+
+# Exec the artifact binrun recorded for a static release binary while the record
+# is newer than the descriptor. A subshell exits on a failed exec despite
+# execfail, so only the top-level shell takes this shortcut.
+record=${DESCRIPTOR//\%/%25}
+record="$RUNNER_HOME/binrun/resolved/${record//\//%2F}"
+if [ "$BASH_SUBSHELL" -eq 0 ] && [ -z "${BINRUN_BIN:-}" ] && [ "$record" -nt "$DESCRIPTOR" ] && IFS= read -r resolved <"$record" && [ -x "$resolved" ]; then
+  shopt -s execfail
+  exec "$resolved" "$@" || true
+  shopt -u execfail
+fi
 
 # Arm 1: an explicitly chosen runner — a dev build, named on purpose.
 if [ -n "${BINRUN_BIN:-}" ]; then
@@ -96,36 +119,48 @@ if [ -x "$RUNNER_BIN" ]; then
   exec "$RUNNER_BIN" "$DESCRIPTOR" "$@"
 fi
 
-# Arm 3: a binrun on PATH. It carries no stamp, so it ranks below the pinned
-# runner: an older one rejects a descriptor whose source the pin was raised for.
-if binrun="$(command -v binrun 2>/dev/null)"; then
-  exec "$binrun" "$DESCRIPTOR" "$@"
-fi
-
-# Arm 4: virgin machine — download the pinned runner release, sha256-verify it,
+# Arm 3: virgin machine — download the pinned runner release, sha256-verify it,
 # install it atomically to the shared bin, and exec. Mirrors the exact-release
 # curl+verify semantics of install-binary-pinned's final arm.
-case "$RUNNER_TAG" in
-  v0.0.0-unreleased) fail "binrun is not released yet (RUNNER_TAG is unpinned) and no runner is installed" ;;
-esac
-
-os="$(uname -s | tr '[:upper:]' '[:lower:]')"
-case "$os" in
-  darwin | linux) ;;
-  *) fail "unsupported OS '$os'" ;;
-esac
-arch="$(uname -m)"
-case "$arch" in
-  x86_64 | amd64) arch=amd64 ;;
-  arm64 | aarch64) arch=arm64 ;;
-  *) fail "unsupported architecture '$arch'" ;;
-esac
-case "${os}_${arch}" in
-  darwin_arm64) expected="$RUNNER_SHA_darwin_arm64" ;;
-  darwin_amd64) expected="$RUNNER_SHA_darwin_amd64" ;;
-  linux_amd64) expected="$RUNNER_SHA_linux_amd64" ;;
-  linux_arm64) expected="$RUNNER_SHA_linux_arm64" ;;
-esac
+install_runner() {
+  case "$RUNNER_TAG" in
+    v0.0.0-unreleased) why="binrun is not released yet (RUNNER_TAG is unpinned) and no runner is installed"; return 1 ;;
+  esac
+  os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  case "$os" in
+    darwin | linux) ;;
+    *) why="unsupported OS '$os'"; return 1 ;;
+  esac
+  arch="$(uname -m)"
+  case "$arch" in
+    x86_64 | amd64) arch=amd64 ;;
+    arm64 | aarch64) arch=arm64 ;;
+    *) why="unsupported architecture '$arch'"; return 1 ;;
+  esac
+  case "${os}_${arch}" in
+    darwin_arm64) expected="$RUNNER_SHA_darwin_arm64" ;;
+    darwin_amd64) expected="$RUNNER_SHA_darwin_amd64" ;;
+    linux_amd64) expected="$RUNNER_SHA_linux_amd64" ;;
+    linux_arm64) expected="$RUNNER_SHA_linux_arm64" ;;
+  esac
+  asset="binrun_${RUNNER_TAG#v}_${os}_${arch}.tar.gz"
+  url="https://github.com/$RUNNER_REPO/releases/download/$RUNNER_TAG/$asset"
+  mkdir -p "$RUNNER_DIR" || { why="could not create $RUNNER_DIR"; return 1; }
+  # Stage on the destination filesystem and rename into place: an interrupted
+  # bootstrap never leaves a half-written runner, the rename is atomic, and
+  # concurrent bootstraps of one tag converge on identical bytes without a lock.
+  # Renaming over a running binrun keeps its inode alive (unlike an in-place
+  # write, which fails ETXTBSY on Linux).
+  tmpd="$(mktemp -d "$RUNNER_DIR/.binrun.XXXXXX")" || { why="could not stage in $RUNNER_DIR"; return 1; }
+  curl -fsSL --retry "$curl_retries" --connect-timeout 10 --max-time "$curl_seconds" -o "$tmpd/$asset" "$url" \
+    || { why="could not download the pinned binrun runner ($url)"; return 1; }
+  actual="$(sha256_of "$tmpd/$asset")"
+  [ "$actual" = "$expected" ] \
+    || { why="binrun runner checksum mismatch for $asset (expected $expected, got $actual)"; return 1; }
+  tar -xzf "$tmpd/$asset" -C "$tmpd" || { why="could not extract $asset"; return 1; }
+  [ -x "$tmpd/binrun" ] || { why="$asset did not contain a binrun executable"; return 1; }
+  mv -f "$tmpd/binrun" "$RUNNER_BIN" || { why="could not install $RUNNER_BIN"; return 1; }
+}
 
 sha256_of() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -135,27 +170,35 @@ sha256_of() {
   fi
 }
 
-asset="binrun_${RUNNER_TAG#v}_${os}_${arch}.tar.gz"
-url="https://github.com/$RUNNER_REPO/releases/download/$RUNNER_TAG/$asset"
-
-mkdir -p "$RUNNER_DIR"
-# Stage on the destination filesystem and rename into place: an interrupted
-# bootstrap never leaves a half-written runner, the rename is atomic, and
-# concurrent bootstraps of one tag converge on identical bytes without a lock.
-# Renaming over a running binrun keeps its inode alive (unlike an in-place
-# write, which fails ETXTBSY on Linux).
-tmpd="$(mktemp -d "$RUNNER_DIR/.binrun.XXXXXX")"
-trap 'rm -rf "$tmpd"' EXIT
-curl -fsSL --retry 2 --connect-timeout 10 --max-time 300 -o "$tmpd/$asset" "$url" \
-  || fail "could not download the pinned binrun runner ($url)"
-actual="$(sha256_of "$tmpd/$asset")"
-[ "$actual" = "$expected" ] \
-  || fail "binrun runner checksum mismatch for $asset (expected $expected, got $actual)"
-tar -xzf "$tmpd/$asset" -C "$tmpd" \
-  || fail "could not extract $asset"
-[ -x "$tmpd/binrun" ] \
-  || fail "$asset did not contain a binrun executable"
-mv -f "$tmpd/binrun" "$RUNNER_BIN"
-rm -rf "$tmpd"
-trap - EXIT
-exec "$RUNNER_BIN" "$DESCRIPTOR" "$@"
+# Arm 4: a binrun on PATH. It carries no stamp, so it ranks below the pinned
+# runner: an older one rejects a descriptor whose source the pin was raised for,
+# and it skips the launch record the pinned runner writes. It serves only when
+# the bootstrap fails, as it does offline. With one to fall back on, the
+# bootstrap gets one short download and claims the attempt first: while the
+# claim is no older than the descriptor, concurrent and later callers go straight
+# to PATH, so an offline machine pays the download timeout once per plugin
+# version, and a caller killed mid-download leaves the claim behind.
+path_binrun="$(command -v binrun 2>/dev/null)" || path_binrun=
+claim="$RUNNER_DIR/.bootstrap-claimed"
+if [ -z "$path_binrun" ] || [ ! -e "$claim" ] || [ "$DESCRIPTOR" -nt "$claim" ]; then
+  curl_retries=2 curl_seconds=300
+  if [ -n "$path_binrun" ]; then
+    curl_retries=0 curl_seconds=60
+    mkdir -p "$RUNNER_DIR" 2>/dev/null && : >"$claim" 2>/dev/null || true
+  fi
+  tmpd=
+  trap '[ -z "$tmpd" ] || rm -rf "$tmpd" 2>/dev/null' EXIT
+  if install_runner; then
+    [ -z "$tmpd" ] || rm -rf "$tmpd" 2>/dev/null || true
+    trap - EXIT
+    why="could not exec $RUNNER_BIN"
+    shopt -s execfail
+    exec "$RUNNER_BIN" "$DESCRIPTOR" "$@" || true
+    shopt -u execfail
+  fi
+  [ -n "$path_binrun" ] || fail "$why"
+  echo "hook: $why; using $path_binrun until the plugin updates" >&2 || true
+  [ -z "$tmpd" ] || rm -rf "$tmpd" 2>/dev/null || true
+  trap - EXIT
+fi
+exec "$path_binrun" "$DESCRIPTOR" "$@"

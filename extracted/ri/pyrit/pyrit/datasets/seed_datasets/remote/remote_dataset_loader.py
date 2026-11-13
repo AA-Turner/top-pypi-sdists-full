@@ -6,15 +6,16 @@ import contextlib
 import hashlib
 import io
 import logging
+import os
 import tempfile
 import zipfile
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import fields
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, ClassVar, Literal, TextIO, cast
+from typing import Any, ClassVar, Literal, TextIO, cast, final
 from urllib.parse import urlparse
 
 import requests
@@ -26,6 +27,7 @@ from pyrit.common.path import DB_DATA_PATH
 from pyrit.common.text_helper import read_txt, write_txt
 from pyrit.datasets.seed_datasets.seed_dataset_provider import SeedDatasetProvider
 from pyrit.datasets.seed_datasets.seed_metadata import SeedDatasetMetadata
+from pyrit.models import SeedDataset, SeedOrigin
 from pyrit.models.harm_category import standardize_harm_categories
 
 logger = logging.getLogger(__name__)
@@ -46,9 +48,15 @@ class _RemoteDatasetLoader(SeedDatasetProvider, ABC):
     - HuggingFace Hub
 
     Subclasses must implement:
-    - fetch_dataset_async(): Fetch and return the dataset as a SeedDataset
+    - _fetch_dataset_async(): Fetch and return the dataset as a SeedDataset
     - dataset_name property: Human-readable name for the dataset
+
+    The public fetch method assigns REMOTE origin, including for local source files
+    and cached downloads.
     """
+
+    # Seconds to wait for a remote server before giving up, so a stalled download cannot hang forever.
+    REQUEST_TIMEOUT_SECONDS: ClassVar[int] = 60
 
     FILE_TYPE_HANDLERS: ClassVar[dict[str, dict[str, Callable[..., Any]]]] = {
         "json": {"read": read_json, "write": write_json},
@@ -56,6 +64,49 @@ class _RemoteDatasetLoader(SeedDatasetProvider, ABC):
         "csv": {"read": read_csv, "write": write_csv},
         "txt": {"read": read_txt, "write": write_txt},
     }
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """
+        Reject public fetch overrides before provider registration.
+
+        Raises:
+            TypeError: If the subclass overrides fetch_dataset_async.
+        """
+        if cls.fetch_dataset_async is not _RemoteDatasetLoader.fetch_dataset_async:
+            raise TypeError(
+                f"{cls.__name__} must not override fetch_dataset_async. "
+                "Rename the implementation to _fetch_dataset_async and inherit "
+                "fetch_dataset_async so every seed receives REMOTE origin."
+            )
+        super().__init_subclass__(**kwargs)
+
+    @final
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
+        """
+        Fetch the dataset and mark every seed as supplied by a remote provider.
+
+        Args:
+            cache (bool): Whether to cache the fetched dataset.
+
+        Returns:
+            SeedDataset: The fetched dataset with REMOTE origin on every seed.
+        """
+        dataset = await self._fetch_dataset_async(cache=cache)
+        for seed in dataset.seeds:
+            seed.origin = SeedOrigin.REMOTE
+        return dataset
+
+    @abstractmethod
+    async def _fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
+        """
+        Load and parse the dataset without assigning origin.
+
+        Args:
+            cache (bool): Whether to cache the fetched dataset.
+
+        Returns:
+            SeedDataset: The provider-specific dataset.
+        """
 
     @staticmethod
     def _validate_enums(
@@ -138,8 +189,8 @@ class _RemoteDatasetLoader(SeedDatasetProvider, ABC):
         if not date_str:
             return None
         try:
-            return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        except (ValueError, AttributeError):
+            return datetime.fromisoformat(date_str)
+        except (ValueError, TypeError, AttributeError):
             return None
 
     def _get_cache_file_name(self, *, source: str, file_type: str) -> str:
@@ -238,7 +289,7 @@ class _RemoteDatasetLoader(SeedDatasetProvider, ABC):
             ValueError: If the file_type is invalid.
             Exception: If the request to fetch examples fails.
         """
-        response = requests.get(source)
+        response = requests.get(source, timeout=self.REQUEST_TIMEOUT_SECONDS)
         if response.status_code == 200:
             if file_type in self.FILE_TYPE_HANDLERS:
                 if file_type == "json":
@@ -313,16 +364,11 @@ class _RemoteDatasetLoader(SeedDatasetProvider, ABC):
 
         if source_type == "public_url":
             examples = self._fetch_from_public_url(source=source, file_type=file_type)
-        elif source_type == "file":
+        else:
             examples = self._fetch_from_file(source=source, file_type=file_type)
 
         if cache:
             self._write_cache(cache_file=cache_file, examples=examples, file_type=file_type)
-        else:
-            with tempfile.NamedTemporaryFile(
-                delete=False, mode="w", suffix=f".{file_type}", encoding="utf-8"
-            ) as temp_file:
-                self.FILE_TYPE_HANDLERS[file_type]["write"](temp_file, examples)
 
         return examples
 
@@ -378,7 +424,7 @@ class _RemoteDatasetLoader(SeedDatasetProvider, ABC):
             Returns:
                 Dataset: The loaded dataset from Hugging Face.
             """
-            cache_dir = str(DB_DATA_PATH / "huggingface") if cache else None
+            cache_dir = (os.getenv("HF_DATASETS_CACHE") or str(DB_DATA_PATH / "huggingface")) if cache else None
 
             # Reuse cached data when caching is enabled; force a re-download otherwise so
             # cache=False genuinely picks up upstream edits instead of silently reusing the cache.
@@ -486,7 +532,7 @@ class _RemoteDatasetLoader(SeedDatasetProvider, ABC):
                     temp_to_clean = zip_path
 
                     logger.info(f"Downloading zip archive from {source}")
-                    with requests.get(source, stream=True) as response:
+                    with requests.get(source, stream=True, timeout=self.REQUEST_TIMEOUT_SECONDS) as response:
                         response.raise_for_status()
                         with zip_path.open("wb") as fh:
                             for chunk in response.iter_content(chunk_size=1 << 16):

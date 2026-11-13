@@ -22,7 +22,7 @@ import struct
 import threading
 import time
 from random import SystemRandom
-from typing import Any, NoReturn, Optional, Union
+from typing import Any, NoReturn
 
 from bson.datetime_ms import _datetime_to_millis
 from bson.errors import InvalidId
@@ -59,7 +59,7 @@ class ObjectId:
 
     _type_marker = 7
 
-    def __init__(self, oid: Optional[Union[str, ObjectId, bytes]] = None) -> None:
+    def __init__(self, oid: str | ObjectId | bytes | None = None) -> None:
         """Initialize a new ObjectId.
 
         An ObjectId is a 12-byte unique identifier consisting of:
@@ -111,6 +111,10 @@ class ObjectId:
                 try:
                     self.__id = bytes.fromhex(oid)
                 except (TypeError, ValueError):
+                    _raise_invalid_id(oid)
+                # bytes.fromhex() skips ASCII whitespace, so a 24-character
+                # string can decode to fewer than 12 bytes.
+                if len(self.__id) != 12:
                     _raise_invalid_id(oid)
             else:
                 _raise_invalid_id(oid)
@@ -223,12 +227,12 @@ class ObjectId:
     def __repr__(self) -> str:
         return f"ObjectId('{self!s}')"
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, ObjectId):
             return self.__id == other.binary
         return NotImplemented
 
-    def __ne__(self, other: Any) -> bool:
+    def __ne__(self, other: object) -> bool:
         if isinstance(other, ObjectId):
             return self.__id != other.binary
         return NotImplemented

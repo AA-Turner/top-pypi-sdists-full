@@ -151,11 +151,14 @@ class Feature:
 FEATURES: dict[str, Feature] = {
     f.name: f
     for f in (
-        # A front end's hint that edge pairs share a pose: one block filled
-        # per pose, the rest copied (PRs #1810, #1811). Python's plan over
-        # the copy the Sommerfeld remainder kernel shipped in 0.87.0. The
-        # hint is DATA, so the variable alone reuses nothing: no front end
-        # that reads the variable supplies a hint.
+        # Each congruent pair's fill once, the rest copied. BSplineSolver: a
+        # front end's hint that edge pairs share a pose, one block filled per
+        # pose (PRs #1810, #1811), Python's plan over the copy the Sommerfeld
+        # remainder kernel shipped in 0.87.0; the hint is DATA, so there the
+        # variable alone reuses nothing. SinusoidalSolver (momwire#1911): the
+        # point-matched fill finds its own classes of (observer, source)
+        # pairs and evaluates each one's field tensors once with the shipped
+        # kernel, free space and PEC image; there the variable alone is on.
         Feature(
             name="pair_reuse",
             reach=1,
@@ -164,14 +167,24 @@ FEATURES: dict[str, Feature] = {
             issue=1809,
             since="2026-11-04",
             kwarg="pair_reuse",
-            paths=("tests/test_pair_reuse_1809.py",),
+            paths=(
+                "src/momwire/_sin_pair_reuse.py",
+                "tests/test_pair_reuse_1809.py",
+                "tests/test_sin_pair_reuse_1911.py",
+            ),
             label="pair reuse",
             summary=(
-                "Fills one block per repeated pose of edge pairs and copies the "
-                "rest. It needs the front end's hint of which pairs share a pose, "
-                "so the switch alone reuses nothing."
+                "Fills each repeated pose of a pair of wires or segments once and "
+                "copies the rest. nec5-bspline and nec42-bspline need the front "
+                "end's hint of which edge pairs share a pose; the sinusoidal "
+                "solver finds its own, in free space and over a perfect ground."
             ),
-            drift=1e-12,
+            # bspline: 1e-12. sinusoidal (momwire#1911), measured on Skylake
+            # against the flag-off fill over the ELT whip and 19 corpus and
+            # catalogue decks, free space and PEC, thin wire and EK: at most
+            # 2.7e-12 (a 4x4 bowtie array; the whip 2.7e-13), below what
+            # translating each deck moves its own answer (up to 6e-11).
+            drift=3e-12,
             offer=False,
         ),
         # A uniform edge's same-edge reg moments filled by segment offset
@@ -329,6 +342,36 @@ FEATURES: dict[str, Feature] = {
                 "input impedance by at most 3e-8 relative."
             ),
             drift=1e-7,
+            offer=True,
+        ),
+        # BSplineSolver's junction constraints eliminated before the factor
+        # (momwire#1898): Z reduced to the constraint null space in place,
+        # where the Schur route back-substitutes n_c extra right-hand sides.
+        # The shipped fill and LAPACK, on a smaller system; the same
+        # Galerkin solution up to rounding.
+        Feature(
+            name="kcl_nullspace",
+            reach=1,
+            env="MOMWIRE_X_KCL_NULLSPACE",
+            kind="python",
+            issue=1898,
+            since="2026-11-11",
+            kwarg="kcl_nullspace",
+            paths=(
+                "src/momwire/_kcl_nullspace.py",
+                "tests/test_kcl_nullspace_1898.py",
+            ),
+            label="eliminate junction constraints",
+            summary=(
+                "Solve nec5-bspline's and nec42-bspline's junction conservation "
+                "by eliminating one wire end per junction before the factor, "
+                "instead of carrying the constraints through the solve. Fewer "
+                "unknowns and no extra solves on junction-dense designs (coils, "
+                "cages, grids)."
+            ),
+            # Measured on the ELT whip (2,029 rows), nec5-bspline degrees 1
+            # and 2, free space and Sommerfeld: at most 6.7e-13.
+            drift=1e-12,
             offer=True,
         ),
         # The exact-kernel point moments as a k-series (Python and its C++

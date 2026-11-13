@@ -15,6 +15,7 @@ import datetime
 if TYPE_CHECKING:
   from ..models.auto_merged_pull_request import AutoMergedPullRequest
   from ..models.forge_health import ForgeHealth
+  from ..models.hidden_draft_counts import HiddenDraftCounts
   from ..models.issue import Issue
   from ..models.main_branches import MainBranches
   from ..models.nav_counts import NavCounts
@@ -90,7 +91,14 @@ class Dashboard:
                 present, and `0` when the request set `includeDrafts=true`, so
                 a client can render "N hidden" without a special case. Drafts
                 in a repo the account ignores aren't counted, since none of
-                that repo's pull requests show.
+                that repo's pull requests show. The sum of `hiddenDraftsByPage`.
+            hidden_drafts_by_page (HiddenDraftCounts): How many draft pull requests the board left out, per page that lists
+                them: release pull requests under `releases`, Dependabot and Renovate
+                under `bots`, the rest under `pullRequests`, the same split as
+                `navCounts`. A page shows its Show drafts button only when its own
+                number is above zero, so the button never appears on a page where it
+                would reveal nothing. Always present, with zeros when there is nothing
+                hidden or the request set `includeDrafts=true`.
             forges (list[ForgeHealth]):
             pull_requests (list[PullRequest]):
             issues (list[Issue]):
@@ -117,6 +125,7 @@ class Dashboard:
     recently_started: bool
     read_interval_seconds: int
     hidden_drafts: int
+    hidden_drafts_by_page: HiddenDraftCounts
     forges: list[ForgeHealth]
     pull_requests: list[PullRequest]
     issues: list[Issue]
@@ -132,6 +141,7 @@ class Dashboard:
     def to_dict(self) -> dict[str, Any]:
         from ..models.auto_merged_pull_request import AutoMergedPullRequest # noqa: PLC0415
         from ..models.forge_health import ForgeHealth # noqa: PLC0415
+        from ..models.hidden_draft_counts import HiddenDraftCounts # noqa: PLC0415
         from ..models.issue import Issue # noqa: PLC0415
         from ..models.main_branches import MainBranches # noqa: PLC0415
         from ..models.nav_counts import NavCounts # noqa: PLC0415
@@ -167,6 +177,8 @@ class Dashboard:
         read_interval_seconds = self.read_interval_seconds
 
         hidden_drafts = self.hidden_drafts
+
+        hidden_drafts_by_page = self.hidden_drafts_by_page.to_dict()
 
         forges = []
         for forges_item_data in self.forges:
@@ -214,6 +226,7 @@ class Dashboard:
             "recentlyStarted": recently_started,
             "readIntervalSeconds": read_interval_seconds,
             "hiddenDrafts": hidden_drafts,
+            "hiddenDraftsByPage": hidden_drafts_by_page,
             "forges": forges,
             "pullRequests": pull_requests,
             "issues": issues,
@@ -232,6 +245,7 @@ class Dashboard:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.auto_merged_pull_request import AutoMergedPullRequest # noqa: PLC0415
         from ..models.forge_health import ForgeHealth # noqa: PLC0415
+        from ..models.hidden_draft_counts import HiddenDraftCounts # noqa: PLC0415
         from ..models.issue import Issue # noqa: PLC0415
         from ..models.main_branches import MainBranches # noqa: PLC0415
         from ..models.nav_counts import NavCounts # noqa: PLC0415
@@ -283,6 +297,11 @@ class Dashboard:
         read_interval_seconds = d.pop("readIntervalSeconds")
 
         hidden_drafts = d.pop("hiddenDrafts")
+
+        hidden_drafts_by_page = HiddenDraftCounts.from_dict(d.pop("hiddenDraftsByPage"))
+
+
+
 
         forges = []
         _forges = d.pop("forges")
@@ -339,6 +358,7 @@ class Dashboard:
             recently_started=recently_started,
             read_interval_seconds=read_interval_seconds,
             hidden_drafts=hidden_drafts,
+            hidden_drafts_by_page=hidden_drafts_by_page,
             forges=forges,
             pull_requests=pull_requests,
             issues=issues,

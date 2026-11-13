@@ -19,8 +19,17 @@ TAG_FALSE = "false"
 
 EMPTY_NAME = "."
 
+# Asks the skippable-tests endpoint not to compute meta.coverage (line coverage of skipped tests). With file-level
+# coverage there are no line bitmaps to merge it into, so the backfill is wasted work on the backend.
+SKIPPABLE_ITR_CODE_COVERAGE_HEADER = {"X-Datadog-ITR-Code-Coverage": "false"}
+
 # Git metadata environment variables
 DD_GIT_PULL_REQUEST_BASE_BRANCH_SHA = "DD_GIT_PULL_REQUEST_BASE_BRANCH_SHA"
+
+# CI Visibility git metadata upload / unshallow kill switches. These match the
+# dd-trace-js and dd-trace-go configuration names.
+DD_CIVISIBILITY_GIT_UPLOAD_ENABLED = "DD_CIVISIBILITY_GIT_UPLOAD_ENABLED"
+DD_CIVISIBILITY_GIT_UNSHALLOW_ENABLED = "DD_CIVISIBILITY_GIT_UNSHALLOW_ENABLED"
 
 # Bazel / offline mode environment variables
 DD_TEST_OPTIMIZATION_MANIFEST_FILE = "DD_TEST_OPTIMIZATION_MANIFEST_FILE"

@@ -429,7 +429,7 @@ class CheckResponsesCost:
         response: ResponsesAPIResponse,
     ) -> BilledCharge | None:
         if not await self._claim_for_billing(job):
-            verbose_proxy_logger.info(f"Response {job.unified_object_id} was already billed elsewhere, skipping")
+            verbose_proxy_logger.debug(f"Response {job.unified_object_id} was already billed elsewhere, skipping")
             return None
         try:
             creator: Final = await self._creator_attribution.response_creator(job, job.unified_object_id)
@@ -437,7 +437,7 @@ class CheckResponsesCost:
         except BaseException:
             await self._release_billing_claim(job)
             raise
-        verbose_proxy_logger.info(f"Response {job.unified_object_id} reached a terminal status and was billed")
+        verbose_proxy_logger.debug(f"Response {job.unified_object_id} reached a terminal status and was billed")
         return charge
 
     async def _job_for_provider_id(self, provider_response_id: str) -> ManagedObjectRow | None:
@@ -548,7 +548,7 @@ class CheckResponsesCost:
 
             try:
                 if await self._superseded_by_a_provider_id_row(job):
-                    verbose_proxy_logger.info(f"Response {unified_object_id} is billed under its provider id row")
+                    verbose_proxy_logger.debug(f"Response {unified_object_id} is billed under its provider id row")
                     continue
                 target = self._poll_target(job)
             except Exception as e:
@@ -567,7 +567,7 @@ class CheckResponsesCost:
 
             except Exception as e:
                 if target.deployment is not None and _is_response_gone_at_provider(e, provider_response_id):
-                    verbose_proxy_logger.info(
+                    verbose_proxy_logger.debug(
                         f"Response {unified_object_id} no longer available at provider (404), marking stale_expired: {e}"
                     )
                     expired_jobs.append(job)
@@ -581,4 +581,4 @@ class CheckResponsesCost:
                 where={"id": {"in": [job.id for job in expired_jobs]}},
                 data={"status": "stale_expired"},
             )
-            verbose_proxy_logger.info(f"Marked {len(expired_jobs)} response jobs as stale_expired")
+            verbose_proxy_logger.debug(f"Marked {len(expired_jobs)} response jobs as stale_expired")

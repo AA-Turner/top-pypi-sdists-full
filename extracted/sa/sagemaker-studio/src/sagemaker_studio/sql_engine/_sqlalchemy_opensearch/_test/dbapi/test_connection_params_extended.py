@@ -39,8 +39,20 @@ class TestConnectionParamsExtended:
             api_key_id="myid",
         )
         d = params.to_dict()
-        assert d["api_key"] == "mykey"
-        assert d["api_key_id"] == "myid"
+        assert d["api_key"] == "****"
+        assert d["api_key_id"] == "****"
+        # The real secret stays available on the attribute for building the client.
+        assert params.api_key == "mykey"
+        assert params.api_key_id == "myid"
+
+    def test_repr_hides_secrets(self):
+        basic = ConnectionParams(host="localhost", port=443, username="user", password="s3cret")
+        key = ConnectionParams(host="localhost", port=443, api_key="mykey", api_key_id="myid")
+        assert "s3cret" not in repr(basic)
+        assert "user" not in repr(basic)
+        assert "myid" not in repr(key)
+        assert "mykey" not in repr(key)
+        assert "s3cret" not in str(basic)
 
     def test_to_dict_with_ssl_certs(self):
         params = ConnectionParams(

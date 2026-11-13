@@ -1,12 +1,16 @@
 Metadata-Version: 2.4
 Name: aiogoogle
-Version: 5.20.0
+Version: 5.21.0
 Summary: Async Google API client
 Home-page: https://github.com/omarryhan/aiogoogle
 Author: Omar Ryhan
 Author-email: omarryhan@gmail.com
 License: MIT
-Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE

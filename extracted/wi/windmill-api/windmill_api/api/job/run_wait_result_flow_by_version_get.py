@@ -18,6 +18,7 @@ def _get_kwargs(
     job_id: Union[Unset, None, str] = UNSET,
     skip_preprocessor: Union[Unset, None, bool] = UNSET,
     memory_id: Union[Unset, None, str] = UNSET,
+    take_over: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -33,6 +34,8 @@ def _get_kwargs(
     params["skip_preprocessor"] = skip_preprocessor
 
     params["memory_id"] = memory_id
+
+    params["take_over"] = take_over
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -77,6 +80,7 @@ def sync_detailed(
     job_id: Union[Unset, None, str] = UNSET,
     skip_preprocessor: Union[Unset, None, bool] = UNSET,
     memory_id: Union[Unset, None, str] = UNSET,
+    take_over: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """run flow by version with GET and wait until completion
 
@@ -89,6 +93,7 @@ def sync_detailed(
         job_id (Union[Unset, None, str]):
         skip_preprocessor (Union[Unset, None, bool]):
         memory_id (Union[Unset, None, str]):
+        take_over (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -107,6 +112,7 @@ def sync_detailed(
         job_id=job_id,
         skip_preprocessor=skip_preprocessor,
         memory_id=memory_id,
+        take_over=take_over,
     )
 
     response = client.get_httpx_client().request(
@@ -127,6 +133,7 @@ async def asyncio_detailed(
     job_id: Union[Unset, None, str] = UNSET,
     skip_preprocessor: Union[Unset, None, bool] = UNSET,
     memory_id: Union[Unset, None, str] = UNSET,
+    take_over: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """run flow by version with GET and wait until completion
 
@@ -139,6 +146,7 @@ async def asyncio_detailed(
         job_id (Union[Unset, None, str]):
         skip_preprocessor (Union[Unset, None, bool]):
         memory_id (Union[Unset, None, str]):
+        take_over (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -157,6 +165,7 @@ async def asyncio_detailed(
         job_id=job_id,
         skip_preprocessor=skip_preprocessor,
         memory_id=memory_id,
+        take_over=take_over,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)

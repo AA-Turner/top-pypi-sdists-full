@@ -79,6 +79,9 @@ if typing.TYPE_CHECKING:
     from .account_preferences import AccountPreferences
     from .account_preferences_preferred_settlement_currency import AccountPreferencesPreferredSettlementCurrency
     from .account_preferences_subscription_failure_behavior import AccountPreferencesSubscriptionFailureBehavior
+    from .account_processing_offer_level import AccountProcessingOfferLevel
+    from .account_processing_offer_regional_rate import AccountProcessingOfferRegionalRate
+    from .account_processing_offer_regional_rate_region import AccountProcessingOfferRegionalRateRegion
     from .account_recommended_action import AccountRecommendedAction
     from .account_recommended_action_action import AccountRecommendedActionAction
     from .account_recommended_action_status import AccountRecommendedActionStatus
@@ -113,24 +116,19 @@ if typing.TYPE_CHECKING:
     from .ad import Ad
     from .ad_call_to_action import AdCallToAction
     from .ad_campaign import AdCampaign
-    from .ad_campaign_bid_type import AdCampaignBidType
     from .ad_campaign_budget_optimization import AdCampaignBudgetOptimization
     from .ad_campaign_budget_type import AdCampaignBudgetType
     from .ad_campaign_campaign_type import AdCampaignCampaignType
     from .ad_campaign_delivery_status import AdCampaignDeliveryStatus
     from .ad_campaign_objective import AdCampaignObjective
-    from .ad_campaign_platform import AdCampaignPlatform
     from .ad_campaign_result_event import AdCampaignResultEvent
     from .ad_campaign_special_ad_categories_item import AdCampaignSpecialAdCategoriesItem
     from .ad_campaign_status import AdCampaignStatus
-    from .ad_conversion_value_rule import AdConversionValueRule
-    from .ad_conversion_value_rule_adjustment_type import AdConversionValueRuleAdjustmentType
-    from .ad_conversion_value_rule_event import AdConversionValueRuleEvent
-    from .ad_conversion_value_rule_event_event_name import AdConversionValueRuleEventEventName
-    from .ad_conversion_value_rule_status import AdConversionValueRuleStatus
-    from .ad_conversion_value_rule_target import AdConversionValueRuleTarget
-    from .ad_conversion_value_rule_target_platform import AdConversionValueRuleTargetPlatform
-    from .ad_conversion_value_rule_target_scope import AdConversionValueRuleTargetScope
+    from .ad_content_review import AdContentReview
+    from .ad_content_review_network import AdContentReviewNetwork
+    from .ad_content_review_network_title import AdContentReviewNetworkTitle
+    from .ad_content_review_status import AdContentReviewStatus
+    from .ad_content_review_tag import AdContentReviewTag
     from .ad_creative import AdCreative
     from .ad_creative_crop import AdCreativeCrop
     from .ad_creative_format import AdCreativeFormat
@@ -139,41 +137,24 @@ if typing.TYPE_CHECKING:
     from .ad_group import AdGroup
     from .ad_group_audiences import AdGroupAudiences
     from .ad_group_audiences_body import AdGroupAudiencesBody
-    from .ad_group_behavior_category import AdGroupBehaviorCategory
-    from .ad_group_behavior_category_behavior_type import AdGroupBehaviorCategoryBehaviorType
     from .ad_group_bid_type import AdGroupBidType
     from .ad_group_budget_type import AdGroupBudgetType
     from .ad_group_city import AdGroupCity
-    from .ad_group_conversion_location import AdGroupConversionLocation
     from .ad_group_custom_location import AdGroupCustomLocation
     from .ad_group_custom_location_distance_unit import AdGroupCustomLocationDistanceUnit
     from .ad_group_delivery_schedule import AdGroupDeliverySchedule
     from .ad_group_delivery_status import AdGroupDeliveryStatus
     from .ad_group_delivery_window import AdGroupDeliveryWindow
-    from .ad_group_demographic_category import AdGroupDemographicCategory
-    from .ad_group_demographic_category_type import AdGroupDemographicCategoryType
     from .ad_group_demographics import AdGroupDemographics
     from .ad_group_demographics_body import AdGroupDemographicsBody
     from .ad_group_demographics_body_gender import AdGroupDemographicsBodyGender
     from .ad_group_demographics_gender import AdGroupDemographicsGender
-    from .ad_group_detailed_targeting import AdGroupDetailedTargeting
-    from .ad_group_detailed_targeting_body import AdGroupDetailedTargetingBody
-    from .ad_group_detailed_targeting_body_behaviors_item import AdGroupDetailedTargetingBodyBehaviorsItem
-    from .ad_group_detailed_targeting_body_behaviors_item_behavior_type import (
-        AdGroupDetailedTargetingBodyBehaviorsItemBehaviorType,
-    )
-    from .ad_group_detailed_targeting_body_demographics_item import AdGroupDetailedTargetingBodyDemographicsItem
-    from .ad_group_detailed_targeting_body_demographics_item_type import (
-        AdGroupDetailedTargetingBodyDemographicsItemType,
-    )
-    from .ad_group_detailed_targeting_body_interests_item import AdGroupDetailedTargetingBodyInterestsItem
     from .ad_group_devices import AdGroupDevices
     from .ad_group_devices_body import AdGroupDevicesBody
     from .ad_group_devices_body_operating_systems_item import AdGroupDevicesBodyOperatingSystemsItem
     from .ad_group_devices_body_operating_systems_item_os import AdGroupDevicesBodyOperatingSystemsItemOs
     from .ad_group_devices_body_platforms_item import AdGroupDevicesBodyPlatformsItem
     from .ad_group_devices_platforms_item import AdGroupDevicesPlatformsItem
-    from .ad_group_frequency_cap import AdGroupFrequencyCap
     from .ad_group_geo_locations import AdGroupGeoLocations
     from .ad_group_geo_locations_body import AdGroupGeoLocationsBody
     from .ad_group_geo_locations_body_cities_item import AdGroupGeoLocationsBodyCitiesItem
@@ -186,45 +167,26 @@ if typing.TYPE_CHECKING:
     from .ad_group_keyword import AdGroupKeyword
     from .ad_group_keyword_match_type import AdGroupKeywordMatchType
     from .ad_group_learning_progress import AdGroupLearningProgress
-    from .ad_group_message_apps_item import AdGroupMessageAppsItem
     from .ad_group_operating_system import AdGroupOperatingSystem
     from .ad_group_operating_system_os import AdGroupOperatingSystemOs
-    from .ad_group_optimization_goal import AdGroupOptimizationGoal
-    from .ad_group_placement import AdGroupPlacement
-    from .ad_group_placement_platform import AdGroupPlacementPlatform
-    from .ad_group_platform import AdGroupPlatform
     from .ad_group_regions import AdGroupRegions
     from .ad_group_regions_body import AdGroupRegionsBody
     from .ad_group_result_event import AdGroupResultEvent
     from .ad_group_status import AdGroupStatus
-    from .ad_group_targeting_category import AdGroupTargetingCategory
-    from .ad_lead_form import AdLeadForm
-    from .ad_lead_form_completion import AdLeadFormCompletion
-    from .ad_lead_form_completion_button_type import AdLeadFormCompletionButtonType
-    from .ad_lead_form_disclaimer import AdLeadFormDisclaimer
-    from .ad_lead_form_disclaimer_checkbox import AdLeadFormDisclaimerCheckbox
-    from .ad_lead_form_form_type import AdLeadFormFormType
-    from .ad_lead_form_intro import AdLeadFormIntro
-    from .ad_lead_form_option_logic import AdLeadFormOptionLogic
-    from .ad_lead_form_option_logic_action import AdLeadFormOptionLogicAction
-    from .ad_lead_form_privacy_policy import AdLeadFormPrivacyPolicy
-    from .ad_lead_form_question import AdLeadFormQuestion
-    from .ad_lead_form_question_option import AdLeadFormQuestionOption
-    from .ad_messaging_config import AdMessagingConfig
-    from .ad_music import AdMusic
+    from .ad_issue import AdIssue
+    from .ad_issue_policy import AdIssuePolicy
+    from .ad_issue_reason import AdIssueReason
+    from .ad_issue_resource_type import AdIssueResourceType
     from .ad_pixel import AdPixel
     from .ad_pixel_platform import AdPixelPlatform
     from .ad_pixel_status import AdPixelStatus
-    from .ad_platform import AdPlatform
     from .ad_platform_issue import AdPlatformIssue
     from .ad_platform_issue_category import AdPlatformIssueCategory
     from .ad_platform_issue_resource_type import AdPlatformIssueResourceType
-    from .ad_post_source import AdPostSource
     from .ad_result_event import AdResultEvent
     from .ad_stat import AdStat
     from .ad_status import AdStatus
     from .ad_text import AdText
-    from .ad_translations import AdTranslations
     from .affiliate import Affiliate
     from .affiliate_applies_to_payments import AffiliateAppliesToPayments
     from .affiliate_applies_to_products import AffiliateAppliesToProducts
@@ -261,6 +223,7 @@ if typing.TYPE_CHECKING:
     from .app_build_status import AppBuildStatus
     from .app_build_statuses import AppBuildStatuses
     from .app_build_supported_app_view_types_item import AppBuildSupportedAppViewTypesItem
+    from .app_category import AppCategory
     from .app_creator import AppCreator
     from .app_default_api_key import AppDefaultApiKey
     from .app_deployment import AppDeployment
@@ -292,23 +255,6 @@ if typing.TYPE_CHECKING:
     from .app_view_types import AppViewTypes
     from .audience import Audience
     from .audience_audience_type import AudienceAudienceType
-    from .audience_engagement import AudienceEngagement
-    from .audience_engagement_facebook_page_rule import AudienceEngagementFacebookPageRule
-    from .audience_engagement_facebook_page_rule_event import AudienceEngagementFacebookPageRuleEvent
-    from .audience_engagement_instagram_profile_rule import AudienceEngagementInstagramProfileRule
-    from .audience_engagement_instagram_profile_rule_event import AudienceEngagementInstagramProfileRuleEvent
-    from .audience_engagement_lead_form_rule import AudienceEngagementLeadFormRule
-    from .audience_engagement_lead_form_rule_event import AudienceEngagementLeadFormRuleEvent
-    from .audience_engagement_platform import AudienceEngagementPlatform
-    from .audience_engagement_rule import (
-        AudienceEngagementRule,
-        AudienceEngagementRule_FacebookPage,
-        AudienceEngagementRule_InstagramProfile,
-        AudienceEngagementRule_LeadForm,
-        AudienceEngagementRule_Video,
-    )
-    from .audience_engagement_video_rule import AudienceEngagementVideoRule
-    from .audience_engagement_video_rule_event import AudienceEngagementVideoRuleEvent
     from .audience_match_rate import AudienceMatchRate
     from .audience_match_rate_platform import AudienceMatchRatePlatform
     from .audience_match_rate_status import AudienceMatchRateStatus
@@ -321,6 +267,30 @@ if typing.TYPE_CHECKING:
     from .authorized_user_list_item_user import AuthorizedUserListItemUser
     from .authorized_user_roles import AuthorizedUserRoles
     from .authorized_user_user import AuthorizedUserUser
+    from .automation import Automation
+    from .automation_actor import AutomationActor
+    from .automation_actor_object import AutomationActorObject
+    from .automation_enrollment import AutomationEnrollment
+    from .automation_enrollment_status import AutomationEnrollmentStatus
+    from .automation_enrollment_trigger_event import AutomationEnrollmentTriggerEvent
+    from .automation_status import AutomationStatus
+    from .automation_step import AutomationStep
+    from .automation_step_action_type import AutomationStepActionType
+    from .automation_step_config import AutomationStepConfig
+    from .automation_step_email_address_sender import AutomationStepEmailAddressSender
+    from .automation_step_email_config import AutomationStepEmailConfig
+    from .automation_step_message_config import AutomationStepMessageConfig
+    from .automation_step_preview import AutomationStepPreview
+    from .automation_step_preview_action_type import AutomationStepPreviewActionType
+    from .automation_step_preview_outcome import AutomationStepPreviewOutcome
+    from .automation_step_sender import (
+        AutomationStepSender,
+        AutomationStepSender_EmailAddress,
+        AutomationStepSender_User,
+    )
+    from .automation_step_user_sender import AutomationStepUserSender
+    from .automation_step_wait_config import AutomationStepWaitConfig
+    from .automation_trigger_event import AutomationTriggerEvent
     from .bad_request_error_body import BadRequestErrorBody
     from .bad_request_error_body_error import BadRequestErrorBodyError
     from .billing_reasons import BillingReasons
@@ -349,6 +319,7 @@ if typing.TYPE_CHECKING:
     from .business_goal_types import BusinessGoalTypes
     from .cancel_options import CancelOptions
     from .cancelation_status import CancelationStatus
+    from .candle import Candle
     from .capture_spec import CaptureSpec
     from .capture_spec_imu import CaptureSpecImu
     from .capture_spec_video import CaptureSpecVideo
@@ -364,10 +335,28 @@ if typing.TYPE_CHECKING:
     from .cashback_payout import CashbackPayout
     from .cashback_payout_status import CashbackPayoutStatus
     from .cashback_rule import CashbackRule
+    from .channel import Channel
+    from .channel_kind import ChannelKind
+    from .channel_list_item import ChannelListItem
+    from .channel_list_item_kind import ChannelListItemKind
+    from .channel_member import ChannelMember
+    from .channel_member_inbox_status import ChannelMemberInboxStatus
+    from .channel_member_notification_preference import ChannelMemberNotificationPreference
+    from .channel_moderation import ChannelModeration
+    from .channel_moderation_who_can_post import ChannelModerationWhoCanPost
+    from .channel_moderation_who_can_react import ChannelModerationWhoCanReact
+    from .channel_support_state import ChannelSupportState
+    from .channel_support_state_last_message_by import ChannelSupportStateLastMessageBy
+    from .channel_support_state_status import ChannelSupportStateStatus
     from .chat_channel import ChatChannel
     from .chat_channel_experience import ChatChannelExperience
     from .chat_channel_list_item import ChatChannelListItem
     from .chat_channel_list_item_experience import ChatChannelListItemExperience
+    from .chat_message import ChatMessage
+    from .chat_message_message_type import ChatMessageMessageType
+    from .chat_message_poll import ChatMessagePoll
+    from .chat_message_poll_option import ChatMessagePollOption
+    from .chat_reaction import ChatReaction
     from .checkout_configuration import CheckoutConfiguration
     from .checkout_configuration_currency import CheckoutConfigurationCurrency
     from .checkout_configuration_list_item import CheckoutConfigurationListItem
@@ -444,11 +433,10 @@ if typing.TYPE_CHECKING:
     from .custom_ctas import CustomCtas
     from .custom_field_types import CustomFieldTypes
     from .customer_tracking_preferences import CustomerTrackingPreferences
-    from .detailed_targeting_option import DetailedTargetingOption
-    from .detailed_targeting_option_behavior_type import DetailedTargetingOptionBehaviorType
     from .direction import Direction
     from .dispute import Dispute
     from .dispute_alert import DisputeAlert
+    from .dispute_alert_category import DisputeAlertCategory
     from .dispute_alert_legacy import DisputeAlertLegacy
     from .dispute_alert_legacy_dispute import DisputeAlertLegacyDispute
     from .dispute_alert_legacy_payment import DisputeAlertLegacyPayment
@@ -546,6 +534,8 @@ if typing.TYPE_CHECKING:
     from .domain_registration_state import DomainRegistrationState
     from .domain_stats import DomainStats
     from .domain_status import DomainStatus
+    from .domain_subdomain import DomainSubdomain
+    from .domain_subdomain_state import DomainSubdomainState
     from .domain_transfer import DomainTransfer
     from .domain_transfer_destination import DomainTransferDestination
     from .domain_transfer_state import DomainTransferState
@@ -560,6 +550,10 @@ if typing.TYPE_CHECKING:
     from .economic_intelligence_sentiment import EconomicIntelligenceSentiment
     from .economic_intelligence_status import EconomicIntelligenceStatus
     from .email_address import EmailAddress
+    from .embed import Embed
+    from .embed_field import EmbedField
+    from .embed_footer import EmbedFooter
+    from .embed_image import EmbedImage
     from .embed_types import EmbedTypes
     from .entry import Entry
     from .entry_custom_field_responses_item import EntryCustomFieldResponsesItem
@@ -603,15 +597,9 @@ if typing.TYPE_CHECKING:
     from .export_status import ExportStatus
     from .exposures_experiments_request_subject import ExposuresExperimentsRequestSubject
     from .external_account import ExternalAccount
-    from .external_account_lead_form import ExternalAccountLeadForm
-    from .external_account_lead_form_form_type import ExternalAccountLeadFormFormType
     from .external_account_parent import ExternalAccountParent
     from .external_account_parent_platform import ExternalAccountParentPlatform
-    from .external_account_partnership_status import ExternalAccountPartnershipStatus
     from .external_account_platform import ExternalAccountPlatform
-    from .external_account_post import ExternalAccountPost
-    from .external_account_post_call_to_action import ExternalAccountPostCallToAction
-    from .external_account_post_restrictions_item import ExternalAccountPostRestrictionsItem
     from .fee_markup import FeeMarkup
     from .fee_markup_list_item import FeeMarkupListItem
     from .fee_markup_types import FeeMarkupTypes
@@ -645,6 +633,7 @@ if typing.TYPE_CHECKING:
     from .forbidden_error_body import ForbiddenErrorBody
     from .forbidden_error_body_error import ForbiddenErrorBodyError
     from .forum import Forum
+    from .forum_banner_image import ForumBannerImage
     from .forum_email_notification_preferences import ForumEmailNotificationPreferences
     from .forum_experience import ForumExperience
     from .forum_list_item import ForumListItem
@@ -664,6 +653,7 @@ if typing.TYPE_CHECKING:
     from .funnel_step import FunnelStep
     from .funnel_step_result import FunnelStepResult
     from .future_usage_types import FutureUsageTypes
+    from .gif import Gif
     from .global_affiliate_statuses import GlobalAffiliateStatuses
     from .grantable_authorized_user_roles import GrantableAuthorizedUserRoles
     from .identity_profile import IdentityProfile
@@ -695,11 +685,13 @@ if typing.TYPE_CHECKING:
     from .invoice_line_item import InvoiceLineItem
     from .invoice_object import InvoiceObject
     from .invoice_pdf import InvoicePdf
+    from .invoice_scheduled_collection_method import InvoiceScheduledCollectionMethod
+    from .invoice_send import InvoiceSend
+    from .invoice_send_kind import InvoiceSendKind
     from .invoice_status import InvoiceStatus
     from .invoice_statuses import InvoiceStatuses
     from .invoice_totals_status import InvoiceTotalsStatus
     from .invoices_sortable_columns import InvoicesSortableColumns
-    from .language_targeting_option import LanguageTargetingOption
     from .languages import Languages
     from .lead import Lead
     from .lead_list_item import LeadListItem
@@ -788,8 +780,6 @@ if typing.TYPE_CHECKING:
     from .list_app_builds_request_created_before import ListAppBuildsRequestCreatedBefore
     from .livestream import Livestream
     from .livestream_recording_status import LivestreamRecordingStatus
-    from .location_targeting_option import LocationTargetingOption
-    from .location_targeting_option_location_type import LocationTargetingOptionLocationType
     from .market import Market
     from .market_instrument_type import MarketInstrumentType
     from .marketplace_statuses import MarketplaceStatuses
@@ -802,6 +792,9 @@ if typing.TYPE_CHECKING:
     from .media_asset_status import MediaAssetStatus
     from .member import Member
     from .member_access_level import MemberAccessLevel
+    from .member_last_activity import MemberLastActivity
+    from .member_last_activity_message import MemberLastActivityMessage
+    from .member_last_activity_message_object import MemberLastActivityMessageObject
     from .member_legacy import MemberLegacy
     from .member_legacy_company import MemberLegacyCompany
     from .member_legacy_user import MemberLegacyUser
@@ -812,6 +805,8 @@ if typing.TYPE_CHECKING:
     from .member_note import MemberNote
     from .member_status import MemberStatus
     from .member_statuses import MemberStatuses
+    from .member_unsubscribe_status import MemberUnsubscribeStatus
+    from .member_user import MemberUser
     from .members_sortable_columns import MembersSortableColumns
     from .membership import Membership
     from .membership_affiliate import MembershipAffiliate
@@ -821,10 +816,13 @@ if typing.TYPE_CHECKING:
     from .membership_cancel_option import MembershipCancelOption
     from .membership_cancellation_modes import MembershipCancellationModes
     from .membership_collection_method import MembershipCollectionMethod
+    from .membership_external_account import MembershipExternalAccount
+    from .membership_external_account_platform import MembershipExternalAccountPlatform
     from .membership_feedback_option import MembershipFeedbackOption
     from .membership_legacy import MembershipLegacy
     from .membership_legacy_company import MembershipLegacyCompany
     from .membership_legacy_custom_field_responses_item import MembershipLegacyCustomFieldResponsesItem
+    from .membership_legacy_external_accounts_item import MembershipLegacyExternalAccountsItem
     from .membership_legacy_feedback_option import MembershipLegacyFeedbackOption
     from .membership_legacy_member import MembershipLegacyMember
     from .membership_legacy_plan import MembershipLegacyPlan
@@ -833,6 +831,7 @@ if typing.TYPE_CHECKING:
     from .membership_legacy_user import MembershipLegacyUser
     from .membership_list_item import MembershipListItem
     from .membership_list_item_company import MembershipListItemCompany
+    from .membership_list_item_external_accounts_item import MembershipListItemExternalAccountsItem
     from .membership_list_item_feedback_option import MembershipListItemFeedbackOption
     from .membership_list_item_member import MembershipListItemMember
     from .membership_list_item_plan import MembershipListItemPlan
@@ -847,6 +846,9 @@ if typing.TYPE_CHECKING:
     from .memberships_sortable_columns import MembershipsSortableColumns
     from .message import Message
     from .message_channel_order import MessageChannelOrder
+    from .message_custom_author import MessageCustomAuthor
+    from .message_link_footer import MessageLinkFooter
+    from .message_link_preview import MessageLinkPreview
     from .message_list_item import MessageListItem
     from .message_list_item_poll import MessageListItemPoll
     from .message_list_item_poll_options_item import MessageListItemPollOptionsItem
@@ -856,6 +858,8 @@ if typing.TYPE_CHECKING:
     from .message_poll import MessagePoll
     from .message_poll_options_item import MessagePollOptionsItem
     from .message_poll_votes_item import MessagePollVotesItem
+    from .message_reaction_count import MessageReactionCount
+    from .message_reaction_count_kind import MessageReactionCountKind
     from .message_reaction_counts_item import MessageReactionCountsItem
     from .message_user import MessageUser
     from .money import Money
@@ -919,6 +923,7 @@ if typing.TYPE_CHECKING:
     from .payment_bank_transfer import PaymentBankTransfer
     from .payment_bank_transfer_instructions import PaymentBankTransferInstructions
     from .payment_billing_details_preview import PaymentBillingDetailsPreview
+    from .payment_checkout_surface import PaymentCheckoutSurface
     from .payment_decline_codes import PaymentDeclineCodes
     from .payment_fee import PaymentFee
     from .payment_fee_origin import PaymentFeeOrigin
@@ -973,6 +978,10 @@ if typing.TYPE_CHECKING:
     from .payment_legacy_shipping_address import PaymentLegacyShippingAddress
     from .payment_legacy_user import PaymentLegacyUser
     from .payment_legacy_verification_checks import PaymentLegacyVerificationChecks
+    from .payment_levels_rebate import PaymentLevelsRebate
+    from .payment_levels_rebate_ineligible_reason import PaymentLevelsRebateIneligibleReason
+    from .payment_levels_rebate_region import PaymentLevelsRebateRegion
+    from .payment_levels_rebate_status import PaymentLevelsRebateStatus
     from .payment_list_item import PaymentListItem
     from .payment_list_item_application_fee import PaymentListItemApplicationFee
     from .payment_list_item_billing_address import PaymentListItemBillingAddress
@@ -1326,6 +1335,8 @@ if typing.TYPE_CHECKING:
     from .product_affiliate_status import ProductAffiliateStatus
     from .product_affiliate_user import ProductAffiliateUser
     from .product_custom_cta import ProductCustomCta
+    from .product_experience import ProductExperience
+    from .product_experience_app import ProductExperienceApp
     from .product_gallery_image import ProductGalleryImage
     from .product_global_affiliate_status import ProductGlobalAffiliateStatus
     from .product_legacy import ProductLegacy
@@ -1358,7 +1369,6 @@ if typing.TYPE_CHECKING:
     from .promo_types import PromoTypes
     from .public_bounty_submission import PublicBountySubmission
     from .public_bounty_submission_status import PublicBountySubmissionStatus
-    from .reach_estimate import ReachEstimate
     from .reaction import Reaction
     from .reaction_list_item import ReactionListItem
     from .reaction_list_item_user import ReactionListItemUser
@@ -1423,9 +1433,36 @@ if typing.TYPE_CHECKING:
     from .review_list_item import ReviewListItem
     from .review_list_item_status import ReviewListItemStatus
     from .review_product import ReviewProduct
+    from .review_report import ReviewReport
+    from .review_report_status import ReviewReportStatus
     from .review_status import ReviewStatus
     from .review_user import ReviewUser
     from .schedule_frequencies import ScheduleFrequencies
+    from .search_record import (
+        SearchRecord,
+        SearchRecord_Account,
+        SearchRecord_Affiliate,
+        SearchRecord_Member,
+        SearchRecord_Membership,
+        SearchRecord_Payment,
+        SearchRecord_PromoCode,
+        SearchRecord_ResolutionCenterCase,
+        SearchRecord_Review,
+    )
+    from .search_record_account import SearchRecordAccount
+    from .search_record_affiliate import SearchRecordAffiliate
+    from .search_record_member import SearchRecordMember
+    from .search_record_member_status import SearchRecordMemberStatus
+    from .search_record_membership import SearchRecordMembership
+    from .search_record_membership_status import SearchRecordMembershipStatus
+    from .search_record_payment import SearchRecordPayment
+    from .search_record_promo_code import SearchRecordPromoCode
+    from .search_record_promo_code_currency import SearchRecordPromoCodeCurrency
+    from .search_record_promo_code_promo_type import SearchRecordPromoCodePromoType
+    from .search_record_resolution_center_case import SearchRecordResolutionCenterCase
+    from .search_record_review import SearchRecordReview
+    from .search_result import SearchResult
+    from .search_result_match_reason import SearchResultMatchReason
     from .setup_intent import SetupIntent
     from .setup_intent_legacy import SetupIntentLegacy
     from .setup_intent_legacy_checkout_configuration import SetupIntentLegacyCheckoutConfiguration
@@ -1460,16 +1497,15 @@ if typing.TYPE_CHECKING:
     from .shipment_status import ShipmentStatus
     from .shipment_statuses import ShipmentStatuses
     from .shipment_substatuses import ShipmentSubstatuses
+    from .shipping_address_changed_webhook_address import ShippingAddressChangedWebhookAddress
+    from .shipping_address_changed_webhook_data import ShippingAddressChangedWebhookData
+    from .shipping_address_changed_webhook_line_item import ShippingAddressChangedWebhookLineItem
+    from .shipping_address_changed_webhook_reply import ShippingAddressChangedWebhookReply
+    from .shipping_address_changed_webhook_reply_line_item import ShippingAddressChangedWebhookReplyLineItem
     from .social_account import SocialAccount
-    from .social_account_lead_form import SocialAccountLeadForm
-    from .social_account_lead_form_form_type import SocialAccountLeadFormFormType
     from .social_account_parent import SocialAccountParent
     from .social_account_parent_platform import SocialAccountParentPlatform
-    from .social_account_partnership_status import SocialAccountPartnershipStatus
     from .social_account_platform import SocialAccountPlatform
-    from .social_account_post import SocialAccountPost
-    from .social_account_post_call_to_action import SocialAccountPostCallToAction
-    from .social_account_post_restrictions_item import SocialAccountPostRestrictionsItem
     from .specific_fee_origins import SpecificFeeOrigins
     from .status import Status
     from .statuses import Statuses
@@ -1493,27 +1529,13 @@ if typing.TYPE_CHECKING:
         SupportChannelListItemLastMessagePollOptionsItem,
     )
     from .support_channel_view import SupportChannelView
-    from .targeting_option import (
-        TargetingOption,
-        TargetingOption_Behaviors,
-        TargetingOption_EducationMajors,
-        TargetingOption_EducationSchools,
-        TargetingOption_FamilyStatuses,
-        TargetingOption_Income,
-        TargetingOption_Industries,
-        TargetingOption_Interests,
-        TargetingOption_Languages,
-        TargetingOption_LifeEvents,
-        TargetingOption_Locations,
-        TargetingOption_WorkEmployers,
-        TargetingOption_WorkPositions,
-    )
     from .tax_id import TaxId
     from .tax_id_type import TaxIdType
     from .tax_identifier_types import TaxIdentifierTypes
     from .tax_types import TaxTypes
     from .team_member import TeamMember
     from .team_member_authorized_role import TeamMemberAuthorizedRole
+    from .team_member_manager import TeamMemberManager
     from .team_member_role import TeamMemberRole
     from .team_member_status import TeamMemberStatus
     from .too_many_requests_error_body import TooManyRequestsErrorBody
@@ -1527,6 +1549,7 @@ if typing.TYPE_CHECKING:
     from .trade_side import TradeSide
     from .trade_status import TradeStatus
     from .trade_status_detail import TradeStatusDetail
+    from .trade_step import TradeStep
     from .trade_type import TradeType
     from .trading_account import TradingAccount
     from .trading_account_object import TradingAccountObject
@@ -1547,6 +1570,8 @@ if typing.TYPE_CHECKING:
     from .trading_position_leverage_type import TradingPositionLeverageType
     from .trading_position_object import TradingPositionObject
     from .trading_position_side import TradingPositionSide
+    from .trading_spot_account import TradingSpotAccount
+    from .trading_spot_holding import TradingSpotHolding
     from .trading_websocket_subscription import TradingWebsocketSubscription
     from .trading_websocket_subscription_channel import TradingWebsocketSubscriptionChannel
     from .unauthorized_error_body import UnauthorizedErrorBody
@@ -1690,6 +1715,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AccountPreferences": ".account_preferences",
     "AccountPreferencesPreferredSettlementCurrency": ".account_preferences_preferred_settlement_currency",
     "AccountPreferencesSubscriptionFailureBehavior": ".account_preferences_subscription_failure_behavior",
+    "AccountProcessingOfferLevel": ".account_processing_offer_level",
+    "AccountProcessingOfferRegionalRate": ".account_processing_offer_regional_rate",
+    "AccountProcessingOfferRegionalRateRegion": ".account_processing_offer_regional_rate_region",
     "AccountRecommendedAction": ".account_recommended_action",
     "AccountRecommendedActionAction": ".account_recommended_action_action",
     "AccountRecommendedActionStatus": ".account_recommended_action_status",
@@ -1724,24 +1752,19 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Ad": ".ad",
     "AdCallToAction": ".ad_call_to_action",
     "AdCampaign": ".ad_campaign",
-    "AdCampaignBidType": ".ad_campaign_bid_type",
     "AdCampaignBudgetOptimization": ".ad_campaign_budget_optimization",
     "AdCampaignBudgetType": ".ad_campaign_budget_type",
     "AdCampaignCampaignType": ".ad_campaign_campaign_type",
     "AdCampaignDeliveryStatus": ".ad_campaign_delivery_status",
     "AdCampaignObjective": ".ad_campaign_objective",
-    "AdCampaignPlatform": ".ad_campaign_platform",
     "AdCampaignResultEvent": ".ad_campaign_result_event",
     "AdCampaignSpecialAdCategoriesItem": ".ad_campaign_special_ad_categories_item",
     "AdCampaignStatus": ".ad_campaign_status",
-    "AdConversionValueRule": ".ad_conversion_value_rule",
-    "AdConversionValueRuleAdjustmentType": ".ad_conversion_value_rule_adjustment_type",
-    "AdConversionValueRuleEvent": ".ad_conversion_value_rule_event",
-    "AdConversionValueRuleEventEventName": ".ad_conversion_value_rule_event_event_name",
-    "AdConversionValueRuleStatus": ".ad_conversion_value_rule_status",
-    "AdConversionValueRuleTarget": ".ad_conversion_value_rule_target",
-    "AdConversionValueRuleTargetPlatform": ".ad_conversion_value_rule_target_platform",
-    "AdConversionValueRuleTargetScope": ".ad_conversion_value_rule_target_scope",
+    "AdContentReview": ".ad_content_review",
+    "AdContentReviewNetwork": ".ad_content_review_network",
+    "AdContentReviewNetworkTitle": ".ad_content_review_network_title",
+    "AdContentReviewStatus": ".ad_content_review_status",
+    "AdContentReviewTag": ".ad_content_review_tag",
     "AdCreative": ".ad_creative",
     "AdCreativeCrop": ".ad_creative_crop",
     "AdCreativeFormat": ".ad_creative_format",
@@ -1750,37 +1773,24 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AdGroup": ".ad_group",
     "AdGroupAudiences": ".ad_group_audiences",
     "AdGroupAudiencesBody": ".ad_group_audiences_body",
-    "AdGroupBehaviorCategory": ".ad_group_behavior_category",
-    "AdGroupBehaviorCategoryBehaviorType": ".ad_group_behavior_category_behavior_type",
     "AdGroupBidType": ".ad_group_bid_type",
     "AdGroupBudgetType": ".ad_group_budget_type",
     "AdGroupCity": ".ad_group_city",
-    "AdGroupConversionLocation": ".ad_group_conversion_location",
     "AdGroupCustomLocation": ".ad_group_custom_location",
     "AdGroupCustomLocationDistanceUnit": ".ad_group_custom_location_distance_unit",
     "AdGroupDeliverySchedule": ".ad_group_delivery_schedule",
     "AdGroupDeliveryStatus": ".ad_group_delivery_status",
     "AdGroupDeliveryWindow": ".ad_group_delivery_window",
-    "AdGroupDemographicCategory": ".ad_group_demographic_category",
-    "AdGroupDemographicCategoryType": ".ad_group_demographic_category_type",
     "AdGroupDemographics": ".ad_group_demographics",
     "AdGroupDemographicsBody": ".ad_group_demographics_body",
     "AdGroupDemographicsBodyGender": ".ad_group_demographics_body_gender",
     "AdGroupDemographicsGender": ".ad_group_demographics_gender",
-    "AdGroupDetailedTargeting": ".ad_group_detailed_targeting",
-    "AdGroupDetailedTargetingBody": ".ad_group_detailed_targeting_body",
-    "AdGroupDetailedTargetingBodyBehaviorsItem": ".ad_group_detailed_targeting_body_behaviors_item",
-    "AdGroupDetailedTargetingBodyBehaviorsItemBehaviorType": ".ad_group_detailed_targeting_body_behaviors_item_behavior_type",
-    "AdGroupDetailedTargetingBodyDemographicsItem": ".ad_group_detailed_targeting_body_demographics_item",
-    "AdGroupDetailedTargetingBodyDemographicsItemType": ".ad_group_detailed_targeting_body_demographics_item_type",
-    "AdGroupDetailedTargetingBodyInterestsItem": ".ad_group_detailed_targeting_body_interests_item",
     "AdGroupDevices": ".ad_group_devices",
     "AdGroupDevicesBody": ".ad_group_devices_body",
     "AdGroupDevicesBodyOperatingSystemsItem": ".ad_group_devices_body_operating_systems_item",
     "AdGroupDevicesBodyOperatingSystemsItemOs": ".ad_group_devices_body_operating_systems_item_os",
     "AdGroupDevicesBodyPlatformsItem": ".ad_group_devices_body_platforms_item",
     "AdGroupDevicesPlatformsItem": ".ad_group_devices_platforms_item",
-    "AdGroupFrequencyCap": ".ad_group_frequency_cap",
     "AdGroupGeoLocations": ".ad_group_geo_locations",
     "AdGroupGeoLocationsBody": ".ad_group_geo_locations_body",
     "AdGroupGeoLocationsBodyCitiesItem": ".ad_group_geo_locations_body_cities_item",
@@ -1791,45 +1801,26 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AdGroupKeyword": ".ad_group_keyword",
     "AdGroupKeywordMatchType": ".ad_group_keyword_match_type",
     "AdGroupLearningProgress": ".ad_group_learning_progress",
-    "AdGroupMessageAppsItem": ".ad_group_message_apps_item",
     "AdGroupOperatingSystem": ".ad_group_operating_system",
     "AdGroupOperatingSystemOs": ".ad_group_operating_system_os",
-    "AdGroupOptimizationGoal": ".ad_group_optimization_goal",
-    "AdGroupPlacement": ".ad_group_placement",
-    "AdGroupPlacementPlatform": ".ad_group_placement_platform",
-    "AdGroupPlatform": ".ad_group_platform",
     "AdGroupRegions": ".ad_group_regions",
     "AdGroupRegionsBody": ".ad_group_regions_body",
     "AdGroupResultEvent": ".ad_group_result_event",
     "AdGroupStatus": ".ad_group_status",
-    "AdGroupTargetingCategory": ".ad_group_targeting_category",
-    "AdLeadForm": ".ad_lead_form",
-    "AdLeadFormCompletion": ".ad_lead_form_completion",
-    "AdLeadFormCompletionButtonType": ".ad_lead_form_completion_button_type",
-    "AdLeadFormDisclaimer": ".ad_lead_form_disclaimer",
-    "AdLeadFormDisclaimerCheckbox": ".ad_lead_form_disclaimer_checkbox",
-    "AdLeadFormFormType": ".ad_lead_form_form_type",
-    "AdLeadFormIntro": ".ad_lead_form_intro",
-    "AdLeadFormOptionLogic": ".ad_lead_form_option_logic",
-    "AdLeadFormOptionLogicAction": ".ad_lead_form_option_logic_action",
-    "AdLeadFormPrivacyPolicy": ".ad_lead_form_privacy_policy",
-    "AdLeadFormQuestion": ".ad_lead_form_question",
-    "AdLeadFormQuestionOption": ".ad_lead_form_question_option",
-    "AdMessagingConfig": ".ad_messaging_config",
-    "AdMusic": ".ad_music",
+    "AdIssue": ".ad_issue",
+    "AdIssuePolicy": ".ad_issue_policy",
+    "AdIssueReason": ".ad_issue_reason",
+    "AdIssueResourceType": ".ad_issue_resource_type",
     "AdPixel": ".ad_pixel",
     "AdPixelPlatform": ".ad_pixel_platform",
     "AdPixelStatus": ".ad_pixel_status",
-    "AdPlatform": ".ad_platform",
     "AdPlatformIssue": ".ad_platform_issue",
     "AdPlatformIssueCategory": ".ad_platform_issue_category",
     "AdPlatformIssueResourceType": ".ad_platform_issue_resource_type",
-    "AdPostSource": ".ad_post_source",
     "AdResultEvent": ".ad_result_event",
     "AdStat": ".ad_stat",
     "AdStatus": ".ad_status",
     "AdText": ".ad_text",
-    "AdTranslations": ".ad_translations",
     "Affiliate": ".affiliate",
     "AffiliateAppliesToPayments": ".affiliate_applies_to_payments",
     "AffiliateAppliesToProducts": ".affiliate_applies_to_products",
@@ -1866,6 +1857,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AppBuildStatus": ".app_build_status",
     "AppBuildStatuses": ".app_build_statuses",
     "AppBuildSupportedAppViewTypesItem": ".app_build_supported_app_view_types_item",
+    "AppCategory": ".app_category",
     "AppCreator": ".app_creator",
     "AppDefaultApiKey": ".app_default_api_key",
     "AppDeployment": ".app_deployment",
@@ -1897,21 +1889,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AppViewTypes": ".app_view_types",
     "Audience": ".audience",
     "AudienceAudienceType": ".audience_audience_type",
-    "AudienceEngagement": ".audience_engagement",
-    "AudienceEngagementFacebookPageRule": ".audience_engagement_facebook_page_rule",
-    "AudienceEngagementFacebookPageRuleEvent": ".audience_engagement_facebook_page_rule_event",
-    "AudienceEngagementInstagramProfileRule": ".audience_engagement_instagram_profile_rule",
-    "AudienceEngagementInstagramProfileRuleEvent": ".audience_engagement_instagram_profile_rule_event",
-    "AudienceEngagementLeadFormRule": ".audience_engagement_lead_form_rule",
-    "AudienceEngagementLeadFormRuleEvent": ".audience_engagement_lead_form_rule_event",
-    "AudienceEngagementPlatform": ".audience_engagement_platform",
-    "AudienceEngagementRule": ".audience_engagement_rule",
-    "AudienceEngagementRule_FacebookPage": ".audience_engagement_rule",
-    "AudienceEngagementRule_InstagramProfile": ".audience_engagement_rule",
-    "AudienceEngagementRule_LeadForm": ".audience_engagement_rule",
-    "AudienceEngagementRule_Video": ".audience_engagement_rule",
-    "AudienceEngagementVideoRule": ".audience_engagement_video_rule",
-    "AudienceEngagementVideoRuleEvent": ".audience_engagement_video_rule_event",
     "AudienceMatchRate": ".audience_match_rate",
     "AudienceMatchRatePlatform": ".audience_match_rate_platform",
     "AudienceMatchRateStatus": ".audience_match_rate_status",
@@ -1924,6 +1901,28 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AuthorizedUserListItemUser": ".authorized_user_list_item_user",
     "AuthorizedUserRoles": ".authorized_user_roles",
     "AuthorizedUserUser": ".authorized_user_user",
+    "Automation": ".automation",
+    "AutomationActor": ".automation_actor",
+    "AutomationActorObject": ".automation_actor_object",
+    "AutomationEnrollment": ".automation_enrollment",
+    "AutomationEnrollmentStatus": ".automation_enrollment_status",
+    "AutomationEnrollmentTriggerEvent": ".automation_enrollment_trigger_event",
+    "AutomationStatus": ".automation_status",
+    "AutomationStep": ".automation_step",
+    "AutomationStepActionType": ".automation_step_action_type",
+    "AutomationStepConfig": ".automation_step_config",
+    "AutomationStepEmailAddressSender": ".automation_step_email_address_sender",
+    "AutomationStepEmailConfig": ".automation_step_email_config",
+    "AutomationStepMessageConfig": ".automation_step_message_config",
+    "AutomationStepPreview": ".automation_step_preview",
+    "AutomationStepPreviewActionType": ".automation_step_preview_action_type",
+    "AutomationStepPreviewOutcome": ".automation_step_preview_outcome",
+    "AutomationStepSender": ".automation_step_sender",
+    "AutomationStepSender_EmailAddress": ".automation_step_sender",
+    "AutomationStepSender_User": ".automation_step_sender",
+    "AutomationStepUserSender": ".automation_step_user_sender",
+    "AutomationStepWaitConfig": ".automation_step_wait_config",
+    "AutomationTriggerEvent": ".automation_trigger_event",
     "BadRequestErrorBody": ".bad_request_error_body",
     "BadRequestErrorBodyError": ".bad_request_error_body_error",
     "BillingReasons": ".billing_reasons",
@@ -1952,6 +1951,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "BusinessGoalTypes": ".business_goal_types",
     "CancelOptions": ".cancel_options",
     "CancelationStatus": ".cancelation_status",
+    "Candle": ".candle",
     "CaptureSpec": ".capture_spec",
     "CaptureSpecImu": ".capture_spec_imu",
     "CaptureSpecVideo": ".capture_spec_video",
@@ -1967,10 +1967,28 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CashbackPayout": ".cashback_payout",
     "CashbackPayoutStatus": ".cashback_payout_status",
     "CashbackRule": ".cashback_rule",
+    "Channel": ".channel",
+    "ChannelKind": ".channel_kind",
+    "ChannelListItem": ".channel_list_item",
+    "ChannelListItemKind": ".channel_list_item_kind",
+    "ChannelMember": ".channel_member",
+    "ChannelMemberInboxStatus": ".channel_member_inbox_status",
+    "ChannelMemberNotificationPreference": ".channel_member_notification_preference",
+    "ChannelModeration": ".channel_moderation",
+    "ChannelModerationWhoCanPost": ".channel_moderation_who_can_post",
+    "ChannelModerationWhoCanReact": ".channel_moderation_who_can_react",
+    "ChannelSupportState": ".channel_support_state",
+    "ChannelSupportStateLastMessageBy": ".channel_support_state_last_message_by",
+    "ChannelSupportStateStatus": ".channel_support_state_status",
     "ChatChannel": ".chat_channel",
     "ChatChannelExperience": ".chat_channel_experience",
     "ChatChannelListItem": ".chat_channel_list_item",
     "ChatChannelListItemExperience": ".chat_channel_list_item_experience",
+    "ChatMessage": ".chat_message",
+    "ChatMessageMessageType": ".chat_message_message_type",
+    "ChatMessagePoll": ".chat_message_poll",
+    "ChatMessagePollOption": ".chat_message_poll_option",
+    "ChatReaction": ".chat_reaction",
     "CheckoutConfiguration": ".checkout_configuration",
     "CheckoutConfigurationCurrency": ".checkout_configuration_currency",
     "CheckoutConfigurationListItem": ".checkout_configuration_list_item",
@@ -2045,11 +2063,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CustomCtas": ".custom_ctas",
     "CustomFieldTypes": ".custom_field_types",
     "CustomerTrackingPreferences": ".customer_tracking_preferences",
-    "DetailedTargetingOption": ".detailed_targeting_option",
-    "DetailedTargetingOptionBehaviorType": ".detailed_targeting_option_behavior_type",
     "Direction": ".direction",
     "Dispute": ".dispute",
     "DisputeAlert": ".dispute_alert",
+    "DisputeAlertCategory": ".dispute_alert_category",
     "DisputeAlertLegacy": ".dispute_alert_legacy",
     "DisputeAlertLegacyDispute": ".dispute_alert_legacy_dispute",
     "DisputeAlertLegacyPayment": ".dispute_alert_legacy_payment",
@@ -2137,6 +2154,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DomainRegistrationState": ".domain_registration_state",
     "DomainStats": ".domain_stats",
     "DomainStatus": ".domain_status",
+    "DomainSubdomain": ".domain_subdomain",
+    "DomainSubdomainState": ".domain_subdomain_state",
     "DomainTransfer": ".domain_transfer",
     "DomainTransferDestination": ".domain_transfer_destination",
     "DomainTransferState": ".domain_transfer_state",
@@ -2151,6 +2170,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "EconomicIntelligenceSentiment": ".economic_intelligence_sentiment",
     "EconomicIntelligenceStatus": ".economic_intelligence_status",
     "EmailAddress": ".email_address",
+    "Embed": ".embed",
+    "EmbedField": ".embed_field",
+    "EmbedFooter": ".embed_footer",
+    "EmbedImage": ".embed_image",
     "EmbedTypes": ".embed_types",
     "Entry": ".entry",
     "EntryCustomFieldResponsesItem": ".entry_custom_field_responses_item",
@@ -2192,15 +2215,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ExportStatus": ".export_status",
     "ExposuresExperimentsRequestSubject": ".exposures_experiments_request_subject",
     "ExternalAccount": ".external_account",
-    "ExternalAccountLeadForm": ".external_account_lead_form",
-    "ExternalAccountLeadFormFormType": ".external_account_lead_form_form_type",
     "ExternalAccountParent": ".external_account_parent",
     "ExternalAccountParentPlatform": ".external_account_parent_platform",
-    "ExternalAccountPartnershipStatus": ".external_account_partnership_status",
     "ExternalAccountPlatform": ".external_account_platform",
-    "ExternalAccountPost": ".external_account_post",
-    "ExternalAccountPostCallToAction": ".external_account_post_call_to_action",
-    "ExternalAccountPostRestrictionsItem": ".external_account_post_restrictions_item",
     "FeeMarkup": ".fee_markup",
     "FeeMarkupListItem": ".fee_markup_list_item",
     "FeeMarkupTypes": ".fee_markup_types",
@@ -2234,6 +2251,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ForbiddenErrorBody": ".forbidden_error_body",
     "ForbiddenErrorBodyError": ".forbidden_error_body_error",
     "Forum": ".forum",
+    "ForumBannerImage": ".forum_banner_image",
     "ForumEmailNotificationPreferences": ".forum_email_notification_preferences",
     "ForumExperience": ".forum_experience",
     "ForumListItem": ".forum_list_item",
@@ -2253,6 +2271,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "FunnelStep": ".funnel_step",
     "FunnelStepResult": ".funnel_step_result",
     "FutureUsageTypes": ".future_usage_types",
+    "Gif": ".gif",
     "GlobalAffiliateStatuses": ".global_affiliate_statuses",
     "GrantableAuthorizedUserRoles": ".grantable_authorized_user_roles",
     "IdentityProfile": ".identity_profile",
@@ -2284,11 +2303,13 @@ _dynamic_imports: typing.Dict[str, str] = {
     "InvoiceLineItem": ".invoice_line_item",
     "InvoiceObject": ".invoice_object",
     "InvoicePdf": ".invoice_pdf",
+    "InvoiceScheduledCollectionMethod": ".invoice_scheduled_collection_method",
+    "InvoiceSend": ".invoice_send",
+    "InvoiceSendKind": ".invoice_send_kind",
     "InvoiceStatus": ".invoice_status",
     "InvoiceStatuses": ".invoice_statuses",
     "InvoiceTotalsStatus": ".invoice_totals_status",
     "InvoicesSortableColumns": ".invoices_sortable_columns",
-    "LanguageTargetingOption": ".language_targeting_option",
     "Languages": ".languages",
     "Lead": ".lead",
     "LeadListItem": ".lead_list_item",
@@ -2373,8 +2394,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListAppBuildsRequestCreatedBefore": ".list_app_builds_request_created_before",
     "Livestream": ".livestream",
     "LivestreamRecordingStatus": ".livestream_recording_status",
-    "LocationTargetingOption": ".location_targeting_option",
-    "LocationTargetingOptionLocationType": ".location_targeting_option_location_type",
     "Market": ".market",
     "MarketInstrumentType": ".market_instrument_type",
     "MarketplaceStatuses": ".marketplace_statuses",
@@ -2387,6 +2406,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "MediaAssetStatus": ".media_asset_status",
     "Member": ".member",
     "MemberAccessLevel": ".member_access_level",
+    "MemberLastActivity": ".member_last_activity",
+    "MemberLastActivityMessage": ".member_last_activity_message",
+    "MemberLastActivityMessageObject": ".member_last_activity_message_object",
     "MemberLegacy": ".member_legacy",
     "MemberLegacyCompany": ".member_legacy_company",
     "MemberLegacyUser": ".member_legacy_user",
@@ -2397,6 +2419,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "MemberNote": ".member_note",
     "MemberStatus": ".member_status",
     "MemberStatuses": ".member_statuses",
+    "MemberUnsubscribeStatus": ".member_unsubscribe_status",
+    "MemberUser": ".member_user",
     "MembersSortableColumns": ".members_sortable_columns",
     "Membership": ".membership",
     "MembershipAffiliate": ".membership_affiliate",
@@ -2406,10 +2430,13 @@ _dynamic_imports: typing.Dict[str, str] = {
     "MembershipCancelOption": ".membership_cancel_option",
     "MembershipCancellationModes": ".membership_cancellation_modes",
     "MembershipCollectionMethod": ".membership_collection_method",
+    "MembershipExternalAccount": ".membership_external_account",
+    "MembershipExternalAccountPlatform": ".membership_external_account_platform",
     "MembershipFeedbackOption": ".membership_feedback_option",
     "MembershipLegacy": ".membership_legacy",
     "MembershipLegacyCompany": ".membership_legacy_company",
     "MembershipLegacyCustomFieldResponsesItem": ".membership_legacy_custom_field_responses_item",
+    "MembershipLegacyExternalAccountsItem": ".membership_legacy_external_accounts_item",
     "MembershipLegacyFeedbackOption": ".membership_legacy_feedback_option",
     "MembershipLegacyMember": ".membership_legacy_member",
     "MembershipLegacyPlan": ".membership_legacy_plan",
@@ -2418,6 +2445,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "MembershipLegacyUser": ".membership_legacy_user",
     "MembershipListItem": ".membership_list_item",
     "MembershipListItemCompany": ".membership_list_item_company",
+    "MembershipListItemExternalAccountsItem": ".membership_list_item_external_accounts_item",
     "MembershipListItemFeedbackOption": ".membership_list_item_feedback_option",
     "MembershipListItemMember": ".membership_list_item_member",
     "MembershipListItemPlan": ".membership_list_item_plan",
@@ -2432,6 +2460,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "MembershipsSortableColumns": ".memberships_sortable_columns",
     "Message": ".message",
     "MessageChannelOrder": ".message_channel_order",
+    "MessageCustomAuthor": ".message_custom_author",
+    "MessageLinkFooter": ".message_link_footer",
+    "MessageLinkPreview": ".message_link_preview",
     "MessageListItem": ".message_list_item",
     "MessageListItemPoll": ".message_list_item_poll",
     "MessageListItemPollOptionsItem": ".message_list_item_poll_options_item",
@@ -2441,6 +2472,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "MessagePoll": ".message_poll",
     "MessagePollOptionsItem": ".message_poll_options_item",
     "MessagePollVotesItem": ".message_poll_votes_item",
+    "MessageReactionCount": ".message_reaction_count",
+    "MessageReactionCountKind": ".message_reaction_count_kind",
     "MessageReactionCountsItem": ".message_reaction_counts_item",
     "MessageUser": ".message_user",
     "Money": ".money",
@@ -2504,6 +2537,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaymentBankTransfer": ".payment_bank_transfer",
     "PaymentBankTransferInstructions": ".payment_bank_transfer_instructions",
     "PaymentBillingDetailsPreview": ".payment_billing_details_preview",
+    "PaymentCheckoutSurface": ".payment_checkout_surface",
     "PaymentDeclineCodes": ".payment_decline_codes",
     "PaymentFee": ".payment_fee",
     "PaymentFeeOrigin": ".payment_fee_origin",
@@ -2556,6 +2590,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaymentLegacyShippingAddress": ".payment_legacy_shipping_address",
     "PaymentLegacyUser": ".payment_legacy_user",
     "PaymentLegacyVerificationChecks": ".payment_legacy_verification_checks",
+    "PaymentLevelsRebate": ".payment_levels_rebate",
+    "PaymentLevelsRebateIneligibleReason": ".payment_levels_rebate_ineligible_reason",
+    "PaymentLevelsRebateRegion": ".payment_levels_rebate_region",
+    "PaymentLevelsRebateStatus": ".payment_levels_rebate_status",
     "PaymentListItem": ".payment_list_item",
     "PaymentListItemApplicationFee": ".payment_list_item_application_fee",
     "PaymentListItemBillingAddress": ".payment_list_item_billing_address",
@@ -2797,6 +2835,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ProductAffiliateStatus": ".product_affiliate_status",
     "ProductAffiliateUser": ".product_affiliate_user",
     "ProductCustomCta": ".product_custom_cta",
+    "ProductExperience": ".product_experience",
+    "ProductExperienceApp": ".product_experience_app",
     "ProductGalleryImage": ".product_gallery_image",
     "ProductGlobalAffiliateStatus": ".product_global_affiliate_status",
     "ProductLegacy": ".product_legacy",
@@ -2829,7 +2869,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PromoTypes": ".promo_types",
     "PublicBountySubmission": ".public_bounty_submission",
     "PublicBountySubmissionStatus": ".public_bounty_submission_status",
-    "ReachEstimate": ".reach_estimate",
     "Reaction": ".reaction",
     "ReactionListItem": ".reaction_list_item",
     "ReactionListItemUser": ".reaction_list_item_user",
@@ -2894,9 +2933,34 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ReviewListItem": ".review_list_item",
     "ReviewListItemStatus": ".review_list_item_status",
     "ReviewProduct": ".review_product",
+    "ReviewReport": ".review_report",
+    "ReviewReportStatus": ".review_report_status",
     "ReviewStatus": ".review_status",
     "ReviewUser": ".review_user",
     "ScheduleFrequencies": ".schedule_frequencies",
+    "SearchRecord": ".search_record",
+    "SearchRecordAccount": ".search_record_account",
+    "SearchRecordAffiliate": ".search_record_affiliate",
+    "SearchRecordMember": ".search_record_member",
+    "SearchRecordMemberStatus": ".search_record_member_status",
+    "SearchRecordMembership": ".search_record_membership",
+    "SearchRecordMembershipStatus": ".search_record_membership_status",
+    "SearchRecordPayment": ".search_record_payment",
+    "SearchRecordPromoCode": ".search_record_promo_code",
+    "SearchRecordPromoCodeCurrency": ".search_record_promo_code_currency",
+    "SearchRecordPromoCodePromoType": ".search_record_promo_code_promo_type",
+    "SearchRecordResolutionCenterCase": ".search_record_resolution_center_case",
+    "SearchRecordReview": ".search_record_review",
+    "SearchRecord_Account": ".search_record",
+    "SearchRecord_Affiliate": ".search_record",
+    "SearchRecord_Member": ".search_record",
+    "SearchRecord_Membership": ".search_record",
+    "SearchRecord_Payment": ".search_record",
+    "SearchRecord_PromoCode": ".search_record",
+    "SearchRecord_ResolutionCenterCase": ".search_record",
+    "SearchRecord_Review": ".search_record",
+    "SearchResult": ".search_result",
+    "SearchResultMatchReason": ".search_result_match_reason",
     "SetupIntent": ".setup_intent",
     "SetupIntentLegacy": ".setup_intent_legacy",
     "SetupIntentLegacyCheckoutConfiguration": ".setup_intent_legacy_checkout_configuration",
@@ -2931,16 +2995,15 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ShipmentStatus": ".shipment_status",
     "ShipmentStatuses": ".shipment_statuses",
     "ShipmentSubstatuses": ".shipment_substatuses",
+    "ShippingAddressChangedWebhookAddress": ".shipping_address_changed_webhook_address",
+    "ShippingAddressChangedWebhookData": ".shipping_address_changed_webhook_data",
+    "ShippingAddressChangedWebhookLineItem": ".shipping_address_changed_webhook_line_item",
+    "ShippingAddressChangedWebhookReply": ".shipping_address_changed_webhook_reply",
+    "ShippingAddressChangedWebhookReplyLineItem": ".shipping_address_changed_webhook_reply_line_item",
     "SocialAccount": ".social_account",
-    "SocialAccountLeadForm": ".social_account_lead_form",
-    "SocialAccountLeadFormFormType": ".social_account_lead_form_form_type",
     "SocialAccountParent": ".social_account_parent",
     "SocialAccountParentPlatform": ".social_account_parent_platform",
-    "SocialAccountPartnershipStatus": ".social_account_partnership_status",
     "SocialAccountPlatform": ".social_account_platform",
-    "SocialAccountPost": ".social_account_post",
-    "SocialAccountPostCallToAction": ".social_account_post_call_to_action",
-    "SocialAccountPostRestrictionsItem": ".social_account_post_restrictions_item",
     "SpecificFeeOrigins": ".specific_fee_origins",
     "Status": ".status",
     "Statuses": ".statuses",
@@ -2960,25 +3023,13 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SupportChannelListItemLastMessagePoll": ".support_channel_list_item_last_message_poll",
     "SupportChannelListItemLastMessagePollOptionsItem": ".support_channel_list_item_last_message_poll_options_item",
     "SupportChannelView": ".support_channel_view",
-    "TargetingOption": ".targeting_option",
-    "TargetingOption_Behaviors": ".targeting_option",
-    "TargetingOption_EducationMajors": ".targeting_option",
-    "TargetingOption_EducationSchools": ".targeting_option",
-    "TargetingOption_FamilyStatuses": ".targeting_option",
-    "TargetingOption_Income": ".targeting_option",
-    "TargetingOption_Industries": ".targeting_option",
-    "TargetingOption_Interests": ".targeting_option",
-    "TargetingOption_Languages": ".targeting_option",
-    "TargetingOption_LifeEvents": ".targeting_option",
-    "TargetingOption_Locations": ".targeting_option",
-    "TargetingOption_WorkEmployers": ".targeting_option",
-    "TargetingOption_WorkPositions": ".targeting_option",
     "TaxId": ".tax_id",
     "TaxIdType": ".tax_id_type",
     "TaxIdentifierTypes": ".tax_identifier_types",
     "TaxTypes": ".tax_types",
     "TeamMember": ".team_member",
     "TeamMemberAuthorizedRole": ".team_member_authorized_role",
+    "TeamMemberManager": ".team_member_manager",
     "TeamMemberRole": ".team_member_role",
     "TeamMemberStatus": ".team_member_status",
     "TooManyRequestsErrorBody": ".too_many_requests_error_body",
@@ -2992,6 +3043,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TradeSide": ".trade_side",
     "TradeStatus": ".trade_status",
     "TradeStatusDetail": ".trade_status_detail",
+    "TradeStep": ".trade_step",
     "TradeType": ".trade_type",
     "TradingAccount": ".trading_account",
     "TradingAccountObject": ".trading_account_object",
@@ -3012,6 +3064,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TradingPositionLeverageType": ".trading_position_leverage_type",
     "TradingPositionObject": ".trading_position_object",
     "TradingPositionSide": ".trading_position_side",
+    "TradingSpotAccount": ".trading_spot_account",
+    "TradingSpotHolding": ".trading_spot_holding",
     "TradingWebsocketSubscription": ".trading_websocket_subscription",
     "TradingWebsocketSubscriptionChannel": ".trading_websocket_subscription_channel",
     "UnauthorizedErrorBody": ".unauthorized_error_body",
@@ -3179,6 +3233,9 @@ __all__ = [
     "AccountPreferences",
     "AccountPreferencesPreferredSettlementCurrency",
     "AccountPreferencesSubscriptionFailureBehavior",
+    "AccountProcessingOfferLevel",
+    "AccountProcessingOfferRegionalRate",
+    "AccountProcessingOfferRegionalRateRegion",
     "AccountRecommendedAction",
     "AccountRecommendedActionAction",
     "AccountRecommendedActionStatus",
@@ -3213,24 +3270,19 @@ __all__ = [
     "Ad",
     "AdCallToAction",
     "AdCampaign",
-    "AdCampaignBidType",
     "AdCampaignBudgetOptimization",
     "AdCampaignBudgetType",
     "AdCampaignCampaignType",
     "AdCampaignDeliveryStatus",
     "AdCampaignObjective",
-    "AdCampaignPlatform",
     "AdCampaignResultEvent",
     "AdCampaignSpecialAdCategoriesItem",
     "AdCampaignStatus",
-    "AdConversionValueRule",
-    "AdConversionValueRuleAdjustmentType",
-    "AdConversionValueRuleEvent",
-    "AdConversionValueRuleEventEventName",
-    "AdConversionValueRuleStatus",
-    "AdConversionValueRuleTarget",
-    "AdConversionValueRuleTargetPlatform",
-    "AdConversionValueRuleTargetScope",
+    "AdContentReview",
+    "AdContentReviewNetwork",
+    "AdContentReviewNetworkTitle",
+    "AdContentReviewStatus",
+    "AdContentReviewTag",
     "AdCreative",
     "AdCreativeCrop",
     "AdCreativeFormat",
@@ -3239,37 +3291,24 @@ __all__ = [
     "AdGroup",
     "AdGroupAudiences",
     "AdGroupAudiencesBody",
-    "AdGroupBehaviorCategory",
-    "AdGroupBehaviorCategoryBehaviorType",
     "AdGroupBidType",
     "AdGroupBudgetType",
     "AdGroupCity",
-    "AdGroupConversionLocation",
     "AdGroupCustomLocation",
     "AdGroupCustomLocationDistanceUnit",
     "AdGroupDeliverySchedule",
     "AdGroupDeliveryStatus",
     "AdGroupDeliveryWindow",
-    "AdGroupDemographicCategory",
-    "AdGroupDemographicCategoryType",
     "AdGroupDemographics",
     "AdGroupDemographicsBody",
     "AdGroupDemographicsBodyGender",
     "AdGroupDemographicsGender",
-    "AdGroupDetailedTargeting",
-    "AdGroupDetailedTargetingBody",
-    "AdGroupDetailedTargetingBodyBehaviorsItem",
-    "AdGroupDetailedTargetingBodyBehaviorsItemBehaviorType",
-    "AdGroupDetailedTargetingBodyDemographicsItem",
-    "AdGroupDetailedTargetingBodyDemographicsItemType",
-    "AdGroupDetailedTargetingBodyInterestsItem",
     "AdGroupDevices",
     "AdGroupDevicesBody",
     "AdGroupDevicesBodyOperatingSystemsItem",
     "AdGroupDevicesBodyOperatingSystemsItemOs",
     "AdGroupDevicesBodyPlatformsItem",
     "AdGroupDevicesPlatformsItem",
-    "AdGroupFrequencyCap",
     "AdGroupGeoLocations",
     "AdGroupGeoLocationsBody",
     "AdGroupGeoLocationsBodyCitiesItem",
@@ -3280,45 +3319,26 @@ __all__ = [
     "AdGroupKeyword",
     "AdGroupKeywordMatchType",
     "AdGroupLearningProgress",
-    "AdGroupMessageAppsItem",
     "AdGroupOperatingSystem",
     "AdGroupOperatingSystemOs",
-    "AdGroupOptimizationGoal",
-    "AdGroupPlacement",
-    "AdGroupPlacementPlatform",
-    "AdGroupPlatform",
     "AdGroupRegions",
     "AdGroupRegionsBody",
     "AdGroupResultEvent",
     "AdGroupStatus",
-    "AdGroupTargetingCategory",
-    "AdLeadForm",
-    "AdLeadFormCompletion",
-    "AdLeadFormCompletionButtonType",
-    "AdLeadFormDisclaimer",
-    "AdLeadFormDisclaimerCheckbox",
-    "AdLeadFormFormType",
-    "AdLeadFormIntro",
-    "AdLeadFormOptionLogic",
-    "AdLeadFormOptionLogicAction",
-    "AdLeadFormPrivacyPolicy",
-    "AdLeadFormQuestion",
-    "AdLeadFormQuestionOption",
-    "AdMessagingConfig",
-    "AdMusic",
+    "AdIssue",
+    "AdIssuePolicy",
+    "AdIssueReason",
+    "AdIssueResourceType",
     "AdPixel",
     "AdPixelPlatform",
     "AdPixelStatus",
-    "AdPlatform",
     "AdPlatformIssue",
     "AdPlatformIssueCategory",
     "AdPlatformIssueResourceType",
-    "AdPostSource",
     "AdResultEvent",
     "AdStat",
     "AdStatus",
     "AdText",
-    "AdTranslations",
     "Affiliate",
     "AffiliateAppliesToPayments",
     "AffiliateAppliesToProducts",
@@ -3355,6 +3375,7 @@ __all__ = [
     "AppBuildStatus",
     "AppBuildStatuses",
     "AppBuildSupportedAppViewTypesItem",
+    "AppCategory",
     "AppCreator",
     "AppDefaultApiKey",
     "AppDeployment",
@@ -3386,21 +3407,6 @@ __all__ = [
     "AppViewTypes",
     "Audience",
     "AudienceAudienceType",
-    "AudienceEngagement",
-    "AudienceEngagementFacebookPageRule",
-    "AudienceEngagementFacebookPageRuleEvent",
-    "AudienceEngagementInstagramProfileRule",
-    "AudienceEngagementInstagramProfileRuleEvent",
-    "AudienceEngagementLeadFormRule",
-    "AudienceEngagementLeadFormRuleEvent",
-    "AudienceEngagementPlatform",
-    "AudienceEngagementRule",
-    "AudienceEngagementRule_FacebookPage",
-    "AudienceEngagementRule_InstagramProfile",
-    "AudienceEngagementRule_LeadForm",
-    "AudienceEngagementRule_Video",
-    "AudienceEngagementVideoRule",
-    "AudienceEngagementVideoRuleEvent",
     "AudienceMatchRate",
     "AudienceMatchRatePlatform",
     "AudienceMatchRateStatus",
@@ -3413,6 +3419,28 @@ __all__ = [
     "AuthorizedUserListItemUser",
     "AuthorizedUserRoles",
     "AuthorizedUserUser",
+    "Automation",
+    "AutomationActor",
+    "AutomationActorObject",
+    "AutomationEnrollment",
+    "AutomationEnrollmentStatus",
+    "AutomationEnrollmentTriggerEvent",
+    "AutomationStatus",
+    "AutomationStep",
+    "AutomationStepActionType",
+    "AutomationStepConfig",
+    "AutomationStepEmailAddressSender",
+    "AutomationStepEmailConfig",
+    "AutomationStepMessageConfig",
+    "AutomationStepPreview",
+    "AutomationStepPreviewActionType",
+    "AutomationStepPreviewOutcome",
+    "AutomationStepSender",
+    "AutomationStepSender_EmailAddress",
+    "AutomationStepSender_User",
+    "AutomationStepUserSender",
+    "AutomationStepWaitConfig",
+    "AutomationTriggerEvent",
     "BadRequestErrorBody",
     "BadRequestErrorBodyError",
     "BillingReasons",
@@ -3441,6 +3469,7 @@ __all__ = [
     "BusinessGoalTypes",
     "CancelOptions",
     "CancelationStatus",
+    "Candle",
     "CaptureSpec",
     "CaptureSpecImu",
     "CaptureSpecVideo",
@@ -3456,10 +3485,28 @@ __all__ = [
     "CashbackPayout",
     "CashbackPayoutStatus",
     "CashbackRule",
+    "Channel",
+    "ChannelKind",
+    "ChannelListItem",
+    "ChannelListItemKind",
+    "ChannelMember",
+    "ChannelMemberInboxStatus",
+    "ChannelMemberNotificationPreference",
+    "ChannelModeration",
+    "ChannelModerationWhoCanPost",
+    "ChannelModerationWhoCanReact",
+    "ChannelSupportState",
+    "ChannelSupportStateLastMessageBy",
+    "ChannelSupportStateStatus",
     "ChatChannel",
     "ChatChannelExperience",
     "ChatChannelListItem",
     "ChatChannelListItemExperience",
+    "ChatMessage",
+    "ChatMessageMessageType",
+    "ChatMessagePoll",
+    "ChatMessagePollOption",
+    "ChatReaction",
     "CheckoutConfiguration",
     "CheckoutConfigurationCurrency",
     "CheckoutConfigurationListItem",
@@ -3534,11 +3581,10 @@ __all__ = [
     "CustomCtas",
     "CustomFieldTypes",
     "CustomerTrackingPreferences",
-    "DetailedTargetingOption",
-    "DetailedTargetingOptionBehaviorType",
     "Direction",
     "Dispute",
     "DisputeAlert",
+    "DisputeAlertCategory",
     "DisputeAlertLegacy",
     "DisputeAlertLegacyDispute",
     "DisputeAlertLegacyPayment",
@@ -3626,6 +3672,8 @@ __all__ = [
     "DomainRegistrationState",
     "DomainStats",
     "DomainStatus",
+    "DomainSubdomain",
+    "DomainSubdomainState",
     "DomainTransfer",
     "DomainTransferDestination",
     "DomainTransferState",
@@ -3640,6 +3688,10 @@ __all__ = [
     "EconomicIntelligenceSentiment",
     "EconomicIntelligenceStatus",
     "EmailAddress",
+    "Embed",
+    "EmbedField",
+    "EmbedFooter",
+    "EmbedImage",
     "EmbedTypes",
     "Entry",
     "EntryCustomFieldResponsesItem",
@@ -3681,15 +3733,9 @@ __all__ = [
     "ExportStatus",
     "ExposuresExperimentsRequestSubject",
     "ExternalAccount",
-    "ExternalAccountLeadForm",
-    "ExternalAccountLeadFormFormType",
     "ExternalAccountParent",
     "ExternalAccountParentPlatform",
-    "ExternalAccountPartnershipStatus",
     "ExternalAccountPlatform",
-    "ExternalAccountPost",
-    "ExternalAccountPostCallToAction",
-    "ExternalAccountPostRestrictionsItem",
     "FeeMarkup",
     "FeeMarkupListItem",
     "FeeMarkupTypes",
@@ -3723,6 +3769,7 @@ __all__ = [
     "ForbiddenErrorBody",
     "ForbiddenErrorBodyError",
     "Forum",
+    "ForumBannerImage",
     "ForumEmailNotificationPreferences",
     "ForumExperience",
     "ForumListItem",
@@ -3742,6 +3789,7 @@ __all__ = [
     "FunnelStep",
     "FunnelStepResult",
     "FutureUsageTypes",
+    "Gif",
     "GlobalAffiliateStatuses",
     "GrantableAuthorizedUserRoles",
     "IdentityProfile",
@@ -3773,11 +3821,13 @@ __all__ = [
     "InvoiceLineItem",
     "InvoiceObject",
     "InvoicePdf",
+    "InvoiceScheduledCollectionMethod",
+    "InvoiceSend",
+    "InvoiceSendKind",
     "InvoiceStatus",
     "InvoiceStatuses",
     "InvoiceTotalsStatus",
     "InvoicesSortableColumns",
-    "LanguageTargetingOption",
     "Languages",
     "Lead",
     "LeadListItem",
@@ -3862,8 +3912,6 @@ __all__ = [
     "ListAppBuildsRequestCreatedBefore",
     "Livestream",
     "LivestreamRecordingStatus",
-    "LocationTargetingOption",
-    "LocationTargetingOptionLocationType",
     "Market",
     "MarketInstrumentType",
     "MarketplaceStatuses",
@@ -3876,6 +3924,9 @@ __all__ = [
     "MediaAssetStatus",
     "Member",
     "MemberAccessLevel",
+    "MemberLastActivity",
+    "MemberLastActivityMessage",
+    "MemberLastActivityMessageObject",
     "MemberLegacy",
     "MemberLegacyCompany",
     "MemberLegacyUser",
@@ -3886,6 +3937,8 @@ __all__ = [
     "MemberNote",
     "MemberStatus",
     "MemberStatuses",
+    "MemberUnsubscribeStatus",
+    "MemberUser",
     "MembersSortableColumns",
     "Membership",
     "MembershipAffiliate",
@@ -3895,10 +3948,13 @@ __all__ = [
     "MembershipCancelOption",
     "MembershipCancellationModes",
     "MembershipCollectionMethod",
+    "MembershipExternalAccount",
+    "MembershipExternalAccountPlatform",
     "MembershipFeedbackOption",
     "MembershipLegacy",
     "MembershipLegacyCompany",
     "MembershipLegacyCustomFieldResponsesItem",
+    "MembershipLegacyExternalAccountsItem",
     "MembershipLegacyFeedbackOption",
     "MembershipLegacyMember",
     "MembershipLegacyPlan",
@@ -3907,6 +3963,7 @@ __all__ = [
     "MembershipLegacyUser",
     "MembershipListItem",
     "MembershipListItemCompany",
+    "MembershipListItemExternalAccountsItem",
     "MembershipListItemFeedbackOption",
     "MembershipListItemMember",
     "MembershipListItemPlan",
@@ -3921,6 +3978,9 @@ __all__ = [
     "MembershipsSortableColumns",
     "Message",
     "MessageChannelOrder",
+    "MessageCustomAuthor",
+    "MessageLinkFooter",
+    "MessageLinkPreview",
     "MessageListItem",
     "MessageListItemPoll",
     "MessageListItemPollOptionsItem",
@@ -3930,6 +3990,8 @@ __all__ = [
     "MessagePoll",
     "MessagePollOptionsItem",
     "MessagePollVotesItem",
+    "MessageReactionCount",
+    "MessageReactionCountKind",
     "MessageReactionCountsItem",
     "MessageUser",
     "Money",
@@ -3993,6 +4055,7 @@ __all__ = [
     "PaymentBankTransfer",
     "PaymentBankTransferInstructions",
     "PaymentBillingDetailsPreview",
+    "PaymentCheckoutSurface",
     "PaymentDeclineCodes",
     "PaymentFee",
     "PaymentFeeOrigin",
@@ -4045,6 +4108,10 @@ __all__ = [
     "PaymentLegacyShippingAddress",
     "PaymentLegacyUser",
     "PaymentLegacyVerificationChecks",
+    "PaymentLevelsRebate",
+    "PaymentLevelsRebateIneligibleReason",
+    "PaymentLevelsRebateRegion",
+    "PaymentLevelsRebateStatus",
     "PaymentListItem",
     "PaymentListItemApplicationFee",
     "PaymentListItemBillingAddress",
@@ -4286,6 +4353,8 @@ __all__ = [
     "ProductAffiliateStatus",
     "ProductAffiliateUser",
     "ProductCustomCta",
+    "ProductExperience",
+    "ProductExperienceApp",
     "ProductGalleryImage",
     "ProductGlobalAffiliateStatus",
     "ProductLegacy",
@@ -4318,7 +4387,6 @@ __all__ = [
     "PromoTypes",
     "PublicBountySubmission",
     "PublicBountySubmissionStatus",
-    "ReachEstimate",
     "Reaction",
     "ReactionListItem",
     "ReactionListItemUser",
@@ -4383,9 +4451,34 @@ __all__ = [
     "ReviewListItem",
     "ReviewListItemStatus",
     "ReviewProduct",
+    "ReviewReport",
+    "ReviewReportStatus",
     "ReviewStatus",
     "ReviewUser",
     "ScheduleFrequencies",
+    "SearchRecord",
+    "SearchRecordAccount",
+    "SearchRecordAffiliate",
+    "SearchRecordMember",
+    "SearchRecordMemberStatus",
+    "SearchRecordMembership",
+    "SearchRecordMembershipStatus",
+    "SearchRecordPayment",
+    "SearchRecordPromoCode",
+    "SearchRecordPromoCodeCurrency",
+    "SearchRecordPromoCodePromoType",
+    "SearchRecordResolutionCenterCase",
+    "SearchRecordReview",
+    "SearchRecord_Account",
+    "SearchRecord_Affiliate",
+    "SearchRecord_Member",
+    "SearchRecord_Membership",
+    "SearchRecord_Payment",
+    "SearchRecord_PromoCode",
+    "SearchRecord_ResolutionCenterCase",
+    "SearchRecord_Review",
+    "SearchResult",
+    "SearchResultMatchReason",
     "SetupIntent",
     "SetupIntentLegacy",
     "SetupIntentLegacyCheckoutConfiguration",
@@ -4420,16 +4513,15 @@ __all__ = [
     "ShipmentStatus",
     "ShipmentStatuses",
     "ShipmentSubstatuses",
+    "ShippingAddressChangedWebhookAddress",
+    "ShippingAddressChangedWebhookData",
+    "ShippingAddressChangedWebhookLineItem",
+    "ShippingAddressChangedWebhookReply",
+    "ShippingAddressChangedWebhookReplyLineItem",
     "SocialAccount",
-    "SocialAccountLeadForm",
-    "SocialAccountLeadFormFormType",
     "SocialAccountParent",
     "SocialAccountParentPlatform",
-    "SocialAccountPartnershipStatus",
     "SocialAccountPlatform",
-    "SocialAccountPost",
-    "SocialAccountPostCallToAction",
-    "SocialAccountPostRestrictionsItem",
     "SpecificFeeOrigins",
     "Status",
     "Statuses",
@@ -4449,25 +4541,13 @@ __all__ = [
     "SupportChannelListItemLastMessagePoll",
     "SupportChannelListItemLastMessagePollOptionsItem",
     "SupportChannelView",
-    "TargetingOption",
-    "TargetingOption_Behaviors",
-    "TargetingOption_EducationMajors",
-    "TargetingOption_EducationSchools",
-    "TargetingOption_FamilyStatuses",
-    "TargetingOption_Income",
-    "TargetingOption_Industries",
-    "TargetingOption_Interests",
-    "TargetingOption_Languages",
-    "TargetingOption_LifeEvents",
-    "TargetingOption_Locations",
-    "TargetingOption_WorkEmployers",
-    "TargetingOption_WorkPositions",
     "TaxId",
     "TaxIdType",
     "TaxIdentifierTypes",
     "TaxTypes",
     "TeamMember",
     "TeamMemberAuthorizedRole",
+    "TeamMemberManager",
     "TeamMemberRole",
     "TeamMemberStatus",
     "TooManyRequestsErrorBody",
@@ -4481,6 +4561,7 @@ __all__ = [
     "TradeSide",
     "TradeStatus",
     "TradeStatusDetail",
+    "TradeStep",
     "TradeType",
     "TradingAccount",
     "TradingAccountObject",
@@ -4501,6 +4582,8 @@ __all__ = [
     "TradingPositionLeverageType",
     "TradingPositionObject",
     "TradingPositionSide",
+    "TradingSpotAccount",
+    "TradingSpotHolding",
     "TradingWebsocketSubscription",
     "TradingWebsocketSubscriptionChannel",
     "UnauthorizedErrorBody",

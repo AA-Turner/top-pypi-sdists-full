@@ -15,16 +15,20 @@ class Sandboxes(BaseSDK):
         name: str,
         color: Optional[models.ColorRequest] = None,
         icon: Optional[str] = None,
+        stripe: Optional[
+            Union[models.CreateSandboxStripe, models.CreateSandboxStripeTypedDict]
+        ] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
     ) -> models.CreateSandboxResponse:
-        r"""Creates a sandbox: an isolated copy of your organization with its own catalog, customers and secret key. Returns the sandbox's secret key once, in this response — store it, it cannot be read back. Authenticated with your organization's secret key (a sandbox's own key cannot create sandboxes).
+        r"""Creates a sandbox: an isolated copy of your organization with its own catalog, customers and secret key. Returns the sandbox's secret key once, in this response — store it, it cannot be read back. Authenticated with your organization's secret key (a sandbox's own key cannot create sandboxes). Autumn creates a new Stripe test account for each sandbox; if your organization has automatic tax on, pass `stripe.head_office` so Stripe can calculate tax there straight away.
 
         :param name: A name for the sandbox, unique within your organization. No spaces, and it can't be `live` or `sandbox`.
         :param color: Colour the dashboard uses to label the sandbox. Defaults to `gray`.
         :param icon: Icon the dashboard uses to label the sandbox. Defaults to `Flask`.
+        :param stripe: Tax settings for the Stripe test account Autumn creates for the sandbox. Omit to leave that account as Stripe creates it.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -44,6 +48,9 @@ class Sandboxes(BaseSDK):
             name=name,
             color=color,
             icon=icon,
+            stripe=utils.get_pydantic_model(
+                stripe, Optional[models.CreateSandboxStripe]
+            ),
         )
 
         req = self._build_request(
@@ -111,16 +118,20 @@ class Sandboxes(BaseSDK):
         name: str,
         color: Optional[models.ColorRequest] = None,
         icon: Optional[str] = None,
+        stripe: Optional[
+            Union[models.CreateSandboxStripe, models.CreateSandboxStripeTypedDict]
+        ] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
     ) -> models.CreateSandboxResponse:
-        r"""Creates a sandbox: an isolated copy of your organization with its own catalog, customers and secret key. Returns the sandbox's secret key once, in this response — store it, it cannot be read back. Authenticated with your organization's secret key (a sandbox's own key cannot create sandboxes).
+        r"""Creates a sandbox: an isolated copy of your organization with its own catalog, customers and secret key. Returns the sandbox's secret key once, in this response — store it, it cannot be read back. Authenticated with your organization's secret key (a sandbox's own key cannot create sandboxes). Autumn creates a new Stripe test account for each sandbox; if your organization has automatic tax on, pass `stripe.head_office` so Stripe can calculate tax there straight away.
 
         :param name: A name for the sandbox, unique within your organization. No spaces, and it can't be `live` or `sandbox`.
         :param color: Colour the dashboard uses to label the sandbox. Defaults to `gray`.
         :param icon: Icon the dashboard uses to label the sandbox. Defaults to `Flask`.
+        :param stripe: Tax settings for the Stripe test account Autumn creates for the sandbox. Omit to leave that account as Stripe creates it.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -140,6 +151,9 @@ class Sandboxes(BaseSDK):
             name=name,
             color=color,
             icon=icon,
+            stripe=utils.get_pydantic_model(
+                stripe, Optional[models.CreateSandboxStripe]
+            ),
         )
 
         req = self._build_request_async(

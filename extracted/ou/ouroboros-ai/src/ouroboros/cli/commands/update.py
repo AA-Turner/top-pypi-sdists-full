@@ -67,6 +67,7 @@ _RUNTIME_CLI_IDENTITIES: dict[str, tuple[str, str, str]] = {
     "antigravity": ("OUROBOROS_ANTIGRAVITY_CLI_PATH", "antigravity_cli_path", "agy"),
     "grok": ("OUROBOROS_GROK_CLI_PATH", "grok_cli_path", "grok"),
     "zcode": ("OUROBOROS_ZCODE_CLI_PATH", "zcode_cli_path", "zcode"),
+    "megacode": ("OUROBOROS_MEGACODE_CLI_PATH", "megacode_cli_path", "harness"),
 }
 
 _HOST_PLUGIN_RUNTIMES = ("claude", "codex")
@@ -651,7 +652,7 @@ def _run_step(
         prefix = ""
         if env_overrides:
             prefix = " ".join(f"{key}={value}" for key, value in env_overrides.items()) + " "
-        print_info(f"[dry-run] Would run: {prefix}{' '.join(command)}")
+        print_info(escape(f"[dry-run] Would run: {prefix}{' '.join(command)}"))
         return True
     try:
         command_env = None
@@ -1091,7 +1092,7 @@ def update(
         )
         raise typer.Exit(1) from exc
     console.print(f"Installer:   [cyan]{identity.manager}[/cyan]")
-    console.print(f"Environment: [cyan]{identity.environment}[/cyan]")
+    console.print(f"Environment: [cyan]{escape(str(identity.environment))}[/cyan]")
     console.print(f"Profile:     {identity.profile}\n", markup=False)
 
     try:

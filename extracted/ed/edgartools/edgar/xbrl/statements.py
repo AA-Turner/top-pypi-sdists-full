@@ -50,6 +50,30 @@ STRUCTURAL_CONCEPT_SUFFIXES = ('Axis', 'Domain', 'Member', 'LineItems', 'Table')
 # _build_dataframe_from_raw_data() to _add_metadata_columns() (GH #1657).
 _ROW_SIGN = '_row_preferred_sign'
 _ROW_HAS_VALUES = '_row_has_values'
+# Working column that carries each row's own presentation parent (GH #1705).
+_ROW_PARENT = '_row_parent_abstract_concept'
+
+
+def _row_presentation_parents(raw_data: List[Dict[str, Any]]) -> List[Optional[str]]:
+    """
+    Return the presentation parent of each raw row, aligned with ``raw_data``.
+
+    A concept presented under two parents appears twice in the raw rows, each
+    occurrence with its own ``parent`` (GH #1705). A dimensional row has no
+    parent of its own, so it takes the parent of the nearest earlier
+    non-dimensional occurrence of its concept: the line it breaks down (#542).
+    """
+    parents: List[Optional[str]] = []
+    line_parent: Dict[str, Optional[str]] = {}
+    for item in raw_data:
+        concept = item.get('concept')
+        if item.get('is_dimension'):
+            parents.append(line_parent.get(concept))
+        else:
+            parent = item.get('parent')
+            line_parent[concept] = parent
+            parents.append(parent)
+    return parents
 
 
 def is_xbrl_structural_element(item: Dict[str, Any]) -> bool:
@@ -1261,14 +1285,21 @@ class Statement:
             view: StatementView controlling which dimensional data to include.
                   Used for STANDARD vs DETAILED filtering logic.
         """
-        from edgar.xbrl.core import (get_unit_display_name, is_period_end_label_role,
-                                     is_period_start_label_role, row_metadata_value)
+        from edgar.xbrl.core import (
+            SourceKeyLookup,
+            is_period_end_label_role,
+            is_period_start_label_role,
+            record_cell_unit,
+            row_metadata_value,
+            summarize_unit_definitions,
+        )
         from edgar.xbrl.core import is_point_in_time as get_is_point_in_time
         from edgar.xbrl.periods import determine_periods_to_display
         from edgar.xbrl.rendering import _is_html, html_to_text
 
         # Get raw statement data with view-based filtering
         raw_data = self.get_raw_data(period_filter=period_filter, view=view)
+        unit_defs = getattr(self.xbrl, 'units', None) or {}
         if not raw_data:
             return pd.DataFrame()
 
@@ -1374,7 +1405,8 @@ class Statement:
                 item_key = (concept, label)
                 item_occurrence_count[item_key] = item_occurrence_count.get(item_key, 0) + 1
 
-        for item in raw_data:
+        row_parents = _row_presentation_parents(raw_data)
+        for item, row_parent in zip(raw_data, row_parents, strict=True):
             # Issue #03zg: Skip XBRL structural elements (Axis, Domain, Table, Line Items)
             # These are internal XBRL constructs, not financial data
             if is_xbrl_structural_element(item):
@@ -1429,8 +1461,12 @@ class Statement:
             }
 
             # Add period values (raw from instance document)
-            values_dict = item.get('values', {})
+            # GH #1746: remember which key each column's value came from, so the
+            # row's unit is read from the facts actually shown.
+            values_dict = SourceKeyLookup(item.get('values', {}))
+            cell_units: Dict[str, Optional[Dict[str, Any]]] = {}
             for period_key, period_label in periods_to_display:
+                values_dict.source_key = None
                 column_name = _period_column_names.get(period_key, period_label)
                 # Extract start/end dates for equity statement logic
                 start_date = None
@@ -1523,12 +1559,13 @@ class Statement:
                 # accounting standard changes). If we already have a value, don't overwrite with None.
                 if value is not None or column_name not in row:
                     row[column_name] = value
+                record_cell_unit(cell_units, column_name, value, item.get('units'),
+                                 values_dict.source_key, unit_defs)
 
-            # Add unit if requested
+            # Add unit if requested: from the shown cells' unit definitions,
+            # never the opaque unit id (GH #1746)
             if include_unit:
-                unit_ref = row_metadata_value(item.get('units'),
-                                              (key for key, _ in periods_to_display))
-                row['unit'] = get_unit_display_name(unit_ref)
+                row['unit'] = summarize_unit_definitions(cell_units.values())
 
             # Add point_in_time if requested
             if include_point_in_time:
@@ -1542,6 +1579,7 @@ class Statement:
             row_signs = item.get('preferred_signs') or {}
             row[_ROW_SIGN] = next(iter(row_signs.values())) if row_signs else None
             row[_ROW_HAS_VALUES] = bool(item.get('values'))
+            row[_ROW_PARENT] = row_parent
 
             # Add structural columns
             row['level'] = item.get('level', 0)
@@ -1751,7 +1789,12 @@ class Statement:
         else:
             df['preferred_sign'] = concept_signs
         df['parent_concept'] = df['concept'].map(parent_concept_map)
-        df['parent_abstract_concept'] = df['concept'].map(parent_abstract_concept_map)
+        # GH #1705: each row's own presentation parent, so a concept presented
+        # under two parents keeps both; dimensional rows follow their line.
+        if _ROW_PARENT in df.columns:
+            df['parent_abstract_concept'] = df.pop(_ROW_PARENT)
+        else:
+            df['parent_abstract_concept'] = df['concept'].map(parent_abstract_concept_map)
 
         return df
 
@@ -1995,32 +2038,38 @@ class Statement:
         Args:
             level: Validation level - "fundamental", "sections", or "detailed"
                    - fundamental: Basic equation check
-                   - sections: Also validates section subtotals
-                   - detailed: Full line-item rollup validation
+                   - sections: Also checks that current and non-current
+                     subtotals add up to total assets and total liabilities
+                   - detailed: The same checks as "sections"; line-item
+                     rollups to subtotals are not implemented
 
         Returns:
-            ValidationResult with is_valid flag and any issues found
+            ValidationResult with is_valid flag and any issues found.
+            ``result.status`` is "valid" only when every comparison the level
+            asks for ran without an error, "inconclusive" when one could not
+            run (a missing total, or a statement type with no validator, such
+            as an income statement), and "invalid" on any error.
+            ``is_valid`` stays True whenever there is no error.
+
+        Raises:
+            ValidationError: ``level`` is not one of the three levels
+                (case-insensitive) or a ValidationLevel member.
 
         Example:
             >>> bs = xbrl.statements.balance_sheet()
             >>> result = bs.validate()
             >>> print(result)
             ValidationResult: VALID (0 errors, 0 warnings)
+            >>> print(xbrl.statements.income_statement().validate())
+            ValidationResult: INCONCLUSIVE (0 errors, 0 warnings)
             >>> if not result.is_valid:
             ...     for error in result.errors:
             ...         print(f"Error: {error.message}")
         """
-        from edgar.xbrl.validation import validate_statement, ValidationLevel
+        from edgar.xbrl.validation import validate_statement
 
-        # Map string level to enum
-        level_map = {
-            "fundamental": ValidationLevel.FUNDAMENTAL,
-            "sections": ValidationLevel.SECTIONS,
-            "detailed": ValidationLevel.DETAILED,
-        }
-        validation_level = level_map.get(level.lower(), ValidationLevel.FUNDAMENTAL)
-
-        return validate_statement(self, self.classified_type, level=validation_level)
+        # validate_statement parses the level and raises on an unknown one
+        return validate_statement(self, self.classified_type, level=level)
 
     def calculate_ratios(self, period: Optional[str] = None) -> Dict[str, float]:
         """Calculate common financial ratios for this statement.
@@ -3530,7 +3579,7 @@ class StitchedStatement:
             show_date_range=show_date_range
         )
 
-    def to_dataframe(self, presentation: bool = True) -> pd.DataFrame:
+    def to_dataframe(self, presentation: bool = True, *, period_columns: str = "end_date") -> pd.DataFrame:
         """
         Convert the stitched statement to a pandas DataFrame.
 
@@ -3538,13 +3587,29 @@ class StitchedStatement:
             presentation: If True (default), apply preferred_sign so values match
                          SEC HTML display (e.g., cash outflows shown as negative).
                          If False, return raw XBRL instance values.
+            period_columns: How the period columns are named.
+                         ``"end_date"`` (default): the end date, ``"2023-07-01"``,
+                         or the period label when two columns share an end date.
+                         Stitched 10-Qs are year-to-date by default, so an end-date
+                         column can hold three, six or nine months.
+                         ``"interval"``: the exact dates, ``"2022-09-25 to 2023-07-01"``
+                         for a duration and ``"2023-07-01"`` for an instant.
 
         Returns:
             pandas DataFrame with periods as columns and concepts as rows
+
+        Raises:
+            ValueError: if ``period_columns`` is not ``"end_date"`` or ``"interval"``.
+
+        Example:
+            >>> income = xbrls.statements.income_statement(include_quarterly=True)
+            >>> income.to_dataframe(period_columns="interval").columns
+            # ['label', 'concept', 'standard_concept', '2023-04-02 to 2023-07-01',
+            #  '2022-09-25 to 2023-07-01', 'preferred_sign']
         """
         from edgar.xbrl.stitching import to_pandas
 
-        return to_pandas(self.statement_data, presentation=presentation)
+        return to_pandas(self.statement_data, presentation=presentation, period_columns=period_columns)
 
     def __rich__(self):
         """

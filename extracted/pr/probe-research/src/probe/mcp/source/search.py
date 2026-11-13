@@ -23,6 +23,10 @@ class SearchReadsMixin:
         exclude_origin_session: str | None = None,
         retrieval: str | None = None,
         include_semantic: bool | None = None,
+        owner: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        sort: str | None = None,
     ) -> dict:
         """POST /v1/search.
 
@@ -62,13 +66,18 @@ class SearchReadsMixin:
                     exclude_origin_session=exclude_origin_session,
                     retrieval=retrieval,
                     include_semantic=include_semantic,
+                    owner=owner,
+                    since=since,
+                    until=until,
+                    sort=sort,
                 )
             except errors.NotFoundError:
                 if is_retried:
                     # Second 404: the deploy window is ruled out, so the 404 is
                     # about the REQUEST. A scope in hand means that scope is
-                    # absent; no scope means the route is.
-                    if workspace_id is not None or project_id is not None:
+                    # absent; no scope means the route is. An `owner` is a scope
+                    # too: no teammate matched it (the 404 names browse(mode="people")).
+                    if workspace_id is not None or project_id is not None or owner:
                         raise
                     raise self._capability_unavailable() from None
                 is_retried = True

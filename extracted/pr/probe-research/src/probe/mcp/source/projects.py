@@ -7,6 +7,7 @@ from typing import Any
 
 from ...sdk import errors
 from ...sdk.artifact.anchors import Anchor
+from probe.mcp.source.people import PeopleFilters, read_owner_headers
 
 
 class ProjectReadsMixin:
@@ -56,9 +57,10 @@ class ProjectReadsMixin:
     def project_artifacts(self, project_id: str) -> list[dict]:
         return self.client.list_project_artifacts(project_id)
 
-    def fetch_panes(self, project_id: str) -> list[dict]:
-        """``GET /v1/projects/{P}/panes``: the project's or experiment's panes, first to last, each with its HTML."""
-        return self.client.list_panes(project_id)
+    def fetch_panes(self, project_id: str) -> dict:
+        """``GET /v1/projects/{P}/panes``: ``{panes, preview}``, the project's or experiment's panes first to
+        last (each with its HTML) and a project's canvas preview (None for an experiment)."""
+        return self.client.read_pane_list(project_id)
 
     def project_papers(
         self, project_id: str, limit: int = 50
@@ -138,14 +140,25 @@ class ProjectReadsMixin:
         return self.client.list_workspaces()
 
     def files(
-        self, *, workspace_id: str | None = None, prefix: str | None = None, limit: int
-    ) -> list[dict]:
+        self,
+        *,
+        workspace_id: str | None = None,
+        prefix: str | None = None,
+        limit: int,
+        filters: PeopleFilters = PeopleFilters(),
+    ) -> Any:
         """The team's Shared folder (``GET /v1/shared/files``) or one workspace's
-        files (``GET /v1/workspaces/{id}/files``), name-ordered. Neither route
-        takes a cursor; ``prefix`` is a FOLDER filter, not a name match."""
-        parameters: dict[str, Any] = {"limit": limit}
+        files (``GET /v1/workspaces/{id}/files``), name-ordered (`order="recent"`: newest first).
+        Neither route takes a cursor; ``prefix`` is a FOLDER filter, not a name match. A list of
+        rows, or with `filters` the route's `{items, owner_matched?, unowned_count?}`."""
+        parameters: dict[str, Any] = {"limit": limit, **filters.to_query()}
         if prefix:
             parameters["prefix"] = prefix
+        if filters.is_set:
+            # The body stays a bare list; who `owner` matched rides the response headers.
+            path = f"/v1/workspaces/{workspace_id}/files" if workspace_id is not None else "/v1/shared/files"
+            response = self.client.transport.request("GET", path, params=parameters, idempotent=True)
+            return {"items": response.json() or [], **read_owner_headers(response.headers)}
         if workspace_id is not None:
             return self.client.list_anchored(Anchor.WORKSPACE, workspace_id, **parameters) or []
         return self.client.list_anchored(Anchor.SHARED, **parameters) or []

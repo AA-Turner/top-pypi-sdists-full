@@ -5,7 +5,11 @@ from __future__ import annotations
 import pytest
 from temporalio.common import VersioningBehavior
 
-from application_sdk.constants import derive_shutdown_budget, load_shutdown_budget
+from application_sdk.constants import (
+    ShutdownBudget,
+    derive_shutdown_budget,
+    load_shutdown_budget,
+)
 from application_sdk.execution import settings as settings_mod
 from application_sdk.execution.settings import (
     ExecutionSettings,
@@ -98,6 +102,22 @@ class TestLoadExecutionSettingsFromEnv:
         monkeypatch.setenv("TEMPORAL_GRACEFUL_SHUTDOWN_TIMEOUT", "7200")
         settings = load_execution_settings()
         assert settings.graceful_shutdown_timeout_seconds == 7200
+
+    @pytest.mark.parametrize("raw", ["", "abc", "-5"])
+    def test_bad_graceful_shutdown_timeout_falls_back(
+        self, monkeypatch: pytest.MonkeyPatch, raw: str
+    ) -> None:
+        """An empty Helm value or a typo must not stop the worker starting."""
+        monkeypatch.setenv("TEMPORAL_GRACEFUL_SHUTDOWN_TIMEOUT", raw)
+        monkeypatch.delenv("ATLAN_SHUTDOWN_GRACE_SECONDS", raising=False)
+        assert load_execution_settings().graceful_shutdown_timeout_seconds == 3600
+
+    @pytest.mark.parametrize("raw", ["abc", "0", "-1"])
+    def test_bad_max_concurrent_activities_falls_back(
+        self, monkeypatch: pytest.MonkeyPatch, raw: str
+    ) -> None:
+        monkeypatch.setenv("TEMPORAL_MAX_CONCURRENT_ACTIVITIES", raw)
+        assert load_execution_settings().max_concurrent_activities == 100
 
     def test_defaults_when_env_unset(self, monkeypatch: pytest.MonkeyPatch) -> None:
         for key in [
@@ -213,6 +233,20 @@ class TestLoadInterceptorSettingsFromEnv:
 
 class TestShutdownBudget:
     """One grace period drives every shutdown bound (FND-4645)."""
+
+    def test_constructor_keeps_its_six_fields(self) -> None:
+        """ShutdownBudget is public: callers that build it from its six fields
+        keep working, and the stall limit is derived from them."""
+        b = ShutdownBudget(
+            grace_seconds=30,
+            drain_seconds=15,
+            post_drain_seconds=8,
+            headroom_seconds=2,
+            pushgateway_http_timeout_seconds=1.0,
+            pushgateway_shutdown_delete_delay_seconds=2.0,
+        )
+        assert b.loop_stall_limit_seconds == 28
+        assert derive_shutdown_budget(30, drain_delay_seconds=5) == b
 
     def test_short_grace_fits_every_step_inside_it(self) -> None:
         """A 30 s grace (SDR installs) must not keep the 1 h drain or 120 s bound."""

@@ -12,9 +12,10 @@ only.
 import logging
 import textwrap
 
+from pyrit.common.async_compatibility import run_legacy_sync_async
 from pyrit.datasets import SeedDatasetFilter, SeedDatasetProvider
 from pyrit.memory import CentralMemory
-from pyrit.models.parameter import Parameter
+from pyrit.models import Parameter
 from pyrit.registry import ScenarioRegistry
 from pyrit.setup.pyrit_initializer import PyRITInitializer
 
@@ -49,9 +50,14 @@ class LoadDefaultDatasets(PyRITInitializer):
         """The list of required environment variables."""
         return []
 
-    @property
-    def supported_parameters(self) -> list[Parameter]:
-        """The list of parameters this initializer accepts."""
+    @classmethod
+    def supported_parameters(cls) -> list[Parameter]:
+        """
+        Declare the initializer parameters.
+
+        Returns:
+            list[Parameter]: Supported inputs and defaults.
+        """
         return [
             Parameter(
                 name="dataset_names",
@@ -80,7 +86,7 @@ class LoadDefaultDatasets(PyRITInitializer):
             unique_datasets = list(dict.fromkeys(matched))
             logger.info(f"Loading {len(unique_datasets)} dataset(s) matching tags: {sorted(tags)}")
         else:
-            unique_datasets = self._scenario_default_dataset_names()
+            unique_datasets = await run_legacy_sync_async(self._scenario_default_dataset_names)
             logger.info(f"Loading {len(unique_datasets)} unique datasets required by all scenarios")
 
         if not unique_datasets:

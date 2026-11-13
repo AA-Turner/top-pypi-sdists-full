@@ -23,6 +23,8 @@ def observe_worker(worker: dict, conn=None) -> None:
             with psycopg.connect(_F.core_dsn(), connect_timeout=3) as owned_conn:
                 observe_worker(worker, conn=owned_conn)
             return
+        from .current_catalog import replace
+        replace(conn, "worker:" + str(worker["id"]), catalog)
         for item in sorted(catalog, key=lambda row: str(row.get('id', ''))):
             key = item.get('id')
             if not key or is_staging(key, item):
@@ -73,6 +75,8 @@ def is_staging(key, item=None) -> bool:
 
 
 def _write_observation(conn, wid: str, discovered: dict) -> None:
+    from .current_catalog import replace
+    replace(conn, "worker:" + wid, [{**item, "id": key} for key, item in discovered.items()])
     # Download-staging dirs never become census keys, copies or aliases.
     discovered = {k: v for k, v in discovered.items() if not is_staging(k, v)}
     # All workers report overlapping models. Keep a consistent lock order

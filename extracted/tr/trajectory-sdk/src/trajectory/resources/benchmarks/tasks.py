@@ -42,7 +42,9 @@ class Tasks(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> SyncPage[BenchmarkSpecTask]:
-    """List Benchmark Spec Tasks
+    """Lists the benchmark's tasks in upload order, with appended tasks after earlier ones.
+    Tasks uploaded before upload order was recorded come first, in creation order.
+    `order=desc` reverses the list.
 
     Args:
       task_id: Return only these tasks; repeat the parameter for each task ID.

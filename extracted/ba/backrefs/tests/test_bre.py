@@ -411,6 +411,117 @@ class TestSearchTemplate(unittest.TestCase):
             with pytest.raises(PatternError, match='unterminated character set'):
                 bre.compile(pattern)
 
+    def test_uts18_properties(self):
+        """Test `Any`, `Assigned`, and `ASCII`, which UTS #18 requires."""
+
+        unassigned = chr(0x0378)
+        for pattern, expected in (
+            (r'\p{Any}', ['A', 'é', unassigned]),
+            (r'\P{Any}', []),
+            (r'\p{Assigned}', ['A', 'é']),
+            (r'\P{Assigned}', [unassigned]),
+            (r'\p{ASCII}', ['A']),
+            (r'\p{ASCII=No}', ['é', unassigned]),
+            (r'[[:^ascii:]x]', ['é', unassigned]),
+        ):
+            p = bre.compile(pattern)
+            self.assertEqual([c for c in ('A', 'é', unassigned) if p.fullmatch(c)], expected, pattern)
+
+        # `ASCII` is also an alias of the `Basic_Latin` block, with the same characters.
+        expected = [chr(c) for c in range(0x100) if c < 0x80]
+        for pattern in (r'\p{ASCII}', r'\p{InASCII}', r'\p{Block=ASCII}', r'\p{IsASCII}'):
+            p = bre.compile(pattern)
+            self.assertEqual([chr(c) for c in range(0x100) if p.fullmatch(chr(c))], expected, pattern)
+
+        # `Any` is every character, even in ASCII mode, as it is in Regex.
+        self.assertTrue(bre.fullmatch(r'\p{Any}', 'é', re.ASCII) is not None)
+        self.assertTrue(bre.fullmatch(r'\P{Any}', 'é', re.ASCII) is None)
+        self.assertTrue(bre.fullmatch(r'\p{Assigned}', 'é', re.ASCII) is None)
+        self.assertEqual(len([c for c in range(256) if bre.fullmatch(rb'\p{Any}', bytes([c]))]), 256)
+        self.assertEqual(len([c for c in range(256) if bre.fullmatch(rb'\p{ASCII}', bytes([c]))]), 128)
+
+    def test_is_prefix(self):
+        """An initial `is` is allowed on property names and General Category values, as Unicode allows."""
+
+        for pattern, expected in (
+            (r'\p{IsLu}', ['A']),
+            (r'\p{Is_Uppercase_Letter}', ['A']),
+            (r'\P{IsLu}', ['a', '1']),
+            (r'\p{^IsLu}', ['a', '1']),
+            (r'[[:IsLu:]]', ['A']),
+            (r'[x\p{IsLu}]', ['A']),
+            (r'\p{gc=IsLu}', ['A']),
+            (r'\p{IsGC=Lu}', ['A']),
+            (r'\p{Is_General_Category=IsLu}', ['A']),
+            (r'\p{IsAlpha=Yes}', ['A', 'a']),
+            (r'\P{IsAlpha=No}', ['A', 'a']),
+            (r'\p{IsScript=Latin}', ['A', 'a']),
+            # Already supported
+            (r'\p{IsLatin}', ['A', 'a']),
+            (r'\p{IsAlpha}', ['A', 'a']),
+        ):
+            p = bre.compile(pattern)
+            self.assertEqual([c for c in 'Aa1' if p.fullmatch(c)], expected, pattern)
+
+        # Only removed once
+        for pattern in (r'\p{IsIsLu}', r'\p{gc=IsIsLu}', r'\p{IsIsGC=Lu}'):
+            with pytest.raises(ValueError):
+                bre.compile(pattern)
+
+        # Values that begin with `is` are unchanged.
+        self.assertTrue(bre.fullmatch(r'\p{lb=IS}', ',') is not None)
+        self.assertTrue(bre.fullmatch(r'\p{ccc=IS}', chr(0x0345)) is not None)
+        self.assertTrue(bre.fullmatch(r'\p{dt=Iso}', chr(0xFE80)) is not None)
+
+    def test_negated_property_ignorecase(self):
+        """Negated properties should not match the other case of characters in the property."""
+
+        def matches(pattern, chars='Aa1x', flags=re.IGNORECASE):
+            p = bre.compile(pattern, flags)
+            return [c for c in chars if p.fullmatch(c)]
+
+        # On their own
+        for pattern in (r'\P{Lu}', r'\p{^Lu}', r'\PL', r'[\P{Lu}]', r'[[:^upper:]]', r'[^\p{Lu}]'):
+            self.assertEqual(matches(pattern, 'Aa1'), ['1'], pattern)
+        self.assertEqual(matches(r'\P{Lu}', 'Aa1', 0), ['a', '1'])
+
+        # With other members of a set
+        self.assertEqual(matches(r'[\P{Lu}x]'), ['1', 'x'])
+        self.assertEqual(matches(r'[x\P{Lu}\d]'), ['1', 'x'])
+        self.assertEqual(matches(r'[\P{Lu}\P{Ll}]'), ['1'])
+        self.assertEqual(matches(r'[^\P{Lu}x]'), ['A', 'a'])
+        self.assertEqual(matches(r'[^\P{Lu}\P{Ll}]'), ['A', 'a', 'x'])
+        self.assertEqual(matches(r'[^\P{Lu}\d]'), ['A', 'a', 'x'])
+        self.assertEqual(matches(r'[\P{Lu}x]', flags=0), ['a', '1', 'x'])
+        self.assertEqual(matches(r'[^\P{Lu}x]', flags=0), ['A'])
+
+        # A literal `^` after the negating `^`
+        self.assertEqual(matches(r'[^^\P{Nd}]', '^1a'), ['1'])
+
+        # Quantifiers and lookbehinds
+        self.assertTrue(bre.fullmatch(r'[\P{Lu}x]{2}', 'X1', re.IGNORECASE) is not None)
+        self.assertTrue(bre.fullmatch(r'[\P{Lu}x]{2}', 'A1', re.IGNORECASE) is None)
+        self.assertTrue(bre.search(r'(?<=[^\P{Lu}x])b', 'ab', re.IGNORECASE) is not None)
+        self.assertTrue(bre.search(r'(?<=[^\P{Lu}x])b', 'xb', re.IGNORECASE) is None)
+        self.assertTrue(bre.search(r'(?<![\P{Lu}x])b', 'Ab', re.IGNORECASE) is not None)
+
+        # Byte strings
+        self.assertEqual([c for c in b'Aa1' if bre.fullmatch(rb'[\P{Lu}x]', bytes([c]), re.IGNORECASE)], [ord('1')])
+
+    def test_binary_property_false_value(self):
+        """A binary property with a false value is the set of characters with that value, not a negation."""
+
+        # So case-insensitive matching applies to that set, as it does in Regex.
+        p = bre.compile(r'[\p{Lowercase=No}x]', re.IGNORECASE)
+        self.assertEqual([c for c in 'Aa1x' if p.fullmatch(c)], ['A', 'a', '1', 'x'])
+
+        # Negations of a property alias with a value
+        for pattern, expected in (
+            (r'\P{Alpha=No}', ['A', 'a']), (r'\p{^Alpha=No}', ['A', 'a']), (r'\P{Alpha=Yes}', ['1', ' ']),
+            (r'\P{Upper=F}', ['A']), (r'\P{WSpace=No}', [' '])
+        ):
+            self.assertEqual([c for c in 'Aa1 ' if bre.fullmatch(pattern, c)], expected, pattern)
+
     def test_caret_after_negation(self):
         """A `^` after the negating `^` is a literal."""
 

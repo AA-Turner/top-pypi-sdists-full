@@ -621,6 +621,13 @@ class PremiumMarketingComponentProperties(_message.Message):
         DISMISSIBLE_CONTENT_ORB_WALLET_NITRO_UPSELL_CTA_CARD_MOBILE: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 896
         DISMISSIBLE_CONTENT_CONSOLE_CONNECTION_COACHMARK: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 897
         DISMISSIBLE_CONTENT_GUILD_SPACE_CHANNEL_ROW_HIGHLIGHT: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 898
+        DISMISSIBLE_CONTENT_SHOP_TWELVE_DAYS_MOBILE_HOME_NAGBAR: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 899
+        DISMISSIBLE_CONTENT_HEXAGON_CAMPAIGN_PERKS_EXPIRING_PROMO_SHEET: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 900
+        DISMISSIBLE_CONTENT_HEXAGON_CAMPAIGN_PERKS_EXPIRED_PROMO_SHEET: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 901
+        DISMISSIBLE_CONTENT_META_QUEST_APP_UPSELL_COACHMARK: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 902
+        DISMISSIBLE_CONTENT_SLAYER_STOREFRONT_GAME_EXIT_PROMO_BLOONS_2026_BF: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 903
+        DISMISSIBLE_CONTENT_SLAYER_STOREFRONT_GAME_EXIT_PROMO_RUST_2026_BF: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 904
+        DISMISSIBLE_CONTENT_LAUNCH_ACCOUNT_LINKING_CAMPAIGN_ACTION_SHEET: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 905
 
     class DismissibleContent(_DismissibleContent, metaclass=_DismissibleContentEnumTypeWrapper): ...
     DISMISSIBLE_CONTENT_UNSPECIFIED: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 0
@@ -1170,6 +1177,13 @@ class PremiumMarketingComponentProperties(_message.Message):
     DISMISSIBLE_CONTENT_ORB_WALLET_NITRO_UPSELL_CTA_CARD_MOBILE: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 896
     DISMISSIBLE_CONTENT_CONSOLE_CONNECTION_COACHMARK: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 897
     DISMISSIBLE_CONTENT_GUILD_SPACE_CHANNEL_ROW_HIGHLIGHT: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 898
+    DISMISSIBLE_CONTENT_SHOP_TWELVE_DAYS_MOBILE_HOME_NAGBAR: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 899
+    DISMISSIBLE_CONTENT_HEXAGON_CAMPAIGN_PERKS_EXPIRING_PROMO_SHEET: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 900
+    DISMISSIBLE_CONTENT_HEXAGON_CAMPAIGN_PERKS_EXPIRED_PROMO_SHEET: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 901
+    DISMISSIBLE_CONTENT_META_QUEST_APP_UPSELL_COACHMARK: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 902
+    DISMISSIBLE_CONTENT_SLAYER_STOREFRONT_GAME_EXIT_PROMO_BLOONS_2026_BF: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 903
+    DISMISSIBLE_CONTENT_SLAYER_STOREFRONT_GAME_EXIT_PROMO_RUST_2026_BF: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 904
+    DISMISSIBLE_CONTENT_LAUNCH_ACCOUNT_LINKING_CAMPAIGN_ACTION_SHEET: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 905
 
     class _AssetVariant:
         ValueType = _typing.NewType("ValueType", _builtins.int)

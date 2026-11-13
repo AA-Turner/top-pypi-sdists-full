@@ -24069,6 +24069,9 @@ class CfnTaskTemplate(
             client_token="clientToken",
             constraints=constraints,
             contact_flow_arn="contactFlowArn",
+            contact_hooks=connect.CfnTaskTemplate.ContactHooksProperty(
+                wrap_up_flow_arn="wrapUpFlowArn"
+            ),
             defaults=[connect.CfnTaskTemplate.DefaultFieldValueProperty(
                 default_value="defaultValue",
                 id=connect.CfnTaskTemplate.FieldIdentifierProperty(
@@ -24105,6 +24108,7 @@ class CfnTaskTemplate(
         client_token: typing.Optional[builtins.str] = None,
         constraints: typing.Any = None,
         contact_flow_arn: typing.Optional[builtins.str] = None,
+        contact_hooks: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskTemplate.ContactHooksProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         defaults: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskTemplate.DefaultFieldValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         fields: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskTemplate.FieldProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -24121,6 +24125,7 @@ class CfnTaskTemplate(
         :param client_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param constraints: Constraints that are applicable to the fields listed. The values can be represented in either JSON or YAML format. For an example of the JSON configuration, see *Examples* at the bottom of this page.
         :param contact_flow_arn: The Amazon Resource Name (ARN) of the flow that runs by default when a task is created by referencing this template. ``ContactFlowArn`` is not required when there is a field with ``fieldType`` = ``QUICK_CONNECT`` .
+        :param contact_hooks: The contact hooks for the task template.
         :param defaults: The default values for fields when a task is created by referencing this template.
         :param description: The description of the task template.
         :param fields: Fields that are part of the template. A template requires at least one field that has type ``Name`` .
@@ -24138,6 +24143,7 @@ class CfnTaskTemplate(
             client_token=client_token,
             constraints=constraints,
             contact_flow_arn=contact_flow_arn,
+            contact_hooks=contact_hooks,
             defaults=defaults,
             description=description,
             fields=fields,
@@ -24288,6 +24294,24 @@ class CfnTaskTemplate(
             type_hints = cached_type_hints(_typecheckingstub__f6b4de1aedec1ca589ae0fc007dad4a4b2bd2d8d34fc17ea98b736695f7ce943)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contactFlowArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="contactHooks")
+    def contact_hooks(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskTemplate.ContactHooksProperty"]]:
+        '''The contact hooks for the task template.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskTemplate.ContactHooksProperty"]], jsii.get(self, "contactHooks"))
+
+    @contact_hooks.setter
+    def contact_hooks(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskTemplate.ContactHooksProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2d4094d773002db725ceab34a79a646d43d61cab5f860b921c7c93cdcf72430c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contactHooks", value)
 
     @builtins.property
     @jsii.member(jsii_name="defaults")
@@ -24500,6 +24524,63 @@ class CfnTaskTemplate(
 
         def __repr__(self) -> str:
             return "ConstraintsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnTaskTemplate.ContactHooksProperty",
+        jsii_struct_bases=[],
+        name_mapping={"wrap_up_flow_arn": "wrapUpFlowArn"},
+    )
+    class ContactHooksProperty:
+        def __init__(
+            self,
+            *,
+            wrap_up_flow_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The contact hooks for the task template.
+
+            :param wrap_up_flow_arn: The identifier (arn) of the flow module that runs when an agent attempts to disconnect from a task created by referencing this template. If no agent ever connects to the task, the flow module runs when the task is terminated.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-tasktemplate-contacthooks.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                contact_hooks_property = connect.CfnTaskTemplate.ContactHooksProperty(
+                    wrap_up_flow_arn="wrapUpFlowArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8ed13f7585f8ee5be8ded55b6eeab567eb75ee3beb50e6aea967bbbd24935a66)
+                check_type(argname="argument wrap_up_flow_arn", value=wrap_up_flow_arn, expected_type=type_hints["wrap_up_flow_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if wrap_up_flow_arn is not None:
+                self._values["wrap_up_flow_arn"] = wrap_up_flow_arn
+
+        @builtins.property
+        def wrap_up_flow_arn(self) -> typing.Optional[builtins.str]:
+            '''The identifier (arn) of the flow module that runs when an agent attempts to disconnect from a task created by referencing this template.
+
+            If no agent ever connects to the task, the flow module runs when the task is terminated.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-tasktemplate-contacthooks.html#cfn-connect-tasktemplate-contacthooks-wrapupflowarn
+            '''
+            result = self._values.get("wrap_up_flow_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContactHooksProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -24933,6 +25014,7 @@ class CfnTaskTemplate(
         "client_token": "clientToken",
         "constraints": "constraints",
         "contact_flow_arn": "contactFlowArn",
+        "contact_hooks": "contactHooks",
         "defaults": "defaults",
         "description": "description",
         "fields": "fields",
@@ -24950,6 +25032,7 @@ class CfnTaskTemplateProps:
         client_token: typing.Optional[builtins.str] = None,
         constraints: typing.Any = None,
         contact_flow_arn: typing.Optional[builtins.str] = None,
+        contact_hooks: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskTemplate.ContactHooksProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         defaults: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskTemplate.DefaultFieldValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         fields: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskTemplate.FieldProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -24964,6 +25047,7 @@ class CfnTaskTemplateProps:
         :param client_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param constraints: Constraints that are applicable to the fields listed. The values can be represented in either JSON or YAML format. For an example of the JSON configuration, see *Examples* at the bottom of this page.
         :param contact_flow_arn: The Amazon Resource Name (ARN) of the flow that runs by default when a task is created by referencing this template. ``ContactFlowArn`` is not required when there is a field with ``fieldType`` = ``QUICK_CONNECT`` .
+        :param contact_hooks: The contact hooks for the task template.
         :param defaults: The default values for fields when a task is created by referencing this template.
         :param description: The description of the task template.
         :param fields: Fields that are part of the template. A template requires at least one field that has type ``Name`` .
@@ -24991,6 +25075,9 @@ class CfnTaskTemplateProps:
                 client_token="clientToken",
                 constraints=constraints,
                 contact_flow_arn="contactFlowArn",
+                contact_hooks=connect.CfnTaskTemplate.ContactHooksProperty(
+                    wrap_up_flow_arn="wrapUpFlowArn"
+                ),
                 defaults=[connect.CfnTaskTemplate.DefaultFieldValueProperty(
                     default_value="defaultValue",
                     id=connect.CfnTaskTemplate.FieldIdentifierProperty(
@@ -25023,6 +25110,7 @@ class CfnTaskTemplateProps:
             check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
             check_type(argname="argument constraints", value=constraints, expected_type=type_hints["constraints"])
             check_type(argname="argument contact_flow_arn", value=contact_flow_arn, expected_type=type_hints["contact_flow_arn"])
+            check_type(argname="argument contact_hooks", value=contact_hooks, expected_type=type_hints["contact_hooks"])
             check_type(argname="argument defaults", value=defaults, expected_type=type_hints["defaults"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
@@ -25039,6 +25127,8 @@ class CfnTaskTemplateProps:
             self._values["constraints"] = constraints
         if contact_flow_arn is not None:
             self._values["contact_flow_arn"] = contact_flow_arn
+        if contact_hooks is not None:
+            self._values["contact_hooks"] = contact_hooks
         if defaults is not None:
             self._values["defaults"] = defaults
         if description is not None:
@@ -25094,6 +25184,17 @@ class CfnTaskTemplateProps:
         '''
         result = self._values.get("contact_flow_arn")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def contact_hooks(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskTemplate.ContactHooksProperty"]]:
+        '''The contact hooks for the task template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-contacthooks
+        '''
+        result = self._values.get("contact_hooks")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskTemplate.ContactHooksProperty"]], result)
 
     @builtins.property
     def defaults(
@@ -35990,6 +36091,7 @@ def _typecheckingstub__e55cf6106eb4919ab3d57f42477e52e40f628476ec3364c5bf5b40089
     client_token: typing.Optional[builtins.str] = None,
     constraints: typing.Any = None,
     contact_flow_arn: typing.Optional[builtins.str] = None,
+    contact_hooks: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskTemplate.ContactHooksProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     defaults: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskTemplate.DefaultFieldValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     fields: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskTemplate.FieldProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -36049,6 +36151,12 @@ def _typecheckingstub__f6b4de1aedec1ca589ae0fc007dad4a4b2bd2d8d34fc17ea98b736695
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2d4094d773002db725ceab34a79a646d43d61cab5f860b921c7c93cdcf72430c(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTaskTemplate.ContactHooksProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8763e4dc1a72bd2993b2130ce895c2796dd673f1913cef1346294ad7cdfb3f84(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTaskTemplate.DefaultFieldValueProperty]]]],
 ) -> None:
@@ -36096,6 +36204,13 @@ def _typecheckingstub__f8ebbf1d682cf676accdf4695ae9748eb71839e0255117fb6c27fe139
     invisible_fields: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskTemplate.InvisibleFieldInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     read_only_fields: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskTemplate.ReadOnlyFieldInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     required_fields: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskTemplate.RequiredFieldInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8ed13f7585f8ee5be8ded55b6eeab567eb75ee3beb50e6aea967bbbd24935a66(
+    *,
+    wrap_up_flow_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36152,6 +36267,7 @@ def _typecheckingstub__ffa2d0f88c266e5f2522dfd1af262def0d3061b82ebb529283e7afc28
     client_token: typing.Optional[builtins.str] = None,
     constraints: typing.Any = None,
     contact_flow_arn: typing.Optional[builtins.str] = None,
+    contact_hooks: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskTemplate.ContactHooksProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     defaults: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskTemplate.DefaultFieldValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     fields: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskTemplate.FieldProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,

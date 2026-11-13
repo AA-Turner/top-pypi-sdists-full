@@ -32,6 +32,7 @@ from langgraph_runtime_inmem.inmem_stream import (
     ContextQueue,
     Message,
     get_stream_manager,
+    stream_id_key,
 )
 
 if typing.TYPE_CHECKING:
@@ -54,6 +55,7 @@ if typing.TYPE_CHECKING:
         PoolStats,
         QueueStats,
         Run,
+        RunCancelProgress,
         RunSelectField,
         RunStatus,
         StreamMode,
@@ -261,6 +263,18 @@ def _ensure_uuid(id_: str | uuid.UUID | None) -> uuid.UUID:
     if id_ is None:
         return uuid4()
     return id_
+
+
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+
+
+def _accepted_at_or_before(run_id: uuid.UUID, boundary_ms: int) -> bool:
+    """Whether a run was accepted at or before a Unix-millisecond boundary.
+
+    Run IDs are UUIDv7, whose first 48 bits are the millisecond they were
+    generated. A run whose ID isn't a UUIDv7 counts as accepted before.
+    """
+    return run_id.version != 7 or run_id.int >> 80 <= boundary_ms
 
 
 def _ensure_datetime(value: datetime | str | None) -> datetime | None:
@@ -1391,6 +1405,8 @@ class Threads(Authenticated):
             "status": "idle",
             "config": {},
             "values": None,
+            "run_priority": None,
+            "fairness_group": None,
         }
 
         # Add to store
@@ -1547,6 +1563,9 @@ class Threads(Authenticated):
 
         now = datetime.now(UTC)
 
+        if run.get("cancel_action") == "rollback":
+            # A rollback recorded while the run ran wins over the signal its worker saw first, as in Go.
+            run_status, checkpoint, exception = "rollback", None, None
         if run_status == "rollback":
             await Runs.delete(conn, run_id, thread_id=run["thread_id"])
         else:
@@ -1758,6 +1777,9 @@ class Threads(Authenticated):
                 "values": copy.deepcopy(original_thread.get("values")),
                 "interrupts": copy.deepcopy(original_thread.get("interrupts", {})),
                 "error": copy.deepcopy(original_thread.get("error")),
+                # A copy gets its own priority settings at its first run.
+                "run_priority": None,
+                "fairness_group": None,
             }
             # Add new thread to store
             conn.store["threads"].append(
@@ -2399,8 +2421,7 @@ class Threads(Authenticated):
                             ):
                                 all_events.append((message, run_id))
 
-                        # Sort by message ID (which is ms-seq format)
-                        all_events.sort(key=lambda x: x[0].id.decode())
+                        all_events.sort(key=lambda x: stream_id_key(x[0].id))
 
                         # Yield sorted events
                         for message, run_id in all_events:
@@ -2522,9 +2543,14 @@ class Threads(Authenticated):
                 raise
             finally:
                 # Clean up all created queues
+                thread_key = _ensure_uuid(thread_id)
                 for run_id, queue in created_queues:
                     try:
-                        await stream_manager.remove_queue(run_id, thread_id, queue)
+                        # subscribe() files the thread-level queue under the thread id.
+                        if run_id == thread_key:
+                            await stream_manager.remove_thread_stream(thread_id, queue)
+                        else:
+                            await stream_manager.remove_queue(run_id, thread_id, queue)
                     except Exception:
                         # Ignore cleanup errors
                         pass
@@ -2864,6 +2890,17 @@ class Runs(Authenticated):
         from langgraph_api.schema import Run, Thread  # noqa: PLC0415
         from langgraph_api.utils import uuid7  # noqa: PLC0415
 
+        try:
+            from langgraph_api.priority_settings import (  # noqa: PLC0415
+                assign_priority_settings,
+                get_priority_callback,
+            )
+        except ImportError:
+            # An older langgraph-api has no priority callback.
+            priority_callback = None
+        else:
+            priority_callback = get_priority_callback()
+
         assistant_id = _ensure_uuid(assistant_id)
         assistant = next(
             (a for a in conn.store["assistants"] if a["assistant_id"] == assistant_id),
@@ -2936,6 +2973,53 @@ class Runs(Authenticated):
 
         _reject_existing_run(conn.store["runs"], run_id)
 
+        # A thread gets its priority settings at its first run, from the deployment's
+        # priority callback, before the thread is created or updated. They're kept as
+        # the callback returned them; inmem never orders runs by them.
+        priority_settings = None
+        creates_thread = not existing_thread and (
+            thread_id is None or if_not_exists == "create"
+        )
+        if priority_callback is not None and (
+            creates_thread
+            or (
+                existing_thread is not None
+                and existing_thread.get("run_priority") is None
+            )
+        ):
+            ids = {"graph_id": assistant["graph_id"], "assistant_id": str(assistant_id)}
+            priority_settings = await assign_priority_settings(
+                priority_callback,
+                thread_id=str(thread_id) if thread_id is not None else None,
+                thread_metadata=(
+                    {**ids, **(config.get("metadata") or {}), **metadata}
+                    if creates_thread
+                    else Runs._merge_jsonb(existing_thread["metadata"], ids)
+                ),
+                assistant_id=str(assistant_id),
+                graph_id=assistant["graph_id"],
+                assistant_metadata=assistant.get("metadata") or {},
+                run_metadata=metadata,
+                run_kwargs=kwargs,
+            )
+            # Another first run on the thread may have gone ahead while the callback
+            # ran: read the thread again, and keep its settings if it has them now.
+            if thread_id is not None:
+                existing_thread = next(
+                    (t for t in conn.store["threads"] if t["thread_id"] == thread_id),
+                    None,
+                )
+                if encryption_enabled and existing_thread:
+                    existing_thread = await _decrypt_from_storage(
+                        existing_thread, "thread"
+                    )
+                if (
+                    existing_thread
+                    and filters
+                    and not _check_filter_match(existing_thread["metadata"], filters)
+                ):
+                    return _empty_generator()
+
         if not existing_thread and (thread_id is None or if_not_exists == "create"):
             # Create new thread
             if thread_id is None:
@@ -2962,10 +3046,18 @@ class Runs(Authenticated):
                 created_at=datetime.now(UTC),
                 updated_at=datetime.now(UTC),
                 values=None,
+                run_priority=priority_settings["priority"]
+                if priority_settings
+                else None,
+                fairness_group=(
+                    priority_settings["fairness_group"] if priority_settings else None
+                ),
             )
 
-            await logger.ainfo("Creating thread", thread_id=thread_id)
+            # Append before the first await, so a concurrent first run that read the
+            # thread after its priority callback sees this one instead of adding another.
             conn.store["threads"].append(thread)
+            await logger.ainfo("Creating thread", thread_id=thread_id)
         elif existing_thread:
             # Update existing thread
             if existing_thread["status"] != "busy":
@@ -3010,6 +3102,30 @@ class Runs(Authenticated):
                         )
 
                 return _return_inflight()
+
+        # As in Go core, an existing thread gets the callback's result only once a run
+        # is created on it, and only if it still has no settings; while the deployment
+        # has a callback, every run takes the thread's priority. The check reads the
+        # stored thread, not a decrypted copy, which a concurrent first run's settings
+        # may have reached first.
+        if existing_thread:
+            stored = next(
+                (t for t in conn.store["threads"] if t["thread_id"] == thread_id),
+                existing_thread,
+            )
+            if priority_settings and stored.get("run_priority") is None:
+                stored.update(
+                    run_priority=priority_settings["priority"],
+                    fairness_group=priority_settings["fairness_group"],
+                )
+            existing_thread.update(
+                {key: stored.get(key) for key in ("run_priority", "fairness_group")}
+            )
+        thread_priority = (
+            (existing_thread or thread).get("run_priority")
+            if priority_callback is not None
+            else None
+        )
 
         # Create new run
         configurable = Runs._merge_jsonb(
@@ -3072,6 +3188,7 @@ class Runs(Authenticated):
             updated_at=datetime.now(UTC),
             langsmith_session_name=langsmith_session_name,
             cancel_reason=None,
+            priority=thread_priority if thread_priority is not None else 0,
         )
         stored_run = new_run
         encrypted_thread = None
@@ -3293,12 +3410,88 @@ class Runs(Authenticated):
                 return
             raise HTTPException(status_code=404, detail="No runs found to cancel.")
 
+        cancelable_runs = await Runs._cancel_runs(
+            conn, candidate_runs, action=action, reason=reason
+        )
+        if not cancelable_runs:
+            # When cancelling by assistant_id, it's valid to have no cancelable runs.
+            # An interrupt that finds a rollback under way leaves it alone and
+            # succeeds, as in the Go runtime.
+            if assistant_id is not None or any(
+                run["status"] == "running" and run.get("cancel_action") == "rollback"
+                for run in candidate_runs
+            ):
+                return
+            raise HTTPException(
+                status_code=404,
+                detail="No matching runs to cancel. Please verify the thread ID and run IDs are correct, and the runs haven't been deleted or completed.",
+            )
+
+        await logger.ainfo(
+            "Cancelled runs",
+            run_ids=[str(r["run_id"]) for r in cancelable_runs],
+            thread_id=str(thread_id) if thread_id else None,
+            status=status,
+            action=action,
+        )
+
+    @staticmethod
+    async def cancel_accepted_before(
+        conn: InMemConnectionProto,
+        accepted_before: datetime,
+        *,
+        reason: str,
+    ) -> RunCancelProgress:
+        """Interrupt every in-flight run accepted at or before `accepted_before`.
+
+        Applies no auth filters, so only the operator route may call it. As with
+        `cancel`, a signalled running run stays running until its worker stops it,
+        so `finishing` counts the running runs still being stopped.
+        """
+        boundary_ms = (accepted_before - _EPOCH) // timedelta(milliseconds=1)
+
+        def in_flight_targets() -> list[dict]:
+            return [
+                run
+                for run in conn.store["runs"]
+                if run["status"] in ("pending", "running")
+                and _accepted_at_or_before(_ensure_uuid(run["run_id"]), boundary_ms)
+            ]
+
+        cancelled = await Runs._cancel_runs(
+            conn, in_flight_targets(), action="interrupt", reason=reason
+        )
+        if cancelled:
+            await logger.ainfo(
+                "Cancelled runs accepted before boundary",
+                run_ids=[str(r["run_id"]) for r in cancelled],
+                accepted_before=accepted_before.isoformat(),
+            )
+        remaining = in_flight_targets()
+        finishing = sum(1 for run in remaining if run.get("cancel_action"))
+        return {"not_yet_reached": len(remaining) - finishing, "finishing": finishing}
+
+    @staticmethod
+    async def _cancel_runs(
+        conn: InMemConnectionProto,
+        candidate_runs: list[dict],
+        *,
+        action: Literal["interrupt", "rollback"],
+        reason: str | None,
+    ) -> list[dict]:
+        """Signal each candidate run and cancel the ones still in flight.
+
+        Returns the runs that were in flight. When none were, nothing is changed.
+        """
         stream_manager = get_stream_manager()
         coros = []
         cancelable_runs = []
         pending_thread_ids: set[UUID] = set()
 
         for run in candidate_runs:
+            if action == "interrupt" and run.get("cancel_action") == "rollback":
+                # A rollback already under way wins; its worker finalizes it.
+                continue
             run_id = run["run_id"]
             control_message = Message(
                 topic=f"run:{run_id}:control".encode(),
@@ -3314,9 +3507,13 @@ class Runs(Authenticated):
                 cancelable_runs.append(run)
                 if run["status"] == "pending":
                     pending_thread_ids.add(run["thread_id"])
-                if action == "rollback" and run["status"] == "running":
-                    # Its worker finalizes the rollback; staying "running" holds the thread's next run until then.
-                    pass
+                if run["status"] == "running":
+                    # Its worker finalizes the cancel; staying "running" holds the thread's next run until then.
+                    # A later interrupt keeps the first one's reason, which names who stopped the run.
+                    if action == "rollback" or not run.get("cancel_action"):
+                        run["cancel_reason"] = reason
+                    run["cancel_action"] = action
+                    run["updated_at"] = datetime.now(tz=UTC)
                 elif queues or action != "rollback":
                     run["status"] = "interrupted"
                     run["cancel_reason"] = reason
@@ -3335,13 +3532,7 @@ class Runs(Authenticated):
                 )
 
         if not cancelable_runs:
-            # When cancelling by assistant_id, it's valid to have no cancelable runs
-            if assistant_id is not None:
-                return
-            raise HTTPException(
-                status_code=404,
-                detail="No matching runs to cancel. Please verify the thread ID and run IDs are correct, and the runs haven't been deleted or completed.",
-            )
+            return []
 
         if coros:
             await asyncio.gather(*coros)
@@ -3357,13 +3548,7 @@ class Runs(Authenticated):
                     )
                     thread["updated_at"] = datetime.now(tz=UTC)
 
-        await logger.ainfo(
-            "Cancelled runs",
-            run_ids=[str(r["run_id"]) for r in cancelable_runs],
-            thread_id=str(thread_id) if thread_id else None,
-            status=status,
-            action=action,
-        )
+        return cancelable_runs
 
     @staticmethod
     async def search(
@@ -3640,15 +3825,22 @@ async def listen_for_cancellation(
 
     if control_key := stream_manager.get_control_key(run_id, thread_id):
         _handle_control_message(control_key)
+    else:
+        # Control messages do not survive a restart; a cancel recorded on the run does.
+        runs = InMemConnectionProto().store["runs"]
+        run = next((r for r in runs if r["run_id"] == run_id), None)
+        if run and run.get("cancel_action"):
+            _handle_control_message(
+                Message(
+                    topic=f"run:{run_id}:control".encode(),
+                    data=run["cancel_action"].encode(),
+                    reason=run.get("cancel_reason"),
+                )
+            )
 
+    # Runs.enter cancels this task when the run ends.
     while not done.is_set():
-        try:
-            # This task gets cancelled when Runs.enter exits anyway,
-            # so we can have a pretty lengthy timeout here
-            message = await asyncio.wait_for(queue.get(), timeout=240)
-            if _handle_control_message(message):
-                break
-        except TimeoutError:
+        if _handle_control_message(await queue.get()):
             break
 
 

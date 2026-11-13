@@ -54,6 +54,8 @@ __all__ = (
     "ListTelemetryFieldsPaginatorName",
     "ListTelemetryQuerySessionsPaginatorName",
     "ListViewsPaginatorName",
+    "MetricAggregationTemporalityType",
+    "MetricMonotonicityType",
     "NodeCategoryType",
     "NodeTypeType",
     "NotificationStatusType",
@@ -114,6 +116,8 @@ ListSpacesPaginatorName = Literal["list_spaces"]
 ListTelemetryFieldsPaginatorName = Literal["list_telemetry_fields"]
 ListTelemetryQuerySessionsPaginatorName = Literal["list_telemetry_query_sessions"]
 ListViewsPaginatorName = Literal["list_views"]
+MetricAggregationTemporalityType = Literal["cumulative", "delta"]
+MetricMonotonicityType = Literal["monotonic", "non_monotonic"]
 NodeCategoryType = Literal[
     "COMPUTE", "DATABASE", "GEN_AI_AGENT", "GEN_AI_MODEL", "MESSAGING_QUEUE", "NETWORK", "STORAGE"
 ]

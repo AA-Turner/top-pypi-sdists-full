@@ -37,6 +37,12 @@ class AiAgentToolsItem:
             or reject it from the flow's run page or chat, without the agent holding a worker. Calls in the same turn that
             do not require approval run right away. A rejected call, or one nobody answers within 30 minutes, is reported to
             the AI as not run.
+        background (Union[Unset, bool]): Flowmodule tools only. The agent is answered as soon as the tool's job starts
+            and keeps working; the job's result reaches it in a later message. If the agent finishes its answer first, it
+            stops without holding a worker until the job is done, then continues with the result.
+        background_after_secs (Union[Unset, int]): Flowmodule tools only, with background unset. The agent waits up to
+            this many seconds for the tool's job and gets its result as usual; a job still running then continues as a
+            background one, its result reaching the agent in a later message.
     """
 
     id: str
@@ -50,6 +56,8 @@ class AiAgentToolsItem:
     description: Union[Unset, str] = UNSET
     job_token_scopes: Union[Unset, None, List[str]] = UNSET
     requires_approval: Union[Unset, bool] = UNSET
+    background: Union[Unset, bool] = UNSET
+    background_after_secs: Union[Unset, int] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -82,6 +90,8 @@ class AiAgentToolsItem:
                 job_token_scopes = self.job_token_scopes
 
         requires_approval = self.requires_approval
+        background = self.background
+        background_after_secs = self.background_after_secs
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -99,6 +109,10 @@ class AiAgentToolsItem:
             field_dict["job_token_scopes"] = job_token_scopes
         if requires_approval is not UNSET:
             field_dict["requires_approval"] = requires_approval
+        if background is not UNSET:
+            field_dict["background"] = background
+        if background_after_secs is not UNSET:
+            field_dict["background_after_secs"] = background_after_secs
 
         return field_dict
 
@@ -160,6 +174,10 @@ class AiAgentToolsItem:
 
         requires_approval = d.pop("requires_approval", UNSET)
 
+        background = d.pop("background", UNSET)
+
+        background_after_secs = d.pop("background_after_secs", UNSET)
+
         ai_agent_tools_item = cls(
             id=id,
             value=value,
@@ -167,6 +185,8 @@ class AiAgentToolsItem:
             description=description,
             job_token_scopes=job_token_scopes,
             requires_approval=requires_approval,
+            background=background,
+            background_after_secs=background_after_secs,
         )
 
         ai_agent_tools_item.additional_properties = d

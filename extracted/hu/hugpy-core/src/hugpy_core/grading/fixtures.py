@@ -3,7 +3,7 @@ import os
 import json
 import math
 import re
-from fitevict.probes.fixtures import load_fixture
+from hugpy_core.lifted.fixtures import load_fixture
 
 LEVELS = ('compatibility', 'validity', 'quality')
 

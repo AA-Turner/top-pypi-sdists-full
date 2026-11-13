@@ -91,13 +91,13 @@ buildvariants:
     run_on:
       - macos-14
     tags: [pr]
-  - name: auth-aws-ecs-macos
+  - name: auth-aws-ecs-ubuntu-24
     tasks:
       - name: .auth-aws-ecs
-    display_name: Auth AWS ECS macOS
+    display_name: Auth AWS ECS Ubuntu-24
     run_on:
       - ubuntu2404-small
-    tags: [pr]
+    tags: []
 
   # Aws lambda tests
   - name: faas-lambda
@@ -186,7 +186,6 @@ buildvariants:
   - name: encryption-rhel8
     tasks:
       - name: .test-non-standard !.python-3.15t
-      - name: .test-string-query-preview
     display_name: Encryption RHEL8
     run_on:
       - rhel8.10-small
@@ -198,7 +197,6 @@ buildvariants:
     tasks:
       - name: .test-non-standard !.cov !.python-3.15t
       - name: .test-non-standard-no-cov !.python-3.15t
-      - name: .test-string-query-preview
     display_name: Encryption macOS
     run_on:
       - macos-14
@@ -210,7 +208,6 @@ buildvariants:
     tasks:
       - name: .test-non-standard !.cov !.python-3.15t
       - name: .test-non-standard-no-cov !.python-3.15t
-      - name: .test-string-query-preview
     display_name: Encryption Win64
     run_on:
       - windows-2022-latest-small
@@ -221,7 +218,6 @@ buildvariants:
   - name: encryption-crypt_shared-rhel8
     tasks:
       - name: .test-non-standard !.python-3.15t
-      - name: .test-string-query-preview
     display_name: Encryption crypt_shared RHEL8
     run_on:
       - rhel8.10-small
@@ -234,7 +230,6 @@ buildvariants:
     tasks:
       - name: .test-non-standard !.cov !.python-3.15t
       - name: .test-non-standard-no-cov !.python-3.15t
-      - name: .test-string-query-preview
     display_name: Encryption crypt_shared macOS
     run_on:
       - macos-14
@@ -247,7 +242,6 @@ buildvariants:
     tasks:
       - name: .test-non-standard !.cov !.python-3.15t
       - name: .test-non-standard-no-cov !.python-3.15t
-      - name: .test-string-query-preview
     display_name: Encryption crypt_shared Win64
     run_on:
       - windows-2022-latest-small
@@ -317,6 +311,22 @@ buildvariants:
     expansions:
       TEST_NAME: enterprise_auth
       AUTH: auth
+
+  # Fuzz tests
+  - name: fuzz-regression-rhel8
+    tasks:
+      - name: .fuzz-regression
+    display_name: Fuzz Regression RHEL8
+    run_on:
+      - rhel8.10-small
+    tags: [pr]
+  - name: fuzz-rhel8
+    tasks:
+      - name: .fuzz-nightly
+    display_name: Fuzz RHEL8
+    run_on:
+      - rhel8.10-small
+    batchtime: 1440
 
   # Green framework tests
   - name: green-gevent-rhel8
@@ -520,6 +530,17 @@ buildvariants:
       SUB_TEST_NAME: pyopenssl
     tags: [pr]
 
+  # Sanitizer tests
+  - name: sanitizer-rhel8
+    tasks:
+      - name: .sanitizer
+    display_name: Sanitizer RHEL8
+    run_on:
+      - rhel8.10-large
+    expansions:
+      VERSION: "9.0"
+    tags: [pr]
+
   # Search index tests
   - name: search-index-helpers-rhel8
     tasks:
@@ -531,7 +552,8 @@ buildvariants:
   # Server version tests
   - name: mongodb-v4.4
     tasks:
-      - name: .server-version
+      - name: .server-version !.pr
+      - name: .server-version .4.4
     display_name: "* MongoDB v4.4"
     run_on:
       - rhel8.10-small
@@ -540,7 +562,7 @@ buildvariants:
     tags: [coverage_tag]
   - name: mongodb-v5.0
     tasks:
-      - name: .server-version
+      - name: .server-version !.pr
     display_name: "* MongoDB v5.0"
     run_on:
       - rhel8.10-small
@@ -549,7 +571,7 @@ buildvariants:
     tags: [coverage_tag]
   - name: mongodb-v6.0
     tasks:
-      - name: .server-version
+      - name: .server-version !.pr
     display_name: "* MongoDB v6.0"
     run_on:
       - rhel8.10-small
@@ -558,7 +580,7 @@ buildvariants:
     tags: [coverage_tag]
   - name: mongodb-v7.0
     tasks:
-      - name: .server-version
+      - name: .server-version !.pr
     display_name: "* MongoDB v7.0"
     run_on:
       - rhel8.10-small
@@ -567,7 +589,7 @@ buildvariants:
     tags: [coverage_tag]
   - name: mongodb-v8.0
     tasks:
-      - name: .server-version
+      - name: .server-version !.pr
     display_name: "* MongoDB v8.0"
     run_on:
       - rhel8.10-small
@@ -576,7 +598,8 @@ buildvariants:
     tags: [coverage_tag]
   - name: mongodb-v9.0
     tasks:
-      - name: .server-version
+      - name: .server-version !.pr
+      - name: .server-version .9.0
     display_name: "* MongoDB v9.0"
     run_on:
       - rhel8.10-small
@@ -585,7 +608,7 @@ buildvariants:
     tags: [coverage_tag]
   - name: mongodb-rapid
     tasks:
-      - name: .server-version
+      - name: .server-version !.pr
     display_name: "* MongoDB rapid"
     run_on:
       - rhel8.10-small
@@ -594,7 +617,7 @@ buildvariants:
     tags: [coverage_tag]
   - name: mongodb-latest
     tasks:
-      - name: .server-version
+      - name: .server-version !.pr
     display_name: "* MongoDB latest"
     run_on:
       - rhel8.10-small

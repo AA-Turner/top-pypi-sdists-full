@@ -11,7 +11,6 @@ import os
 import re
 from setuptools import setup, find_packages
 
-
 PACKAGE_NAME = "azure-keyvault-administration"
 PACKAGE_PPRINT_NAME = "Key Vault Administration"
 PACKAGE_NAMESPACE = "azure.keyvault.administration"
@@ -43,11 +42,11 @@ setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "License :: OSI Approved :: MIT License",
     ],
     zip_safe=False,
@@ -69,5 +68,5 @@ setup(
         "azure-core>=1.38.0",
         "typing-extensions>=4.6.0",
     ],
-    python_requires=">=3.9",
+    python_requires=">=3.10",
 )

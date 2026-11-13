@@ -15,7 +15,7 @@ from .packet import QuicProtocolVersion
 SMALLEST_MAX_DATAGRAM_SIZE = 1200
 
 
-@dataclass
+@dataclass(kw_only=True)
 class QuicConfiguration:
     """
     A QUIC configuration.
@@ -24,6 +24,13 @@ class QuicConfiguration:
     alpn_protocols: list[str] | None = None
     """
     A list of supported ALPN protocols.
+    """
+
+    cipher_suites: list[CipherSuite] | None = None
+    """
+    The TLS cipher suites to use, in order of preference, or `None` for the
+    defaults. The server picks the first of its cipher suites which the client
+    offers.
     """
 
     congestion_control_algorithm: str = "reno"
@@ -52,7 +59,16 @@ class QuicConfiguration:
 
     max_data: int = 1048576
     """
-    Connection-wide flow control limit.
+    Connection-wide flow control window.
+
+    The window grows as received data is delivered, up to 16 times this value.
+    """
+
+    max_datagram_frame_size: int | None = None
+    """
+    The maximum size in bytes of DATAGRAM frames this endpoint accepts. Set it
+    to accept DATAGRAM frames (:rfc:`9221` recommends 65535), or leave it as
+    `None` to not accept them.
     """
 
     max_datagram_size: int = SMALLEST_MAX_DATAGRAM_SIZE
@@ -62,12 +78,37 @@ class QuicConfiguration:
 
     max_stream_data: int = 1048576
     """
-    Per-stream flow control limit.
+    Per-stream flow control window.
+
+    The window grows as received data is delivered, up to 16 times this value.
+    """
+
+    migrate_to_preferred_address: bool = True
+    """
+    Whether to migrate to the server's preferred address, if it advertises one.
+
+    Disable this if datagrams can only be sent to the address passed to
+    :meth:`~aioquic.quic.connection.QuicConnection.connect`, for instance with a
+    connected UDP socket or a tunnel with a single fixed destination.
+
+    .. note:: This is only used by clients.
     """
 
     quic_logger: QuicLogger | None = None
     """
     The :class:`~aioquic.quic.logger.QuicLogger` instance to log events to.
+    """
+
+    reliable_stream_reset: bool = False
+    """
+    Whether to let the peer reset streams reliably, which still delivers a
+    stream's data up to a given size.
+
+    .. warning::
+
+        This option is experimental, as reliable stream resets are still an
+        Internet-Draft (draft-ietf-quic-reliable-stream-reset). It could change
+        or be removed in a future release.
     """
 
     secrets_log_file: TextIO | None = None
@@ -106,9 +147,7 @@ class QuicConfiguration:
     capath: str | None = None
     certificate: Any = None
     certificate_chain: list[Any] = field(default_factory=list)
-    cipher_suites: list[CipherSuite] | None = None
     initial_rtt: float = 0.1
-    max_datagram_frame_size: int | None = None
     original_version: int | None = None
     private_key: Any = None
     quantum_readiness_test: bool = False

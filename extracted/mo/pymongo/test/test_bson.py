@@ -51,7 +51,9 @@ from bson import (
     json_util,
 )
 from bson.binary import (
+    OLD_UUID_SUBTYPE,
     USER_DEFINED_SUBTYPE,
+    UUID_SUBTYPE,
     Binary,
     BinaryVector,
     BinaryVectorDtype,
@@ -460,6 +462,20 @@ class TestBSON(unittest.TestCase):
             mm.seek(0)
             self.assertEqual(decode(mm), expected)
             self.assertEqual(decode_all(mm), [expected])
+
+    def test_binary_subtype_255_round_trip(self):
+        for subtype in (0x80, 0xFE, 0xFF):
+            with self.subTest(subtype=subtype):
+                doc = {"x": Binary(b"a" * 16, subtype)}
+                self.assertEqual(decode(encode(doc)), doc)
+
+    def test_regex_invalid_utf8_flags(self):
+        data = b"\x0f\x00\x00\x00\x0ba\x00abc\x00\xc4m\x00\x00"
+        self.assertFalse(is_valid(data))
+        with self.assertRaises(InvalidBSON):
+            decode(data)
+        with self.assertRaises(InvalidBSON):
+            decode_all(data)
 
     def test_element_overlaps_document_terminator(self):
         # PYTHON-6111: an element whose value would consume the document
@@ -898,6 +914,58 @@ class TestBSON(unittest.TestCase):
         transformed = bin.as_uuid(UuidRepresentation.PYTHON_LEGACY)
         self.assertEqual(id, transformed)
 
+    def test_short_uuid_subtype_binary(self):
+        # PYTHON-6172: both decoders must agree on short UUID payloads.
+        data = bytes.fromhex("0c0000000500000000000400")
+        self.assertEqual(data, encode({"": Binary(b"", UUID_SUBTYPE)}))
+
+        # Default UNSPECIFIED representation: decode to Binary.
+        for subtype in (OLD_UUID_SUBTYPE, UUID_SUBTYPE):
+            doc = {"x": Binary(b"", subtype)}
+            payload = encode(doc)
+            self.assertEqual(decode(payload), doc)
+            self.assertEqual(decode_all(payload), [doc])
+            self.assertTrue(is_valid(payload))
+        self.assertEqual(decode_all(data), [{"": Binary(b"", UUID_SUBTYPE)}])
+
+        # Conversion to uuid.UUID requested: raise InvalidBSON unless the
+        # payload is exactly 16 bytes, overlong included. JAVA_LEGACY must
+        # not silently truncate non-16-byte payloads.
+        standard = CodecOptions(uuid_representation=UuidRepresentation.STANDARD)
+        converting = [(UUID_SUBTYPE, standard)] + [
+            (OLD_UUID_SUBTYPE, CodecOptions(uuid_representation=rep))
+            for rep in (
+                UuidRepresentation.PYTHON_LEGACY,
+                UuidRepresentation.JAVA_LEGACY,
+                UuidRepresentation.CSHARP_LEGACY,
+            )
+        ]
+        for length in (0, 15, 17):
+            for subtype, opts in converting:
+                payload = encode({"x": Binary(b"x" * length, subtype)})
+                self.assertTrue(is_valid(payload))
+                with self.assertRaisesRegex(InvalidBSON, "expected 16"):
+                    decode_all(payload, opts)
+        # Mismatched subtype/representation pairs do not convert.
+        for rep in (
+            UuidRepresentation.PYTHON_LEGACY,
+            UuidRepresentation.JAVA_LEGACY,
+            UuidRepresentation.CSHARP_LEGACY,
+        ):
+            opts = CodecOptions(uuid_representation=rep)
+            self.assertEqual(
+                decode_all(encode({"x": Binary(b"", UUID_SUBTYPE)}), opts),
+                [{"x": Binary(b"", UUID_SUBTYPE)}],
+            )
+        # OLD_UUID_SUBTYPE with STANDARD is also mismatched: decode to
+        # Binary at any payload length, 16 included.
+        for length in (0, 15, 16, 17):
+            doc = {"x": Binary(b"x" * length, OLD_UUID_SUBTYPE)}
+            payload = encode(doc)
+            self.assertTrue(is_valid(payload))
+            self.assertEqual(decode(payload, standard), doc)
+            self.assertEqual(decode_all(payload, standard), [doc])
+
     def test_vector(self):
         """Tests of subtype 9"""
         # We start with valid cases, across the 3 dtypes implemented.
@@ -983,7 +1051,6 @@ class TestBSON(unittest.TestCase):
 
     def test_binaryvector_repr(self):
         """Tests of repr(BinaryVector)"""
-
         data = [1 / 127, -7 / 6]
         one = BinaryVector(data, BinaryVectorDtype.FLOAT32)
         self.assertEqual(
@@ -1215,8 +1282,8 @@ class TestBSON(unittest.TestCase):
         self.assertEqual(doc1, decode(doc1_bson))
 
         # Valid Python regex, with flags.
-        re2 = re.compile(".*", re.I | re.M | re.S | re.U | re.X)
-        bson_re2 = Regex(".*", re.I | re.M | re.S | re.U | re.X)
+        re2 = re.compile(".*", re.IGNORECASE | re.MULTILINE | re.DOTALL | re.UNICODE | re.VERBOSE)
+        bson_re2 = Regex(".*", re.IGNORECASE | re.MULTILINE | re.DOTALL | re.UNICODE | re.VERBOSE)
 
         doc2_with_re = {"r": re2}
         doc2_with_bson_re = {"r": bson_re2}
@@ -1232,11 +1299,14 @@ class TestBSON(unittest.TestCase):
         self.assertEqual(".*", Regex.from_native(re.compile(".*")).pattern)
         self.assertEqual(0, Regex.from_native(re.compile(b"")).flags)
 
-        regex = re.compile(b"", re.I | re.L | re.M | re.S | re.X)
-        self.assertEqual(re.I | re.L | re.M | re.S | re.X, Regex.from_native(regex).flags)
+        regex = re.compile(b"", re.IGNORECASE | re.LOCALE | re.MULTILINE | re.DOTALL | re.VERBOSE)
+        self.assertEqual(
+            re.IGNORECASE | re.LOCALE | re.MULTILINE | re.DOTALL | re.VERBOSE,
+            Regex.from_native(regex).flags,
+        )
 
-        unicode_regex = re.compile("", re.U)
-        self.assertEqual(re.U, Regex.from_native(unicode_regex).flags)
+        unicode_regex = re.compile("", re.UNICODE)
+        self.assertEqual(re.UNICODE, Regex.from_native(unicode_regex).flags)
 
     def test_regex_hash(self):
         self.assertRaises(TypeError, hash, Regex("hello"))
@@ -1245,11 +1315,11 @@ class TestBSON(unittest.TestCase):
         re1 = Regex("a")
         re2 = Regex("b")
         self.assertNotEqual(re1, re2)
-        re1 = Regex("a", re.I)
-        re2 = Regex("a", re.M)
+        re1 = Regex("a", re.IGNORECASE)
+        re2 = Regex("a", re.MULTILINE)
         self.assertNotEqual(re1, re2)
-        re1 = Regex("a", re.I)
-        re2 = Regex("a", re.I)
+        re1 = Regex("a", re.IGNORECASE)
+        re2 = Regex("a", re.IGNORECASE)
         self.assertEqual(re1, re2)
 
     def test_exception_wrapping(self):

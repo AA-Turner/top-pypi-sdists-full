@@ -182,12 +182,12 @@ class workingcopy:
         used internally to implement the "replace_file" feature.
         """
         if verbose:
-            sys.stderr.write("'%s' exists, truncating ... " % filename)
+            sys.stderr.write(f"'{filename}' exists, truncating ... ")
         try:
             fd = os.open(filename, os.O_WRONLY | os.O_TRUNC)
         except Exception as e:
             if verbose:
-                sys.stderr.write("cannot truncate '%s': %s\n" % (filename, str(e)))
+                sys.stderr.write(f"cannot truncate '{filename}': {e!s}\n")
             return
         os.close(fd)
         if verbose:
@@ -204,13 +204,13 @@ class workingcopy:
         terminate.  Fatal failures raise an exeption.
         """
         if verbose:
-            sys.stderr.write("copying '%s' to '%s' ... " % (srcname, dstname))
+            sys.stderr.write(f"copying '{srcname}' to '{dstname}' ... ")
         for i in itertools.count(1):
             try:
                 shutil.copy2(srcname, dstname)
                 # if we get here it worked
                 break
-            except IOError as e:
+            except OSError as e:
                 # anything other than permission-denied or
                 # out-of-space is a real error
                 import errno
@@ -220,13 +220,13 @@ class workingcopy:
                     raise
                 if verbose:
                     sys.stderr.write(
-                        "warning: attempt %d: %s: \r" % (i, errno.errorcode[e.errno])
+                        f"warning: attempt {i:d}: {errno.errorcode[e.errno]}: \r"
                     )
                 # if we've run out of attempts, fall back
                 # to the original file
                 if i > 4:
                     if verbose:
-                        sys.stderr.write("working with original file '%s'\n" % srcname)
+                        sys.stderr.write(f"working with original file '{srcname}'\n")
                     return srcname
                 # otherwise sleep and try again
                 if verbose:
@@ -244,8 +244,7 @@ class workingcopy:
         except Exception as e:
             if verbose:
                 sys.stderr.write(
-                    "warning: ignoring failure to copy permission bits from '%s' to '%s': %s\n"
-                    % (srcname, dstname, str(e))
+                    f"warning: ignoring failure to copy permission bits from '{srcname}' to '{dstname}': {e!s}\n"
                 )
         return dstname
 
@@ -264,7 +263,7 @@ class workingcopy:
             )
             self.target = self.temporary_file.name
             if self.verbose:
-                sys.stderr.write("using '%s' as workspace\n" % self.target)
+                sys.stderr.write(f"using '{self.target}' as workspace\n")
 
             # mkstemp() ignores umask, creates all files
             # accessible only by owner;  we should respect
@@ -328,7 +327,7 @@ class workingcopy:
         # all errors
 
         try:
-            os.unlink("%s-journal" % self)
+            os.unlink(f"{self}-journal")
         except OSError:
             pass
 
@@ -341,7 +340,7 @@ class workingcopy:
 
                     if self.verbose:
                         sys.stderr.write(
-                            "moving '%s' to '%s' ... " % (self.target, self.filename)
+                            f"moving '{self.target}' to '{self.filename}' ... "
                         )
                     shutil.move(self.target, self.filename)
                     if self.verbose:
@@ -386,10 +385,10 @@ class workingcopy:
             return
         if self.verbose:
             sys.stderr.write(
-                "setting the sqlite temp_store_directory to %s ... " % self.tmp_path
+                f"setting the sqlite temp_store_directory to {self.tmp_path} ... "
             )
         cursor = connection.cursor()
-        cursor.execute("PRAGMA temp_store_directory = '%s'" % self.tmp_path)
+        cursor.execute(f"PRAGMA temp_store_directory = '{self.tmp_path}'")
         cursor.close()
         if self.verbose:
             sys.stderr.write("done\n")
@@ -487,7 +486,7 @@ class idmapper:
         for i, tbl in enumerate(table_elems):
             if verbose:
                 sys.stderr.write(
-                    "updating IDs: %d%%\r" % (100.0 * i / len(table_elems))
+                    f"updating IDs: {int(100.0 * i / len(table_elems))}%\r"
                 )
             tbl.applyKeyMapping()
         if verbose:
@@ -551,7 +550,7 @@ def get_xml(connection, table_names=None):
         except KeyError:
             cls = DBTable
         table_elem = cls(
-            AttributesImpl({"Name": "%s:table" % table_name}), connection=connection
+            AttributesImpl({"Name": f"{table_name}:table"}), connection=connection
         )
         destrip = {}
         if table_elem.validcolumns is not None:
@@ -578,7 +577,7 @@ def get_xml(connection, table_names=None):
             table_elem.Stream(
                 AttributesImpl(
                     {
-                        "Name": "%s:table" % table_name,
+                        "Name": f"{table_name}:table",
                         "Delimiter": table_elem.Stream.Delimiter.default,
                         "Type": table_elem.Stream.Type.default,
                     }
@@ -652,7 +651,7 @@ class DBTable(ligolw.Table):
     # FIXME:  is this needed?
     class Stream(ligolw.Table.Stream):
         def endElement(self):
-            super(DBTable.Stream, self).endElement()
+            super().endElement()
             if hasattr(self.parentNode, "connection"):
                 self.parentNode.connection.commit()
 
@@ -783,14 +782,14 @@ class DBTable(ligolw.Table):
                 + " ("
                 + ", ".join(
                     map(
-                        lambda n, t: "%s %s" % (n, ToSQLType[t]),
+                        lambda n, t: f"{n} {ToSQLType[t]}",
                         self.dbcolumnnames,
                         self.dbcolumntypes,
                     )
                 )
             )
         except KeyError as e:
-            raise ValueError("column type '%s' not supported" % str(e))
+            raise ValueError(f"column type '{e!s}' not supported")
         if self.constraints is not None:
             statement += ", " + self.constraints
         statement += ")"
@@ -804,7 +803,7 @@ class DBTable(ligolw.Table):
             "sqlite": ",".join("?" * len(self.dbcolumnnames)),
             "mysql": ",".join(["%s"] * len(self.dbcolumnnames)),
         }[connection_db_type(self.connection)]
-        self.append_statement = "INSERT INTO %s (%s) VALUES (%s)" % (
+        self.append_statement = "INSERT INTO {} ({}) VALUES ({})".format(
             self.Name,
             ",".join(self.dbcolumnnames),
             params,
@@ -831,7 +830,7 @@ class DBTable(ligolw.Table):
     def sync_next_id(self):
         if self.next_id is not None:
             maxid = self.cursor.execute(
-                "SELECT MAX(%s) FROM %s" % (self.next_id.column_name, self.Name)
+                f"SELECT MAX({self.next_id.column_name}) FROM {self.Name}"
             ).fetchone()[0]
             if maxid is not None:
                 # type conversion not needed for
@@ -843,22 +842,22 @@ class DBTable(ligolw.Table):
         return self.next_id
 
     def maxrowid(self):
-        self.cursor.execute("SELECT MAX(ROWID) FROM %s" % self.Name)
+        self.cursor.execute(f"SELECT MAX(ROWID) FROM {self.Name}")
         return self.cursor.fetchone()[0]
 
     def __len__(self):
-        self.cursor.execute("SELECT COUNT(*) FROM %s" % self.Name)
+        self.cursor.execute(f"SELECT COUNT(*) FROM {self.Name}")
         return self.cursor.fetchone()[0]
 
     def __iter__(self):
         cursor = self.connection.cursor()
-        cursor.execute("SELECT * FROM %s ORDER BY rowid ASC" % self.Name)
+        cursor.execute(f"SELECT * FROM {self.Name} ORDER BY rowid ASC")
         for values in cursor:
             yield self.row_from_cols(values)
 
     def __reversed__(self):
         cursor = self.connection.cursor()
-        cursor.execute("SELECT * FROM %s ORDER BY rowid DESC" % self.Name)
+        cursor.execute(f"SELECT * FROM {self.Name} ORDER BY rowid DESC")
         for values in cursor:
             yield self.row_from_cols(values)
 
@@ -951,8 +950,7 @@ class DBTable(ligolw.Table):
             if self.next_id is not None and colname == self.next_id.column_name:
                 continue
             assignments.append(
-                "%s = (SELECT new FROM _idmap_ WHERE _idmap_.table_name == '%s' AND _idmap_.old == %s)"
-                % (colname, table_name, colname)
+                f"{colname} = (SELECT new FROM _idmap_ WHERE _idmap_.table_name == '{table_name}' AND _idmap_.old == {colname})"
             )
         assignments = ", ".join(assignments)
         if assignments:
@@ -964,8 +962,7 @@ class DBTable(ligolw.Table):
             # high number manually.  This library does not do
             # that, so I don't bother checking.
             self.cursor.execute(
-                "UPDATE %s SET %s WHERE ROWID >= %d"
-                % (self.Name, assignments, self.remap_first_rowid)
+                f"UPDATE {self.Name} SET {assignments} WHERE ROWID >= {self.remap_first_rowid:d}"
             )
         self.remap_first_rowid = None
 
@@ -1015,12 +1012,9 @@ class TimeSlideTable(DBTable):
         # here.
         from lalburst import offsetvector
 
-        return dict(
-            (
-                time_slide_id,
-                offsetvector.offsetvector(
-                    (instrument, offset) for time_slide_id, instrument, offset in values
-                ),
+        return {
+            time_slide_id: offsetvector.offsetvector(
+                (instrument, offset) for time_slide_id, instrument, offset in values
             )
             for time_slide_id, values in itertools.groupby(
                 self.cursor.execute(
@@ -1030,7 +1024,7 @@ class TimeSlideTable(DBTable):
                     0
                 ],
             )
-        )
+        }
 
     def get_time_slide_id(
         self, offsetdict, create_new=None, superset_ok=False, nonunique_ok=False
@@ -1077,11 +1071,11 @@ class TimeSlideTable(DBTable):
                 time_slide_id
                 for time_slide_id, slide in self.as_dict().items()
                 if offsetdict
-                == dict(
-                    (instrument, offset)
+                == {
+                    instrument: offset
                     for instrument, offset in slide.items()
                     if instrument in offsetdict
-                )
+                }
             ]
         else:
             ids = [
@@ -1143,11 +1137,12 @@ def build_indexes(connection, verbose=False):
             continue
         if how_to_index is not None:
             if verbose:
-                sys.stderr.write("indexing %s table ...\n" % table_name)
+                sys.stderr.write(f"indexing {table_name} table ...\n")
             for index_name, cols in how_to_index.items():
                 cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS %s ON %s (%s)"
-                    % (index_name, table_name, ",".join(cols))
+                    "CREATE INDEX IF NOT EXISTS {} ON {} ({})".format(
+                        index_name, table_name, ",".join(cols)
+                    )
                 )
     connection.commit()
 

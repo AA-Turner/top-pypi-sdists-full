@@ -5,12 +5,14 @@ import typing
 
 import pydantic
 from ....core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ....types.money import Money
 from ....types.partner_advance import PartnerAdvance
 from .retrieve_businesses_response_account import RetrieveBusinessesResponseAccount
 from .retrieve_businesses_response_blueprint_partner import RetrieveBusinessesResponseBlueprintPartner
 from .retrieve_businesses_response_earnings_usd import RetrieveBusinessesResponseEarningsUsd
 from .retrieve_businesses_response_first_tier_partner import RetrieveBusinessesResponseFirstTierPartner
 from .retrieve_businesses_response_my_partner_tier import RetrieveBusinessesResponseMyPartnerTier
+from .retrieve_businesses_response_my_payout_percentages import RetrieveBusinessesResponseMyPayoutPercentages
 from .retrieve_businesses_response_object import RetrieveBusinessesResponseObject
 from .retrieve_businesses_response_owner import RetrieveBusinessesResponseOwner
 from .retrieve_businesses_response_payout_percentages import RetrieveBusinessesResponsePayoutPercentages
@@ -34,7 +36,12 @@ class RetrieveBusinessesResponse(UniversalBaseModel):
 
     commission_advance: typing.Optional[PartnerAdvance] = pydantic.Field(default=None)
     """
-    CPA terms for the referring partner. Omitted for other callers. An offer token requires partner:commission_advance:accept permission.
+    CPA terms for the referring partner. Read with referring_account_id, the business's owner sees every rep's terms and a manager sees those of the reps below them, read-only. Omitted for other callers. An offer token is only for the referring partner and requires partner:commission_advance:accept permission.
+    """
+
+    commission_advance_cap: typing.Optional[Money] = pydantic.Field(default=None)
+    """
+    The most the referring organization advances per business, in USD. Returned only with commission_advance_rate.
     """
 
     commission_advance_projections_allowed: typing.Optional[bool] = pydantic.Field(default=None)
@@ -44,7 +51,7 @@ class RetrieveBusinessesResponse(UniversalBaseModel):
 
     commission_advance_rate: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Estimated upfront advance per USD of annual card and BNPL payments, including advance share and remaining term. Multiply annual payments by this rate, cap at 2500 USD, and round down to cents. Uses observed commissions or, without history, reference US card fees minus estimated percentage costs times the partner share. Null when projections or pricing are unavailable. Only returned to the referring partner. Qualification and final offers use actual activity.
+    Estimated upfront advance per USD of annual card and BNPL payments, including advance share and remaining term. Multiply annual payments by this rate, cap at commission_advance_cap, and round down to cents. Uses observed commissions or, without history, a typical gross profit share adjusted for the business's US card fee, times the partner share. Null when projections or pricing are unavailable. Only returned to the referring partner. Qualification and final offers use actual activity.
     """
 
     created_at: dt.datetime = pydantic.Field()
@@ -58,6 +65,11 @@ class RetrieveBusinessesResponse(UniversalBaseModel):
     """
 
     earnings_usd: RetrieveBusinessesResponseEarningsUsd
+    estimated_commission_rate: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Estimated regular commission per USD of card and BNPL payments, as a decimal string (for example `0.004`). Once the advance qualifies, the rate its terms were sized with; before that, observed payout rates or, without payment history, reference US card fees. Multiply payments by this rate to estimate commissions, including those that resume after a commission advance term. `null` when pricing is unavailable or the response has neither `commission_advance_rate` nor `commission_advance`.
+    """
+
     first_tier_partner: typing.Optional[RetrieveBusinessesResponseFirstTierPartner] = pydantic.Field(default=None)
     """
     The partner who referred the business owner onto Whop (first tier). Null if there is no active first-tier partner.
@@ -73,6 +85,11 @@ class RetrieveBusinessesResponse(UniversalBaseModel):
     Which tier the caller earns on for this business: `first` (they referred the owner), `second` (they referred the first-tier partner), or `blueprint` (the business deployed a site from their blueprint).
     """
 
+    my_payout_percentages: typing.Optional[RetrieveBusinessesResponseMyPayoutPercentages] = pydantic.Field(default=None)
+    """
+    The caller's own cut of each income source on this business, as a fraction of the same base as `payout_percentages` (0.12 = 12%). A solo partner's cut is the whole rate. On a referring partner business's deal it is the caller's team share of the rate: a closer earns their share, a manager earns their share minus the share of the person below them, and a deal participant earns their cut. Null when the caller earns nothing on this business, as with an account API key.
+    """
+
     object: RetrieveBusinessesResponseObject
     owner: typing.Optional[RetrieveBusinessesResponseOwner] = pydantic.Field(default=None)
     """
@@ -81,7 +98,7 @@ class RetrieveBusinessesResponse(UniversalBaseModel):
 
     payout_percentages: RetrieveBusinessesResponsePayoutPercentages = pydantic.Field()
     """
-    The referrer's commission rate for each income source, expressed as a fraction (0.3 = 30%).
+    The commission rate this referral pays for each income source, as a fraction (0.3 = 30%). A solo partner earns it directly; the team of a referring partner business splits it by their shares.
     """
 
     pending_owner_invites: typing.Optional[typing.List[RetrieveBusinessesResponsePendingOwnerInvitesItem]] = (

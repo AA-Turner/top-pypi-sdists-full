@@ -3,10 +3,12 @@
 import warnings
 
 import numpy as np
-from numpy.testing import assert_equal, assert_array_equal, assert_raises
-import bottleneck as bn
-from .util import arrays, array_order, DTYPES, INT_DTYPES
 import pytest
+from numpy.testing import assert_array_equal, assert_equal, assert_raises
+
+import bottleneck as bn
+
+from .util import DTYPES, FLOAT_DTYPES, INT_DTYPES, array_order, arrays
 
 
 @pytest.mark.parametrize(
@@ -17,7 +19,7 @@ def test_nonreduce(func):
     msg = "\nfunc %s | input %s (%s) | shape %s | old %f | new %f | order %s\n"
     msg += "\nInput array:\n%s\n"
     name = func.__name__
-    func0 = eval("bn.slow.%s" % name)
+    func0 = eval(f"bn.slow.{name}")
     rs = np.random.RandomState([1, 2, 3])
     news = [1, 0, np.nan, -np.inf]
     for i, arr in enumerate(arrays(name)):
@@ -136,3 +138,31 @@ def test_replace_newaxis(dtype):
     array = np.ones((2, 2), dtype=dtype)[..., np.newaxis]
     result = bn.replace(array, 1, 2)
     assert (result == 2).all().all()
+
+
+@pytest.mark.parametrize("dtype", DTYPES)
+def test_replace_view(dtype):
+    """Test replace on non-contiguous view"""
+    expected_array = np.arange(20, dtype=dtype)
+    expected_view = expected_array[::2]
+    bn.slow.replace(expected_view, 10, -1)
+    array = np.arange(20, dtype=dtype)
+    view = array[::2]
+    bn.replace(view, 10, -1)
+    assert_array_equal(view, expected_view)
+    assert_array_equal(array, expected_array)
+
+
+@pytest.mark.parametrize("dtype", FLOAT_DTYPES)
+def test_replace_nan_view(dtype):
+    """Test replace NaN on non-contiguous view"""
+    expected_array = np.ones((4, 3, 2), dtype=dtype)
+    expected_array[::2, :, 0] = np.nan
+    expected_view = expected_array[:, :, 0]
+    bn.slow.replace(expected_view, np.nan, 0)
+    array = np.ones((4, 3, 2), dtype=dtype)
+    array[::2, :, 0] = np.nan
+    view = array[:, :, 0]
+    bn.replace(view, np.nan, 0)
+    assert_array_equal(view, expected_view)
+    assert_array_equal(array, expected_array)

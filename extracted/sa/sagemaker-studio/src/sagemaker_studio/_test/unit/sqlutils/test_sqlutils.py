@@ -3338,5 +3338,39 @@ class TestNativeAthenaCredentialProvider(unittest.TestCase):
         self.assertEqual(credentials["access_key_id"], "cached")
 
 
+class TestEnsureProjectRetry(unittest.TestCase):
+    """A failed Project() is not cached: the next SQL call tries again."""
+
+    def setUp(self):
+        sqlutils._project = None
+        sqlutils._project_init_error = None
+
+    def tearDown(self):
+        sqlutils._project = None
+        sqlutils._project_init_error = None
+
+    def test_transient_failure_is_retried_and_reported_with_its_cause(self):
+        project = Mock(spec=Project)
+        outage = ConnectionError("Could not connect to the endpoint URL")
+        side_effect = [outage, outage, project]
+        with patch.object(sqlutils, "Project", side_effect=side_effect) as project_cls:
+            self.assertFalse(sqlutils._ensure_project())
+            with self.assertRaises(RuntimeError) as cm:
+                sqlutils._resolve_connection(None, "athena")
+            self.assertIn(
+                "Project is not initialized (ConnectionError: Could not connect to the endpoint URL)",
+                str(cm.exception),
+            )
+            self.assertIs(sqlutils._ensure_project(), project)
+            self.assertIs(sqlutils._ensure_project(), project)
+        self.assertEqual(project_cls.call_count, 3)
+        self.assertIsNone(sqlutils._project_init_error)
+
+    def test_message_without_a_recorded_error_is_unchanged(self):
+        self.assertEqual(
+            str(sqlutils._project_not_initialized_error()), "Project is not initialized."
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

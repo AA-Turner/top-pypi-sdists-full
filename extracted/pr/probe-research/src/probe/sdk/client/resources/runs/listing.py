@@ -21,6 +21,8 @@ RUN_PAGE_LIMIT = 200
 #: The server feature behind `filter=`, `order=` and `latest_metrics=` (`GET /v1/server/features`).
 RUN_LIST_QUERY_FEATURE = "run_list_query"
 _VIEWS = ("full", "light")
+#: `order="recent"`: newest activity first, a people-and-time-filters order (`people_filters`, not `run_list_query`).
+RECENT_ORDER = "recent"
 
 
 class RunListingMixin:
@@ -97,6 +99,9 @@ class RunListingMixin:
         view: str | None = None,
         limit: int | None = None,
         cursor: str | None = None,
+        owner: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
     ) -> Page:
         """One page of ``GET /v1/runs``, newest first. ``project_id`` returns ALL the project's runs --
         project-direct AND experiment-attached (0054); ``direct=True`` narrows to experiment-less runs.
@@ -107,12 +112,16 @@ class RunListingMixin:
         ONE page of up to ``limit`` runs and no cursor (``iter_runs`` sorts every run). ``latest_metrics``
         (up to 50 keys) adds each row's final values. ``view="light"`` leaves config, metadata, notes,
         description, foreign keys and summary off the rows. A server without these (``run_list_query``)
-        raises ``CapabilityUnavailable`` rather than answer an unfiltered list."""
+        raises ``CapabilityUnavailable`` rather than answer an unfiltered list.
+
+        ``owner`` (a user id, an email, a name or ``me``), ``since`` / ``until`` (ISO 8601 or ``24h``,
+        ``7d``, ``2w``) and ``order="recent"`` pass as given; the server reads them (``people_filters``)."""
         query = self._build_runs_query(
             experiment_id=experiment_id, project_id=project_id, direct=direct, tags=tags, status=status,
             active=active, name=name, foreign_key=foreign_key, created_by_kind=created_by_kind,
             exclude_origin_session=exclude_origin_session, include_lineage_descendants=include_lineage_descendants,
             filter=filter, order=order, latest_metrics=latest_metrics, view=view,
+            owner=owner, since=since, until=until,
         )
         if limit is not None:
             query["limit"] = limit
@@ -190,6 +199,9 @@ class RunListingMixin:
         exclude_origin_session: str | None = None,
         include_lineage_descendants: bool = False,
         filter: Mapping[str, Any] | None = None,  # noqa: A002 -- as `list_runs`
+        owner: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
     ) -> dict:
         """``GET /v1/runs/counts``: ``{total, by_status}`` for the runs `list_runs` lists with these
         filters. A server without the route answers 404."""
@@ -197,7 +209,7 @@ class RunListingMixin:
             experiment_id=experiment_id, project_id=project_id, direct=direct, tags=tags, status=status,
             active=active, name=name, foreign_key=foreign_key, created_by_kind=created_by_kind,
             exclude_origin_session=exclude_origin_session, include_lineage_descendants=include_lineage_descendants,
-            filter=filter,
+            filter=filter, owner=owner, since=since, until=until,
         )
         return self.transport.get("/v1/runs/counts", params=query or None)
 
@@ -208,6 +220,9 @@ class RunListingMixin:
         order: str | None = None,
         latest_metrics: Sequence[str] | None = None,
         view: str | None = None,
+        owner: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
         **flat: Any,
     ) -> dict:
         """The `GET /v1/runs` query for `list_runs`'s keywords: unset ones dropped, booleans as the server
@@ -224,7 +239,8 @@ class RunListingMixin:
             if not isinstance(filter, Mapping):
                 raise TypeError(f"filter is a dict of clauses, not {type(filter).__name__}")
             extra["filter"] = json.dumps(filter, separators=(",", ":"), allow_nan=False)
-        if order and order != DEFAULT_ORDER:
+        # `recent` is a people-and-time-filters order: gated on `people_filters` below, not `run_list_query`.
+        if order and order not in (DEFAULT_ORDER, RECENT_ORDER):
             extra["order"] = order
         if latest_metrics:
             if isinstance(latest_metrics, str):
@@ -233,13 +249,17 @@ class RunListingMixin:
             if any("," in key or not key for key in keys):
                 raise ValueError("latest_metrics keys are non-empty and hold no comma (the query joins them by one)")
             extra["latest_metrics"] = ",".join(keys)
+        people = {"owner": owner, "since": since, "until": until}
+        if order == RECENT_ORDER:
+            people["order"] = order
+        _require_people_filters(self, people, PEOPLE_FILTERS_FEATURE, "listing runs")
         if extra and not self.supports_feature(RUN_LIST_QUERY_FEATURE):
             raise errors.CapabilityUnavailable(
                 RUN_LIST_QUERY_FEATURE,
                 f"this Probe server cannot {_describe_asks(extra)} when listing runs yet, and would answer every run "
                 "instead; upgrade the server, or list without them.",
             )
-        return query | extra
+        return query | extra | {name: value for name, value in people.items() if value}
 
     def _check_run_rows(self, rows: list, query: dict) -> None:
         """Refuse rows an older backend sent while ignoring a filter, rather than mislabel them."""
@@ -343,3 +363,7 @@ def _describe_asks(extra: dict[str, str]) -> str:
 
 
 from probe.sdk.client.ids import _is_uuid, _same_id  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.client.resources.reads import (  # noqa: E402 -- pieces need each other; the front door loads this one first
+    PEOPLE_FILTERS_FEATURE,
+    _require_people_filters,
+)

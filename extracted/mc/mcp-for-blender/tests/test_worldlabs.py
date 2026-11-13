@@ -26,7 +26,7 @@ def _load_addon(monkeypatch, version=(5, 3, 0), spz=True, **scene_attrs):
     monkeypatch.delenv("BLENDERMCP_PREMIUM_LICENSE_KEY", raising=False)
     scene = types.SimpleNamespace(
         blendermcp_use_worldlabs=False,
-        blendermcp_worldlabs_model="marble-1.1",
+        blendermcp_worldlabs_model="marble-1.1-plus",
         blendermcp_worldlabs_api_key="",
         blendermcp_use_meshy=False,
         blendermcp_use_tripo=False,
@@ -94,7 +94,7 @@ def test_worldlabs_status_reports_sidebar_state(monkeypatch):
 
     scene.blendermcp_worldlabs_api_key = KEY
     ready = server.get_worldlabs_status()
-    assert ready["enabled"] is True and ready["model"] == "marble-1.1"
+    assert ready["enabled"] is True and ready["model"] == "marble-1.1-plus"
     assert KEY not in str(ready)
 
 
@@ -102,7 +102,7 @@ def test_worldlabs_text_job_sends_the_sidebar_model(monkeypatch):
     addon, _bpy, _scene = _ready(monkeypatch)
     calls = _capture(addon)
     reply = addon.BlenderMCPServer().create_worldlabs_job(text_prompt="a courtyard", name="C" * 80)
-    assert reply == {"job_id": "op_1", "kind": "op", "model": "marble-1.1"}
+    assert reply == {"job_id": "op_1", "kind": "op", "model": "marble-1.1-plus"}
     call = calls[0]
     assert call["method"] == "POST" and call["url"] == "https://api.worldlabs.ai/marble/v1/worlds:generate"
     assert call["headers"]["WLT-Api-Key"] == KEY
@@ -110,17 +110,17 @@ def test_worldlabs_text_job_sends_the_sidebar_model(monkeypatch):
     assert len(call["json"]["display_name"]) == 64
 
 
-@pytest.mark.parametrize("sidebar, quality, model", [
-    ("marble-1.1", "standard", "marble-1.0-draft"),
-    ("marble-1.1-plus", None, "marble-1.1-plus"),
-    ("marble-1.1-plus", "high", "marble-1.1-plus"),
-    ("marble-1.0-draft", "high", "marble-1.1"),
-    ("marble-1.0-draft", None, "marble-1.0-draft"),
+@pytest.mark.parametrize("sidebar, model", [
+    ("marble-1.1-plus", "marble-1.1-plus"),
+    ("marble-1.1", "marble-1.1"),
+    # The draft model is no longer offered; a file saved with it gets the default.
+    ("marble-1.0-draft", "marble-1.1-plus"),
 ])
-def test_worldlabs_quality_picks_the_model(monkeypatch, sidebar, quality, model):
+def test_worldlabs_uses_the_sidebar_model(monkeypatch, sidebar, model):
     addon, _bpy, _scene = _ready(monkeypatch, blendermcp_worldlabs_model=sidebar)
     calls = _capture(addon)
-    addon.BlenderMCPServer().create_worldlabs_job(text_prompt="a courtyard", quality=quality)
+    # An older server may still send quality; it's ignored.
+    addon.BlenderMCPServer().create_worldlabs_job(text_prompt="a courtyard", quality="standard")
     assert calls[0]["json"]["model"] == model
 
 
@@ -208,7 +208,7 @@ def test_worldlabs_own_key_poll_refuses_a_premium_job(monkeypatch):
     assert not calls
 
 
-WORLD = {"done": True, "error": None, "response": {"assets": {
+WORLD = {"done": True, "error": None, "response": {"model": "marble-1.1-plus", "assets": {
     "splats": {"spz_urls": {"100k": "https://cdn/w_100k.spz", "500k": "https://cdn/w_500k.spz",
                             "full_res": "https://cdn/w.spz"},
                "semantics_metadata": {"metric_scale_factor": 1.4, "ground_plane_offset": 1.6}},
@@ -227,7 +227,9 @@ def test_worldlabs_import_picks_the_resolution_and_passes_the_scale(monkeypatch)
     addon, _bpy, _scene = _ready(monkeypatch)
     _capture(addon, WORLD)
     imported = _capture_import(monkeypatch, addon)
-    addon.BlenderMCPServer().import_worldlabs_world("Courtyard", job_id="op_1", kind="op", resolution="full_res")
+    reply = addon.BlenderMCPServer().import_worldlabs_world("Courtyard", job_id="op_1", kind="op",
+                                                            resolution="full_res")
+    assert reply["model"] == "Marble 1.1 Plus"
     assert imported == [("Courtyard", "https://cdn/w.spz", "full_res",
                          {"metric_scale_factor": 1.4, "ground_plane_offset": 1.6},
                          "https://cdn/collider.glb", "https://cdn/pano.png")]
@@ -288,18 +290,27 @@ def test_worldlabs_runs_through_premium_without_a_key(monkeypatch):
     assert "worldlabs" in addon.premium_enabled_generators()
 
     reply = server._execute_command_internal({"type": "create_worldlabs_job",
-                                              "params": {"text_prompt": "a courtyard", "quality": "high"}})
+                                              "params": {"text_prompt": "a courtyard"}})
     assert reply["result"]["job_id"] == "pjob_1" and reply["result"]["kind"] == "prm"
     payload = calls[-1][2]
     assert (payload["model"], payload["quality"], payload["prompt"]) == ("worldlabs", "high", "a courtyard")
 
 
-def test_worldlabs_premium_defaults_to_the_users_quality(monkeypatch):
+def test_worldlabs_premium_is_always_high_quality(monkeypatch):
     addon, _bpy, _scene = _load_addon(monkeypatch, blendermcp_use_worldlabs=True)
     calls = _premium(monkeypatch, addon)
-    addon.premium_create_worldlabs_job(image="https://example.com/room.jpg")
-    assert calls[-1][2]["quality"] == "standard"
+    addon.premium_create_worldlabs_job(image="https://example.com/room.jpg", quality="standard")
+    assert calls[-1][2]["quality"] == "high"
     assert calls[-1][2]["image_url"] == "https://example.com/room.jpg"
+
+
+def test_worldlabs_premium_on_hobby_says_pro_without_asking_the_server(monkeypatch):
+    addon, _bpy, _scene = _load_addon(monkeypatch, blendermcp_use_worldlabs=True)
+    calls = _premium(monkeypatch, addon)
+    addon._premium_status.update({"tier": "hobby", "premium": {"total": 0, "used": 0, "remaining": 0}})
+    reply = addon.premium_create_worldlabs_job(text_prompt="a courtyard")
+    assert reply["code"] == "NOT_IN_PLAN" and "Pro" in reply["message"]
+    assert not calls
 
 
 def test_worldlabs_premium_refuses_a_folder(monkeypatch, tmp_path):
@@ -334,7 +345,8 @@ def test_worldlabs_premium_import_reads_the_job_files(monkeypatch):
     _premium(monkeypatch, addon, {"pj1": {"status": "succeeded", "files": files}})
     imported = _capture_import(monkeypatch, addon)
 
-    addon.premium_import_worldlabs("Courtyard", job_id="pj1", kind="prm", resolution="100k")
+    assert addon.premium_import_worldlabs("Courtyard", job_id="pj1", kind="prm", resolution="100k") == {
+        "succeed": True, "model": "Marble 1.1"}
     addon.premium_import_worldlabs("Courtyard", job_id="pj1", kind="prm", resolution="full_res")
     assert imported[0] == ("Courtyard", "https://cdn/w_100k.spz", "100k", meta,
                            "https://cdn/collider.glb", "https://cdn/pano.png")
@@ -358,7 +370,7 @@ class FakeAddon:
         return reply
 
 
-IMPORTED = {"succeed": True, "name": "Courtyard", "splats": "Courtyard Splats", "collider": "Courtyard Collider",
+IMPORTED = {"succeed": True, "name": "Courtyard", "model": "Marble 1.1 Plus", "splats": "Courtyard Splats", "collider": "Courtyard Collider",
             "background": "Courtyard Sky", "resolution": "500k", "metric": True, "viewpoint": [0.0, 0.0, 1.6],
             "world_bounding_box": [[-5, -4, 0], [6, 7, 3]], "notes": []}
 
@@ -387,9 +399,9 @@ def test_world_flow_polls_then_imports_at_the_asked_resolution():
         "poll_worldlabs_job": [{"status": "IN_PROGRESS", "progress": "Generating world"}, {"status": "SUCCEEDED"}],
         "import_worldlabs_world": IMPORTED,
     })
-    job = generation.submit_world(send, "Courtyard", "a courtyard", None, "high")
+    job = generation.submit_world(send, "Courtyard", "a courtyard", None)
     assert send.calls[0] == ("create_worldlabs_job", {"text_prompt": "a courtyard", "image": None,
-                                                      "name": "Courtyard", "quality": "high"})
+                                                      "name": "Courtyard"})
     assert _run(send, job, options={"resolution": "full_res"}) == (True, IMPORTED)
     assert send.calls[-1] == ("import_worldlabs_world", {"name": "Courtyard", "job_id": "op_1", "kind": "op",
                                                          "resolution": "full_res"})
@@ -442,6 +454,7 @@ def test_generate_gaussian_world_imports_and_describes_the_world(monkeypatch):
     monkeypatch.setattr(server, "_generation_send", send)
     monkeypatch.setattr(server, "_pending_generations", lambda: generation.Pending(None))
     reply = asyncio.run(server.generate_gaussian_world(_Ctx(), prompt="a sunlit courtyard", resolution="100k"))
+    assert "World Labs Marble 1.1 Plus:" in reply
     assert "'Courtyard Splats'" in reply and "'Courtyard Collider'" in reply
     assert "metres with the ground at z=0" in reply and "[0.0, 0.0, 1.6]" in reply
     assert send.calls[-1][1]["resolution"] == "100k"
@@ -455,11 +468,7 @@ def test_generate_gaussian_world_and_generate_3d_refuse_each_others_jobs():
     assert "generate_gaussian_world(job=" in asyncio.run(server.generate_3d(_Ctx(), job="worldlabs:op:op_1"))
 
 
-@pytest.mark.parametrize("kwargs, needle", [
-    ({"prompt": "x", "quality": "ultra"}, "quality"),
-    ({"prompt": "x", "resolution": "2m"}, "resolution"),
-])
-def test_generate_gaussian_world_validates_before_reaching_blender(kwargs, needle):
+def test_generate_gaussian_world_validates_before_reaching_blender():
     from blender_mcp import server
 
-    assert needle in asyncio.run(server.generate_gaussian_world(_Ctx(), **kwargs))
+    assert "resolution" in asyncio.run(server.generate_gaussian_world(_Ctx(), prompt="x", resolution="2m"))

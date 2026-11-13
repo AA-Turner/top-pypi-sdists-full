@@ -680,7 +680,9 @@ def enroll_tokens(**kwargs):
 
 
 def session_lease(session_id=None, **kwargs):
-    """``session_id`` was the path param (/llm/sessions/<session_id>/lease); now a kwarg."""
+    """``session_id`` was the path param (/llm/sessions/<session_id>/lease); now a kwarg.
+    That address still works (web/worker_aliases.py PATH_IDS) and hands the id over in the query."""
+    session_id = session_id or request.args.get("session_id")
     return jsonify({"ok": True, "session_id": session_id, "state": kwargs.get("state") or "active",
                     "lease_fresh": True})
 

@@ -14,6 +14,8 @@ class MigrationReport(AppwriteModel):
         Number of users to be migrated.
     team : float
         Number of teams to be migrated.
+    membership : float
+        Number of memberships to be migrated.
     database : float
         Number of databases to be migrated.
     row : float
@@ -38,6 +40,8 @@ class MigrationReport(AppwriteModel):
         Number of protocol configs to be migrated (always 0 or 1 — the project-level REST/GraphQL/WebSocket flags).
     project_labels : float
         Number of label sets to be migrated (always 0 or 1 — the project-level RBAC label array).
+    project_preferences : float
+        Number of project preference sets to be migrated (always 0 or 1).
     project_services : float
         Number of service configs to be migrated (always 0 or 1 — the project-level enable/disable flags for all 17 services).
     policies : float
@@ -72,6 +76,7 @@ class MigrationReport(AppwriteModel):
 
     user: float = Field(..., alias='user')
     team: float = Field(..., alias='team')
+    membership: float = Field(..., alias='membership')
     database: float = Field(..., alias='database')
     row: float = Field(..., alias='row')
     file: float = Field(..., alias='file')
@@ -84,6 +89,7 @@ class MigrationReport(AppwriteModel):
     auth_methods: float = Field(..., alias='auth-methods')
     project_protocols: float = Field(..., alias='project-protocols')
     project_labels: float = Field(..., alias='project-labels')
+    project_preferences: float = Field(..., alias='project-preferences')
     project_services: float = Field(..., alias='project-services')
     policies: float = Field(..., alias='policies')
     smtp: float = Field(..., alias='smtp')
@@ -111,6 +117,8 @@ class MigrationReport(AppwriteModel):
             data['user'] = 0
         if 'team' not in data:
             data['team'] = 0
+        if 'membership' not in data:
+            data['membership'] = 0
         if 'database' not in data:
             data['database'] = 0
         if 'row' not in data:
@@ -135,6 +143,8 @@ class MigrationReport(AppwriteModel):
             data['project-protocols'] = 0
         if 'project-labels' not in data and 'project_labels' not in data:
             data['project-labels'] = 0
+        if 'project-preferences' not in data and 'project_preferences' not in data:
+            data['project-preferences'] = 0
         if 'project-services' not in data and 'project_services' not in data:
             data['project-services'] = 0
         if 'policies' not in data:

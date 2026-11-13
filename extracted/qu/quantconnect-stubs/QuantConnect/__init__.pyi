@@ -71,6 +71,7 @@ QuantConnect_Extensions_DeserializeJson_T = typing.TypeVar("QuantConnect_Extensi
 QuantConnect_Extensions_SerializeJsonToStream_T = typing.TypeVar("QuantConnect_Extensions_SerializeJsonToStream_T")
 QuantConnect_Extensions_SerializeJsonToString_T = typing.TypeVar("QuantConnect_Extensions_SerializeJsonToString_T")
 QuantConnect_Extensions_Clear_T = typing.TypeVar("QuantConnect_Extensions_Clear_T")
+QuantConnect_Extensions_GetConsumingEnumerableOrNull_T = typing.TypeVar("QuantConnect_Extensions_GetConsumingEnumerableOrNull_T")
 QuantConnect_Extensions_AddOrUpdate_K = typing.TypeVar("QuantConnect_Extensions_AddOrUpdate_K")
 QuantConnect_Extensions_AddOrUpdate_V = typing.TypeVar("QuantConnect_Extensions_AddOrUpdate_V")
 QuantConnect_Extensions_AddOrUpdate_TValue = typing.TypeVar("QuantConnect_Extensions_AddOrUpdate_TValue")
@@ -5296,6 +5297,28 @@ class _Extensions_Clear:
         ...
 
 
+class _Typed_Extensions_GetConsumingEnumerableOrNull(typing.Generic[QuantConnect_Extensions_GetConsumingEnumerableOrNull_T]):
+    """"""
+
+    @overload
+    def __call__(self, collection: System.Collections.Concurrent.BlockingCollection[QuantConnect_Extensions_GetConsumingEnumerableOrNull_T]) -> typing.Sequence[QuantConnect_Extensions_GetConsumingEnumerableOrNull_T]:
+        """
+        Waits for the first item of a blocking collection and returns an enumerable that consumes every item, that first one included.
+        Returns null if the collection completes adding without an item.
+        
+        :param collection: The collection a producer adds to and completes adding when done
+        :returns: An enumerable that consumes every item of the collection, or null if the collection completed adding without an item.
+        """
+        ...
+
+
+class _Extensions_GetConsumingEnumerableOrNull:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Extensions_GetConsumingEnumerableOrNull_T]) -> QuantConnect._Typed_Extensions_GetConsumingEnumerableOrNull[QuantConnect_Extensions_GetConsumingEnumerableOrNull_T]:
+        ...
+
+
 class _Typed_Extensions_AddOrUpdate(typing.Generic[QuantConnect_Extensions_AddOrUpdate_K]):
     """"""
 
@@ -5828,6 +5851,8 @@ class Extensions(System.Object):
     serialize_json_to_string: QuantConnect._Extensions_SerializeJsonToString
 
     clear: QuantConnect._Extensions_Clear
+
+    get_consuming_enumerable_or_null: QuantConnect._Extensions_GetConsumingEnumerableOrNull
 
     add_or_update: QuantConnect._Extensions_AddOrUpdate
 

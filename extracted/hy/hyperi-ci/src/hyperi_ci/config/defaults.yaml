@@ -104,12 +104,10 @@ quality:
   # See docs/quality-gate.md#relaxing-a-security-gate.
   gitleaks: blocking
   semgrep: warn              # Semgrep SAST (cross-language) - runs once at dispatch, like gitleaks
-  # Each shipped dependency's licence against config/license-policy.yaml. A
+  # Each shipped dependency's licence against config/licensing.yaml. A
   # mapping also takes `overrides` (name, licence, reason, version) for a
-  # dependency the tools cannot settle, `policy` (group -> mode -> verdict,
-  # reason) to change a cell for this repo, and `vendored` (path, mode
-  # vendored|modified, licence + reason for files with no SPDX header) for
-  # source copied into the tree. Python, Rust and npm.
+  # dependency the tools cannot settle, and `vendored` (path, licence + reason
+  # for files with no SPDX header) for source copied into the tree.
   dep_licenses: warn
   # The ASCII-only rule, enforced at last (issue #169). `warn` first per the
   # ratchet: this repo still carries ~900 lines of it. Promote at zero.
@@ -418,7 +416,7 @@ build:
         - {label: arc-native-4x8, arch: amd64, cpus: 4, memory_gib: 8}
         - {label: arc-native-8x16, arch: amd64, cpus: 8, memory_gib: 16}
         - {label: arc-native-16x32, arch: amd64, cpus: 16, memory_gib: 32}
-        - {label: ubuntu-24.04-arm, arch: arm64, cpus: 4, memory_gib: 15.6}
+        - {label: ubuntu-26.04-arm, arch: arm64, cpus: 4, memory_gib: 15.6}
     # LLVM major for bolt-NN / lld-NN / clang-NN, shimmed ahead of the runner's
     # own unversioned ld.lld and clang. HYPERCI_LLVM_VERSION beats this key, and
     # versions.yaml `runtimes.llvm` is the default, so no value is set here.

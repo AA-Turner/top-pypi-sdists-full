@@ -26,6 +26,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import ctypes
+from typing import Optional
 
 
 class GPGSA:
@@ -40,7 +41,7 @@ class GPGSA:
         self,
         mode: bytes = b"\x00",
         fixType: int = 0,
-        satUsed: list[int] = [0] * 12,
+        satUsed: Optional[list[int]] = None,
         posnDilution: float = 0,
         horizDilution: float = 0,
         vertDilution: float = 0,

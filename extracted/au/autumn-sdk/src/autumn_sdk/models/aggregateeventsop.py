@@ -25,7 +25,7 @@ class AggregateEventsGlobals(BaseModel):
         Optional[str],
         pydantic.Field(alias="x-api-version"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
-    ] = "2.5.0"
+    ] = "2.6.0"
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -68,7 +68,7 @@ AggregateEventsRange = Literal[
 r"""Time range to aggregate events for. Either range or custom_range must be provided"""
 
 
-BinSize = Literal[
+AggregateEventsBinSize = Literal[
     "day",
     "hour",
     "week",
@@ -114,7 +114,7 @@ class EventsAggregateParamsTypedDict(TypedDict):
     r"""Property to group events by (e.g. \"properties.region\"), or \"$customer_id\" / \"$entity_id\" / \"$plan_id\" to group by those columns. When aggregate_on is \"deducted\", \"$feature_id\" groups deductions by the tracked feature that consumed each balance."""
     range: NotRequired[AggregateEventsRange]
     r"""Time range to aggregate events for. Either range or custom_range must be provided"""
-    bin_size: NotRequired[BinSize]
+    bin_size: NotRequired[AggregateEventsBinSize]
     r"""Size of the time bins to aggregate events for. Defaults to hour if range is 24h, otherwise day"""
     custom_range: NotRequired[AggregateEventsCustomRangeTypedDict]
     r"""Custom time range to aggregate events for. If provided, range must not be provided"""
@@ -146,7 +146,7 @@ class EventsAggregateParams(BaseModel):
     range: Optional[AggregateEventsRange] = None
     r"""Time range to aggregate events for. Either range or custom_range must be provided"""
 
-    bin_size: Optional[BinSize] = "day"
+    bin_size: Optional[AggregateEventsBinSize] = "day"
     r"""Size of the time bins to aggregate events for. Defaults to hour if range is 24h, otherwise day"""
 
     custom_range: Optional[AggregateEventsCustomRange] = None
@@ -234,14 +234,14 @@ class AggregateEventsList(BaseModel):
         return m
 
 
-class TotalTypedDict(TypedDict):
+class AggregateEventsTotalTypedDict(TypedDict):
     count: float
     r"""Number of events for this feature"""
     sum: float
     r"""Sum of event values for this feature"""
 
 
-class Total(BaseModel):
+class AggregateEventsTotal(BaseModel):
     count: float
     r"""Number of events for this feature"""
 
@@ -430,7 +430,7 @@ class AggregateEventsResponseTypedDict(TypedDict):
 
     list: List[AggregateEventsListTypedDict]
     r"""Array of time periods with aggregated values"""
-    total: Dict[str, TotalTypedDict]
+    total: Dict[str, AggregateEventsTotalTypedDict]
     r"""Total aggregations per feature. Keys are feature IDs, values contain count and sum."""
     deductions: NotRequired[List[AggregateEventsDeductionTypedDict]]
     r"""Per-balance breakdown of what was consumed. Present only when aggregate_on is \"deducted\"."""
@@ -442,7 +442,7 @@ class AggregateEventsResponse(BaseModel):
     list: List[AggregateEventsList]
     r"""Array of time periods with aggregated values"""
 
-    total: Dict[str, Total]
+    total: Dict[str, AggregateEventsTotal]
     r"""Total aggregations per feature. Keys are feature IDs, values contain count and sum."""
 
     deductions: Optional[List[AggregateEventsDeduction]] = None

@@ -3,7 +3,9 @@
 
 import grpc
 
-from chalk._gen.chalk.scalinggroup.v1 import service_pb2 as chalk_dot_scalinggroup_dot_v1_dot_service__pb2
+from chalk._gen.chalk.scalinggroup.v1 import (
+    service_pb2 as chalk_dot_scalinggroup_dot_v1_dot_service__pb2,
+)
 
 
 class ScalingGroupManagerServiceStub(object):
@@ -34,6 +36,11 @@ class ScalingGroupManagerServiceStub(object):
             "/chalk.scalinggroup.v1.ScalingGroupManagerService/ListScalingGroups",
             request_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupsRequest.SerializeToString,
             response_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupsResponse.FromString,
+        )
+        self.ListScalingGroupReplicas = channel.unary_unary(
+            "/chalk.scalinggroup.v1.ScalingGroupManagerService/ListScalingGroupReplicas",
+            request_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupReplicasRequest.SerializeToString,
+            response_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupReplicasResponse.FromString,
         )
         self.DeleteScalingGroup = channel.unary_unary(
             "/chalk.scalinggroup.v1.ScalingGroupManagerService/DeleteScalingGroup",
@@ -86,6 +93,12 @@ class ScalingGroupManagerServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListScalingGroupReplicas(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def DeleteScalingGroup(self, request, context):
         """DeleteScalingGroup deletes a scaling group and its Kubernetes resources"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -132,6 +145,11 @@ def add_ScalingGroupManagerServiceServicer_to_server(servicer, server):
             servicer.ListScalingGroups,
             request_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupsRequest.FromString,
             response_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupsResponse.SerializeToString,
+        ),
+        "ListScalingGroupReplicas": grpc.unary_unary_rpc_method_handler(
+            servicer.ListScalingGroupReplicas,
+            request_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupReplicasRequest.FromString,
+            response_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupReplicasResponse.SerializeToString,
         ),
         "DeleteScalingGroup": grpc.unary_unary_rpc_method_handler(
             servicer.DeleteScalingGroup,
@@ -270,6 +288,35 @@ class ScalingGroupManagerService(object):
             "/chalk.scalinggroup.v1.ScalingGroupManagerService/ListScalingGroups",
             chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupsRequest.SerializeToString,
             chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListScalingGroupReplicas(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.scalinggroup.v1.ScalingGroupManagerService/ListScalingGroupReplicas",
+            chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupReplicasRequest.SerializeToString,
+            chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupReplicasResponse.FromString,
             options,
             channel_credentials,
             insecure,

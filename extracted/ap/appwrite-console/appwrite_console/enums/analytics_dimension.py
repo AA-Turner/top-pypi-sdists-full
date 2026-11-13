@@ -25,4 +25,6 @@ class AnalyticsDimension(Enum):
     TRAFFICTYPE = "trafficType"
     BOTNAME = "botName"
     BOTCATEGORY = "botCategory"
+    USERID = "userId"
     EVENTNAME = "eventName"
+    PROPS = "props"

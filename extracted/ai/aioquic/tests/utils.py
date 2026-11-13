@@ -1,19 +1,25 @@
 import asyncio
+import contextlib
 import datetime
 import functools
 import ipaddress
 import logging
 import os
 import tempfile
-from collections.abc import Callable, Coroutine
-from typing import ParamSpec, TypeVar
+import unittest
+from collections.abc import Callable, Coroutine, Iterator
+from typing import TYPE_CHECKING, ParamSpec, TypeVar
 
 from aioquic import tls
+from aioquic.quic.configuration import QuicConfiguration
 from aioquic.quic.packet import QuicPacketType
 from aioquic.quic.packet_builder import QuicSentPacket
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa
+
+if TYPE_CHECKING:
+    from unittest.case import _AssertRaisesContext
 
 CertificatePrivateKey = (
     ec.EllipticCurvePrivateKey
@@ -21,6 +27,7 @@ CertificatePrivateKey = (
     | ed25519.Ed25519PrivateKey
     | rsa.RSAPrivateKey
 )
+E = TypeVar("E", bound=BaseException)
 K = TypeVar(
     "K",
     ec.EllipticCurvePrivateKey,
@@ -29,6 +36,20 @@ K = TypeVar(
     rsa.RSAPrivateKey,
 )
 P = ParamSpec("P")
+
+
+class TestCase(unittest.TestCase):
+    @contextlib.contextmanager
+    def assertRaisesMessage(
+        self, expected_exception: type[E], expected_message: str
+    ) -> Iterator["_AssertRaisesContext[E]"]:
+        """
+        Check that the block raises `expected_exception` with exactly
+        `expected_message` as its message.
+        """
+        with self.assertRaises(expected_exception) as cm:
+            yield cm
+        self.assertEqual(str(cm.exception), expected_message)
 
 
 def ack_eliciting_packet(
@@ -80,6 +101,7 @@ def generate_certificate(
     *,
     alternative_names: list[str],
     common_name: str,
+    extensions: list[x509.ExtensionType] = [],
     hash_algorithm: hashes.SHA256 | None,
     key: K,
 ) -> tuple[x509.Certificate, K]:
@@ -107,6 +129,8 @@ def generate_certificate(
             ),
             critical=False,
         )
+    for extension in extensions:
+        builder = builder.add_extension(extension, critical=False)
     cert = builder.sign(key, hash_algorithm)
     return cert, key
 
@@ -275,11 +299,13 @@ def generate_ec_certificate(
     common_name: str,
     alternative_names: list[str] = [],
     curve: type[ec.EllipticCurve] = ec.SECP256R1,
+    extensions: list[x509.ExtensionType] = [],
 ) -> tuple[x509.Certificate, ec.EllipticCurvePrivateKey]:
     key = ec.generate_private_key(curve=curve())
     return generate_certificate(
         alternative_names=alternative_names,
         common_name=common_name,
+        extensions=extensions,
         hash_algorithm=hashes.SHA256(),
         key=key,
     )
@@ -321,10 +347,26 @@ def generate_rsa_certificate(
     )
 
 
-def load(name: str) -> bytes:
-    path = os.path.join(os.path.dirname(__file__), name)
-    with open(path, "rb") as fp:
-        return fp.read()
+def load_cert_chain(
+    configuration: QuicConfiguration, certfile: str, keyfile: str
+) -> None:
+    """
+    Load a certificate chain and private key into a configuration.
+
+    Each pair of files is only parsed once, as cryptography validates RSA keys
+    when loading them, which is slow for the 3072-bit default server key.
+    """
+    loaded = _parse_cert_chain(certfile, keyfile)
+    configuration.certificate = loaded.certificate
+    configuration.certificate_chain = list(loaded.certificate_chain)
+    configuration.private_key = loaded.private_key
+
+
+@functools.cache
+def _parse_cert_chain(certfile: str, keyfile: str) -> QuicConfiguration:
+    configuration = QuicConfiguration(is_client=False)
+    configuration.load_cert_chain(certfile, keyfile)
+    return configuration
 
 
 # Generate the default certificates in a temporary directory, which is removed

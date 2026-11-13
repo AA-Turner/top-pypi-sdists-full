@@ -90,6 +90,7 @@ __all__ = (
     "InstancePlatformType",
     "InstanceSnapshotStateType",
     "IpAddressTypeType",
+    "LightsailDistributionSubdomainStateEnumType",
     "LightsailServiceName",
     "LoadBalancerAttributeNameType",
     "LoadBalancerMetricNameType",
@@ -132,6 +133,8 @@ __all__ = (
     "SetupStatusType",
     "StatusType",
     "StatusTypeType",
+    "SubdomainAssociationActionType",
+    "SubdomainStateType",
     "TierNameType",
     "TreatMissingDataType",
     "ViewerMinimumTlsProtocolVersionEnumType",
@@ -294,6 +297,7 @@ InstanceMetricNameType = Literal[
 InstancePlatformType = Literal["LINUX_UNIX", "WINDOWS"]
 InstanceSnapshotStateType = Literal["available", "error", "pending"]
 IpAddressTypeType = Literal["dualstack", "ipv4", "ipv6"]
+LightsailDistributionSubdomainStateEnumType = Literal["Attached", "Attaching", "Creating", "Error"]
 LoadBalancerAttributeNameType = Literal[
     "HealthCheckPath",
     "HttpsRedirectionEnabled",
@@ -448,6 +452,7 @@ OperationTypeType = Literal[
     "CreateRelationalDatabase",
     "CreateRelationalDatabaseFromSnapshot",
     "CreateRelationalDatabaseSnapshot",
+    "CreateSubdomain",
     "DeleteAlarm",
     "DeleteBucket",
     "DeleteBucketAccessKey",
@@ -467,6 +472,7 @@ OperationTypeType = Literal[
     "DeleteLoadBalancerTlsCertificate",
     "DeleteRelationalDatabase",
     "DeleteRelationalDatabaseSnapshot",
+    "DeleteSubdomain",
     "DetachCertificateFromDistribution",
     "DetachDisk",
     "DetachInstancesFromLoadBalancer",
@@ -505,6 +511,7 @@ OperationTypeType = Literal[
     "UpdateLoadBalancerAttribute",
     "UpdateRelationalDatabase",
     "UpdateRelationalDatabaseParameters",
+    "UpdateSubdomainAssociation",
 ]
 OriginIpAddressTypeEnumType = Literal["dualstack", "ipv4", "ipv6"]
 OriginProtocolPolicyEnumType = Literal["http-only", "https-only"]
@@ -573,6 +580,7 @@ ResourceTypeType = Literal[
     "RelationalDatabase",
     "RelationalDatabaseSnapshot",
     "StaticIp",
+    "Subdomain",
 ]
 SetupStatusType = Literal["failed", "inProgress", "succeeded"]
 StatusType = Literal[
@@ -588,6 +596,17 @@ StatusType = Literal[
     "stopping",
 ]
 StatusTypeType = Literal["Active", "Inactive"]
+SubdomainAssociationActionType = Literal["ASSOCIATE", "DISASSOCIATE", "TRANSFER"]
+SubdomainStateType = Literal[
+    "ATTACHED",
+    "ATTACHING",
+    "CREATE_FAILED",
+    "CREATING",
+    "DETACHING",
+    "IMPLICIT",
+    "TRANSFERRING",
+    "UNATTACHED",
+]
 TierNameType = Literal["Accelerate", "Essential", "Growth", "Premier"]
 TreatMissingDataType = Literal["breaching", "ignore", "missing", "notBreaching"]
 ViewerMinimumTlsProtocolVersionEnumType = Literal[

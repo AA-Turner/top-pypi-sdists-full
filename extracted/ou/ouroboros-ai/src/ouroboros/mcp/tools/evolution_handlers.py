@@ -873,7 +873,7 @@ class EvolveStepHandler(BridgeAwareMixin):
                 or not effective_baseline.clean
             ):
                 if workspace is not None:
-                    release_lock(workspace.lock_path)
+                    release_lock(workspace.lock_path, workspace.lock_owner)
                 return Result.err(
                     MCPToolError(
                         "benchmark_control effective worktree must have a clean Git baseline",
@@ -927,7 +927,7 @@ class EvolveStepHandler(BridgeAwareMixin):
         finally:
             self.evolutionary_loop.reset_project_dir(project_dir_token)
             if workspace is not None and not workspace_evidence_pending:
-                release_lock(workspace.lock_path)
+                release_lock(workspace.lock_path, workspace.lock_owner)
 
         if result.is_err:
             return Result.err(
@@ -1077,7 +1077,9 @@ class EvolveStepHandler(BridgeAwareMixin):
 
             assert artifact is not None
             assert reference is not None
-            qa_handler = QAHandler()
+            qa_handler = QAHandler(
+                event_store=self.event_store or self.evolutionary_loop.event_store
+            )
             ac_lines = [f"- {ac}" for ac in ac_texts(gen.seed.acceptance_criteria)]
             quality_bar = "The execution must satisfy all acceptance criteria:\n" + "\n".join(
                 ac_lines
@@ -1201,7 +1203,7 @@ async def _materialize_locked_evolve_evidence(
         )
     finally:
         if workspace is not None:
-            release_lock(workspace.lock_path)
+            release_lock(workspace.lock_path, workspace.lock_owner)
 
 
 def _checkpoint_passed_generation_acs(

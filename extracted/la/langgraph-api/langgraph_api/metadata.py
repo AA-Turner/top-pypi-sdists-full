@@ -21,7 +21,7 @@ from langgraph_api.config import (
     USES_STORE_TTL,
     USES_THREAD_TTL,
 )
-from langgraph_api.feature_flags import DELTA_CHANNEL_SUPPORT
+from langgraph_api.feature_flags import DELTA_CHANNEL_SUPPORT, IS_INMEM_BACKEND
 from langgraph_api.graph import GRAPHS, is_js_graph
 from langgraph_api.http import http_request
 from langgraph_api.js.base import is_js_path
@@ -155,6 +155,12 @@ def _lang_usage_metadata() -> tuple[dict[str, str], dict[str, int]]:
     return tags, measures
 
 
+def _billing_channel() -> str:
+    # A self-hosted LangSmith bills API-key usage under its own license unless the
+    # server already reports it under a license key.
+    return "license_key" if LANGGRAPH_CLOUD_LICENSE_KEY else "api_key"
+
+
 def incr_runs(*, incr: int = 1) -> None:
     global RUN_COUNTER
     RUN_COUNTER += incr
@@ -170,6 +176,10 @@ async def metadata_loop() -> None:
         from langgraph_api import __version__  # noqa: PLC0415
     except ImportError:
         __version__ = None
+    if IS_INMEM_BACKEND:
+        # `langgraph dev` runs the in-memory runtime; local development isn't billed.
+        logger.info("In-memory runtime, skipping metadata loop")
+        return
     if not LANGGRAPH_CLOUD_LICENSE_KEY and not LANGSMITH_CONTROL_PLANE_API_KEY:
         logger.info(
             "No license key or control plane API key set, skipping metadata loop"
@@ -279,6 +289,7 @@ async def metadata_loop() -> None:
             langchain_payload = {
                 **base_payload,
                 "api_key": LANGSMITH_CONTROL_PLANE_API_KEY,
+                "billing_channel": _billing_channel(),
             }
             submissions_attempted.append("langchain")
             try:

@@ -92,6 +92,54 @@ def stainless_log_event_builder(
     return log_record_attrs
 
 
+BOTOCORE_AI_OPERATIONS = frozenset(
+    {
+        ("bedrock-runtime", "InvokeModel"),
+        ("bedrock-runtime", "InvokeModelWithResponseStream"),
+        ("bedrock-runtime", "Converse"),
+        ("bedrock-runtime", "ConverseStream"),
+        ("bedrock-runtime", "StartAsyncInvoke"),
+        ("bedrock-agent-runtime", "InvokeAgent"),
+        ("bedrock-agent-runtime", "InvokeFlow"),
+        ("bedrock-agent-runtime", "InvokeInlineAgent"),
+        ("bedrock-agent-runtime", "StartFlowExecution"),
+    }
+)
+"""
+(service name, operation name) pairs of botocore API calls that use AI models.
+"""
+
+
+def _botocore_service_name(args: Mapping[str, object]) -> str:
+    return args["self"].meta.service_model.service_name.lower()
+
+
+def is_botocore_ai_call(args: Mapping[str, object]) -> bool:
+    """
+    Whether the arguments to `BaseClient._make_api_call` describe a call that uses an
+    AI model. botocore funnels every AWS API call through this one function, so most
+    calls through it aren't AI usage.
+    """
+    return (
+        _botocore_service_name(args),
+        args["operation_name"],
+    ) in BOTOCORE_AI_OPERATIONS
+
+
+def botocore_shield_permissions_builder(
+    event_dict: EventDict,
+) -> Callable[[Mapping[str, object]], tuple[str, ...]]:
+    """
+    Builds a function that returns the CVE shield permissions used by a call to
+    `BaseClient._make_api_call`. Only AI calls use the ai-access permission.
+    """
+
+    def shield_permissions(args: Mapping[str, object]) -> tuple[str, ...]:
+        return ("ai-access",) if is_botocore_ai_call(args) else ()
+
+    return shield_permissions
+
+
 def botocore_log_event_builder(
     event_dict: EventDict,
 ) -> Callable[
@@ -99,22 +147,11 @@ def botocore_log_event_builder(
     fireball.LogRecordEvent | None,
 ]:
     def log_record_attrs(args: Mapping[str, object], result: object):
-        self = args["self"]
-        op_name = args["operation_name"]
-        service = self.meta.service_model.service_name.lower()
-        if (service, op_name) not in (
-            ("bedrock-runtime", "InvokeModel"),
-            ("bedrock-runtime", "InvokeModelWithResponseStream"),
-            ("bedrock-runtime", "Converse"),
-            ("bedrock-runtime", "ConverseStream"),
-            ("bedrock-runtime", "StartAsyncInvoke"),
-            ("bedrock-agent-runtime", "InvokeAgent"),
-            ("bedrock-agent-runtime", "InvokeFlow"),
-            ("bedrock-agent-runtime", "InvokeInlineAgent"),
-            ("bedrock-agent-runtime", "StartFlowExecution"),
-        ):
+        if not is_botocore_ai_call(args):
             return None  # Not an ai-usage call, don't create an event
 
+        self = args["self"]
+        service = _botocore_service_name(args)
         api_provider = service.removesuffix("-runtime")
         api_url = self.meta.endpoint_url
         params = args["api_params"]

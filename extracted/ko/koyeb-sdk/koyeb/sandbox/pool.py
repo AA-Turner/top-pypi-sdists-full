@@ -53,7 +53,7 @@ _POOL_DEFINITION_TYPES = {
 DEFAULT_CLAIM_ATTEMPTS = 3
 DEFAULT_CLAIM_RETRY_DELAY = 1.0  # seconds; linear: delay * attempt number
 DEFAULT_CLAIM_WAIT_TIMEOUT = 300.0
-DEFAULT_CLAIM_POLL_INTERVAL = 2.0
+DEFAULT_CLAIM_POLL_INTERVAL = 0.5  # seconds; the backoff starts at 0.1
 
 
 @dataclass
@@ -323,6 +323,9 @@ def wait_claim_ready(
     timeout, and raises :class:`ServiceTerminalStateError` on terminal
     states. Transient Get Service failures are treated as in-progress and
     retried until the timeout (they dominate while a cold claim provisions).
+
+    Polls after 0.1s, then doubles the interval each time up to
+    ``poll_interval``.
     """
     service_id = (
         claim_or_service_id.service_id
@@ -331,6 +334,7 @@ def wait_claim_ready(
     )
     clients = get_api_clients(api_token, host)
     start = time.time()
+    interval = min(0.1, poll_interval)
 
     while time.time() - start < timeout:
         status = None
@@ -344,7 +348,8 @@ def wait_claim_ready(
                 raise ServiceTerminalStateError(service_id, status)
             if classification == "ready":
                 return True
-        time.sleep(poll_interval)
+        time.sleep(interval)
+        interval = min(interval * 2, poll_interval)
 
     return False
 
@@ -364,6 +369,7 @@ async def wait_claim_ready_async(
     )
     clients = get_async_api_clients(api_token, host)
     start = time.time()
+    interval = min(0.1, poll_interval)
 
     while time.time() - start < timeout:
         status = None
@@ -377,7 +383,8 @@ async def wait_claim_ready_async(
                 raise ServiceTerminalStateError(service_id, status)
             if classification == "ready":
                 return True
-        await asyncio.sleep(poll_interval)
+        await asyncio.sleep(interval)
+        interval = min(interval * 2, poll_interval)
 
     return False
 

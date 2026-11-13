@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "datadog-serverless-compat"
-version = "0.20.0"
+version = "0.21.0"
 description = "Datadog Serverless Compatibility Layer for Python"
 authors = ["Datadog, Inc. <package@datadoghq.com>"]
 license = "Apache-2.0"

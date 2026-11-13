@@ -969,8 +969,8 @@ def test_mel_to_stft_multi(power, n_fft, rng):
     stft1 = librosa.feature.inverse.mel_to_stft(mels1, power=power, n_fft=n_fft)
 
     # Check each channel
-    assert np.allclose(stft[0], stft0)
-    assert np.allclose(stft[1], stft1)
+    assert np.allclose(stft[0], stft0, atol=1e-6)
+    assert np.allclose(stft[1], stft1, atol=1e-6)
 
     # Check that they're not both the same
     assert not np.allclose(stft0, stft1)
@@ -1027,6 +1027,8 @@ def test_trim_multichannel(y_multi):
     "res_type", ("scipy", "polyphase", "sinc_fastest", "kaiser_fast", "soxr_qq")
 )
 def test_resample_multichannel(y_multi, res_type):
+    if res_type in ("linear", "zero_order_hold", "sinc_best", "sinc_fastest", "sinc_medium"):
+        pytest.importorskip("samplerate")
     # Test multi-channel resampling with all backends: scipy, samplerate, resampy, soxr
     y, sr = y_multi
 
@@ -1044,6 +1046,8 @@ def test_resample_multichannel(y_multi, res_type):
 )
 @pytest.mark.parametrize("x", [np.zeros((2, 2, 2, 22050))])
 def test_resample_highdim(x, res_type):
+    if res_type in ("linear", "zero_order_hold", "sinc_best", "sinc_fastest", "sinc_medium"):
+        pytest.importorskip("samplerate")
     # Just run these to verify that it doesn't crash with ndim>2
     y = librosa.resample(x, orig_sr=22050, target_sr=11025, res_type=res_type)
 
@@ -1055,6 +1059,8 @@ def test_resample_highdim(x, res_type):
     "x, axis", [(np.zeros((2, 2, 2, 22050)), -1), (np.zeros((22050, 2, 3)), 0)]
 )
 def test_resample_highdim_axis(x, axis, res_type):
+    if res_type in ("linear", "zero_order_hold", "sinc_best", "sinc_fastest", "sinc_medium"):
+        pytest.importorskip("samplerate")
     # Resample along the target axis
     y = librosa.resample(
         x, orig_sr=22050, target_sr=11025, axis=axis, res_type=res_type

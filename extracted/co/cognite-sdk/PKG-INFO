@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cognite-sdk
-Version: 8.24.0
+Version: 8.25.0
 Summary: Cognite Python SDK
 Author: Erlend Vollset, Håkon Treider, Anders Albert
 Author-email: Erlend Vollset <erlend.vollset@cognite.com>, Håkon Treider <hakon.treider@cognite.com>, Anders Albert <anders.albert@cognite.com>

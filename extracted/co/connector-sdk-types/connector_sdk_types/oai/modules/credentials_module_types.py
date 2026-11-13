@@ -147,6 +147,7 @@ AuthSetting: t.TypeAlias = (
     | type[JWTCredential]
     | type[ServiceAccountCredential]
     | type[KeyPairCredential]
+    | type[EmptyCredential]
 )
 
 

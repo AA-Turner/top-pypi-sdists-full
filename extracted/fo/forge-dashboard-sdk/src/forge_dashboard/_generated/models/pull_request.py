@@ -50,8 +50,8 @@ class PullRequest:
             title (str):
             url (str): The real pull request URL on its own forge.
             author (str):
-            author_avatar_url (str): The forge's own avatar URL for the author, passed through unchanged and never proxied.
-                Empty when the forge supplies none, such as a deleted account.
+            author_avatar_url (str): The forge's own avatar URL for the author, passed through unchanged. The page loads it
+                through GET /api/v1/images. Empty when the forge supplies none, such as a deleted account.
             author_url (str): The author's profile page on the forge, built by the server from the forge's own web address,
                 so a client needs no rule per forge. A GitHub bot links to its app page. Empty when there is nothing to link to,
                 such as a deleted account.

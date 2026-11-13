@@ -25,7 +25,7 @@ class SearchRequestLogsGlobals(BaseModel):
         Optional[str],
         pydantic.Field(alias="x-api-version"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
-    ] = "2.5.0"
+    ] = "2.6.0"
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -45,7 +45,7 @@ class SearchRequestLogsGlobals(BaseModel):
 
 
 class SearchLogsRangeTypedDict(TypedDict):
-    r"""Time window to search. Defaults to the last 30 minutes. Maximum 7 days."""
+    r"""Time window to search. Defaults to the last 30 minutes. Maximum 365 days."""
 
     start_date: NotRequired[str]
     r"""Start of the time window in ISO 8601 format. Defaults to 30 minutes before end_date."""
@@ -54,7 +54,7 @@ class SearchLogsRangeTypedDict(TypedDict):
 
 
 class SearchLogsRange(BaseModel):
-    r"""Time window to search. Defaults to the last 30 minutes. Maximum 7 days."""
+    r"""Time window to search. Defaults to the last 30 minutes. Maximum 365 days."""
 
     start_date: Optional[str] = None
     r"""Start of the time window in ISO 8601 format. Defaults to 30 minutes before end_date."""
@@ -83,7 +83,7 @@ class SearchRequestLogsParamsTypedDict(TypedDict):
     query: NotRequired[str]
     r"""Filter and sort logs using where, order by, and limit, joined with |. Omit to return recent logs."""
     range: NotRequired[SearchLogsRangeTypedDict]
-    r"""Time window to search. Defaults to the last 30 minutes. Maximum 7 days."""
+    r"""Time window to search. Defaults to the last 30 minutes. Maximum 365 days."""
     limit: NotRequired[int]
     r"""Maximum number of logs to return, from 1 to 200. Defaults to 100."""
 
@@ -93,7 +93,7 @@ class SearchRequestLogsParams(BaseModel):
     r"""Filter and sort logs using where, order by, and limit, joined with |. Omit to return recent logs."""
 
     range: Optional[SearchLogsRange] = None
-    r"""Time window to search. Defaults to the last 30 minutes. Maximum 7 days."""
+    r"""Time window to search. Defaults to the last 30 minutes. Maximum 365 days."""
 
     limit: Optional[int] = None
     r"""Maximum number of logs to return, from 1 to 200. Defaults to 100."""

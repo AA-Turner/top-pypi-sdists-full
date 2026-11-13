@@ -1,0 +1,573 @@
+import sys
+import warnings
+from base64 import b64decode
+from contextlib import contextmanager
+from email.mime.image import MIMEImage
+from unittest.mock import patch
+
+import django
+import pytest
+from django.core import mail
+from django.core.exceptions import ImproperlyConfigured
+from django.core.mail import EmailMultiAlternatives, send_mail, send_mass_mail
+from requests import ConnectTimeout, Response
+
+from postmarker.core import TEST_TOKEN
+from postmarker.django import EmailBackend
+from postmarker.django.signals import on_exception, post_send, pre_send
+from postmarker.exceptions import ClientError
+from postmarker.models.emails import Email
+
+pytestmark = pytest.mark.usefixtures("outbox")
+
+
+SEND_KWARGS = {
+    "subject": "Subject here",
+    "message": "Here is the message.",
+    "from_email": "sender@example.com",
+    "recipient_list": ["receiver@example.com"],
+}
+
+
+def send_with_connection(connection):
+    mail.EmailMessage(
+        "Subject",
+        "Body",
+        "sender@example.com",
+        ["receiver@example.com"],
+        connection=connection,
+    ).send()
+
+
+def test_send_mail(postmark_request, settings):
+    send_mail(**SEND_KWARGS)
+    assert postmark_request.call_args[1]["json"] == (
+        {
+            "ReplyTo": None,
+            "Subject": "Subject here",
+            "To": "receiver@example.com",
+            "Bcc": None,
+            "Headers": [],
+            "Cc": None,
+            "Attachments": [],
+            "TextBody": "Here is the message.",
+            "HtmlBody": None,
+            "Tag": None,
+            "Metadata": None,
+            "MessageStream": None,
+            "TrackOpens": False,
+            "From": "sender@example.com",
+        },
+    )
+    assert postmark_request.call_args[1]["headers"]["X-Postmark-Server-Token"] == settings.POSTMARK["TOKEN"]
+
+
+@pytest.mark.parametrize(
+    "kwarg, key",
+    (
+        ("bcc", "Bcc"),
+        ("cc", "Cc"),
+        ("reply_to", "ReplyTo"),
+    ),
+)
+def test_reply_to_cc_bcc(postmark_request, kwarg, key):
+    message = mail.EmailMessage(
+        "Subject",
+        "Body",
+        "sender@example.com",
+        ["receiver@example.com"],
+        **{kwarg: ["r1@example.com", "r2@example.com"]},
+    )
+    message.send()
+    assert postmark_request.call_args[1]["json"][0][key] == "r1@example.com, r2@example.com"
+
+
+EXAMPLE_BATCH_RESPONSE = [
+    {
+        "ErrorCode": 0,
+        "Message": "OK",
+        "MessageID": "b7bc2f4a-e38e-4336-af7d-e6c392c2f817",
+        "SubmittedAt": "2010-11-26T12:01:05.1794748-05:00",
+        "To": "receiver@example.com",
+    },
+    {
+        "ErrorCode": 406,
+        "Message": "Bla bla, inactive recipient",
+        "MessageID": "e2ecbbfc-fe12-463d-b933-9fe22915106d",
+        "SubmittedAt": "2010-11-26T12:01:05.1794748-05:00",
+        "To": "invalid@example.com",
+    },
+]
+
+
+MASS_MESSAGES = [
+    ("Subject", "Body", "sender@example.com", ["receiver@example.com"]),
+    ("Subject", "Body", "sender@example.com", ["invalid@example.com"]),
+]
+
+
+@pytest.fixture
+def batch_send():
+    @contextmanager
+    def manager(return_value=EXAMPLE_BATCH_RESPONSE):
+        with patch("postmarker.models.emails.EmailBatch.send", return_value=return_value) as send:
+            yield send
+
+    return manager
+
+
+def test_mass_send_empty(batch_send):
+    with batch_send() as send:
+        assert send_mass_mail([]) is None
+        assert not send.called
+
+
+def test_mass_send_sent_messages_count(batch_send):
+    with batch_send():
+        assert send_mass_mail(MASS_MESSAGES, fail_silently=True) == 1
+
+
+def test_mass_send_single_exception_propagation(batch_send):
+    with batch_send():
+        with pytest.raises(ClientError) as exc:
+            send_mass_mail(MASS_MESSAGES, fail_silently=False)
+        assert str(exc.value) == "[406] Bla bla, inactive recipient"
+        assert exc.value.error_code == 406
+
+
+def test_mass_send_multiple_exceptions_propagation(batch_send):
+    other_failure = {**EXAMPLE_BATCH_RESPONSE[1], "ErrorCode": 300, "Message": "Invalid email request"}
+    with batch_send([*EXAMPLE_BATCH_RESPONSE, EXAMPLE_BATCH_RESPONSE[0], other_failure]):
+        with pytest.raises(ClientError) as exc:
+            send_mass_mail(MASS_MESSAGES * 2, fail_silently=False)
+        assert str(exc.value) == "[[406] Bla bla, inactive recipient, [300] Invalid email request]"
+        # The first failure's code
+        assert exc.value.error_code == 406
+
+
+@pytest.fixture
+def message():
+    return EmailMultiAlternatives(
+        subject="subject",
+        body="text_content",
+        from_email="sender@example.com",
+        to=["receiver@example.com"],
+    )
+
+
+def test_send_mail_with_attachment(postmark_request, message):
+    """Test sending email with attachment.
+
+    The Django backend crashes when sending an email with an attachment.
+    https://github.com/Stranger6667/postmarker/issues/98
+
+    This test does not send any mail. Instead, it demonstrates the bug by
+    constructing the same underlying datastructures that the backend would
+    construct.
+    """
+    message.attach("hello.txt", "Hello World\n", "text/plain")
+    message.send()
+    assert postmark_request.call_args[1]["json"][0] == {
+        "TextBody": "text_content",
+        "Attachments": [{"Name": "hello.txt", "Content": "SGVsbG8gV29ybGQK", "ContentType": "text/plain"}],
+        "From": "sender@example.com",
+        "HtmlBody": None,
+        "ReplyTo": None,
+        "Subject": "subject",
+        "To": "receiver@example.com",
+        "Headers": [],
+        "TrackOpens": False,
+        "Cc": None,
+        "Bcc": None,
+        "Tag": None,
+        "Metadata": None,
+        "MessageStream": None,
+    }
+
+
+def test_text_attachment_non_ascii(postmark_request, message):
+    message.attach("data.csv", "имя,значение\n", "text/csv")
+    message.send()
+    attachment = postmark_request.call_args[1]["json"][0]["Attachments"][0]
+    assert b64decode(attachment["Content"]) == "имя,значение\n".encode()
+
+
+def test_inline_image_content_id(postmark_request, message):
+    image = MIMEImage(b"GIF89a", "gif")
+    image.add_header("Content-ID", "<image@example.com>")
+    image.add_header("Content-Disposition", "inline", filename="image.gif")
+    message.attach(image)
+    message.send()
+    assert postmark_request.call_args[1]["json"][0]["Attachments"] == [
+        {"Name": "image.gif", "Content": "R0lGODlh", "ContentType": "image/gif", "ContentID": "cid:image@example.com"}
+    ]
+
+
+def test_text_html_alternative_and_pdf_attachment_failure(postmark_request, message):
+    """Send a text body, HTML alternative, and PDF attachment."""
+    message.attach_alternative("<html></html>", "text/html")
+    content = "PDF-File-Contents"
+    message.attach("hello.pdf", content, "application/pdf")
+    message.send(fail_silently=False)
+    encoded_content = "UERGLUZpbGUtQ29udGVudHM="
+    assert postmark_request.call_args[1]["json"][0] == {
+        "Attachments": [
+            {
+                "Content": encoded_content,
+                "ContentType": "application/pdf",
+                "Name": "hello.pdf",
+            }
+        ],
+        "Bcc": None,
+        "Cc": None,
+        "From": "sender@example.com",
+        "Headers": [],
+        "HtmlBody": "<html></html>",
+        "ReplyTo": None,
+        "Subject": "subject",
+        "Tag": None,
+        "Metadata": None,
+        "MessageStream": None,
+        "TextBody": "text_content",
+        "To": "receiver@example.com",
+        "TrackOpens": False,
+    }
+
+
+def test_message_rfc822(postmark_request, message):
+    # Headers of the attached message must survive, not only its body
+    message_content = "Subject: Hi\n\nFake message"
+    expected_content = "U3ViamVjdDogSGkKCkZha2UgbWVzc2FnZQ=="
+    message.attach_alternative(message_content, "message/rfc822")
+    message.send(fail_silently=False)
+    assert postmark_request.call_args[1]["json"][0] == {
+        "Attachments": [
+            {
+                "Name": "attachment.txt",
+                "Content": expected_content,
+                "ContentType": "message/rfc822",
+            }
+        ],
+        "Bcc": None,
+        "Cc": None,
+        "From": "sender@example.com",
+        "Headers": [],
+        "HtmlBody": None,
+        "ReplyTo": None,
+        "Subject": "subject",
+        "Tag": None,
+        "Metadata": None,
+        "MessageStream": None,
+        "TextBody": "text_content",
+        "To": "receiver@example.com",
+        "TrackOpens": False,
+    }
+
+
+def test_headers_encoding(postmark_request):
+    kwargs = {
+        "subject": "Тест",
+        "message": "Here is the message.",
+        "from_email": "Тест <sender@example.com>",
+        "recipient_list": [
+            "Тест <receiver@example.com>",
+            "Тест2 <receiver@example.com>",
+        ],
+    }
+    send_mail(**kwargs)
+    request = postmark_request.call_args[1]["json"][0]
+    assert request["Subject"] == kwargs["subject"]
+    assert request["From"] == kwargs["from_email"]
+    assert request["To"] == ", ".join(kwargs["recipient_list"])
+
+
+@pytest.mark.parametrize(
+    "html_message",
+    (
+        "<html></html>",
+        "<html>Тест</html>",
+        """<html>
+       <body>
+           <div>
+             %s
+           </div>
+       </body>
+       </html>"""
+        % ("." * 1000),
+    ),
+)
+def test_send_mail_html_message(html_message, postmark_request):
+    send_mail(html_message=html_message, **SEND_KWARGS)
+    assert postmark_request.call_args[1]["json"] == (
+        {
+            "ReplyTo": None,
+            "Subject": "Subject here",
+            "To": "receiver@example.com",
+            "Bcc": None,
+            "Headers": [],
+            "Cc": None,
+            "Attachments": [],
+            "TextBody": "Here is the message.",
+            "HtmlBody": html_message,
+            "TrackOpens": False,
+            "Tag": None,
+            "Metadata": None,
+            "MessageStream": None,
+            "From": "sender@example.com",
+        },
+    )
+
+
+def test_send_html_only_message(postmark_request):
+    # GH-219: `content_subtype = "html"` is the documented way to send HTML-only email
+    message = mail.EmailMessage(
+        "Subject here",
+        "<html>Here is the message.</html>",
+        "sender@example.com",
+        ["receiver@example.com"],
+    )
+    message.content_subtype = "html"
+    message.send()
+    assert postmark_request.call_args[1]["json"] == (
+        {
+            "ReplyTo": None,
+            "Subject": "Subject here",
+            "To": "receiver@example.com",
+            "Bcc": None,
+            "Headers": [],
+            "Cc": None,
+            "Attachments": [],
+            "TextBody": None,
+            "HtmlBody": "<html>Here is the message.</html>",
+            "TrackOpens": False,
+            "Tag": None,
+            "Metadata": None,
+            "MessageStream": None,
+            "From": "sender@example.com",
+        },
+    )
+
+
+def test_send_long_text_line(postmark_request):
+    kwargs = SEND_KWARGS.copy()
+    message = "A" * 1000
+    kwargs["message"] = message
+    send_mail(**kwargs)
+    assert postmark_request.call_args[1]["json"] == (
+        {
+            "ReplyTo": None,
+            "Subject": "Subject here",
+            "To": "receiver@example.com",
+            "Bcc": None,
+            "Headers": [],
+            "Cc": None,
+            "Attachments": [],
+            "TextBody": message,
+            "HtmlBody": None,
+            "TrackOpens": False,
+            "Tag": None,
+            "Metadata": None,
+            "MessageStream": None,
+            "From": "sender@example.com",
+        },
+    )
+
+
+@pytest.mark.parametrize("fail_silently", [True, False])
+def test_fail_silently_without_deprecation_warnings(fail_silently):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        backend = EmailBackend(fail_silently=fail_silently)
+        assert backend.fail_silently is fail_silently
+
+
+@pytest.mark.skipif(django.VERSION < (6, 1), reason="MAILERS is new in Django 6.1")
+def test_mailers(settings):
+    settings.MAILERS = {"default": {"BACKEND": "postmarker.django.EmailBackend", "OPTIONS": {"token": "TOKEN"}}}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        backend = mail.mailers["default"]
+    assert backend.alias == "default"
+    assert backend.server_token == "TOKEN"
+
+
+@pytest.mark.skipif(django.VERSION < (6, 1), reason="MAILERS is new in Django 6.1")
+def test_mailers_unknown_option(settings):
+    settings.MAILERS = {"default": {"BACKEND": "postmarker.django.EmailBackend", "OPTIONS": {"tokn": "TOKEN"}}}
+    with pytest.raises(mail.InvalidMailer, match="Unknown options 'tokn'"):
+        mail.mailers["default"]
+
+
+def test_missing_api_key(settings):
+    settings.POSTMARK = {}
+    with pytest.raises(ImproperlyConfigured) as exc:
+        send_mail(**SEND_KWARGS)
+    assert str(exc.value) == "You should specify TOKEN to use Postmark email backend"
+
+
+def test_test_mode(settings, postmark_request):
+    settings.POSTMARK = {"TEST_MODE": True}
+    send_mail(**SEND_KWARGS)
+    assert postmark_request.call_args[1]["headers"]["X-Postmark-Server-Token"] == TEST_TOKEN
+
+
+def test_extra_options(settings, postmark_request):
+    settings.POSTMARK = {**settings.POSTMARK, "TRACK_OPENS": True}
+    send_mail(**SEND_KWARGS)
+    assert postmark_request.call_args[1]["json"] == (
+        {
+            "ReplyTo": None,
+            "Subject": "Subject here",
+            "To": "receiver@example.com",
+            "Bcc": None,
+            "Headers": [],
+            "Cc": None,
+            "Attachments": [],
+            "TextBody": "Here is the message.",
+            "HtmlBody": None,
+            "Tag": None,
+            "Metadata": None,
+            "MessageStream": None,
+            "TrackOpens": True,
+            "From": "sender@example.com",
+        },
+    )
+
+
+def test_context_manager(postmark_request):
+    with mail.get_connection() as connection:
+        send_with_connection(connection)
+    assert postmark_request.call_args[1]["json"] == (
+        {
+            "ReplyTo": None,
+            "Subject": "Subject",
+            "To": "receiver@example.com",
+            "Bcc": None,
+            "Headers": [],
+            "Cc": None,
+            "Attachments": [],
+            "TextBody": "Body",
+            "HtmlBody": None,
+            "Tag": None,
+            "Metadata": None,
+            "MessageStream": None,
+            "TrackOpens": False,
+            "From": "sender@example.com",
+        },
+    )
+
+
+@pytest.fixture
+def invalid_json_response(postmark_request):
+    postmark_request.return_value.json.side_effect = ValueError
+
+
+@pytest.mark.usefixtures("invalid_json_response")
+def test_silent_exception():
+    with mail.get_connection(fail_silently=True) as connection:
+        send_with_connection(connection)
+
+
+@pytest.mark.usefixtures("invalid_json_response")
+def test_loud_exception():
+    with mail.get_connection() as connection, pytest.raises(ValueError):
+        send_with_connection(connection)
+
+
+def test_close_closed_connection():
+    with mail.get_connection() as connection:
+        connection.close()
+
+
+def test_signals_exported():
+    import postmarker.django
+
+    assert (postmarker.django.pre_send, postmarker.django.post_send, postmarker.django.on_exception) == (
+        pre_send,
+        post_send,
+        on_exception,
+    )
+
+
+@pytest.mark.usefixtures("postmark_request")
+def test_signals_pre_send(catch_signal):
+    with catch_signal(pre_send) as handler:
+        send_mail(**SEND_KWARGS)
+    assert handler.called
+    kwargs = handler.call_args[1]
+    assert kwargs["sender"] == EmailBackend
+    assert kwargs["signal"] == pre_send
+    assert len(kwargs["messages"]) == 1
+    message = kwargs["messages"][0]
+    assert Email.from_mime(message, None).as_dict() == {
+        "Attachments": [],
+        "Bcc": None,
+        "Cc": None,
+        "From": "sender@example.com",
+        "Headers": [],
+        "HtmlBody": None,
+        "ReplyTo": None,
+        "Subject": "Subject here",
+        "Tag": None,
+        "Metadata": None,
+        "MessageStream": None,
+        "TextBody": "Here is the message.",
+        "To": "receiver@example.com",
+    }
+
+
+def test_signals_post_send(catch_signal, postmark_request):
+    postmark_request.return_value = Response()
+    postmark_request.return_value.status_code = 200
+    postmark_request.return_value._content = (
+        b'[{"ErrorCode": 0, "To": "receiver@example.com", '
+        b'"SubmittedAt": "2016-10-06T10:05:30.570118-04:00", '
+        b'"Message": "Test job accepted", '
+        b'"MessageID": "96a981da-9b7c-4aa9-bda2-84ab99097686"}]'
+    )
+    with catch_signal(post_send) as handler:
+        send_mail(**SEND_KWARGS)
+    assert handler.called
+    kwargs = handler.call_args[1]
+    assert kwargs["sender"] == EmailBackend
+    assert kwargs["signal"] == post_send
+    assert kwargs["response"] == [
+        {
+            "ErrorCode": 0,
+            "Message": "Test job accepted",
+            "MessageID": "96a981da-9b7c-4aa9-bda2-84ab99097686",
+            "SubmittedAt": "2016-10-06T10:05:30.570118-04:00",
+            "To": "receiver@example.com",
+        }
+    ]
+
+
+@pytest.mark.usefixtures("postmark_request")
+def test_signals_on_exception(catch_signal):
+    with patch("requests.Session.request", side_effect=ConnectTimeout), catch_signal(on_exception) as handler:
+        send_mail(fail_silently=True, **SEND_KWARGS)
+    assert handler.called
+    kwargs = handler.call_args[1]
+    assert kwargs["sender"] == EmailBackend
+    assert kwargs["signal"] == on_exception
+    assert isinstance(kwargs["exception"], ConnectTimeout)
+    assert len(kwargs["raw_messages"]) == 1
+
+
+def test_inline_css(settings, postmark_request):
+    settings.POSTMARK = {**settings.POSTMARK, "INLINE_CSS": True}
+    send_mail(
+        html_message="<html><head><style>h1{color:red}</style></head><body><h1>Hi</h1></body></html>", **SEND_KWARGS
+    )
+    assert (
+        postmark_request.call_args[1]["json"][0]["HtmlBody"]
+        == '<html><head></head><body><h1 style="color: red;">Hi</h1></body></html>'
+    )
+
+
+def test_inline_css_missing_package(settings, monkeypatch):
+    # Raised outside `fail_silently`, otherwise every email is dropped without a trace
+    settings.POSTMARK = {**settings.POSTMARK, "INLINE_CSS": True}
+    monkeypatch.setitem(sys.modules, "css_inline", None)
+    with pytest.raises(ImportError, match=r"postmarker\[css-inline\]"):
+        EmailBackend(fail_silently=True)

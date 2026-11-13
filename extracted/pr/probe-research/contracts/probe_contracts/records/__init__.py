@@ -51,7 +51,7 @@ from .lineage import LineageEntityType, LineageRelation
 from .metric_point import MetricNonFinite, MetricPoint
 from .project import Project, ProjectKind
 from .records import Record
-from .run import ParentRelation, Run, RunCounts, RunStatus
+from .run import ParentRelation, Run, RunCounts, RunStatus, RunType
 from .span import Span
 
 __all__ = [
@@ -105,6 +105,7 @@ __all__ = [
     "RunCounts",
     "RunEdit",
     "RunStatus",
+    "RunType",
     "ScaleArgs",
     "SetConfigArgs",
     "ShiftStepArgs",

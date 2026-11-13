@@ -9,6 +9,9 @@ if typing.TYPE_CHECKING:
     from .create_trades_request_instrument_type import CreateTradesRequestInstrumentType
     from .create_trades_request_order_type import CreateTradesRequestOrderType
     from .create_trades_request_side import CreateTradesRequestSide
+    from .create_trades_request_stop_loss import CreateTradesRequestStopLoss
+    from .create_trades_request_take_profit import CreateTradesRequestTakeProfit
+    from .create_trades_request_time_in_force import CreateTradesRequestTimeInForce
     from .create_trades_request_type import CreateTradesRequestType
     from .list_trades_request_direction import ListTradesRequestDirection
     from .list_trades_request_order import ListTradesRequestOrder
@@ -20,6 +23,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateTradesRequestInstrumentType": ".create_trades_request_instrument_type",
     "CreateTradesRequestOrderType": ".create_trades_request_order_type",
     "CreateTradesRequestSide": ".create_trades_request_side",
+    "CreateTradesRequestStopLoss": ".create_trades_request_stop_loss",
+    "CreateTradesRequestTakeProfit": ".create_trades_request_take_profit",
+    "CreateTradesRequestTimeInForce": ".create_trades_request_time_in_force",
     "CreateTradesRequestType": ".create_trades_request_type",
     "ListTradesRequestDirection": ".list_trades_request_direction",
     "ListTradesRequestOrder": ".list_trades_request_order",
@@ -55,6 +61,9 @@ __all__ = [
     "CreateTradesRequestInstrumentType",
     "CreateTradesRequestOrderType",
     "CreateTradesRequestSide",
+    "CreateTradesRequestStopLoss",
+    "CreateTradesRequestTakeProfit",
+    "CreateTradesRequestTimeInForce",
     "CreateTradesRequestType",
     "ListTradesRequestDirection",
     "ListTradesRequestOrder",

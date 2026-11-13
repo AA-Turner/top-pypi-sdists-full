@@ -566,6 +566,18 @@ _ACCEL_SOURCES = [
     # momwire#1290: SG's band scatter in `np.add.at`'s order. Its own TU: its
     # bits are that order's, and nothing else may move its codegen.
     "src/momwire/_accel_row_scatter.cpp",
+    # momwire#1905: the sinusoidal fill's Φ → Z reduction in scipy's
+    # `csr_matvecs` order, threaded over observer rows. Its own TU for the
+    # row scatter's reason: its bits are that order's.
+    "src/momwire/_accel_phi_reduce.cpp",
+    # momwire#1916: `_lapack.solve`'s copy, finiteness check and 1-norm in
+    # one threaded pass. Its own TU: a copy and lange's sum order, nothing
+    # else may move its codegen.
+    "src/momwire/_accel_solve_prep.cpp",
+    # momwire#1916: pair_reuse's class gather fused into the Φ → Z
+    # reduction (`reduce_phi_band`'s order). Its own TU for the reduction's
+    # reason: its bits are that order's.
+    "src/momwire/_accel_sin_pair_reuse.cpp",
     # The remainder order's per-source scan (`_quadrature.remainder_qp_pairs`).
     # Its own TU so that no existing kernel's codegen can move with it.
     "src/momwire/_accel_qp_pairs.cpp",

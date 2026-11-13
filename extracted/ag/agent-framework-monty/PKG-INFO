@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agent-framework-monty
-Version: 1.0.0b261106
+Version: 1.0.0b261112
 Summary: Monty CodeAct integrations for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.11
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 License-File: LICENSE
 Requires-Dist: agent-framework-core>=1.19.0,<2
-Requires-Dist: pydantic-monty>=1.0,<1.5
+Requires-Dist: pydantic-monty>=1.0,<2
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true
@@ -268,7 +268,7 @@ Available primitives:
 
 | Primitive | Behavior |
 |-----------|----------|
-| `await tool_name(**kwargs)` | Direct typed call to a registered host tool. Argument types are checked before execution. |
+| `await tool_name(**kwargs)` | Direct typed call to a registered host tool. Keyword arguments only; positional arguments are rejected. Argument types are checked before execution. |
 | `await call_tool("name", **kwargs)` | Generic fallback that dispatches by tool name. Not type-checked. |
 | `asyncio.gather(...)` | Fans out concurrent tool calls. |
 | `print(...)` | Captured and surfaced as text in the tool result. |
@@ -300,7 +300,7 @@ These functions execute on the host rather than inside the Monty interpreter.
   `workspace_root` / `file_mounts` to grant scoped filesystem access.
 - Code is type-checked against tool signatures via
   [ty](https://docs.astral.sh/ty/) before execution, so wrong argument types
-  surface as a clear error before any host tool runs.
+  or positional-argument usage surface as a clear error before any host tool runs.
 - The beta package is part of `agent-framework[all]` and is reachable through
   the lazy-loading namespace `agent_framework.monty`.
 

@@ -341,6 +341,10 @@ class NotesMixin:
         cursor: str | None = None,
         limit: int = 100,
         include_sub_notes: bool = False,
+        owner: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        order: str | None = None,
     ) -> dict:
         """One page of the tenant-wide notes catalog: `{items, next_cursor}`.
 
@@ -383,6 +387,10 @@ class NotesMixin:
             # and answers the pre-0146 shape — degraded to the old sweep, never
             # an error.
             params["include_sub_notes"] = "true"
+        # Who wrote it and when, passed as given (`Client.search` says how); the server echoes `owner_matched`.
+        people = {"owner": owner, "since": since, "until": until, "order": order}
+        _require_people_filters(self, people, PEOPLE_FILTERS_FEATURE, "listing notes")
+        params.update({name: value for name, value in people.items() if value})
         return self.transport.get("/v1/notes", params=params)
 
     # ---------------------------------------------------------------- team note
@@ -516,13 +524,15 @@ class NotesResource(Resource):
 
     def list(
         self, *, query: str | None = None, cursor: str | None = None, limit: int = 100,
-        include_sub_notes: bool = False,
+        include_sub_notes: bool = False, owner: str | None = None, since: str | None = None,
+        until: str | None = None, order: str | None = None,
     ) -> NoteCatalogOut:
         """`Client.list_notes` as a `NoteCatalogOut`."""
         return self._to_model(
             NoteCatalogOut,
             self._client.list_notes(
                 query=query, cursor=cursor, limit=limit, include_sub_notes=include_sub_notes,
+                owner=owner, since=since, until=until, order=order,
             ),
         )
 
@@ -554,3 +564,7 @@ class NotesResource(Resource):
     def get_team_note_version(self, version: int) -> TeamNoteOut:
         """`Client.get_team_note_version` as a `TeamNoteOut`."""
         return self._to_model(TeamNoteOut, self._client.get_team_note_version(version))
+from probe.sdk.client.resources.reads import (  # noqa: E402 -- pieces need each other; the front door loads this one first
+    PEOPLE_FILTERS_FEATURE,
+    _require_people_filters,
+)

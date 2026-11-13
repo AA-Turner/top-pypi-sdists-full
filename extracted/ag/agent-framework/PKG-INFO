@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agent-framework
-Version: 1.25.0
+Version: 1.26.0
 Summary: Microsoft Agent Framework for building AI Agents with Python. This package contains core and a curated set of optional integrations.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.11
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core[all]==1.25.0
+Requires-Dist: agent-framework-core[all]==1.26.0
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true

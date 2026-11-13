@@ -243,6 +243,7 @@ class LoraProvider(boxed_param.BoxedParamProvider):
       precision: jax.lax.PrecisionLike = None,
       preferred_element_type: jax.typing.DTypeLike | None = None,
       out_sharding: jax.sharding.NamedSharding | None = None,
+      **kwargs: Any,
   ) -> jax.Array:
     """LoRA dot_general."""
     res = super().dot_general(
@@ -252,6 +253,7 @@ class LoraProvider(boxed_param.BoxedParamProvider):
         precision,
         preferred_element_type,
         out_sharding=out_sharding,
+        **kwargs,
     )
 
     rule, _ = self._get_current_rule_and_op_id(
@@ -263,6 +265,7 @@ class LoraProvider(boxed_param.BoxedParamProvider):
     weight_name = flax_util.find_param(rhs, boxed_param.WithAux)
     if weight_name is None:  # rhs is not a weight.
       return res
+    qconfig.check_unsupported_options('LoRA dot_general', kwargs)
 
     (lhs_ca, rhs_ca), (lhs_ba, rhs_ba) = dimension_numbers
 

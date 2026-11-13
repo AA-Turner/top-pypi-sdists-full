@@ -73,7 +73,12 @@ class Dispute(UniversalBaseModel):
 
     fee: typing.Optional[Money] = pydantic.Field(default=None)
     """
-    The dispute fee charged to the seller, in the currency it was collected in. `null` when no fee was charged, such as for an inquiry or a Visa RDR resolution.
+    The dispute fee charged to the account, in the currency it was collected in. `null` when `fee_charged` is false.
+    """
+
+    fee_charged: bool = pydantic.Field()
+    """
+    Whether Whop charged the account a dispute fee for this one. `false` when the payment was fully refunded before the dispute was opened, for a Visa RDR resolution, and for an inquiry.
     """
 
     id: str = pydantic.Field()
@@ -110,7 +115,12 @@ class Dispute(UniversalBaseModel):
 
     status: DisputeStatus = pydantic.Field()
     """
-    Where the dispute stands. `needs_response` is awaiting evidence, `under_review` is with the processor, `won` returned the funds to the seller, `lost` returned them to the customer, and `prevented` means the customer was refunded before any ruling, so it settles like `lost`. The `warning_` statuses are the same stages for an inquiry, which moves no funds. A dispute past its `evidence_due_at` reports `under_review` — the window to respond has closed.
+    `needs_response` awaits evidence (after a processor refused a filing, `submission_failure_reason` says why); `generating_response` has evidence with the processor, not yet accepted; `under_review` is with the processor; `won`/`lost` are the rulings; `prevented` settles like `lost`. `warning_` statuses are the inquiry tiers. Past `evidence_due_at` an open one reports `under_review`.
+    """
+
+    submission_failure_reason: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Why the payment processor refused the last filing, in plain English, while the dispute is back in `needs_response`. Fix what it names and submit again. Only on retrieve: `dispute.updated` reports the move back to `needs_response`, then read this here.
     """
 
     updated_at: str = pydantic.Field()

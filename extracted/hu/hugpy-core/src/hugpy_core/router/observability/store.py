@@ -13,7 +13,7 @@ import os
 import time
 from typing import Optional
 
-from fitevict.serve.auth import KeyAuth
+from hugpy_core.lifted.key_auth import KeyAuth
 
 from hugpy_core.router.imports import constants as C
 from hugpy_core.router.imports import functions as F
@@ -34,7 +34,7 @@ class _Lazy:
 
     def _real(self):
         if self._store is None:
-            from fitevict.observability.store import Store
+            from hugpy_core.lifted.sqlite_store import Store
             self._store = Store(home, "hugpy_core.router.observability", C.STORE_FILENAME, mode_env=C.ENV_STORE_MODE)
         return self._store
 

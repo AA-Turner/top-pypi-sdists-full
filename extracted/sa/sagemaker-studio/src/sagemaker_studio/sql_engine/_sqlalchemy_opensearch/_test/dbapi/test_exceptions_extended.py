@@ -337,11 +337,12 @@ class TestQueryExecutionErrorStr:
 
     def test_query_only(self):
         err = QueryExecutionError("failed", query="SELECT 1")
-        assert "Query: SELECT 1" in str(err)
+        assert str(err) == "failed"
 
-    def test_short_query_not_truncated(self):
-        err = QueryExecutionError("failed", query="SELECT 1")
-        assert "..." not in str(err)
+    def test_long_query_omitted_with_error_type(self):
+        long_query = "SELECT secret_col, " + "a, " * 100 + "b FROM t"
+        err = QueryExecutionError("failed", query=long_query, error_type="timeout")
+        assert str(err) == "failed (Error type: timeout)"
 
 
 class TestInvalidParameterErrorStr:

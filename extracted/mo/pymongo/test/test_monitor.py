@@ -50,7 +50,7 @@ def get_executors(client):
         executors.append(server._monitor._executor)
         executors.append(server._monitor._rtt_monitor._executor)
     executors.append(client._kill_cursors_executor)
-    executors.append(client._topology._Topology__events_executor)
+    executors.append(client._topology._events_executor)
     return [e for e in executors if e is not None]
 
 
@@ -106,7 +106,8 @@ class TestMonitor(IntegrationTest):
     @client_context.require_sync
     def test_no_thread_start_runtime_err_on_shutdown(self):
         """Test we silence noisy runtime errors fired when the MongoClient spawns a new thread
-        on process shutdown."""
+        on process shutdown.
+        """
         command = [
             sys.executable,
             "-c",

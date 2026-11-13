@@ -32,7 +32,13 @@ from k8s_agent_sandbox.files.filesystem import (
     _multipart_framing,
     _read_binary_chunk,
     _STREAM_CHUNK_SIZE,
+    _mkdir_endpoint,
+    _check_write_options,
     _sandboxd_files_endpoint,
+    _sandboxd_read_endpoint,
+    _sandboxd_op_endpoint,
+    _sandboxd_write_request,
+    _transfer_endpoint,
     _validate_binary_stream,
 )
 from k8s_agent_sandbox.models import FileEntry, SandboxFileConfig
@@ -108,13 +114,22 @@ class AsyncFilesystem:
         content: bytes | str | BinaryIO,
         timeout: int = 60,
         allow_unsafe_paths: bool = False,
+        append: bool = False,
+        create_only: bool = False,
     ) -> None:
         """Upload content to a sandbox-relative path.
 
         Binary file objects are read in chunks from their current position and
         sent once without retries. The caller must close the file object; its
         position may advance if the upload fails.
+
+        On the sandboxd runtime, ``append=True`` adds to the end of the file
+        and ``create_only=True`` fails with a 412 ``SandboxRequestError`` if
+        the path exists. Neither is retried, and they cannot be combined
+        (``ValueError``). The legacy runtime raises
+        ``NotImplementedError``.
         """
+        _check_write_options(self.connector, append, create_only)
         if isinstance(content, str):
             content = content.encode("utf-8")
         elif isinstance(content, (bytearray, memoryview)):
@@ -134,25 +149,25 @@ class AsyncFilesystem:
         # returns the string unchanged, and the NUL truncates at the
         # runtime's C layer.
         if not allow_unsafe_paths:
-            path = Filesystem._safe_upload_path(path)
+            path = Filesystem._safe_upload_path(
+                path, preserve_absolute=self.connector.is_sandboxd()
+            )
         if self.connector.is_sandboxd():
+            endpoint, headers, retry_safe = _sandboxd_write_request(
+                path, append, create_only)
             if isinstance(content, bytes):
-                await self.connector.send_request(
-                    "PUT",
-                    _sandboxd_files_endpoint(path),
-                    content=content,
-                    headers={"Content-Type": "application/octet-stream"},
-                    timeout=timeout,
-                )
+                body: bytes | AsyncIterator[bytes] = content
             else:
-                await self.connector.send_request(
-                    "PUT",
-                    _sandboxd_files_endpoint(path),
-                    content=_iter_binary_chunks(content),
-                    headers={"Content-Type": "application/octet-stream"},
-                    timeout=timeout,
-                    _disable_retries=True,
-                )
+                body = _iter_binary_chunks(content)
+                retry_safe = False
+            await self.connector.send_request(
+                "PUT",
+                endpoint,
+                content=body,
+                headers=headers,
+                timeout=timeout,
+                _disable_retries=not retry_safe,
+            )
         elif isinstance(content, bytes):
             files_payload = {"file": (path, content)}
             await self.connector.send_request(
@@ -197,9 +212,11 @@ class AsyncFilesystem:
             span.set_attribute("sandbox.file.path", path)
 
         if not allow_unsafe_paths:
-            path = Filesystem._safe_upload_path(path)
+            path = Filesystem._safe_upload_path(
+                path, preserve_absolute=self.connector.is_sandboxd()
+            )
         endpoint = (
-            _sandboxd_files_endpoint(path)
+            _sandboxd_read_endpoint(path)
             if self.connector.is_sandboxd()
             else f"download/{urllib.parse.quote(path, safe='')}"
         )
@@ -244,9 +261,11 @@ class AsyncFilesystem:
             span.set_attribute("sandbox.file.path", path)
 
         if not allow_unsafe_paths:
-            path = Filesystem._safe_upload_path(path)
+            path = Filesystem._safe_upload_path(
+                path, preserve_absolute=self.connector.is_sandboxd()
+            )
         endpoint = (
-            _sandboxd_files_endpoint(path)
+            _sandboxd_read_endpoint(path)
             if self.connector.is_sandboxd()
             else f"download/{urllib.parse.quote(path, safe='')}"
         )
@@ -407,15 +426,50 @@ class AsyncFilesystem:
         span = trace.get_current_span()
         if span.is_recording():
             span.set_attribute("sandbox.file.path", path)
-        if not self.connector.is_sandboxd():
-            raise NotImplementedError(
-                "delete() is only supported by the sandboxd runtime; the legacy "
-                "python-runtime has no delete endpoint"
-            )
-        if path == "":
-            raise ValueError("delete: path must not be empty")
-        endpoint = _sandboxd_files_endpoint(path)
-        if recursive:
-            endpoint += "?recursive=true"
+        endpoint = _sandboxd_op_endpoint(
+            self.connector, "delete", path,
+            query={"recursive": "true"} if recursive else None)
         await self.connector.send_request("DELETE", endpoint, timeout=timeout)
         logger.info(f"Path '{path}' deleted successfully.")
+
+    @async_trace_span("mkdir")
+    async def mkdir(
+        self, path: str, parents: bool = False, timeout: int = 60
+    ) -> None:
+        """Create a sandboxd directory, and its missing parents if ``parents``.
+
+        Succeeds if the directory already exists. The legacy runtime raises
+        ``NotImplementedError``.
+        """
+        span = trace.get_current_span()
+        if span.is_recording():
+            span.set_attribute("sandbox.file.path", path)
+        endpoint = _mkdir_endpoint(self.connector, path, parents)
+        await self.connector.send_request("PUT", endpoint, timeout=timeout)
+        logger.info(f"Directory '{path}' created successfully.")
+
+    @async_trace_span("move")
+    async def move(
+        self, source: str, destination: str, overwrite: bool = False, timeout: int = 60
+    ) -> None:
+        """Rename a sandboxd file or directory. See ``Filesystem.move``."""
+        span = trace.get_current_span()
+        if span.is_recording():
+            span.set_attribute("sandbox.file.path", source)
+        endpoint = _transfer_endpoint(
+            self.connector, "move", source, destination, overwrite)
+        await self.connector.send_request("POST", endpoint, timeout=timeout)
+        logger.info(f"Path '{source}' moved to '{destination}'.")
+
+    @async_trace_span("copy")
+    async def copy(
+        self, source: str, destination: str, overwrite: bool = False, timeout: int = 60
+    ) -> None:
+        """Copy a sandboxd file or directory. See ``Filesystem.move``."""
+        span = trace.get_current_span()
+        if span.is_recording():
+            span.set_attribute("sandbox.file.path", source)
+        endpoint = _transfer_endpoint(
+            self.connector, "copy", source, destination, overwrite)
+        await self.connector.send_request("POST", endpoint, timeout=timeout)
+        logger.info(f"Path '{source}' copied to '{destination}'.")

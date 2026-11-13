@@ -13,7 +13,6 @@ Tableau source module
 """
 
 # pylint: disable=too-many-lines
-import re
 import traceback
 from collections import defaultdict
 from datetime import datetime
@@ -21,6 +20,9 @@ from typing import Any, Dict, Iterable, List, Optional, Set  # noqa: UP035
 
 from requests.utils import urlparse  # pyright: ignore[reportPrivateImportUsage]
 
+from metadata.domain.table_reference import TableReference
+from metadata.entity_resolution.table_binding import TableLookup, load_table_binding_resolution
+from metadata.entity_resolution.table_search import get_table_fqn_from_query_name
 from metadata.generated.schema.api.data.createChart import CreateChartRequest
 from metadata.generated.schema.api.data.createDashboard import CreateDashboardRequest
 from metadata.generated.schema.api.data.createDashboardDataModel import (
@@ -67,10 +69,7 @@ from metadata.ingestion.api.step import WorkflowFatalError
 from metadata.ingestion.api.steps import InvalidSourceException
 from metadata.ingestion.lineage.models import ConnectionTypeDialectMapper, Dialect
 from metadata.ingestion.lineage.parser import LineageParser
-from metadata.ingestion.lineage.sql_lineage import (
-    get_column_fqn,
-    get_table_fqn_from_query_name,
-)
+from metadata.ingestion.lineage.sql_lineage import get_column_fqn
 from metadata.ingestion.models.delete_entity import DeleteEntity
 from metadata.ingestion.models.ometa_classification import OMetaTagAndClassification
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
@@ -106,6 +105,7 @@ from metadata.utils.helpers import (
     clean_uri,
     get_database_name_for_lineage,
     get_standard_chart_type,
+    normalize_column_name,
 )
 from metadata.utils.logger import ingestion_logger
 from metadata.utils.tag_utils import get_ometa_tag_and_classification, get_tag_labels
@@ -130,18 +130,6 @@ LENGTH_REQUIRED_DATA_TYPES = {
 # limit that doesn't exist. 0 still satisfies the server's non-null check and
 # matches what Superset reports for the same unknown-length case.
 DEFAULT_DATA_LENGTH = 0
-# Tableau titles database column names when it builds fields (`order_date` becomes
-# `Order Date`), so separators and casing carry no meaning when comparing the two.
-# `\w` is Unicode-aware, and `_` is listed explicitly because `\w` matches it: a name made
-# only of non-ASCII letters must normalize to itself rather than to an empty string, or a
-# CJK column would never collapse onto the field mirroring it.
-NON_ALPHANUMERIC = re.compile(r"[\W_]")
-
-
-def normalize_column_name(name: str) -> str:
-    """Strip separators and casing so a Tableau field name can be compared to the physical
-    column it wraps (``Order Date`` vs ``order_date``)."""
-    return NON_ALPHANUMERIC.sub("", name.casefold())
 
 
 class TableauSource(DashboardServiceSource):
@@ -953,6 +941,7 @@ class TableauSource(DashboardServiceSource):
                 table.database.name if table.database and table.database.name else database_schema_table.get("database")
             )
 
+            db_service_entity = None
             if db_service_name:
                 db_service_entity = self.metadata.get_by_name(entity=DatabaseService, fqn=db_service_name)
                 if db_service_entity:
@@ -976,18 +965,21 @@ class TableauSource(DashboardServiceSource):
             if prefix_table_name and table_name and prefix_table_name.lower() != table_name.lower():
                 logger.debug(f"Table {table_name} does not match prefix {prefix_table_name}")
 
+            resolution = load_table_binding_resolution(
+                db_service_entity.serviceType.value if db_service_entity else None, self.metadata
+            )
+            resolved_name = prefix_table_name or table_name
+            if not resolved_name:
+                return None
+            reference = TableReference(
+                prefix_database_name or database_name, prefix_schema_name or schema_name, resolved_name
+            )
+            matches = resolution.resolve(reference, service_name=db_service_name, lookup=TableLookup.FIRST_MATCH)
+            if matches:
+                return [TableAndQuery(table=match) for match in matches]
             fqn_search_string = build_es_fqn_search_string(
-                database_name=prefix_database_name or database_name,
-                schema_name=prefix_schema_name or schema_name,
-                service_name=db_service_name or "*",
-                table_name=prefix_table_name or table_name,
+                reference.database, reference.schema, db_service_name or "*", reference.table
             )
-            table_entity = self.metadata.search_in_any_service(
-                entity_type=Table,
-                fqn_search_string=fqn_search_string,
-            )
-            if table_entity:
-                return [TableAndQuery(table=table_entity)]
 
             # fallback to fullName if schema name is not appropriate
             # TODO: We should make this a primary approach for lineage instead
@@ -1009,12 +1001,17 @@ class TableauSource(DashboardServiceSource):
                     service_name=db_service_name or "*",
                     table_name=table_query,
                 )
-                table_entity = self.metadata.search_in_any_service(
-                    entity_type=Table,
-                    fqn_search_string=fqn_search_string,
+                matches = resolution.resolve(
+                    TableReference(
+                        prefix_database_name or database_name or database_query,
+                        prefix_schema_name or schema_query,
+                        prefix_table_name or table_query,
+                    ),
+                    service_name=db_service_name,
+                    lookup=TableLookup.FIRST_MATCH,
                 )
-                if table_entity:
-                    return [TableAndQuery(table=table_entity)]
+                if matches:
+                    return [TableAndQuery(table=match) for match in matches]
             logger.debug(
                 "No table entity found for lineage using GraphQL APIs."
                 f"fqn_search_string={fqn_search_string}, table_name={table_name}"

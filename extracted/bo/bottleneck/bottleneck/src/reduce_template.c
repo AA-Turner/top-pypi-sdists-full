@@ -1,5 +1,6 @@
 // Copyright 2010-2019 Keith Goodman
 // Copyright 2019 Bottleneck Developers
+#include <stdlib.h>
 #include "bottleneck.h"
 #include "iterators.h"
 
@@ -29,6 +30,7 @@
     npy_##dtype1 *py; \
     init_iter_one(&it, a, axis); \
     y = PyArray_EMPTY(NDIM - 1, SHAPE, NPY_##dtype0, 0); \
+    if (y == NULL) return NULL; \
     py = (npy_##dtype1 *)PyArray_DATA((PyArrayObject *)y);
 
 /* function signatures --------------------------------------------------- */
@@ -449,6 +451,7 @@ REDUCE_ONE(NAME, DTYPE0) {
     if (LENGTH == 0) {
         VALUE_ERR("numpy.NAME raises on a.shape[axis]==0; "
                   "So Bottleneck too.");
+        Py_DECREF(y);
         return NULL;
     }
     BN_BEGIN_ALLOW_THREADS
@@ -498,6 +501,7 @@ REDUCE_ONE(NAME, DTYPE0) {
     if (LENGTH == 0) {
         VALUE_ERR("numpy.NAME raises on a.shape[axis]==0; "
                   "So Bottleneck too.");
+        Py_DECREF(y);
         return NULL;
     }
     BN_BEGIN_ALLOW_THREADS
@@ -564,6 +568,7 @@ REDUCE_ONE(NAME, DTYPE0) {
     if (LENGTH == 0) {
         VALUE_ERR("numpy.NAME raises on a.shape[axis]==0; "
                   "So Bottleneck too.");
+        Py_DECREF(y);
         return NULL;
     }
     BN_BEGIN_ALLOW_THREADS
@@ -588,6 +593,7 @@ REDUCE_ONE(NAME, DTYPE0) {
     BN_END_ALLOW_THREADS
     if (err_code) {
         VALUE_ERR("All-NaN slice encountered");
+        Py_DECREF(y);
         return NULL;
     }
     return y;
@@ -625,6 +631,7 @@ REDUCE_ONE(NAME, DTYPE0) {
     if (LENGTH == 0) {
         VALUE_ERR("numpy.NAME raises on a.shape[axis]==0; "
                   "So Bottleneck too.");
+        Py_DECREF(y);
         return NULL;
     }
     BN_BEGIN_ALLOW_THREADS
@@ -1187,7 +1194,7 @@ reducer(char *name,
     /* convert to array if necessary */
     if (PyArray_Check(a_obj)) {
         a = (PyArrayObject *)a_obj;
-        Py_INCREF(a);
+        Py_INCREF((PyObject*)a);
     } else {
         a = (PyArrayObject *)PyArray_FROM_O(a_obj);
         if (a == NULL) {
@@ -1197,7 +1204,7 @@ reducer(char *name,
 
     /* check for byte swapped input array */
     if (PyArray_ISBYTESWAPPED(a)) {
-        Py_DECREF(a);
+        Py_DECREF((PyObject *)a);
         return slow(name, args, kwds);
     }
 
@@ -1269,12 +1276,12 @@ reducer(char *name,
 
     }
 
-    Py_DECREF(a);
+    Py_DECREF((PyObject *)a);
 
     return y;
 
 error:
-    Py_DECREF(a);
+    Py_DECREF((PyObject *)a);
     return NULL;
 
 }

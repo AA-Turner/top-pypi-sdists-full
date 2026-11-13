@@ -5,11 +5,8 @@ from typing import Any, Dict, Tuple, Type
 
 import yaml
 from pydantic.fields import FieldInfo
-from pydantic_settings import (
-    BaseSettings,
-    PydanticBaseSettingsSource,
-    SettingsConfigDict,
-)
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import YamlConfigSettingsSource as YamlConfigSettingsSourceBase
 
 
 def replace_secrets(secrets_dir: Path, data: str) -> str:
@@ -53,7 +50,7 @@ def yaml_config_settings_source(settings: "YamlBaseSettings") -> Dict[str, Any]:
     return yaml.safe_load(replace_secrets(secrets_path, path.read_text("utf-8")))
 
 
-class YamlConfigSettingsSource(PydanticBaseSettingsSource):
+class YamlConfigSettingsSource(YamlConfigSettingsSourceBase):
     """
     A simple settings source class that loads variables from a YAML file
 

@@ -40,6 +40,7 @@ __all__ = (
     "ListHealthChecksPaginatorName",
     "ListHostedZonesPaginatorName",
     "ListQueryLoggingConfigsPaginatorName",
+    "ListResourceRecordSetProtectionsPaginatorName",
     "ListResourceRecordSetsPaginatorName",
     "ListVPCAssociationAuthorizationsPaginatorName",
     "PaginatorName",
@@ -161,6 +162,7 @@ ListCidrLocationsPaginatorName = Literal["list_cidr_locations"]
 ListHealthChecksPaginatorName = Literal["list_health_checks"]
 ListHostedZonesPaginatorName = Literal["list_hosted_zones"]
 ListQueryLoggingConfigsPaginatorName = Literal["list_query_logging_configs"]
+ListResourceRecordSetProtectionsPaginatorName = Literal["list_resource_record_set_protections"]
 ListResourceRecordSetsPaginatorName = Literal["list_resource_record_sets"]
 ListVPCAssociationAuthorizationsPaginatorName = Literal["list_vpc_association_authorizations"]
 RRTypeType = Literal[
@@ -727,6 +729,7 @@ PaginatorName = Literal[
     "list_health_checks",
     "list_hosted_zones",
     "list_query_logging_configs",
+    "list_resource_record_set_protections",
     "list_resource_record_sets",
     "list_vpc_association_authorizations",
 ]

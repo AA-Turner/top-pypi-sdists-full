@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-09-17 AT 19:00:59
+# AUTO GENERATED ON 2026-11-12 AT 19:21:42
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -59,6 +59,8 @@ def by_signature(cuda_kernel_templates):
     out['awkward_BitMaskedArray_to_IndexedOptionArray', int64, uint8] = None
 
     out['awkward_ByteMaskedArray_getitem_nextcarry', int64, int8] = None
+
+    out['awkward_ListOffsetArray_getitem_boolmask', int64, int64, int8, int64] = None
 
     out['awkward_ByteMaskedArray_getitem_nextcarry_outindex', int64, int64, int8] = None
 
@@ -606,21 +608,7 @@ def by_signature(cuda_kernel_templates):
 
     out['awkward_ListOffsetArray_reduce_nonlocal_nextshifts_64', int64, int64, int64, int64, int64, int64, int64] = None
 
-    def f(grid, block, args):
-        (outstarts, outstops, distincts, lendistincts, outlength, invocation_index, err_code) = args
-        if block[0] > 0:
-            grid_size = math.floor((lendistincts + block[0] - 1) / block[0])
-        else:
-            grid_size = 1
-        temp = cupy.zeros(lendistincts, dtype=cupy.int64)
-        scan_in_array = cupy.zeros(outlength, dtype=cupy.int64)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_a", outstarts.dtype, outstops.dtype, distincts.dtype]))((grid_size,), block, (outstarts, outstops, distincts, lendistincts, outlength, temp, scan_in_array, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_b", outstarts.dtype, outstops.dtype, distincts.dtype]))((grid_size,), block, (outstarts, outstops, distincts, lendistincts, outlength, temp, scan_in_array, invocation_index, err_code))
-    out["awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_a", int64, int64, int64] = None
-    out["awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_b", int64, int64, int64] = None
-    f.dir = ['out', 'out', 'in', 'in', 'in']
-    f.is_ptr = [True, True, True, False, False]
-    out['awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64', int64, int64, int64] = f
+    out['awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64', int64, int64, int64] = None
 
     out['awkward_ListOffsetArray_reduce_nonlocal_preparenext_64', int64, int64, int64, int64, int64, int64, int64] = None
 
@@ -1508,31 +1496,5 @@ def by_signature(cuda_kernel_templates):
     out['awkward_unique_ranges', float32, int64, int64] = None
 
     out['awkward_unique_ranges', float64, int64, int64] = None
-
-    def f(grid, block, args):
-        (toindex, tolength, parents, parentslength, invocation_index, err_code) = args
-        scan_in_array_k = cupy.ones(parentslength, dtype=cupy.int64)
-        scan_in_array_j = cupy.zeros(parentslength, dtype=cupy.int64)
-        cuda_kernel_templates.get_function(fetch_specialization(['awkward_sorting_ranges_a', toindex.dtype, parents.dtype]))(grid, block, (toindex, tolength, parents, parentslength, scan_in_array_k, scan_in_array_j, invocation_index, err_code))
-        scan_in_array_k = cupy.cumsum(scan_in_array_k)
-        scan_in_array_j = cupy.cumsum(scan_in_array_j)
-        cuda_kernel_templates.get_function(fetch_specialization(['awkward_sorting_ranges_b', toindex.dtype, parents.dtype]))(grid, block, (toindex, tolength, parents, parentslength, scan_in_array_k, scan_in_array_j, invocation_index, err_code))
-    out["awkward_sorting_ranges_a", int64, int64] = None
-    out["awkward_sorting_ranges_b", int64, int64] = None
-    f.dir = ['out', 'in', 'in', 'in']
-    f.is_ptr = [True, False, True, False]
-    out['awkward_sorting_ranges', int64, int64] = f
-
-    def f(grid, block, args):
-        (tolength, parents, parentslength, invocation_index, err_code) = args
-        scan_in_array = cupy.zeros(parentslength, dtype=cupy.int64)
-        cuda_kernel_templates.get_function(fetch_specialization(['awkward_sorting_ranges_length_a', tolength.dtype, parents.dtype]))(grid, block, (tolength, parents, parentslength, scan_in_array, invocation_index, err_code))
-        scan_in_array = cupy.cumsum(scan_in_array)
-        cuda_kernel_templates.get_function(fetch_specialization(['awkward_sorting_ranges_length_b', tolength.dtype, parents.dtype]))(grid, block, (tolength, parents, parentslength, scan_in_array, invocation_index, err_code))
-    out["awkward_sorting_ranges_length_a", int64, int64] = None
-    out["awkward_sorting_ranges_length_b", int64, int64] = None
-    f.dir = ['out', 'in', 'in']
-    f.is_ptr = [True, True, False]
-    out['awkward_sorting_ranges_length', int64, int64] = f
 
     return out

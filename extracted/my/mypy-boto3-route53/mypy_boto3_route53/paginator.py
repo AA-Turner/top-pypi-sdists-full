@@ -18,6 +18,7 @@ Usage::
         ListHealthChecksPaginator,
         ListHostedZonesPaginator,
         ListQueryLoggingConfigsPaginator,
+        ListResourceRecordSetProtectionsPaginator,
         ListResourceRecordSetsPaginator,
         ListVPCAssociationAuthorizationsPaginator,
     )
@@ -31,6 +32,7 @@ Usage::
     list_health_checks_paginator: ListHealthChecksPaginator = client.get_paginator("list_health_checks")
     list_hosted_zones_paginator: ListHostedZonesPaginator = client.get_paginator("list_hosted_zones")
     list_query_logging_configs_paginator: ListQueryLoggingConfigsPaginator = client.get_paginator("list_query_logging_configs")
+    list_resource_record_set_protections_paginator: ListResourceRecordSetProtectionsPaginator = client.get_paginator("list_resource_record_set_protections")
     list_resource_record_sets_paginator: ListResourceRecordSetsPaginator = client.get_paginator("list_resource_record_sets")
     list_vpc_association_authorizations_paginator: ListVPCAssociationAuthorizationsPaginator = client.get_paginator("list_vpc_association_authorizations")
     ```
@@ -56,6 +58,8 @@ from .type_defs import (
     ListHostedZonesResponseTypeDef,
     ListQueryLoggingConfigsRequestPaginateTypeDef,
     ListQueryLoggingConfigsResponseTypeDef,
+    ListResourceRecordSetProtectionsRequestPaginateTypeDef,
+    ListResourceRecordSetProtectionsResponseTypeDef,
     ListResourceRecordSetsRequestPaginateTypeDef,
     ListResourceRecordSetsResponseTypeDef,
     ListVPCAssociationAuthorizationsRequestPaginateTypeDef,
@@ -75,6 +79,7 @@ __all__ = (
     "ListHealthChecksPaginator",
     "ListHostedZonesPaginator",
     "ListQueryLoggingConfigsPaginator",
+    "ListResourceRecordSetProtectionsPaginator",
     "ListResourceRecordSetsPaginator",
     "ListVPCAssociationAuthorizationsPaginator",
 )
@@ -203,6 +208,29 @@ class ListQueryLoggingConfigsPaginator(_ListQueryLoggingConfigsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/paginator/ListQueryLoggingConfigs.html#Route53.Paginator.ListQueryLoggingConfigs.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/paginators/#listqueryloggingconfigspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListResourceRecordSetProtectionsPaginatorBase = Paginator[
+        ListResourceRecordSetProtectionsResponseTypeDef
+    ]
+else:
+    _ListResourceRecordSetProtectionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListResourceRecordSetProtectionsPaginator(_ListResourceRecordSetProtectionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/paginator/ListResourceRecordSetProtections.html#Route53.Paginator.ListResourceRecordSetProtections)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/paginators/#listresourcerecordsetprotectionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListResourceRecordSetProtectionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListResourceRecordSetProtectionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/paginator/ListResourceRecordSetProtections.html#Route53.Paginator.ListResourceRecordSetProtections.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/paginators/#listresourcerecordsetprotectionspaginator)
         """
 
 

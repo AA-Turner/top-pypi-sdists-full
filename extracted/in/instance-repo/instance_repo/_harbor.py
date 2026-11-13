@@ -125,13 +125,22 @@ def push_multi_step(client, report, dataset, version, *, split, owner_reference,
                                       meta.to_canonical_json(), overwrite=overwrite, layout=layout)
         skipped = bool(outcome.get("skipped"))
         if verify or skipped:
-            downloaded = root / "readback.tgz"
-            client._content.get(dataset, version, instance_id, split, downloaded,
-                                expected_digest=digest, layout=layout)
-            if not downloaded.is_file() or not verify_file_digest(downloaded, digest):
-                raise TransportError("multi-step archive readback differs from delivered bytes")
+            verifier = getattr(client._content, "verify_upload", None)
+            if verifier is not None:
+                verifier(dataset, version, instance_id, split, archive, expected_digest=digest, layout=layout)
+            else:
+                _verify_legacy_store(client, root, dataset, version, instance_id, split, digest, layout)
         # Register only after every task file and optional image has completed delivery.
         ingest = client._after_upload(register, dataset, version, instance_id, split=split)
         return PushResult(instance_id=instance_id, uploaded=not skipped, skipped=skipped,
                           image_pushed=image_pushed, docker_image=docker_ref or None,
                           digests={"content.tgz": digest}, ingest=ingest)
+
+
+def _verify_legacy_store(client, root, dataset, version, instance_id, split, digest, layout):
+    # Custom stores retain their existing readback contract.
+    downloaded = root / "readback.tgz"
+    client._content.get(dataset, version, instance_id, split, downloaded,
+                        expected_digest=digest, layout=layout)
+    if not downloaded.is_file() or not verify_file_digest(downloaded, digest):
+        raise TransportError("multi-step archive readback differs from delivered bytes")

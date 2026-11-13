@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from types import ModuleType
 
+    from contrast.import_hook import ContrastMetaPathFinder
     from contrast.reporting.fireball import Client
 
 logger = logging.getLogger("contrast")
@@ -65,10 +66,12 @@ class LibraryReader:
         *,
         analyze_libraries: bool = True,
         enable_shields: bool = False,
+        path_finder: ContrastMetaPathFinder | None = None,
     ) -> None:
         self.fireball_client = fireball_client
         self.analyze_libraries = analyze_libraries
         self.enable_shields = enable_shields
+        self.path_finder = path_finder
         self.analysis_thread = threading.Thread(
             target=self._read_distribution_packages, daemon=True
         )
@@ -99,7 +102,14 @@ class LibraryReader:
 
         if self.analyze_libraries:
             self._report_discovered_libraries(libraries)
-            self._report_observed_libraries(self.observed_libraries())
+            # Fireball drops observations of libraries that haven't been discovered
+            # yet, so the import hook only observes libraries from here on. This must
+            # happen before snapshotting sys.modules, so every import is reported by
+            # the import hook, the snapshot, or both. Fireball ignores duplicate
+            # observations.
+            if self.path_finder is not None:
+                self.path_finder.enable_library_observations(self.fireball_client)
+            report_library_observations(self.fireball_client, self.observed_libraries())
 
     @fail_loudly("Unable to initialize Contrast CVE Shields")
     def _enable_shields(self, libraries: list[Library]) -> None:
@@ -146,25 +156,32 @@ class LibraryReader:
         """
         return LibraryObservations(get_loaded_modules().values()).to_list()
 
-    def _report_observed_libraries(
-        self, observations: list[LibraryObservation]
-    ) -> None:
-        reportable_observations = [
-            observation
-            for observation in observations
-            if observation.library_hash not in CONTRAST_DIST_HASHES
-        ]
-        if not reportable_observations:
-            return
 
-        logger.debug(
-            "Reporting observed libraries",
-            count=len(reportable_observations),
-            used_libraries=[
-                f"{obs.library_hash} - {obs.names}" for obs in reportable_observations
-            ],
-        )
-        self.fireball_client.new_library_observations(reportable_observations)
+def observe_library(fireball_client: Client, module: ModuleType) -> None:
+    """
+    Reports the library that an imported module belongs to.
+    """
+    if (hash_and_file := _library_hash_and_file(module)) is None:
+        return
+    library_hash, file_name = hash_and_file
+    report_library_observations(
+        fireball_client,
+        [LibraryObservation(library_hash=library_hash, names=[file_name])],
+    )
+
+
+def report_library_observations(
+    fireball_client: Client, observations: list[LibraryObservation]
+) -> None:
+    reportable_observations = [
+        observation
+        for observation in observations
+        if observation.library_hash not in CONTRAST_DIST_HASHES
+    ]
+    if not reportable_observations:
+        return
+
+    fireball_client.new_library_observations(reportable_observations)
 
 
 def library_from_distribution(dist: LightDistribution) -> Library | None:
@@ -220,6 +237,20 @@ def is_editable_install(
     )
 
 
+def _library_hash_and_file(module: ModuleType) -> tuple[str, str] | None:
+    """
+    Returns the (library hash, normalized file name) for the given module, or None if
+    the module doesn't belong to an installed distribution.
+    """
+    if (
+        (file_name := getattr(module, "__file__", None))
+        and (norm_file_name := normalize_file_name(file_name))
+        and (dist_meta := distribution_from_module(module))
+    ):
+        return get_hash(dist_meta.name, dist_meta.version), norm_file_name
+    return None
+
+
 class LibraryObservations:
     """
     LibraryObservations is responsible for collecting and reporting the loaded libraries
@@ -234,14 +265,9 @@ class LibraryObservations:
             self.add_module(module)
 
     def add_module(self, module: ModuleType) -> None:
-        if (
-            (file_name := getattr(module, "__file__", None))
-            and (norm_file_name := normalize_file_name(file_name))
-            and (dist_meta := distribution_from_module(module))
-        ):
-            self._observations[get_hash(dist_meta.name, dist_meta.version)].append(
-                norm_file_name
-            )
+        if hash_and_file := _library_hash_and_file(module):
+            library_hash, file_name = hash_and_file
+            self._observations[library_hash].append(file_name)
 
     def to_list(self) -> list[LibraryObservation]:
         return [

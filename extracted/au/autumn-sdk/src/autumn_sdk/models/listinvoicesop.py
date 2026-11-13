@@ -25,7 +25,7 @@ class ListInvoicesGlobals(BaseModel):
         Optional[str],
         pydantic.Field(alias="x-api-version"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
-    ] = "2.5.0"
+    ] = "2.6.0"
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -245,6 +245,8 @@ class ListInvoicesItem(BaseModel):
 
 
 class ListInvoicesListTypedDict(TypedDict):
+    id: str
+    r"""The Autumn invoice ID"""
     plan_ids: List[str]
     r"""Array of plan IDs included in this invoice"""
     stripe_id: str
@@ -253,20 +255,18 @@ class ListInvoicesListTypedDict(TypedDict):
     r"""The status of the invoice"""
     total: float
     r"""The total amount of the invoice"""
+    amount_paid: Nullable[float]
+    r"""The amount paid on the invoice, in major currency units. Null on invoices recorded before amounts paid were tracked."""
+    refunded_amount: float
+    r"""The total amount refunded on the invoice, in major currency units"""
     currency: str
     r"""The currency code for the invoice"""
     created_at: float
     r"""Timestamp when the invoice was created"""
-    id: str
-    r"""The Autumn invoice ID"""
     customer_id: Nullable[str]
     r"""The ID of the customer this invoice belongs to. Null for customers created without an ID."""
     entity_id: Nullable[str]
     r"""The ID of the entity this invoice belongs to, if entity-scoped"""
-    amount_paid: Nullable[float]
-    r"""The amount paid on the invoice. Null on invoices recorded before amounts paid were tracked."""
-    refunded_amount: float
-    r"""The total amount refunded on the invoice"""
     processor_type: NotRequired[ListInvoicesListProcessorType]
     r"""The billing processor that owns this invoice."""
     hosted_invoice_url: NotRequired[Nullable[str]]
@@ -276,6 +276,9 @@ class ListInvoicesListTypedDict(TypedDict):
 
 
 class ListInvoicesList(BaseModel):
+    id: str
+    r"""The Autumn invoice ID"""
+
     plan_ids: List[str]
     r"""Array of plan IDs included in this invoice"""
 
@@ -288,26 +291,23 @@ class ListInvoicesList(BaseModel):
     total: float
     r"""The total amount of the invoice"""
 
+    amount_paid: Nullable[float]
+    r"""The amount paid on the invoice, in major currency units. Null on invoices recorded before amounts paid were tracked."""
+
+    refunded_amount: float
+    r"""The total amount refunded on the invoice, in major currency units"""
+
     currency: str
     r"""The currency code for the invoice"""
 
     created_at: float
     r"""Timestamp when the invoice was created"""
 
-    id: str
-    r"""The Autumn invoice ID"""
-
     customer_id: Nullable[str]
     r"""The ID of the customer this invoice belongs to. Null for customers created without an ID."""
 
     entity_id: Nullable[str]
     r"""The ID of the entity this invoice belongs to, if entity-scoped"""
-
-    amount_paid: Nullable[float]
-    r"""The amount paid on the invoice. Null on invoices recorded before amounts paid were tracked."""
-
-    refunded_amount: float
-    r"""The total amount refunded on the invoice"""
 
     processor_type: Optional[ListInvoicesListProcessorType] = "stripe"
     r"""The billing processor that owns this invoice."""
@@ -322,7 +322,7 @@ class ListInvoicesList(BaseModel):
     def serialize_model(self, handler):
         optional_fields = set(["processor_type", "hosted_invoice_url", "items"])
         nullable_fields = set(
-            ["hosted_invoice_url", "customer_id", "entity_id", "amount_paid"]
+            ["amount_paid", "hosted_invoice_url", "customer_id", "entity_id"]
         )
         serialized = handler(self)
         m = {}

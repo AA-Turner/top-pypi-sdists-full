@@ -14,6 +14,24 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None  # A worker key belongs only to the supplied endpoint.
 
 
+def _still_answers_as(saved: dict, name: str) -> bool:
+    """Whether the endpoint saved for ``name`` is still a wrapper answering under that name. A worker whose
+    address changed (a new lease, a moved box) leaves a saved endpoint that is silent or is someone else's."""
+    headers = {'Accept': 'application/json'}
+    if saved.get('key'):
+        headers['Authorization'] = 'Bearer ' + saved['key']
+    try:
+        req = urllib.request.Request(saved['url'].rstrip('/') + '/health', headers=headers)
+        try:
+            with urllib.request.build_opener(NoRedirect).open(req, timeout=5) as response:
+                health = json.load(response)
+        except urllib.error.HTTPError as exc:          # 503: a degraded wrapper still says who it is
+            health = json.load(exc)
+    except (OSError, ValueError):
+        return False
+    return isinstance(health, dict) and str(health.get('worker') or '').strip() == name
+
+
 def connect_wrapper():
     # This follows the console's access policy, like its box/settings controls.
     # Machine registration at POST /fleet/workers keeps its separate key gate.
@@ -65,11 +83,21 @@ def connect_wrapper():
         return jsonify(error='Core could not read Wrapper telemetry. Check the address, port and network access.'), 400
     name = health['worker'].strip()
     existing = registrations.get(name)
+    moved_from = None
     if existing and existing['url'].rstrip('/') != url:
-        return jsonify(error='A different endpoint is already registered as ' + name + '. Remove that worker before replacing it.'), 409
-    registrations.upsert({'name': name, 'url': url, 'key': key})
-    return jsonify(name=name, url=url, state='registered',
-                   message='Connected. Its model inventory and telemetry will appear as intake refreshes.'), 200
+        if _still_answers_as(existing, name):
+            return jsonify(error='Another machine is answering as ' + name + ' at ' + existing['url'].rstrip('/')
+                           + '. Two workers cannot share a name: give this one its own ("worker" in its '
+                             '/etc/hugpy/wrapper/settings.json, then restart hugpy-wrapper).'), 409
+        moved_from = existing['url'].rstrip('/')          # the saved address no longer is this worker: it moved
+    saved = registrations.upsert({'name': name, 'url': url, 'key': key})
+    if not registrations.is_connected(saved):
+        # Connecting is the operator's (or the worker's own installer's) word that this worker is wanted:
+        # a connection that was switched off is switched back on, not left saved and silent.
+        registrations.set_connected(name, True)
+    return jsonify(name=name, url=url, state='registered', **({'moved_from': moved_from} if moved_from else {}),
+                   message=('Connected at its new address (was ' + moved_from + '). ' if moved_from else 'Connected. ')
+                   + 'Its model inventory and telemetry will appear as intake refreshes.'), 200
 
 
 def saved_connections():

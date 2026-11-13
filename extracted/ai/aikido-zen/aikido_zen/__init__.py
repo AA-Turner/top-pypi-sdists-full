@@ -2,9 +2,38 @@
 Aggregates from the different modules
 """
 
-import os
+# pylint: disable=wrong-import-position
+import sys
 
-from aikido_zen.background_process.test_uds_file_access import test_uds_file_access
+_zen_lazy_imports_filter = None
+
+
+def _keep_zen_imports_eager():
+    """
+    Python 3.15 can make every import lazy (PYTHON_LAZY_IMPORTS=all), and Zen then
+    stops protecting requests after the first one. Keep Zen's own imports eager;
+    all other imports still follow the app's lazy imports filter.
+    """
+    global _zen_lazy_imports_filter  # pylint: disable=global-statement
+    if not hasattr(sys, "set_lazy_imports_filter"):
+        return
+    app_filter = sys.get_lazy_imports_filter()  # pylint: disable=no-member
+    if app_filter is not None and app_filter is _zen_lazy_imports_filter:
+        return
+
+    def lazy_imports_filter(importer, name, fromlist):
+        if importer and importer.startswith("aikido_zen"):
+            return False
+        return app_filter is None or app_filter(importer, name, fromlist)
+
+    _zen_lazy_imports_filter = lazy_imports_filter
+    sys.set_lazy_imports_filter(lazy_imports_filter)  # pylint: disable=no-member
+
+
+# Runs before the imports below, so that they are already eager.
+_keep_zen_imports_eager()
+
+import os
 
 # Re-export functions :
 from aikido_zen.context.users import set_user
@@ -19,7 +48,7 @@ from aikido_zen.middleware.set_rate_limit_group import set_rate_limit_group
 from aikido_zen.helpers.logging import logger
 
 # Import background process
-from aikido_zen.background_process import start_background_process
+from aikido_zen.background_process import check_socket_access, start_background_process
 
 # Load environment variables and constants
 from aikido_zen.config import PKG_VERSION
@@ -41,10 +70,13 @@ def protect(mode="daemon", token=""):
         return
     if gil_not_enabled():
         return
-    if not test_uds_file_access():
+    if not check_socket_access():
         return  # Unable to start background process
     if check_gevent():
         return  # gevent is not compatible with zen.
+
+    # The app can have replaced Zen's lazy imports filter since aikido_zen was imported.
+    _keep_zen_imports_eager()
 
     if token:
         os.environ["AIKIDO_TOKEN"] = token

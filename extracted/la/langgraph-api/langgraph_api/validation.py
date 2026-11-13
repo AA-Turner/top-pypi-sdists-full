@@ -31,6 +31,7 @@ RESERVED_CONFIGURABLE_KEYS = (
     "__dd_trace_headers__",
     "__pregel_node_finished",
     "__context_provided__",
+    "cron_id",
 )
 RESERVED_METADATA_KEYS = (
     "thread_id",
@@ -111,7 +112,7 @@ _RESERVED_KEYS_SET = frozenset(RESERVED_CONFIGURABLE_KEYS)
 _RESERVED_METADATA_KEYS_SET = frozenset(RESERVED_METADATA_KEYS)
 
 
-def _strip_reserved(
+def strip_reserved(
     d: dict,
     location: str,
     reserved_keys: frozenset[str] = _RESERVED_KEYS_SET,
@@ -133,7 +134,7 @@ def _strip_metadata(d: dict, location: str) -> None:
     """Strip reserved keys from a ``metadata`` sub-dict if present."""
     metadata = d.get("metadata")
     if isinstance(metadata, dict):
-        _strip_reserved(
+        strip_reserved(
             metadata,
             location,
             reserved_keys=_RESERVED_METADATA_KEYS_SET,
@@ -183,22 +184,42 @@ def sanitize_reserved_keys(data: typing.Any, *, strip_metadata: bool = True) -> 
     if isinstance(config, dict):
         configurable = config.get("configurable")
         if isinstance(configurable, dict):
-            _strip_reserved(configurable, "config.configurable")
+            strip_reserved(configurable, "config.configurable")
 
     # Config schema: top-level configurable
     configurable = data.get("configurable")
     if isinstance(configurable, dict):
-        _strip_reserved(configurable, "configurable")
+        strip_reserved(configurable, "configurable")
 
     # write schemas: context
     context = data.get("context")
     if isinstance(context, dict):
-        _strip_reserved(context, "context")
+        strip_reserved(context, "context")
+
+    # checkpoint: merged into configurable on run create and when a cron fires
+    checkpoint = data.get("checkpoint")
+    if isinstance(checkpoint, dict):
+        strip_reserved(checkpoint, "checkpoint")
 
 
 def should_strip_reserved_metadata(schema: typing.Any) -> bool:
     """Return whether reserved metadata keys should be stripped for this schema."""
     return schema in _WRITE_SCHEMAS_WITH_METADATA_SET
+
+
+SchemaValidator = (
+    jsonschema_rs.Draft4Validator
+    | jsonschema_rs.Draft6Validator
+    | jsonschema_rs.Draft7Validator
+    | jsonschema_rs.Draft201909Validator
+    | jsonschema_rs.Draft202012Validator
+)
+
+
+def sanitize_and_validate(data: object, schema: SchemaValidator | None) -> None:
+    sanitize_reserved_keys(data, strip_metadata=should_strip_reserved_metadata(schema))
+    if schema is not None:
+        schema.validate(data)
 
 
 _validation_openapi = copy.deepcopy(openapi)

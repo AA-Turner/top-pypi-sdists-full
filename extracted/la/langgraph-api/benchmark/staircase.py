@@ -55,6 +55,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections import Counter
 from pathlib import Path
 
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:9123")
@@ -307,12 +308,16 @@ def main():
     print(f"Target: {BASE_URL}\n")
 
     steps: list[dict] = []
+    # Every worker any step saw, so an autoscaled cell counts the workers it added.
+    cpu_by_host: dict[str, str] = {}
 
     for i in range(1, NUM_STEPS + 1):
         target = START_LOAD + STEP_SIZE * (i - 1)
         print(f"\n--- Step {i}/{NUM_STEPS}: {target} {UNIT} ---")
 
         metrics = run_step(target)
+        if metrics is not None:
+            cpu_by_host.update(metrics.pop("cpuByHost", None) or {})
 
         if metrics is None:
             steps.append(
@@ -455,6 +460,8 @@ def main():
             f"successful runs/sec (at {ceiling['atVUs']} {UNIT})"
         )
     print(sep)
+    server_cpus = dict(Counter(cpu_by_host.values())) or None
+    print(f"Server CPUs (workers seen): {server_cpus}")
 
     summary = {
         "capacity": {
@@ -475,6 +482,7 @@ def main():
         if max_throughput > 0
         else None,
         "throughputCeiling": ceiling,
+        "serverCpus": server_cpus,
         "config": {
             "k6Executor": K6_EXECUTOR,
             "maxVusCap": MAX_VUS_CAP,

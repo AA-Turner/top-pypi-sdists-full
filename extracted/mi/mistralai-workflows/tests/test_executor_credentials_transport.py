@@ -47,7 +47,7 @@ def worker_config(monkeypatch):
 class TestExecutorCredentialsTransport:
     @pytest.mark.parametrize("explicit_headers", [False, True])
     @pytest.mark.parametrize("worker_credential", ["none", "api_key", "configured_api_key", "service_account"])
-    @pytest.mark.parametrize("run_as", [None, RunAs.AUTO], ids=["strict", "auto"])
+    @pytest.mark.parametrize("run_as", [None, RunAs.EXECUTOR, RunAs.AUTO], ids=["legacy-executor", "executor", "auto"])
     async def test_internal_exchange_and_public_executor_requests(
         self, monkeypatch, tmp_path, use_async, explicit_headers, worker_credential, run_as
     ):
@@ -158,7 +158,7 @@ class TestExecutorCredentialsTransport:
         client = get_mistral_client(
             server_url=_PUBLIC_URL,
             token_provider=FileTokenProvider(token_file, refresh_margin_seconds=300),
-            use_executor_credentials=True,
+            run_as=RunAs.EXECUTOR,
             executor_credentials_headers={} if explicit_empty_headers else None,
         )
         for token in worker_tokens:
@@ -186,7 +186,7 @@ class TestExecutorCredentialsTransport:
 
         self._mock_http(monkeypatch, handler)
         client = get_mistral_client(
-            server_url=_PUBLIC_URL, use_executor_credentials=True, executor_credentials_server_url=_INTERNAL_URL
+            server_url=_PUBLIC_URL, run_as=RunAs.EXECUTOR, executor_credentials_server_url=_INTERNAL_URL
         )
         with define_context(_context(str(uuid.uuid4()))):
             if use_async:
@@ -205,7 +205,7 @@ class TestExecutorCredentialsTransport:
 
         self._mock_http(monkeypatch, handler)
         client = get_mistral_client(
-            server_url=_PUBLIC_URL, use_executor_credentials=True, executor_credentials_server_url=_INTERNAL_URL
+            server_url=_PUBLIC_URL, run_as=RunAs.EXECUTOR, executor_credentials_server_url=_INTERNAL_URL
         )
         with define_context(_context(str(uuid.uuid4()))), pytest.raises(SDKError):
             if use_async:
@@ -235,4 +235,4 @@ def test_explicit_empty_exchange_headers_disable_worker_header_fallback(monkeypa
     monkeypatch.setattr(config.common, "mistral_sa_token_path", None)
     monkeypatch.setattr(config.worker, "mistral_api_headers", _WORKER_HEADERS)
     with pytest.raises(WorkflowError, match="authentication headers"):
-        get_mistral_client(use_executor_credentials=True, executor_credentials_headers={})
+        get_mistral_client(run_as=RunAs.EXECUTOR, executor_credentials_headers={})

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmcache
-Version: 0.5.6
+Version: 0.5.7.post1
 Summary: A LLM serving engine extension to reduce TTFT and increase throughput, especially under long-context scenarios.
 Author-email: LMCache Team <lmcacheteam@gmail.com>
 License-Expression: Apache-2.0
@@ -14,13 +14,14 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Requires-Python: <3.14,>=3.10
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiofile
@@ -34,7 +35,8 @@ Requires-Dist: fastapi
 Requires-Dist: httpx
 Requires-Dist: huggingface_hub>=1.5.0
 Requires-Dist: msgspec
-Requires-Dist: numpy<=2.2.6
+Requires-Dist: numpy<=2.2.6; python_version < "3.14"
+Requires-Dist: numpy; python_version >= "3.14"
 Requires-Dist: numba
 Requires-Dist: nvtx
 Requires-Dist: opentelemetry-api<=1.40.0,>=1.20.0
@@ -63,7 +65,11 @@ Requires-Dist: cachetools
 Requires-Dist: google-api-core
 Requires-Dist: google-cloud-bigtable
 Provides-Extra: kafka
-Requires-Dist: confluent-kafka>=2.3.0; extra == "kafka"
+Requires-Dist: confluent-kafka<2.16,>=2.3.0; extra == "kafka"
+Provides-Extra: raw-block
+Requires-Dist: lmcache-rust-raw-block-io; extra == "raw-block"
+Provides-Extra: grpc-native
+Requires-Dist: pygrpc-native>=0.7.0; extra == "grpc-native"
 Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
@@ -80,6 +86,7 @@ Dynamic: requires-dist
   <h3 align="center">
     <a href="https://blog.lmcache.ai/">Blog</a> |
     <a href="https://docs.lmcache.ai/">Documentation</a> |
+    <a href="https://docs.lmcache.ai/community/faq.html">FAQ</a> |
     <a href="https://join.slack.com/t/lmcacheworkspace/shared_invite/zt-3zxjao8h0-lRfBfnLqbALOtLsWn2ITxA">Join Slack</a> |
     <a href="https://docs.lmcache.ai/community/meetings.html">Community Meeting</a> |
     <a href="https://github.com/LMCache/LMCache/issues/2923">Roadmap</a>
@@ -92,7 +99,7 @@ Dynamic: requires-dist
   [![GitHub contributors](https://img.shields.io/github/contributors/LMCache/LMCache)](https://github.com/LMCache/LMCache/graphs/contributors)
   [![Good first issues](https://img.shields.io/github/issues/LMCache/LMCache/good%20first%20issue?label=good%20first%20issues&color=7057ff)](https://github.com/LMCache/LMCache/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
   [![Slack](https://img.shields.io/badge/Slack-Join%20us-4A154B?logo=slack)](https://join.slack.com/t/lmcacheworkspace/shared_invite/zt-3zxjao8h0-lRfBfnLqbALOtLsWn2ITxA)
-  [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/LMCache/LMCache/)
+  [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-1E88E5)](https://deepwiki.com/LMCache/LMCache/)
 
   ⭐ **If LMCache helps you serve LLMs faster and cheaper, [give us a star](https://github.com/LMCache/LMCache) — it helps more teams discover the project.**
 
@@ -168,6 +175,7 @@ For more setup options and examples, see:
 - [CLI Reference](https://docs.lmcache.ai/cli/index.html)
 - [Benchmarking Guide](https://docs.lmcache.ai/getting_started/benchmarking.html)
 - [Production Deployment](https://docs.lmcache.ai/mp/deployment.html)
+- [FAQ](https://docs.lmcache.ai/community/faq.html) (also in [简体中文](https://docs.lmcache.ai/zh_CN/community/faq.html))
 
 ## Contributing
 We welcome and value contributions and collaborations. Join us in improving LMCache. Check out the [Contributing Guide](https://docs.lmcache.ai/developer_guide/contributing.html) or join our [Slack community](https://join.slack.com/t/lmcacheworkspace/shared_invite/zt-3zxjao8h0-lRfBfnLqbALOtLsWn2ITxA) to get started.

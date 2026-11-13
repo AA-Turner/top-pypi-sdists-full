@@ -43,7 +43,12 @@ on:
           - "false"
         default: auto
       cloud-mcp-pyairbyte-requirement:
-        description: "Optional full PyAirbyte requirement spec for cloud-mcp builds, such as 'airbyte==0.54.0.dev123' or 'airbyte @ git+https://...'. Leave empty to deploy the latest PyPI release."
+        description: "Pinned PyAirbyte release, published .dev preview wheel with its build-source SHA, or immutable git SHA for previews. Empty uses the latest PyPI release."
+        required: false
+        type: string
+        default: ""
+      cloud-mcp-pyairbyte-source-sha:
+        description: "Exact 40-character PyAirbyte build checkout SHA for a published .dev preview wheel. Required for those wheels; forbidden for releases and stable deployments."
         required: false
         type: string
         default: ""
@@ -63,6 +68,7 @@ env:
   MCP_PREVIEW: ${{ github.event.client_payload.preview || '' }}
   MCP_PREVIEW_INPUT: ${{ github.event.inputs.preview || '' }}
   MCP_CLOUD_MCP_PYAIRBYTE_REQUIREMENT: ${{ github.event.client_payload.cloud-mcp-pyairbyte-requirement || github.event.inputs.cloud-mcp-pyairbyte-requirement || '' }}
+  MCP_CLOUD_MCP_PYAIRBYTE_SOURCE_SHA: ${{ github.event.client_payload.cloud-mcp-pyairbyte-source-sha || github.event.inputs.cloud-mcp-pyairbyte-source-sha || '' }}
 
 jobs:
   # ---------- Resolve which service(s) to deploy and how ----------
@@ -250,7 +256,6 @@ jobs:
           fetch-depth: 0
 
       - name: Set up uv
-        if: matrix.target.server == 'ops-mcp'
         uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
@@ -293,26 +298,79 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker "${{ env.GCP_REGION }}-docker.pkg.dev" --quiet
 
-      # cloud-mcp leaves PyAirbyte unpinned in `requirements.txt` so a release
-      # ships without a code change there. Resolve the exact version here when
-      # the caller did not request a specific build, so the deployed version is
-      # explicit and recorded in the run rather than whatever PyPI's index
-      # happened to serve mid-build.
       - name: Resolve PyAirbyte requirement
         id: pyairbyte-requirement
         if: matrix.target.server == 'cloud-mcp'
         env:
           REQUESTED_REQUIREMENT: ${{ env.MCP_CLOUD_MCP_PYAIRBYTE_REQUIREMENT }}
+          REQUESTED_SOURCE_SHA: ${{ env.MCP_CLOUD_MCP_PYAIRBYTE_SOURCE_SHA }}
+          IS_PREVIEW: ${{ matrix.target.is_preview }}
         run: |
           set -euo pipefail
           requirement="$REQUESTED_REQUIREMENT"
+          source_sha="${REQUESTED_SOURCE_SHA:-}"
+          if [ -n "$source_sha" ]; then
+            [ "$IS_PREVIEW" = "true" ] && [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]] \
+              || { echo "::error::Cloud MCP build-source SHA must be 40 lowercase hexadecimal characters and is preview-only."; exit 1; }
+          fi
           if [ -z "$requirement" ]; then
             version="$(curl -fsSL --retry 5 --retry-all-errors https://pypi.org/pypi/airbyte/json | jq -r '.info.version // empty')"
             [ -n "$version" ] \
               || { echo "::error::Could not resolve the latest PyAirbyte version from PyPI."; exit 1; }
             requirement="airbyte==$version"
           fi
+          if [[ "$requirement" =~ ^airbyte==([0-9][0-9A-Za-z.+!-]*)$ ]]; then
+            version="${BASH_REMATCH[1]}"
+            if [[ "$version" =~ \.dev[0-9]+(\+[0-9A-Za-z.]+)?$ ]]; then
+              [ "$IS_PREVIEW" = "true" ] && [ -n "$source_sha" ] \
+                || { echo "::error::Published Cloud MCP development wheels require preview mode and their exact build checkout SHA."; exit 1; }
+              echo "git_sha=$source_sha" >> "$GITHUB_OUTPUT"
+            else
+              [ -z "$source_sha" ] \
+                || { echo "::error::Cloud MCP build-source SHA is only valid with a pinned development wheel; releases require their published lock asset."; exit 1; }
+              # PyPI normalizes 1.0.0-rc.44 to 1.0.0rc44; release tags do not.
+              tag_version="$(printf '%s' "$version" | sed -E 's/^([0-9]+(\.[0-9]+)*)rc([0-9]+)$/\1-rc.\3/')"
+              echo "release_tag=v$tag_version" >> "$GITHUB_OUTPUT"
+            fi
+          elif [ "$IS_PREVIEW" = "true" ] && [[ "$requirement" =~ ^airbyte\ @\ git\+https://github\.com/airbytehq/PyAirbyte@([0-9a-f]{40})$ ]]; then
+            [ -z "$source_sha" ] \
+              || { echo "::error::Cloud MCP git requirements already identify their source; do not supply a separate build-source SHA."; exit 1; }
+            echo "git_sha=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Cloud MCP requires airbyte==<version> with a release pylock.toml, or an immutable upstream git SHA for previews only. Got: $requirement"
+            exit 1
+          fi
           echo "requirement=$requirement" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Download PyAirbyte release lock
+        if: matrix.target.server == 'cloud-mcp' && steps.pyairbyte-requirement.outputs.release_tag != ''
+        env:
+          RELEASE_TAG: ${{ steps.pyairbyte-requirement.outputs.release_tag }}
+          BUILD_CONTEXT: ${{ matrix.target.build_context }}
+        run: >
+          curl -fsSL --retry 5 --retry-max-time 60 --max-time 30
+          --output "$BUILD_CONTEXT/pylock.toml"
+          "https://github.com/airbytehq/PyAirbyte/releases/download/${RELEASE_TAG}/pylock.toml"
+
+      # Branch pushes and published dev wheels have no release asset; export
+      # their immutable build source's runtime lock, without resolving dependencies.
+      - name: Check out PyAirbyte preview lock source
+        if: matrix.target.server == 'cloud-mcp' && steps.pyairbyte-requirement.outputs.git_sha != ''
+        uses: actions/checkout@v6
+        with:
+          repository: airbytehq/PyAirbyte
+          ref: ${{ steps.pyairbyte-requirement.outputs.git_sha }}
+          path: .pyairbyte-lock-source
+          persist-credentials: false
+
+      - name: Export PyAirbyte preview lock
+        if: matrix.target.server == 'cloud-mcp' && steps.pyairbyte-requirement.outputs.git_sha != ''
+        env:
+          BUILD_CONTEXT: ${{ matrix.target.build_context }}
+        run: >
+          uv export --project .pyairbyte-lock-source --locked --format pylock.toml
+          --no-dev --no-emit-project --extra datadog
+          --output-file "$GITHUB_WORKSPACE/$BUILD_CONTEXT/pylock.toml"
 
       - name: Build image
         if: matrix.target.server != 'cloud-mcp'

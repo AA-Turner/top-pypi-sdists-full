@@ -21,14 +21,11 @@ def test_replace_secrets():
     """
     data = replace_secrets(Path("src/tests/data"), data)
 
-    assert (
-        data
-        == """
+    assert data == """
         database:
             password: dummy_database_password
             username: dummy_database_username
     """
-    )
 
 
 def test_replace_two_secrets_on_one_line():
@@ -37,12 +34,9 @@ def test_replace_two_secrets_on_one_line():
     """
     data = replace_secrets(Path("src/tests/data"), data)
 
-    assert (
-        data
-        == """
+    assert data == """
         database_conn_str: dummy_database_username:dummy_database_password
     """
-    )
 
 
 def test_missing_secret_file_error():
@@ -79,9 +73,9 @@ def test_yaml_config_settings_source_no_files(mocked_yamlbasesettings):
     with pytest.raises(AssertionError):
         yaml_config_settings_source(mocked_yamlbasesettings)
 
-    mocked_yamlbasesettings.model_config[
-        "yaml_file"
-    ] = "/src/tests/data/not_existing_config.yaml"
+    mocked_yamlbasesettings.model_config["yaml_file"] = (
+        "/src/tests/data/not_existing_config.yaml"
+    )
     with pytest.raises(FileNotFoundError):
         yaml_config_settings_source(mocked_yamlbasesettings)
 

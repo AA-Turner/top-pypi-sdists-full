@@ -1,7 +1,9 @@
 import asyncio
+import concurrent.futures
 import contextvars
 import math
 import ssl
+import threading
 from http import HTTPStatus
 from pathlib import Path
 from typing import List, Type
@@ -240,12 +242,48 @@ async def refresh_temporal_api_key(
     token (``get_token_with_max_age``); we wake ``delay_seconds`` after that point, by which time
     ``get_token()`` has already re-read the rotated token — so the push always lands before expiry.
     Non-rotating credentials never change, so they need no loop.
+
+    The loop runs in a dedicated thread: an async activity that never awaits blocks the event loop, while
+    the Temporal pollers keep running in Rust threads and would otherwise poll with an expired token.
     """
     provider = _resolve_temporal_token()
     if provider is None:
         return
+    stop = threading.Event()
+    finished: concurrent.futures.Future[None] = concurrent.futures.Future()
+
+    def run() -> None:
+        try:
+            _refresh_temporal_api_key_until_stopped(service_client, provider, stop, delay_seconds)
+        except BaseException as exc:
+            finished.set_exception(exc)
+        else:
+            finished.set_result(None)
+
+    # A pending future gets cancelled by a second task.cancel(), and the thread's set_result would then raise.
+    finished.set_running_or_notify_cancel()
+    # Not asyncio.to_thread: this loop lives as long as the worker, so it would hold a default-executor
+    # thread that activities share. Daemon, so a missed cancellation never blocks process exit.
+    threading.Thread(
+        target=contextvars.copy_context().run, args=(run,), name="temporal-token-refresh", daemon=True
+    ).start()
+    refresh = asyncio.wrap_future(finished)
+    try:
+        await asyncio.shield(refresh)
+    finally:
+        stop.set()
+        # Wait for the thread to exit, so no token is pushed once the worker has shut down.
+        await refresh
+
+
+def _refresh_temporal_api_key_until_stopped(
+    service_client: TemporalServiceClient,
+    provider: TokenProvider,
+    stop: threading.Event,
+    delay_seconds: float,
+) -> None:
     last_pushed: str | None = None
-    while True:
+    while not stop.is_set():
         try:
             token, time_until_refresh = provider.get_token_with_max_age()
             if math.isinf(time_until_refresh):
@@ -256,9 +294,10 @@ async def refresh_temporal_api_key(
                 logger.debug("updated temporal api key from token provider")
         except Exception as exc:
             logger.warning("failed to refresh temporal token", **extract_error_context(exc), exc_info=exc)
-            await asyncio.sleep(delay_seconds)
+            stop.wait(delay_seconds)
             continue
-        await asyncio.sleep(time_until_refresh + delay_seconds)
+        # Event.wait raises OverflowError past TIMEOUT_MAX, e.g. for a token that expires centuries from now.
+        stop.wait(min(time_until_refresh + delay_seconds, threading.TIMEOUT_MAX))
 
 
 async def create_temporal_client(

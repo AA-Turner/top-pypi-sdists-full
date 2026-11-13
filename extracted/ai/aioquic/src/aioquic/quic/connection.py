@@ -2,8 +2,8 @@ import ipaddress
 import logging
 import os
 from collections import deque
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass, replace
 from enum import Enum
 from functools import partial
 from typing import Any
@@ -20,6 +20,14 @@ from . import events
 from .configuration import SMALLEST_MAX_DATAGRAM_SIZE, QuicConfiguration
 from .congestion.base import K_GRANULARITY
 from .crypto import CryptoError, CryptoPair, KeyUnavailableError, NoCallback
+from .exceptions import (
+    ConnectionConfigurationError,
+    ConnectionStateError,
+    DatagramFrameCapacityError,
+    OutOfRangeError,
+    StreamStateError,
+    StreamTypeError,
+)
 from .logger import QuicLoggerTrace
 from .packet import (
     CONNECTION_ID_MAX_SIZE,
@@ -52,7 +60,12 @@ from .packet_builder import (
     QuicPacketBuilderStop,
 )
 from .recovery import MAX_ACK_RANGES, QuicPacketRecovery, QuicPacketSpace
-from .stream import FinalSizeError, QuicStream, StreamFinishedError
+from .stream import (
+    ErrorCodeChangedError,
+    FinalSizeError,
+    QuicStream,
+    StreamFinishedError,
+)
 
 logger = logging.getLogger("quic")
 
@@ -67,6 +80,8 @@ MAX_EARLY_DATA = 0xFFFFFFFF
 MAX_REMOTE_CHALLENGES = 32
 MAX_LOCAL_CHALLENGES = 5
 MAX_NETWORK_PATHS = 8
+# Flow control windows grow up to this multiple of their configured size.
+MAX_WINDOW_GROWTH = 16
 SECRETS_LABELS = [
     [
         None,
@@ -83,7 +98,6 @@ SECRETS_LABELS = [
 ]
 STREAM_FLAGS = 0x07
 STREAM_COUNT_MAX = 0x1000000000000000
-UDP_HEADER_SIZE = 8
 MAX_PENDING_RETIRES = 100
 MAX_PENDING_CRYPTO = 524288  # in bytes
 
@@ -102,6 +116,7 @@ PATH_CHALLENGE_FRAME_CAPACITY = 1 + 8
 PATH_RESPONSE_FRAME_CAPACITY = 1 + 8
 PING_FRAME_CAPACITY = 1
 RESET_STREAM_FRAME_CAPACITY = 1 + 3 * UINT_VAR_MAX_SIZE
+RESET_STREAM_AT_FRAME_CAPACITY = 1 + 4 * UINT_VAR_MAX_SIZE
 RETIRE_CONNECTION_ID_CAPACITY = 1 + UINT_VAR_MAX_SIZE
 STOP_SENDING_FRAME_CAPACITY = 1 + 2 * UINT_VAR_MAX_SIZE
 STREAMS_BLOCKED_CAPACITY = 1 + UINT_VAR_MAX_SIZE
@@ -139,6 +154,18 @@ def get_epoch(packet_type: QuicPacketType) -> tls.Epoch:
         return tls.Epoch.ONE_RTT
 
 
+def get_transport_parameters(
+    extensions: Iterable[tls.Extension],
+) -> QuicTransportParameters:
+    """
+    Find and parse the QUIC transport parameters in a list of TLS extensions.
+
+    Raises `KeyError` if they are missing and `ValueError` if they cannot be parsed.
+    """
+    data = dict(extensions)[tls.ExtensionType.QUIC_TRANSPORT_PARAMETERS]
+    return pull_quic_transport_parameters(Buffer(data=data))
+
+
 def stream_is_client_initiated(stream_id: int) -> bool:
     """
     Returns True if the stream is client initiated.
@@ -153,6 +180,42 @@ def stream_is_unidirectional(stream_id: int) -> bool:
     return bool(stream_id & 2)
 
 
+def validate_error_code(error_code: int) -> None:
+    """
+    Raises `OutOfRangeError` if the error code is not between 0 and 2^62 - 1
+    (RFC 9000 section 20).
+    """
+    if not 0 <= error_code <= UINT_VAR_MAX:
+        raise OutOfRangeError("Error code must be between 0 and 2^62 - 1")
+
+
+def validate_frame_type(frame_type: int) -> None:
+    """
+    Raises `OutOfRangeError` if the frame type is not between 0 and 2^62 - 1
+    (RFC 9000 section 12.4).
+    """
+    if not 0 <= frame_type <= UINT_VAR_MAX:
+        raise OutOfRangeError("Frame type must be between 0 and 2^62 - 1")
+
+
+def validate_reliable_size(reliable_size: int) -> None:
+    """
+    Raises `OutOfRangeError` if the reliable size is not between 0 and 2^62 - 1
+    (draft-ietf-quic-reliable-stream-reset section 4).
+    """
+    if not 0 <= reliable_size <= UINT_VAR_MAX:
+        raise OutOfRangeError("Reliable size must be between 0 and 2^62 - 1")
+
+
+def validate_stream_id(stream_id: int) -> None:
+    """
+    Raises `OutOfRangeError` if the stream ID is not between 0 and 2^62 - 1
+    (RFC 9000 section 2.1).
+    """
+    if not 0 <= stream_id <= UINT_VAR_MAX:
+        raise OutOfRangeError("Stream ID must be between 0 and 2^62 - 1")
+
+
 class Limit:
     def __init__(self, frame_type: int, name: str, value: int):
         self.frame_type = frame_type
@@ -163,6 +226,15 @@ class Limit:
 
 
 class QuicConnectionError(Exception):
+    """
+    An error which closes the connection, carrying the CONNECTION_CLOSE fields.
+
+    This error is internal and MUST NOT be exposed to API users. It is raised
+    while handling received packets, and :meth:`QuicConnection.receive_datagram`
+    catches it to close the connection. Any other code path which a public
+    method reaches MUST catch it, or check its input so that it is never raised.
+    """
+
     def __init__(self, error_code: int, frame_type: int, reason_phrase: str):
         self.error_code = error_code
         self.frame_type = frame_type
@@ -246,6 +318,8 @@ class QuicConnection:
     - a timer firing (see :meth:`handle_timer`)
 
     :param configuration: The QUIC configuration to use.
+    :raises ~aioquic.quic.exceptions.ConnectionConfigurationError:
+        If the configuration or arguments are invalid.
     """
 
     def __init__(
@@ -259,28 +333,38 @@ class QuicConnection:
         token_handler: QuicTokenHandler | None = None,
     ) -> None:
         if configuration.max_datagram_size < SMALLEST_MAX_DATAGRAM_SIZE:
-            raise ValueError(
+            raise ConnectionConfigurationError(
                 "The smallest allowed maximum datagram size is "
                 f"{SMALLEST_MAX_DATAGRAM_SIZE} bytes"
             )
         if configuration.is_client:
             if original_destination_connection_id is not None:
-                raise ValueError(
+                raise ConnectionConfigurationError(
                     "Cannot set original_destination_connection_id for a client"
                 )
             if retry_source_connection_id is not None:
-                raise ValueError("Cannot set retry_source_connection_id for a client")
+                raise ConnectionConfigurationError(
+                    "Cannot set retry_source_connection_id for a client"
+                )
         else:
             if token_handler is not None:
-                raise ValueError("Cannot set `token_handler` for a server")
+                raise ConnectionConfigurationError(
+                    "Cannot set `token_handler` for a server"
+                )
             if configuration.token != b"":
-                raise ValueError("Cannot set `configuration.token` for a server")
+                raise ConnectionConfigurationError(
+                    "Cannot set `configuration.token` for a server"
+                )
             if configuration.certificate is None:
-                raise ValueError("SSL certificate is required for a server")
+                raise ConnectionConfigurationError(
+                    "SSL certificate is required for a server"
+                )
             if configuration.private_key is None:
-                raise ValueError("SSL private key is required for a server")
+                raise ConnectionConfigurationError(
+                    "SSL private key is required for a server"
+                )
             if original_destination_connection_id is None:
-                raise ValueError(
+                raise ConnectionConfigurationError(
                     "original_destination_connection_id is required for a server"
                 )
 
@@ -322,6 +406,8 @@ class QuicConnection:
             name="max_data",
             value=configuration.max_data,
         )
+        self._local_max_data_consumed = 0
+        self._local_max_data_window = configuration.max_data
         self._local_max_stream_data_bidi_local = configuration.max_stream_data
         self._local_max_stream_data_bidi_remote = configuration.max_stream_data
         self._local_max_stream_data_uni = configuration.max_stream_data
@@ -361,6 +447,7 @@ class QuicConnection:
         self._remote_max_streams_bidi = 0
         self._remote_max_streams_uni = 0
         self._remote_preferred_address: QuicPreferredAddress | None = None
+        self._remote_reset_stream_at = False
         self._remote_version_information: QuicVersionInformation | None = None
         self._retry_count = 0
         self._retry_source_connection_id = retry_source_connection_id
@@ -451,6 +538,7 @@ class QuicConnection:
             0x1C: (self._handle_connection_close_frame, EPOCHS("IH01")),
             0x1D: (self._handle_connection_close_frame, EPOCHS("01")),
             0x1E: (self._handle_handshake_done_frame, EPOCHS("1")),
+            0x24: (self._handle_reset_stream_frame, EPOCHS("01")),
             0x30: (self._handle_datagram_frame, EPOCHS("01")),
             0x31: (self._handle_datagram_frame, EPOCHS("01")),
         }
@@ -492,7 +580,13 @@ class QuicConnection:
                            being closed.
         :param reason_phrase: A human-readable explanation of why the
                               connection is being closed.
+        :raises ~aioquic.quic.exceptions.OutOfRangeError:
+            If the error code or frame type is out of range.
         """
+        validate_error_code(error_code)
+        if frame_type is not None:
+            validate_frame_type(frame_type)
+
         if self._close_event is None and self._state not in END_STATES:
             self._close_event = events.ConnectionTerminated(
                 error_code=error_code,
@@ -511,9 +605,11 @@ class QuicConnection:
 
         :param addr: The network address of the remote peer.
         :param now: The current time.
+        :raises ~aioquic.quic.exceptions.ConnectionStateError:
+            If the connection is a server's, or this method was already called.
         """
         if not self._is_client or self._connect_called:
-            raise RuntimeError(
+            raise ConnectionStateError(
                 "connect() can only be called for clients and a single time"
             )
         self._connect_called = True
@@ -535,10 +631,18 @@ class QuicConnection:
 
         :param now: The current time.
         """
-        network_path = self._network_paths[0]
-
         if self._state in END_STATES:
             return []
+
+        # Without a network path, such as on a server before it accepts an INITIAL
+        # packet, nothing can be sent and a close needs no closing period (RFC 9000
+        # section 10.2.3).
+        if not self._network_paths:
+            if self._close_pending:
+                self._close_end()
+            return []
+
+        network_path = self._network_paths[0]
 
         # build datagrams
         builder = QuicPacketBuilder(
@@ -643,6 +747,35 @@ class QuicConnection:
 
         return ret
 
+    def get_datagram_frame_capacity(self) -> int | None:
+        """
+        Return the largest payload which fits in a DATAGRAM frame, or `None` if
+        no DATAGRAM frame can be sent.
+
+        The value can change during the connection.
+        """
+        if self._remote_max_datagram_frame_size is None:
+            return None
+
+        # DATAGRAM frames cannot be fragmented (RFC 9221 section 5). Assume the
+        # longest connection ID, as the peer can switch to a longer one.
+        max_frame_size = min(
+            self._remote_max_datagram_frame_size,
+            self._max_datagram_size
+            - 1
+            - CONNECTION_ID_MAX_SIZE
+            - PACKET_NUMBER_SEND_SIZE
+            - self._cryptos[tls.Epoch.ONE_RTT].aead_tag_size,
+        )
+
+        # Even an empty payload needs the frame type and length.
+        if max_frame_size < 2:
+            return None
+        size = max_frame_size - 2
+        while 1 + size_uint_var(size) + size > max_frame_size:
+            size -= 1
+        return size
+
     def get_next_available_stream_id(self, is_unidirectional: bool = False) -> int:
         """
         Return the stream ID for the next stream created by this endpoint.
@@ -707,6 +840,10 @@ class QuicConnection:
 
         :param now: The current time.
         """
+        # No timer runs before the connection starts or once it has terminated.
+        if self._close_at is None:
+            return
+
         # end of closing period or idle timeout
         if now >= self._close_at:
             if self._close_event is None:
@@ -769,17 +906,8 @@ class QuicConnection:
         # log datagram
         if self._quic_logger is not None:
             self._quic_logger.log_event(
-                category="transport",
-                event="datagrams_received",
-                data={
-                    "count": 1,
-                    "raw": [
-                        {
-                            "length": UDP_HEADER_SIZE + payload_length,
-                            "payload_length": payload_length,
-                        }
-                    ],
-                },
+                name="quic:udp_datagrams_received",
+                data={"count": 1, "raw": [{"length": payload_length}]},
             )
 
         # RFC 9000 section 9 requires clients to discard packets from an unknown
@@ -787,10 +915,10 @@ class QuicConnection:
         if self._is_client and all(path.addr != addr for path in self._network_paths):
             if self._quic_logger is not None:
                 self._quic_logger.log_event(
-                    category="transport",
-                    event="packet_dropped",
+                    name="quic:packet_dropped",
                     data={
-                        "trigger": "unknown_server_address",
+                        "details": {"reason": "unknown_server_address"},
+                        "trigger": "rejected",
                         "raw": {"length": payload_length},
                     },
                 )
@@ -824,10 +952,10 @@ class QuicConnection:
             except ValueError:
                 if self._quic_logger is not None:
                     self._quic_logger.log_event(
-                        category="transport",
-                        event="packet_dropped",
+                        name="quic:packet_dropped",
                         data={
-                            "trigger": "header_parse_error",
+                            "details": {"reason": "header_parse_error"},
+                            "trigger": "invalid",
                             "raw": {"length": buf.capacity - start_off},
                         },
                     )
@@ -842,10 +970,10 @@ class QuicConnection:
             ):
                 if self._quic_logger is not None:
                     self._quic_logger.log_event(
-                        category="transport",
-                        event="packet_dropped",
+                        name="quic:packet_dropped",
                         data={
-                            "trigger": "initial_packet_datagram_too_small",
+                            "details": {"reason": "initial_packet_datagram_too_small"},
+                            "trigger": "invalid",
                             "raw": {"length": header.packet_length},
                         },
                     )
@@ -865,10 +993,9 @@ class QuicConnection:
             ):
                 if self._quic_logger is not None:
                     self._quic_logger.log_event(
-                        category="transport",
-                        event="packet_dropped",
+                        name="quic:packet_dropped",
                         data={
-                            "trigger": "unknown_connection_id",
+                            "trigger": "connection_unknown",
                             "raw": {"length": header.packet_length},
                         },
                     )
@@ -886,10 +1013,9 @@ class QuicConnection:
             ):
                 if self._quic_logger is not None:
                     self._quic_logger.log_event(
-                        category="transport",
-                        event="packet_dropped",
+                        name="quic:packet_dropped",
                         data={
-                            "trigger": "unsupported_version",
+                            "trigger": "unsupported",
                             "raw": {"length": header.packet_length},
                         },
                     )
@@ -916,10 +1042,10 @@ class QuicConnection:
             ):
                 if self._quic_logger is not None:
                     self._quic_logger.log_event(
-                        category="transport",
-                        event="packet_dropped",
+                        name="quic:packet_dropped",
                         data={
-                            "trigger": "unexpected_source_connection_id",
+                            "details": {"reason": "unexpected_source_connection_id"},
+                            "trigger": "invalid",
                             "raw": {"length": header.packet_length},
                         },
                     )
@@ -934,8 +1060,7 @@ class QuicConnection:
                 if header.packet_type != QuicPacketType.INITIAL:
                     if self._quic_logger is not None:
                         self._quic_logger.log_event(
-                            category="transport",
-                            event="packet_dropped",
+                            name="quic:packet_dropped",
                             data={
                                 "trigger": "key_unavailable",
                                 "raw": {"length": header.packet_length},
@@ -972,8 +1097,7 @@ class QuicConnection:
                 self._logger.debug(exc)
                 if self._quic_logger is not None:
                     self._quic_logger.log_event(
-                        category="transport",
-                        event="packet_dropped",
+                        name="quic:packet_dropped",
                         data={
                             "trigger": "key_unavailable",
                             "raw": {"length": header.packet_length},
@@ -995,10 +1119,9 @@ class QuicConnection:
                 self._logger.debug(exc)
                 if self._quic_logger is not None:
                     self._quic_logger.log_event(
-                        category="transport",
-                        event="packet_dropped",
+                        name="quic:packet_dropped",
                         data={
-                            "trigger": "payload_decrypt_error",
+                            "trigger": "decryption_failure",
                             "raw": {"length": header.packet_length},
                         },
                     )
@@ -1008,8 +1131,7 @@ class QuicConnection:
             if packet_number in space.received_packets:
                 if self._quic_logger is not None:
                     self._quic_logger.log_event(
-                        category="transport",
-                        event="packet_dropped",
+                        name="quic:packet_dropped",
                         data={
                             "trigger": "duplicate",
                             "raw": {"length": header.packet_length},
@@ -1035,8 +1157,7 @@ class QuicConnection:
             if self._quic_logger is not None:
                 quic_logger_frames = []
                 self._quic_logger.log_event(
-                    category="transport",
-                    event="packet_received",
+                    name="quic:packet_received",
                     data={
                         "frames": quic_logger_frames,
                         "header": {
@@ -1091,8 +1212,7 @@ class QuicConnection:
 
                 if self._quic_logger is not None:
                     self._quic_logger.log_event(
-                        category="connectivity",
-                        event="spin_bit_updated",
+                        name="quic:spin_bit_updated",
                         data={"state": self._spin_bit},
                     )
 
@@ -1216,20 +1336,86 @@ class QuicConnection:
 
         This method has no effect if a reset has already been triggered either by a
         call to :meth:`reset_stream` or by the reception of a STOP_SENDING frame, or
-        if all the stream's data has already been acknowledged.
+        if all the stream's data has already been acknowledged. After
+        :meth:`reset_stream_at`, it keeps that call's error code and lowers the
+        reliable size to zero.
 
         .. aioquic_transmit::
 
         :param stream_id: The stream's ID.
         :param error_code: An error code indicating why the stream is being reset.
+        :raises ~aioquic.quic.exceptions.OutOfRangeError:
+            If the stream ID or error code is out of range.
+        :raises ~aioquic.quic.exceptions.StreamTypeError:
+            If the stream is one of the peer's unidirectional streams.
+        :raises ~aioquic.quic.exceptions.StreamStateError:
+            If the peer has not opened the stream.
         """
+        validate_stream_id(stream_id)
+        validate_error_code(error_code)
+
         if self._stream_can_send(stream_id) and self._stream_is_discarded(stream_id):
             # The stream finished and its state was discarded, so there is nothing
             # to reset.
             return
 
         stream = self._get_or_create_stream_for_send(stream_id)
-        stream.sender.reset(error_code)
+        stream.sender.reset(error_code=error_code)
+
+    def reset_stream_at(
+        self, stream_id: int, error_code: int, reliable_size: int
+    ) -> None:
+        """
+        Reset a stream after reliably delivering its prefix.
+
+        .. warning::
+
+            This method is experimental, as reliable stream resets are still an
+            Internet-Draft (draft-ietf-quic-reliable-stream-reset). It could change
+            or be removed in a future release.
+
+        This method requires a completed handshake and a peer which supports reliable
+        stream resets. It has no effect if all the stream's data has already been
+        acknowledged.
+
+        It can be called again with the same error code to reduce the reliable size,
+        and has no effect if the reliable size is unchanged.
+
+        .. aioquic_transmit::
+
+        :param stream_id: The stream's ID.
+        :param error_code: The application error code.
+        :param reliable_size: The number of written bytes to deliver reliably.
+        :raises ~aioquic.quic.exceptions.OutOfRangeError:
+            If the stream ID, error code or reliable size is out of range.
+        :raises ~aioquic.quic.exceptions.ConnectionStateError:
+            If the handshake is not complete, or the peer does not support reliable
+            stream resets.
+        :raises ~aioquic.quic.exceptions.StreamTypeError:
+            If the stream is one of the peer's unidirectional streams.
+        :raises ~aioquic.quic.exceptions.StreamStateError:
+            If the peer has not opened the stream, the call changes the error code or
+            increases the reliable size, or the reliable size is beyond the data
+            written.
+        """
+        validate_stream_id(stream_id)
+        validate_error_code(error_code)
+        validate_reliable_size(reliable_size)
+
+        if not self._handshake_complete:
+            raise ConnectionStateError(
+                "Cannot reset a stream reliably before the handshake completes"
+            )
+        if not self._remote_reset_stream_at:
+            raise ConnectionStateError(
+                "Cannot reset a stream reliably without peer support"
+            )
+        if self._stream_can_send(stream_id) and self._stream_is_discarded(stream_id):
+            # The stream finished and its state was discarded, so there is nothing
+            # to reset.
+            return
+        stream = self._get_or_create_stream_for_send(stream_id)
+        stream.sender.reset_at(error_code=error_code, reliable_size=reliable_size)
 
     def send_ping(self, uid: int) -> None:
         """
@@ -1248,7 +1434,21 @@ class QuicConnection:
         .. aioquic_transmit::
 
         :param data: The data to be sent.
+        :raises ~aioquic.quic.exceptions.ConnectionStateError:
+            If the peer does not accept datagrams, or is not known to yet.
+        :raises ~aioquic.quic.exceptions.DatagramFrameCapacityError:
+            If the data exceeds the capacity of a DATAGRAM frame.
         """
+        capacity = self.get_datagram_frame_capacity()
+        if capacity is None:
+            raise ConnectionStateError(
+                "Cannot send a datagram unless the peer accepts datagrams"
+            )
+        if len(data) > capacity:
+            raise DatagramFrameCapacityError(
+                f"Datagram of {len(data)} bytes exceeds the capacity of "
+                f"{capacity} bytes"
+            )
         self._datagrams_pending.append(data)
 
     def send_stream_data(
@@ -1262,7 +1462,15 @@ class QuicConnection:
         :param stream_id: The stream's ID.
         :param data: The data to be sent.
         :param end_stream: If set to `True`, the FIN bit will be set.
+        :raises ~aioquic.quic.exceptions.OutOfRangeError:
+            If the stream ID is out of range.
+        :raises ~aioquic.quic.exceptions.StreamTypeError:
+            If the stream is one of the peer's unidirectional streams.
+        :raises ~aioquic.quic.exceptions.StreamStateError:
+            If sending on the stream has ended, or the peer has not opened it.
         """
+        validate_stream_id(stream_id)
+
         stream = self._get_or_create_stream_for_send(stream_id)
         stream.sender.write(data, end_stream=end_stream)
 
@@ -1270,19 +1478,34 @@ class QuicConnection:
         """
         Request termination of the receiving part of a stream.
 
+        This method has no effect if the stream has finished and its state has
+        been discarded.
+
         .. aioquic_transmit::
 
         :param stream_id: The stream's ID.
         :param error_code: An error code indicating why the stream is being stopped.
+        :raises ~aioquic.quic.exceptions.OutOfRangeError:
+            If the stream ID or error code is out of range.
+        :raises ~aioquic.quic.exceptions.StreamTypeError:
+            If the stream is one of our unidirectional streams.
+        :raises ~aioquic.quic.exceptions.StreamStateError:
+            If the stream has not been opened yet.
         """
+        validate_stream_id(stream_id)
+        validate_error_code(error_code)
+
         if not self._stream_can_receive(stream_id):
-            raise ValueError(
+            raise StreamTypeError(
                 "Cannot stop receiving on a local-initiated unidirectional stream"
             )
 
         stream = self._streams.get(stream_id, None)
         if stream is None:
-            raise ValueError("Cannot stop receiving on an unknown stream")
+            if self._stream_is_discarded(stream_id):
+                # The stream finished, so there is nothing to stop.
+                return
+            raise StreamStateError("Cannot stop receiving on an unknown stream")
 
         stream.receiver.stop(error_code)
 
@@ -1333,17 +1556,7 @@ class QuicConnection:
             )
 
         # Parse the remote transport parameters.
-        for ext_type, ext_data in self.tls.received_extensions:
-            if ext_type == tls.ExtensionType.QUIC_TRANSPORT_PARAMETERS:
-                self._parse_transport_parameters(ext_data)
-                break
-        else:
-            raise QuicConnectionError(
-                error_code=QuicErrorCode.CRYPTO_ERROR
-                + tls.AlertDescription.missing_extension,
-                frame_type=self._crypto_frame_type,
-                reason_phrase="No QUIC transport parameters received",
-            )
+        self._parse_transport_parameters(self.tls.received_extensions)
 
         # For servers, determine the Negotiated Version.
         if not self._is_client and not self._version_negotiated_compatible:
@@ -1504,17 +1717,20 @@ class QuicConnection:
 
         if self._quic_logger is not None:
             self._quic_logger.log_event(
-                category="transport",
-                event="version_information",
-                data={
-                    "client_versions": self._configuration.supported_versions,
-                    "chosen_version": self._version,
-                },
+                name="quic:version_information",
+                data=self._quic_logger.encode_version_information(
+                    chosen_version=self._version,
+                    client_versions=self._configuration.supported_versions,
+                ),
             )
             self._quic_logger.log_event(
-                category="transport",
-                event="alpn_information",
-                data={"client_alpns": self._configuration.alpn_protocols},
+                name="quic:alpn_information",
+                data={
+                    "client_alpns": [
+                        {"string_value": protocol}
+                        for protocol in self._configuration.alpn_protocols or []
+                    ]
+                },
             )
 
         self._close_at = now + self._idle_timeout()
@@ -1536,6 +1752,40 @@ class QuicConnection:
                     crypto.teardown()
             self._loss.discard_space(self._spaces[epoch])
             self._spaces[epoch].discarded = True
+
+    def _fetch_session_ticket(self, label: bytes) -> tls.SessionTicket | None:
+        ticket = self._session_ticket_fetcher(label)
+        if ticket is None or ticket.max_early_data_size is None:
+            return ticket
+
+        # Reject 0-RTT data unless the limits and extensions the client remembers
+        # from the ticket are still supported (RFC 9000 section 7.4.1, RFC 9221
+        # section 3, draft-ietf-quic-reliable-stream-reset section 3).
+        try:
+            stored = get_transport_parameters(ticket.other_extensions)
+        except (KeyError, ValueError):
+            self._logger.info(
+                "Rejecting 0-RTT data as the ticket has no valid transport parameters"
+            )
+            return replace(ticket, max_early_data_size=None)
+        current = get_transport_parameters(self.tls.handshake_extensions)
+        for attr in [
+            "active_connection_id_limit",
+            "initial_max_data",
+            "initial_max_stream_data_bidi_local",
+            "initial_max_stream_data_bidi_remote",
+            "initial_max_stream_data_uni",
+            "initial_max_streams_bidi",
+            "initial_max_streams_uni",
+            "max_datagram_frame_size",
+            "reset_stream_at",
+        ]:
+            if (getattr(stored, attr) or 0) > (getattr(current, attr) or 0):
+                self._logger.info(
+                    "Rejecting 0-RTT data as %s is lower than in the ticket", attr
+                )
+                return replace(ticket, max_early_data_size=None)
+        return ticket
 
     def _find_network_path(self, addr: NetworkAddress) -> QuicNetworkPath:
         # check existing network paths
@@ -1632,8 +1882,7 @@ class QuicConnection:
                 # log packet
                 if self._quic_logger is not None:
                     self._quic_logger.log_event(
-                        category="transport",
-                        event="packet_sent",
+                        name="quic:packet_sent",
                         data={
                             "frames": packet.quic_logger_frames,
                             "header": {
@@ -1665,17 +1914,8 @@ class QuicConnection:
 
             if self._quic_logger is not None:
                 self._quic_logger.log_event(
-                    category="transport",
-                    event="datagrams_sent",
-                    data={
-                        "count": 1,
-                        "raw": [
-                            {
-                                "length": UDP_HEADER_SIZE + payload_length,
-                                "payload_length": payload_length,
-                            }
-                        ],
-                    },
+                    name="quic:udp_datagrams_sent",
+                    data={"count": 1, "raw": [{"length": payload_length}]},
                 )
         return ret
 
@@ -1738,15 +1978,19 @@ class QuicConnection:
         This always occurs as a result of an API call.
         """
         if not self._stream_can_send(stream_id):
-            raise ValueError("Cannot send data on peer-initiated unidirectional stream")
+            raise StreamTypeError(
+                "Cannot send data on peer-initiated unidirectional stream"
+            )
         if self._stream_is_discarded(stream_id):
-            raise ValueError("Cannot send data on a finished stream")
+            raise StreamStateError("Cannot send data on a finished stream")
 
         stream = self._streams.get(stream_id, None)
         if stream is None:
             # check initiator
             if stream_is_client_initiated(stream_id) != self._is_client:
-                raise ValueError("Cannot send data on unknown peer-initiated stream")
+                raise StreamStateError(
+                    "Cannot send data on unknown peer-initiated stream"
+                )
 
             # determine limits
             if stream_is_unidirectional(stream_id):
@@ -1829,19 +2073,30 @@ class QuicConnection:
         ):
             self.tls.session_ticket = self._configuration.session_ticket
 
-            # parse saved QUIC transport parameters - for 0-RTT
-            if session_ticket.max_early_data_size == MAX_EARLY_DATA:
-                for ext_type, ext_data in session_ticket.other_extensions:
-                    if ext_type == tls.ExtensionType.QUIC_TRANSPORT_PARAMETERS:
+            # 0-RTT requires a max_early_data_size of 0xffffffff (RFC 9001 section
+            # 4.6.1) and the server's transport parameters (RFC 9000 section 7.4.1).
+            if session_ticket.max_early_data_size is not None:
+                usable = session_ticket.max_early_data_size == MAX_EARLY_DATA
+                if usable:
+                    try:
                         self._parse_transport_parameters(
-                            ext_data, from_session_ticket=True
+                            session_ticket.other_extensions, from_session_ticket=True
                         )
-                        break
+                    except QuicConnectionError:
+                        usable = False
+                if not usable:
+                    self._logger.info(
+                        "Not sending 0-RTT data as the ticket's 0-RTT parameters "
+                        "are invalid"
+                    )
+                    self.tls.session_ticket = replace(
+                        session_ticket, max_early_data_size=None
+                    )
 
         # TLS callbacks
         self.tls.alpn_cb = self._alpn_handler
         if self._session_ticket_fetcher is not None:
-            self.tls.get_session_ticket_cb = self._session_ticket_fetcher
+            self.tls.get_session_ticket_cb = self._fetch_session_ticket
         if self._session_ticket_handler is not None:
             self.tls.new_session_ticket_cb = self._handle_session_ticket
         self.tls.update_traffic_key_cb = self._update_traffic_key
@@ -1922,7 +2177,7 @@ class QuicConnection:
         # log frame
         if self._quic_logger is not None:
             context.quic_logger_frames.append(
-                self._quic_logger.encode_ack_frame(ack_rangeset, ack_delay)
+                self._quic_logger.encode_ack_frame(ranges=ack_rangeset, delay=ack_delay)
             )
 
         # check whether peer completed address validation
@@ -2042,7 +2297,9 @@ class QuicConnection:
                 self._events.append(
                     events.HandshakeCompleted(
                         alpn_protocol=self.tls.alpn_negotiated,
+                        cipher_suite=self.tls.key_schedule.cipher_suite,
                         early_data_accepted=self.tls.early_data_accepted,
+                        peer_certificates=self.tls.peer_certificates,
                         session_resumed=self.tls.session_resumed,
                     )
                 )
@@ -2400,16 +2657,19 @@ class QuicConnection:
         Handle a PADDING frame.
         """
         # consume padding
-        pos = buf.tell()
+        start = buf.tell()
+        pos = start
         for byte in buf.data_slice(pos, buf.capacity):
             if byte:
                 break
             pos += 1
         buf.seek(pos)
 
-        # log frame
+        # log frame, counting the frame type byte which was already consumed
         if self._quic_logger is not None:
-            context.quic_logger_frames.append(self._quic_logger.encode_padding_frame())
+            context.quic_logger_frames.append(
+                self._quic_logger.encode_padding_frame(length=pos - start + 1)
+            )
 
     def _handle_path_challenge_frame(
         self, context: QuicReceiveContext, frame_type: int, buf: Buffer
@@ -2480,17 +2740,36 @@ class QuicConnection:
         self, context: QuicReceiveContext, frame_type: int, buf: Buffer
     ) -> None:
         """
-        Handle a RESET_STREAM frame.
+        Handle a RESET_STREAM or RESET_STREAM_AT frame.
         """
         stream_id = buf.pull_uint_var()
         error_code = buf.pull_uint_var()
         final_size = buf.pull_uint_var()
+        if frame_type == QuicFrameType.RESET_STREAM_AT:
+            reliable_size = buf.pull_uint_var()
+            if not self._configuration.reliable_stream_reset:
+                raise QuicConnectionError(
+                    error_code=QuicErrorCode.PROTOCOL_VIOLATION,
+                    frame_type=frame_type,
+                    reason_phrase="Unexpected RESET_STREAM_AT frame",
+                )
+            if reliable_size > final_size:
+                raise QuicConnectionError(
+                    error_code=QuicErrorCode.FRAME_ENCODING_ERROR,
+                    frame_type=frame_type,
+                    reason_phrase="Reliable Size is greater than Final Size",
+                )
+        else:
+            reliable_size = None
 
         # log frame
         if self._quic_logger is not None:
             context.quic_logger_frames.append(
                 self._quic_logger.encode_reset_stream_frame(
-                    error_code=error_code, final_size=final_size, stream_id=stream_id
+                    error_code=error_code,
+                    final_size=final_size,
+                    reliable_size=reliable_size,
+                    stream_id=stream_id,
                 )
             )
 
@@ -2522,7 +2801,9 @@ class QuicConnection:
         )
         try:
             event = stream.receiver.handle_reset(
-                error_code=error_code, final_size=final_size
+                error_code=error_code,
+                final_size=final_size,
+                reliable_size=reliable_size,
             )
         except FinalSizeError as exc:
             raise QuicConnectionError(
@@ -2530,8 +2811,14 @@ class QuicConnection:
                 frame_type=frame_type,
                 reason_phrase=str(exc),
             )
+        except ErrorCodeChangedError as exc:
+            raise QuicConnectionError(
+                error_code=QuicErrorCode.STREAM_STATE_ERROR,
+                frame_type=frame_type,
+                reason_phrase=str(exc),
+            )
         if event is not None:
-            self._events.append(event)
+            self._report_stream_reset(event, stream)
         self._local_max_data.used += newly_received
 
     def _handle_retire_connection_id_frame(
@@ -2636,7 +2923,7 @@ class QuicConnection:
         # log frame
         if self._quic_logger is not None:
             context.quic_logger_frames.append(
-                self._quic_logger.encode_stream_frame(frame, stream_id=stream_id)
+                self._quic_logger.encode_stream_frame(frame=frame, stream_id=stream_id)
             )
 
         # check stream direction
@@ -2669,6 +2956,12 @@ class QuicConnection:
             )
         if event is not None:
             self._events.append(event)
+            self._local_max_data_consumed += len(event.data)
+
+        pending_reset_event = stream.receiver.get_pending_reset_event()
+        if pending_reset_event is not None:
+            self._report_stream_reset(pending_reset_event, stream)
+
         self._local_max_data.used += newly_received
 
     def _handle_stream_data_blocked_frame(
@@ -2741,8 +3034,7 @@ class QuicConnection:
         """
         if self._quic_logger is not None:
             self._quic_logger.log_event(
-                category="security",
-                event="key_retired",
+                name="quic:key_discarded",
                 data={"key_type": key_type, "trigger": trigger},
             )
 
@@ -2752,8 +3044,7 @@ class QuicConnection:
         """
         if self._quic_logger is not None:
             self._quic_logger.log_event(
-                category="security",
-                event="key_updated",
+                name="quic:key_updated",
                 data={"key_type": key_type, "trigger": trigger},
             )
 
@@ -2985,8 +3276,7 @@ class QuicConnection:
         ):
             if self._quic_logger is not None:
                 self._quic_logger.log_event(
-                    category="transport",
-                    event="packet_received",
+                    name="quic:packet_received",
                     data={
                         "frames": [],
                         "header": {
@@ -3008,10 +3298,10 @@ class QuicConnection:
             # Unexpected or invalid retry packet.
             if self._quic_logger is not None:
                 self._quic_logger.log_event(
-                    category="transport",
-                    event="packet_dropped",
+                    name="quic:packet_dropped",
                     data={
-                        "trigger": "unexpected_packet",
+                        "details": {"reason": "unexpected_packet"},
+                        "trigger": "rejected",
                         "raw": {"length": header.packet_length},
                     },
                 )
@@ -3037,8 +3327,7 @@ class QuicConnection:
         ):
             if self._quic_logger is not None:
                 self._quic_logger.log_event(
-                    category="transport",
-                    event="packet_received",
+                    name="quic:packet_received",
                     data={
                         "frames": [],
                         "header": {
@@ -3074,13 +3363,12 @@ class QuicConnection:
             chosen_version = common[0] if common else None
             if self._quic_logger is not None:
                 self._quic_logger.log_event(
-                    category="transport",
-                    event="version_information",
-                    data={
-                        "server_versions": header.supported_versions,
-                        "client_versions": self._configuration.supported_versions,
-                        "chosen_version": chosen_version,
-                    },
+                    name="quic:version_information",
+                    data=self._quic_logger.encode_version_information(
+                        chosen_version=chosen_version,
+                        client_versions=self._configuration.supported_versions,
+                        server_versions=header.supported_versions,
+                    ),
                 )
             if chosen_version is None:
                 self._logger.error("Could not find a common protocol version")
@@ -3103,10 +3391,10 @@ class QuicConnection:
             # Unexpected version negotiation packet.
             if self._quic_logger is not None:
                 self._quic_logger.log_event(
-                    category="transport",
-                    event="packet_dropped",
+                    name="quic:packet_dropped",
                     data={
-                        "trigger": "unexpected_packet",
+                        "details": {"reason": "unexpected_packet"},
+                        "trigger": "rejected",
                         "raw": {"length": header.packet_length},
                     },
                 )
@@ -3124,6 +3412,19 @@ class QuicConnection:
                 )
             )
             self._host_cid_seq += 1
+
+    def _report_stream_reset(
+        self, event: events.StreamReset, stream: QuicStream
+    ) -> None:
+        """
+        Report a reset which finished the receiving part of a stream.
+        """
+        self._events.append(event)
+        # Data between the delivered offset and the final size will never be
+        # delivered, so it counts as consumed (RFC 9000 section 4.5).
+        self._local_max_data_consumed += (
+            stream.receiver.highest_offset - stream.receiver.starting_offset()
+        )
 
     def _retire_peer_cid(self, connection_id: QuicConnectionId) -> None:
         """
@@ -3146,18 +3447,26 @@ class QuicConnection:
         self._probe_pending = True
 
     def _parse_transport_parameters(
-        self, data: bytes, from_session_ticket: bool = False
+        self, extensions: Iterable[tls.Extension], from_session_ticket: bool = False
     ) -> None:
         """
-        Parse and apply remote transport parameters.
+        Parse and apply remote transport parameters from TLS extensions.
 
         `from_session_ticket` is `True` when restoring saved transport parameters,
         and `False` when handling received transport parameters.
+
+        All parameters are validated before any is stored, so none is stored
+        when QuicConnectionError is raised.
         """
 
         try:
-            quic_transport_parameters = pull_quic_transport_parameters(
-                Buffer(data=data)
+            quic_transport_parameters = get_transport_parameters(extensions)
+        except KeyError:
+            raise QuicConnectionError(
+                error_code=QuicErrorCode.CRYPTO_ERROR
+                + tls.AlertDescription.missing_extension,
+                frame_type=self._crypto_frame_type,
+                reason_phrase="No QUIC transport parameters received",
             )
         except ValueError:
             raise QuicConnectionError(
@@ -3169,10 +3478,9 @@ class QuicConnection:
         # log event
         if self._quic_logger is not None and not from_session_ticket:
             self._quic_logger.log_event(
-                category="transport",
-                event="parameters_set",
+                name="quic:parameters_set",
                 data=self._quic_logger.encode_transport_parameters(
-                    owner="remote", parameters=quic_transport_parameters
+                    initiator="remote", parameters=quic_transport_parameters
                 ),
             )
 
@@ -3319,7 +3627,9 @@ class QuicConnection:
         # Store remote parameters.
         if not from_session_ticket:
             if quic_transport_parameters.ack_delay_exponent is not None:
-                self._remote_ack_delay_exponent = self._remote_ack_delay_exponent
+                self._remote_ack_delay_exponent = (
+                    quic_transport_parameters.ack_delay_exponent
+                )
             if quic_transport_parameters.max_ack_delay is not None:
                 self._loss.max_ack_delay = (
                     quic_transport_parameters.max_ack_delay / 1000.0
@@ -3344,7 +3654,9 @@ class QuicConnection:
                     )
                 )
                 self._peer_cid_sequence_numbers.add(1)
-                self._remote_preferred_address = preferred_address
+                # Migrating is optional (RFC 9000 section 9.6.1).
+                if self._configuration.migrate_to_preferred_address:
+                    self._remote_preferred_address = preferred_address
             self._remote_version_information = (
                 quic_transport_parameters.version_information
             )
@@ -3360,6 +3672,22 @@ class QuicConnection:
         self._remote_max_datagram_frame_size = (
             quic_transport_parameters.max_datagram_frame_size
         )
+        if not from_session_ticket:
+            # Only a server which accepts 0-RTT data must keep the limit stored in
+            # the session ticket (RFC 9221 section 3).
+            capacity = self.get_datagram_frame_capacity()
+            kept = deque(
+                data
+                for data in self._datagrams_pending
+                if capacity is not None and len(data) <= capacity
+            )
+            if len(kept) < len(self._datagrams_pending):
+                self._logger.info(
+                    "Dropping %d datagrams which the peer does not accept",
+                    len(self._datagrams_pending) - len(kept),
+                )
+            self._datagrams_pending = kept
+        self._remote_reset_stream_at = bool(quic_transport_parameters.reset_stream_at)
         for param in [
             "max_data",
             "max_stream_data_bidi_local",
@@ -3457,6 +3785,7 @@ class QuicConnection:
                 chosen_version=self._version,
                 available_versions=self._configuration.supported_versions,
             ),
+            reset_stream_at=self._configuration.reliable_stream_reset,
         )
         if not self._is_client:
             quic_transport_parameters.original_destination_connection_id = (
@@ -3469,10 +3798,9 @@ class QuicConnection:
         # log event
         if self._quic_logger is not None:
             self._quic_logger.log_event(
-                category="transport",
-                event="parameters_set",
+                name="quic:parameters_set",
                 data=self._quic_logger.encode_transport_parameters(
-                    owner="local", parameters=quic_transport_parameters
+                    initiator="local", parameters=quic_transport_parameters
                 ),
             )
 
@@ -3757,15 +4085,22 @@ class QuicConnection:
                         discarded.add(stream)
                         continue
 
+                    # Any frame would open a stream the peer does not allow yet
+                    # (RFC 9000 section 4.6).
+                    if stream.is_blocked:
+                        continue
+
                     if stream.receiver.stop_pending:
                         # STOP_SENDING
                         self._write_stop_sending_frame(builder=builder, stream=stream)
 
                     if stream.sender.reset_pending:
-                        # RESET_STREAM
+                        # RESET_STREAM or RESET_STREAM_AT
                         self._write_reset_stream_frame(builder=builder, stream=stream)
-                    elif not stream.is_blocked and not stream.sender.buffer_is_empty:
-                        # STREAM
+                    if not stream.sender.buffer_is_empty:
+                        # STREAM, which after a RESET_STREAM_AT only carries data
+                        # up to the reliable size. The reset may be waiting for
+                        # the credit this data makes the peer grant.
                         used = self._write_stream_frame(
                             builder=builder,
                             space=space,
@@ -3926,9 +4261,16 @@ class QuicConnection:
         """
         Raise MAX_DATA or MAX_STREAMS if needed.
         """
+        # Credit follows the data delivered to the application, not the highest
+        # offset received (RFC 9000 section 4.1).
         max_data = self._local_max_data
-        if max_data.used * 2 > max_data.value:
-            max_data.value *= 2
+        consumed = self._local_max_data_consumed
+        if (max_data.value - consumed) * 2 < self._local_max_data_window:
+            self._local_max_data_window = min(
+                self._local_max_data_window * 2,
+                self._configuration.max_data * MAX_WINDOW_GROWTH,
+            )
+            max_data.value = consumed + self._local_max_data_window
             self._logger.debug("Local %s raised to %d", max_data.name, max_data.value)
 
         for limit in (
@@ -4114,15 +4456,36 @@ class QuicConnection:
         builder: QuicPacketBuilder,
         stream: QuicStream,
     ) -> None:
+        # The final size counts towards flow control limits
+        # (draft-ietf-quic-reliable-stream-reset section 4).
+        final_size = stream.sender.reset_final_size
+        newly_sent = final_size - stream.sender.highest_offset
+        if (
+            final_size > stream.max_stream_data_remote
+            or self._remote_max_data_used + newly_sent > self._remote_max_data
+        ):
+            return
+
+        reliable_size = stream.sender.reset_reliable_size
+        if reliable_size:
+            frame_type = QuicFrameType.RESET_STREAM_AT
+            capacity = RESET_STREAM_AT_FRAME_CAPACITY
+        else:
+            frame_type = QuicFrameType.RESET_STREAM
+            capacity = RESET_STREAM_FRAME_CAPACITY
         buf = builder.start_frame(
-            frame_type=QuicFrameType.RESET_STREAM,
-            capacity=RESET_STREAM_FRAME_CAPACITY,
+            frame_type=frame_type,
+            capacity=capacity,
             handler=stream.sender.on_reset_delivery,
+            handler_args=(reliable_size,),
         )
         frame = stream.sender.get_reset_frame()
+        self._remote_max_data_used += newly_sent
         buf.push_uint_var(frame.stream_id)
         buf.push_uint_var(frame.error_code)
         buf.push_uint_var(frame.final_size)
+        if frame.reliable_size is not None:
+            buf.push_uint_var(frame.reliable_size)
 
         # log frame
         if self._quic_logger is not None:
@@ -4130,6 +4493,7 @@ class QuicConnection:
                 self._quic_logger.encode_reset_stream_frame(
                     error_code=frame.error_code,
                     final_size=frame.final_size,
+                    reliable_size=frame.reliable_size,
                     stream_id=frame.stream_id,
                 )
             )
@@ -4218,7 +4582,7 @@ class QuicConnection:
             if self._quic_logger is not None:
                 builder.quic_logger_frames.append(
                     self._quic_logger.encode_stream_frame(
-                        frame, stream_id=stream.stream_id
+                        frame=frame, stream_id=stream.stream_id
                     )
                 )
 
@@ -4236,11 +4600,25 @@ class QuicConnection:
         locally created unidirectional streams. We skip such streams to avoid
         spurious logging.
         """
+        # The peer needs no more credit (RFC 9000 section 13.3).
+        if stream.receiver.final_size is not None:
+            return
+
+        # Credit follows the data delivered to the application, not the highest
+        # offset received (RFC 9000 section 4.1).
+        consumed = stream.receiver.starting_offset()
         if (
             stream.max_stream_data_local
-            and stream.receiver.highest_offset * 2 > stream.max_stream_data_local
+            and (stream.max_stream_data_local - consumed) * 2
+            < stream.max_stream_data_local_window
         ):
-            stream.max_stream_data_local *= 2
+            stream.max_stream_data_local_window = min(
+                stream.max_stream_data_local_window * 2,
+                self._configuration.max_stream_data * MAX_WINDOW_GROWTH,
+            )
+            stream.max_stream_data_local = (
+                consumed + stream.max_stream_data_local_window
+            )
             self._logger.debug(
                 "Stream %d local max_stream_data raised to %d",
                 stream.stream_id,

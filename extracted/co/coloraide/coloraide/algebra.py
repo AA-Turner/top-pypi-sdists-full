@@ -33,7 +33,8 @@ from .types import (
     Number, StrictNumber, Shape, DimHints, EmptyShape, VectorShape, MatrixShape, TensorShape, ArrayShape,
     VectorT, MatrixT, TensorT, ArrayT, VectorTLike, MatrixTLike, TensorTLike, ArrayTLike
 )
-from typing import Callable, Sequence, Iterator, Any, overload, Generic, Literal, cast
+from collections.abc import Sequence, Callable, Iterator
+from typing import Any, overload, Generic, Literal, cast
 
 EPS = sys.float_info.epsilon
 RTOL = 4 * EPS
@@ -665,6 +666,63 @@ def solve_newton(
     return x0, False  # pragma: no cover
 
 
+def solve_illinois(
+    a: float,
+    b: float,
+    f: Callable[..., float],
+    args: tuple[Any, ...] | tuple[()] = (),
+    maxiter: int = 50,
+    rtol: float = RTOL,
+    atol: float = ATOL
+) -> tuple[float, bool]:
+    """
+    Find a root in a bracket using the Illinois variant of regula falsi.
+
+    This converges superlinearly on smooth functions, where plain bisection needs
+    far more evaluations to reach the same precision. The bracket is always
+    maintained, so it cannot diverge. If we fail to converge, bisection is used.
+
+    The function must have opposite signs (or a zero) at the bounds. If the bounds do not
+    contain a root, `nan` and `False` are returned.
+
+    Return the best answer based on the specified limits and also
+    return a boolean indicating if we confidently converged.
+    """
+
+    fa = f(a, *args) if args else f(a)
+    if math.isclose(fa, 0, rel_tol=rtol, abs_tol=atol):
+        return a, True
+    fb = f(b, *args) if args else f(b)
+    if math.isclose(fb, 0, rel_tol=rtol, abs_tol=atol):
+        return b, True
+
+    # Exit if the bounds do not contain the solution
+    if (fa < 0) == (fb < 0):
+        return math.nan, False
+
+    a0, b0 = a, b
+    side = 0
+    for _ in range(maxiter):
+        x = (fa * b - fb * a) / (fa - fb)
+        fx = f(x, *args) if args else f(x)
+        if math.isclose(fx, 0, rel_tol=rtol, abs_tol=atol):
+            return x, True
+
+        if (fx < 0) == (fb < 0):
+            b, fb = x, fx
+            if side == -1:
+                fa *= 0.5
+            side = -1
+        else:
+            a, fa = x, fx
+            if side == 1:
+                fb *= 0.5
+            side = 1
+
+    # Could not converge fast enough, fall back to the slower but guaranteed approach
+    return solve_bisect(a0, b0, f, args=args, maxiter=maxiter, rtol=rtol, atol=atol)
+
+
 ################################
 # Interpolation and splines
 ################################
@@ -719,49 +777,57 @@ def ilerp2d(
     """
 
     # Initial guess
-    xy = guess if guess is not None else [0.5, 0.5]
+    x, y = guess if guess is not None else (0.5, 0.5)
+    px, py = point
 
-    try:
-        for _ in range(max_iter):
+    # The vertices are in column form, so each row holds the values of one component for all four vertices.
+    (a0, a1, a2, a3), (b0, b1, b2, b3) = vertices
 
-            # Calculate the residual by using our guess to calculate the what should be the input and compare
-            residual = subtract(lerp2d(vertices, xy), point, dims=D1)
+    # Like `ilerp3d`, this is unrolled and done inline as it is much faster than using the generic array functions.
+    for _ in range(max_iter):
+        wx = 1 - x
+        wy = 1 - y
 
-            # If we are close enough to our input, we can quit
-            if math.sqrt(residual[0] ** 2 + residual[1] ** 2) < tol:
-                break
+        # Calculate the residual by using our guess to calculate the what should be the input and compare.
+        # The weights are those of the forward transform shown above.
+        w0 = wx * wy
+        w1 = x * wy
+        w2 = wx * y
+        w3 = x * y
+        r0 = a0 * w0 + a1 * w1 + a2 * w2 + a3 * w3 - px
+        r1 = b0 * w0 + b1 * w1 + b2 * w2 + b3 * w3 - py
 
-            # Build up the Jacobian matrix so we can solve for the next, closer guess.
-            x, y = xy
+        # If we are close enough to our input, we can quit
+        if math.sqrt(r0 ** 2 + r1 ** 2) < tol:
+            break
 
-            wx = 1 - x
-            wy = 1 - y
+        # Build up the Jacobian matrix so we can solve for the next, closer guess.
+        # Take the partial derivative of the weights of v00 - v11 in respect to x and y:
+        # ```
+        # [[w0 / dx, w0 / dy],
+        #  ...,
+        #  [w3 / dx, w3 / dy]]
+        # ```
+        # Then multiplying the vertices by these partials gives us the 2x2 Jacobian.
+        dx0, dx1, dx2, dx3 = -wy, wy, -y, y
+        dy0, dy1, dy2, dy3 = -wx, -x, wx, x
+        j00 = a0 * dx0 + a1 * dx1 + a2 * dx2 + a3 * dx3
+        j01 = a0 * dy0 + a1 * dy1 + a2 * dy2 + a3 * dy3
+        j10 = b0 * dx0 + b1 * dx1 + b2 * dx2 + b3 * dx3
+        j11 = b0 * dy0 + b1 * dy1 + b2 * dy2 + b3 * dy3
 
-            # Take the partial derivative of v000 - v111:
-            # ```
-            # [[f1 / dx, f1 / dy],
-            #  ...,
-            #  [f4 / dx, f4 / dy]]
-            # ```
-            m = [
-                [-wy, -wx],
-                [wy,  -x],
-                [-y,  wx],
-                [y,   x]
-            ]
+        # Solve `J d = r` for the step using Cramer's rule.
+        # The Jacobian matrix shouldn't be singular if we are in range. Out of range may give us values we cannot
+        # invert. There are potential ways to handle this to try and get moving again, but currently, we just
+        # give up. We do not guarantee out of gamut conversions.
+        det = j00 * j11 - j01 * j10
+        if not det:
+            break
 
-            j = matmul(vertices, m, dims=D2)
+        x -= (j11 * r0 - j01 * r1) / det
+        y -= (j00 * r1 - j10 * r0) / det
 
-            # Solve for new guess
-            xy = subtract(xy, solve(j, residual), dims=D1)
-    except ValueError:  # pragma: no cover
-        # The Jacobian matrix shouldn't fail inversion if we are in range.
-        # Out of range may give us values we cannot invert. There are potential
-        # ways to handle this to try and get moving again, but currently, we
-        # just give up. We do not guarantee out of gamut conversions.
-        pass
-
-    return xy
+    return [x, y]
 
 
 def trilerp(
@@ -833,53 +899,80 @@ def ilerp3d(
     """
 
     # Initial guess.
-    xyz = guess if guess is not None else [0.5, 0.5, 0.5]
+    x, y, z = guess if guess is not None else (0.5, 0.5, 0.5)
+    px, py, pz = point
 
-    try:
-        for _ in range(max_iter):
+    # The vertices are in column form, so each row holds the values of one component for all eight vertices.
+    (a0, a1, a2, a3, a4, a5, a6, a7), (b0, b1, b2, b3, b4, b5, b6, b7), (c0, c1, c2, c3, c4, c5, c6, c7) = vertices
 
-            # Calculate the residual by using our guess to calculate the what should be the input and compare
-            residual = subtract_x3(lerp3d(vertices, xyz), point, dims=D1)
+    # This is performed on every iteration of every inverse, so everything is unrolled and done inline instead of
+    # using the generic array functions. This is quite a bit faster as it avoids the overhead of the generic
+    # functions, which is much more costly than the actual math when working with a 3x3 system.
+    for _ in range(max_iter):
+        wx = 1 - x
+        wy = 1 - y
+        wz = 1 - z
 
-            # If we are close enough to our input, we can quit
-            if math.sqrt(residual[0] ** 2 + residual[1] ** 2 + residual[2] ** 2) < tol:
-                break
+        # Calculate the residual by using our guess to calculate the what should be the input and compare.
+        # The weights are those of the forward transform shown above.
+        w0 = wx * wy * wz
+        w1 = x * wy * wz
+        w2 = wx * y * wz
+        w3 = x * y * wz
+        w4 = wx * wy * z
+        w5 = x * wy * z
+        w6 = wx * y * z
+        w7 = x * y * z
+        r0 = a0 * w0 + a1 * w1 + a2 * w2 + a3 * w3 + a4 * w4 + a5 * w5 + a6 * w6 + a7 * w7 - px
+        r1 = b0 * w0 + b1 * w1 + b2 * w2 + b3 * w3 + b4 * w4 + b5 * w5 + b6 * w6 + b7 * w7 - py
+        r2 = c0 * w0 + c1 * w1 + c2 * w2 + c3 * w3 + c4 * w4 + c5 * w5 + c6 * w6 + c7 * w7 - pz
 
-            # Build up the Jacobian matrix so we can solve for the next, closer guess
-            x, y, z = xyz
-            wx = 1 - x
-            wy = 1 - y
-            wz = 1 - z
+        # If we are close enough to our input, we can quit
+        if math.sqrt(r0 ** 2 + r1 ** 2 + r2 ** 2) < tol:
+            break
 
-            # Take the partial derivative of v000 - v111:
-            # ```
-            # [[f1 / dx, f1 / dy, f1 / dz],
-            #  ...,
-            #  [f8 / dx, f8 / dy, f8 / dz]]
-            # ```
-            m = [
-                [-wy * wz, -wx * wz, -wx * wy],
-                [wy * wz,  -x * wz,  -x * wy],
-                [-y * wz,  wx * wz,  -wx * y],
-                [y * wz,   x * wz,   -x * y],
-                [-wy * z,  -wx * z,  wx * wy],
-                [wy * z,   -x * z,   x * wy],
-                [-y * z,   wx * z,   wx * y],
-                [y * z,    x * z,    x * y]
-            ]
+        # Build up the Jacobian matrix so we can solve for the next, closer guess.
+        # Take the partial derivative of the weights of v000 - v111 in respect to x, y, and z:
+        # ```
+        # [[w0 / dx, w0 / dy, w0 / dz],
+        #  ...,
+        #  [w7 / dx, w7 / dy, w7 / dz]]
+        # ```
+        # Then multiplying the vertices by these partials gives us the 3x3 Jacobian.
+        dx0, dx1, dx2, dx3 = -wy * wz, wy * wz, -y * wz, y * wz
+        dx4, dx5, dx6, dx7 = -wy * z, wy * z, -y * z, y * z
+        dy0, dy1, dy2, dy3 = -wx * wz, -x * wz, wx * wz, x * wz
+        dy4, dy5, dy6, dy7 = -wx * z, -x * z, wx * z, x * z
+        dz0, dz1, dz2, dz3 = -wx * wy, -x * wy, -wx * y, -x * y
+        dz4, dz5, dz6, dz7 = wx * wy, x * wy, wx * y, x * y
 
-            j = matmul(vertices, m, dims=D2)
+        j00 = a0 * dx0 + a1 * dx1 + a2 * dx2 + a3 * dx3 + a4 * dx4 + a5 * dx5 + a6 * dx6 + a7 * dx7
+        j01 = a0 * dy0 + a1 * dy1 + a2 * dy2 + a3 * dy3 + a4 * dy4 + a5 * dy5 + a6 * dy6 + a7 * dy7
+        j02 = a0 * dz0 + a1 * dz1 + a2 * dz2 + a3 * dz3 + a4 * dz4 + a5 * dz5 + a6 * dz6 + a7 * dz7
+        j10 = b0 * dx0 + b1 * dx1 + b2 * dx2 + b3 * dx3 + b4 * dx4 + b5 * dx5 + b6 * dx6 + b7 * dx7
+        j11 = b0 * dy0 + b1 * dy1 + b2 * dy2 + b3 * dy3 + b4 * dy4 + b5 * dy5 + b6 * dy6 + b7 * dy7
+        j12 = b0 * dz0 + b1 * dz1 + b2 * dz2 + b3 * dz3 + b4 * dz4 + b5 * dz5 + b6 * dz6 + b7 * dz7
+        j20 = c0 * dx0 + c1 * dx1 + c2 * dx2 + c3 * dx3 + c4 * dx4 + c5 * dx5 + c6 * dx6 + c7 * dx7
+        j21 = c0 * dy0 + c1 * dy1 + c2 * dy2 + c3 * dy3 + c4 * dy4 + c5 * dy5 + c6 * dy6 + c7 * dy7
+        j22 = c0 * dz0 + c1 * dz1 + c2 * dz2 + c3 * dz3 + c4 * dz4 + c5 * dz5 + c6 * dz6 + c7 * dz7
 
-            # Solve for new guess
-            xyz = subtract_x3(xyz, solve(j, residual), dims=D1)
-    except ValueError:  # pragma: no cover
-        # The Jacobian matrix shouldn't fail inversion if we are in range.
-        # Out of range may give us values we cannot invert. There are potential
-        # ways to handle this to try and get moving again, but currently, we
-        # just give up. We do not guarantee out of gamut conversions.
-        pass
+        # Solve `J d = r` for the step using Cramer's rule. The cofactors are shared by the determinant and the step.
+        m00 = j11 * j22 - j12 * j21
+        m01 = j12 * j20 - j10 * j22
+        m02 = j10 * j21 - j11 * j20
+        det = j00 * m00 + j01 * m01 + j02 * m02
 
-    return xyz
+        # The Jacobian matrix shouldn't be singular if we are in range. Out of range may give us values we cannot
+        # invert. There are potential ways to handle this to try and get moving again, but currently, we just
+        # give up. We do not guarantee out of gamut conversions.
+        if not det:
+            break
+
+        x -= (r0 * m00 + r1 * (j02 * j21 - j01 * j22) + r2 * (j01 * j12 - j02 * j11)) / det
+        y -= (r0 * m01 + r1 * (j00 * j22 - j02 * j20) + r2 * (j02 * j10 - j00 * j12)) / det
+        z -= (r0 * m02 + r1 * (j01 * j20 - j00 * j21) + r2 * (j00 * j11 - j01 * j10)) / det
+
+    return [x, y, z]
 
 
 class Interpolator:
@@ -1200,7 +1293,7 @@ class NaturalBSplineInterpolator(BSplineInterpolator):
         """Apply any preprocessing points."""
 
         cls.naturalize(points)
-        super(NaturalBSplineInterpolator, cls).preprocess(points, end_cond, **kwargs)
+        super().preprocess(points, end_cond, **kwargs)
 
 
 class SpragueInterpolator(Interpolator):
@@ -4347,11 +4440,17 @@ class MultiArrayBuilder(ArrayBuilder[Number]):
 def flatiter(array: Number | ArrayTLike[Number], *, shape: Shape | None = None) -> Iterator[Number]:
     """Traverse an array returning values."""
 
-    for indices in ndindex(_shape(array) if shape is None else shape):
-        m = array  # type: Any
-        for i in indices:
-            m = m[i]
-        yield m
+    s = _shape(array) if shape is None else shape
+
+    # Scalars are the only thing without dimensions
+    if not s:
+        return iter((array,))  # type: ignore[arg-type]
+
+    # Flatten one dimension at a time with `chain`, which is much faster than indexing from the root for every value
+    items = array  # type: Any
+    for _ in range(len(s) - 1):
+        items = it.chain.from_iterable(items)
+    return iter(items)
 
 
 def ravel(array: Number | ArrayTLike[Number], *, shape: Shape | None = None) -> VectorT[Number]:
@@ -4488,6 +4587,16 @@ def transpose(array: ArrayTLike[Number] | Number) -> Number | ArrayT[Number]:
     return m
 
 
+def _unflatten(data: VectorT[Number], s: Shape) -> ArrayT[Number]:
+    """Slice a flat list of data into an array of the specified shape."""
+
+    if len(s) == 1:
+        return data
+    s = s[1:]
+    step = math.prod(s)
+    return [_unflatten(data[i:i + step], s) for i in range(0, len(data), step)]  # type: ignore[return-value]
+
+
 @overload
 def reshape(array: ArrayTLike[Number] | Number, new_shape: EmptyShape) -> Number:
     ...
@@ -4540,14 +4649,20 @@ def reshape(array: ArrayTLike[Number] | Number, new_shape: int | Shape) -> Numbe
     if not empty and total != math.prod(current_shape):
         raise ValueError(f'Shape {new_shape} does not match the data total of {shape(array)}')
 
-    # Create the array
+    # Non-empty arrays can be sliced into the requested shape
+    if not empty:
+        return _unflatten(list(flatiter(array, shape=current_shape)), new_shape)
+
+    # Empty arrays have no data, so the builder only needs to generate the empty dimensions when it drains
     m = []  # type: ArrayT[Number]
-    with ArrayBuilder(m, new_shape) as build:
-        # Create an iterator to traverse the data
-        for data in flatiter(array, shape=current_shape) if len(current_shape) > 1 else iter(array):
-            next(build).append(data)
+    with ArrayBuilder(m, new_shape):
+        pass
 
     return m
+
+
+# Scalar types that we can validate in bulk when determining the shape of an array
+_SCALAR_TYPES = frozenset((float, int, bool))
 
 
 @overload
@@ -4597,8 +4712,18 @@ def shape(a: ArrayTLike[Number] | Number, *, quick: bool = False) -> Shape:
     if not size:
         return (size,)
 
+    # Innermost arrays (vectors of scalars) are by far the most common case, so avoid recursing into every scalar.
+    # Scalars of the usual types are validated in bulk. Anything unusual falls back to a full check.
+    first_entry = a[0]
+    if not isinstance(first_entry, Sequence):
+        if not _SCALAR_TYPES.issuperset(map(type, a)):
+            for r in range(1, size):
+                if isinstance(a[r], Sequence):
+                    raise ValueError('Ragged lists are not supported')
+        return (size,)
+
     # Recursively get the shape of the first entry and compare against the others
-    first = shape(a[0])
+    first = shape(first_entry)
     for r in range(1, size):
         if shape(a[r]) != first:
             raise ValueError('Ragged lists are not supported')
@@ -4983,11 +5108,16 @@ def lu(
 
         # We have a pivot point, let's zero out everything above and below
         # the 'l' and 'u' diagonal respectively
+        ui = u[i]
+        pivot = ui[i]
         for j in range(i + 1, size):
-            scalar = u[j][i] / u[i][i]
+            uj = u[j]
+            scalar = uj[i] / pivot
             for k in range(i, size):
-                u[j][k] += -u[i][k] * scalar
-                l[j][k] += l[i][k] * scalar
+                uj[k] -= ui[k] * scalar
+
+            # `L` is unit lower triangular, so the row being eliminated from only has its diagonal in this range
+            l[j][i] += scalar
 
     # Clean up the wide and tall matrices
     if tall:
@@ -5025,13 +5155,18 @@ def _forward_sub_matrix(a: MatrixT[float], b: MatrixT[float], s: ArrayShape) -> 
     """Forward substitution for solution of `L x = b` where `b` is a matrix."""
 
     size1, size2 = s
+    cols = range(size2)
     for i in range(size1):
+        ai = a[i]
         v = b[i]
         for j in range(i):
-            for k in range(size2):
-                v[k] -= a[i][j] * b[j][k]
-        for j in range(size2):
-            v[j] /= a[i][i]
+            aij = ai[j]
+            bj = b[j]
+            for k in cols:
+                v[k] -= aij * bj[k]
+        d = ai[i]
+        for k in cols:
+            v[k] /= d
     return b
 
 
@@ -5050,13 +5185,18 @@ def _back_sub_matrix(a: MatrixT[float], b: MatrixT[float], s: ArrayShape) -> Mat
     """Back substitution for solution of `U x = b`."""
 
     size1, size2 = s
+    cols = range(size2)
     for i in range(size1 - 1, -1, -1):
+        ai = a[i]
         v = b[i]
         for j in range(i + 1, size1):
-            for k in range(size2):
-                v[k] -= a[i][j] * b[j][k]
-        for j in range(size2):
-            b[i][j] /= a[i][i]
+            aij = ai[j]
+            bj = b[j]
+            for k in cols:
+                v[k] -= aij * bj[k]
+        d = ai[i]
+        for k in cols:
+            v[k] /= d
     return b
 
 
@@ -5239,9 +5379,15 @@ def _diagonalization_of_bidiagonal(
     u: MatrixT[float],
     q: VectorT[float],
     v: MatrixT[float],
-    eps: float
+    eps: float,
+    compute_uv: bool = True
 ) -> None:
-    """Diagonalization of the bidiagonal form."""
+    """
+    Diagonalization of the bidiagonal form.
+
+    The rotations applied to `U` and `V` have no influence on the singular values,
+    so they are skipped when only the singular values are needed.
+    """
 
     l = 0
     eps = eps * x
@@ -5275,11 +5421,12 @@ def _diagonalization_of_bidiagonal(
                     g = q[i]
                     c, s, h = _compute_orthogonal_rotation(g, -f)
                     q[i] = h
-                    for j in range(m):
-                        y = u[j][l1]
-                        z = u[j][i]
-                        u[j][l1] = y * c + z * s
-                        u[j][i] = -y * s + z * c
+                    if compute_uv:
+                        for row in u:
+                            y = row[l1]
+                            z = row[i]
+                            row[l1] = y * c + z * s
+                            row[i] = -y * s + z * c
 
             # Test f convergence
             z = q[k]
@@ -5288,8 +5435,9 @@ def _diagonalization_of_bidiagonal(
                 if z < 0.0:
                     # q[k] is made non-negative
                     q[k] = -z
-                    for j in range(n):
-                        v[j][k] = -v[j][k]
+                    if compute_uv:
+                        for row in v:
+                            row[k] = -row[k]
                 break
 
             # Shift from bottom 2x2 minor
@@ -5319,22 +5467,24 @@ def _diagonalization_of_bidiagonal(
                 h = y * s
                 y = y * c
 
-                for j in range(n):
-                    x = v[j][i - 1]
-                    z = v[j][i]
-                    v[j][i - 1] = x * c + z * s
-                    v[j][i] = -x * s + z * c
+                if compute_uv:
+                    for row in v:
+                        x = row[i - 1]
+                        z = row[i]
+                        row[i - 1] = x * c + z * s
+                        row[i] = -x * s + z * c
 
                 c, s, z = _compute_orthogonal_rotation(f, h)
                 q[i-1] = z
                 f = c * g + s * y
                 x = -s * g + c * y
 
-                for j in range(m):
-                    y = u[j][i - 1]
-                    z = u[j][i]
-                    u[j][i-1] = y * c + z * s
-                    u[j][i] = -y * s + z * c
+                if compute_uv:
+                    for row in u:
+                        y = row[i - 1]
+                        z = row[i]
+                        row[i - 1] = y * c + z * s
+                        row[i] = -y * s + z * c
 
             e[l] = 0.0
             e[k] = f
@@ -5424,7 +5574,7 @@ def _svd(
     if compute_uv:
         g = _accumulate_right_transfrom(n, g, l, e, u, v)
         g = _accumulate_left_transform(m, n, g, l, u, q)
-    _diagonalization_of_bidiagonal(m, n, g, x, y, e, u, q, v, eps)
+    _diagonalization_of_bidiagonal(m, n, g, x, y, e, u, q, v, eps, compute_uv)
 
     if full_matrices and not square:
         if compute_uv:
@@ -5681,24 +5831,34 @@ def _qr(a: MatrixT[float], m: int, n: int, mode: str = 'reduced') -> (
         w = [[(r[i][k] / u0) if u0 else 1] for i in range(k, m)]
         w[0][0] = 1
         t = (-sig * u0 / norm) if norm else 0
-        wtw = matmul(w, [[x[0] * t for x in w]], dims=D2)
 
         # Capture householder reflections and tau
         if mode_raw:
             h.append(w)
             tau[k] = t
 
-        # Update R
-        sub_r = [r[i][:] for i in range(k, m)]
-        for count, row in enumerate(matmul(wtw, sub_r, dims=D2), k):
-            # Fill the lower triangle with zeros and update the upper triangle
-            r[count][:] = [r[count][col] - row[col] for col in range(n)]
+        # Apply the reflection `H = I - t * w * w^T` as a rank-1 update instead of building and multiplying
+        # the full `t * w * w^T` matrix. This avoids an order of magnitude of work: O(n^3) vs O(n^4) overall.
+        # `tw` is `t * w` as a flat vector, with `w` being flattened as well.
+        wf = [x[0] for x in w]
+        tw = [x * t for x in wf]
+
+        # Update R: `R - w * (t * w^T * R)`.
+        # Columns before `k` are only lower triangle values that are zeroed or replaced when we are done.
+        v = [0.0] * (n - k)
+        for twi, row in zip(tw, r[k:m]):
+            for col in range(k, n):
+                v[col - k] += twi * row[col]
+        for wi, row in zip(wf, r[k:m]):
+            for col in range(k, n):
+                row[col] -= wi * v[col - k]
 
         if not mode_r:
-            # Update Q
-            sub_q = [row[k:] for row in q]
-            for count, row in enumerate(matmul(sub_q, wtw, dims=D2)):
-                q[count][k:] = [sub_q[count][i] - row[i] for i in range(m - k)]
+            # Update Q: `Q - (Q * w) * (t * w^T)`
+            for row in q:
+                sub = row[k:]
+                d = sum([x * y for x, y in zip(sub, wf)])
+                row[k:] = [x - d * y for x, y in zip(sub, tw)]
 
     # Zero out the lower triangle or fill with the householder reflectors if in raw mode
     for k in range(0, m - 1 if not tall else n):

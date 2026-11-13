@@ -98,6 +98,70 @@ def _target(path: str, descriptors: list[dict]):
     return None, None
 
 
+def request_headers(environ: dict, drop) -> dict:
+    """The caller's request headers for the upstream hop, minus the names in ``drop``."""
+    headers = {}
+    for name, value in environ.items():
+        if name.startswith("HTTP_"):
+            key = name[5:].replace("_", "-").title()
+            if key.lower() not in drop:
+                headers[key] = value
+    if environ.get("CONTENT_TYPE"):
+        headers["Content-Type"] = environ["CONTENT_TYPE"]
+    headers["Accept-Encoding"] = "identity"
+    headers["X-Forwarded-Proto"] = environ.get("wsgi.url_scheme", "http")
+    headers["X-Forwarded-Host"] = environ.get("HTTP_HOST", "")
+    return headers
+
+
+def forward(environ, start_response, target: str, headers: dict, *, unreachable, chunk_size=65536):
+    """Send this WSGI request to ``target`` and stream the upstream's answer back.
+
+    ``unreachable(exc)`` returns the error object for the 502 answered when nothing is
+    listening. ``chunk_size=None`` hands each piece on as it arrives (event streams)."""
+    # requests treats a raw WSGI input stream as an unknown-length body and
+    # may send it chunked, even when the incoming request had a length.
+    # The standalone Flask arms then try to parse those bytes as chunks and
+    # fail with "Invalid chunk header". Spool exactly the advertised body
+    # and rewind it so requests can set a correct Content-Length itself.
+    spool = None
+    length = int(environ.get("CONTENT_LENGTH") or 0)
+    if length:
+        spool = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024)
+        remaining = length
+        while remaining:
+            chunk = environ["wsgi.input"].read(min(65536, remaining))
+            if not chunk:
+                break
+            spool.write(chunk)
+            remaining -= len(chunk)
+        spool.seek(0)
+    try:
+        response = requests.request(
+            environ.get("REQUEST_METHOD", "GET"), target, headers=headers,
+            data=spool, stream=True, allow_redirects=False,
+            timeout=(CONNECT_TIMEOUT_S, None))
+    except requests.RequestException as exc:
+        body = json.dumps({"error": unreachable(exc)}).encode()
+        start_response("502 Bad Gateway", [("Content-Type", "application/json"),
+                                             ("Content-Length", str(len(body)))])
+        return [body]
+    finally:
+        if spool is not None:
+            spool.close()
+
+    response_headers = [(k, v) for k, v in response.headers.items()
+                        if k.lower() not in DROP_RESPONSE]
+    start_response(f"{response.status_code} {response.reason}", response_headers)
+
+    def stream():
+        try:
+            yield from response.iter_content(chunk_size=chunk_size)
+        finally:
+            response.close()
+    return stream()
+
+
 class ArmProxy:
     def __init__(self, app, core_app, embedded_arms=()):
         self.app = app
@@ -122,72 +186,25 @@ class ArmProxy:
         if path.startswith("/api/") and _core_owns(self.core_app, environ):
             return self.app(environ, start_response)
         cfg, inner_path = _target(path, descriptors)
-        if not cfg:
+        # An arm served in-process answers for itself, also where it has no such route: its
+        # descriptor describes a standalone service that is switched off while Core hosts the arm.
+        if not cfg or cfg.get("arm") in self.embedded_arms:
             return self.app(environ, start_response)
 
         target = cfg["upstream"] + inner_path
         query = environ.get("QUERY_STRING")
         if query:
             target += "?" + query
-        headers = {}
-        for name, value in environ.items():
-            if name.startswith("HTTP_"):
-                key = name[5:].replace("_", "-").title()
-                if key.lower() not in DROP_REQUEST:
-                    headers[key] = value
+        headers = request_headers(environ, DROP_REQUEST)
         # Scoped Media/Video live access is checked at nginx, then checked again
         # by the arm. Preserve that bearer across the Core-to-arm hop.
         if cfg.get("arm") in ("media", "video") and environ.get("HTTP_AUTHORIZATION"):
             headers["Authorization"] = environ["HTTP_AUTHORIZATION"]
-        if environ.get("CONTENT_TYPE"):
-            headers["Content-Type"] = environ["CONTENT_TYPE"]
-        headers["Accept-Encoding"] = "identity"
         headers["X-Forwarded-For"] = environ.get("REMOTE_ADDR", "")
-        headers["X-Forwarded-Proto"] = environ.get("wsgi.url_scheme", "http")
-        headers["X-Forwarded-Host"] = environ.get("HTTP_HOST", "")
-        # requests treats a raw WSGI input stream as an unknown-length body and
-        # may send it chunked, even when the incoming request had a length.
-        # The standalone Flask arms then try to parse those bytes as chunks and
-        # fail with "Invalid chunk header". Spool exactly the advertised body
-        # and rewind it so requests can set a correct Content-Length itself.
-        spool = None
-        length = int(environ.get("CONTENT_LENGTH") or 0)
-        if length:
-            spool = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024)
-            remaining = length
-            while remaining:
-                chunk = environ["wsgi.input"].read(min(65536, remaining))
-                if not chunk:
-                    break
-                spool.write(chunk)
-                remaining -= len(chunk)
-            spool.seek(0)
-        try:
-            response = requests.request(
-                environ.get("REQUEST_METHOD", "GET"), target, headers=headers,
-                data=spool, stream=True, allow_redirects=False,
-                timeout=(CONNECT_TIMEOUT_S, None))
-        except requests.RequestException as exc:
-            arm = str(cfg.get("arm") or "arm")
-            body = json.dumps({"error": {"message": f"arm {arm!r} is unreachable at {cfg['upstream']}: {type(exc).__name__}",
-                                         "arm": arm, "upstream": cfg["upstream"]}}).encode()
-            start_response("502 Bad Gateway", [("Content-Type", "application/json"),
-                                                 ("Content-Length", str(len(body)))])
-            return [body]
-        finally:
-            if spool is not None:
-                spool.close()
-
-        response_headers = [(k, v) for k, v in response.headers.items()
-                            if k.lower() not in DROP_RESPONSE]
-        start_response(f"{response.status_code} {response.reason}", response_headers)
-
-        def stream():
-            try:
-                yield from response.iter_content(chunk_size=65536)
-            finally:
-                response.close()
-        return stream()
+        arm = str(cfg.get("arm") or "arm")
+        return forward(environ, start_response, target, headers, unreachable=lambda exc: {
+            "message": f"arm {arm!r} is unreachable at {cfg['upstream']}: {type(exc).__name__}",
+            "arm": arm, "upstream": cfg["upstream"]})
 
 
 def wrap(app, core_app, embedded_arms=()):

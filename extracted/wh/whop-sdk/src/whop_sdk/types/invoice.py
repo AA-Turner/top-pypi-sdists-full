@@ -4,8 +4,10 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .checkout_session_payment_method_configuration import CheckoutSessionPaymentMethodConfiguration
 from .invoice_line_item import InvoiceLineItem
 from .invoice_object import InvoiceObject
+from .invoice_scheduled_collection_method import InvoiceScheduledCollectionMethod
 from .invoice_status import InvoiceStatus
 from .invoice_totals_status import InvoiceTotalsStatus
 from .money import Money
@@ -20,7 +22,7 @@ class Invoice(UniversalBaseModel):
     buyer_fee_percentage: float
     checkout_link: typing.Optional[str] = pydantic.Field(default=None)
     """
-    A signed link that opens this invoice in a checkout session so the buyer can pay it: pass it as `link` to `POST /checkout_sessions`. Present while the invoice is open; null in any other status, for an invoice billed to a business buyer or whose membership was canceled, and when you lack `payment:charge`.
+    A signed link that opens this invoice in a checkout session so the buyer can pay it: pass it as `link` to `POST /checkout_sessions`. Present while the invoice is open; null in any other status, for an invoice billed to a business buyer or whose membership was canceled, and unless you have `payment:charge`, or `invoice:create` or `invoice:update` on an invoice with no `payment_method_id`.
     """
 
     created_at: str
@@ -32,16 +34,38 @@ class Invoice(UniversalBaseModel):
     line_items: typing.List[InvoiceLineItem]
     mailing_address_id: typing.Optional[str] = None
     member_id: typing.Optional[str] = None
+    membership_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The membership this invoice bills, prefixed `mem_`: the subscription a renewal invoice renews, or the one created when an invoice with a recurring item is issued. Null for one-off invoices, for a draft not yet issued, and without the member:basic:read permission.
+    """
+
+    memo: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    A note to the customer, shown on the invoice email, PDF, and checkout page with its line breaks kept. `null` when none is set.
+    """
+
     metadata: typing.Dict[str, str]
     number: str
     object: InvoiceObject
     overdue: bool
     paid_at: typing.Optional[str] = None
+    payment_method_configuration: typing.Optional[CheckoutSessionPaymentMethodConfiguration] = pydantic.Field(
+        default=None
+    )
+    """
+    The payment methods the customer can choose from when paying through the invoice's checkout link. It takes precedence over the invoice's variants and the account. `null` when the invoice uses its variants' payment methods.
+    """
+
     payment_method_id: typing.Optional[str] = None
     recipient_emails: typing.List[str]
     scheduled_charge_at: typing.Optional[str] = pydantic.Field(default=None)
     """
     When the invoice's saved payment method will be charged, as an ISO 8601 timestamp: the `charge_at` it was sent or issued with, or `due_at` when an invoice with a `payment_method_id` is sent or issued before it is due without one. On a draft, the `charge_at` of its scheduled send. `null` otherwise, once the charge starts, and once the invoice is paid, void, or uncollectible.
+    """
+
+    scheduled_collection_method: typing.Optional[InvoiceScheduledCollectionMethod] = pydantic.Field(default=None)
+    """
+    The `collection_method` a draft's scheduled send applies when it fires. `null` when the draft has no scheduled send or it was scheduled without one, and once the invoice is issued.
     """
 
     scheduled_send_at: typing.Optional[str] = None

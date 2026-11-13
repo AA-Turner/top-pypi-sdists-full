@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from botocore.exceptions import ClientError, ParamValidationError
 
+from sagemaker_studio.utils._statement_cancel import report_cancelled, run_bounded
+
 from .exceptions import (
     InterfaceError,
     OperationalError,
@@ -300,96 +302,109 @@ class StatementExecutor:
             StatementExecutionError: If the statement reports FAILED
             OperationalError: If the statement was cancelled or reports an unknown status
         """
-        poll_interval = _INITIAL_POLL_INTERVAL
-        use_long_poll = self._long_poll_supported()
+        try:
+            poll_interval = _INITIAL_POLL_INTERVAL
+            use_long_poll = self._long_poll_supported()
 
-        # Create retry config for describe_statement calls
-        retry_config = RetryConfig(max_attempts=3, base_delay=0.5, max_delay=5.0)
+            # Create retry config for describe_statement calls
+            retry_config = RetryConfig(max_attempts=3, base_delay=0.5, max_delay=5.0)
 
-        while True:
-            # Check statement status with retry logic
-            try:
+            while True:
+                # Check statement status with retry logic
+                try:
 
-                def describe_statement():
-                    params: Dict[str, Any] = {"Id": statement_id}
-                    if use_long_poll:
-                        params[_LONG_POLL_MEMBER] = LONG_POLL_WAIT_SECONDS
-                    try:
-                        return self.client.describe_statement(**params)
-                    except Exception as exc:
-                        # Detect here, where the original botocore type is still intact.
-                        if use_long_poll and _is_long_poll_rejection(exc):
-                            raise _LongPollRejected(
-                                f"Redshift Data API rejected {_LONG_POLL_MEMBER}; "
-                                f"falling back to client-side polling"
-                            ) from exc
-                        raise
+                    def describe_statement():
+                        params: Dict[str, Any] = {"Id": statement_id}
+                        if use_long_poll:
+                            params[_LONG_POLL_MEMBER] = LONG_POLL_WAIT_SECONDS
+                        try:
+                            return self.client.describe_statement(**params)
+                        except Exception as exc:
+                            # Detect here, where the original botocore type is still intact.
+                            if use_long_poll and _is_long_poll_rejection(exc):
+                                raise _LongPollRejected(
+                                    f"Redshift Data API rejected {_LONG_POLL_MEMBER}; "
+                                    f"falling back to client-side polling"
+                                ) from exc
+                            raise
 
-                response = retry_on_transient_error(
-                    describe_statement,
-                    config=retry_config,
-                    operation_name="describe_statement",
-                    execution_context=execution_context,
-                )
-
-            except _LongPollRejected:
-                # Must precede `except Exception`, else the signal is mapped to a DB error.
-                # Finish this statement in classic mode.
-                use_long_poll = False
-                poll_interval = _INITIAL_POLL_INTERVAL
-                continue
-
-            except Exception as e:
-                mapped_exception = map_boto3_exception(e, execution_context)
-                raise mapped_exception
-
-            status = response["Status"]
-
-            if status == "FINISHED":
-                # Statement completed successfully
-
-                return {
-                    "statement_id": statement_id,
-                    "status": status,
-                    "has_result_set": response.get("HasResultSet", False),
-                    "result_metadata": response.get("ResultMetadata"),
-                    "records_updated": response.get("RecordsUpdated", 0),
-                    "result_rows": response.get("ResultRows"),
-                    "result_size": response.get("ResultSize"),
-                    "sub_statements": response.get("SubStatements", []),
-                    "redshift_query_id": response.get("RedshiftQueryId"),
-                }
-
-            elif status == "FAILED":
-                # Statement failed
-                error_message = response.get("Error", "Statement execution failed")
-
-                raise StatementExecutionError(
-                    f"Statement execution failed: {error_message}",
-                    statement_id=statement_id,
-                    redshift_query_id=response.get("RedshiftQueryId"),
-                    query_string=response.get("QueryString"),
-                )
-
-            elif status == "ABORTED":
-                # Statement was cancelled
-                raise OperationalError(f"Statement was cancelled: {statement_id}")
-
-            elif status in ("SUBMITTED", "PICKED", "STARTED"):
-                # Still running. In long-poll mode the service already held the call
-                # open, so skip the client-side wait and backoff advance.
-                if not use_long_poll:
-                    time.sleep(poll_interval)
-
-                    # Increase poll interval with exponential backoff
-                    poll_interval = min(
-                        poll_interval * _POLL_BACKOFF_MULTIPLIER, _MAX_POLL_INTERVAL
+                    response = retry_on_transient_error(
+                        describe_statement,
+                        config=retry_config,
+                        operation_name="describe_statement",
+                        execution_context=execution_context,
                     )
 
-            else:
-                # Unknown status
+                except _LongPollRejected:
+                    # Must precede `except Exception`, else the signal is mapped to a DB error.
+                    # Finish this statement in classic mode.
+                    use_long_poll = False
+                    poll_interval = _INITIAL_POLL_INTERVAL
+                    continue
 
-                raise OperationalError(f"Unknown statement status: {status}")
+                except Exception as e:
+                    mapped_exception = map_boto3_exception(e, execution_context)
+                    raise mapped_exception
+
+                status = response["Status"]
+
+                if status == "FINISHED":
+                    # Statement completed successfully
+
+                    return {
+                        "statement_id": statement_id,
+                        "status": status,
+                        "has_result_set": response.get("HasResultSet", False),
+                        "result_metadata": response.get("ResultMetadata"),
+                        "records_updated": response.get("RecordsUpdated", 0),
+                        "result_rows": response.get("ResultRows"),
+                        "result_size": response.get("ResultSize"),
+                        "sub_statements": response.get("SubStatements", []),
+                        "redshift_query_id": response.get("RedshiftQueryId"),
+                    }
+
+                elif status == "FAILED":
+                    # Statement failed
+                    error_message = response.get("Error", "Statement execution failed")
+
+                    raise StatementExecutionError(
+                        f"Statement execution failed: {error_message}",
+                        statement_id=statement_id,
+                        redshift_query_id=response.get("RedshiftQueryId"),
+                        query_string=response.get("QueryString"),
+                    )
+
+                elif status == "ABORTED":
+                    # Statement was cancelled
+                    raise OperationalError(f"Statement was cancelled: {statement_id}")
+
+                elif status in ("SUBMITTED", "PICKED", "STARTED"):
+                    # Still running. In long-poll mode the service already held the call
+                    # open, so skip the client-side wait and backoff advance.
+                    if not use_long_poll:
+                        time.sleep(poll_interval)
+
+                        # Increase poll interval with exponential backoff
+                        poll_interval = min(
+                            poll_interval * _POLL_BACKOFF_MULTIPLIER, _MAX_POLL_INTERVAL
+                        )
+
+                else:
+                    # Unknown status
+
+                    raise OperationalError(f"Unknown statement status: {status}")
+
+        except KeyboardInterrupt:
+            # Stop was pressed while this statement was in flight. Ask the service to cancel
+            # it, under a bound that cannot hold the user's interrupt, then let the interrupt
+            # continue unchanged. `statement_id` is this frame's parameter, so there is no
+            # handle to plumb; `run_bounded` owns the bound, the logging and the swallowing.
+            accepted = run_bounded(
+                lambda: self._cancel_statement(statement_id, execution_context),
+                f"Redshift statement {statement_id} cancel",
+            )
+            report_cancelled("Redshift", accepted)
+            raise
 
     def _cancel_statement(
         self, statement_id: str, execution_context: Optional[Dict[str, Any]] = None
@@ -397,20 +412,27 @@ class StatementExecutor:
         """
         Cancel a running statement.
 
-        No in-driver caller today (the timeout-stanza cancel was removed); retained as
-        the cancellation entry point for a caller that needs to stop a statement.
+        Called from `_poll_statement_completion`'s KeyboardInterrupt handler, which is the Stop
+        path. This raises whatever the Data API raises rather than swallowing it: `run_bounded`
+        owns the best-effort contract for this call, and swallowing here as well would hide a
+        rejected cancel (an AccessDenied, for instance) from the only layer that reports one.
 
         Args:
             statement_id: The statement ID to cancel
             execution_context: Optional execution context for logging
+
+        Raises:
+            OperationalError: If the response's `Status` is not True.
         """
         execution_context = execution_context or {}
 
-        try:
-            self.client.cancel_statement(Id=statement_id)
-        except Exception:
-            # don't raise it during cleanup
-            pass
+        response = self.client.cancel_statement(Id=statement_id)
+        # `Status` is optional in the model; only an explicit True means the cancel was accepted.
+        status = response.get("Status")
+        if status is not True:
+            raise OperationalError(
+                f"CancelStatement did not accept the cancel for {statement_id}: Status={status!r}"
+            )
 
     def get_statement_result(
         self,
@@ -830,16 +852,17 @@ class Cursor:
             records = result.get("Records", [])
             column_metadata = result.get("ColumnMetadata", [])
 
+            # An empty page still carries ColumnMetadata; resolve the real columns even when
+            # there are no rows, or the placeholder stays and the query's column names are lost.
+            if column_metadata and (
+                not self.description
+                or len(self.description) == 1
+                and self.description[0][0] == "unknown"
+            ):
+                self.description = ResultConverter.convert_column_metadata(column_metadata)
+
             # Convert records to Python values
             if records and column_metadata:
-                # Update description if we don't have proper metadata yet
-                if (
-                    not self.description
-                    or len(self.description) == 1
-                    and self.description[0][0] == "unknown"
-                ):
-                    self.description = ResultConverter.convert_column_metadata(column_metadata)
-
                 converted_rows = ResultConverter.convert_records(records, column_metadata)
                 self._result_data.extend(converted_rows)
 

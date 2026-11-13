@@ -40,7 +40,7 @@ from langgraph_api.validation import (
     RunsCancel,
     ThreadCronCreate,
 )
-from langgraph_api.webhook import validate_webhook_url_or_raise
+from langgraph_api.webhook import validate_or_drop_webhook
 from langgraph_runtime.database import connect
 from langgraph_runtime.retry import retry_db
 
@@ -294,7 +294,9 @@ async def create_stateless_run(request: ApiRequest):
         )
     return ApiResponse(
         run,
-        headers={"Content-Location": f"/runs/{run['run_id']}"},
+        headers={
+            "Content-Location": f"/threads/{run['thread_id']}/runs/{run['run_id']}"
+        },
     )
 
 
@@ -365,6 +367,7 @@ async def stream_run(
             "Location": f"/threads/{thread_id}/runs/{run['run_id']}/stream",
             "Content-Location": f"/threads/{thread_id}/runs/{run['run_id']}",
         },
+        on_close=lambda: sub.__aexit__(None, None, None),
     )
 
 
@@ -414,9 +417,10 @@ async def stream_run_stateless(
     return EventSourceResponse(
         body(),
         headers={
-            "Location": f"/runs/{run['run_id']}/stream",
-            "Content-Location": f"/runs/{run['run_id']}",
+            "Location": f"/threads/{run['thread_id']}/runs/{run['run_id']}/stream",
+            "Content-Location": f"/threads/{run['thread_id']}/runs/{run['run_id']}",
         },
+        on_close=lambda: sub.__aexit__(None, None, None),
     )
 
 
@@ -596,11 +600,15 @@ async def join_run(request: ApiRequest):
         fallback=_thread_values_fallback(thread_id),
     )
 
+    # Clients reconnect to Location as-is, so it keeps the request's query.
+    query = f"?{request.url.query}" if request.url.query else ""
+    location = f"/threads/{thread_id}/runs/{run_id}/join{query}"
+
     return StreamingResponse(
         body(),
         media_type="application/json",
         headers={
-            "Location": f"/threads/{thread_id}/runs/{run_id}/join",
+            "Location": location,
             "Content-Location": f"/threads/{thread_id}/runs/{run_id}",
         },
     )
@@ -616,8 +624,11 @@ async def join_run_stream(request: ApiRequest):
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     validate_uuid(run_id, "Invalid run ID: must be a UUID")
 
-    stream_mode_param = request.query_params.get("stream_mode")
-    stream_mode = parse_stream_mode_param(stream_mode_param)
+    stream_mode = [
+        mode
+        for value in request.query_params.getlist("stream_mode")
+        for mode in parse_stream_mode_param(value)
+    ]
 
     last_event_id = request.headers.get("last-event-id") or None
 
@@ -637,10 +648,14 @@ async def join_run_stream(request: ApiRequest):
             # Clean up the stream handler
             await sub.__aexit__(None, None, None)
 
+    # Clients reconnect to Location as-is, so it keeps the request's query.
+    query = f"?{request.url.query}" if request.url.query else ""
+    location = f"/threads/{thread_id}/runs/{run_id}/stream{query}"
+
     return EventSourceResponse(
         body(),
         headers={
-            "Location": f"/threads/{thread_id}/runs/{run_id}/stream",
+            "Location": location,
             "Content-Location": f"/threads/{thread_id}/runs/{run_id}",
         },
     )
@@ -764,8 +779,7 @@ async def delete_run(request: ApiRequest):
 async def create_cron(request: ApiRequest):
     """Create a cron with new thread."""
     payload = await request.json(CronCreate)
-    if webhook := payload.get("webhook"):
-        await validate_webhook_url_or_raise(str(webhook))
+    await validate_or_drop_webhook(payload)
     _validate_assistant_id(payload.get("assistant_id"))
     timezone = validate_timezone(payload.get("timezone"))
 
@@ -796,8 +810,7 @@ async def create_thread_cron(request: ApiRequest):
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     payload = await request.json(ThreadCronCreate)
-    if webhook := payload.get("webhook"):
-        await validate_webhook_url_or_raise(str(webhook))
+    await validate_or_drop_webhook(payload)
     _validate_assistant_id(payload.get("assistant_id"))
     timezone = validate_timezone(payload.get("timezone"))
 
@@ -840,8 +853,14 @@ async def patch_cron(request: ApiRequest):
         raise HTTPException(status_code=400, detail="Request body cannot be empty")
     timezone = validate_timezone(payload.get("timezone"))
 
-    if webhook := payload.get("webhook"):
-        await validate_webhook_url_or_raise(str(webhook))
+    await validate_or_drop_webhook(payload)
+    # The body was non-empty above, so it is empty here only when its sole field
+    # was a webhook dropped because webhooks are disabled.
+    if not payload:
+        raise HTTPException(
+            status_code=422,
+            detail="Webhooks are disabled on this server, so `webhook` can't be updated",
+        )
 
     # An explicit `end_time: null` clears the end time; an absent key leaves it unchanged.
     clear_end_time = "end_time" in payload and payload["end_time"] is None

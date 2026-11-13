@@ -20,6 +20,7 @@ from pydantic import SecretStr
 from mistralai.workflows.core.auth import RunAs
 from mistralai.workflows.core.config.config import PayloadEncryptionConfig, config
 from mistralai.workflows.core.temporal.context_handler_interceptor import define_context
+from mistralai.workflows.exceptions import WorkflowError
 from mistralai.workflows.models import WorkflowContext
 from mistralai.workflows.plugins.mistralai.connectors.activities import (
     connector_tool_call,
@@ -95,6 +96,36 @@ class TestConnectorCredentialResolution:
             )
 
         mock_get_client.assert_called_once_with(run_as=RunAs.AUTO)
+
+    @pytest.mark.parametrize(
+        ("module", "call"),
+        [
+            pytest.param(
+                "activities",
+                lambda: connector_tool_call.__wrapped__(
+                    connector_id_or_name="github", tool_name="issue_read", run_as=RunAs.EXECUTOR
+                ),
+                id="tool_call",
+            ),
+            pytest.param(
+                "mcp_apps",
+                lambda: connector_get_mcp_app_resource_uris.__wrapped__(
+                    connector_id_or_name="github", run_as=RunAs.EXECUTOR
+                ),
+                id="mcp_app_resource_uris",
+            ),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_executor_run_as_fails_without_retry(self, module, call) -> None:
+        with (
+            patch(f"mistralai.workflows.plugins.mistralai.connectors.{module}.get_mistral_client") as mock_get_client,
+            pytest.raises(WorkflowError, match="SDK clients only") as error,
+        ):
+            await call()
+
+        assert error.value.non_retryable
+        mock_get_client.assert_not_called()
 
 
 class TestConnectorToolCallErrorHandling:

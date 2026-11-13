@@ -346,7 +346,7 @@ without any prefix.
 
 When enabled, the default volume type of the EBS volume will be GP3.
 
-When this featuer flag is enabled, the default volume type of the EBS volume will be `EbsDeviceVolumeType.GENERAL_PURPOSE_SSD_GP3`
+When this feature flag is enabled, the default volume type of the EBS volume will be `EbsDeviceVolumeType.GENERAL_PURPOSE_SSD_GP3`
 
 *cdk.json*
 
@@ -362,7 +362,7 @@ When this featuer flag is enabled, the default volume type of the EBS volume wil
 
 When enabled, remove default deployment alarm settings.
 
-When this featuer flag is enabled, remove the default deployment alarm settings when creating a AWS ECS service.
+When this feature flag is enabled, remove the default deployment alarm settings when creating a AWS ECS service.
 
 *cdk.json*
 
@@ -995,7 +995,7 @@ class CloudArtifact(
 
     Example::
 
-        from aws_cdk.cloud_assembly_schema import MetadataEntry, NestedCloudAssemblyProperties, BootstrapRole
+        from aws_cdk.cloud_assembly_schema import MetadataEntry, AwsCloudFormationStackProperties, BootstrapRole
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import cloud_assembly_schema
@@ -1021,7 +1021,7 @@ class CloudArtifact(
                     trace=["trace"]
                 )]
             },
-            properties=NestedCloudAssemblyProperties(
+            properties=AwsCloudFormationStackProperties(
                 template_file="templateFile",
         
                 # the properties below are optional
@@ -1678,7 +1678,7 @@ class CloudFormationStackArtifact(
 
     Example::
 
-        from aws_cdk.cloud_assembly_schema import MetadataEntry, NestedCloudAssemblyProperties, BootstrapRole
+        from aws_cdk.cloud_assembly_schema import MetadataEntry, AwsCloudFormationStackProperties, BootstrapRole
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import cloud_assembly_schema
@@ -1704,7 +1704,7 @@ class CloudFormationStackArtifact(
                     trace=["trace"]
                 )]
             },
-            properties=NestedCloudAssemblyProperties(
+            properties=AwsCloudFormationStackProperties(
                 template_file="templateFile",
         
                 # the properties below are optional
@@ -2932,7 +2932,7 @@ class NestedCloudAssemblyArtifact(
 
     Example::
 
-        from aws_cdk.cloud_assembly_schema import MetadataEntry, NestedCloudAssemblyProperties, BootstrapRole
+        from aws_cdk.cloud_assembly_schema import MetadataEntry, AwsCloudFormationStackProperties, BootstrapRole
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import cloud_assembly_schema
@@ -2958,7 +2958,7 @@ class NestedCloudAssemblyArtifact(
                     trace=["trace"]
                 )]
             },
-            properties=NestedCloudAssemblyProperties(
+            properties=AwsCloudFormationStackProperties(
                 template_file="templateFile",
         
                 # the properties below are optional
@@ -3294,7 +3294,7 @@ class TreeCloudArtifact(
 
     Example::
 
-        from aws_cdk.cloud_assembly_schema import MetadataEntry, NestedCloudAssemblyProperties, BootstrapRole
+        from aws_cdk.cloud_assembly_schema import MetadataEntry, AwsCloudFormationStackProperties, BootstrapRole
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import cloud_assembly_schema
@@ -3320,7 +3320,7 @@ class TreeCloudArtifact(
                     trace=["trace"]
                 )]
             },
-            properties=NestedCloudAssemblyProperties(
+            properties=AwsCloudFormationStackProperties(
                 template_file="templateFile",
         
                 # the properties below are optional
@@ -4035,7 +4035,7 @@ class AssetManifestArtifact(
 
     Example::
 
-        from aws_cdk.cloud_assembly_schema import MetadataEntry, NestedCloudAssemblyProperties, BootstrapRole
+        from aws_cdk.cloud_assembly_schema import MetadataEntry, AwsCloudFormationStackProperties, BootstrapRole
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import cloud_assembly_schema
@@ -4061,7 +4061,7 @@ class AssetManifestArtifact(
                     trace=["trace"]
                 )]
             },
-            properties=NestedCloudAssemblyProperties(
+            properties=AwsCloudFormationStackProperties(
                 template_file="templateFile",
         
                 # the properties below are optional

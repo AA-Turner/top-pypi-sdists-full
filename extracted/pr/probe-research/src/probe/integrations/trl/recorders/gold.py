@@ -15,13 +15,27 @@ from typing import Any
 
 from probe.foundation.safe_warn import safe_warn as _diagnostics
 
+from probe.generated.samples import CaptureField
+
 from ..live import LiveBatch
 from ..recorder import Recorder
-from ..rows import read_labeled_rows
+from ..rows import TOOL_FIELDS, read_labeled_rows
 from ..runs import parse_model_ref
 from ..sampler import IndexedSampler, SampledRows
 
 STUDENT, DATASET = "student", "dataset"
+#: What GOLD cannot give a sample (`plan(unsupported=)`), and why.
+UNSUPPORTED = {
+    CaptureField.MESSAGES: (
+        "GOLD trains on DataCollatorForChatML's token ids (gold_trainer.py:1358): the dataset's messages are "
+        "rendered into tokens before the trainer sees them, and a student completion stays token ids"),
+    **dict.fromkeys(TOOL_FIELDS, (
+        "GOLD runs no tools or environment (tool support is a TODO, gold_trainer.py:2228): a completion is a plain "
+        "generation, so there are no tool calls, results or tool files")),
+    CaptureField.REASONING: (
+        "GOLD never parses a completion: it decodes plain text (gold_trainer.py:2473), with no reasoning apart from "
+        "the content"),
+}
 
 
 class GoldRecorder(Recorder):
@@ -41,6 +55,10 @@ class GoldRecorder(Recorder):
         #: The last training batch and the dataset rows it was matched to.
         self._batch_rows: tuple[Any, list] | None = None
         self._warned: set[str] = set()
+
+    def get_unsupported(self) -> dict[str, str]:
+        """Every field: GOLD keeps token ids and runs no tools."""
+        return dict(UNSUPPORTED)
 
     def install(self) -> None:
         trainer = self.trainer
@@ -115,12 +133,18 @@ class GoldRecorder(Recorder):
 
     # -- the record --------------------------------------------------------------------------------------------
     def _record(self, inputs: Any, step: int, is_training: bool) -> None:
-        if not isinstance(inputs, Mapping) or inputs.get("input_ids") is None or not self.tracker.is_recording():
+        """The slice's call, on every process (the per-sample rows' keys read it from `last_calls`), then its parts
+        on the main process."""
+        if not isinstance(inputs, Mapping) or inputs.get("input_ids") is None:
             return
         index = self._find_slice(inputs) if is_training else None
-        writer = STUDENT if index is not None and self._is_on_policy(index) else DATASET
         split = "train" if is_training else "eval"
         call = self._fill[1] + index if index is not None and self._fill and self._fill[0] == step else None
+        call = self.tracker.take_call(split, step) if call is None else call
+        self.tracker.last_calls[split] = (step, call)
+        if not self.tracker.is_recording():
+            return
+        writer = STUDENT if index is not None and self._is_on_policy(index) else DATASET
         ref = {"kind": "policy", "version": step} if writer == STUDENT else parse_model_ref(self.tracker.sft_generated_by)
         parts = self.tracker.make_labeled_parts(inputs, step, split=split, writer=ref, extras={"gold_source": writer},
                                                 call=call)

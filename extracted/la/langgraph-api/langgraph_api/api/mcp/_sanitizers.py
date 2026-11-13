@@ -1,5 +1,8 @@
 import re
+from collections.abc import Iterable
 from typing import Any
+
+from mcp.shared.inbound import X_MCP_HEADER_KEY
 
 # MCP tool name constraints per the 2025-11-25 spec.
 # Valid characters: ASCII letters, digits, underscore, hyphen, dot.
@@ -70,6 +73,46 @@ def simplify_mcp_schema_inplace(schema: dict[str, Any]) -> None:
                 "title": prop.get("title", key),
                 "description": "The user message to send to the agent.",
             }
+
+
+_SUBSCHEMA_KEYWORDS = frozenset(
+    {
+        "items",
+        "contains",
+        "unevaluatedItems",
+        "additionalProperties",
+        "propertyNames",
+        "unevaluatedProperties",
+        "not",
+        "if",
+        "then",
+        "else",
+        "contentSchema",
+    }
+)
+_SUBSCHEMA_LIST_KEYWORDS = frozenset({"allOf", "anyOf", "oneOf", "prefixItems"})
+_SUBSCHEMA_MAP_KEYWORDS = frozenset(
+    {"properties", "patternProperties", "dependentSchemas", "$defs", "definitions"}
+)
+
+
+def drop_mcp_param_headers_inplace(schema: object) -> None:
+    if not isinstance(schema, dict):
+        return
+    schema.pop(X_MCP_HEADER_KEY, None)
+    for keyword, value in schema.items():
+        for subschema in _subschemas(keyword, value):
+            drop_mcp_param_headers_inplace(subschema)
+
+
+def _subschemas(keyword: object, value: object) -> Iterable[object]:
+    if keyword in _SUBSCHEMA_KEYWORDS:
+        return (value,)
+    if keyword in _SUBSCHEMA_LIST_KEYWORDS and isinstance(value, list):
+        return value
+    if keyword in _SUBSCHEMA_MAP_KEYWORDS and isinstance(value, dict):
+        return value.values()
+    return ()
 
 
 def normalize_name(name: str) -> str:

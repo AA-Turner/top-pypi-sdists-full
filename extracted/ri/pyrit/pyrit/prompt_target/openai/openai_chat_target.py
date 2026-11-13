@@ -2,7 +2,7 @@
 # Licensed under the MIT license.
 
 import logging
-from collections.abc import MutableSequence
+from collections.abc import MutableSequence, Sequence
 from typing import Any
 
 from openai.types.chat import ChatCompletion
@@ -24,6 +24,7 @@ from pyrit.prompt_target.common.chat_completions_message_builder import (
     build_text_chat_messages,
     is_text_only_conversation,
     should_skip_audio_piece,
+    validate_chat_tool_message,
 )
 from pyrit.prompt_target.common.chat_completions_response_parser import (
     build_response_pieces_async,
@@ -35,6 +36,8 @@ from pyrit.prompt_target.common.target_configuration import TargetConfiguration
 from pyrit.prompt_target.common.utils import (
     build_empty_truncated_response,
     limit_requests_per_minute,
+    validate_frequency_penalty,
+    validate_presence_penalty,
     validate_temperature,
     validate_top_p,
 )
@@ -76,6 +79,7 @@ class OpenAIChatTarget(OpenAITarget):
 
     """
 
+    _SUPPORTS_TOOL_CALL_HISTORY = True
     _DEFAULT_CONFIGURATION: TargetConfiguration = TargetConfiguration(
         capabilities=TargetCapabilities(
             supports_multi_turn=True,
@@ -141,13 +145,12 @@ class OpenAIChatTarget(OpenAITarget):
             extra_body_parameters (dict, Optional): Additional parameters to be included in the request body.
             custom_configuration (TargetConfiguration, Optional): Override the default target configuration.
             **kwargs: Additional keyword arguments passed to the parent OpenAITarget class.
-            httpx_client_kwargs (dict, Optional): Additional kwargs to be passed to the ``httpx.AsyncClient()``
-                constructor. For example, to specify a 3 minute timeout: ``httpx_client_kwargs={"timeout": 180}``
+            httpx_client_kwargs (dict, Optional): Additional ``AsyncOpenAI`` constructor options.
+                For example, ``{"timeout": 180}`` sets a three-minute timeout. Custom ``http_client``
+                instances use HTTPX on SDK 2, or HTTPX2 / legacy HTTPX on SDK 3.
 
         Raises:
-            PyritException: If the temperature or top_p values are out of bounds.
-            ValueError: If the temperature is not between 0 and 2 (inclusive).
-            ValueError: If the top_p is not between 0 and 1 (inclusive).
+            PyritException: If a generation parameter is out of bounds or a penalty is non-finite.
             RateLimitException: If the target is rate-limited.
             httpx.HTTPStatusError: If the request fails with a 400 Bad Request or 429 Too Many Requests error.
             json.JSONDecodeError: If the response from the target is not valid JSON.
@@ -155,9 +158,11 @@ class OpenAIChatTarget(OpenAITarget):
         """
         super().__init__(custom_configuration=custom_configuration, **kwargs)
 
-        # Validate temperature and top_p
+        # Validate generation parameters.
         validate_temperature(temperature)
         validate_top_p(top_p)
+        validate_presence_penalty(presence_penalty)
+        validate_frequency_penalty(frequency_penalty)
 
         self._temperature = temperature
         self._top_p = top_p
@@ -175,6 +180,12 @@ class OpenAIChatTarget(OpenAITarget):
 
         self._extra_body_parameters = extra_body_parameters
 
+    def validate_tool_history(self, messages: Sequence[Message]) -> None:
+        """Check stored tool history and Chat Completions tool-message constraints."""
+        super().validate_tool_history(messages)
+        for message in messages:
+            validate_chat_tool_message(message)
+
     def _build_identifier(self) -> ComponentIdentifier:
         """
         Build the identifier with OpenAI chat-specific parameters.
@@ -191,6 +202,7 @@ class OpenAIChatTarget(OpenAITarget):
                 "presence_penalty": self._presence_penalty,
                 "seed": self._seed,
                 "n": self._n,
+                "extra_body_parameters": self._extra_body_parameters,
             },
         )
 
@@ -216,8 +228,8 @@ class OpenAIChatTarget(OpenAITarget):
             "generativelanguage.googleapis.com": "https://generativelanguage.googleapis.com/v1beta/openai",
         }
 
-    @limit_requests_per_minute
     @pyrit_target_retry
+    @limit_requests_per_minute
     async def _send_prompt_to_target_async(self, *, normalized_conversation: list[Message]) -> list[Message]:
         """
         Asynchronously sends a message and handles the response within a managed conversation context.

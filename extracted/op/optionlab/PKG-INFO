@@ -1,13 +1,17 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: optionlab
-Version: 1.9.6
+Version: 1.9.7
 Summary: Python library for evaluating options trading strategies
+License-File: LICENSE
 Author: Roberto Gomes, PhD
 Author-email: roberto.veiga@ufabc.edu.br
 Requires-Python: >=3.10,<4.0
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: holidays (>=0.44,<0.45)
 Requires-Dist: jupyter (>=1.0.0,<2.0.0)
 Requires-Dist: matplotlib (>=3.8.3,<4.0.0)

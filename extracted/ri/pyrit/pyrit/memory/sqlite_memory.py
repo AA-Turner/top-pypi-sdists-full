@@ -1,37 +1,181 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+import asyncio
 import logging
 import threading
 import uuid
 import weakref
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import closing
-from datetime import datetime
+from contextvars import ContextVar
 from pathlib import Path
-from typing import Any, Literal
+from sqlite3 import Connection as SQLiteConnection
+from sqlite3 import Cursor as SQLiteCursor
+from types import TracebackType
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
-from sqlalchemy import and_, case, create_engine, exists, func, or_, select, text
+from sqlalchemy import and_, case, create_engine, event, exists, func, or_, select, text
+from sqlalchemy.engine import AdaptedConnection, ExceptionContext
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import InstrumentedAttribute, sessionmaker
 from sqlalchemy.orm.session import Session
 from sqlalchemy.pool import StaticPool
-from sqlalchemy.sql.expression import TextClause
+from sqlalchemy.util.concurrency import greenlet_spawn
 
+from pyrit.common import Singleton
 from pyrit.common.path import DB_DATA_PATH
-from pyrit.common.singleton import Singleton
+from pyrit.memory.analytics_sql import UnicodeLower, text_match, validate_text_search
 from pyrit.memory.memory_interface import MemoryInterface
 from pyrit.memory.memory_models import (
     AttackResultEntry,
     Base,
     PromptMemoryEntry,
     ScenarioResultEntry,
+    SeedEntry,
+    UTCDateTime,
 )
+from pyrit.memory.memory_session import MemorySession
 from pyrit.memory.storage import DiskStorageIO
 from pyrit.models import ConversationStats
 
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Connection
+
 logger = logging.getLogger(__name__)
+_sqlite_session_cleanup: ContextVar[bool] = ContextVar("sqlite_session_cleanup", default=False)
+
+
+class _CursorClosingSQLiteConnection(SQLiteConnection):
+    """A native SQLite connection that finalizes live cursors before disconnecting."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._cursors: weakref.WeakSet[SQLiteCursor] = weakref.WeakSet()
+
+    def cursor(self, *args: Any, **kwargs: Any) -> SQLiteCursor:
+        return self._track_cursor(super().cursor(*args, **kwargs))
+
+    def execute(self, *args: Any, **kwargs: Any) -> SQLiteCursor:
+        return self._track_cursor(super().execute(*args, **kwargs))
+
+    def executemany(self, *args: Any, **kwargs: Any) -> SQLiteCursor:
+        return self._track_cursor(super().executemany(*args, **kwargs))
+
+    def executescript(self, *args: Any, **kwargs: Any) -> SQLiteCursor:
+        return self._track_cursor(super().executescript(*args, **kwargs))
+
+    def close(self) -> None:
+        for cursor in tuple(self._cursors):
+            cursor.close()
+        self._cursors.clear()
+        super().close()
+
+    def _track_cursor(self, cursor: SQLiteCursor) -> SQLiteCursor:
+        self._cursors.add(cursor)
+        return cursor
+
+
+async def _finish_sqlite_cleanup_async(cleanup: Awaitable[None]) -> asyncio.CancelledError | None:
+    """
+    Drain SQLite cleanup and retain cancellation received while waiting.
+
+    Returns:
+        asyncio.CancelledError | None: The first cancellation received during cleanup.
+    """
+    task = asyncio.ensure_future(cleanup)
+    cancellation: asyncio.CancelledError | None = None
+    while not task.done():
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError as error:
+            if cancellation is None:
+                cancellation = error
+        except Exception:
+            break
+    try:
+        task.result()
+    except Exception as error:
+        if cancellation is not None:
+            raise cancellation from error
+        raise
+    return cancellation
+
+
+def _cleanup_interrupted_sqlite_connection(context: ExceptionContext) -> None:
+    execution_context, connection = context.execution_context, context.connection
+    cancelled = isinstance(context.original_exception, asyncio.CancelledError)
+    if connection is None or not (cancelled or _sqlite_session_cleanup.get()):
+        return
+    # The public interface has empty slots, but implementations expose these writable flags.
+    context.is_disconnect = True  # type: ignore[ty:missing-slot]
+    context.invalidate_pool_on_disconnect = False  # type: ignore[ty:missing-slot]
+    dbapi_connection = connection.connection.dbapi_connection
+    if not isinstance(dbapi_connection, AdaptedConnection):
+        raise TypeError("Async SQLite memory requires an adapted driver connection.")
+    cursor = execution_context.cursor if execution_context is not None else None
+
+    def close_and_invalidate() -> None:
+        # SQLAlchemy skips cursor cleanup on cancellation. SQLite keeps an active
+        # statement's transaction lock even after its connection is closed.
+        if cursor is not None:
+            cursor.close()
+        connection.invalidate(context.original_exception)
+
+    try:
+        dbapi_connection.run_async(lambda _: _finish_sqlite_cleanup_async(greenlet_spawn(close_and_invalidate)))
+    except (asyncio.CancelledError, Exception) as error:
+        if cancelled:
+            cause = (
+                error.__cause__ if isinstance(error, asyncio.CancelledError) and error.__cause__ is not None else error
+            )
+            raise context.original_exception from cause
+        raise
+
+
+class _SQLiteAsyncSession(AsyncSession):
+    def __init__(self, *, engine: AsyncEngine, release: Callable[[], None] | None = None) -> None:
+        super().__init__(bind=engine, sync_session_class=MemorySession)
+        self._release: Callable[[], None] | None = release
+
+    async def close(self) -> None:  # pyrit-async-suffix-exempt
+        try:
+            cancellation = await _finish_sqlite_cleanup_async(self._close_session_async())
+        finally:
+            if self._release is not None:
+                release, self._release = self._release, None
+                release()
+        if cancellation is not None:
+            raise cancellation
+
+    async def __aexit__(
+        self,
+        type_: type[BaseException] | None,
+        value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        try:
+            await self.close()
+        except asyncio.CancelledError as error:
+            if isinstance(value, asyncio.CancelledError):
+                cause = error.__cause__ if error.__cause__ is not None else value.__cause__
+                raise value from cause
+            raise
+        except Exception as error:
+            if isinstance(value, asyncio.CancelledError):
+                raise value from error
+            raise
+
+    async def _close_session_async(self) -> None:
+        # A failed rollback must discard its connection before the ORM drops
+        # the transaction reference and before exclusive access is released.
+        token = _sqlite_session_cleanup.set(True)
+        try:
+            await super().close()
+        finally:
+            _sqlite_session_cleanup.reset(token)
 
 
 class SQLiteMemory(MemoryInterface, metaclass=Singleton):
@@ -41,10 +185,21 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
     This class provides functionality to insert, query, and manage conversation data
     using SQLite. It supports both file-based and in-memory databases.
 
+    Cancellation finalizes active cursors and closes interrupted connections before
+    returning to the caller. Session cleanup also finishes under repeated cancellation.
+    Failed disconnects and session rollbacks preserve the original cancellation
+    and expose cleanup failures as its cause.
+
+    File-backed databases wait up to 30 seconds for locks held by other connections
+    before failing with ``database is locked``.
+
     Note: this is replacing the old DuckDB implementation.
     """
 
     DEFAULT_DB_FILE_NAME = "pyrit.db"
+    # Concurrent scenario writers can wait several seconds for SQLite's single write lock,
+    # which outlasts sqlite3's 5 second default.
+    _FILE_BUSY_TIMEOUT_SECONDS: ClassVar[float] = 30.0
 
     def __init__(
         self,
@@ -53,6 +208,7 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         verbose: bool = False,
         skip_schema_migration: bool = False,
         silent: bool = False,
+        _defer_initialization: bool = False,
     ) -> None:
         """
         Initialize the SQLiteMemory instance.
@@ -74,16 +230,105 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         else:
             self.db_path = Path(db_path or Path(DB_DATA_PATH, self.DEFAULT_DB_FILE_NAME)).resolve()
         self.results_path = str(DB_DATA_PATH)
+        self._memory_uri = f"file:pyrit-{uuid.uuid4().hex}?mode=memory&cache=shared&uri=true"
+        self._skip_schema_migration = skip_schema_migration
+        self._silent = silent
+        self._keepalive: Connection | None = None
+        self._verbose = verbose
 
-        # An in-memory database shares a single DBAPI connection across every thread (see
-        # ``_create_engine``), so concurrent sessions would interleave on it. Serialize session
-        # lifetimes for that backend only; file-backed databases get a connection per checkout.
-        self._connection_lock: threading.RLock | None = threading.RLock() if self.db_path == ":memory:" else None
+        # Shared-cache SQLite does not wait on table locks. Serialize whole transactions
+        # across sync callers and all event loops, not just within each connection pool.
+        self._connection_lock = threading.RLock() if self.db_path == ":memory:" else None
+        self._transaction_lock = threading.Lock() if self.db_path == ":memory:" else None
+        self._sync_session_depth = 0
+        self._sync_session_thread: int | None = None
 
         self.engine = self._create_engine(has_echo=verbose)
-        self.SessionFactory = sessionmaker(bind=self.engine)
-        if not skip_schema_migration:
-            self._run_schema_migration(silent=silent)
+        self.SessionFactory = sessionmaker(bind=self.engine, class_=MemorySession)
+        if not _defer_initialization:
+            self._initialize_schema()
+            self._initialized = True
+
+    def _initialize_schema(self) -> None:
+        if self.engine is None:
+            raise RuntimeError("Engine is not initialized.")
+        if self.db_path == ":memory:" and self._keepalive is None:
+            self._keepalive = self.engine.connect()
+        if not self._skip_schema_migration:
+            self._run_schema_migration(silent=self._silent)
+
+    def _create_async_engine(self) -> AsyncEngine:
+        database = self._memory_uri if self.db_path == ":memory:" else str(self.db_path)
+        connect_args: dict[str, Any] = {"factory": _CursorClosingSQLiteConnection}
+        kwargs: dict[str, Any] = {"connect_args": connect_args}
+        if self.db_path == ":memory:":
+            kwargs["poolclass"] = StaticPool
+        else:
+            connect_args["timeout"] = self._FILE_BUSY_TIMEOUT_SECONDS
+        engine = create_async_engine(f"sqlite+aiosqlite:///{database}", echo=self._verbose, **kwargs)
+        self._register_analytics_lower(engine=engine.sync_engine)
+        event.listen(engine.sync_engine, "handle_error", _cleanup_interrupted_sqlite_connection)
+        return engine
+
+    @staticmethod
+    def _unicode_lower(value: str | int | float | bytes | None) -> str | None:
+        """
+        Lowercase SQLite text with Unicode rules, retaining NULL semantics.
+
+        Returns:
+            str | None: The folded value, or SQL NULL.
+        """
+        return str(value).lower() if value is not None else None
+
+    @staticmethod
+    def _register_analytics_lower(*, engine: Engine) -> None:
+        """Install the Unicode lowercase function for analytics and JSON filters on every pooled SQLite connection."""
+
+        @event.listens_for(engine, "connect")
+        def register(dbapi_connection: Any, connection_record: Any) -> None:
+            dbapi_connection.create_function(
+                UnicodeLower.SQLITE_FUNCTION_NAME, 1, SQLiteMemory._unicode_lower, deterministic=True
+            )
+
+    async def get_session_async(self) -> AsyncSession:
+        """
+        Create a session with cancellation-safe SQLite cleanup.
+
+        In-memory sessions also have exclusive access to the shared database.
+
+        Returns:
+            AsyncSession: A session that finishes cleanup before releasing exclusive access.
+
+        Raises:
+            NotImplementedError: If a custom sync session hook has not been migrated.
+            RuntimeError: If this thread already holds a synchronous session.
+        """
+        if self._uses_legacy_session_override():
+            raise NotImplementedError("Override get_session_async when customizing the legacy get_session hook.")
+        if self._sync_session_thread == threading.get_ident():
+            raise RuntimeError("Close the synchronous memory session before opening an async session on this thread.")
+        connection_lock = self._transaction_lock
+        if connection_lock is None:
+            return _SQLiteAsyncSession(engine=self._get_async_engine())
+        while not connection_lock.acquire(blocking=False):
+            await asyncio.sleep(0.01)
+        try:
+            return _SQLiteAsyncSession(engine=self._get_async_engine(), release=connection_lock.release)
+        except BaseException:
+            connection_lock.release()
+            raise
+
+    def _uses_legacy_session_override(self) -> bool:
+        return super()._uses_legacy_session_override() or (
+            type(self).get_session is not MemoryInterface.get_session
+            and type(self).get_session_async is SQLiteMemory.get_session_async
+        )
+
+    def _dispose_sync_engine(self) -> None:
+        if self._keepalive is not None:
+            self._keepalive.close()
+            self._keepalive = None
+        super()._dispose_sync_engine()
 
     def _init_storage_io(self) -> None:
         # Handles disk-based storage for SQLite local memory.
@@ -96,13 +341,9 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         Creates an engine bound to the specified database file. The `has_echo` parameter
         controls the verbosity of SQL execution logging.
 
-        For in-memory databases (``db_path=":memory:"``), a ``StaticPool`` is used so
-        that a single shared connection backs all threads.  SQLAlchemy's default pool
-        for ``:memory:`` is ``SingletonThreadPool``, which gives each thread its own
-        connection — and therefore its own *separate* in-memory database.  That causes
-        tables created on one thread (e.g. a background initialisation thread) to be
-        invisible from another thread (e.g. the main thread), resulting in
-        "no such table" errors.
+        For in-memory databases, the sync pool and each async pool connect to an
+        instance-specific named database. A keepalive connection preserves its
+        contents while async pools are closed between event loops.
 
         Args:
             has_echo (bool): Flag to enable detailed SQL execution logging.
@@ -123,8 +364,12 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
                 # the connection will be shared across threads.
                 extra_kwargs["poolclass"] = StaticPool
                 extra_kwargs["connect_args"] = {"check_same_thread": False}
+            else:
+                extra_kwargs["connect_args"] = {"timeout": self._FILE_BUSY_TIMEOUT_SECONDS}
 
-            engine = create_engine(f"sqlite:///{self.db_path}", echo=has_echo, **extra_kwargs)
+            database = self._memory_uri if self.db_path == ":memory:" else str(self.db_path)
+            engine = create_engine(f"sqlite:///{database}", echo=has_echo, **extra_kwargs)
+            self._register_analytics_lower(engine=engine)
             logger.info(f"Engine created successfully for database: {self.db_path}")
             return engine
         except SQLAlchemyError as e:
@@ -134,18 +379,23 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
     def _get_message_pieces_memory_label_conditions(self, *, memory_labels: dict[str, str]) -> list[Any]:
         """
         Generate SQLAlchemy filter conditions for filtering conversation pieces by memory labels.
-        For SQLite, we use JSON_EXTRACT function to handle JSON fields.
+        Match literal object keys through json_each(), without interpreting keys as JSON paths.
 
-        Matches if labels are on the PromptMemoryEntry itself OR on any
-        AttackResultEntry that shares the same conversation_id.
+        All labels must match one AttackResultEntry that shares the same conversation_id.
 
         Returns:
             list: A list of SQLAlchemy conditions.
         """
         per_key_are_conditions = []
+        label_entries = func.json_each(AttackResultEntry.labels).table_valued("key", "value")
         for key, value in memory_labels.items():
-            are_col = func.json_extract(AttackResultEntry.labels, f"$.{key}")
-            per_key_are_conditions.append(are_col == str(value))
+            per_key_are_conditions.append(
+                select(1)
+                .select_from(label_entries)
+                .where(label_entries.c.key == key, label_entries.c.value == str(value))
+                .correlate(AttackResultEntry)
+                .exists()
+            )
         return [
             exists().where(
                 and_(
@@ -156,42 +406,54 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             )
         ]
 
-    def _get_message_pieces_prompt_metadata_conditions(
-        self, *, prompt_metadata: dict[str, str | int]
-    ) -> list[TextClause]:
+    def _get_message_pieces_prompt_metadata_conditions(self, *, prompt_metadata: dict[str, str | int]) -> list[Any]:
         """
         Generate SQLAlchemy filter conditions for filtering conversation pieces by prompt metadata.
+
+        Match literal object keys through json_each(), without interpreting keys as JSON paths.
 
         Returns:
             list: A list of SQLAlchemy conditions.
         """
-        json_conditions = " AND ".join(
-            [f"JSON_EXTRACT(prompt_metadata, '$.{key}') = :{key}" for key in prompt_metadata]
-        )
-
-        # Create SQL condition using SQLAlchemy's text() with bindparams
-        condition = text(json_conditions).bindparams(**{key: str(value) for key, value in prompt_metadata.items()})
-        return [condition]
+        conditions = []
+        metadata_entries = func.json_each(PromptMemoryEntry.prompt_metadata).table_valued("key", "value")
+        for key, value in prompt_metadata.items():
+            conditions.append(
+                select(1)
+                .select_from(metadata_entries)
+                .where(metadata_entries.c.key == key, metadata_entries.c.value == value)
+                .correlate(PromptMemoryEntry)
+                .exists()
+            )
+        return conditions
 
     def _get_seed_metadata_conditions(self, *, metadata: dict[str, str | int]) -> Any:
         """
         Generate SQLAlchemy filter conditions for filtering seed prompts by metadata.
 
-        Returns:
-            Any: A SQLAlchemy text condition with bound parameters.
-        """
-        json_conditions = " AND ".join([f"JSON_EXTRACT(prompt_metadata, '$.{key}') = :{key}" for key in metadata])
+        Match literal object keys through json_each(), without interpreting keys as JSON paths.
 
-        # Create SQL condition using SQLAlchemy's text() with bindparams
-        # Note: We do NOT convert values to string here, to allow integer comparison in JSON
-        return text(json_conditions).bindparams(**dict(metadata.items()))
+        Returns:
+            Any: A SQLAlchemy condition matching every requested metadata key and value.
+        """
+        metadata_entries = func.json_each(SeedEntry.prompt_metadata).table_valued("key", "value")
+        conditions = [
+            select(1)
+            .select_from(metadata_entries)
+            .where(metadata_entries.c.key == key, metadata_entries.c.value == value)
+            .correlate(SeedEntry)
+            .exists()
+            for key, value in metadata.items()
+        ]
+        return and_(*conditions)
 
     def _get_condition_json_property_match(
         self,
         *,
         json_column: InstrumentedAttribute[Any],
         property_path: str,
-        value: str,
+        value: str | None = None,
+        value_pattern: str | None = None,
         partial_match: bool = False,
         case_sensitive: bool = False,
     ) -> Any:
@@ -201,22 +463,32 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         Args:
             json_column (InstrumentedAttribute[Any]): The JSON-backed model field to query.
             property_path (str): The JSON path for the property to match.
-            value (str): The string value that must match the extracted JSON property value.
-            partial_match (bool): Whether to perform a substring match. Defaults to False.
+            value (str | None): The string value to match, exactly unless partial_match is True.
+            value_pattern (str | None): A full case-insensitive LIKE pattern instead of value.
+            partial_match (bool): Whether value is a case-insensitive literal substring. Defaults to False.
             case_sensitive (bool): Whether the match should be case-sensitive. Defaults to False.
 
         Returns:
             Any: A SQLAlchemy condition for the backend-specific JSON query.
+
+        Raises:
+            ValueError: If filters conflict, a pattern is invalid, or an exact value is absent.
         """
         raw = func.json_extract(json_column, property_path)
+        validate_text_search(value=value, pattern=value_pattern)
+        if partial_match and case_sensitive:
+            raise ValueError("case_sensitive is not reliably supported with partial_match across all backends")
+        if value_pattern is not None and (partial_match or case_sensitive):
+            raise ValueError("Cannot use value_pattern with partial_match or case_sensitive")
+        if partial_match or value_pattern is not None:
+            return text_match(column=raw, value=value, pattern=value_pattern)
+        if value is None:
+            raise ValueError("An exact JSON property match requires value")
         if case_sensitive:
             extracted_value, target = raw, value
         else:
-            extracted_value, target = func.lower(raw), value.lower()
+            extracted_value, target = UnicodeLower(raw), value.lower()
 
-        if partial_match:
-            escaped = target.replace("%", "\\%").replace("_", "\\_")
-            return extracted_value.like(f"%{escaped}%", escape="\\")
         return extracted_value == target
 
     def _get_condition_json_array_match(
@@ -259,7 +531,9 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         column_name = json_column.key
         pp_param = f"property_path_{uid}"
         sp_param = f"array_element_path_{uid}"
-        value_expression = f"LOWER(json_extract(value, :{sp_param}))" if array_element_path else "LOWER(value)"
+        element = f"json_extract(value, :{sp_param})" if array_element_path else "value"
+        # SQLite's LOWER folds ASCII only; match the Unicode folding applied to the values below.
+        value_expression = f"{UnicodeLower.SQLITE_FUNCTION_NAME}({element})"
 
         conditions = []
         bindparams_dict: dict[str, str] = {pp_param: property_path}
@@ -289,7 +563,7 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         # The '__subclasses__()' method returns a list of all subclasses of Base, which includes table models
         return Base.__subclasses__()
 
-    def get_session(self) -> Session:
+    def _get_sync_session(self) -> Session:
         """
         Provide a SQLAlchemy session for transactional operations.
 
@@ -299,15 +573,34 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
 
         Returns:
             Session: A SQLAlchemy session bound to the engine.
+
+        Raises:
+            RuntimeError: If acquiring a session would block an event loop.
         """
         session = self.SessionFactory()
         connection_lock = self._connection_lock
         if connection_lock is None:
             return session
 
-        connection_lock.acquire()
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            on_event_loop = False
+        else:
+            on_event_loop = True
+
+        if not connection_lock.acquire(blocking=not on_event_loop):
+            raise RuntimeError("A synchronous memory session cannot wait on an event loop. Use the async API.")
+        if self._sync_session_depth == 0:
+            assert self._transaction_lock is not None
+            if not self._transaction_lock.acquire(blocking=not on_event_loop):
+                connection_lock.release()
+                raise RuntimeError("A synchronous memory session cannot overlap an async session. Use the async API.")
+        self._sync_session_depth += 1
+        self._sync_session_thread = threading.get_ident()
         close_session = session.close
         released = False
+        owner_thread = threading.get_ident()
 
         def release_once() -> None:
             # Also runs if the session is discarded without being closed, so one caller that
@@ -315,7 +608,15 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             nonlocal released
             if released:
                 return
+            if threading.get_ident() != owner_thread:
+                logger.warning("An in-memory session was discarded by a thread that did not open it.")
+                return
             released = True
+            self._sync_session_depth -= 1
+            if self._sync_session_depth == 0:
+                self._sync_session_thread = None
+                assert self._transaction_lock is not None
+                self._transaction_lock.release()
             try:
                 connection_lock.release()
             except RuntimeError:
@@ -331,7 +632,7 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         weakref.finalize(session, release_once)
         return session
 
-    def print_schema(self) -> None:
+    def _print_schema(self) -> None:
         """
         Print the schema of all tables in the SQLite database.
         """
@@ -364,7 +665,7 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             values = [raw_value] if isinstance(raw_value, str) else list(raw_value)
             if not values:
                 continue
-            are_col = func.json_extract(AttackResultEntry.labels, f"$.{key}")
+            are_col = func.json_extract(AttackResultEntry.labels, f'$."{key}"')
             per_key_are_conditions.append(are_col.in_(values))
 
         return and_(
@@ -372,7 +673,29 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             *per_key_are_conditions,
         )
 
-    def get_unique_attack_class_names(self) -> list[str]:
+    def _get_attack_result_literal_label_condition(self, *, labels: dict[str, str | Sequence[str]]) -> Any:
+        """
+        SQLite implementation that matches label names literally through json_each().
+
+        Returns:
+            Any: A SQLAlchemy condition for filtering by labels.
+        """
+        label_entries = func.json_each(AttackResultEntry.labels).table_valued("key", "value")
+        per_key_conditions = []
+        for key, raw_value in labels.items():
+            values = [raw_value] if isinstance(raw_value, str) else list(raw_value)
+            if not values:
+                continue
+            per_key_conditions.append(
+                select(1)
+                .select_from(label_entries)
+                .where(label_entries.c.key == key, label_entries.c.value.in_(values))
+                .correlate(AttackResultEntry)
+                .exists()
+            )
+        return and_(AttackResultEntry.labels.isnot(None), *per_key_conditions)
+
+    def _execute_get_unique_attack_class_names(self) -> list[str]:
         """
         SQLite implementation: extract unique class_name values from
         the atomic_attack_identifier JSON column.
@@ -380,7 +703,7 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         Returns:
             Sorted list of unique attack class name strings.
         """
-        with closing(self.get_session()) as session:
+        with closing(self._get_session()) as session:
             class_name_expr = func.json_extract(
                 AttackResultEntry.atomic_attack_identifier,
                 "$.children.attack_technique.children.attack.class_name",
@@ -388,7 +711,7 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             rows = session.query(class_name_expr).filter(class_name_expr.isnot(None)).distinct().all()
         return sorted(row[0] for row in rows)
 
-    def get_unique_converter_class_names(self) -> list[str]:
+    def _execute_get_unique_converter_class_names(self) -> list[str]:
         """
         SQLite implementation: extract unique converter class_name values
         from the children.attack_technique.children.attack.children.request_converters
@@ -397,7 +720,7 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         Returns:
             Sorted list of unique converter class name strings.
         """
-        with closing(self.get_session()) as session:
+        with closing(self._get_session()) as session:
             rows = session.execute(
                 text(
                     """SELECT DISTINCT json_extract(j.value, '$.class_name') AS cls
@@ -411,7 +734,7 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             ).fetchall()
         return sorted(row[0] for row in rows)
 
-    def get_conversation_stats(self, *, conversation_ids: Sequence[str]) -> dict[str, ConversationStats]:
+    def _execute_get_conversation_stats(self, *, conversation_ids: Sequence[str]) -> dict[str, ConversationStats]:
         """
         SQLite implementation: lightweight aggregate stats per conversation.
 
@@ -428,61 +751,71 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         if not conversation_ids:
             return {}
 
-        placeholders = ", ".join(f":cid{i}" for i in range(len(conversation_ids)))
-        params = {f"cid{i}": cid for i, cid in enumerate(conversation_ids)}
-
-        sql = text(
-            f"""
-            SELECT
-                pme.conversation_id,
-                COUNT(DISTINCT pme.sequence) AS msg_count,
-                (
-                    SELECT SUBSTR(p2.converted_value, 1, {ConversationStats.PREVIEW_FETCH_MAX_LEN})
-                    FROM "PromptMemoryEntries" p2
-                    WHERE p2.conversation_id = pme.conversation_id
-                    ORDER BY p2.sequence DESC, p2.id DESC
-                    LIMIT 1
-                ) AS last_preview,
-                (
-                    SELECT p2b.converted_value_data_type
-                    FROM "PromptMemoryEntries" p2b
-                    WHERE p2b.conversation_id = pme.conversation_id
-                    ORDER BY p2b.sequence DESC, p2b.id DESC
-                    LIMIT 1
-                ) AS last_data_type,
-                MIN(pme.timestamp) AS created_at
-            FROM "PromptMemoryEntries" pme
-            WHERE pme.conversation_id IN ({placeholders})
-            GROUP BY pme.conversation_id
-            """
-        )
-
-        with closing(self.get_session()) as session:
-            rows = session.execute(sql, params).fetchall()
-
+        batch_size = max(1, self._MAX_BIND_VARS)
         result: dict[str, ConversationStats] = {}
-        for row in rows:
-            conv_id, msg_count, last_preview, last_data_type, raw_created_at = row
 
-            created_at = None
-            if raw_created_at is not None:
-                if isinstance(raw_created_at, str):
-                    created_at = datetime.fromisoformat(raw_created_at)
-                else:
-                    created_at = raw_created_at
+        with closing(self._get_session()) as session:
+            for start in range(0, len(conversation_ids), batch_size):
+                chunk = conversation_ids[start : start + batch_size]
+                placeholders = ", ".join(f":cid{i}" for i in range(len(chunk)))
+                params = {f"cid{i}": cid for i, cid in enumerate(chunk)}
 
-            result[conv_id] = ConversationStats(
-                message_count=msg_count,
-                last_message_preview=last_preview,
-                last_message_data_type=last_data_type,
-                created_at=created_at,
-            )
+                sql = text(
+                    f"""
+                    WITH aggregate_rows AS (
+                        SELECT
+                            conversation_id,
+                            COUNT(DISTINCT sequence) AS msg_count,
+                            MIN(timestamp) AS created_at
+                        FROM "PromptMemoryEntries"
+                        WHERE conversation_id IN ({placeholders})
+                        GROUP BY conversation_id
+                    )
+                    SELECT
+                        aggregate_rows.conversation_id,
+                        aggregate_rows.msg_count,
+                        SUBSTR(latest.converted_value, 1, {ConversationStats.PREVIEW_FETCH_MAX_LEN}) AS last_preview,
+                        latest.converted_value_data_type AS last_data_type,
+                        aggregate_rows.created_at
+                    FROM aggregate_rows
+                    LEFT JOIN "PromptMemoryEntries" latest
+                        ON latest.id = (
+                            SELECT p2.id
+                            FROM "PromptMemoryEntries" p2
+                            WHERE p2.conversation_id = aggregate_rows.conversation_id
+                            ORDER BY p2.sequence DESC, p2.id DESC
+                            LIMIT 1
+                        )
+                    """
+                ).columns(created_at=UTCDateTime())
+
+                rows = session.execute(sql, params).fetchall()
+
+                for row in rows:
+                    conv_id, msg_count, last_preview, last_data_type, created_at = row
+                    result[conv_id] = ConversationStats(
+                        message_count=msg_count,
+                        last_message_preview=last_preview,
+                        last_message_data_type=last_data_type,
+                        created_at=created_at,
+                    )
 
         return result
 
-    def _get_scenario_result_label_condition(self, *, labels: Mapping[str, str | Sequence[str]]) -> Any:
+    def _get_scenario_result_label_condition(self, *, labels: dict[str, str]) -> Any:
         """
-        SQLite implementation for filtering ScenarioResults by labels.
+        Filter ScenarioResults by legacy single-value labels.
+
+        Returns:
+            Any: SQLAlchemy condition for all supplied labels.
+        """
+        return and_(
+            *(func.json_extract(ScenarioResultEntry.labels, f'$."{key}"') == value for key, value in labels.items())
+        )
+
+    def _get_scenario_result_labels_condition(self, *, labels: Mapping[str, str | Sequence[str]]) -> Any:
+        """
+        SQLite implementation for filtering ScenarioResults by multi-value labels.
         Uses json_extract() function specific to SQLite.
 
         Returns:
@@ -554,7 +887,11 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             compact_seed_map,
         )
 
-    def _get_scenario_attempt_unit_expressions(self) -> tuple[Any, Any, Any]:
+    def _get_scenario_started_at_expression(self) -> Any:
+        """Return the persisted execution start without loading full scenario metadata."""
+        return func.json_extract(ScenarioResultEntry.scenario_metadata, "$.started_at")
+
+    def _get_scenario_attempt_unit_expressions(self) -> tuple[Any, Any, Any, Any]:
         """Return SQLite JSON expressions for persisted scenario attempt attribution."""
         atomic_name = func.coalesce(
             func.json_extract(AttackResultEntry.attribution_data, '$."parent_collection"'),
@@ -564,12 +901,20 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             func.json_extract(AttackResultEntry.attribution_data, '$."parent_eval_hash"'),
             "",
         )
-        seed_group_id = func.coalesce(
+        attributed_seed_group_id = func.nullif(
             func.json_extract(AttackResultEntry.attribution_data, '$."seed_group_id"'),
-            AttackResultEntry.objective_sha256,
             "",
         )
-        return atomic_name, technique_hash, seed_group_id
+        seeds = func.json_each(
+            AttackResultEntry.atomic_attack_identifier,
+            "$.children.seed_identifiers",
+        ).table_valued("value", joins_implicitly=True)
+        identifier_seed_key = (
+            select(func.group_concat(func.json_extract(seeds.c.value, "$.hash"), ","))
+            .select_from(seeds)
+            .scalar_subquery()
+        )
+        return atomic_name, technique_hash, attributed_seed_group_id, identifier_seed_key
 
     def _get_scenario_plan_unit_subqueries(self, *, scenario_result_ids: Sequence[uuid.UUID]) -> tuple[Any, Any]:
         """Return SQLite run-plan expansions for planned units and planned seed groups."""

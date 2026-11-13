@@ -18,6 +18,8 @@ class OpenSearchTransformer(DatabaseTransformer):
     requirements including domain endpoints, authentication, and SSL configuration.
     """
 
+    # No supports_row_limit: inherits False. OpenSearch query DSL, not a SQL dialect.
+
     @staticmethod
     def get_required_fields() -> List[str]:
         """

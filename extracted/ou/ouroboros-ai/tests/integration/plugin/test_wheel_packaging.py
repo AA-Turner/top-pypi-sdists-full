@@ -40,6 +40,80 @@ def _extract_python_resolver(contents: str) -> str:
 
 
 @pytest.mark.slow
+@pytest.mark.parametrize("profile", ["claude", "claude-sdk", "all"])
+def test_built_wheel_sdk_profiles_run_installed_contracts(
+    built_wheel: Path, tmp_path: Path, profile: str
+) -> None:
+    """Exercise the shipped adapter and real SDKs, without running a provider."""
+    import shutil
+
+    venv = tmp_path / "venv"
+    python = venv / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+    commands = [
+        ["uv", "venv", "--python", sys.executable, str(venv)],
+        [
+            "uv",
+            "pip",
+            "install",
+            "--python",
+            str(python),
+            f"{built_wheel}[{profile}]",
+            "pytest",
+            "pytest-asyncio",
+        ],
+        ["uv", "pip", "check", "--python", str(python)],
+    ]
+    contract_dir = tmp_path / "contracts"
+    contract_dir.mkdir()
+    for name in ("test_anthropic_sdk_transport_contract.py", "test_claude_sdk_types_contract.py"):
+        shutil.copyfile(PROJECT_ROOT / "tests/unit/providers" / name, contract_dir / name)
+    report = tmp_path / "sdk-contracts.xml"
+    commands += [
+        [
+            str(python),
+            "-I",
+            "-c",
+            "import pathlib, sys, anthropic, claude_agent_sdk, ouroboros; "
+            "from ouroboros.cli import entrypoint; "
+            "from importlib.metadata import version; "
+            "from importlib.metadata import requires; "
+            "from packaging.requirements import Requirement; "
+            "modules = (anthropic, claude_agent_sdk, ouroboros, entrypoint); "
+            "assert all(pathlib.Path(m.__file__).resolve().is_relative_to(sys.prefix) for m in modules); "
+            "assert version('mcp').startswith('1.'); "
+            f"requirements = [Requirement(raw) for raw in requires('ouroboros-ai')]; extra = {profile!r}; "
+            "selected = [r for r in requirements if r.marker is None or r.marker.evaluate({'extra': extra})]; "
+            "assert all(version(r.name) in r.specifier for r in selected), selected; "
+            "print({m.__name__: m.__file__ for m in modules})",
+        ],
+        [
+            str(python),
+            "-I",
+            "-m",
+            "pytest",
+            str(contract_dir),
+            "--confcutdir",
+            str(tmp_path),
+            "-q",
+            "-o",
+            "asyncio_default_fixture_loop_scope=function",
+            "--junitxml",
+            str(report),
+        ],
+    ]
+    for command in commands:
+        result = subprocess.run(
+            command, cwd=tmp_path, capture_output=True, text=True, timeout=180, check=False
+        )
+        print(command, result.stdout, result.stderr)
+        assert result.returncode == 0, result.stdout + result.stderr
+    import xml.etree.ElementTree as ET
+
+    cases = list(ET.parse(report).iter("testcase"))
+    assert cases and all(case.find("skipped") is None for case in cases)
+
+
+@pytest.mark.slow
 def test_built_wheel_preserves_packaging_contracts(built_wheel: Path, tmp_path: Path) -> None:
     """Build the wheel and verify schema assets plus dependency markers.
 
@@ -99,6 +173,41 @@ def test_built_wheel_preserves_packaging_contracts(built_wheel: Path, tmp_path: 
             (PROJECT_ROOT / "skills" / "welcome" / "SKILL.md").read_text(encoding="utf-8")
         )
         assert set(wheel_resolvers.values()) == {source_resolver}, wheel_resolvers
+
+        # The welcome skill runs bundled scripts from the directory of its
+        # SKILL.md, so the wheel must ship them beside it, once each.
+        source_scripts = PROJECT_ROOT / "skills" / "welcome" / "scripts"
+        script_names = sorted(path.name for path in source_scripts.glob("*.py"))
+        assert "welcome_state.py" in script_names
+        wheel_scripts = sorted(
+            name.removeprefix("ouroboros/skills/welcome/scripts/")
+            for name in names
+            if name.startswith("ouroboros/skills/welcome/scripts/")
+        )
+        assert wheel_scripts == script_names, wheel_scripts
+        installed_welcome = tmp_path / "wheel-welcome"
+        for name in ["SKILL.md", *(f"scripts/{script}" for script in script_names)]:
+            data = archive.read(f"ouroboros/skills/welcome/{name}")
+            if name != "SKILL.md":
+                assert data == (source_scripts / name.removeprefix("scripts/")).read_bytes()
+            target = installed_welcome / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+
+    home = tmp_path / "home"
+    (home / ".ouroboros").mkdir(parents=True)
+    (home / ".ouroboros" / "config.yaml").write_text(
+        "orchestrator:\n  runtime_backend: claude_mcp\nllm:\n  backend: claude\n", encoding="utf-8"
+    )
+    gate = subprocess.run(
+        [sys.executable, "-", "setup-gate", str(home)],
+        input=(installed_welcome / "scripts" / "welcome_state.py").read_text(encoding="utf-8"),
+        capture_output=True,
+        text=True,
+        env={"HOME": str(home), "PATH": os.defpath},
+        check=True,
+    )
+    assert gate.stdout == "SETUP_READY\n"
 
     assert {"claude", "claude-cli", "claude-sdk", "mcp", "all"} <= provided_extras
     sdk_requirements = [
@@ -183,7 +292,7 @@ def test_built_wheel_preserves_packaging_contracts(built_wheel: Path, tmp_path: 
         assert unsupported.returncode != 0
         resolver_error = unsupported.stdout + unsupported.stderr
         # The conflict is now a direct mcp==1.28.1 (claude extras) vs
-        # mcp==2.0.0 ([mcp]) clash, so the resolver names the conflicting
+        # mcp==2.3.0 ([mcp]) clash, so the resolver names the conflicting
         # ouroboros-ai extras and the mcp pins rather than claude-agent-sdk's
         # own ceiling.
         assert "ouroboros-ai[" in resolver_error

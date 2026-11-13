@@ -20,8 +20,11 @@
 #   Licensed under the Apache License, Version 2.0 (the "License")
 #
 
+import copy
 import math
-from typing import Any, MutableMapping, MutableSequence, Optional, Iterable
+import threading
+from collections.abc import Sized
+from typing import Any, Optional, Iterable
 
 from jsonata import jexception
 
@@ -71,9 +74,33 @@ class Utils:
 
     NONE = object()
 
+    # the max sequence length guardrail of the evaluation running on this thread
+    # (see Jsonata.evaluate)
+    GUARDRAILS = threading.local()
+
+    @staticmethod
+    def get_max_sequence_length() -> Optional[int]:
+        return getattr(Utils.GUARDRAILS, "sequence", None)
+
+    #
+    # Sets the max sequence length for evaluations on this thread
+    # @param sequence - the max sequence length, or None for no limit
+    # @returns the previous max sequence length
+    #
+    @staticmethod
+    def set_max_sequence_length(sequence: Optional[int]) -> Optional[int]:
+        prev = Utils.get_max_sequence_length()
+        Utils.GUARDRAILS.sequence = sequence
+        return prev
+
     @staticmethod
     def create_sequence(el: Optional[Any] = NONE) -> list:
-        if el is not Utils.NONE:
+        max_length = Utils.get_max_sequence_length()
+        if max_length is not None:
+            sequence = Utils.BoundedJList()
+            if el is not Utils.NONE:
+                sequence.append(el)
+        elif el is not Utils.NONE:
             sequence = Utils.JList([el])
         else:
             sequence = Utils.JList()
@@ -82,9 +109,24 @@ class Utils:
 
     @staticmethod
     def create_sequence_from_iter(it: Iterable) -> list:
-        sequence = Utils.JList(it)
+        max_length = Utils.get_max_sequence_length()
+        if max_length is not None:
+            sequence = Utils.BoundedJList()
+            sequence.extend(it)
+        else:
+            sequence = Utils.JList(it)
         sequence.sequence = True
         return sequence
+
+    #
+    # Raises D2015 if a sequence of the given length would exceed the max
+    # sequence length guardrail
+    #
+    @staticmethod
+    def check_sequence_length(length: int) -> None:
+        max_length = Utils.get_max_sequence_length()
+        if max_length is not None and length > max_length:
+            raise jexception.JException("D2015", -1, length)
 
     @staticmethod
     def is_deep_equal(lhs: Optional[Any], rhs: Optional[Any]) -> bool:
@@ -124,6 +166,39 @@ class Utils:
             self.keep_singleton = False
             self.cons = False
 
+    #
+    # A sequence created while a max sequence length is in effect. It raises
+    # D2015 when it grows beyond the max sequence length of the evaluation in
+    # progress on this thread, so once evaluation is over (e.g. when it is
+    # returned as a result) it can be changed freely
+    #
+    class BoundedJList(JList):
+        def _check(self, count: int) -> None:
+            max_length = Utils.get_max_sequence_length()
+            if max_length is not None and len(self) + count > max_length:
+                raise jexception.JException("D2015", -1, max_length)
+
+        def append(self, item) -> None:
+            self._check(1)
+            super().append(item)
+
+        def insert(self, index, item) -> None:
+            self._check(1)
+            super().insert(index, item)
+
+        def extend(self, items) -> None:
+            if isinstance(items, Sized):
+                self._check(len(items))
+                super().extend(items)
+            else:
+                # don't materialize an unbounded iterable before checking
+                for item in items:
+                    self.append(item)
+
+        def __iadd__(self, items):
+            self.extend(items)
+            return self
+
     class RangeList(list):
         a: int
         b: int
@@ -133,7 +208,8 @@ class Utils:
             super().__init__()
             self.a = left
             self.b = right
-            self.size = self.b - self.a + 1
+            # b is exclusive (see __iter__)
+            self.size = self.b - self.a
 
         def __len__(self):
             return self.size
@@ -167,30 +243,31 @@ class Utils:
     def convert_value(val: Optional[Any]) -> Optional[Any]:
         return val if val is not Utils.NULL_VALUE else None
 
+    #
+    # Converts all occurrences of NULL_VALUE in the given object to None.
+    #
+    # The given object is not modified. Dicts and lists that contain a NULL_VALUE
+    # (directly or nested) are copied; all other dicts and lists are returned as is,
+    # so the result may share structure with the input.
+    #
     @staticmethod
-    def convert_dict_nulls(res: MutableMapping[str, Any]) -> None:
-        for key, val in res.items():
-            v = Utils.convert_value(val)
-            if v is not val:
-                res[key] = v
-            Utils.recurse(val)
-
-    @staticmethod
-    def convert_list_nulls(res: MutableSequence[Any]) -> None:
-        for i, val in enumerate(res):
-            v = Utils.convert_value(val)
-            if v is not val:
-                res[i] = v
-            Utils.recurse(val)
-
-    @staticmethod
-    def recurse(val: Optional[Any]) -> None:
+    def convert_nulls(val: Optional[Any]) -> Optional[Any]:
         if isinstance(val, dict):
-            Utils.convert_dict_nulls(val)
+            copied = None
+            for key, v in val.items():
+                converted = Utils.convert_nulls(v)
+                if converted is not v:
+                    if copied is None:
+                        copied = copy.copy(val)
+                    copied[key] = converted
+            return copied if copied is not None else val
         if isinstance(val, list):
-            Utils.convert_list_nulls(val)
-
-    @staticmethod
-    def convert_nulls(res: Optional[Any]) -> Optional[Any]:
-        Utils.recurse(res)
-        return Utils.convert_value(res)
+            copied = None
+            for i, v in enumerate(val):
+                converted = Utils.convert_nulls(v)
+                if converted is not v:
+                    if copied is None:
+                        copied = copy.copy(val)
+                    copied[i] = converted
+            return copied if copied is not None else val
+        return Utils.convert_value(val)

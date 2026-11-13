@@ -100,7 +100,7 @@ class ExperimentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -133,6 +133,7 @@ class ExperimentsClient:
         control: typing.Optional[CreateExperimentsRequestControl] = OMIT,
         feature_flag_only: typing.Optional[bool] = OMIT,
         hypothesis: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
         name: typing.Optional[str] = OMIT,
         related_resource: typing.Optional[ExperimentResourceReference] = OMIT,
         targeting_rules: typing.Optional[typing.Sequence[CreateExperimentsRequestTargetingRulesItem]] = OMIT,
@@ -140,7 +141,7 @@ class ExperimentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Experiment:
         """
-        Creates an experiment or feature flag in `draft` status for an account. Nothing is served until you activate it with `POST /experiments/:id/activate`. Requires `experiment:manage` on the account.
+        Creates an experiment or feature flag in `draft` status for an account. Nothing is served until you activate it with `POST /experiments/:id/activate`, which needs Economic Intelligence on for the account. Requires `experiment:manage` on the account.
 
         Parameters
         ----------
@@ -160,6 +161,9 @@ class ExperimentsClient:
 
         hypothesis : typing.Optional[str]
             Required for full experiments; rejected on feature flags. Structure it as "If we [change] for [cohort], then [measurable behavior] will [increase/decrease], resulting in [business outcome], because [evidence]. Created by [name]." Evidence should be something real — a baseline number, a funnel breakdown — not a guess, and [name] is you, not something to leave blank.
+
+        metadata : typing.Optional[typing.Dict[str, str]]
+            Up to 20 key-value pairs you can attach to the experiment for your own use, such as which pages it changes. Keys are at most 40 characters and values at most 500.
 
         name : typing.Optional[str]
             Human-readable display name. Defaults to `flag_key` when omitted.
@@ -186,7 +190,7 @@ class ExperimentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -202,6 +206,7 @@ class ExperimentsClient:
             control=control,
             feature_flag_only=feature_flag_only,
             hypothesis=hypothesis,
+            metadata=metadata,
             name=name,
             related_resource=related_resource,
             targeting_rules=targeting_rules,
@@ -257,7 +262,7 @@ class ExperimentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -305,7 +310,7 @@ class ExperimentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -366,7 +371,7 @@ class ExperimentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -395,7 +400,7 @@ class ExperimentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Experiment:
         """
-        Starts (or resumes) an experiment or feature flag so evaluation begins serving it. Activating a draft stamps `started_at`; resuming a paused experiment keeps the original start. Only drafts and paused experiments can be activated. Requires `experiment:manage` on the owning account.
+        Starts (or resumes) an experiment or feature flag so evaluation begins serving it. Activating a draft stamps `started_at`; resuming a paused experiment keeps the original start. Only drafts and paused experiments can be activated. Requires `experiment:manage` on the owning account. Activating needs Economic Intelligence on for the owning account: while the account's `economic_intelligence` is `false`, this returns a `403` and the experiment keeps its status. Turn it on with `PATCH /accounts/:account_id/preferences`. Creating, editing, pausing and ending an experiment don't need it.
 
         Parameters
         ----------
@@ -421,7 +426,7 @@ class ExperimentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -473,7 +478,7 @@ class ExperimentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -518,7 +523,7 @@ class ExperimentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -606,7 +611,7 @@ class AsyncExperimentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -646,6 +651,7 @@ class AsyncExperimentsClient:
         control: typing.Optional[CreateExperimentsRequestControl] = OMIT,
         feature_flag_only: typing.Optional[bool] = OMIT,
         hypothesis: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
         name: typing.Optional[str] = OMIT,
         related_resource: typing.Optional[ExperimentResourceReference] = OMIT,
         targeting_rules: typing.Optional[typing.Sequence[CreateExperimentsRequestTargetingRulesItem]] = OMIT,
@@ -653,7 +659,7 @@ class AsyncExperimentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Experiment:
         """
-        Creates an experiment or feature flag in `draft` status for an account. Nothing is served until you activate it with `POST /experiments/:id/activate`. Requires `experiment:manage` on the account.
+        Creates an experiment or feature flag in `draft` status for an account. Nothing is served until you activate it with `POST /experiments/:id/activate`, which needs Economic Intelligence on for the account. Requires `experiment:manage` on the account.
 
         Parameters
         ----------
@@ -673,6 +679,9 @@ class AsyncExperimentsClient:
 
         hypothesis : typing.Optional[str]
             Required for full experiments; rejected on feature flags. Structure it as "If we [change] for [cohort], then [measurable behavior] will [increase/decrease], resulting in [business outcome], because [evidence]. Created by [name]." Evidence should be something real — a baseline number, a funnel breakdown — not a guess, and [name] is you, not something to leave blank.
+
+        metadata : typing.Optional[typing.Dict[str, str]]
+            Up to 20 key-value pairs you can attach to the experiment for your own use, such as which pages it changes. Keys are at most 40 characters and values at most 500.
 
         name : typing.Optional[str]
             Human-readable display name. Defaults to `flag_key` when omitted.
@@ -701,7 +710,7 @@ class AsyncExperimentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -723,6 +732,7 @@ class AsyncExperimentsClient:
             control=control,
             feature_flag_only=feature_flag_only,
             hypothesis=hypothesis,
+            metadata=metadata,
             name=name,
             related_resource=related_resource,
             targeting_rules=targeting_rules,
@@ -780,7 +790,7 @@ class AsyncExperimentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -836,7 +846,7 @@ class AsyncExperimentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -905,7 +915,7 @@ class AsyncExperimentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -940,7 +950,7 @@ class AsyncExperimentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Experiment:
         """
-        Starts (or resumes) an experiment or feature flag so evaluation begins serving it. Activating a draft stamps `started_at`; resuming a paused experiment keeps the original start. Only drafts and paused experiments can be activated. Requires `experiment:manage` on the owning account.
+        Starts (or resumes) an experiment or feature flag so evaluation begins serving it. Activating a draft stamps `started_at`; resuming a paused experiment keeps the original start. Only drafts and paused experiments can be activated. Requires `experiment:manage` on the owning account. Activating needs Economic Intelligence on for the owning account: while the account's `economic_intelligence` is `false`, this returns a `403` and the experiment keeps its status. Turn it on with `PATCH /accounts/:account_id/preferences`. Creating, editing, pausing and ending an experiment don't need it.
 
         Parameters
         ----------
@@ -968,7 +978,7 @@ class AsyncExperimentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1028,7 +1038,7 @@ class AsyncExperimentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1081,7 +1091,7 @@ class AsyncExperimentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

@@ -7,7 +7,8 @@ use uuid::Uuid;
 use sqlbuild_core::constants::{
     AUDIT_RESULTS_TABLE_NAME, COLUMN_MIGRATION_TABLE_NAME, CONSUMPTION_TABLE_NAME,
     FINGERPRINT_TABLE_NAME, JANITOR_EVENTS_TABLE_NAME, MICROBATCH_TABLE_NAME, MIGRATION_TABLE_NAME,
-    NODE_RESULTS_TABLE_NAME, OLD_NAME_VIEW_TABLE_NAME, SOURCE_FRESHNESS_TABLE_NAME,
+    NODE_RESULTS_TABLE_NAME, OBSERVATIONS_TABLE_NAME, OLD_NAME_VIEW_TABLE_NAME,
+    SOURCE_FRESHNESS_TABLE_NAME,
 };
 
 use crate::store::errors::ControlError;
@@ -270,6 +271,21 @@ pub struct WarehouseConsumptionRecord {
     pub recorded_at: DateTime<Utc>,
 }
 
+/// A display-only value a build observed, such as a cursor `MAX`; planning never reads it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WarehouseObservationRecord {
+    pub state_database: Option<String>,
+    pub state_schema: String,
+    pub observation_id: String,
+    pub kind: String,
+    pub node: String,
+    pub cursor_type: Option<String>,
+    pub value: String,
+    pub run_id: String,
+    pub observed_at: DateTime<Utc>,
+}
+
 /// Catalog observations require full scans; only immutable history supports a watermark.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -284,13 +300,14 @@ pub enum WarehouseHistoryKind {
     ColumnMigrations,
     NodeResults,
     Consumption,
+    Observations,
     Catalog,
     Statistics,
 }
 
 impl WarehouseHistoryKind {
     /// Catalog and statistics stay last: a failed statistics read rewinds one kind, to catalog.
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::Fingerprints,
         Self::SourceFreshness,
         Self::AuditResults,
@@ -301,6 +318,7 @@ impl WarehouseHistoryKind {
         Self::ColumnMigrations,
         Self::NodeResults,
         Self::Consumption,
+        Self::Observations,
         Self::Catalog,
         Self::Statistics,
     ];
@@ -358,6 +376,11 @@ impl WarehouseHistoryKind {
                 "sqb_warehouse_consumption",
                 Some(CONSUMPTION_TABLE_NAME),
             ),
+            Self::Observations => (
+                "observations",
+                "sqb_warehouse_observations",
+                Some(OBSERVATIONS_TABLE_NAME),
+            ),
             Self::Catalog => ("catalog", "sqb_warehouse_catalog", None),
             Self::Statistics => ("statistics", "sqb_warehouse_statistics", None),
         }
@@ -406,6 +429,45 @@ pub struct WarehouseSyncDue {
     pub now: DateTime<Utc>,
 }
 
+/// A location asks for the mirrored copy a plan preview plans from, as its fenced reader.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PreviewCopyRead {
+    pub session_id: Uuid,
+    pub generation: i64,
+}
+
+/// The newest successful build of a node, which a `cursor_max` observation must come from.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PreviewLatestRun {
+    pub state_database: Option<String>,
+    pub state_schema: String,
+    pub node_type: String,
+    pub node_name: String,
+    pub run_id: String,
+}
+
+/// One state table's newest clean sync in one schema, from location health.
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct CleanSync {
+    pub state_database: Option<String>,
+    pub state_schema: String,
+    pub state_table: String,
+    pub synced_at: DateTime<Utc>,
+}
+
+/// What the mirror knows as of `synced_at`; `None` when a required table never synced cleanly.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PreviewCopy {
+    pub synced_at: Option<DateTime<Utc>>,
+    pub relations: Vec<WarehouseCatalogRecord>,
+    pub fingerprints: Vec<WarehouseFingerprintRecord>,
+    pub latest_runs: Vec<PreviewLatestRun>,
+    pub observations: Vec<WarehouseObservationRecord>,
+}
+
 /// Private interpreter input; cursor values are data and receive adapter literal rendering.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -415,6 +477,9 @@ pub struct SourceFreshnessRead {
     /// Inclusive time bound, held fixed across pages; independent of the row-key cursor.
     pub observed_since: Option<DateTime<Utc>>,
     pub limit: Option<usize>,
+    /// The table's change token after the last complete read; an equal token skips this read.
+    #[serde(default)]
+    pub unchanged_token: Option<String>,
 }
 
 /// Fingerprints remain history here; latest-row selection belongs to the existing planner reader.
@@ -479,6 +544,9 @@ pub struct FingerprintRead {
     pub after: Option<[Option<String>; 13]>,
     pub observed_since: Option<DateTime<Utc>>,
     pub limit: Option<usize>,
+    /// The table's change token after the last complete read; an equal token skips this read.
+    #[serde(default)]
+    pub unchanged_token: Option<String>,
 }
 
 /// Node results carry no event identity, so the cursor holds the row's identity columns.
@@ -489,6 +557,9 @@ pub struct NodeResultsRead {
     pub after: Option<[Option<String>; 9]>,
     pub observed_since: Option<DateTime<Utc>>,
     pub limit: Option<usize>,
+    /// The table's change token after the last complete read; an equal token skips this read.
+    #[serde(default)]
+    pub unchanged_token: Option<String>,
 }
 
 /// Consumption rows carry no event identity, so the cursor holds the row's identity columns.
@@ -499,6 +570,9 @@ pub struct ConsumptionRead {
     pub after: Option<[Option<String>; 7]>,
     pub observed_since: Option<DateTime<Utc>>,
     pub limit: Option<usize>,
+    /// The table's change token after the last complete read; an equal token skips this read.
+    #[serde(default)]
+    pub unchanged_token: Option<String>,
 }
 
 /// Stable event identities and timestamps order observations without comparing their payloads.
@@ -509,6 +583,9 @@ pub struct StateEventsRead {
     pub after: Option<[Option<String>; 3]>,
     pub observed_since: Option<DateTime<Utc>>,
     pub limit: Option<usize>,
+    /// The table's change token after the last complete read; an equal token skips this read.
+    #[serde(default)]
+    pub unchanged_token: Option<String>,
 }
 
 /// The private interpreter accepts only known state tables, never arbitrary SQL.
@@ -525,6 +602,7 @@ pub enum WarehouseHistoryRead {
     ColumnMigrations(StateEventsRead),
     NodeResults(NodeResultsRead),
     Consumption(ConsumptionRead),
+    Observations(StateEventsRead),
     Catalog(CatalogRead),
     Statistics(StatisticsRead),
 }
@@ -542,6 +620,7 @@ pub enum WarehouseHistoryRecord {
     ColumnMigration(Box<WarehouseColumnMigrationRecord>),
     NodeResult(Box<WarehouseNodeResultRecord>),
     Consumption(Box<WarehouseConsumptionRecord>),
+    Observation(Box<WarehouseObservationRecord>),
     Catalog(WarehouseCatalogRecord),
     Statistics(WarehouseStatisticsRecord),
 }
@@ -551,6 +630,12 @@ pub enum WarehouseHistoryRecord {
 pub struct WarehouseHistoryPage {
     pub records: Vec<WarehouseHistoryRecord>,
     pub next_after: Option<Vec<Option<String>>>,
+    /// The table's change token, read before a scan's first page where the warehouse offers one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub change_token: Option<String>,
+    /// The token still equals the request's: nothing was read and nothing is delivered.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub unchanged: bool,
 }
 
 /// Typed import columns are selected by code, never from location-supplied field names.

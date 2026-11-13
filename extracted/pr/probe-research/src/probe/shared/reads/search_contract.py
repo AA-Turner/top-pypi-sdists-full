@@ -252,7 +252,8 @@ class BrowseMode(StrEnum):
     """What browse lists: `projects` (projects/experiments/runs, the default),
     `runs` (flat, newest first), `workspaces`, `notes` (the notes catalog),
     `files` (Shared, or one workspace's), the data catalog's `datasets`,
-    `checkpoints` and `sources`, or a workspace's `branches`."""
+    `checkpoints` and `sources`, a workspace's `branches`, the team's
+    `people` (with user ids), or agent `sessions` (newest first)."""
 
     PROJECTS = "projects"
     RUNS = "runs"
@@ -265,6 +266,42 @@ class BrowseMode(StrEnum):
     #: A workspace's lines of work across its projects, ranked per metric
     #: (`GET /v1/workspaces/{W}/branches`; swarm visibility D6, A23).
     BRANCHES = "branches"
+    #: The team's members with their user ids (`GET /v1/people`; people and time filters, D13).
+    PEOPLE = "people"
+    #: Agent sessions team-wide, newest activity first (`GET /v1/sessions`; B1).
+    SESSIONS = "sessions"
+
+
+#: The browse modes that list work people made, so take `owner`, `since`, `until` and `order="recent"`
+#: (people and time filters B2, AR5). Not workspaces, sources or branches: containers and connections.
+#: Must equal the server's owner-capable routes; tests/mcp/tools/reads/test_people_filters.py checks it
+#: against the schema snapshot.
+OWNER_MODES: frozenset[BrowseMode] = frozenset(
+    {
+        BrowseMode.PROJECTS,
+        BrowseMode.RUNS,
+        BrowseMode.NOTES,
+        BrowseMode.FILES,
+        BrowseMode.DATASETS,
+        BrowseMode.CHECKPOINTS,
+        BrowseMode.SESSIONS,
+    }
+)
+
+
+# `order="recent"` on browse: newest activity first (D16). A plain value, not an enum on the signature:
+# browse's `order` is also mode=runs' free sort string (`-metric.acc`).
+class BrowseOrder(StrEnum):
+    """`order` values every authored browse mode reads."""
+
+    RECENT = "recent"
+
+
+class SearchSort(StrEnum):
+    """`relevance` (default): best match first. `recent`: newest first."""
+
+    RELEVANCE = "relevance"
+    RECENT = "recent"
 
 
 #: `mode`: the projects -> experiments -> runs walk was `tree`.

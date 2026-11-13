@@ -6,6 +6,7 @@ import typing
 import pydantic
 from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .post_card_updated_payload_data_billing import PostCardUpdatedPayloadDataBilling
+from .post_card_updated_payload_data_digital_wallets_item import PostCardUpdatedPayloadDataDigitalWalletsItem
 from .post_card_updated_payload_data_limit import PostCardUpdatedPayloadDataLimit
 from .post_card_updated_payload_data_object import PostCardUpdatedPayloadDataObject
 from .post_card_updated_payload_data_secrets import PostCardUpdatedPayloadDataSecrets
@@ -29,6 +30,13 @@ class PostCardUpdatedPayloadData(UniversalBaseModel):
     When the card was created.
     """
 
+    digital_wallets: typing.Optional[typing.List[PostCardUpdatedPayloadDataDigitalWalletsItem]] = pydantic.Field(
+        default=None
+    )
+    """
+    The digital wallets the card has been added to. List Cards, Update Card, and webhook payloads return `null`, as does Retrieve Card when the wallets cannot be retrieved.
+    """
+
     expiration_month: typing.Optional[str] = pydantic.Field(default=None)
     """
     Card expiration month.
@@ -42,6 +50,11 @@ class PostCardUpdatedPayloadData(UniversalBaseModel):
     id: str = pydantic.Field()
     """
     Card ID, prefixed `icrd_`.
+    """
+
+    issued: bool = pydantic.Field()
+    """
+    `true` once the issuer has issued the card. `false` for an invited card still waiting on its cardholder's onboarding or review, or one the issuer declined; it has no card number until it is issued.
     """
 
     last4: typing.Optional[str] = pydantic.Field(default=None)

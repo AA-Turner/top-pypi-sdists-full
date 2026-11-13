@@ -6,6 +6,7 @@ import typing
 import pydantic
 from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ...types.money import Money
+from .create_quote_payouts_response_conversion import CreateQuotePayoutsResponseConversion
 from .create_quote_payouts_response_object import CreateQuotePayoutsResponseObject
 from .create_quote_payouts_response_recommended_method import CreateQuotePayoutsResponseRecommendedMethod
 
@@ -14,6 +15,11 @@ class CreateQuotePayoutsResponse(UniversalBaseModel):
     amount: Money = pydantic.Field()
     """
     Gross payout amount.
+    """
+
+    conversion: typing.Optional[CreateQuotePayoutsResponseConversion] = pydantic.Field(default=None)
+    """
+    How a USD balance pays a bank in another currency: it converts into the payout method's currency, and the payout leaves from the balance in that currency. Null when the payout is paid from the requested balance directly.
     """
 
     destination_amount: Money = pydantic.Field()
@@ -41,6 +47,16 @@ class CreateQuotePayoutsResponse(UniversalBaseModel):
     Provider-backed payout quote ID, prefixed `pout_`.
     """
 
+    market_exchange_rate: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Interbank mid-market rate, with no spread, for the same conversion as `exchange_rate`. The gap between the two is the cost of the conversion. `null` when the payout provider does no foreign exchange for this payout, such as USD to a USD bank account or to a USD stablecoin, when no market rate from the last 15 minutes is available, and on card-funded quotes.
+    """
+
+    market_exchange_rate_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
+    """
+    When `market_exchange_rate` was taken from the market feed, as an ISO 8601 timestamp. `null` when `market_exchange_rate` is `null`.
+    """
+
     net_amount: Money = pydantic.Field()
     """
     Amount remaining after fees.
@@ -55,6 +71,11 @@ class CreateQuotePayoutsResponse(UniversalBaseModel):
     recommended_method: typing.Optional[CreateQuotePayoutsResponseRecommendedMethod] = pydantic.Field(default=None)
     """
     An optional payout method to connect for estimated savings. The quote still uses the requested saved method.
+    """
+
+    server_time: dt.datetime = pydantic.Field()
+    """
+    Server time when the response was prepared, as an ISO 8601 timestamp. Subtract it from `expires_at` to get the remaining quote lifetime without relying on your own clock.
     """
 
     if IS_PYDANTIC_V2:

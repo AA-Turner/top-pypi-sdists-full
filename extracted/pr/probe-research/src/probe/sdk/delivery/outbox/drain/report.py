@@ -120,9 +120,9 @@ class DrainReport:
     #: Runs this pass left because another drain was sending them, its drain
     #: lock let go for their upload (#3618). Also in ``stalled_runs``, held.
     busy_runs: set = field(default_factory=set)
-    #: Ops the server refused because a newer attempt owns their run (a past
-    #: write epoch), moved to ``discarded/`` rather than dead-lettered (T24).
-    superseded: "DiscardCounts" = field(default_factory=lambda: DiscardCounts())
+    #: Ops the server refuses for good, moved to ``discarded/`` rather than dead-lettered, by
+    #: `DiscardReason`: ``superseded`` (a newer attempt owns their run, T24).
+    set_aside: "dict[str, DiscardCounts]" = field(default_factory=dict)
     #: The pass stopped for EVERY run because the server could not be reached
     #: at all (a connect failure) or stopped answering (a second response lost
     #: after sending in one pass): trying each run's head op in turn would only

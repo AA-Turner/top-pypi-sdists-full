@@ -23,6 +23,10 @@ if TYPE_CHECKING:
         ATRVariationType,
         _AgentThreatRulesDataset,
     )
+    from pyrit.datasets.seed_datasets.remote.anthropic_model_written_evals_dataset import (
+        AnthropicModelWrittenEvalCategory,
+        _AnthropicModelWrittenEvalsDataset,
+    )
     from pyrit.datasets.seed_datasets.remote.aya_redteaming_dataset import _AyaRedteamingDataset
     from pyrit.datasets.seed_datasets.remote.babelscape_alert_dataset import _BabelscapeAlertDataset
     from pyrit.datasets.seed_datasets.remote.beaver_tails_dataset import _BeaverTailsDataset
@@ -40,6 +44,15 @@ if TYPE_CHECKING:
         ComicJailbreakTemplateConfig,
         _ComicJailbreakDataset,
     )
+    from pyrit.datasets.seed_datasets.remote.cyberseceval_mitre_dataset import (
+        CyberSecEvalMitreCategory,
+        _CyberSecEvalMitreDataset,
+    )
+    from pyrit.datasets.seed_datasets.remote.cyberseceval_prompt_injection_dataset import (
+        CyberSecEvalInjectionType,
+        CyberSecEvalRiskCategory,
+        _CyberSecEvalPromptInjectionDataset,
+    )
     from pyrit.datasets.seed_datasets.remote.dangerous_qa_dataset import _DangerousQADataset
     from pyrit.datasets.seed_datasets.remote.darkbench_dataset import _DarkBenchDataset
     from pyrit.datasets.seed_datasets.remote.decoding_trust_toxicity_dataset import (
@@ -54,6 +67,12 @@ if TYPE_CHECKING:
         _FigStepProDataset,
     )
     from pyrit.datasets.seed_datasets.remote.forbidden_questions_dataset import _ForbiddenQuestionsDataset
+    from pyrit.datasets.seed_datasets.remote.fortress_dataset import (
+        FortressRiskDomain,
+        FortressRiskSubdomain,
+        FortressSplit,
+        _FortressDataset,
+    )
     from pyrit.datasets.seed_datasets.remote.garak_audio_dataset import _GarakAudioAchillesHeelDataset
     from pyrit.datasets.seed_datasets.remote.garak_package_hallucination_dataset import (
         _GarakCratesDataset,
@@ -70,6 +89,7 @@ if TYPE_CHECKING:
     )
     from pyrit.datasets.seed_datasets.remote.harmbench_dataset import _HarmBenchDataset
     from pyrit.datasets.seed_datasets.remote.harmbench_multimodal_dataset import _HarmBenchMultimodalDataset
+    from pyrit.datasets.seed_datasets.remote.harmeval_dataset import HarmEvalTopic, _HarmEvalDataset
     from pyrit.datasets.seed_datasets.remote.harmful_qa_dataset import _HarmfulQADataset
     from pyrit.datasets.seed_datasets.remote.hixstest_dataset import HiXSTestLanguage, _HiXSTestDataset
     from pyrit.datasets.seed_datasets.remote.jailbreakv_28k_dataset import _JailbreakV28KDataset
@@ -79,6 +99,7 @@ if TYPE_CHECKING:
     from pyrit.datasets.seed_datasets.remote.llm_latent_adversarial_training_dataset import (
         _LLMLatentAdversarialTrainingDataset,
     )
+    from pyrit.datasets.seed_datasets.remote.mask_dataset import MaskQuestionArchetype, _MaskDataset
     from pyrit.datasets.seed_datasets.remote.medsafetybench_dataset import _MedSafetyBenchDataset
     from pyrit.datasets.seed_datasets.remote.mlcommons_ailuminate_dataset import _MLCommonsAILuminateDataset
     from pyrit.datasets.seed_datasets.remote.mm_safetybench_dataset import (
@@ -110,6 +131,7 @@ if TYPE_CHECKING:
     from pyrit.datasets.seed_datasets.remote.red_team_social_bias_dataset import _RedTeamSocialBiasDataset
     from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import _RemoteDatasetLoader
     from pyrit.datasets.seed_datasets.remote.salad_bench_dataset import _SaladBenchDataset
+    from pyrit.datasets.seed_datasets.remote.semguard_dataset import SemGuardCategory, _SemGuardDataset
     from pyrit.datasets.seed_datasets.remote.sgxstest_dataset import SGXSTestLabel, _SGXSTestDataset
     from pyrit.datasets.seed_datasets.remote.simple_safety_tests_dataset import _SimpleSafetyTestsDataset
     from pyrit.datasets.seed_datasets.remote.siuo_dataset import SIUOCategory, _SIUODataset
@@ -150,12 +172,21 @@ if TYPE_CHECKING:
 
 _LAZY_EXPORTS: dict[str, str | tuple[str, str | None]] = {
     "AegisHarmCategory": "pyrit.datasets.seed_datasets.remote.aegis_ai_content_safety_dataset",
+    "AnthropicModelWrittenEvalCategory": "pyrit.datasets.seed_datasets.remote.anthropic_model_written_evals_dataset",
     "CoCoNotCategory": "pyrit.datasets.seed_datasets.remote.coconot_dataset",
     "CoCoNotSplit": "pyrit.datasets.seed_datasets.remote.coconot_dataset",
+    "CyberSecEvalInjectionType": "pyrit.datasets.seed_datasets.remote.cyberseceval_prompt_injection_dataset",
+    "CyberSecEvalMitreCategory": "pyrit.datasets.seed_datasets.remote.cyberseceval_mitre_dataset",
+    "CyberSecEvalRiskCategory": "pyrit.datasets.seed_datasets.remote.cyberseceval_prompt_injection_dataset",
     "DecodingTrustToxicitySubset": "pyrit.datasets.seed_datasets.remote.decoding_trust_toxicity_dataset",
     "FigStepCategory": "pyrit.datasets.seed_datasets.remote.figstep_dataset",
     "FigStepVariant": "pyrit.datasets.seed_datasets.remote.figstep_dataset",
+    "FortressRiskDomain": "pyrit.datasets.seed_datasets.remote.fortress_dataset",
+    "FortressRiskSubdomain": "pyrit.datasets.seed_datasets.remote.fortress_dataset",
+    "FortressSplit": "pyrit.datasets.seed_datasets.remote.fortress_dataset",
+    "HarmEvalTopic": "pyrit.datasets.seed_datasets.remote.harmeval_dataset",
     "HiXSTestLanguage": "pyrit.datasets.seed_datasets.remote.hixstest_dataset",
+    "MaskQuestionArchetype": "pyrit.datasets.seed_datasets.remote.mask_dataset",
     "MMSafetyBenchCategory": "pyrit.datasets.seed_datasets.remote.mm_safetybench_dataset",
     "MMSafetyBenchVariant": "pyrit.datasets.seed_datasets.remote.mm_safetybench_dataset",
     "MossBenchOversensitivityType": "pyrit.datasets.seed_datasets.remote.mossbench_dataset",
@@ -164,6 +195,7 @@ _LAZY_EXPORTS: dict[str, str | tuple[str, str | None]] = {
     "ODINTaxonomyCategory": "pyrit.datasets.seed_datasets.remote.odin_dataset",
     "PromptIntelCategory": "pyrit.datasets.seed_datasets.remote.promptintel_dataset",
     "PromptIntelSeverity": "pyrit.datasets.seed_datasets.remote.promptintel_dataset",
+    "SemGuardCategory": "pyrit.datasets.seed_datasets.remote.semguard_dataset",
     "SGXSTestLabel": "pyrit.datasets.seed_datasets.remote.sgxstest_dataset",
     "SIUOCategory": "pyrit.datasets.seed_datasets.remote.siuo_dataset",
     "VLGuardCategory": "pyrit.datasets.seed_datasets.remote.vlguard_dataset",
@@ -173,6 +205,7 @@ _LAZY_EXPORTS: dict[str, str | tuple[str, str | None]] = {
     "WildGuardMixPromptHarmLabel": "pyrit.datasets.seed_datasets.remote.wildguardmix_dataset",
     "WildGuardMixSplit": "pyrit.datasets.seed_datasets.remote.wildguardmix_dataset",
     "_AegisContentSafetyDataset": "pyrit.datasets.seed_datasets.remote.aegis_ai_content_safety_dataset",
+    "_AnthropicModelWrittenEvalsDataset": "pyrit.datasets.seed_datasets.remote.anthropic_model_written_evals_dataset",
     "ATRCategory": "pyrit.datasets.seed_datasets.remote.agent_threat_rules_dataset",
     "ATRDetectionField": "pyrit.datasets.seed_datasets.remote.agent_threat_rules_dataset",
     "ATRVariationType": "pyrit.datasets.seed_datasets.remote.agent_threat_rules_dataset",
@@ -188,6 +221,10 @@ _LAZY_EXPORTS: dict[str, str | tuple[str, str | None]] = {
     "_ComicJailbreakDataset": "pyrit.datasets.seed_datasets.remote.comic_jailbreak_dataset",
     "COMIC_JAILBREAK_TEMPLATES": "pyrit.datasets.seed_datasets.remote.comic_jailbreak_dataset",
     "ComicJailbreakTemplateConfig": "pyrit.datasets.seed_datasets.remote.comic_jailbreak_dataset",
+    "_CyberSecEvalMitreDataset": "pyrit.datasets.seed_datasets.remote.cyberseceval_mitre_dataset",
+    "_CyberSecEvalPromptInjectionDataset": (
+        "pyrit.datasets.seed_datasets.remote.cyberseceval_prompt_injection_dataset"
+    ),
     "_DangerousQADataset": "pyrit.datasets.seed_datasets.remote.dangerous_qa_dataset",
     "_DarkBenchDataset": "pyrit.datasets.seed_datasets.remote.darkbench_dataset",
     "_DecodingTrustToxicityDataset": "pyrit.datasets.seed_datasets.remote.decoding_trust_toxicity_dataset",
@@ -195,6 +232,7 @@ _LAZY_EXPORTS: dict[str, str | tuple[str, str | None]] = {
     "_FigStepDataset": "pyrit.datasets.seed_datasets.remote.figstep_dataset",
     "_FigStepProDataset": "pyrit.datasets.seed_datasets.remote.figstep_dataset",
     "_ForbiddenQuestionsDataset": "pyrit.datasets.seed_datasets.remote.forbidden_questions_dataset",
+    "_FortressDataset": "pyrit.datasets.seed_datasets.remote.fortress_dataset",
     "_GarakAudioAchillesHeelDataset": "pyrit.datasets.seed_datasets.remote.garak_audio_dataset",
     "_GarakCratesDataset": "pyrit.datasets.seed_datasets.remote.garak_package_hallucination_dataset",
     "_GarakDartDataset": "pyrit.datasets.seed_datasets.remote.garak_package_hallucination_dataset",
@@ -207,6 +245,7 @@ _LAZY_EXPORTS: dict[str, str | tuple[str, str | None]] = {
     "_GarakTmSystemPromptDataset": "pyrit.datasets.seed_datasets.remote.garak_system_prompt_dataset",
     "_HarmBenchDataset": "pyrit.datasets.seed_datasets.remote.harmbench_dataset",
     "_HarmBenchMultimodalDataset": "pyrit.datasets.seed_datasets.remote.harmbench_multimodal_dataset",
+    "_HarmEvalDataset": "pyrit.datasets.seed_datasets.remote.harmeval_dataset",
     "_HarmfulQADataset": "pyrit.datasets.seed_datasets.remote.harmful_qa_dataset",
     "_HiXSTestDataset": "pyrit.datasets.seed_datasets.remote.hixstest_dataset",
     "_JailbreakV28KDataset": "pyrit.datasets.seed_datasets.remote.jailbreakv_28k_dataset",
@@ -216,6 +255,7 @@ _LAZY_EXPORTS: dict[str, str | tuple[str, str | None]] = {
     "_LLMLatentAdversarialTrainingDataset": (
         "pyrit.datasets.seed_datasets.remote.llm_latent_adversarial_training_dataset"
     ),
+    "_MaskDataset": "pyrit.datasets.seed_datasets.remote.mask_dataset",
     "_MedSafetyBenchDataset": "pyrit.datasets.seed_datasets.remote.medsafetybench_dataset",
     "_MICDataset": "pyrit.datasets.seed_datasets.remote.moral_integrity_corpus_dataset",
     "_MLCommonsAILuminateDataset": "pyrit.datasets.seed_datasets.remote.mlcommons_ailuminate_dataset",
@@ -231,8 +271,9 @@ _LAZY_EXPORTS: dict[str, str | tuple[str, str | None]] = {
     "_PromptIntelDataset": "pyrit.datasets.seed_datasets.remote.promptintel_dataset",
     "_RedTeamSocialBiasDataset": "pyrit.datasets.seed_datasets.remote.red_team_social_bias_dataset",
     "_RemoteDatasetLoader": "pyrit.datasets.seed_datasets.remote.remote_dataset_loader",
-    "_SGXSTestDataset": "pyrit.datasets.seed_datasets.remote.sgxstest_dataset",
     "_SaladBenchDataset": "pyrit.datasets.seed_datasets.remote.salad_bench_dataset",
+    "_SemGuardDataset": "pyrit.datasets.seed_datasets.remote.semguard_dataset",
+    "_SGXSTestDataset": "pyrit.datasets.seed_datasets.remote.sgxstest_dataset",
     "_SimpleSafetyTestsDataset": "pyrit.datasets.seed_datasets.remote.simple_safety_tests_dataset",
     "_SIUODataset": "pyrit.datasets.seed_datasets.remote.siuo_dataset",
     "_SOSBenchDataset": "pyrit.datasets.seed_datasets.remote.sosbench_dataset",

@@ -65,10 +65,41 @@ def unit_values(path):
     return result
 
 
+# Where this suite's system installs keep their configuration (core.env, wrapper/, discovery/).
+SYSTEM_CONFIG_DIR = Path('/etc/hugpy')
+
+
+def recorded_install(environ=None):
+    """The installation pointers a previous system install left in its core.env, which uninstall keeps.
+    With the unit gone there is nothing else to read them from, and an install that guessed again would
+    make a second account and a second, empty state beside the first. Only when the caller names no
+    location of its own; {} when there is no readable record."""
+    env = os.environ if environ is None else environ
+    if any(env.get(key) for key in ('HUGPY_SERVICE_USER', 'HUGPY_CONFIG_DIR', 'HUGPY_HOME', 'HUGPY_DATA_DIR')):
+        return {}
+    path = SYSTEM_CONFIG_DIR / 'core.env'
+    try:
+        lines = path.read_text(encoding='utf-8').splitlines()
+    except OSError:
+        return {}
+    saved = {}
+    for line in lines:
+        key, sep, value = line.partition('=')
+        if sep and not key.lstrip().startswith('#'):
+            words = shlex.split(value, comments=True)
+            saved[key.strip()] = words[0] if words else ''
+    if not saved.get('HUGPY_SERVICE_USER'):
+        return {}
+    pointers = {'User': saved['HUGPY_SERVICE_USER'], 'EnvironmentFile': str(path)}
+    if saved.get('HUGPY_CORE_HOME'):
+        pointers['WorkingDirectory'] = saved['HUGPY_CORE_HOME']
+    return pointers
+
+
 def select_identity(environ=None):
     env = os.environ if environ is None else environ
     units = unit_directory(env)
-    existing = unit_values(units / 'hugpy-core.service')
+    existing = unit_values(units / 'hugpy-core.service') or recorded_install(env)
     name = env.get('HUGPY_SERVICE_USER') or existing.get('User') or service_account(env)
     return name, units, existing
 

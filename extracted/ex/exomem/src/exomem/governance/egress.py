@@ -3242,6 +3242,8 @@ def guard_graph_context(
     (or an unresolved-but-expected principal) -> an empty, available-shaped
     neighborhood, since L0 must not even reveal that a neighborhood exists.
     """
+    from ..vault_store import read as store_read
+
     vault_root = Path(vault_root)
     policy = policy_module.load(vault_root)
     who = principal if principal is not None else effective_principal()
@@ -3284,7 +3286,7 @@ def guard_graph_context(
                 continue
             for field_name in ("src_key", "dst_key"):
                 key = str(edge.get(field_name) or "")
-                if key.startswith("file:") and (vault_root / key[5:]).is_file():
+                if key.startswith("file:") and store_read.holds_file(vault_root, key[5:]):
                     candidate_paths.add(key[5:])
     withheld = {
         rel_path
@@ -8040,6 +8042,8 @@ def page_filter_over(
     vault_root: Path, keep: Callable[[str], bool], *, withheld: frozenset[str] | None = None
 ) -> Callable[[str], bool]:
     """`visible_page_filter` over a release decision `keep` that the caller already built."""
+    from ..vault_store import read as store_read
+
     root = Path(vault_root)
     offered = admission_of(keep)
     # Read as the filter is built: the pin's own filter is built before the set exists, and decides what it holds.
@@ -8066,12 +8070,12 @@ def page_filter_over(
             if tombstoned:
                 return False, False
             try:
-                return not (root / rel).is_file(), False
+                return not store_read.holds_file(root, rel), False
             except OSError:
                 return False, False
         if not tombstoned:
             try:
-                if not (root / rel).is_file():
+                if not store_read.holds_file(root, rel):
                     return True, False
             except OSError:
                 return False, False
@@ -8098,7 +8102,22 @@ def edge_view(
     visible = visible_page_filter(vault_root)
     if visible is None or admission is None:
         return admission if visible is None else visible
-    return lambda path: admission(path) and visible(path)
+    content, release = admission_of(admission), admission_of(visible)
+    if content is None or release is None:
+        return lambda path: admission(path) and visible(path)
+
+    def identity():
+        left, right = content.identity(), release.identity()
+        return None if left is None or right is None else ("edge-view", left, right)
+
+    def decide(path, publish=False):
+        allowed, local = content.decide(path, publish)
+        if not allowed:
+            return False, local
+        released, release_local = release.decide(path, publish)
+        return released, local and release_local
+
+    return AdmittedPredicate(Admission(identity, decide))
 
 
 class ReaderViewUnavailable(RuntimeError):

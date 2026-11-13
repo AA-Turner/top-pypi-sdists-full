@@ -1,0 +1,146 @@
+Metadata-Version: 2.4
+Name: pydssp
+Version: 0.9.2
+Summary: A simplified implementation of DSSP algorithm for PyTorch and NumPy
+Home-page: https://github.com/ShintaroMinami/PyDSSP
+Author: Shintaro Minami
+License: MIT
+Keywords: DSSP,Secondary Structure,Protein Structure
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: torch
+Requires-Dist: einops
+Requires-Dist: tqdm
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
+
+# PyDSSP
+A simplified implementation of DSSP algorithm for PyTorch and NumPy
+
+# What's this?
+DSSP (Dictionary of Secondary Structure of Protein) is a popular algorithm for assigning secondary structure of protein backbone structure. [<a href="https://onlinelibrary.wiley.com/doi/abs/10.1002/bip.360221211">
+Wolfgang Kabsch, and Christian Sander (1983)</a>] This repository is a python implementation of DSSP algorithm that simplifies some parts of the algorithm.
+
+# General Info
+- It's NOT a complete implementation of the original DSSP, as some parts have been simplified (some more details [here](#differences-from-the-original-dssp)). However, an average of over 97% of secondary structure determinations agree with the original.
+- The algorithm used to identify hydrogen bonded residue pairs is exactly the same as the original DSSP algorithm, but is extended to output the hydrogen-bond-pair-matrix as continuous values in the range [0,1].
+- With the continuous variable extension above, the hydrogen-bond-pair-matrix is differentiable with torch.Tensor as input.
+
+# Install
+## install through PyPi
+``` bash
+pip install pydssp
+```
+to install the latest version
+``` bash
+pip install git+https://github.com/ShintaroMinami/PyDSSP.git
+```
+## install by git clone
+``` bash
+git clone https://github.com/ShintaroMinami/PyDSSP.git
+cd PyDSSSP
+python setup.py install
+```
+
+# How to use
+## To use pydssp script
+If you have already installed pydssp, you should be able to use pydssp command.
+``` bash
+pydssp  input_01.pdb input_02.pdb ... input_N.pdb -o output.result
+```
+The output.result will be a text format, looking like follows,
+``` bash
+-EEEEE-E--EEEEEE---EEEE-HHHH--EEEE--------- input_01.pdb
+-HHHHHHHHHHHHHH----HHHHHHHHHHHHHHHHHHH--- input_02.pdb
+-EEEE-----EEEE----EEEE--E---EEE-----EEE-EEE-- input_03.pdb
+...
+```
+
+## To use as python module
+### Import & test coordinates
+``` python
+# Import
+import torch
+import pydssp
+
+# Sample coordinates
+batch, length, atoms, xyz = 10, 100, 4, 3
+## atoms should be 4 (N, CA, C, O) or 5 (N, CA, C, O, H)
+coord = torch.randn([batch, length, atoms, xyz]) # batch-dim is optional
+```
+
+### To get hydrogen-bond matrix: ```pydssp.get_hbond_map()```
+``` python
+hbond_matrix = pydssp.get_hbond_map(coord)
+
+print(hbond_matrix.shape) # should be (batch, length, length)
+```
+- For hbond_matrix[b, i, j], index 'i' is for donner (N-H) and 'j' is for acceptor (C=O), respectively
+- The output matrix consists of continuous values in the range [0,1], which is defined as follows.
+
+$HbondMat(i,j) = (1+\sin((-0.5-E(i,j)-margin)/margin*\pi/2))/2$
+
+Here $E$ is the electrostatic energy defined by (Kabsch and Sander 1983) and $margin(=1.0)$ is introduced to control smoothness.
+
+If you'd like to get the same hbond assignment as DSSP, you can get it by setting the threshold as 0.5.
+``` python
+dssp_hbond_matrix = pydssp.get_hbond_map(coord) > 0.5
+```
+
+### To get secondary structure assignment: ```pydssp.assign()```
+``` python
+dssp = pydssp.assign(coord, out_type='c3')
+## output is batched np.ndarray of C3 annotation, like ['-', 'H', 'H', ..., 'E', '-']
+
+# To get secondary str. as index
+dssp = pydssp.assign(coord, out_type='index')
+## 0: loop,  1: alpha-helix,  2: beta-strand
+
+# To get secondary str. as onehot representation
+dssp = pydssp.assign(coord, out_type='onehot')
+## dim-0: loop,  dim-1: alpha-helix,  dim-2: beta-strand
+```
+
+### Missing residues: ```residue_index```
+By default, consecutive entries in ```coord``` are treated as consecutive residues. If some residues are missing (e.g. unresolved in the structure), pass the sequence position of each residue (e.g. mmCIF ```label_seq_id```) as ```residue_index```, so that residues across a gap are not treated as neighbors.
+``` python
+residue_index = [1, 2, 3, 6, 7, ...] # residues 4 and 5 are missing
+dssp = pydssp.assign(coord, residue_index=residue_index)
+hbond_matrix = pydssp.get_hbond_map(coord, residue_index=residue_index)
+```
+- Residues whose indices differ by 1 are connected, a larger difference means missing residues, and a difference <= 0 means a chain break (e.g. chains concatenated with residue numbers restarting). For batched input, ```residue_index``` can be [batch, length].
+- When the H atom is not given (4 atoms), the residue right after a gap is not used as a hydrogen bond donor, because its H position is estimated from the preceding residue.
+- The ```pydssp``` command detects gaps automatically from residue numbers and peptide bond lengths (C-N > 2.5 Å) in the PDB file.
+
+# Differences from the original DSSP
+This implementation was simplified from the original DSSP algorithm. The differences from the original DSSP are as follows
+- The implementation omitted β-bulge annotation, so β-bulge is determined as a loop instead of β-strand.
+- Parameters for adding hydrogen atoms are slightly different from the original DSSP, which may cause small differences in hydrogen bond annotation.
+- Only support C3 ('-', 'H', and 'E') type assignment instead of C8 type (B, E, G, H, I, S, T, and ' ').
+
+Although the above simplifications, the C3 type annotation still matches with the original DSSP for more than 97% of residues on average.
+
+## Reference
+``` bibtex
+@article{kabsch1983dictionary,
+  title={Dictionary of protein secondary structure: pattern recognition of hydrogen-bonded and geometrical features},
+  author={Kabsch, Wolfgang and Sander, Christian},
+  journal={Biopolymers: Original Research on Biomolecules},
+  volume={22},
+  number={12},
+  pages={2577--2637},
+  year={1983},
+  publisher={Wiley Online Library}
+}
+```

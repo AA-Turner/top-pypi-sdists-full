@@ -28,6 +28,7 @@ except PackageNotFoundError:
     pass
 
 available_models = [
+    "dad-roma",
     "upal",
     "liftfeat",
     "loftr",
@@ -103,6 +104,12 @@ available_models = [
     "xfeat-star-steerers-learned",
     "loma",
     "loma-r",
+    "clidd-a48",
+    "clidd-u128",
+    "flexglue",
+    "raco-flexglue",
+    "sandesc",
+    "sandesc-dedode",
 ]
 
 
@@ -179,6 +186,11 @@ def get_matcher(
         return keypt2subpx.Keypt2SubpxMatcher(
             device, max_num_keypoints=max_num_keypoints, detector_name="aliked-lightglue", *args, **kwargs
         )
+
+    elif matcher_name == "dad-roma":
+        from vismatch.im_models import dad
+
+        return dad.DaDMatcher(device, max_num_keypoints, *args, **kwargs)
 
     elif matcher_name == "upal":
         from vismatch.im_models import upal
@@ -333,7 +345,7 @@ def get_matcher(
     elif matcher_name == "d2net":
         from vismatch.im_models import matching_toolbox
 
-        return matching_toolbox.D2netMatcher(device, *args, **kwargs)
+        return matching_toolbox.D2netMatcher(device, max_num_keypoints, *args, **kwargs)
 
     elif matcher_name == "duster":
         from vismatch.im_models import duster
@@ -466,7 +478,7 @@ def get_matcher(
     elif matcher_name == "rdd-star":
         from vismatch.im_models import rdd
 
-        return rdd.RDDMatcher(device, mode="dense", *args, **kwargs)
+        return rdd.RDDMatcher(device, mode="dense", max_num_keypoints=max_num_keypoints, *args, **kwargs)
 
     elif matcher_name == "rdd-lightglue":
         from vismatch.im_models import rdd
@@ -536,6 +548,36 @@ def get_matcher(
         from vismatch.im_models import loma
 
         return loma.LoMaMatcher(device, max_num_keypoints, arch="LoMa-R", *args, **kwargs)
+
+    elif matcher_name == "clidd-a48":
+        from vismatch.im_models import clidd
+
+        return clidd.CLIDDMatcher(device, max_num_keypoints, variant="A48", *args, **kwargs)
+
+    elif matcher_name == "clidd-u128":
+        from vismatch.im_models import clidd
+
+        return clidd.CLIDDMatcher(device, max_num_keypoints, variant="U128", *args, **kwargs)
+
+    elif matcher_name == "flexglue":
+        from vismatch.im_models import flexglue
+
+        return flexglue.FlexGlueMatcher(device, max_num_keypoints, *args, **kwargs)
+
+    elif matcher_name == "raco-flexglue":
+        from vismatch.im_models import flexglue
+
+        return flexglue.FlexGlueMatcher(device, max_num_keypoints, detector="raco", *args, **kwargs)
+
+    elif matcher_name == "sandesc":
+        from vismatch.im_models import sandesc
+
+        return sandesc.SANDescMatcher(device, max_num_keypoints, *args, **kwargs)
+
+    elif matcher_name == "sandesc-dedode":
+        from vismatch.im_models import sandesc
+
+        return sandesc.SANDescMatcher(device, max_num_keypoints, detector="dedode", *args, **kwargs)
 
     else:
         raise RuntimeError(

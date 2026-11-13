@@ -567,6 +567,18 @@ class TestAlgebra(unittest.TestCase):
         with self.assertRaises(ValueError):
             alg.diag(3)
 
+    def test_trace(self):
+        """Test trace."""
+
+        self.assertEqual(alg.trace([[1, 2], [3, 4]]), 5)
+        self.assertEqual(alg.trace([[1.5]]), 1.5)
+        self.assertEqual(alg.trace(alg.reshape(alg.arange(16), (4, 4))), 30)
+        self.assertEqual(alg.trace(alg.eye(5)), 5.0)
+
+        # Only the main diagonal of non-square matrices is summed
+        self.assertEqual(alg.trace([[1, 2, 3], [4, 5, 6]]), 6)
+        self.assertEqual(alg.trace([[1, 2], [3, 4], [5, 6]]), 5)
+
     def test_broadcast_reset(self):
         """Test broadcast reset."""
 
@@ -782,6 +794,35 @@ class TestAlgebra(unittest.TestCase):
             alg.shape([[]]),
             (1, 0)
         )
+
+    def test_shape_scalar_types(self):
+        """Test shape handles tuples, mixed numeric types, and scalar types that are not validated in bulk."""
+
+        from decimal import Decimal
+        from fractions import Fraction
+
+        self.assertEqual(alg.shape((1, 2.5, 3)), (3,))
+        self.assertEqual(alg.shape(((1, 2), (3, 4), (5, 6))), (3, 2))
+        self.assertEqual(alg.shape([(1, 2), [3, 4]]), (2, 2))
+        self.assertEqual(alg.shape([True, False, 1]), (3,))
+        self.assertEqual(alg.shape([[Decimal(1), Fraction(1, 2)], [1, 2.0]]), (2, 2))
+
+    def test_shape_ragged_scalar_first(self):
+        """Test ragged detection when the first entry is a scalar, regardless of scalar type or position."""
+
+        from decimal import Decimal
+
+        for array in (
+            [1, [2], 3],
+            [1, 2, [3]],
+            [1, 2, (3, 4)],
+            [True, 2, [3]],
+            [Decimal(1), 2, [3]],
+            [[1, 2], [3, [4]]],
+            [[1, 2], [3, 4], [5, [6]]]
+        ):
+            with self.assertRaises(ValueError):
+                alg.shape(array)
 
     def test_ones(self):
         """Test ones matrix."""
@@ -1012,6 +1053,61 @@ class TestAlgebra(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             list(alg.flatiter([[[1, 2], [1, 2, 3]], [1, 2]]))
+
+    def test_flatiter_shapes(self):
+        """Test `flatiter` with scalars, vectors, tuples, empty dimensions, and a provided shape."""
+
+        # Scalars are returned as is
+        self.assertEqual(list(alg.flatiter(3)), [3])
+        self.assertEqual(list(alg.flatiter(3, shape=())), [3])
+
+        # Vectors and tuples
+        self.assertEqual(list(alg.flatiter([1, 2, 3])), [1, 2, 3])
+        self.assertEqual(list(alg.flatiter(((1, 2), (3, 4)))), [1, 2, 3, 4])
+
+        # Deeper arrays are flattened in row-major order
+        a = alg.reshape(alg.arange(24), (2, 3, 4))
+        self.assertEqual(list(alg.flatiter(a)), list(range(24)))
+        self.assertEqual(alg.ravel(a), list(range(24)))
+
+        # Empty dimensions yield nothing
+        self.assertEqual(list(alg.flatiter([])), [])
+        self.assertEqual(list(alg.flatiter([[], []])), [])
+        self.assertEqual(list(alg.flatiter([[[], []], [[], []]])), [])
+
+        # A shape can be provided to avoid calculating it, and may be shallower than the array
+        self.assertEqual(list(alg.flatiter([[1, 2], [3, 4]], shape=(2, 2))), [1, 2, 3, 4])
+        self.assertEqual(list(alg.flatiter([[1, 2], [3, 4]], shape=(2,))), [[1, 2], [3, 4]])
+
+        # Iteration is lazy
+        it = alg.flatiter([[1, 2], [3, 4]])
+        self.assertEqual(next(it), 1)
+        self.assertEqual(list(it), [2, 3, 4])
+
+    def test_reshape_data_order(self):
+        """Test that reshaping preserves data order, returns new lists, and handles shape changes in rank."""
+
+        a = alg.reshape(alg.arange(24), (2, 3, 4))
+        self.assertEqual(alg.reshape(a, (24,)), list(range(24)))
+        self.assertEqual(alg.reshape(a, (4, 6)), [list(range(i, i + 6)) for i in range(0, 24, 6)])
+        self.assertEqual(alg.reshape(a, (6, 2, 2)), [[[i, i + 1], [i + 2, i + 3]] for i in range(0, 24, 4)])
+        self.assertEqual(alg.reshape(a, (3, 8, 1))[1][0], [8])
+        self.assertEqual(alg.reshape(alg.reshape(a, (4, 6)), (2, 3, 4)), a)
+
+        # Results never share rows with the input
+        m = [[1, 2], [3, 4]]
+        r = alg.reshape(m, (2, 2))
+        r[0][0] = 99
+        self.assertEqual(m[0][0], 1)
+        r = alg.reshape(m, (1, 4))
+        r[0][0] = 99
+        self.assertEqual(m, [[1, 2], [3, 4]])
+        v = [1, 2, 3, 4]
+        r = alg.reshape(v, (4, 1))
+        self.assertEqual(r, [[1], [2], [3], [4]])
+        r = alg.reshape(v, 4)
+        r[0] = 99
+        self.assertEqual(v[0], 1)
 
     def test_full(self):
         """Test full."""
@@ -2488,6 +2584,161 @@ class TestAlgebra(unittest.TestCase):
         v = alg.ilerp2d(alg.transpose(m), [1, 1])
         [self.assertAlmostEqual(a, b) for a, b in zip(v, [1.0, 1.0])]
 
+    def test_ilerp2d_round_trip(self):
+        """Test inverse 2D interpolation round trips on a distorted quad."""
+
+        # Distorted quad in column form: each row holds one component of all four vertices
+        quad = [
+            [0.0, 1.1, 0.1, 1.0],
+            [0.0, 0.1, 1.0, 1.2]
+        ]
+
+        for t in (
+            [0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0],
+            [0.5, 0.5], [0.2, 0.7], [0.9, 0.1],
+            [-0.1, 0.5], [0.5, 1.1], [1.1, -0.1]
+        ):
+            v = alg.ilerp2d(quad, alg.lerp2d(quad, t), tol=1e-15)
+            for a, b in zip(v, t):
+                self.assertAlmostEqual(a, b, places=12)
+
+    def test_ilerp2d_options(self):
+        """Test inverse 2D interpolation options."""
+
+        quad = [
+            [0.0, 1.1, 0.1, 1.0],
+            [0.0, 0.1, 1.0, 1.2]
+        ]
+        t = [0.2, 0.7]
+        point = alg.lerp2d(quad, t)
+
+        # A guess that is already the answer is returned without iterating
+        guess = [0.2, 0.7]
+        self.assertEqual(alg.ilerp2d(quad, point, guess=guess, max_iter=0), guess)
+
+        # The guess is not modified
+        guess = [0.9, 0.1]
+        alg.ilerp2d(quad, point, guess=guess)
+        self.assertEqual(guess, [0.9, 0.1])
+
+        # Any reasonable guess converges
+        for guess in ([0.0, 0.0], [1.0, 1.0], [0.9, 0.1]):
+            v = alg.ilerp2d(quad, point, guess=guess, tol=1e-15)
+            for a, b in zip(v, t):
+                self.assertAlmostEqual(a, b, places=12)
+
+        # Fewer iterations or a looser tolerance gets a less precise answer, but is still close
+        v1 = alg.ilerp2d(quad, point, guess=[0.5, 0.5], max_iter=1)
+        v2 = alg.ilerp2d(quad, point, guess=[0.5, 0.5], max_iter=2)
+        v3 = alg.ilerp2d(quad, point, guess=[0.5, 0.5], tol=1e-15)
+        err = [math.dist(v, t) for v in (v1, v2, v3)]
+        self.assertTrue(err[0] > err[1] > err[2])
+        self.assertTrue(math.dist(alg.ilerp2d(quad, point, tol=1e-3), t) < 1e-3)
+
+    def test_ilerp2d_singular(self):
+        """Test that a degenerate quad, which has no inverse, quietly returns the last guess."""
+
+        # All vertices are the same point, so the Jacobian is all zeros
+        flat = [[0.5] * 4, [0.25] * 4]
+        self.assertEqual(alg.ilerp2d(flat, [0.1, 0.2]), [0.5, 0.5])
+        self.assertEqual(alg.ilerp2d(flat, [0.1, 0.2], guess=[0.2, 0.3]), [0.2, 0.3])
+
+        # Collapsed onto a line, so it is not invertible in 2D either
+        line = [[0.0, 1.0, 0.0, 1.0], [0.0] * 4]
+        v = alg.ilerp2d(line, [0.3, 0.0])
+        self.assertTrue(all(math.isfinite(x) for x in v))
+
+    def test_ilerp3d(self):
+        """Test inverse 3D interpolation."""
+
+        # Distorted cube in column form: each row holds one component of all eight vertices
+        cube = [
+            [0.0, 1.1, 0.1, 1.0, 0.0, 1.2, 0.0, 1.0],
+            [0.0, 0.1, 1.0, 1.1, 0.1, 0.0, 1.2, 1.0],
+            [0.0, 0.0, 0.1, 0.1, 1.0, 1.1, 1.0, 1.3]
+        ]
+
+        # Corners and center map back to their parameters
+        for t in (
+            [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [0.0, 1.0, 1.0], [1.0, 1.0, 1.0],
+            [0.5, 0.5, 0.5], [0.2, 0.7, 0.4], [0.9, 0.1, 0.6]
+        ):
+            v = alg.ilerp3d(cube, alg.lerp3d(cube, t), tol=1e-15)
+            for a, b in zip(v, t):
+                self.assertAlmostEqual(a, b, places=12)
+
+        # Slightly outside of the cube still resolves
+        for t in ([-0.1, 0.5, 0.5], [0.5, 1.1, 0.5], [0.5, 0.5, -0.1], [1.1, -0.1, 1.1]):
+            v = alg.ilerp3d(cube, alg.lerp3d(cube, t), tol=1e-15)
+            for a, b in zip(v, t):
+                self.assertAlmostEqual(a, b, places=10)
+
+        # A unit cube is the identity
+        unit = [
+            [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]
+        ]
+        v = alg.ilerp3d(unit, [0.3, 0.6, 0.9])
+        for a, b in zip(v, [0.3, 0.6, 0.9]):
+            self.assertAlmostEqual(a, b, places=12)
+
+    def test_ilerp3d_options(self):
+        """Test inverse 3D interpolation options."""
+
+        cube = [
+            [0.0, 1.1, 0.1, 1.0, 0.0, 1.2, 0.0, 1.0],
+            [0.0, 0.1, 1.0, 1.1, 0.1, 0.0, 1.2, 1.0],
+            [0.0, 0.0, 0.1, 0.1, 1.0, 1.1, 1.0, 1.3]
+        ]
+        t = [0.2, 0.7, 0.4]
+        point = alg.lerp3d(cube, t)
+
+        # A guess that is already the answer is returned without iterating
+        guess = [0.2, 0.7, 0.4]
+        self.assertEqual(alg.ilerp3d(cube, point, guess=guess, max_iter=0), guess)
+        v = alg.ilerp3d(cube, point, guess=guess)
+        for a, b in zip(v, t):
+            self.assertAlmostEqual(a, b, places=12)
+
+        # The guess is not modified
+        guess = [0.9, 0.1, 0.5]
+        alg.ilerp3d(cube, point, guess=guess)
+        self.assertEqual(guess, [0.9, 0.1, 0.5])
+
+        # Any reasonable guess converges
+        for guess in ([0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.9, 0.1, 0.5]):
+            v = alg.ilerp3d(cube, point, guess=guess, tol=1e-15)
+            for a, b in zip(v, t):
+                self.assertAlmostEqual(a, b, places=12)
+
+        # Fewer iterations or a looser tolerance gets a less precise answer, but is still close
+        v1 = alg.ilerp3d(cube, point, guess=[0.5, 0.5, 0.5], max_iter=1)
+        v2 = alg.ilerp3d(cube, point, guess=[0.5, 0.5, 0.5], max_iter=2)
+        v3 = alg.ilerp3d(cube, point, guess=[0.5, 0.5, 0.5], tol=1e-15)
+        err = [math.dist(v, t) for v in (v1, v2, v3)]
+        self.assertTrue(err[0] > err[1] > err[2])
+        self.assertTrue(alg.ilerp3d(cube, point, tol=1e-3) != v3)
+        self.assertTrue(math.dist(alg.ilerp3d(cube, point, tol=1e-3), t) < 1e-3)
+
+    def test_ilerp3d_singular(self):
+        """Test that a degenerate cube, which has no inverse, quietly returns the last guess."""
+
+        # All vertices are the same point, so the Jacobian is all zeros
+        flat = [[0.5] * 8, [0.25] * 8, [0.75] * 8]
+        self.assertEqual(alg.ilerp3d(flat, [0.1, 0.2, 0.3]), [0.5, 0.5, 0.5])
+        self.assertEqual(alg.ilerp3d(flat, [0.1, 0.2, 0.3], guess=[0.2, 0.3, 0.4]), [0.2, 0.3, 0.4])
+
+        # Collapsed in one axis, so it is not invertible in 3D either
+        plane = [
+            [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0],
+            [0.0] * 8
+        ]
+        v = alg.ilerp3d(plane, [0.3, 0.6, 0.0])
+        self.assertTrue(all(math.isfinite(x) for x in v))
+
     def test_solve(self):
         """Test solving of linear equations."""
 
@@ -3332,20 +3583,20 @@ class TestAlgebra(unittest.TestCase):
             ([[-0.3885143449429056, -0.860971644501641],
               [-0.2913857587071792, -0.22321487079672198],
               [-0.8741572761215376, 0.45705902115519237]],
-             [[-10.295630140986997, -8.93582993368683], [0.0, -1.7750896868120227]])
+             [[-10.295630140986997, -8.93582993368683], [0.0, -1.775089686812025]])
         )
 
         r = alg.qr([[4, 5], [3, 3], [9, 7]], mode='r')
-        self.assertEqual(r, [[-10.295630140986997, -8.93582993368683], [0.0, -1.7750896868120227]])
+        self.assertEqual(r, [[-10.295630140986997, -8.93582993368683], [0.0, -1.775089686812025]])
 
         r = alg.qr([[4, 5], [3, 3], [9, 7]], mode='complete')
         self.assertEqual(
             r,
-            ([[-0.3885143449429056, -0.860971644501641, -0.32830539309874984],
-              [-0.2913857587071792, -0.22321487079672198, 0.9301986137797906],
-              [-0.8741572761215376, 0.45705902115519237, -0.1641526965493747]],
+            ([[-0.3885143449429056, -0.860971644501641, -0.32830539309874973],
+              [-0.2913857587071792, -0.22321487079672198, 0.9301986137797909],
+              [-0.8741572761215376, 0.45705902115519237, -0.1641526965493748]],
              [[-10.295630140986997, -8.93582993368683],
-              [0.0, -1.7750896868120227],
+              [0.0, -1.775089686812025],
               [0.0, 0.0]])
         )
 
@@ -3353,7 +3604,7 @@ class TestAlgebra(unittest.TestCase):
         self.assertEqual(
             r,
             ([[-10.295630140986997, -8.93582993368683],
-              [0.2098543380329, -1.7750896868120227]],
+              [0.2098543380329, -1.775089686812025]],
              [1.3885143449429056, 1.0425362362747328])
         )
 
@@ -3363,14 +3614,14 @@ class TestAlgebra(unittest.TestCase):
             ([[-0.4061384660534477, -0.9138115486202573],
               [-0.9138115486202573, 0.4061384660534475]],
              [[-9.848857801796106, -8.42737317060904, -3.959850044021115],
-              [0.0, -1.726088480727153, -1.5230192477004296]])
+              [0.0, -1.726088480727153, -1.5230192477004287]])
         )
 
         r = alg.qr([[4, 5, 3], [9, 7, 3]], mode='r')
         self.assertEqual(
             r,
             [[-9.848857801796106, -8.42737317060904, -3.959850044021115],
-             [0.0, -1.726088480727153, -1.5230192477004296]]
+             [0.0, -1.726088480727153, -1.5230192477004287]]
         )
 
         r = alg.qr([[4, 5, 3], [9, 7, 3]], mode='complete')
@@ -3379,7 +3630,7 @@ class TestAlgebra(unittest.TestCase):
             ([[-0.4061384660534477, -0.9138115486202573],
               [-0.9138115486202573, 0.4061384660534475]],
              [[-9.848857801796106, -8.42737317060904, -3.959850044021115],
-              [0.0, -1.726088480727153, -1.5230192477004296]])
+              [0.0, -1.726088480727153, -1.5230192477004287]])
 
         )
 
@@ -3387,7 +3638,7 @@ class TestAlgebra(unittest.TestCase):
         self.assertEqual(
             r,
             ([[-9.848857801796106, -8.42737317060904, -3.959850044021115],
-              [0.6498730890884561, -1.726088480727153, -1.5230192477004296]],
+              [0.6498730890884561, -1.726088480727153, -1.5230192477004287]],
              [1.4061384660534477, 0.0])
         )
 
@@ -3395,7 +3646,7 @@ class TestAlgebra(unittest.TestCase):
         r = alg.qr(m)
         self.assertEqual(
             r,
-            ([[-0.5773502691896257, 0.4082482904638629, -0.7071067811865476],
+            ([[-0.5773502691896257, 0.4082482904638628, -0.7071067811865477],
               [-0.5773502691896257, -0.816496580927726, 2.7755575615628914e-16],
               [-0.5773502691896257, 0.40824829046386324, 0.7071067811865474]],
              [[-1.7320508075688772, -4.618802153517006, -9.237604307034012],
@@ -3414,7 +3665,7 @@ class TestAlgebra(unittest.TestCase):
         r = alg.qr(m, mode='complete')
         self.assertEqual(
             r,
-            ([[-0.5773502691896257, 0.4082482904638629, -0.7071067811865476],
+            ([[-0.5773502691896257, 0.4082482904638628, -0.7071067811865477],
               [-0.5773502691896257, -0.816496580927726, 2.7755575615628914e-16],
               [-0.5773502691896257, 0.40824829046386324, 0.7071067811865474]],
              [[-1.7320508075688772, -4.618802153517006, -9.237604307034012],
@@ -3436,7 +3687,7 @@ class TestAlgebra(unittest.TestCase):
             r,
             ([[-0.9997752422110318, -0.02120059107367143],
               [-0.02120059107367143, 0.9997752422110316]],
-             [[896.2014282514842, 896.2014282514842], [0.0, 3.552713678800501e-15]])
+             [[896.2014282514842, 896.2014282514842], [0.0, 0.0]])
         )
 
         self.assertEqual(
@@ -3456,9 +3707,9 @@ class TestAlgebra(unittest.TestCase):
                 [-0.31622776601683794, 0.9486832980505138]]]],
              [[[[-8.94427190999916, -8.94427190999916],
                 [0.0, -2.23606797749979]], [[-9.219544457292887, -2.0608393492772334],
-                [0.0, -0.8677218312746247]]],
+                [0.0, -0.8677218312746244]]],
               [[[-9.21954445729289, -2.928561180551858],
-                [0.0, -1.1931175180026092]],
+                [0.0, -1.1931175180026088]],
                [[-6.32455532033676, -4.427188724235732],
                 [0.0, 0.6324555320336758]]]])
         )
@@ -3475,11 +3726,11 @@ class TestAlgebra(unittest.TestCase):
                [0.0, -2.23606797749979]],
 
               [[-9.219544457292887, -2.0608393492772334],
-               [0.0, -0.8677218312746247]]],
+               [0.0, -0.8677218312746244]]],
 
 
              [[[-9.21954445729289, -2.928561180551858],
-               [0.0, -1.1931175180026092]],
+               [0.0, -1.1931175180026088]],
 
               [[-6.32455532033676, -4.427188724235732],
                [0.0, 0.6324555320336758]]]]
@@ -3494,6 +3745,73 @@ class TestAlgebra(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             alg.qr([1, 2, 3])
+
+    def test_qr_properties(self):
+        """Test QR decomposition properties on larger square, tall, and wide matrices."""
+
+        import random
+
+        rnd = random.Random(42)
+        for rows, cols in ((1, 1), (2, 2), (5, 5), (12, 12), (9, 4), (4, 9), (30, 12), (12, 30)):
+            a = [[rnd.uniform(-10, 10) for _ in range(cols)] for _ in range(rows)]
+            k = min(rows, cols)
+
+            for mode, qcols, rrows in (('reduced', k, k), ('complete', rows, rows)):
+                q, r = alg.qr(a, mode=mode)
+                self.assertEqual(alg.shape(q), (rows, qcols))
+                self.assertEqual(alg.shape(r), (rrows, cols))
+
+                # Q is orthonormal, R is upper triangular, and together they reproduce the input
+                self.assertTrue(alg.allclose(alg.matmul(alg.transpose(q), q), alg.eye(qcols), abs_tol=1e-12))
+                for i in range(rrows):
+                    for j in range(min(i, cols)):
+                        self.assertEqual(r[i][j], 0.0)
+                self.assertTrue(alg.allclose(alg.matmul(q, r), a, abs_tol=1e-12))
+
+            # `r` mode matches the `R` from the full decomposition
+            self.assertEqual(alg.qr(a, mode='r'), alg.qr(a)[1])
+
+            # Raw mode returns the same `R` values on and above the diagonal
+            h, tau = alg.qr(a, mode='raw')
+            self.assertEqual(len(tau), k)
+            r = alg.qr(a)[1]
+            for i in range(k):
+                for j in range(i, cols):
+                    self.assertEqual(h[i][j], r[i][j])
+
+    def test_qr_batch(self):
+        """Test that batched QR matches decomposing each matrix on its own."""
+
+        import random
+
+        rnd = random.Random(7)
+        a = [[[rnd.uniform(-5, 5) for _ in range(4)] for _ in range(6)] for _ in range(3)]
+        q, r = alg.qr(a)
+        for i in range(3):
+            q2, r2 = alg.qr(a[i])
+            self.assertEqual(q[i], q2)
+            self.assertEqual(r[i], r2)
+
+    def test_svd_cancellation(self):
+        """Test SVD on rank deficient matrices that require cancellation of the bidiagonal form."""
+
+        for a in (
+            [[-2, -1, 0, -2], [0, 2, 1, 2], [-2, -1, 0, -2]],
+            [[2, 1, -1, -1], [2, -1, -2, -1], [2, 2, -1, 1], [2, 1, -1, -1]],
+            [[2, 2, -2], [1, 2, -1], [2, 2, -2]],
+            [[0, 0, 0], [2, 2, 0], [1, 2, -2]],
+            [[0, -2], [0, -2]]
+        ):
+            u, s, v = alg.svd(a)
+            rows, cols = alg.shape(a)
+            sigma = [[s[i] if i == j else 0.0 for j in range(cols)] for i in range(rows)]
+
+            # The decomposition must reproduce the original matrix, `U` and `V` must be orthonormal,
+            # and computing only the singular values yields the same singular values.
+            self.assertTrue(alg.allclose(alg.matmul(alg.matmul(u, sigma), alg.transpose(v)), a, abs_tol=1e-12))
+            self.assertTrue(alg.allclose(alg.matmul(alg.transpose(u), u), alg.eye(rows), abs_tol=1e-12))
+            self.assertTrue(alg.allclose(alg.matmul(alg.transpose(v), v), alg.eye(cols), abs_tol=1e-12))
+            self.assertEqual(alg.svdvals(a), s)
 
     def test_svdvals(self):
         """Get just the SVD values."""
@@ -3626,6 +3944,142 @@ class TestAlgebra(unittest.TestCase):
         r, converged = alg.solve_bisect(-1.0, 1.0, lambda x: x * x + 1)
         self.assertFalse(converged)
         self.assertTrue(math.isnan(r))
+
+    def test_bisect_root_on_bound(self):
+        """Test bisect returns immediately when a bound is already a root."""
+
+        calls = []
+
+        def f(x):
+            calls.append(x)
+            return x
+
+        # Lower bound is the root, the upper bound is never evaluated
+        self.assertEqual(alg.solve_bisect(0.0, 1.0, f), (0.0, True))
+        self.assertEqual(calls, [0.0])
+
+        # Upper bound is the root
+        calls.clear()
+        self.assertEqual(alg.solve_bisect(-1.0, 0.0, f), (0.0, True))
+        self.assertEqual(calls, [-1.0, 0.0])
+
+        # A root within tolerance of the bound counts as the bound
+        self.assertEqual(alg.solve_bisect(1e-15, 1.0, f), (1e-15, True))
+        self.assertEqual(alg.solve_bisect(-1.0, 1e-15, f), (1e-15, True))
+
+    def test_illinois(self):
+        """Test Illinois solver."""
+
+        from coloraide.easing import _bezier
+
+        a, b, c = .5, -3, 2
+        t = 0.9
+        b = _bezier(a, b, c)(t)
+        f0 = _bezier(a, b, c, y=t)
+        r, converged = alg.solve_illinois(0.0, 1.0, f0)
+        self.assertTrue(converged)
+        self.assertAlmostEqual(r, 0.4539687953174507, places=11)
+
+        r, converged = alg.solve_illinois(1.0, 0.0, f0)
+        self.assertTrue(converged)
+        self.assertAlmostEqual(r, 0.4539687953174507, places=11)
+
+    def test_illinois_negative_and_reversed(self):
+        """Test Illinois when the root is negative, the bounds are reversed, or the function is decreasing."""
+
+        for f, a, b, root in (
+            (lambda x: x + 0.3, -1.0, 0.0, -0.3),
+            (lambda x: x + 0.3, 0.0, -1.0, -0.3),
+            (lambda x: x ** 3 + 2, -5.0, 5.0, -2 ** (1 / 3)),
+            (lambda x: -2 - x ** 3, 5.0, -5.0, -2 ** (1 / 3)),
+            (lambda x: x ** 3 - 2, -5.0, 5.0, 2 ** (1 / 3)),
+            (lambda x: 0.3 - x, 0.0, 1.0, 0.3),
+            (lambda x: x + 2.5, -3.0, -2.0, -2.5),
+            (lambda x: math.cos(x), 0.0, 3.0, math.pi / 2),
+            (lambda x: math.exp(x) - 3, -10.0, 10.0, math.log(3)),
+            (lambda x: x ** 9 - 0.5, 0.0, 1.0, 0.5 ** (1 / 9)),
+            (lambda x: x ** 9 - 0.5, 1.0, 0.0, 0.5 ** (1 / 9))
+        ):
+            r, converged = alg.solve_illinois(a, b, f)
+            self.assertTrue(converged)
+            self.assertAlmostEqual(r, root, places=9)
+
+    def test_illinois_args(self):
+        """Test Illinois passes additional arguments to the function."""
+
+        r, converged = alg.solve_illinois(0.0, 5.0, lambda x, k, c: k * x - c, args=(2.0, 3.0))
+        self.assertTrue(converged)
+        self.assertAlmostEqual(r, 1.5, places=11)
+
+    def test_illinois_root_on_bound(self):
+        """Test Illinois returns immediately when a bound is already a root."""
+
+        calls = []
+
+        def f(x):
+            calls.append(x)
+            return x
+
+        self.assertEqual(alg.solve_illinois(0.0, 1.0, f), (0.0, True))
+        self.assertEqual(calls, [0.0])
+
+        calls.clear()
+        self.assertEqual(alg.solve_illinois(-1.0, 0.0, f), (0.0, True))
+        self.assertEqual(calls, [-1.0, 0.0])
+
+    def test_illinois_no_bracket(self):
+        """Test Illinois when the bounds do not contain a solution."""
+
+        r, converged = alg.solve_illinois(-1.0, 1.0, lambda x: x * x + 1)
+        self.assertFalse(converged)
+        self.assertTrue(math.isnan(r))
+
+        r, converged = alg.solve_illinois(2.0, 3.0, lambda x: x - 1)
+        self.assertFalse(converged)
+        self.assertTrue(math.isnan(r))
+
+    def test_illinois_tolerance(self):
+        """Test Illinois respects the specified tolerances."""
+
+        r, converged = alg.solve_illinois(0.0, 2.0, lambda x: x ** 3 - 2, atol=1e-3, rtol=0.0)
+        self.assertTrue(converged)
+        self.assertTrue(abs(r ** 3 - 2) <= 1e-3)
+
+        r2, converged = alg.solve_illinois(0.0, 2.0, lambda x: x ** 3 - 2, atol=1e-15, rtol=0.0)
+        self.assertTrue(converged)
+        self.assertTrue(abs(r2 ** 3 - 2) <= 1e-15)
+        self.assertAlmostEqual(r2, 2 ** (1 / 3), places=14)
+
+    def test_illinois_fewer_evaluations(self):
+        """Test Illinois needs far fewer evaluations than bisect on smooth functions."""
+
+        for f, a, b in (
+            (lambda x: x ** 3 - 2, 0.0, 5.0),
+            (lambda x: math.cos(x), 0.0, 3.0),
+            (lambda x: math.exp(x) - 3, -10.0, 10.0),
+            (lambda x: x ** 9 - 0.5, 0.0, 1.0)
+        ):
+            counts = []
+            for solver in (alg.solve_bisect, alg.solve_illinois):
+                count = [0]
+
+                def g(x, f=f, count=count):
+                    count[0] += 1
+                    return f(x)
+
+                _, converged = solver(a, b, g)
+                self.assertTrue(converged)
+                counts.append(count[0])
+            self.assertTrue(counts[1] < counts[0])
+
+    def test_illinois_fallback_to_bisect(self):
+        """Test Illinois falls back to bisect if it cannot converge in the allotted iterations."""
+
+        # Strongly curved function where regula falsi cannot converge in a single step
+        f = lambda x: x ** 9 - 0.5
+        r, converged = alg.solve_illinois(0.0, 1.0, f, maxiter=1)
+        self.assertFalse(converged)
+        self.assertEqual((r, converged), alg.solve_bisect(0.0, 1.0, f, maxiter=1))
 
     def test_solve_newton_bracketed_decreasing(self):
         """Test bracketed Newton variants with bounds in either order and increasing or decreasing functions."""

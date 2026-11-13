@@ -65,8 +65,8 @@ class Issue:
                 unless the user's `hideDependencyDashboard` setting is on: then
                 the server leaves it out of `issues` as well.
             author (str):
-            author_avatar_url (str): The forge's own avatar URL for whoever filed the issue, passed through unchanged and
-                never proxied. Empty when the forge supplies none, such as a deleted account.
+            author_avatar_url (str): The forge's own avatar URL for whoever filed the issue, passed through unchanged. The
+                page loads it through GET /api/v1/images. Empty when the forge supplies none, such as a deleted account.
             author_url (str): The author's profile page on the forge, built by the server from the forge's own web address.
                 Empty when there is nothing to link to, such as a deleted account.
             labels (list[Label]):

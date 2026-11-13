@@ -1,6 +1,5 @@
 import contextlib
 import enum
-import itertools
 import logging
 import math
 from collections import abc
@@ -124,8 +123,11 @@ class RemoveDuplicates(enum.Enum):
         """
         if value is True:
             return cls.SINGLE
-        elif value and value in cls:
-            return cls(value)
+        elif value:
+            try:
+                return cls(value)
+            except ValueError:
+                return cls.NONE
         else:
             return cls.NONE
 
@@ -604,20 +606,23 @@ class BaseMesh(logger.Logged, abc.Mapping['_ToIndices', np.ndarray]):
             `#198 <https://github.com/WoLpH/numpy-stl/issues/198>`_.
         """
         if exact:
+            # The winding test reads the v0, v1 and v2 properties, which a
+            # subclass may override, as it did before the edges were built
+            # in bulk.
             reversed_triangles: _bool_1d = (
                 np.cross(self.v1 - self.v0, self.v2 - self.v0) * self.normals
             ).sum(axis=1) < 0
-            directed_edges = {
-                tuple(edge.ravel() if not rev else edge[::-1, :].ravel())
-                for rev, edge in zip(
-                    itertools.cycle(reversed_triangles),
-                    itertools.chain(
-                        self.vectors[:, (0, 1), :],
-                        self.vectors[:, (1, 2), :],
-                        self.vectors[:, (2, 0), :],
-                    ),
-                )
-            }
+            vectors = self.vectors
+            # Build every directed edge as a (start, end) row of 6 floats,
+            # swapping the endpoints of triangles with reversed winding.
+            starts = vectors
+            ends = vectors[:, (1, 2, 0), :]
+            rev = reversed_triangles[:, None, None]
+            edges = np.concatenate(
+                (np.where(rev, ends, starts), np.where(rev, starts, ends)),
+                axis=2,
+            )
+            directed_edges = set(map(tuple, edges.reshape(-1, 6).tolist()))
             if len(directed_edges) == 3 * self.data.size:
                 undirected_edges = {
                     frozenset((edge[:3], edge[3:])) for edge in directed_edges

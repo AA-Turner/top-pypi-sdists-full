@@ -277,6 +277,7 @@ class GeminiCLIRuntime(CodexCliRuntime):
         # the Gemini CLI exposes no per-invocation effort flag (capabilities
         # declares reasoning_effort_support=IGNORED, so it is surfaced as advised).
         reasoning_effort: str | None = None,
+        model: str | None = None,
     ) -> list[str]:
         """Build the Gemini CLI command arguments for non-interactive execution.
 
@@ -314,7 +315,7 @@ class GeminiCLIRuntime(CodexCliRuntime):
             # checks are explicitly skipped. Ouroboros task worktrees are often
             # freshly created and therefore absent from Gemini's trust registry.
             command.append("--skip-trust")
-        normalized_model = self._normalize_model(self._model)
+        normalized_model = self._normalize_model(model if model is not None else self._model)
         if normalized_model:
             command.extend(["--model", normalized_model])
         return command
@@ -427,12 +428,13 @@ class GeminiCLIRuntime(CodexCliRuntime):
                 content = content[:MAX_LLM_RESPONSE_LENGTH]
 
         if event_type in ("text", "message"):
-            if not content:
+            if not content or metadata.get("role") == "user":
                 return []
             return [
                 AgentMessage(
                     type="assistant",
                     content=content,
+                    data={"text_delta": True} if metadata.get("delta") is True else {},
                     resume_handle=current_handle,
                 )
             ]
@@ -524,6 +526,12 @@ class GeminiCLIRuntime(CodexCliRuntime):
         # Ignore other auxiliary events (init/done/etc.) that don't map
         # to messages; init's session_id is captured separately above.
         return []
+
+    def _update_last_content(self, last_content: str, message: AgentMessage) -> str:
+        """Concatenate native assistant chunks without altering their whitespace."""
+        if message.type == "assistant" and message.data.get("text_delta"):
+            return last_content + message.content
+        return super()._update_last_content(last_content, message)
 
     # -- Session resumption ------------------------------------------------
 

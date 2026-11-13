@@ -4,9 +4,10 @@ from typing import Annotated, Self
 
 import numpy as np
 from numpy.typing import NDArray
-from pydantic import AfterValidator, ConfigDict, field_validator, model_validator
+from pydantic import AfterValidator, ConfigDict, PositiveFloat, field_validator, model_validator
 
 from ..base import Base, round_optional_float
+from ..coordinate import AngleCoordinate, Coordinate, DihedralCoordinate, DistanceCoordinate, LinearCombinationCoordinate
 from ..engine import Engine
 from ..molecule import Molecule
 from ..settings import Settings
@@ -35,19 +36,28 @@ class ScanPoint(Base):
 class ScanSettings(Base):
     """Settings for a scan.
 
+    `type` and `atoms` remain supported. Their deprecation in favor of `coordinate`
+    is tentatively planned for the end of 2026; no removal date is set.
+    Consumers should use `resolved_coordinate` to handle either representation.
+    Explicit coordinates leave `type` and `atoms` as `None`.
+
     Attributes:
-        type: type of scan (bond, angle, dihedral)
-        atoms: indices of atoms to scan
+        coordinate: geometric coordinate, supplied instead of type and atoms
+        type: legacy scan type (bond, angle, dihedral)
+        atoms: legacy indices of atoms to scan
         start: start of scan
         stop: end of scan
         num: number of points in the scan
+        force_constant: umbrella stiffness, in kcal/mol/Å². Unset for constrained scans.
     """
 
-    type: str  # "bond", "angle", "dihedral" - make Enum later
-    atoms: list[int]
+    coordinate: Coordinate | None = None
+    type: str | None = None
+    atoms: list[int] | None = None
     start: float
     stop: float
     num: int
+    force_constant: PositiveFloat | None = None
 
     def vals(self) -> NDArray[np.float64]:
         """Generate evenly spaced values across the scan range.
@@ -58,6 +68,26 @@ class ScanSettings(Base):
         return np.linspace(self.start, self.stop, self.num)
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def validate_coordinate(self) -> Self:
+        """Require either a coordinate or legacy scan type and atom indices."""
+        if self.coordinate is not None:
+            if self.type is not None or self.atoms is not None:
+                raise ValueError("Supply coordinate instead of type and atoms")
+        elif self.type is None or self.atoms is None:
+            raise ValueError("Scan settings require coordinate or both type and atoms")
+        return self
+
+    @property
+    def resolved_coordinate(self) -> Coordinate:
+        """Return explicit or legacy geometry as a coordinate."""
+        if self.coordinate is not None:
+            return self.coordinate
+        coordinate_class = {"bond": DistanceCoordinate, "angle": AngleCoordinate, "dihedral": DihedralCoordinate}.get(self.type or "")
+        if coordinate_class is None:
+            raise ValueError(f"Unknown scan type: {self.type!r}")
+        return coordinate_class.model_validate({"atoms": self.atoms})
 
 
 class ScanWorkflow(MoleculeWorkflow):
@@ -99,6 +129,11 @@ class ScanWorkflow(MoleculeWorkflow):
             val = [val]
 
         for ss in val:
+            if ss.force_constant is not None:
+                raise ValueError("Constrained scans do not use umbrella stiffness")
+            coordinate = ss.coordinate
+            if isinstance(coordinate, LinearCombinationCoordinate) or (coordinate is not None and any(not isinstance(atom, int) for atom in coordinate.atoms)):
+                raise ValueError("Molecule scans require a distance, angle, or dihedral with molecule atom indices")
             if ss.num != val[0].num:
                 raise ValueError("Concerted scan settings must have same number of steps!")
 

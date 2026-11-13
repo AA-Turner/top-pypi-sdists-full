@@ -50,17 +50,11 @@ class GPGSA:
     """
 
     def __init__(
-        self,
-        mode=b"\x00",
-        fixType=0,
-        satUsed=[0] * 12,
-        posnDilution=0,
-        horizDilution=0,
-        vertDilution=0,
+        self, mode=b"\x00", fixType=0, satUsed=None, posnDilution=0, horizDilution=0, vertDilution=0
     ):
         self.mode = mode
         self.fixType = fixType
-        self.satUsed = satUsed
+        self.satUsed = satUsed if satUsed is not None else [0] * 12
         self.posnDilution = posnDilution
         self.horizDilution = horizDilution
         self.vertDilution = vertDilution

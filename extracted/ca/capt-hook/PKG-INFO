@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: capt-hook
-Version: 12.121.70
+Version: 12.121.76
 Summary: Stop repeating yourself to Claude.
 Project-URL: Homepage, https://github.com/yasyf/captain-hook
 Project-URL: Documentation, https://yasyf.github.io/captain-hook/
@@ -36,7 +36,7 @@ Requires-Dist: pydantic-settings>=2.0
 Requires-Dist: pydantic>=2.0
 Requires-Dist: rich>=13
 Requires-Dist: spacy>=3.7
-Requires-Dist: spawnllm[sdk]<0.18,>=0.17.6
+Requires-Dist: spawnllm[sdk]<0.18,>=0.17.8
 Requires-Dist: wn>=1.1.0
 Provides-Extra: dev
 Requires-Dist: hatchling>=1.27; extra == 'dev'

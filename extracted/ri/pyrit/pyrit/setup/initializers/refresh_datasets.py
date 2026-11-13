@@ -12,12 +12,11 @@ maintenance twin of ``LoadDefaultDatasets``: it is opt-in and never runs on the 
 
 import logging
 import textwrap
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from pyrit.datasets import SeedDatasetProvider
 from pyrit.memory import CentralMemory, MemoryInterface
-from pyrit.models import SeedDataset
-from pyrit.models.parameter import Parameter
+from pyrit.models import Parameter, SeedDataset
 from pyrit.setup.pyrit_initializer import PyRITInitializer
 
 logger = logging.getLogger(__name__)
@@ -60,9 +59,14 @@ class RefreshDatasets(PyRITInitializer):
         """The list of required environment variables."""
         return []
 
-    @property
-    def supported_parameters(self) -> list[Parameter]:
-        """The list of parameters this initializer accepts."""
+    @classmethod
+    def supported_parameters(cls) -> list[Parameter]:
+        """
+        Declare the initializer parameters.
+
+        Returns:
+            list[Parameter]: Supported inputs and defaults.
+        """
         return [
             Parameter(
                 name="days",
@@ -70,7 +74,7 @@ class RefreshDatasets(PyRITInitializer):
                     "Refresh only datasets whose newest seed is older than this many days. "
                     "0 refreshes every selected dataset regardless of age."
                 ),
-                default=self.DEFAULT_DAYS,
+                default=cls.DEFAULT_DAYS,
                 param_type=int,
             ),
             Parameter(
@@ -82,11 +86,18 @@ class RefreshDatasets(PyRITInitializer):
         ]
 
     async def initialize_async(self) -> None:
-        """Refresh the selected stale datasets in CentralMemory, isolating per-dataset failures."""
-        days = self._parse_days()
+        """
+        Refresh the selected stale datasets, isolating per-dataset failures.
+
+        Raises:
+            ValueError: If the age limit is negative.
+        """
+        days = self.params["days"]
+        if days < 0:
+            raise ValueError("'days' must be non-negative")
         memory = CentralMemory.get_memory_instance()
 
-        names_in_memory = set(memory.get_seed_dataset_names())
+        names_in_memory = set(await memory.get_seed_dataset_names_async())
         if not names_in_memory:
             logger.warning("No datasets in memory to refresh")
             return
@@ -100,7 +111,7 @@ class RefreshDatasets(PyRITInitializer):
         up_to_date: list[str] = []
         failed: list[str] = []
         for name in candidates:
-            if not self._is_stale(memory=memory, dataset_name=name, days=days):
+            if not (await self._is_stale_async(memory=memory, dataset_name=name, days=days)):
                 up_to_date.append(name)
                 continue
             try:
@@ -148,7 +159,7 @@ class RefreshDatasets(PyRITInitializer):
                 logger.debug(f"Skipping '{name}': no registered provider to refresh from")
         return selected
 
-    def _is_stale(self, *, memory: MemoryInterface, dataset_name: str, days: int) -> bool:
+    async def _is_stale_async(self, *, memory: MemoryInterface, dataset_name: str, days: int) -> bool:
         """
         Determine whether a dataset is stale enough to refresh.
 
@@ -163,12 +174,12 @@ class RefreshDatasets(PyRITInitializer):
         if days == 0:
             return True
 
-        seeds = memory.get_seeds(dataset_name=dataset_name)
+        seeds = await memory.get_seeds_async(dataset_name=dataset_name)
         newest = max((seed.date_added for seed in seeds if seed.date_added is not None), default=None)
         if newest is None:
             return True
 
-        cutoff = datetime.now(tz=timezone.utc) - timedelta(days=days)
+        cutoff = datetime.now(tz=UTC) - timedelta(days=days)
         return newest <= cutoff
 
     async def _refresh_dataset_async(self, *, memory: MemoryInterface, dataset_name: str) -> None:
@@ -195,29 +206,6 @@ class RefreshDatasets(PyRITInitializer):
             dataset_name=dataset_name, seeds=dataset.seeds, added_by=self.ADDED_BY
         )
         logger.info(f"Refreshed dataset '{dataset_name}': replaced {deleted} seeds with {len(dataset.seeds)}")
-
-    def _parse_days(self) -> int:
-        """
-        Parse and validate the ``days`` parameter.
-
-        Returns:
-            int: The validated non-negative staleness threshold.
-
-        Raises:
-            ValueError: If ``days`` is not a single non-negative integer.
-        """
-        raw = self.params.get("days", [])
-        if not raw:
-            return self.DEFAULT_DAYS
-        if len(raw) != 1:
-            raise ValueError(f"'days' must be a single non-negative integer, got {raw}")
-        try:
-            days = int(raw[0])
-        except (TypeError, ValueError):
-            raise ValueError(f"'days' must be a non-negative integer, got {raw[0]!r}") from None
-        if days < 0:
-            raise ValueError(f"'days' must be non-negative, got {days}")
-        return days
 
     @staticmethod
     def _require_matching_dataset(*, fetched: list[SeedDataset], dataset_name: str) -> SeedDataset:

@@ -1,147 +1,203 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.5
 Name: postmarker
-Version: 1.0
+Version: 2.1
 Summary: Python client library for Postmark API
-Home-page: https://github.com/Stranger6667/postmarker
-Author: Dmitry Dygalo
-Author-email: dadygalo@gmail.com
-Maintainer: Dmitry Dygalo
-Maintainer-email: dadygalo@gmail.com
-License: MIT
-Keywords: postmark,api,client,email
-Platform: UNKNOWN
+Project-URL: Documentation, https://postmarker.readthedocs.io/en/stable/
+Project-URL: Changelog, https://github.com/Stranger6667/postmarker/blob/master/CHANGELOG.md
+Project-URL: Bug Tracker, https://github.com/Stranger6667/postmarker/issues
+Project-URL: Funding, https://github.com/sponsors/Stranger6667
+Project-URL: Source Code, https://github.com/Stranger6667/postmarker
+Author-email: Dmitry Dygalo <dmitry@dygalo.dev>
+Maintainer-email: Dmitry Dygalo <dmitry@dygalo.dev>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: api,client,django,email,email backend,postmark,postmarkapp,transactional email
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
+Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Communications :: Email
-Description-Content-Type: text/x-rst
-License-File: LICENSE
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: requests>=2.20.0
+Provides-Extra: css-inline
+Requires-Dist: css-inline>=0.24; extra == 'css-inline'
+Provides-Extra: docs
+Requires-Dist: mkdocstrings[python]; extra == 'docs'
+Requires-Dist: pymdown-extensions; extra == 'docs'
+Requires-Dist: ruff; extra == 'docs'
+Requires-Dist: zensical<0.2,>=0.1.1; extra == 'docs'
+Provides-Extra: tests
+Requires-Dist: coverage[toml]>=7.2; extra == 'tests'
+Requires-Dist: css-inline>=0.24; extra == 'tests'
+Requires-Dist: pytest-django; extra == 'tests'
+Requires-Dist: pytest-recording>=0.14; extra == 'tests'
+Requires-Dist: pytest>=8; extra == 'tests'
+Requires-Dist: tornado; extra == 'tests'
+Description-Content-Type: text/markdown
 
-Postmarker
-==========
+# Postmarker
 
-|Build| |Coverage| |Version| |Python versions| |Docs| |Chat| |License|
+[![Build](https://github.com/Stranger6667/postmarker/actions/workflows/build.yml/badge.svg)](https://github.com/Stranger6667/postmarker/actions/workflows/build.yml) [![Coverage](https://codecov.io/gh/Stranger6667/postmarker/branch/master/graph/badge.svg)](https://codecov.io/gh/Stranger6667/postmarker) [![Version](https://img.shields.io/pypi/v/postmarker.svg)](https://pypi.org/project/postmarker/) [![Python versions](https://img.shields.io/pypi/pyversions/postmarker.svg)](https://pypi.org/project/postmarker/) [![Docs](https://readthedocs.org/projects/postmarker/badge/?version=stable)](https://postmarker.readthedocs.io/en/stable/) [![License](https://img.shields.io/pypi/l/postmarker.svg)](https://opensource.org/licenses/MIT)
 
-Python client library for `Postmark API <http://developer.postmarkapp.com/developer-api-overview.html>`_.
+Python client for the [Postmark](https://postmarkapp.com) email API.
 
-**Gitter**: https://gitter.im/Stranger6667/postmarker
+Postmarker covers Postmark's API beyond sending: templates, bounces, suppressions, message streams, stats, servers and domains.
+It also ships a Django email backend, Postmark webhook wrappers and a pytest fixture for your tests.
 
-Installation
-============
+> [!NOTE]
+> Postmarker keeps Postmark's field names: `From`, `HtmlBody`, `TemplateModel`, `MessageStream`.
+> Copy any field from the [Postmark API docs](https://postmarkapp.com/developer) and pass it as is. There are no snake_case aliases.
 
-Postmarker can be obtained with ``pip``::
+## Installation
 
-    $ pip install postmarker
+```
+uv pip install postmarker
+```
 
-Usage example
-=============
+To inline `<style>` CSS into HTML emails, install the `css-inline` extra and create the client with `inline_css=True`:
 
-**NOTE**:
+```
+uv pip install 'postmarker[css-inline]'
+```
 
-The attributes of all classes are provided **as is**, without transformation to snake case.
-We don't want to introduce new names for existing entities.
+## Usage
 
-Send single email:
+```python
+from postmarker.core import PostmarkClient
 
-.. code-block:: python
+postmark = PostmarkClient(server_token="POSTMARK_API_TEST")
+postmark.emails.send(
+    From="sender@example.com",
+    To="receiver@example.com",
+    Subject="Postmark test",
+    HtmlBody="<strong>Hello</strong> dear Postmark user.",
+)
+# {"ErrorCode": 0, "Message": "Test job accepted", "MessageID": "...", ...}
+```
 
-    >>> from postmarker.core import PostmarkClient
-    >>> postmark = PostmarkClient(server_token='API_TOKEN')
-    >>> postmark.emails.send(
-        From='sender@example.com',
-        To='receiver@example.com',
-        Subject='Postmark test',
-        HtmlBody='<html><body><strong>Hello</strong> dear Postmark user.</body></html>'
+With the `POSTMARK_API_TEST` token, Postmark validates the request without delivering it.
+To send real emails, use the server token from your server's API Tokens tab in Postmark.
+`From` must be a confirmed sender signature or an address on a verified domain.
+
+Send with a template:
+
+```python
+postmark.emails.send_with_template(
+    TemplateAlias="welcome",
+    TemplateModel={"name": "Jane"},
+    From="sender@example.com",
+    To="receiver@example.com",
+)
+```
+
+Send a batch. Postmarker splits it into requests of 500 messages, Postmark's limit:
+
+```python
+messages = [
+    {"From": "sender@example.com", "To": to, "Subject": "Hi", "TextBody": "Hello"}
+    for to in ("first@example.com", "second@example.com")
+]
+responses = postmark.emails.send_batch(*messages)
+# Postmark accepts or rejects each message separately
+failed = [response for response in responses if response["ErrorCode"] != 0]
+```
+
+Add headers and attachments:
+
+```python
+email = postmark.emails.Email(
+    From="sender@example.com",
+    To="receiver@example.com",
+    Subject="Report",
+    TextBody="See the attached report.",
+)
+email["X-Accept-Language"] = "en-us, en"
+email.attach("/home/user/report.pdf")
+email.attach_binary(content=b"content", filename="readme.txt")
+email.send()
+```
+
+A rejected request raises `ClientError` with Postmark's [error code](https://postmarkapp.com/developer/api/overview#error-codes):
+
+```python
+from postmarker.exceptions import ClientError
+
+try:
+    postmark.emails.send(
+        From="sender@example.com",
+        To="receiver@example.com",
+        TextBody="Hello",
     )
+except ClientError as exc:
+    print(exc.error_code)  # For example, 406 for an inactive recipient
+```
 
-Send batch:
+## Django
 
-.. code-block:: python
+Django 6.1+:
 
-    >>> postmark.emails.send_batch(
-        {
-            'From': 'sender@example.com',
-            'To': 'receiver@example.com',
-            'Subject': 'Postmark test',
-            'HtmlBody': '<html><body><strong>Hello</strong> dear Postmark user.</body></html>',
-        },
-        {
-            'From': 'sender2@example.com',
-            'To': 'receiver2@example.com',
-            'Subject': 'Postmark test 2',
-            'HtmlBody': '<html><body><strong>Hello</strong> dear Postmark user.</body></html>',
-        }
-    )
+```python
+MAILERS = {
+    "default": {
+        "BACKEND": "postmarker.django.EmailBackend",
+        "OPTIONS": {"token": "<YOUR POSTMARK SERVER TOKEN>"},
+    },
+}
+```
 
-Setup an email:
+Django 5.2 and 6.0:
 
-.. code-block:: python
+```python
+EMAIL_BACKEND = "postmarker.django.EmailBackend"
+POSTMARK = {"TOKEN": "<YOUR POSTMARK SERVER TOKEN>"}
+```
 
-    >>> email = postmark.emails.Email(
-        From='sender@example.com',
-        To='receiver@example.com',
-        Subject='Postmark test',
-        HtmlBody='<html><body><strong>Hello</strong> dear Postmark user.</body></html>'
-    )
-    >>> email['X-Accept-Language'] = 'en-us, en'
-    >>> email.attach('/home/user/readme.txt')
-    >>> email.attach_binary(content=b'content', filename='readme.txt')
-    >>> email.send()
+Django then sends `send_mail`, `EmailMessage` and emails from third-party apps through Postmark.
+The [Django guide](https://postmarker.readthedocs.io/en/stable/django/) covers tags, metadata, message streams and signals.
 
-There are a lot of features available. Check it out in our documentation! Here's just a few of them:
+## Testing
 
-- Support for sending Python email instances.
-- Bounces, Domains, Messages, Templates, Sender signatures, Status, Stats & Server API.
-- Django email backend.
-- Tornado helper.
-- Spam check API.
-- Wrappers for Bounce, Inbound, Open and Delivery webhooks.
+Postmarker ships a `postmark_request` pytest fixture.
+It mocks requests to Postmark and records what your code sent, through `PostmarkClient` or the Django backend:
 
-Documentation
-=============
+```python
+def test_welcome_email(postmark_request):
+    send_welcome_email("jane@example.com")  # Your code that sends an email
+    assert postmark_request.call_args.kwargs["json"]["To"] == "jane@example.com"
+```
 
-You can view the documentation online at:
+## Features
 
-- https://postmarker.readthedocs.io/en/stable/
+- Server APIs: Emails, Templates with layouts, Bounces, Messages (inbound, outbound, opens and clicks), Message Streams, Suppressions, Server, Stats and Triggers.
+- Account APIs: Domains, Sender signatures, Servers and pushing templates between servers.
+- Status and Spam check APIs.
+- Webhook wrappers: Inbound, Delivery, Open, Click, Bounce, Spam complaint and Subscription change.
+- Sending `email.message.Message` instances.
+- CSS inlining via [css-inline](https://github.com/Stranger6667/css-inline).
+- Django email backend and Tornado helper.
+- Type annotations, with a `py.typed` marker.
 
-Or you can look at the docs/ directory in the repository.
+## Documentation
 
-Python support
-==============
+<https://postmarker.readthedocs.io/en/stable/>
 
-Postmarker supports CPython 3.6 - 3.10 and PyPy 3.7 & 3.8.
+## Python support
 
-Thanks
-======
-
-Many thanks to `Shmele <https://github.com/butorov>`_ and `lobziik <https://github.com/lobziik>`_ for their reviews and advice :)
-
-.. |Build| image:: https://github.com/Stranger6667/postmarker/workflows/build/badge.svg
-   :target: https://github.com/Stranger6667/postmarker/actions
-.. |Coverage| image:: https://codecov.io/github/Stranger6667/postmarker/coverage.svg?branch=master
-    :target: https://codecov.io/github/Stranger6667/postmarker?branch=master
-.. |Version| image:: https://img.shields.io/pypi/v/postmarker.svg
-   :target: https://pypi.org/project/postmarker/
-.. |Python versions| image:: https://img.shields.io/pypi/pyversions/postmarker.svg
-   :target: https://pypi.org/project/postmarker/
-.. |Docs| image:: https://readthedocs.org/projects/postmarker/badge/?version=stable
-   :target: https://postmarker.readthedocs.io/en/stable/
-   :alt: Documentation Status
-.. |Chat| image:: https://img.shields.io/gitter/room/Stranger6667/postmarker.svg
-   :target: https://gitter.im/Stranger6667/postmarker
-   :alt: Gitter
-.. |License| image:: https://img.shields.io/pypi/l/postmarker.svg
-   :target: https://opensource.org/licenses/MIT
-
-
+Postmarker supports CPython 3.10 to 3.15 and PyPy 3.11. The Django email backend supports Django 5.2, 6.0 and 6.1.

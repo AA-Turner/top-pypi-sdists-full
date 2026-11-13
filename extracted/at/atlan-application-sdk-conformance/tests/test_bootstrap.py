@@ -153,6 +153,9 @@ def test_parse_bootstrap_args_defaults() -> None:
         "release_private_git_auth": "",
         "build_publish_private_git_auth": "",
         "checks_private_git_deps": "",
+        # The certify gate's apt packages: read off build-and-publish.yaml,
+        # else inherited from system-deps. No flag of its own.
+        "build_publish_apt_packages": "",
         "enforce": "",
         "conformance_blocking": "",
         "renovate_automerge": "",
@@ -2288,14 +2291,16 @@ def test_cmd_bootstrap_ci_deps_file_ignores_junk_tokens(
     assert declaration.strip() == 'system_deps: "libkrb5-dev"'
 
 
-def test_conformance_detect_action_installs_declared_system_deps() -> None:
-    """The vendored action's install step is guarded by hashFiles so it no-ops in
-    every repo without the declaration file."""
+def test_conformance_detect_action_installs_no_system_packages() -> None:
+    """The vendored action never installs packages itself (FND-4908).
+
+    A vendored copy only changes when its repo re-runs bootstrap, so a check
+    in it would lag the fleet. conformance-reusable.yaml installs
+    .github/ci-system-deps.txt through install_apt_packages.py before the
+    D series instead (pinned by test_conformance_apt_packages.py)."""
     action = render("run-conformance-detect-action.yaml")
-    assert "hashFiles('.github/ci-system-deps.txt') != ''" in action
-    assert "xargs -r sudo apt-get install -y < .github/ci-system-deps.txt" in action
-    # Must run before the resolved-env sync it exists to unblock.
-    assert action.index("ci-system-deps.txt") < action.index("Sync resolved env")
+    assert "apt-get" not in action
+    assert "xargs" not in action
 
 
 def test_cmd_bootstrap_rerun_after_manual_step_removal_leaves_it_out(
@@ -3134,20 +3139,61 @@ def test_derive_hello_world(tmp_path: pathlib.Path) -> None:
 # monorepo (used directly by application-sdk's own conformance-reusable.yaml
 # run, and vendored into every consumer repo by `bootstrap`). If the two
 # drift apart, the SDK's own CI would keep exercising the fixed version while
-# every bootstrapped consumer repo silently gets a stale one. Skipped when
-# the monorepo tree isn't checked out (e.g. an isolated sdist build).
+# every bootstrapped consumer repo silently gets a stale one.
+#
+# Skipped only when this is not an application-sdk checkout at all (an
+# isolated sdist, which has no canonical side to compare). Inside a checkout a
+# missing canonical file FAILS rather than skips (FND-4907): it means the
+# canonical side was renamed or deleted, and a skip would turn the guard off
+# unnoticed.
+# Templates with no canonical copy in this repo are named below, and the
+# test also fails if one of them gains one, so the set cannot hide drift.
 # ---------------------------------------------------------------------------
 
 _MONOREPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
+# The SDK package marks a monorepo checkout; .github/ is deliberately not the
+# marker, since a moved canonical file there is exactly what must fail.
+_IN_MONOREPO = (_MONOREPO_ROOT / "application_sdk").is_dir()
+
+# MANAGED_ACTION_FILES entries whose template IS the only source: this repo
+# does not run them itself, so there is nothing to drift from.
+_TEMPLATE_ONLY_ACTION_FILES: frozenset[str] = frozenset(
+    {
+        ".github/scripts/connector_review_gate.py",
+        ".github/scripts/release_gate.py",
+    }
+)
+
+
+def test_template_only_action_files_are_managed_entries() -> None:
+    """A stale name in the template-only set would exempt nothing and mislead."""
+    managed = {dest_rel for dest_rel, _ in MANAGED_ACTION_FILES}
+    assert _TEMPLATE_ONLY_ACTION_FILES <= managed, (
+        f"not in MANAGED_ACTION_FILES: {sorted(_TEMPLATE_ONLY_ACTION_FILES - managed)}"
+    )
 
 
 @pytest.mark.parametrize("dest_rel,template_name", MANAGED_ACTION_FILES)
 def test_managed_action_template_matches_canonical_source(
     dest_rel: str, template_name: str
 ) -> None:
+    if not _IN_MONOREPO:
+        pytest.skip(f"not an application-sdk checkout: {_MONOREPO_ROOT}")
     canonical = _MONOREPO_ROOT / dest_rel
-    if not canonical.exists():
-        pytest.skip(f"monorepo source not checked out: {canonical}")
+    if dest_rel in _TEMPLATE_ONLY_ACTION_FILES:
+        assert not canonical.exists(), (
+            f"{dest_rel} now exists in this repo, so the template has a canonical "
+            "source to drift from. Remove it from _TEMPLATE_ONLY_ACTION_FILES so "
+            "this guard compares the two, and add it to sdk-gate.yaml's "
+            "`conformance_pkg` filter."
+        )
+        return
+    assert canonical.is_file(), (
+        f"canonical source {dest_rel} for template {template_name} is missing. "
+        "If it moved, update MANAGED_ACTION_FILES and sdk-gate.yaml's "
+        "`conformance_pkg` filter; if it is gone on purpose, list it in "
+        "_TEMPLATE_ONLY_ACTION_FILES."
+    )
     assert render(template_name) == canonical.read_text(encoding="utf-8"), (
         f"packages/conformance/conformance/bootstrap/templates/{template_name} has "
         f"drifted from the canonical {dest_rel} — copy the canonical file's content "

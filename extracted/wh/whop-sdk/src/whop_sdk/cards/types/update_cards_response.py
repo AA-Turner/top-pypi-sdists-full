@@ -6,6 +6,7 @@ import typing
 import pydantic
 from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .update_cards_response_billing import UpdateCardsResponseBilling
+from .update_cards_response_digital_wallets_item import UpdateCardsResponseDigitalWalletsItem
 from .update_cards_response_limit import UpdateCardsResponseLimit
 from .update_cards_response_object import UpdateCardsResponseObject
 from .update_cards_response_secrets import UpdateCardsResponseSecrets
@@ -29,6 +30,11 @@ class UpdateCardsResponse(UniversalBaseModel):
     When the card was created.
     """
 
+    digital_wallets: typing.Optional[typing.List[UpdateCardsResponseDigitalWalletsItem]] = pydantic.Field(default=None)
+    """
+    The digital wallets the card has been added to. List Cards, Update Card, and webhook payloads return `null`, as does Retrieve Card when the wallets cannot be retrieved.
+    """
+
     expiration_month: typing.Optional[str] = pydantic.Field(default=None)
     """
     Card expiration month.
@@ -42,6 +48,11 @@ class UpdateCardsResponse(UniversalBaseModel):
     id: str = pydantic.Field()
     """
     Card ID, prefixed `icrd_`.
+    """
+
+    issued: bool = pydantic.Field()
+    """
+    `true` once the issuer has issued the card. `false` for an invited card still waiting on its cardholder's onboarding or review, or one the issuer declined; it has no card number until it is issued.
     """
 
     last4: typing.Optional[str] = pydantic.Field(default=None)

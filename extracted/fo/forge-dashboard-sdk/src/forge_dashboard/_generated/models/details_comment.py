@@ -29,7 +29,7 @@ class DetailsComment:
     """ One comment on the pull request's conversation.
 
         Attributes:
-            id (str): The forge's own identifier for the comment.
+            id (str): The forge's own identifier for the comment. On GitHub, the number its REST comments route takes.
             author (None | Person): Null for a deleted account; a client shows it as "ghost".
             created_at (datetime.datetime):
             updated_at (datetime.datetime | None): When the comment was last edited, or null if it never was.

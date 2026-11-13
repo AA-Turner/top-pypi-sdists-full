@@ -588,6 +588,9 @@ GetStreamSessionOutputTypeDef = TypedDict(
         "ExportFilesMetadata": ExportFilesMetadataTypeDef,
         "RoleArn": str,
         "DisplayConfiguration": DisplayConfigurationTypeDef,
+        "ApplicationStartedAt": datetime,
+        "StreamingStartedAt": datetime,
+        "StreamingEndedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -637,6 +640,9 @@ StartStreamSessionOutputTypeDef = TypedDict(
         "ExportFilesMetadata": ExportFilesMetadataTypeDef,
         "RoleArn": str,
         "DisplayConfiguration": DisplayConfigurationTypeDef,
+        "ApplicationStartedAt": datetime,
+        "StreamingStartedAt": datetime,
+        "StreamingEndedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

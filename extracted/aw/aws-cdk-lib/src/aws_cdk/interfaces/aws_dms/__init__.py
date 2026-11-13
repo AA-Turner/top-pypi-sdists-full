@@ -928,12 +928,21 @@ class ReplicationConfigReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_dms.ReplicationInstanceReference",
     jsii_struct_bases=[],
-    name_mapping={"replication_instance_id": "replicationInstanceId"},
+    name_mapping={
+        "replication_instance_arn": "replicationInstanceArn",
+        "replication_instance_id": "replicationInstanceId",
+    },
 )
 class ReplicationInstanceReference:
-    def __init__(self, *, replication_instance_id: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        replication_instance_arn: builtins.str,
+        replication_instance_id: builtins.str,
+    ) -> None:
         '''A reference to a ReplicationInstance resource.
 
+        :param replication_instance_arn: The ARN of the ReplicationInstance resource.
         :param replication_instance_id: The Id of the ReplicationInstance resource.
 
         :exampleMetadata: fixture=_generated
@@ -945,15 +954,25 @@ class ReplicationInstanceReference:
             from aws_cdk.interfaces import aws_dms as interfaces_dms
             
             replication_instance_reference = interfaces_dms.ReplicationInstanceReference(
+                replication_instance_arn="replicationInstanceArn",
                 replication_instance_id="replicationInstanceId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b41cdc31c0ea172c3879c0deb65a6a9b70b9f824f53d77389b4c9d272a2f37ce)
+            check_type(argname="argument replication_instance_arn", value=replication_instance_arn, expected_type=type_hints["replication_instance_arn"])
             check_type(argname="argument replication_instance_id", value=replication_instance_id, expected_type=type_hints["replication_instance_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
+            "replication_instance_arn": replication_instance_arn,
             "replication_instance_id": replication_instance_id,
         }
+
+    @builtins.property
+    def replication_instance_arn(self) -> builtins.str:
+        '''The ARN of the ReplicationInstance resource.'''
+        result = self._values.get("replication_instance_arn")
+        assert result is not None, "Required property 'replication_instance_arn' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
     def replication_instance_id(self) -> builtins.str:
@@ -1159,6 +1178,7 @@ def _typecheckingstub__9fb56c33f244da855425f02482766c202aa4645f2c315245851c9ead4
 
 def _typecheckingstub__b41cdc31c0ea172c3879c0deb65a6a9b70b9f824f53d77389b4c9d272a2f37ce(
     *,
+    replication_instance_arn: builtins.str,
     replication_instance_id: builtins.str,
 ) -> None:
     """Type checking stubs"""

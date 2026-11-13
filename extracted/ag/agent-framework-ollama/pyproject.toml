@@ -3,7 +3,7 @@ name = "agent-framework-ollama"
 description = "Ollama integration for Microsoft Agent Framework."
 readme = "README.md"
 requires-python = ">=3.11"
-version = "1.0.0b261106"
+version = "1.0.0b261112"
 license-files = ["LICENSE"]
 classifiers = [
     "License :: OSI Approved :: MIT License",
@@ -20,7 +20,7 @@ classifiers = [
 ]
 dependencies = [
     "agent-framework-core>=1.24.0,<2",
-    "ollama>=0.5.3,<0.5.4",
+    "ollama>=0.5.3,<0.7",
 ]
 
 [[project.authors]]

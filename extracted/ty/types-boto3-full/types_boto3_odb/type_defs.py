@@ -91,6 +91,8 @@ __all__ = (
     "AdminPasswordSourceConfigurationTypeDef",
     "AdminPasswordSourceSummaryTypeDef",
     "AssociateIamRoleToResourceInputTypeDef",
+    "AssociateVirtualMachinesToCloudVmClusterInputTypeDef",
+    "AssociateVirtualMachinesToCloudVmClusterOutputTypeDef",
     "AssociateVirtualMachinesToExadbVmClusterInputTypeDef",
     "AssociateVirtualMachinesToExadbVmClusterOutputTypeDef",
     "AutonomousDatabaseApexTypeDef",
@@ -165,6 +167,8 @@ __all__ = (
     "DeleteOdbNetworkInputTypeDef",
     "DeleteOdbPeeringConnectionInputTypeDef",
     "DisassociateIamRoleFromResourceInputTypeDef",
+    "DisassociateVirtualMachinesFromCloudVmClusterInputTypeDef",
+    "DisassociateVirtualMachinesFromCloudVmClusterOutputTypeDef",
     "DisassociateVirtualMachinesFromExadbVmClusterInputTypeDef",
     "DisassociateVirtualMachinesFromExadbVmClusterOutputTypeDef",
     "DisasterRecoveryConfigurationTypeDef",
@@ -336,8 +340,14 @@ __all__ = (
     "UpdateAutonomousDatabaseBackupOutputTypeDef",
     "UpdateAutonomousDatabaseInputTypeDef",
     "UpdateAutonomousDatabaseOutputTypeDef",
+    "UpdateCloudAutonomousVmClusterInputTypeDef",
+    "UpdateCloudAutonomousVmClusterOutputTypeDef",
     "UpdateCloudExadataInfrastructureInputTypeDef",
     "UpdateCloudExadataInfrastructureOutputTypeDef",
+    "UpdateCloudExadataInfrastructureStorageCapacityInputTypeDef",
+    "UpdateCloudExadataInfrastructureStorageCapacityOutputTypeDef",
+    "UpdateCloudVmClusterInputTypeDef",
+    "UpdateCloudVmClusterOutputTypeDef",
     "UpdateExadbVmClusterInputTypeDef",
     "UpdateExadbVmClusterOutputTypeDef",
     "UpdateExascaleCloudExadataInfrastructureInputTypeDef",
@@ -377,9 +387,9 @@ class AssociateIamRoleToResourceInputTypeDef(TypedDict):
     resourceArn: str
 
 
-class AssociateVirtualMachinesToExadbVmClusterInputTypeDef(TypedDict):
-    exadbVmClusterId: str
-    desiredNodeCount: int
+class AssociateVirtualMachinesToCloudVmClusterInputTypeDef(TypedDict):
+    cloudVmClusterId: str
+    dbServers: Sequence[str]
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -388,6 +398,11 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+
+class AssociateVirtualMachinesToExadbVmClusterInputTypeDef(TypedDict):
+    exadbVmClusterId: str
+    desiredNodeCount: int
 
 
 class AutonomousDatabaseApexTypeDef(TypedDict):
@@ -809,6 +824,11 @@ class DisassociateIamRoleFromResourceInputTypeDef(TypedDict):
     iamRoleArn: str
     awsIntegration: Literal["KmsTde"]
     resourceArn: str
+
+
+class DisassociateVirtualMachinesFromCloudVmClusterInputTypeDef(TypedDict):
+    cloudVmClusterId: str
+    dbServers: Sequence[str]
 
 
 class DisassociateVirtualMachinesFromExadbVmClusterInputTypeDef(TypedDict):
@@ -1234,6 +1254,10 @@ class UpdateAutonomousDatabaseBackupInputTypeDef(TypedDict):
     retentionPeriodInDays: NotRequired[int]
 
 
+class UpdateCloudExadataInfrastructureStorageCapacityInputTypeDef(TypedDict):
+    cloudExadataInfrastructureId: str
+
+
 class UpdateExascaleCloudExadataInfrastructureInputTypeDef(TypedDict):
     cloudExadataInfrastructureId: str
     totalStorageSizeInGBs: int
@@ -1287,6 +1311,14 @@ class AdminPasswordSourceConfigurationTypeDef(TypedDict):
 
 class WalletPasswordSourceConfigurationTypeDef(TypedDict):
     customerManagedAwsSecret: NotRequired[CustomerManagedAwsSecretConfigurationTypeDef]
+
+
+class AssociateVirtualMachinesToCloudVmClusterOutputTypeDef(TypedDict):
+    displayName: str
+    status: ResourceStatusType
+    statusReason: str
+    cloudVmClusterId: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class AssociateVirtualMachinesToExadbVmClusterOutputTypeDef(TypedDict):
@@ -1371,6 +1403,14 @@ class CreateOdbPeeringConnectionOutputTypeDef(TypedDict):
     status: ResourceStatusType
     statusReason: str
     odbPeeringConnectionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DisassociateVirtualMachinesFromCloudVmClusterOutputTypeDef(TypedDict):
+    displayName: str
+    status: ResourceStatusType
+    statusReason: str
+    cloudVmClusterId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1480,11 +1520,35 @@ class UpdateAutonomousDatabaseOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateCloudAutonomousVmClusterOutputTypeDef(TypedDict):
+    displayName: str
+    status: ResourceStatusType
+    statusReason: str
+    cloudAutonomousVmClusterId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateCloudExadataInfrastructureOutputTypeDef(TypedDict):
     displayName: str
     status: ResourceStatusType
     statusReason: str
     cloudExadataInfrastructureId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateCloudExadataInfrastructureStorageCapacityOutputTypeDef(TypedDict):
+    displayName: str
+    status: ResourceStatusType
+    statusReason: str
+    cloudExadataInfrastructureId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateCloudVmClusterOutputTypeDef(TypedDict):
+    displayName: str
+    status: ResourceStatusType
+    statusReason: str
+    cloudVmClusterId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1638,6 +1702,19 @@ class CreateExadbVmClusterInputTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     timeZone: NotRequired[str]
     clientToken: NotRequired[str]
+
+
+class UpdateCloudVmClusterInputTypeDef(TypedDict):
+    cloudVmClusterId: str
+    cpuCoreCount: NotRequired[int]
+    dataCollectionOptions: NotRequired[DataCollectionOptionsTypeDef]
+    dataStorageSizeInTBs: NotRequired[float]
+    dbNodeStorageSizeInGBs: NotRequired[int]
+    displayName: NotRequired[str]
+    sshPublicKeys: NotRequired[Sequence[str]]
+    licenseModel: NotRequired[LicenseModelType]
+    memorySizeInGBs: NotRequired[int]
+    storageSizeInGBs: NotRequired[int]
 
 
 class UpdateExadbVmClusterInputTypeDef(TypedDict):
@@ -2326,6 +2403,7 @@ class CloudAutonomousVmClusterSummaryTypeDef(TypedDict):
     memorySizeInGBs: NotRequired[int]
     nodeCount: NotRequired[int]
     nonProvisionableAutonomousContainerDatabases: NotRequired[int]
+    ocpusLowestScaledValue: NotRequired[int]
     provisionableAutonomousContainerDatabases: NotRequired[int]
     provisionedAutonomousContainerDatabases: NotRequired[int]
     provisionedCpus: NotRequired[float]
@@ -2381,6 +2459,7 @@ class CloudAutonomousVmClusterTypeDef(TypedDict):
     memorySizeInGBs: NotRequired[int]
     nodeCount: NotRequired[int]
     nonProvisionableAutonomousContainerDatabases: NotRequired[int]
+    ocpusLowestScaledValue: NotRequired[int]
     provisionableAutonomousContainerDatabases: NotRequired[int]
     provisionedAutonomousContainerDatabases: NotRequired[int]
     provisionedCpus: NotRequired[float]
@@ -2925,9 +3004,23 @@ class CreateCloudExadataInfrastructureInputTypeDef(TypedDict):
     storageServerType: NotRequired[str]
 
 
+class UpdateCloudAutonomousVmClusterInputTypeDef(TypedDict):
+    cloudAutonomousVmClusterId: str
+    autonomousDataStorageSizeInTBs: NotRequired[float]
+    cpuCoreCountPerNode: NotRequired[int]
+    description: NotRequired[str]
+    displayName: NotRequired[str]
+    licenseModel: NotRequired[LicenseModelType]
+    maintenanceWindow: NotRequired[MaintenanceWindowUnionTypeDef]
+    totalContainerDatabases: NotRequired[int]
+
+
 class UpdateCloudExadataInfrastructureInputTypeDef(TypedDict):
     cloudExadataInfrastructureId: str
+    displayName: NotRequired[str]
+    computeCount: NotRequired[int]
     maintenanceWindow: NotRequired[MaintenanceWindowUnionTypeDef]
+    storageCount: NotRequired[int]
 
 
 class ListOdbNetworksOutputTypeDef(TypedDict):

@@ -10,6 +10,8 @@ from ... import errors
 
 from ...models.error import Error
 from ...models.get_image_forge import GetImageForge
+from ...models.get_image_kind import GetImageKind
+from ...types import UNSET, Unset
 from typing import cast
 
 
@@ -18,6 +20,11 @@ def _get_kwargs(
     *,
     forge: GetImageForge,
     url_query: str,
+    full_name: str | Unset = UNSET,
+    number: int | Unset = UNSET,
+    tag: str | Unset = UNSET,
+    comment: int | Unset = UNSET,
+    kind: GetImageKind | Unset = UNSET,
 
 ) -> dict[str, Any]:
     
@@ -30,6 +37,20 @@ def _get_kwargs(
     params["forge"] = json_forge
 
     params["url"] = url_query
+
+    params["fullName"] = full_name
+
+    params["number"] = number
+
+    params["tag"] = tag
+
+    params["comment"] = comment
+
+    json_kind: str | Unset = UNSET
+    if not isinstance(kind, Unset):
+        json_kind = kind.value
+
+    params["kind"] = json_kind
 
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
@@ -96,6 +117,13 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
         return response_502
 
+    if response.status_code == 503:
+        response_503 = Error.from_dict(response.json())
+
+
+
+        return response_503
+
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
     else:
@@ -116,6 +144,11 @@ def sync_detailed(
     client: AuthenticatedClient,
     forge: GetImageForge,
     url_query: str,
+    full_name: str | Unset = UNSET,
+    number: int | Unset = UNSET,
+    tag: str | Unset = UNSET,
+    comment: int | Unset = UNSET,
+    kind: GetImageKind | Unset = UNSET,
 
 ) -> Response[Error]:
     """ Read an image embedded in a forge's Markdown, through the server
@@ -129,20 +162,42 @@ def sync_detailed(
     Only the forge the item belongs to is reached. Forgejo: the saved
     instance, with the saved token sent to that host only. GitHub:
     `github.com` and its user-content hosts (`user-images`,
-    `private-user-images` and `raw.githubusercontent.com`), without a
-    token, since its attachment links are signed. Any other host, scheme or
+    `private-user-images`, `raw`, `avatars` and `repository-images`
+    under `githubusercontent.com`), without a
+    token, since its attachment links are signed. A
+    `github.com/user-attachments/...` link in a private repository is not
+    served unsigned, so when `fullName` and `number` (or `tag`, or the
+    `comment` it was posted in) name where it sits, the server reads that
+    item's or comment's rendered HTML through the
+    GitHub API with the saved token and fetches the signed address found
+    there instead, without the token. If the lookup finds nothing or fails, or the signed address is on
+    a host
+    that isn't allowed or doesn't load, the link is fetched as written.
+    Each such image costs one GitHub API request, which is never served from
+    the ETag cache because the signature expires. Any other host, scheme or
     address answers 403 without a request. A redirect is followed only to
     another allowed host, and at most three times. GitHub's hosts are also
     refused at connect time if they resolve to a non-public address.
 
     The body must be a PNG, JPEG, GIF or WebP by its own bytes, not by the
-    host's `Content-Type`, and at most 8 MiB. SVG and anything else answers
-    415. The answer carries `nosniff` and a sandboxing
-    `Content-Security-Policy`, and is cacheable by the browser for an hour.
+    host's `Content-Type`, and at most 8 MiB (512 KiB with `kind=avatar`).
+    SVG and anything else answers 415.
+
+    The cost is bounded. At most 8 fetches run upstream at once; another
+    request waits up to 5 seconds for a slot, then answers 503 with
+    `Retry-After`. A fetched image is served again from a server-side cache
+    for 5 minutes, without a new upstream fetch. The answer carries
+    `nosniff` and a sandboxing `Content-Security-Policy`, and is cacheable
+    by the browser for an hour.
 
     Args:
         forge (GetImageForge):
         url_query (str):
+        full_name (str | Unset):
+        number (int | Unset):
+        tag (str | Unset):
+        comment (int | Unset):
+        kind (GetImageKind | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -156,6 +211,11 @@ def sync_detailed(
     kwargs = _get_kwargs(
         forge=forge,
 url_query=url_query,
+full_name=full_name,
+number=number,
+tag=tag,
+comment=comment,
+kind=kind,
 
     )
 
@@ -170,6 +230,11 @@ def sync(
     client: AuthenticatedClient,
     forge: GetImageForge,
     url_query: str,
+    full_name: str | Unset = UNSET,
+    number: int | Unset = UNSET,
+    tag: str | Unset = UNSET,
+    comment: int | Unset = UNSET,
+    kind: GetImageKind | Unset = UNSET,
 
 ) -> Error | None:
     """ Read an image embedded in a forge's Markdown, through the server
@@ -183,20 +248,42 @@ def sync(
     Only the forge the item belongs to is reached. Forgejo: the saved
     instance, with the saved token sent to that host only. GitHub:
     `github.com` and its user-content hosts (`user-images`,
-    `private-user-images` and `raw.githubusercontent.com`), without a
-    token, since its attachment links are signed. Any other host, scheme or
+    `private-user-images`, `raw`, `avatars` and `repository-images`
+    under `githubusercontent.com`), without a
+    token, since its attachment links are signed. A
+    `github.com/user-attachments/...` link in a private repository is not
+    served unsigned, so when `fullName` and `number` (or `tag`, or the
+    `comment` it was posted in) name where it sits, the server reads that
+    item's or comment's rendered HTML through the
+    GitHub API with the saved token and fetches the signed address found
+    there instead, without the token. If the lookup finds nothing or fails, or the signed address is on
+    a host
+    that isn't allowed or doesn't load, the link is fetched as written.
+    Each such image costs one GitHub API request, which is never served from
+    the ETag cache because the signature expires. Any other host, scheme or
     address answers 403 without a request. A redirect is followed only to
     another allowed host, and at most three times. GitHub's hosts are also
     refused at connect time if they resolve to a non-public address.
 
     The body must be a PNG, JPEG, GIF or WebP by its own bytes, not by the
-    host's `Content-Type`, and at most 8 MiB. SVG and anything else answers
-    415. The answer carries `nosniff` and a sandboxing
-    `Content-Security-Policy`, and is cacheable by the browser for an hour.
+    host's `Content-Type`, and at most 8 MiB (512 KiB with `kind=avatar`).
+    SVG and anything else answers 415.
+
+    The cost is bounded. At most 8 fetches run upstream at once; another
+    request waits up to 5 seconds for a slot, then answers 503 with
+    `Retry-After`. A fetched image is served again from a server-side cache
+    for 5 minutes, without a new upstream fetch. The answer carries
+    `nosniff` and a sandboxing `Content-Security-Policy`, and is cacheable
+    by the browser for an hour.
 
     Args:
         forge (GetImageForge):
         url_query (str):
+        full_name (str | Unset):
+        number (int | Unset):
+        tag (str | Unset):
+        comment (int | Unset):
+        kind (GetImageKind | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -211,6 +298,11 @@ def sync(
         client=client,
 forge=forge,
 url_query=url_query,
+full_name=full_name,
+number=number,
+tag=tag,
+comment=comment,
+kind=kind,
 
     ).parsed
 
@@ -219,6 +311,11 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     forge: GetImageForge,
     url_query: str,
+    full_name: str | Unset = UNSET,
+    number: int | Unset = UNSET,
+    tag: str | Unset = UNSET,
+    comment: int | Unset = UNSET,
+    kind: GetImageKind | Unset = UNSET,
 
 ) -> Response[Error]:
     """ Read an image embedded in a forge's Markdown, through the server
@@ -232,20 +329,42 @@ async def asyncio_detailed(
     Only the forge the item belongs to is reached. Forgejo: the saved
     instance, with the saved token sent to that host only. GitHub:
     `github.com` and its user-content hosts (`user-images`,
-    `private-user-images` and `raw.githubusercontent.com`), without a
-    token, since its attachment links are signed. Any other host, scheme or
+    `private-user-images`, `raw`, `avatars` and `repository-images`
+    under `githubusercontent.com`), without a
+    token, since its attachment links are signed. A
+    `github.com/user-attachments/...` link in a private repository is not
+    served unsigned, so when `fullName` and `number` (or `tag`, or the
+    `comment` it was posted in) name where it sits, the server reads that
+    item's or comment's rendered HTML through the
+    GitHub API with the saved token and fetches the signed address found
+    there instead, without the token. If the lookup finds nothing or fails, or the signed address is on
+    a host
+    that isn't allowed or doesn't load, the link is fetched as written.
+    Each such image costs one GitHub API request, which is never served from
+    the ETag cache because the signature expires. Any other host, scheme or
     address answers 403 without a request. A redirect is followed only to
     another allowed host, and at most three times. GitHub's hosts are also
     refused at connect time if they resolve to a non-public address.
 
     The body must be a PNG, JPEG, GIF or WebP by its own bytes, not by the
-    host's `Content-Type`, and at most 8 MiB. SVG and anything else answers
-    415. The answer carries `nosniff` and a sandboxing
-    `Content-Security-Policy`, and is cacheable by the browser for an hour.
+    host's `Content-Type`, and at most 8 MiB (512 KiB with `kind=avatar`).
+    SVG and anything else answers 415.
+
+    The cost is bounded. At most 8 fetches run upstream at once; another
+    request waits up to 5 seconds for a slot, then answers 503 with
+    `Retry-After`. A fetched image is served again from a server-side cache
+    for 5 minutes, without a new upstream fetch. The answer carries
+    `nosniff` and a sandboxing `Content-Security-Policy`, and is cacheable
+    by the browser for an hour.
 
     Args:
         forge (GetImageForge):
         url_query (str):
+        full_name (str | Unset):
+        number (int | Unset):
+        tag (str | Unset):
+        comment (int | Unset):
+        kind (GetImageKind | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -259,6 +378,11 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         forge=forge,
 url_query=url_query,
+full_name=full_name,
+number=number,
+tag=tag,
+comment=comment,
+kind=kind,
 
     )
 
@@ -273,6 +397,11 @@ async def asyncio(
     client: AuthenticatedClient,
     forge: GetImageForge,
     url_query: str,
+    full_name: str | Unset = UNSET,
+    number: int | Unset = UNSET,
+    tag: str | Unset = UNSET,
+    comment: int | Unset = UNSET,
+    kind: GetImageKind | Unset = UNSET,
 
 ) -> Error | None:
     """ Read an image embedded in a forge's Markdown, through the server
@@ -286,20 +415,42 @@ async def asyncio(
     Only the forge the item belongs to is reached. Forgejo: the saved
     instance, with the saved token sent to that host only. GitHub:
     `github.com` and its user-content hosts (`user-images`,
-    `private-user-images` and `raw.githubusercontent.com`), without a
-    token, since its attachment links are signed. Any other host, scheme or
+    `private-user-images`, `raw`, `avatars` and `repository-images`
+    under `githubusercontent.com`), without a
+    token, since its attachment links are signed. A
+    `github.com/user-attachments/...` link in a private repository is not
+    served unsigned, so when `fullName` and `number` (or `tag`, or the
+    `comment` it was posted in) name where it sits, the server reads that
+    item's or comment's rendered HTML through the
+    GitHub API with the saved token and fetches the signed address found
+    there instead, without the token. If the lookup finds nothing or fails, or the signed address is on
+    a host
+    that isn't allowed or doesn't load, the link is fetched as written.
+    Each such image costs one GitHub API request, which is never served from
+    the ETag cache because the signature expires. Any other host, scheme or
     address answers 403 without a request. A redirect is followed only to
     another allowed host, and at most three times. GitHub's hosts are also
     refused at connect time if they resolve to a non-public address.
 
     The body must be a PNG, JPEG, GIF or WebP by its own bytes, not by the
-    host's `Content-Type`, and at most 8 MiB. SVG and anything else answers
-    415. The answer carries `nosniff` and a sandboxing
-    `Content-Security-Policy`, and is cacheable by the browser for an hour.
+    host's `Content-Type`, and at most 8 MiB (512 KiB with `kind=avatar`).
+    SVG and anything else answers 415.
+
+    The cost is bounded. At most 8 fetches run upstream at once; another
+    request waits up to 5 seconds for a slot, then answers 503 with
+    `Retry-After`. A fetched image is served again from a server-side cache
+    for 5 minutes, without a new upstream fetch. The answer carries
+    `nosniff` and a sandboxing `Content-Security-Policy`, and is cacheable
+    by the browser for an hour.
 
     Args:
         forge (GetImageForge):
         url_query (str):
+        full_name (str | Unset):
+        number (int | Unset):
+        tag (str | Unset):
+        comment (int | Unset):
+        kind (GetImageKind | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -314,5 +465,10 @@ async def asyncio(
         client=client,
 forge=forge,
 url_query=url_query,
+full_name=full_name,
+number=number,
+tag=tag,
+comment=comment,
+kind=kind,
 
     )).parsed

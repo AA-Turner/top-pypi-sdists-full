@@ -2,7 +2,7 @@
 
 include:
   # use python/base to get pip download caching
-  - component: git.ligo.org/computing/gitlab/components/python/base@~latest
+  - component: git.ligo.org/computing/gitlab/components/python/base@4
 
   - local: .gitlab/ci/test.yml
 

@@ -48,6 +48,9 @@ class ListResourceResponse200Item:
         draft_path (Union[Unset, str]): On a draft-only row, the path its editor has staged when it
             differs from the storage path (e.g. a never-deployed item parked at
             `u/{user}/draft_{uuid}`).
+        grant_type (Union[Unset, str]): The grant of the linked OAuth account: `client_credentials`
+            connects as the app, `authorization_code` as the user who
+            connected it.
     """
 
     path: str
@@ -72,6 +75,7 @@ class ListResourceResponse200Item:
     is_draft: Union[Unset, bool] = UNSET
     agent_memory: Union[Unset, Any] = UNSET
     draft_path: Union[Unset, str] = UNSET
+    grant_type: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -112,6 +116,7 @@ class ListResourceResponse200Item:
         is_draft = self.is_draft
         agent_memory = self.agent_memory
         draft_path = self.draft_path
+        grant_type = self.grant_type
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -158,6 +163,8 @@ class ListResourceResponse200Item:
             field_dict["agent_memory"] = agent_memory
         if draft_path is not UNSET:
             field_dict["draft_path"] = draft_path
+        if grant_type is not UNSET:
+            field_dict["grant_type"] = grant_type
 
         return field_dict
 
@@ -220,6 +227,8 @@ class ListResourceResponse200Item:
 
         draft_path = d.pop("draft_path", UNSET)
 
+        grant_type = d.pop("grant_type", UNSET)
+
         list_resource_response_200_item = cls(
             path=path,
             resource_type=resource_type,
@@ -243,6 +252,7 @@ class ListResourceResponse200Item:
             is_draft=is_draft,
             agent_memory=agent_memory,
             draft_path=draft_path,
+            grant_type=grant_type,
         )
 
         list_resource_response_200_item.additional_properties = d

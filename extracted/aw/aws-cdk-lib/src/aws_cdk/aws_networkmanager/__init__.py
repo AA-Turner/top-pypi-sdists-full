@@ -97,6 +97,12 @@ class CfnConnectAttachment(
             transport_attachment_id="transportAttachmentId",
         
             # the properties below are optional
+            nat_gateway_rules=[networkmanager.CfnConnectAttachment.NatRuleProperty(
+                match_source_cidr="matchSourceCidr",
+                nat_cidr="natCidr",
+                rule_number=123
+            )],
+            nat_gateway_support="natGatewaySupport",
             network_function_group_name="networkFunctionGroupName",
             proposed_segment_change=networkmanager.CfnConnectAttachment.ProposedSegmentChangeProperty(
                 attachment_policy_rule_number=123,
@@ -123,6 +129,8 @@ class CfnConnectAttachment(
         edge_location: builtins.str,
         options: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectAttachment.ConnectAttachmentOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
         transport_attachment_id: builtins.str,
+        nat_gateway_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectAttachment.NatRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        nat_gateway_support: typing.Optional[builtins.str] = None,
         network_function_group_name: typing.Optional[builtins.str] = None,
         proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
@@ -136,6 +144,8 @@ class CfnConnectAttachment(
         :param edge_location: The Region where the edge is located.
         :param options: Options for connecting an attachment.
         :param transport_attachment_id: The ID of the transport attachment.
+        :param nat_gateway_rules: The complete set of NAT gateway rules on the attachment. Updating this property replaces the entire rule set, and rules left out of the new value are removed. To remove all rules, specify an empty list or remove this property. NAT gateway support can't be enabled without rules, so it is then disabled unless NatGatewaySupport is specified. Only the core network owner can configure NAT gateway rules. The rules aren't returned when the attachment is read, so drift detection doesn't check them. Not available in AWS GovCloud (US).
+        :param nat_gateway_support: Whether NAT gateway support is enabled on the attachment. Required when NatGatewayRules lists rules. Set to DISABLE with NatGatewayRules to keep the rules on the attachment without translating traffic, and set it to ENABLE to activate them again. An attachment that is pending acceptance applies this setting once it is accepted. Only the core network owner can configure or read NAT gateway settings. Not available in AWS GovCloud (US).
         :param network_function_group_name: The name of the network function group.
         :param proposed_segment_change: Describes a proposed segment change. In some cases, the segment change must first be evaluated and accepted.
         :param routing_policy_label: Routing policy label.
@@ -150,6 +160,8 @@ class CfnConnectAttachment(
             edge_location=edge_location,
             options=options,
             transport_attachment_id=transport_attachment_id,
+            nat_gateway_rules=nat_gateway_rules,
+            nat_gateway_support=nat_gateway_support,
             network_function_group_name=network_function_group_name,
             proposed_segment_change=proposed_segment_change,
             routing_policy_label=routing_policy_label,
@@ -291,6 +303,17 @@ class CfnConnectAttachment(
         :cloudformationAttribute: LastModificationErrors
         '''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "attrLastModificationErrors"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNatSystemRouteSupport")
+    def attr_nat_system_route_support(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Whether system routes are installed for the NAT CIDRs of the attachment's NAT gateway rules.
+
+        On Connect attachments this is always false and is not configurable. Not available in AWS GovCloud (US).
+
+        :cloudformationAttribute: NatSystemRouteSupport
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrNatSystemRouteSupport"))
 
     @builtins.property
     @jsii.member(jsii_name="attrOwnerAccountId")
@@ -441,6 +464,37 @@ class CfnConnectAttachment(
         jsii.set(self, "transportAttachmentId", value)
 
     @builtins.property
+    @jsii.member(jsii_name="natGatewayRules")
+    def nat_gateway_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectAttachment.NatRuleProperty"]]]]:
+        '''The complete set of NAT gateway rules on the attachment.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectAttachment.NatRuleProperty"]]]], jsii.get(self, "natGatewayRules"))
+
+    @nat_gateway_rules.setter
+    def nat_gateway_rules(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectAttachment.NatRuleProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f91f9bc21f1d7c1dc59d8a78fca0810e6aa63e99e45c1d23d9d089a5cb193be8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "natGatewayRules", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="natGatewaySupport")
+    def nat_gateway_support(self) -> typing.Optional[builtins.str]:
+        '''Whether NAT gateway support is enabled on the attachment.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "natGatewaySupport"))
+
+    @nat_gateway_support.setter
+    def nat_gateway_support(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__91568fcc07f0d6a946b343041b2a27cd5d99def495dc0dbcf1db1ec43097accd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "natGatewaySupport", value)
+
+    @builtins.property
     @jsii.member(jsii_name="networkFunctionGroupName")
     def network_function_group_name(self) -> typing.Optional[builtins.str]:
         '''The name of the network function group.'''
@@ -548,6 +602,98 @@ class CfnConnectAttachment(
 
         def __repr__(self) -> str:
             return "ConnectAttachmentOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networkmanager.CfnConnectAttachment.NatRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "match_source_cidr": "matchSourceCidr",
+            "nat_cidr": "natCidr",
+            "rule_number": "ruleNumber",
+        },
+    )
+    class NatRuleProperty:
+        def __init__(
+            self,
+            *,
+            match_source_cidr: builtins.str,
+            nat_cidr: builtins.str,
+            rule_number: jsii.Number,
+        ) -> None:
+            '''A NAT gateway rule on the attachment.
+
+            :param match_source_cidr: The IPv4 CIDR that source traffic is matched against for translation.
+            :param nat_cidr: The IPv4 CIDR that matched source traffic is translated into. Must have the same prefix length as MatchSourceCidr.
+            :param rule_number: The rule number that uniquely identifies the NAT rule on the attachment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-connectattachment-natrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networkmanager as networkmanager
+                
+                nat_rule_property = networkmanager.CfnConnectAttachment.NatRuleProperty(
+                    match_source_cidr="matchSourceCidr",
+                    nat_cidr="natCidr",
+                    rule_number=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5fce9a60982b7d165038bcea12141c116b37055110a387c9597c9cd2621ff7be)
+                check_type(argname="argument match_source_cidr", value=match_source_cidr, expected_type=type_hints["match_source_cidr"])
+                check_type(argname="argument nat_cidr", value=nat_cidr, expected_type=type_hints["nat_cidr"])
+                check_type(argname="argument rule_number", value=rule_number, expected_type=type_hints["rule_number"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "match_source_cidr": match_source_cidr,
+                "nat_cidr": nat_cidr,
+                "rule_number": rule_number,
+            }
+
+        @builtins.property
+        def match_source_cidr(self) -> builtins.str:
+            '''The IPv4 CIDR that source traffic is matched against for translation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-connectattachment-natrule.html#cfn-networkmanager-connectattachment-natrule-matchsourcecidr
+            '''
+            result = self._values.get("match_source_cidr")
+            assert result is not None, "Required property 'match_source_cidr' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def nat_cidr(self) -> builtins.str:
+            '''The IPv4 CIDR that matched source traffic is translated into.
+
+            Must have the same prefix length as MatchSourceCidr.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-connectattachment-natrule.html#cfn-networkmanager-connectattachment-natrule-natcidr
+            '''
+            result = self._values.get("nat_cidr")
+            assert result is not None, "Required property 'nat_cidr' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def rule_number(self) -> jsii.Number:
+            '''The rule number that uniquely identifies the NAT rule on the attachment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-connectattachment-natrule.html#cfn-networkmanager-connectattachment-natrule-rulenumber
+            '''
+            result = self._values.get("rule_number")
+            assert result is not None, "Required property 'rule_number' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NatRuleProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -748,6 +894,8 @@ class CfnConnectAttachment(
         "edge_location": "edgeLocation",
         "options": "options",
         "transport_attachment_id": "transportAttachmentId",
+        "nat_gateway_rules": "natGatewayRules",
+        "nat_gateway_support": "natGatewaySupport",
         "network_function_group_name": "networkFunctionGroupName",
         "proposed_segment_change": "proposedSegmentChange",
         "routing_policy_label": "routingPolicyLabel",
@@ -762,6 +910,8 @@ class CfnConnectAttachmentProps:
         edge_location: builtins.str,
         options: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectAttachment.ConnectAttachmentOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
         transport_attachment_id: builtins.str,
+        nat_gateway_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectAttachment.NatRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        nat_gateway_support: typing.Optional[builtins.str] = None,
         network_function_group_name: typing.Optional[builtins.str] = None,
         proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
@@ -773,6 +923,8 @@ class CfnConnectAttachmentProps:
         :param edge_location: The Region where the edge is located.
         :param options: Options for connecting an attachment.
         :param transport_attachment_id: The ID of the transport attachment.
+        :param nat_gateway_rules: The complete set of NAT gateway rules on the attachment. Updating this property replaces the entire rule set, and rules left out of the new value are removed. To remove all rules, specify an empty list or remove this property. NAT gateway support can't be enabled without rules, so it is then disabled unless NatGatewaySupport is specified. Only the core network owner can configure NAT gateway rules. The rules aren't returned when the attachment is read, so drift detection doesn't check them. Not available in AWS GovCloud (US).
+        :param nat_gateway_support: Whether NAT gateway support is enabled on the attachment. Required when NatGatewayRules lists rules. Set to DISABLE with NatGatewayRules to keep the rules on the attachment without translating traffic, and set it to ENABLE to activate them again. An attachment that is pending acceptance applies this setting once it is accepted. Only the core network owner can configure or read NAT gateway settings. Not available in AWS GovCloud (US).
         :param network_function_group_name: The name of the network function group.
         :param proposed_segment_change: Describes a proposed segment change. In some cases, the segment change must first be evaluated and accepted.
         :param routing_policy_label: Routing policy label.
@@ -797,6 +949,12 @@ class CfnConnectAttachmentProps:
                 transport_attachment_id="transportAttachmentId",
             
                 # the properties below are optional
+                nat_gateway_rules=[networkmanager.CfnConnectAttachment.NatRuleProperty(
+                    match_source_cidr="matchSourceCidr",
+                    nat_cidr="natCidr",
+                    rule_number=123
+                )],
+                nat_gateway_support="natGatewaySupport",
                 network_function_group_name="networkFunctionGroupName",
                 proposed_segment_change=networkmanager.CfnConnectAttachment.ProposedSegmentChangeProperty(
                     attachment_policy_rule_number=123,
@@ -819,6 +977,8 @@ class CfnConnectAttachmentProps:
             check_type(argname="argument edge_location", value=edge_location, expected_type=type_hints["edge_location"])
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
             check_type(argname="argument transport_attachment_id", value=transport_attachment_id, expected_type=type_hints["transport_attachment_id"])
+            check_type(argname="argument nat_gateway_rules", value=nat_gateway_rules, expected_type=type_hints["nat_gateway_rules"])
+            check_type(argname="argument nat_gateway_support", value=nat_gateway_support, expected_type=type_hints["nat_gateway_support"])
             check_type(argname="argument network_function_group_name", value=network_function_group_name, expected_type=type_hints["network_function_group_name"])
             check_type(argname="argument proposed_segment_change", value=proposed_segment_change, expected_type=type_hints["proposed_segment_change"])
             check_type(argname="argument routing_policy_label", value=routing_policy_label, expected_type=type_hints["routing_policy_label"])
@@ -829,6 +989,10 @@ class CfnConnectAttachmentProps:
             "options": options,
             "transport_attachment_id": transport_attachment_id,
         }
+        if nat_gateway_rules is not None:
+            self._values["nat_gateway_rules"] = nat_gateway_rules
+        if nat_gateway_support is not None:
+            self._values["nat_gateway_support"] = nat_gateway_support
         if network_function_group_name is not None:
             self._values["network_function_group_name"] = network_function_group_name
         if proposed_segment_change is not None:
@@ -879,6 +1043,30 @@ class CfnConnectAttachmentProps:
         result = self._values.get("transport_attachment_id")
         assert result is not None, "Required property 'transport_attachment_id' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def nat_gateway_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectAttachment.NatRuleProperty"]]]]:
+        '''The complete set of NAT gateway rules on the attachment.
+
+        Updating this property replaces the entire rule set, and rules left out of the new value are removed. To remove all rules, specify an empty list or remove this property. NAT gateway support can't be enabled without rules, so it is then disabled unless NatGatewaySupport is specified. Only the core network owner can configure NAT gateway rules. The rules aren't returned when the attachment is read, so drift detection doesn't check them. Not available in AWS GovCloud (US).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-connectattachment.html#cfn-networkmanager-connectattachment-natgatewayrules
+        '''
+        result = self._values.get("nat_gateway_rules")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectAttachment.NatRuleProperty"]]]], result)
+
+    @builtins.property
+    def nat_gateway_support(self) -> typing.Optional[builtins.str]:
+        '''Whether NAT gateway support is enabled on the attachment.
+
+        Required when NatGatewayRules lists rules. Set to DISABLE with NatGatewayRules to keep the rules on the attachment without translating traffic, and set it to ENABLE to activate them again. An attachment that is pending acceptance applies this setting once it is accepted. Only the core network owner can configure or read NAT gateway settings. Not available in AWS GovCloud (US).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-connectattachment.html#cfn-networkmanager-connectattachment-natgatewaysupport
+        '''
+        result = self._values.get("nat_gateway_support")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def network_function_group_name(self) -> typing.Optional[builtins.str]:
@@ -4303,6 +4491,13 @@ class CfnDirectConnectGatewayAttachment(
             edge_locations=["edgeLocations"],
         
             # the properties below are optional
+            nat_gateway_rules=[networkmanager.CfnDirectConnectGatewayAttachment.NatRuleProperty(
+                match_source_cidr="matchSourceCidr",
+                nat_cidr="natCidr",
+                rule_number=123
+            )],
+            nat_gateway_support="natGatewaySupport",
+            nat_system_route_support=False,
             routing_policy_label="routingPolicyLabel",
             tags=[CfnTag(
                 key="key",
@@ -4319,6 +4514,9 @@ class CfnDirectConnectGatewayAttachment(
         core_network_id: builtins.str,
         direct_connect_gateway_arn: builtins.str,
         edge_locations: typing.Sequence[builtins.str],
+        nat_gateway_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectConnectGatewayAttachment.NatRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        nat_gateway_support: typing.Optional[builtins.str] = None,
+        nat_system_route_support: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -4329,6 +4527,9 @@ class CfnDirectConnectGatewayAttachment(
         :param core_network_id: The ID of a core network for the Direct Connect Gateway attachment.
         :param direct_connect_gateway_arn: The Direct Connect gateway attachment ARN.
         :param edge_locations: The Regions where the edges are located.
+        :param nat_gateway_rules: The complete set of NAT gateway rules on the attachment. Updating this property replaces the entire rule set, and rules left out of the new value are removed. To remove all rules, specify an empty list or remove this property. NAT gateway support can't be enabled without rules, so it is then disabled unless NatGatewaySupport is specified. Only the core network owner can configure NAT gateway rules. The rules aren't returned when the attachment is read, so drift detection doesn't check them. Not available in AWS GovCloud (US).
+        :param nat_gateway_support: Whether NAT gateway support is enabled on the attachment. Required when NatGatewayRules lists rules. Set to DISABLE with NatGatewayRules to keep the rules on the attachment without translating traffic, and set it to ENABLE to activate them again. An attachment that is pending acceptance applies this setting once it is accepted. Only the core network owner can configure or read NAT gateway settings. Not available in AWS GovCloud (US).
+        :param nat_system_route_support: Whether system routes are installed for the NAT CIDRs of the attachment's NAT gateway rules. If omitted, a new NAT gateway configuration uses the service default of true and an existing configuration keeps its current value, so removing this property from a template doesn't reset the setting. Only the core network owner can configure this setting. Not available in AWS GovCloud (US).
         :param routing_policy_label: Routing policy label.
         :param tags: Tags for the attachment.
         '''
@@ -4340,6 +4541,9 @@ class CfnDirectConnectGatewayAttachment(
             core_network_id=core_network_id,
             direct_connect_gateway_arn=direct_connect_gateway_arn,
             edge_locations=edge_locations,
+            nat_gateway_rules=nat_gateway_rules,
+            nat_gateway_support=nat_gateway_support,
+            nat_system_route_support=nat_system_route_support,
             routing_policy_label=routing_policy_label,
             tags=tags,
         )
@@ -4581,6 +4785,55 @@ class CfnDirectConnectGatewayAttachment(
         jsii.set(self, "edgeLocations", value)
 
     @builtins.property
+    @jsii.member(jsii_name="natGatewayRules")
+    def nat_gateway_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectConnectGatewayAttachment.NatRuleProperty"]]]]:
+        '''The complete set of NAT gateway rules on the attachment.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectConnectGatewayAttachment.NatRuleProperty"]]]], jsii.get(self, "natGatewayRules"))
+
+    @nat_gateway_rules.setter
+    def nat_gateway_rules(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectConnectGatewayAttachment.NatRuleProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9bf4e7847005d2d4ab47f31fdbb67e6124521cedbf91ce61ebcba2d394ce115a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "natGatewayRules", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="natGatewaySupport")
+    def nat_gateway_support(self) -> typing.Optional[builtins.str]:
+        '''Whether NAT gateway support is enabled on the attachment.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "natGatewaySupport"))
+
+    @nat_gateway_support.setter
+    def nat_gateway_support(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__29189d3f505dcac82ec5aa9e6f1517cf8e95c3893bf587a39bfa910ab48e1e50)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "natGatewaySupport", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="natSystemRouteSupport")
+    def nat_system_route_support(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether system routes are installed for the NAT CIDRs of the attachment's NAT gateway rules.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "natSystemRouteSupport"))
+
+    @nat_system_route_support.setter
+    def nat_system_route_support(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a04050e5d245b215cce7992ebfc9c5bfcdb4bdff0505cdbe132dff802af23350)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "natSystemRouteSupport", value)
+
+    @builtins.property
     @jsii.member(jsii_name="routingPolicyLabel")
     def routing_policy_label(self) -> typing.Optional[builtins.str]:
         '''Routing policy label.'''
@@ -4608,6 +4861,98 @@ class CfnDirectConnectGatewayAttachment(
             type_hints = cached_type_hints(_typecheckingstub__568e96ec93691801c923bc5845c1f0843a2c1888c0cfe666a7ab382f4622c34c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networkmanager.CfnDirectConnectGatewayAttachment.NatRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "match_source_cidr": "matchSourceCidr",
+            "nat_cidr": "natCidr",
+            "rule_number": "ruleNumber",
+        },
+    )
+    class NatRuleProperty:
+        def __init__(
+            self,
+            *,
+            match_source_cidr: builtins.str,
+            nat_cidr: builtins.str,
+            rule_number: jsii.Number,
+        ) -> None:
+            '''A NAT gateway rule on the attachment.
+
+            :param match_source_cidr: The IPv4 CIDR that source traffic is matched against for translation.
+            :param nat_cidr: The IPv4 CIDR that matched source traffic is translated into. Must have the same prefix length as MatchSourceCidr.
+            :param rule_number: The rule number that uniquely identifies the NAT rule on the attachment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-directconnectgatewayattachment-natrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networkmanager as networkmanager
+                
+                nat_rule_property = networkmanager.CfnDirectConnectGatewayAttachment.NatRuleProperty(
+                    match_source_cidr="matchSourceCidr",
+                    nat_cidr="natCidr",
+                    rule_number=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a0832ccd09b531158255fa22e4115bea2b2186ab12368225b85f4c1b8b58b44f)
+                check_type(argname="argument match_source_cidr", value=match_source_cidr, expected_type=type_hints["match_source_cidr"])
+                check_type(argname="argument nat_cidr", value=nat_cidr, expected_type=type_hints["nat_cidr"])
+                check_type(argname="argument rule_number", value=rule_number, expected_type=type_hints["rule_number"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "match_source_cidr": match_source_cidr,
+                "nat_cidr": nat_cidr,
+                "rule_number": rule_number,
+            }
+
+        @builtins.property
+        def match_source_cidr(self) -> builtins.str:
+            '''The IPv4 CIDR that source traffic is matched against for translation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-directconnectgatewayattachment-natrule.html#cfn-networkmanager-directconnectgatewayattachment-natrule-matchsourcecidr
+            '''
+            result = self._values.get("match_source_cidr")
+            assert result is not None, "Required property 'match_source_cidr' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def nat_cidr(self) -> builtins.str:
+            '''The IPv4 CIDR that matched source traffic is translated into.
+
+            Must have the same prefix length as MatchSourceCidr.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-directconnectgatewayattachment-natrule.html#cfn-networkmanager-directconnectgatewayattachment-natrule-natcidr
+            '''
+            result = self._values.get("nat_cidr")
+            assert result is not None, "Required property 'nat_cidr' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def rule_number(self) -> jsii.Number:
+            '''The rule number that uniquely identifies the NAT rule on the attachment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-directconnectgatewayattachment-natrule.html#cfn-networkmanager-directconnectgatewayattachment-natrule-rulenumber
+            '''
+            result = self._values.get("rule_number")
+            assert result is not None, "Required property 'rule_number' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NatRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkmanager.CfnDirectConnectGatewayAttachment.ProposedNetworkFunctionGroupChangeProperty",
@@ -4805,6 +5150,9 @@ class CfnDirectConnectGatewayAttachment(
         "core_network_id": "coreNetworkId",
         "direct_connect_gateway_arn": "directConnectGatewayArn",
         "edge_locations": "edgeLocations",
+        "nat_gateway_rules": "natGatewayRules",
+        "nat_gateway_support": "natGatewaySupport",
+        "nat_system_route_support": "natSystemRouteSupport",
         "routing_policy_label": "routingPolicyLabel",
         "tags": "tags",
     },
@@ -4816,6 +5164,9 @@ class CfnDirectConnectGatewayAttachmentProps:
         core_network_id: builtins.str,
         direct_connect_gateway_arn: builtins.str,
         edge_locations: typing.Sequence[builtins.str],
+        nat_gateway_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectConnectGatewayAttachment.NatRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        nat_gateway_support: typing.Optional[builtins.str] = None,
+        nat_system_route_support: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -4824,6 +5175,9 @@ class CfnDirectConnectGatewayAttachmentProps:
         :param core_network_id: The ID of a core network for the Direct Connect Gateway attachment.
         :param direct_connect_gateway_arn: The Direct Connect gateway attachment ARN.
         :param edge_locations: The Regions where the edges are located.
+        :param nat_gateway_rules: The complete set of NAT gateway rules on the attachment. Updating this property replaces the entire rule set, and rules left out of the new value are removed. To remove all rules, specify an empty list or remove this property. NAT gateway support can't be enabled without rules, so it is then disabled unless NatGatewaySupport is specified. Only the core network owner can configure NAT gateway rules. The rules aren't returned when the attachment is read, so drift detection doesn't check them. Not available in AWS GovCloud (US).
+        :param nat_gateway_support: Whether NAT gateway support is enabled on the attachment. Required when NatGatewayRules lists rules. Set to DISABLE with NatGatewayRules to keep the rules on the attachment without translating traffic, and set it to ENABLE to activate them again. An attachment that is pending acceptance applies this setting once it is accepted. Only the core network owner can configure or read NAT gateway settings. Not available in AWS GovCloud (US).
+        :param nat_system_route_support: Whether system routes are installed for the NAT CIDRs of the attachment's NAT gateway rules. If omitted, a new NAT gateway configuration uses the service default of true and an existing configuration keeps its current value, so removing this property from a template doesn't reset the setting. Only the core network owner can configure this setting. Not available in AWS GovCloud (US).
         :param routing_policy_label: Routing policy label.
         :param tags: Tags for the attachment.
 
@@ -4843,6 +5197,13 @@ class CfnDirectConnectGatewayAttachmentProps:
                 edge_locations=["edgeLocations"],
             
                 # the properties below are optional
+                nat_gateway_rules=[networkmanager.CfnDirectConnectGatewayAttachment.NatRuleProperty(
+                    match_source_cidr="matchSourceCidr",
+                    nat_cidr="natCidr",
+                    rule_number=123
+                )],
+                nat_gateway_support="natGatewaySupport",
+                nat_system_route_support=False,
                 routing_policy_label="routingPolicyLabel",
                 tags=[CfnTag(
                     key="key",
@@ -4855,6 +5216,9 @@ class CfnDirectConnectGatewayAttachmentProps:
             check_type(argname="argument core_network_id", value=core_network_id, expected_type=type_hints["core_network_id"])
             check_type(argname="argument direct_connect_gateway_arn", value=direct_connect_gateway_arn, expected_type=type_hints["direct_connect_gateway_arn"])
             check_type(argname="argument edge_locations", value=edge_locations, expected_type=type_hints["edge_locations"])
+            check_type(argname="argument nat_gateway_rules", value=nat_gateway_rules, expected_type=type_hints["nat_gateway_rules"])
+            check_type(argname="argument nat_gateway_support", value=nat_gateway_support, expected_type=type_hints["nat_gateway_support"])
+            check_type(argname="argument nat_system_route_support", value=nat_system_route_support, expected_type=type_hints["nat_system_route_support"])
             check_type(argname="argument routing_policy_label", value=routing_policy_label, expected_type=type_hints["routing_policy_label"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4862,6 +5226,12 @@ class CfnDirectConnectGatewayAttachmentProps:
             "direct_connect_gateway_arn": direct_connect_gateway_arn,
             "edge_locations": edge_locations,
         }
+        if nat_gateway_rules is not None:
+            self._values["nat_gateway_rules"] = nat_gateway_rules
+        if nat_gateway_support is not None:
+            self._values["nat_gateway_support"] = nat_gateway_support
+        if nat_system_route_support is not None:
+            self._values["nat_system_route_support"] = nat_system_route_support
         if routing_policy_label is not None:
             self._values["routing_policy_label"] = routing_policy_label
         if tags is not None:
@@ -4896,6 +5266,43 @@ class CfnDirectConnectGatewayAttachmentProps:
         result = self._values.get("edge_locations")
         assert result is not None, "Required property 'edge_locations' is missing"
         return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def nat_gateway_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectConnectGatewayAttachment.NatRuleProperty"]]]]:
+        '''The complete set of NAT gateway rules on the attachment.
+
+        Updating this property replaces the entire rule set, and rules left out of the new value are removed. To remove all rules, specify an empty list or remove this property. NAT gateway support can't be enabled without rules, so it is then disabled unless NatGatewaySupport is specified. Only the core network owner can configure NAT gateway rules. The rules aren't returned when the attachment is read, so drift detection doesn't check them. Not available in AWS GovCloud (US).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-directconnectgatewayattachment.html#cfn-networkmanager-directconnectgatewayattachment-natgatewayrules
+        '''
+        result = self._values.get("nat_gateway_rules")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectConnectGatewayAttachment.NatRuleProperty"]]]], result)
+
+    @builtins.property
+    def nat_gateway_support(self) -> typing.Optional[builtins.str]:
+        '''Whether NAT gateway support is enabled on the attachment.
+
+        Required when NatGatewayRules lists rules. Set to DISABLE with NatGatewayRules to keep the rules on the attachment without translating traffic, and set it to ENABLE to activate them again. An attachment that is pending acceptance applies this setting once it is accepted. Only the core network owner can configure or read NAT gateway settings. Not available in AWS GovCloud (US).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-directconnectgatewayattachment.html#cfn-networkmanager-directconnectgatewayattachment-natgatewaysupport
+        '''
+        result = self._values.get("nat_gateway_support")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def nat_system_route_support(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether system routes are installed for the NAT CIDRs of the attachment's NAT gateway rules.
+
+        If omitted, a new NAT gateway configuration uses the service default of true and an existing configuration keeps its current value, so removing this property from a template doesn't reset the setting. Only the core network owner can configure this setting. Not available in AWS GovCloud (US).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-directconnectgatewayattachment.html#cfn-networkmanager-directconnectgatewayattachment-natsystemroutesupport
+        '''
+        result = self._values.get("nat_system_route_support")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def routing_policy_label(self) -> typing.Optional[builtins.str]:
@@ -4999,48 +5406,6 @@ class CfnGlobalNetwork(
             type_hints = cached_type_hints(_typecheckingstub__499a9bc2f78e7f8636a786fe6bc78703115f4ecdde635bc008316eede031b394)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGlobalNetwork", [resource]))
-
-    @jsii.member(jsii_name="fromGlobalNetworkArn")
-    @builtins.classmethod
-    def from_global_network_arn(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        arn: builtins.str,
-    ) -> "_aws_networkmanager_440bf644.IGlobalNetworkRef":
-        '''Creates a new IGlobalNetworkRef from an ARN.
-
-        :param scope: -
-        :param id: -
-        :param arn: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__01845a25331ce4f9134bc21b523ef5b7e366dc92b44eb19cf3c0b9ce6f9818af)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_aws_networkmanager_440bf644.IGlobalNetworkRef", jsii.sinvoke(cls, "fromGlobalNetworkArn", [scope, id, arn]))
-
-    @jsii.member(jsii_name="fromGlobalNetworkId")
-    @builtins.classmethod
-    def from_global_network_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        global_network_id: builtins.str,
-    ) -> "_aws_networkmanager_440bf644.IGlobalNetworkRef":
-        '''Creates a new IGlobalNetworkRef from a globalNetworkId.
-
-        :param scope: -
-        :param id: -
-        :param global_network_id: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__a5a99863c037fe2b99c80dcaf383ff5f23ecfa9d5457eb315e9a16dd294ddc17)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument global_network_id", value=global_network_id, expected_type=type_hints["global_network_id"])
-        return typing.cast("_aws_networkmanager_440bf644.IGlobalNetworkRef", jsii.sinvoke(cls, "fromGlobalNetworkId", [scope, id, global_network_id]))
 
     @jsii.member(jsii_name="isCfnGlobalNetwork")
     @builtins.classmethod
@@ -6574,6 +6939,13 @@ class CfnSiteToSiteVpnAttachment(
             vpn_connection_arn="vpnConnectionArn",
         
             # the properties below are optional
+            nat_gateway_rules=[networkmanager.CfnSiteToSiteVpnAttachment.NatRuleProperty(
+                match_source_cidr="matchSourceCidr",
+                nat_cidr="natCidr",
+                rule_number=123
+            )],
+            nat_gateway_support="natGatewaySupport",
+            nat_system_route_support=False,
             network_function_group_name="networkFunctionGroupName",
             proposed_segment_change=networkmanager.CfnSiteToSiteVpnAttachment.ProposedSegmentChangeProperty(
                 attachment_policy_rule_number=123,
@@ -6598,6 +6970,9 @@ class CfnSiteToSiteVpnAttachment(
         *,
         core_network_id: builtins.str,
         vpn_connection_arn: builtins.str,
+        nat_gateway_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSiteToSiteVpnAttachment.NatRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        nat_gateway_support: typing.Optional[builtins.str] = None,
+        nat_system_route_support: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         network_function_group_name: typing.Optional[builtins.str] = None,
         proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSiteToSiteVpnAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
@@ -6609,6 +6984,9 @@ class CfnSiteToSiteVpnAttachment(
         :param id: Construct identifier for this resource (unique in its scope).
         :param core_network_id: The ID of a core network where you're creating a site-to-site VPN attachment.
         :param vpn_connection_arn: The ARN of the site-to-site VPN attachment.
+        :param nat_gateway_rules: The complete set of NAT gateway rules on the attachment. Updating this property replaces the entire rule set, and rules left out of the new value are removed. To remove all rules, specify an empty list or remove this property. NAT gateway support can't be enabled without rules, so it is then disabled unless NatGatewaySupport is specified. Only the core network owner can configure NAT gateway rules. The rules aren't returned when the attachment is read, so drift detection doesn't check them. Not available in AWS GovCloud (US).
+        :param nat_gateway_support: Whether NAT gateway support is enabled on the attachment. Required when NatGatewayRules lists rules. Set to DISABLE with NatGatewayRules to keep the rules on the attachment without translating traffic, and set it to ENABLE to activate them again. An attachment that is pending acceptance applies this setting once it is accepted. Only the core network owner can configure or read NAT gateway settings. Not available in AWS GovCloud (US).
+        :param nat_system_route_support: Whether system routes are installed for the NAT CIDRs of the attachment's NAT gateway rules. Configurable on BGP Site-to-Site VPN attachments. Always false and not configurable for static VPN attachments. If omitted, a new NAT gateway configuration uses the service default for the attachment and an existing configuration keeps its current value, so removing this property from a template doesn't reset the setting. Only the core network owner can configure this setting. Not available in AWS GovCloud (US).
         :param network_function_group_name: The name of the network function group.
         :param proposed_segment_change: Describes a proposed segment change. In some cases, the segment change must first be evaluated and accepted.
         :param routing_policy_label: Routing policy label.
@@ -6621,6 +6999,9 @@ class CfnSiteToSiteVpnAttachment(
         props = CfnSiteToSiteVpnAttachmentProps(
             core_network_id=core_network_id,
             vpn_connection_arn=vpn_connection_arn,
+            nat_gateway_rules=nat_gateway_rules,
+            nat_gateway_support=nat_gateway_support,
+            nat_system_route_support=nat_system_route_support,
             network_function_group_name=network_function_group_name,
             proposed_segment_change=proposed_segment_change,
             routing_policy_label=routing_policy_label,
@@ -6855,6 +7236,55 @@ class CfnSiteToSiteVpnAttachment(
         jsii.set(self, "vpnConnectionArn", value)
 
     @builtins.property
+    @jsii.member(jsii_name="natGatewayRules")
+    def nat_gateway_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSiteToSiteVpnAttachment.NatRuleProperty"]]]]:
+        '''The complete set of NAT gateway rules on the attachment.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSiteToSiteVpnAttachment.NatRuleProperty"]]]], jsii.get(self, "natGatewayRules"))
+
+    @nat_gateway_rules.setter
+    def nat_gateway_rules(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSiteToSiteVpnAttachment.NatRuleProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__722270f724710889418bc9d35f3db055ed5edd8dd68da2503664c97a05dd09ab)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "natGatewayRules", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="natGatewaySupport")
+    def nat_gateway_support(self) -> typing.Optional[builtins.str]:
+        '''Whether NAT gateway support is enabled on the attachment.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "natGatewaySupport"))
+
+    @nat_gateway_support.setter
+    def nat_gateway_support(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__45827efd0409a1bd4172f20c17e2aa38409d9c3e1e795914188eb5e86e5102df)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "natGatewaySupport", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="natSystemRouteSupport")
+    def nat_system_route_support(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether system routes are installed for the NAT CIDRs of the attachment's NAT gateway rules.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "natSystemRouteSupport"))
+
+    @nat_system_route_support.setter
+    def nat_system_route_support(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a19f2d9cc36017f18075486d33170f2e83a7e234ad0e2462ad42f97e900bb93a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "natSystemRouteSupport", value)
+
+    @builtins.property
     @jsii.member(jsii_name="networkFunctionGroupName")
     def network_function_group_name(self) -> typing.Optional[builtins.str]:
         '''The name of the network function group.'''
@@ -6913,6 +7343,98 @@ class CfnSiteToSiteVpnAttachment(
             type_hints = cached_type_hints(_typecheckingstub__fedbd82359a7000ba160b74b2d678e59cb496867f32af82ab2500c7e1a61da46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networkmanager.CfnSiteToSiteVpnAttachment.NatRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "match_source_cidr": "matchSourceCidr",
+            "nat_cidr": "natCidr",
+            "rule_number": "ruleNumber",
+        },
+    )
+    class NatRuleProperty:
+        def __init__(
+            self,
+            *,
+            match_source_cidr: builtins.str,
+            nat_cidr: builtins.str,
+            rule_number: jsii.Number,
+        ) -> None:
+            '''A NAT gateway rule on the attachment.
+
+            :param match_source_cidr: The IPv4 CIDR that source traffic is matched against for translation.
+            :param nat_cidr: The IPv4 CIDR that matched source traffic is translated into. Must have the same prefix length as MatchSourceCidr.
+            :param rule_number: The rule number that uniquely identifies the NAT rule on the attachment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-sitetositevpnattachment-natrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networkmanager as networkmanager
+                
+                nat_rule_property = networkmanager.CfnSiteToSiteVpnAttachment.NatRuleProperty(
+                    match_source_cidr="matchSourceCidr",
+                    nat_cidr="natCidr",
+                    rule_number=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f9c9cf04772e902711ce9de965cfe6a5ecff7ce813399f3a3c5e11d063f63ae4)
+                check_type(argname="argument match_source_cidr", value=match_source_cidr, expected_type=type_hints["match_source_cidr"])
+                check_type(argname="argument nat_cidr", value=nat_cidr, expected_type=type_hints["nat_cidr"])
+                check_type(argname="argument rule_number", value=rule_number, expected_type=type_hints["rule_number"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "match_source_cidr": match_source_cidr,
+                "nat_cidr": nat_cidr,
+                "rule_number": rule_number,
+            }
+
+        @builtins.property
+        def match_source_cidr(self) -> builtins.str:
+            '''The IPv4 CIDR that source traffic is matched against for translation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-sitetositevpnattachment-natrule.html#cfn-networkmanager-sitetositevpnattachment-natrule-matchsourcecidr
+            '''
+            result = self._values.get("match_source_cidr")
+            assert result is not None, "Required property 'match_source_cidr' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def nat_cidr(self) -> builtins.str:
+            '''The IPv4 CIDR that matched source traffic is translated into.
+
+            Must have the same prefix length as MatchSourceCidr.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-sitetositevpnattachment-natrule.html#cfn-networkmanager-sitetositevpnattachment-natrule-natcidr
+            '''
+            result = self._values.get("nat_cidr")
+            assert result is not None, "Required property 'nat_cidr' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def rule_number(self) -> jsii.Number:
+            '''The rule number that uniquely identifies the NAT rule on the attachment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-sitetositevpnattachment-natrule.html#cfn-networkmanager-sitetositevpnattachment-natrule-rulenumber
+            '''
+            result = self._values.get("rule_number")
+            assert result is not None, "Required property 'rule_number' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NatRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkmanager.CfnSiteToSiteVpnAttachment.ProposedNetworkFunctionGroupChangeProperty",
@@ -7109,6 +7631,9 @@ class CfnSiteToSiteVpnAttachment(
     name_mapping={
         "core_network_id": "coreNetworkId",
         "vpn_connection_arn": "vpnConnectionArn",
+        "nat_gateway_rules": "natGatewayRules",
+        "nat_gateway_support": "natGatewaySupport",
+        "nat_system_route_support": "natSystemRouteSupport",
         "network_function_group_name": "networkFunctionGroupName",
         "proposed_segment_change": "proposedSegmentChange",
         "routing_policy_label": "routingPolicyLabel",
@@ -7121,6 +7646,9 @@ class CfnSiteToSiteVpnAttachmentProps:
         *,
         core_network_id: builtins.str,
         vpn_connection_arn: builtins.str,
+        nat_gateway_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSiteToSiteVpnAttachment.NatRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        nat_gateway_support: typing.Optional[builtins.str] = None,
+        nat_system_route_support: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         network_function_group_name: typing.Optional[builtins.str] = None,
         proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSiteToSiteVpnAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
@@ -7130,6 +7658,9 @@ class CfnSiteToSiteVpnAttachmentProps:
 
         :param core_network_id: The ID of a core network where you're creating a site-to-site VPN attachment.
         :param vpn_connection_arn: The ARN of the site-to-site VPN attachment.
+        :param nat_gateway_rules: The complete set of NAT gateway rules on the attachment. Updating this property replaces the entire rule set, and rules left out of the new value are removed. To remove all rules, specify an empty list or remove this property. NAT gateway support can't be enabled without rules, so it is then disabled unless NatGatewaySupport is specified. Only the core network owner can configure NAT gateway rules. The rules aren't returned when the attachment is read, so drift detection doesn't check them. Not available in AWS GovCloud (US).
+        :param nat_gateway_support: Whether NAT gateway support is enabled on the attachment. Required when NatGatewayRules lists rules. Set to DISABLE with NatGatewayRules to keep the rules on the attachment without translating traffic, and set it to ENABLE to activate them again. An attachment that is pending acceptance applies this setting once it is accepted. Only the core network owner can configure or read NAT gateway settings. Not available in AWS GovCloud (US).
+        :param nat_system_route_support: Whether system routes are installed for the NAT CIDRs of the attachment's NAT gateway rules. Configurable on BGP Site-to-Site VPN attachments. Always false and not configurable for static VPN attachments. If omitted, a new NAT gateway configuration uses the service default for the attachment and an existing configuration keeps its current value, so removing this property from a template doesn't reset the setting. Only the core network owner can configure this setting. Not available in AWS GovCloud (US).
         :param network_function_group_name: The name of the network function group.
         :param proposed_segment_change: Describes a proposed segment change. In some cases, the segment change must first be evaluated and accepted.
         :param routing_policy_label: Routing policy label.
@@ -7150,6 +7681,13 @@ class CfnSiteToSiteVpnAttachmentProps:
                 vpn_connection_arn="vpnConnectionArn",
             
                 # the properties below are optional
+                nat_gateway_rules=[networkmanager.CfnSiteToSiteVpnAttachment.NatRuleProperty(
+                    match_source_cidr="matchSourceCidr",
+                    nat_cidr="natCidr",
+                    rule_number=123
+                )],
+                nat_gateway_support="natGatewaySupport",
+                nat_system_route_support=False,
                 network_function_group_name="networkFunctionGroupName",
                 proposed_segment_change=networkmanager.CfnSiteToSiteVpnAttachment.ProposedSegmentChangeProperty(
                     attachment_policy_rule_number=123,
@@ -7170,6 +7708,9 @@ class CfnSiteToSiteVpnAttachmentProps:
             type_hints = cached_type_hints(_typecheckingstub__113def3967f836e31386ebfbfb261bf671b49bfa26918b1a903a386050490f06)
             check_type(argname="argument core_network_id", value=core_network_id, expected_type=type_hints["core_network_id"])
             check_type(argname="argument vpn_connection_arn", value=vpn_connection_arn, expected_type=type_hints["vpn_connection_arn"])
+            check_type(argname="argument nat_gateway_rules", value=nat_gateway_rules, expected_type=type_hints["nat_gateway_rules"])
+            check_type(argname="argument nat_gateway_support", value=nat_gateway_support, expected_type=type_hints["nat_gateway_support"])
+            check_type(argname="argument nat_system_route_support", value=nat_system_route_support, expected_type=type_hints["nat_system_route_support"])
             check_type(argname="argument network_function_group_name", value=network_function_group_name, expected_type=type_hints["network_function_group_name"])
             check_type(argname="argument proposed_segment_change", value=proposed_segment_change, expected_type=type_hints["proposed_segment_change"])
             check_type(argname="argument routing_policy_label", value=routing_policy_label, expected_type=type_hints["routing_policy_label"])
@@ -7178,6 +7719,12 @@ class CfnSiteToSiteVpnAttachmentProps:
             "core_network_id": core_network_id,
             "vpn_connection_arn": vpn_connection_arn,
         }
+        if nat_gateway_rules is not None:
+            self._values["nat_gateway_rules"] = nat_gateway_rules
+        if nat_gateway_support is not None:
+            self._values["nat_gateway_support"] = nat_gateway_support
+        if nat_system_route_support is not None:
+            self._values["nat_system_route_support"] = nat_system_route_support
         if network_function_group_name is not None:
             self._values["network_function_group_name"] = network_function_group_name
         if proposed_segment_change is not None:
@@ -7206,6 +7753,43 @@ class CfnSiteToSiteVpnAttachmentProps:
         result = self._values.get("vpn_connection_arn")
         assert result is not None, "Required property 'vpn_connection_arn' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def nat_gateway_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSiteToSiteVpnAttachment.NatRuleProperty"]]]]:
+        '''The complete set of NAT gateway rules on the attachment.
+
+        Updating this property replaces the entire rule set, and rules left out of the new value are removed. To remove all rules, specify an empty list or remove this property. NAT gateway support can't be enabled without rules, so it is then disabled unless NatGatewaySupport is specified. Only the core network owner can configure NAT gateway rules. The rules aren't returned when the attachment is read, so drift detection doesn't check them. Not available in AWS GovCloud (US).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-sitetositevpnattachment.html#cfn-networkmanager-sitetositevpnattachment-natgatewayrules
+        '''
+        result = self._values.get("nat_gateway_rules")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSiteToSiteVpnAttachment.NatRuleProperty"]]]], result)
+
+    @builtins.property
+    def nat_gateway_support(self) -> typing.Optional[builtins.str]:
+        '''Whether NAT gateway support is enabled on the attachment.
+
+        Required when NatGatewayRules lists rules. Set to DISABLE with NatGatewayRules to keep the rules on the attachment without translating traffic, and set it to ENABLE to activate them again. An attachment that is pending acceptance applies this setting once it is accepted. Only the core network owner can configure or read NAT gateway settings. Not available in AWS GovCloud (US).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-sitetositevpnattachment.html#cfn-networkmanager-sitetositevpnattachment-natgatewaysupport
+        '''
+        result = self._values.get("nat_gateway_support")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def nat_system_route_support(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether system routes are installed for the NAT CIDRs of the attachment's NAT gateway rules.
+
+        Configurable on BGP Site-to-Site VPN attachments. Always false and not configurable for static VPN attachments. If omitted, a new NAT gateway configuration uses the service default for the attachment and an existing configuration keeps its current value, so removing this property from a template doesn't reset the setting. Only the core network owner can configure this setting. Not available in AWS GovCloud (US).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-sitetositevpnattachment.html#cfn-networkmanager-sitetositevpnattachment-natsystemroutesupport
+        '''
+        result = self._values.get("nat_system_route_support")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def network_function_group_name(self) -> typing.Optional[builtins.str]:
@@ -8585,6 +9169,12 @@ class CfnVpcAttachment(
             vpc_arn="vpcArn",
         
             # the properties below are optional
+            nat_gateway_rules=[networkmanager.CfnVpcAttachment.NatRuleProperty(
+                match_source_cidr="matchSourceCidr",
+                nat_cidr="natCidr",
+                rule_number=123
+            )],
+            nat_gateway_support="natGatewaySupport",
             options=networkmanager.CfnVpcAttachment.VpcOptionsProperty(
                 appliance_mode_support=False,
                 dns_support=False,
@@ -8615,6 +9205,8 @@ class CfnVpcAttachment(
         core_network_id: builtins.str,
         subnet_arns: typing.Sequence[builtins.str],
         vpc_arn: builtins.str,
+        nat_gateway_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcAttachment.NatRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        nat_gateway_support: typing.Optional[builtins.str] = None,
         options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcAttachment.VpcOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
@@ -8627,6 +9219,8 @@ class CfnVpcAttachment(
         :param core_network_id: The core network ID.
         :param subnet_arns: The subnet ARNs.
         :param vpc_arn: The ARN of the VPC attachment.
+        :param nat_gateway_rules: The complete set of NAT gateway rules on the attachment. Updating this property replaces the entire rule set, and rules left out of the new value are removed. To remove all rules, specify an empty list or remove this property. NAT gateway support can't be enabled without rules, so it is then disabled unless NatGatewaySupport is specified. Only the core network owner can configure NAT gateway rules. The rules aren't returned when the attachment is read, so drift detection doesn't check them. Not available in AWS GovCloud (US).
+        :param nat_gateway_support: Whether NAT gateway support is enabled on the attachment. Required when NatGatewayRules lists rules. Set to DISABLE with NatGatewayRules to keep the rules on the attachment without translating traffic, and set it to ENABLE to activate them again. An attachment that is pending acceptance applies this setting once it is accepted. Only the core network owner can configure or read NAT gateway settings. Not available in AWS GovCloud (US).
         :param options: Options for creating the VPC attachment.
         :param proposed_segment_change: Describes a proposed segment change. In some cases, the segment change must first be evaluated and accepted.
         :param routing_policy_label: Routing policy label.
@@ -8640,6 +9234,8 @@ class CfnVpcAttachment(
             core_network_id=core_network_id,
             subnet_arns=subnet_arns,
             vpc_arn=vpc_arn,
+            nat_gateway_rules=nat_gateway_rules,
+            nat_gateway_support=nat_gateway_support,
             options=options,
             proposed_segment_change=proposed_segment_change,
             routing_policy_label=routing_policy_label,
@@ -8792,6 +9388,17 @@ class CfnVpcAttachment(
         return typing.cast(typing.List[builtins.str], jsii.get(self, "attrLastModificationErrors"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrNatSystemRouteSupport")
+    def attr_nat_system_route_support(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Whether system routes are installed for the NAT CIDRs of the attachment's NAT gateway rules.
+
+        On VPC attachments this is always true and is not configurable. Not available in AWS GovCloud (US).
+
+        :cloudformationAttribute: NatSystemRouteSupport
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrNatSystemRouteSupport"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrNetworkFunctionGroupName")
     def attr_network_function_group_name(self) -> builtins.str:
         '''The name of the network function group.
@@ -8931,6 +9538,37 @@ class CfnVpcAttachment(
         jsii.set(self, "vpcArn", value)
 
     @builtins.property
+    @jsii.member(jsii_name="natGatewayRules")
+    def nat_gateway_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcAttachment.NatRuleProperty"]]]]:
+        '''The complete set of NAT gateway rules on the attachment.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcAttachment.NatRuleProperty"]]]], jsii.get(self, "natGatewayRules"))
+
+    @nat_gateway_rules.setter
+    def nat_gateway_rules(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcAttachment.NatRuleProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__52d3679bb1efe3219e093b8d08aa25387968676a92f45f850a630cbd96320518)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "natGatewayRules", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="natGatewaySupport")
+    def nat_gateway_support(self) -> typing.Optional[builtins.str]:
+        '''Whether NAT gateway support is enabled on the attachment.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "natGatewaySupport"))
+
+    @nat_gateway_support.setter
+    def nat_gateway_support(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b076303d92daf72ba013338e4527049c3f116fe3953688d752b0ecf3bbf0f906)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "natGatewaySupport", value)
+
+    @builtins.property
     @jsii.member(jsii_name="options")
     def options(
         self,
@@ -8994,6 +9632,98 @@ class CfnVpcAttachment(
             type_hints = cached_type_hints(_typecheckingstub__10a9a6020f018ebc6f503414f839aac623a810484c578e3cc55c00a2aabd965f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networkmanager.CfnVpcAttachment.NatRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "match_source_cidr": "matchSourceCidr",
+            "nat_cidr": "natCidr",
+            "rule_number": "ruleNumber",
+        },
+    )
+    class NatRuleProperty:
+        def __init__(
+            self,
+            *,
+            match_source_cidr: builtins.str,
+            nat_cidr: builtins.str,
+            rule_number: jsii.Number,
+        ) -> None:
+            '''A NAT gateway rule on the attachment.
+
+            :param match_source_cidr: The IPv4 CIDR that source traffic is matched against for translation.
+            :param nat_cidr: The IPv4 CIDR that matched source traffic is translated into. Must have the same prefix length as MatchSourceCidr.
+            :param rule_number: The rule number that uniquely identifies the NAT rule on the attachment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-vpcattachment-natrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networkmanager as networkmanager
+                
+                nat_rule_property = networkmanager.CfnVpcAttachment.NatRuleProperty(
+                    match_source_cidr="matchSourceCidr",
+                    nat_cidr="natCidr",
+                    rule_number=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fd37fcbf6b64d5de897537b62f642f9717cac8b778f010f77c81729304ce4821)
+                check_type(argname="argument match_source_cidr", value=match_source_cidr, expected_type=type_hints["match_source_cidr"])
+                check_type(argname="argument nat_cidr", value=nat_cidr, expected_type=type_hints["nat_cidr"])
+                check_type(argname="argument rule_number", value=rule_number, expected_type=type_hints["rule_number"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "match_source_cidr": match_source_cidr,
+                "nat_cidr": nat_cidr,
+                "rule_number": rule_number,
+            }
+
+        @builtins.property
+        def match_source_cidr(self) -> builtins.str:
+            '''The IPv4 CIDR that source traffic is matched against for translation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-vpcattachment-natrule.html#cfn-networkmanager-vpcattachment-natrule-matchsourcecidr
+            '''
+            result = self._values.get("match_source_cidr")
+            assert result is not None, "Required property 'match_source_cidr' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def nat_cidr(self) -> builtins.str:
+            '''The IPv4 CIDR that matched source traffic is translated into.
+
+            Must have the same prefix length as MatchSourceCidr.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-vpcattachment-natrule.html#cfn-networkmanager-vpcattachment-natrule-natcidr
+            '''
+            result = self._values.get("nat_cidr")
+            assert result is not None, "Required property 'nat_cidr' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def rule_number(self) -> jsii.Number:
+            '''The rule number that uniquely identifies the NAT rule on the attachment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-vpcattachment-natrule.html#cfn-networkmanager-vpcattachment-natrule-rulenumber
+            '''
+            result = self._values.get("rule_number")
+            assert result is not None, "Required property 'rule_number' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NatRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkmanager.CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty",
@@ -9316,6 +10046,8 @@ class CfnVpcAttachment(
         "core_network_id": "coreNetworkId",
         "subnet_arns": "subnetArns",
         "vpc_arn": "vpcArn",
+        "nat_gateway_rules": "natGatewayRules",
+        "nat_gateway_support": "natGatewaySupport",
         "options": "options",
         "proposed_segment_change": "proposedSegmentChange",
         "routing_policy_label": "routingPolicyLabel",
@@ -9329,6 +10061,8 @@ class CfnVpcAttachmentProps:
         core_network_id: builtins.str,
         subnet_arns: typing.Sequence[builtins.str],
         vpc_arn: builtins.str,
+        nat_gateway_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcAttachment.NatRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        nat_gateway_support: typing.Optional[builtins.str] = None,
         options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcAttachment.VpcOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
@@ -9339,6 +10073,8 @@ class CfnVpcAttachmentProps:
         :param core_network_id: The core network ID.
         :param subnet_arns: The subnet ARNs.
         :param vpc_arn: The ARN of the VPC attachment.
+        :param nat_gateway_rules: The complete set of NAT gateway rules on the attachment. Updating this property replaces the entire rule set, and rules left out of the new value are removed. To remove all rules, specify an empty list or remove this property. NAT gateway support can't be enabled without rules, so it is then disabled unless NatGatewaySupport is specified. Only the core network owner can configure NAT gateway rules. The rules aren't returned when the attachment is read, so drift detection doesn't check them. Not available in AWS GovCloud (US).
+        :param nat_gateway_support: Whether NAT gateway support is enabled on the attachment. Required when NatGatewayRules lists rules. Set to DISABLE with NatGatewayRules to keep the rules on the attachment without translating traffic, and set it to ENABLE to activate them again. An attachment that is pending acceptance applies this setting once it is accepted. Only the core network owner can configure or read NAT gateway settings. Not available in AWS GovCloud (US).
         :param options: Options for creating the VPC attachment.
         :param proposed_segment_change: Describes a proposed segment change. In some cases, the segment change must first be evaluated and accepted.
         :param routing_policy_label: Routing policy label.
@@ -9360,6 +10096,12 @@ class CfnVpcAttachmentProps:
                 vpc_arn="vpcArn",
             
                 # the properties below are optional
+                nat_gateway_rules=[networkmanager.CfnVpcAttachment.NatRuleProperty(
+                    match_source_cidr="matchSourceCidr",
+                    nat_cidr="natCidr",
+                    rule_number=123
+                )],
+                nat_gateway_support="natGatewaySupport",
                 options=networkmanager.CfnVpcAttachment.VpcOptionsProperty(
                     appliance_mode_support=False,
                     dns_support=False,
@@ -9386,6 +10128,8 @@ class CfnVpcAttachmentProps:
             check_type(argname="argument core_network_id", value=core_network_id, expected_type=type_hints["core_network_id"])
             check_type(argname="argument subnet_arns", value=subnet_arns, expected_type=type_hints["subnet_arns"])
             check_type(argname="argument vpc_arn", value=vpc_arn, expected_type=type_hints["vpc_arn"])
+            check_type(argname="argument nat_gateway_rules", value=nat_gateway_rules, expected_type=type_hints["nat_gateway_rules"])
+            check_type(argname="argument nat_gateway_support", value=nat_gateway_support, expected_type=type_hints["nat_gateway_support"])
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
             check_type(argname="argument proposed_segment_change", value=proposed_segment_change, expected_type=type_hints["proposed_segment_change"])
             check_type(argname="argument routing_policy_label", value=routing_policy_label, expected_type=type_hints["routing_policy_label"])
@@ -9395,6 +10139,10 @@ class CfnVpcAttachmentProps:
             "subnet_arns": subnet_arns,
             "vpc_arn": vpc_arn,
         }
+        if nat_gateway_rules is not None:
+            self._values["nat_gateway_rules"] = nat_gateway_rules
+        if nat_gateway_support is not None:
+            self._values["nat_gateway_support"] = nat_gateway_support
         if options is not None:
             self._values["options"] = options
         if proposed_segment_change is not None:
@@ -9433,6 +10181,30 @@ class CfnVpcAttachmentProps:
         result = self._values.get("vpc_arn")
         assert result is not None, "Required property 'vpc_arn' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def nat_gateway_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcAttachment.NatRuleProperty"]]]]:
+        '''The complete set of NAT gateway rules on the attachment.
+
+        Updating this property replaces the entire rule set, and rules left out of the new value are removed. To remove all rules, specify an empty list or remove this property. NAT gateway support can't be enabled without rules, so it is then disabled unless NatGatewaySupport is specified. Only the core network owner can configure NAT gateway rules. The rules aren't returned when the attachment is read, so drift detection doesn't check them. Not available in AWS GovCloud (US).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-vpcattachment.html#cfn-networkmanager-vpcattachment-natgatewayrules
+        '''
+        result = self._values.get("nat_gateway_rules")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcAttachment.NatRuleProperty"]]]], result)
+
+    @builtins.property
+    def nat_gateway_support(self) -> typing.Optional[builtins.str]:
+        '''Whether NAT gateway support is enabled on the attachment.
+
+        Required when NatGatewayRules lists rules. Set to DISABLE with NatGatewayRules to keep the rules on the attachment without translating traffic, and set it to ENABLE to activate them again. An attachment that is pending acceptance applies this setting once it is accepted. Only the core network owner can configure or read NAT gateway settings. Not available in AWS GovCloud (US).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-vpcattachment.html#cfn-networkmanager-vpcattachment-natgatewaysupport
+        '''
+        result = self._values.get("nat_gateway_support")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def options(
@@ -9535,6 +10307,8 @@ def _typecheckingstub__d7415843def493b65c590878e3897c27e4c459f5d736fb5ee9738e5a1
     edge_location: builtins.str,
     options: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectAttachment.ConnectAttachmentOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
     transport_attachment_id: builtins.str,
+    nat_gateway_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectAttachment.NatRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    nat_gateway_support: typing.Optional[builtins.str] = None,
     network_function_group_name: typing.Optional[builtins.str] = None,
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
@@ -9599,6 +10373,18 @@ def _typecheckingstub__f45177b471df4bf392fc7f3cd3a02af202d007968b4b8f463eab97171
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f91f9bc21f1d7c1dc59d8a78fca0810e6aa63e99e45c1d23d9d089a5cb193be8(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnectAttachment.NatRuleProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91568fcc07f0d6a946b343041b2a27cd5d99def495dc0dbcf1db1ec43097accd(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1d4be38811824cef16f7576db94e35d0ea6676c13c9d2aadb66c5f50ea36c2f9(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -9630,6 +10416,15 @@ def _typecheckingstub__bc0fa092684fa44dd4fe83501bbb7802a95737bd2a72c5eaea2e09e6d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5fce9a60982b7d165038bcea12141c116b37055110a387c9597c9cd2621ff7be(
+    *,
+    match_source_cidr: builtins.str,
+    nat_cidr: builtins.str,
+    rule_number: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__89769d5714e04e48001d73bac8578198f44a1767121126780bf319f090209f09(
     *,
     attachment_policy_rule_number: typing.Optional[jsii.Number] = None,
@@ -9654,6 +10449,8 @@ def _typecheckingstub__7b62006d4f48143066c9708819150b6dc03f2315028ddb6bd7d7d8ecb
     edge_location: builtins.str,
     options: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectAttachment.ConnectAttachmentOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
     transport_attachment_id: builtins.str,
+    nat_gateway_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectAttachment.NatRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    nat_gateway_support: typing.Optional[builtins.str] = None,
     network_function_group_name: typing.Optional[builtins.str] = None,
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
@@ -10269,6 +11066,9 @@ def _typecheckingstub__6758e62c3c7516f470d4321acf14d6cd719d5ea18630fa2d9a55194ac
     core_network_id: builtins.str,
     direct_connect_gateway_arn: builtins.str,
     edge_locations: typing.Sequence[builtins.str],
+    nat_gateway_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectConnectGatewayAttachment.NatRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    nat_gateway_support: typing.Optional[builtins.str] = None,
+    nat_system_route_support: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -10311,6 +11111,24 @@ def _typecheckingstub__8f477d5419a55c22d192b724265bf14727227dd604c87c0d669a011b8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9bf4e7847005d2d4ab47f31fdbb67e6124521cedbf91ce61ebcba2d394ce115a(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDirectConnectGatewayAttachment.NatRuleProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__29189d3f505dcac82ec5aa9e6f1517cf8e95c3893bf587a39bfa910ab48e1e50(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a04050e5d245b215cce7992ebfc9c5bfcdb4bdff0505cdbe132dff802af23350(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5a68ad78fac0cb928f695a5bed84643519be19ccf3f984643d5ae625b25ec8d9(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -10319,6 +11137,15 @@ def _typecheckingstub__5a68ad78fac0cb928f695a5bed84643519be19ccf3f984643d5ae625b
 
 def _typecheckingstub__568e96ec93691801c923bc5845c1f0843a2c1888c0cfe666a7ab382f4622c34c(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0832ccd09b531158255fa22e4115bea2b2186ab12368225b85f4c1b8b58b44f(
+    *,
+    match_source_cidr: builtins.str,
+    nat_cidr: builtins.str,
+    rule_number: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10346,6 +11173,9 @@ def _typecheckingstub__3475ff92c365cda6e0b65a4e4998df75b2d508bbcb68c8098fd64cd1a
     core_network_id: builtins.str,
     direct_connect_gateway_arn: builtins.str,
     edge_locations: typing.Sequence[builtins.str],
+    nat_gateway_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectConnectGatewayAttachment.NatRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    nat_gateway_support: typing.Optional[builtins.str] = None,
+    nat_system_route_support: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -10366,22 +11196,6 @@ def _typecheckingstub__dcd77a1264244ecd5c8ad8fbf6038975eda0a4a49d5da9ba92306e218
 
 def _typecheckingstub__499a9bc2f78e7f8636a786fe6bc78703115f4ecdde635bc008316eede031b394(
     resource: _aws_networkmanager_440bf644.IGlobalNetworkRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__01845a25331ce4f9134bc21b523ef5b7e366dc92b44eb19cf3c0b9ce6f9818af(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a5a99863c037fe2b99c80dcaf383ff5f23ecfa9d5457eb315e9a16dd294ddc17(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    global_network_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10681,6 +11495,9 @@ def _typecheckingstub__aabf08c6f82f3c177f73a39833791562d59537dbe20329f7f5c42adbe
     *,
     core_network_id: builtins.str,
     vpn_connection_arn: builtins.str,
+    nat_gateway_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSiteToSiteVpnAttachment.NatRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    nat_gateway_support: typing.Optional[builtins.str] = None,
+    nat_system_route_support: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     network_function_group_name: typing.Optional[builtins.str] = None,
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSiteToSiteVpnAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
@@ -10719,6 +11536,24 @@ def _typecheckingstub__fde85f146ddbfe5918124ff34f04b28072bbe0389091946f95c9fe8cd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__722270f724710889418bc9d35f3db055ed5edd8dd68da2503664c97a05dd09ab(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSiteToSiteVpnAttachment.NatRuleProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45827efd0409a1bd4172f20c17e2aa38409d9c3e1e795914188eb5e86e5102df(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a19f2d9cc36017f18075486d33170f2e83a7e234ad0e2462ad42f97e900bb93a(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d05a80c421708badd8d8e7880b7656cca7f73e2d563fc42313752e56912b35ba(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -10739,6 +11574,15 @@ def _typecheckingstub__e763f0c4e1e7314bc1f549a5e1489e09001772a45a9eb183c49165046
 
 def _typecheckingstub__fedbd82359a7000ba160b74b2d678e59cb496867f32af82ab2500c7e1a61da46(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9c9cf04772e902711ce9de965cfe6a5ecff7ce813399f3a3c5e11d063f63ae4(
+    *,
+    match_source_cidr: builtins.str,
+    nat_cidr: builtins.str,
+    rule_number: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10765,6 +11609,9 @@ def _typecheckingstub__113def3967f836e31386ebfbfb261bf671b49bfa26918b1a903a38605
     *,
     core_network_id: builtins.str,
     vpn_connection_arn: builtins.str,
+    nat_gateway_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSiteToSiteVpnAttachment.NatRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    nat_gateway_support: typing.Optional[builtins.str] = None,
+    nat_system_route_support: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     network_function_group_name: typing.Optional[builtins.str] = None,
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSiteToSiteVpnAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
@@ -10982,6 +11829,8 @@ def _typecheckingstub__962ef8273d6d2d97a33b00603b7bf87793fdecfaae4031352d9cbc1bc
     core_network_id: builtins.str,
     subnet_arns: typing.Sequence[builtins.str],
     vpc_arn: builtins.str,
+    nat_gateway_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcAttachment.NatRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    nat_gateway_support: typing.Optional[builtins.str] = None,
     options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcAttachment.VpcOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
@@ -11040,6 +11889,18 @@ def _typecheckingstub__292ee8d1f17d2877219f1e655a187015b2e1a10520732d288dbc03f19
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__52d3679bb1efe3219e093b8d08aa25387968676a92f45f850a630cbd96320518(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnVpcAttachment.NatRuleProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b076303d92daf72ba013338e4527049c3f116fe3953688d752b0ecf3bbf0f906(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4df78b42bf8dafd3f4ef447404aa6d3bb210d4de6d8c8238c7b7509fee4e6dc1(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnVpcAttachment.VpcOptionsProperty]],
 ) -> None:
@@ -11060,6 +11921,15 @@ def _typecheckingstub__91592f00e99a105af296f419454db20179b6ba59d9ac7c2237df42c01
 
 def _typecheckingstub__10a9a6020f018ebc6f503414f839aac623a810484c578e3cc55c00a2aabd965f(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fd37fcbf6b64d5de897537b62f642f9717cac8b778f010f77c81729304ce4821(
+    *,
+    match_source_cidr: builtins.str,
+    nat_cidr: builtins.str,
+    rule_number: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11097,6 +11967,8 @@ def _typecheckingstub__12d5c20c6145e2cfb5336d480d3ded8850bc2ee5b31fe21ab1b44a90d
     core_network_id: builtins.str,
     subnet_arns: typing.Sequence[builtins.str],
     vpc_arn: builtins.str,
+    nat_gateway_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcAttachment.NatRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    nat_gateway_support: typing.Optional[builtins.str] = None,
     options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcAttachment.VpcOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,

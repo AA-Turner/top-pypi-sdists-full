@@ -17,6 +17,7 @@ def _get_kwargs(
     invisible_to_owner: Union[Unset, None, bool] = UNSET,
     job_id: Union[Unset, None, str] = UNSET,
     memory_id: Union[Unset, None, str] = UNSET,
+    take_over: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -28,6 +29,8 @@ def _get_kwargs(
     params["job_id"] = job_id
 
     params["memory_id"] = memory_id
+
+    params["take_over"] = take_over
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -70,6 +73,7 @@ def sync_detailed(
     invisible_to_owner: Union[Unset, None, bool] = UNSET,
     job_id: Union[Unset, None, str] = UNSET,
     memory_id: Union[Unset, None, str] = UNSET,
+    take_over: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """run flow preview
 
@@ -79,6 +83,7 @@ def sync_detailed(
         invisible_to_owner (Union[Unset, None, bool]):
         job_id (Union[Unset, None, str]):
         memory_id (Union[Unset, None, str]):
+        take_over (Union[Unset, None, bool]):
         json_body (RunFlowPreviewJsonBody):
 
     Raises:
@@ -96,6 +101,7 @@ def sync_detailed(
         invisible_to_owner=invisible_to_owner,
         job_id=job_id,
         memory_id=memory_id,
+        take_over=take_over,
     )
 
     response = client.get_httpx_client().request(
@@ -114,6 +120,7 @@ async def asyncio_detailed(
     invisible_to_owner: Union[Unset, None, bool] = UNSET,
     job_id: Union[Unset, None, str] = UNSET,
     memory_id: Union[Unset, None, str] = UNSET,
+    take_over: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """run flow preview
 
@@ -123,6 +130,7 @@ async def asyncio_detailed(
         invisible_to_owner (Union[Unset, None, bool]):
         job_id (Union[Unset, None, str]):
         memory_id (Union[Unset, None, str]):
+        take_over (Union[Unset, None, bool]):
         json_body (RunFlowPreviewJsonBody):
 
     Raises:
@@ -140,6 +148,7 @@ async def asyncio_detailed(
         invisible_to_owner=invisible_to_owner,
         job_id=job_id,
         memory_id=memory_id,
+        take_over=take_over,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)

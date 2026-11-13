@@ -138,6 +138,14 @@ class GrpcClient:
                 "grpc.http2.initial_window_size",
                 config.GRPC_CLIENT_HTTP2_INITIAL_WINDOW_SIZE,
             ),
+            # The core runs next to the API, so retry a lost connection fast:
+            # gRPC's default backoff grows toward two minutes, which kept API
+            # pods failing for up to 90 seconds after a core restart that took
+            # seconds. Leave grpc.min_reconnect_backoff_ms alone: gRPC uses it
+            # as the minimum connect timeout (20 s), not as a floor between
+            # retries.
+            ("grpc.initial_reconnect_backoff_ms", 100),
+            ("grpc.max_reconnect_backoff_ms", 1000),
         ]
 
         self._channel = aio.insecure_channel(

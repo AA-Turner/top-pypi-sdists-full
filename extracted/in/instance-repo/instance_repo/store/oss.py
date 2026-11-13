@@ -901,6 +901,48 @@ class OssContentStore(BaseContentStore):
         return self._execute_oss(
             _OperationIntent.NON_DOWNLOAD, prefix, dataset, put_instance)
 
+    def verify_upload(self, dataset: str, version: str, instance_id: str, split: str,
+                      local_archive: Path, *, expected_digest: str, layout=None) -> None:
+        """Verify upload integrity, including pre-existing skipped bytes.
+
+        Built-in buckets compare server CRC64/XZ and size without body downloads.
+        Legacy injected buckets without HEAD use the existing private-only readback.
+        Missing server checksums fail closed; caller can overwrite legacy objects.
+        """
+        from .._upload_integrity import crc64_file
+        size, checksum, digest = crc64_file(local_archive)
+        if digest != expected_digest:
+            raise DigestMismatch("local multi-step archive changed before verification")
+        prefix, tgz_key, idx_key = _instance_keys(
+            layout, dataset, version, instance_id, split)
+
+        def verify(bucket):
+            head_object = getattr(bucket, "head_object", None)
+            if not callable(head_object):
+                return False  # Legacy injected buckets retain private readback.
+            head = head_object(tgz_key)
+            headers = {key.lower(): str(value) for key, value in head.headers.items()}
+            crc = headers.get("x-oss-hash-crc64ecma", "")
+            length = headers.get("content-length", "")
+            if (len(crc) > 20 or not crc.isascii() or not crc.isdecimal() or int(crc) >= 1 << 64
+                    or len(length) > 19 or not length.isascii() or not length.isdecimal()
+                    or int(length) >= 1 << 63):
+                raise TransportError("OSS upload verification requires server CRC64 and size; "
+                                     "overwrite legacy objects or check the OSS backend")
+            if int(crc) != checksum or int(length) != size:
+                raise DigestMismatch("multi-step archive differs from local bytes (OSS CRC64/size)")
+            if not bucket.object_exists(idx_key):
+                raise TransportError("multi-step metadata is missing after delivery")
+            return True
+
+        if not self._execute_oss(_OperationIntent.NON_DOWNLOAD, prefix, dataset, verify):
+            import tempfile
+            with tempfile.TemporaryDirectory(prefix="irepo_verify_") as temporary:
+                self.get(dataset, version, instance_id, split, Path(temporary) / "readback.tgz",
+                         expected_digest=expected_digest, layout=layout)
+            if not self.exists(instance_id, dataset, version, split, layout=layout):
+                raise TransportError("multi-step metadata is missing after delivery")
+
     def get(self, dataset: str, version: str, instance_id: str, split: str,
             dest: Path, *, expected_digest: str | None = None,
             layout=None) -> Path:

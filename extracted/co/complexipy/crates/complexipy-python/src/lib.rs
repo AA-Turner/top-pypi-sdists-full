@@ -64,7 +64,8 @@ mod host {
 #[cfg(any(
     target_os = "macos",
     target_os = "windows",
-    all(target_os = "linux", target_arch = "x86_64")
+    all(target_os = "linux", target_arch = "x86_64"),
+    all(target_os = "linux", target_arch = "aarch64", target_env = "musl")
 ))]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -146,8 +147,8 @@ mod _complexipy {
     use super::py_diff::DiffEntry;
 
     use complexipy_core::classes::{
-        CodeComplexity, CodeSuggestion, FileComplexity, FunctionComplexity, IgnoredLocation,
-        LineComplexity, RefactorPlan, RemovableIgnore,
+        CodeComplexity, CodeInsertion, CodeSuggestion, FileComplexity, FunctionComplexity,
+        IgnoredLocation, LineComplexity, RefactorPlan, RemovableIgnore,
     };
     use complexipy_core::{AnalysisOptions, RuleSet};
 
@@ -326,6 +327,7 @@ mod _complexipy {
         m.add_function(wrap_pyfunction!(has_regressions, m)?)?;
         m.add_class::<DiffEntry>()?;
         m.add_class::<CodeComplexity>()?;
+        m.add_class::<CodeInsertion>()?;
         m.add_class::<CodeSuggestion>()?;
         m.add_class::<FileComplexity>()?;
         m.add_class::<FunctionComplexity>()?;

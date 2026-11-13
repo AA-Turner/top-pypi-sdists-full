@@ -1,0 +1,113 @@
+"""One optimizer update's (or eval pass's) own record, at three levels (the whole pass, a rank, a micro-batch), each
+declaring what the level below should hold, so a missing rank, micro-batch or row shows instead of hiding in a total."""
+
+from __future__ import annotations
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from ....compat import StrEnum
+from ..outcome import SampleSplit
+from .points import Dtype, LossRole, PointKey
+
+#: Batch-only terms, update metrics and series denominators one record carries.
+MAX_UPDATE_TERMS = 64
+MAX_UPDATE_METRICS = 256
+MAX_REDUCTION_CHARS = 128
+MAX_SKIPPED_REASON_CHARS = 512
+MAX_PADDING_MICRO_BATCHES = 4096
+
+
+class UpdateLevel(StrEnum):
+    """Which part of the update (or eval pass) a record speaks for."""
+
+    UPDATE = "update"  # the whole update or eval pass, sent once (rank 0)
+    RANK = "rank"  # one data-parallel rank's share
+    MICRO_BATCH = "micro_batch"  # one micro-batch (call) of one rank
+
+
+#: The fields each level may carry (beside the identity).
+LEVEL_FIELDS: dict[UpdateLevel, frozenset[str]] = {
+    UpdateLevel.UPDATE: frozenset({
+        "ranks_expected", "updates_in_step", "reduction", "reported_loss", "batch_terms", "applied", "skipped_reason",
+        "weights_version", "optimizer_step", "metrics", "scale", "normalizer", "denominators", "dtype",
+    }),
+    UpdateLevel.RANK: frozenset({"micro_batches_expected", "rows_expected", "padding_micro_batches", "padding_rows"}),
+    UpdateLevel.MICRO_BATCH: frozenset({"reported_loss", "batch_terms", "scale", "normalizer", "rows"}),
+}  # fmt: skip
+_IDENTITY = frozenset({"step", "update", "eval_pass", "split", "role", "level", "rank", "micro_batch"})
+
+
+class UpdateIn(BaseModel):
+    """One level of one optimizer update (train: `update` set) or eval pass (`split` eval, `eval_pass` set, no update)
+    of a step. lr, gradient norm and anything else the update has go in `metrics` (never copied onto samples);
+    `batch_terms` are the loss terms no sample owns (a KL to a reference batch, an auxiliary loss)."""
+
+    model_config = ConfigDict(allow_inf_nan=False)
+
+    step: int = Field(ge=0)
+    update: int | None = Field(default=None, ge=0)
+    eval_pass: int | None = Field(default=None, ge=0)
+    split: SampleSplit = SampleSplit.TRAIN
+    #: The model this update trains (a critic's updates are its own, beside the actor's at the same step).
+    role: LossRole = LossRole.ACTOR
+    level: UpdateLevel
+    rank: int = Field(default=0, ge=0)
+    #: The call ordinal every process shares within the update.
+    micro_batch: int | None = Field(default=None, ge=0)
+    # The whole update.
+    ranks_expected: int | None = Field(default=None, ge=1)
+    updates_in_step: int | None = Field(default=None, ge=1)
+    #: The framework's own reduction setting, as text (`token-mean`, `seq-mean-token-sum`, `dapo`): a label.
+    reduction: str | None = Field(default=None, min_length=1, max_length=MAX_REDUCTION_CHARS)
+    #: The loss the framework reported for this level (the whole update's, or the micro-batch's the hook saw).
+    reported_loss: float | None = None
+    batch_terms: dict[PointKey, float] | None = Field(default=None, max_length=MAX_UPDATE_TERMS)
+    #: From the framework's own skip flag (TRL `optimizer_step_was_skipped`, Miles `valid_step`) or a non-finite
+    #: gradient norm: false when it skipped the optimizer step, with why.
+    applied: bool | None = None
+    skipped_reason: str | None = Field(default=None, min_length=1, max_length=MAX_SKIPPED_REASON_CHARS)
+    weights_version: int | None = Field(default=None, ge=0)
+    #: The optimizer's own counter (AdamW `state["step"]`).
+    optimizer_step: int | None = Field(default=None, ge=0)
+    metrics: dict[PointKey, float] | None = Field(default=None, max_length=MAX_UPDATE_METRICS)
+    #: Per key, what the framework divides the pass's sum(value x weight) by when it is not the sum of the rows'
+    #: weights (Miles: its rollouts, a fully masked sample counting 1): the trainer check uses it.
+    denominators: dict[PointKey, float] | None = Field(default=None, max_length=MAX_UPDATE_METRICS)
+    #: The precision the reported loss was computed in: the shard check's tolerance.
+    dtype: Dtype | None = None
+    # A rank.
+    micro_batches_expected: int | None = Field(default=None, ge=1)
+    rows_expected: int | None = Field(default=None, ge=0)
+    #: Micro-batches (counted in `micro_batches_expected`) that hold no rows but count in the framework's averages.
+    padding_micro_batches: list[int] | None = Field(default=None, max_length=MAX_PADDING_MICRO_BATCHES)
+    #: Data-parallel padding rows that copy another row's identity: never stored as rows, counted here.
+    padding_rows: int | None = Field(default=None, ge=0)
+    # A micro-batch, or the whole pass: the normalizer and scale rows whose contribution is None are divided by.
+    scale: float | None = None
+    normalizer: float | None = None
+    rows: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def _check(self) -> UpdateIn:
+        allowed = LEVEL_FIELDS[self.level] | _IDENTITY
+        stray = sorted(name for name in self.model_fields_set - allowed if getattr(self, name) is not None)
+        if stray:
+            raise ValueError(f"a {self.level.value} record does not carry {', '.join(stray)}")
+        if self.split is SampleSplit.TRAIN and (self.update is None or self.eval_pass is not None):
+            raise ValueError("a train record names its update (an eval pass is split eval with an eval_pass)")
+        if self.split is not SampleSplit.TRAIN and (self.update is not None or self.eval_pass is None):
+            raise ValueError("an eval pass's record names its eval_pass and no update")
+        if (self.level is UpdateLevel.MICRO_BATCH) != (self.micro_batch is not None):
+            raise ValueError("micro_batch is set on a micro_batch record and only there")
+        if self.level is UpdateLevel.UPDATE and self.rank != 0:
+            raise ValueError("the whole update's record is rank 0's")
+        if self.skipped_reason is not None and self.applied is not False:
+            raise ValueError("skipped_reason goes with applied=false")
+        if any(value <= 0 for value in (self.denominators or {}).values()):
+            raise ValueError("a series denominator is positive")
+        return self
+
+    @property
+    def pass_index(self) -> int:
+        """The update (train) or eval pass (eval) this record speaks for."""
+        return self.update if self.update is not None else self.eval_pass  # type: ignore[return-value]

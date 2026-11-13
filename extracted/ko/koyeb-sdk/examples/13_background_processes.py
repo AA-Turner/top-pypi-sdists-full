@@ -35,9 +35,10 @@ def main():
         )
         print(f"Launched process 1: {process_id_1}")
 
-        # Launch another process with a different command
+        # Launch another process with a different command; it outlives the
+        # round trips below, so it is still running when it gets killed
         process_id_2 = sandbox.launch_process(
-            "python3 -c 'import time; [print(f\"Process 2: {i}\") or time.sleep(1) for i in range(5)]'"
+            "python3 -c 'import time; [print(f\"Process 2: {i}\") or time.sleep(1) for i in range(60)]'"
         )
         print(f"Launched process 2: {process_id_2}")
 
@@ -75,8 +76,8 @@ def main():
             print()
 
         # Launch a few more processes
-        process_id_3 = sandbox.launch_process("sleep 5")
-        process_id_4 = sandbox.launch_process("sleep 5")
+        process_id_3 = sandbox.launch_process("sleep 60")
+        process_id_4 = sandbox.launch_process("sleep 60")
         print(f"Launched processes 3 and 4: {process_id_3}, {process_id_4}")
 
         # Wait a bit

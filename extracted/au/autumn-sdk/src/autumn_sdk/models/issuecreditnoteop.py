@@ -18,7 +18,7 @@ class IssueCreditNoteGlobals(BaseModel):
         Optional[str],
         pydantic.Field(alias="x-api-version"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
-    ] = "2.5.0"
+    ] = "2.6.0"
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -73,7 +73,7 @@ class LineRequest(BaseModel):
         return m
 
 
-Destination = Literal[
+IssueCreditNoteDestination = Literal[
     "customer_balance",
     "refund",
     "out_of_band",
@@ -97,7 +97,7 @@ class IssueCreditNoteParamsTypedDict(TypedDict):
     r"""Total to credit across the whole invoice. Cannot be combined with lines."""
     lines: NotRequired[List[LineRequestTypedDict]]
     r"""Credit specific invoice lines instead of a flat amount. Cannot be combined with amount. Unavailable on invoices recorded before line item storage."""
-    destination: NotRequired[Destination]
+    destination: NotRequired[IssueCreditNoteDestination]
     r"""Where already-paid money goes. customer_balance credits the customer's balance for their next invoice, refund returns it to the original payment method, and out_of_band records money returned outside Stripe."""
     send_email: NotRequired[bool]
     r"""Email the credit note to the customer."""
@@ -119,7 +119,7 @@ class IssueCreditNoteParams(BaseModel):
     lines: Optional[List[LineRequest]] = None
     r"""Credit specific invoice lines instead of a flat amount. Cannot be combined with amount. Unavailable on invoices recorded before line item storage."""
 
-    destination: Optional[Destination] = "customer_balance"
+    destination: Optional[IssueCreditNoteDestination] = "customer_balance"
     r"""Where already-paid money goes. customer_balance credits the customer's balance for their next invoice, refund returns it to the original payment method, and out_of_band records money returned outside Stripe."""
 
     send_email: Optional[bool] = True

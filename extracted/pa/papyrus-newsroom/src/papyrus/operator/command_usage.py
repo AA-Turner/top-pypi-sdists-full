@@ -129,6 +129,11 @@ _ENTRIES = dict([
   _e("stories retire", "Take a Story down and redirect every address it was served at (301) to another published Story; --undo restores it.",
      "--story LINEAGE|ID (--redirect-to LINEAGE|ID | --undo) [--no-trigger] [--dry-run]  (refuses an unpublished, missing, same or retired target; nothing is deleted)",
      "both", _DRY, "publish"),
+  _e("stories schedule", "Publish a Story's newest version at a chosen time (once, by the normal publish path), or remove its schedule.",
+     "--story LINEAGE (--at TIME | --clear) [--item VERSION_ID] [--json] [--dry-run]  (TIME: 2026-11-13 09:00 is read in the publication's time zone, 2026-11-13T09:00:00-05:00 or ...Z is exact; "
+     "a time that does not exist there is refused and one that happens twice asks for the offset; needs publication.timeZone in the site's backend settings)", "editor", _DRY, "publish"),
+  _e("stories schedule-list", "List the scheduled, overdue and blocked versions soonest first, of one Story or of the site between two times.",
+     "[--story LINEAGE] [--from TIME] [--to TIME] [--state scheduled|publishing|blocked|overdue ...] [--json]", "editor", "reads", "publish"),
   _e("stories set-stars", "Rate a Story as the signed-in person.", "--story LINEAGE --stars 0-5 [--agent YOUR_NAME] [--dry-run]  (0 clears the rating)", "editor", _DRY, "tag-and-link"),
   _e("stories link-concept", "Tag a Story with existing accepted concepts (edge tagged_with); never creates a concept.",
      "--story LINEAGE|SLUG --concept NAME|#HASHTAG|NODEKEY [--concept ...] [--note TEXT] [--author-label NAME] [--dry-run] [--json]", "both", _DRY, "tag-and-link"),
@@ -161,6 +166,8 @@ _ENTRIES = dict([
   _e("stories repair-versions", "Repair a Story's version records.", "--story LINEAGE [--dry-run]", "operator", _DRY, ""),
   _e("stories head-index", "Fill in and check the head stage key (one row per Story in the head stage index). A dry run unless --apply.",
      "[--apply] [--dry-run] [--stage STAGE ...] [--rate N]  (a dry run unless --apply; --rate is writes a second, default 5)", "both", "apply", ""),
+  _e("stories backfill-published-dates", "Give published Stories their first publication time and the served version's publish time, from what their versions recorded. A dry run unless --apply.",
+     "[--apply] [--dry-run] [--rate N]  (a dry run unless --apply; --rate is writes a second, default 5)", "both", "apply", ""),
   _e("stories repair-image-paths", "Repair image paths in a Story's versions. Read only unless you pass --write.", "--story LINEAGE [--write] [--bucket B] [--identity-pool-id ID]", "operator", "reads", ""),
   # ---- knowledge --------------------------------------------------------------------------------------------------
   _e("knowledge concepts search", "Find accepted concepts by meaning (name matches first, duplicates flagged). Free text needs OPENAI_API_KEY in this shell.",
@@ -184,7 +191,7 @@ _ENTRIES = dict([
   _e("knowledge entities add", "Create an accepted concept (or find it), add its aliases, and tag Disambiguation when a name is ambiguous across kinds. Refuses a duplicate of an accepted concept.",
      "--kind KIND --name NAME [--alias A ...] --actor ai|human [--actor-name N] [--corpus-key K | --corpus-id ID] [--dry-run]  (repeat --alias for each other name)", "operator", _DRY, "tag-and-link"),
   _e("knowledge entities merge", "Merge a duplicate concept into the one that stays: its names become aliases, its mentions and relations move, it is superseded.",
-     "--from KEY --into KEY --actor ai|human [--actor-name N] [--dry-run]  (afterwards: entities registry, snapshot, wiki sync --retire)", "operator", _DRY, "tag-and-link"),
+     "--from KEY --into KEY --actor ai|human [--actor-name N] [--dry-run]  (afterwards: entities registry, snapshot, wiki sync)", "operator", _DRY, "tag-and-link"),
   _e("knowledge entities duplicates", "List the pairs of accepted concepts in which one duplicates the other, with the rule and the merge command. Read only.",
      "[--kind KIND] [--json]", "operator", "reads", "tag-and-link"),
   _e("knowledge entities registry", "Write the entity registry JSON for `knowledge extract-entities --registry`.", "--out FILE [--vocabulary FILE]", "operator", "reads", ""),
@@ -256,7 +263,7 @@ _ENTRIES = dict([
      "writes SLUG.png, SLUG.dark.png and SLUG.figure.json next to the figure, or into --out for one figure; --check-only writes nothing; exits 1 when any figure has a problem)",
      "both", "local", "figures"),
   _e("figures directive", "Print the ::image{} line for a figure's Story, from its figure.json.", "FOLDER", "both", "reads", "figures"),
-  _e("figures rules", "Print the general figure rules every site follows (light and dark are both mandatory).", "", "both", "reads", "figures"),
+  _e("figures rules", "Print the figure rules of the signed-in site (its own text when it saved figure rules with papyrus guidelines save --kind figure-rules, otherwise the general rules, where light and dark are both mandatory); --packaged prints the general rules only.", "[--packaged]", "both", "reads", "figures"),
   _e("figures primitives", "Print the shape library (glyphs, arrowhead, patterns) every figure can use.", "", "both", "reads", "figures"),
   # ---- design-system (the site's tokens, fonts, mapping and worked examples, kept in the backend) ----------------------
   _e("design-system show", "Show the design system the signed-in site stores: its version, roles, fonts, worked examples and figure settings (or that it has none).",
@@ -329,7 +336,7 @@ def _drafted(path: str) -> Usage | None:
 
 GROUP_ORDER = {
   "references": ["search", "list", "show", "text", "make-catalog", "create-from-catalog", "link-concept", "link", "set-stars", "check-links", "approve", "reject", "suggest-links"],
-  "stories": ["list", "show", "create", "save-version", "move", "set-slug", "retire", "set-stars", "link-concept", "link-story", "link-reference", "suggest-links",
+  "stories": ["list", "show", "create", "save-version", "move", "set-slug", "retire", "schedule", "schedule-list", "set-stars", "link-concept", "link-story", "link-reference", "suggest-links",
               "check-links", "lens-check", "next", "step", "versions", "note", "agent-note"],
   "knowledge": ["concepts", "entities", "query"],
   "knowledge concepts": ["search", "related"],

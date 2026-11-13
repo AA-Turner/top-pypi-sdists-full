@@ -1,12 +1,13 @@
 from ..service import Service
 from urllib.parse import quote
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Type, TypeVar
 from ..exception import AppwriteException
 from appwrite_console.utils.deprecated import deprecated
 from ..models.project import Project as ProjectModel
 from ..enums.project_auth_method_id import ProjectAuthMethodId
-from ..models.project_list import ProjectList
+from ..models.environment_list import EnvironmentList
 from ..enums.environment_resource import EnvironmentResource
+from ..models.environment import Environment
 from ..models.key_list import KeyList
 from ..enums.project_key_scopes import ProjectKeyScopes
 from ..models.key import Key
@@ -47,6 +48,7 @@ from ..models.o_auth2_kick import OAuth2Kick
 from ..models.o_auth2_linkedin import OAuth2Linkedin
 from ..enums.project_o_auth2_microsoft_prompt import ProjectOAuth2MicrosoftPrompt
 from ..models.o_auth2_microsoft import OAuth2Microsoft
+from ..models.o_auth2_naver import OAuth2Naver
 from ..models.o_auth2_notion import OAuth2Notion
 from ..enums.project_o_auth2_oidc_prompt import ProjectOAuth2OidcPrompt
 from ..models.o_auth2_oidc import OAuth2Oidc
@@ -63,6 +65,7 @@ from ..models.o_auth2_stripe import OAuth2Stripe
 from ..models.o_auth2_tik_tok import OAuth2TikTok
 from ..models.o_auth2_tradeshift import OAuth2Tradeshift
 from ..models.o_auth2_twitch import OAuth2Twitch
+from ..models.o_auth2_vipps import OAuth2Vipps
 from ..models.o_auth2_webflow import OAuth2Webflow
 from ..models.o_auth2_word_press import OAuth2WordPress
 from ..models.o_auth2_x import OAuth2X
@@ -99,6 +102,8 @@ from ..models.policy_deny_free_email import PolicyDenyFreeEmail
 from ..models.policy_deny_corporate_email import PolicyDenyCorporateEmail
 from ..models.policy_deny_realtime_guests import PolicyDenyRealtimeGuests
 from ..models.policy_passkey import PolicyPasskey
+from ..models.policy_account_devices import PolicyAccountDevices
+from ..models.preferences import Preferences
 from ..enums.project_protocol_id import ProjectProtocolId
 from ..enums.project_service_id import ProjectServiceId
 from ..enums.project_smtp_secure import ProjectSMTPSecure
@@ -109,6 +114,8 @@ from ..models.email_template import EmailTemplate
 from ..models.variable_list import VariableList
 from ..models.variable import Variable
 
+T = TypeVar('T')
+
 
 class Project(Service):
 
@@ -117,12 +124,19 @@ class Project(Service):
 
     def get(
         self,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Get a project.
+
+        Parameters
+        ----------
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -144,7 +158,7 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def delete(
         self,
@@ -182,7 +196,8 @@ class Project(Service):
         self,
         method_id: ProjectAuthMethodId,
         enabled: bool,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Update properties of a specific auth method. Use this endpoint to enable or disable a method in your project.
 
@@ -192,9 +207,12 @@ class Project(Service):
             Auth Method ID. Possible values: email-password,magic-url,email-otp,anonymous,invites,jwt,phone,passkey
         enabled : bool
             Auth method status.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -223,25 +241,25 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def list_environments(
         self,
         queries: Optional[List[str]] = None,
         total: Optional[bool] = None,
-    ) -> ProjectList:
+    ) -> EnvironmentList:
         """
-        Get a list of all environments of the project. You can use the query params to filter your results.
+        Get a list of all environments of the project. You can use the query params to filter your results. An environment is listed by its ID, the one passed in the `X-Appwrite-Environment` header to act in it.
 
         Parameters
         ----------
         queries : Optional[List[str]]
-            Array of query strings generated using the Query class provided by the SDK. [Learn more about queries](https://appwrite.io/docs/queries). Maximum of 100 queries are allowed, each 4096 characters long. You may filter on the following attributes: name, teamId, labels, search, accessedAt, status, parentId
+            Array of query strings generated using the Query class provided by the SDK. [Learn more about queries](https://appwrite.io/docs/queries). Maximum of 100 queries are allowed, each 4096 characters long. You may filter on the following attributes: $id, name, search
         total : Optional[bool]
             When set to false, the total count returned will be 0 and will not be calculated.
         Returns
         -------
-        ProjectList
+        EnvironmentList
             API response as a typed Pydantic model
 
         Raises
@@ -267,30 +285,30 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectList)
+        return self._parse_response(response, model=EnvironmentList)
 
     def create_environment(
         self,
         environment_id: str,
         name: str,
         resources: Optional[List[EnvironmentResource]] = None,
-    ) -> ProjectModel:
+    ) -> Environment:
         """
-        Create a new environment of the project. An environment is a separate project in the same organization and region, with its own resources and users. Its usage is billed under the project it belongs to.
+        Create a new environment of the project. An environment is a separate project in the same organization and region, with its own resources and users. Its usage is billed under the project it belongs to. Requests act in the environment when they carry the project's ID in the `X-Appwrite-Project` header and the environment's ID in the `X-Appwrite-Environment` header; the environment has no project ID of its own to pass.
 
         Pass `resources` to copy the project into the environment. The environment is returned at once and the copy runs as a migration of the environment, listed by its migrations routes and announced on its `migrations.*` realtime events; a resource whose ID can be chosen keeps it. Users are copied newest first and at most 90 of them, so the environment keeps room under its limit of 100 users for test accounts, and the memberships of users left behind are not copied.
 
         Parameters
         ----------
         environment_id : str
-            Unique Id. Choose a custom ID or generate a random ID with `ID.unique()`. Valid chars are a-z, and hyphen. Can't start with a special char. Max length is 36 chars.
+            Environment ID, unique within the project and passed in the `X-Appwrite-Environment` header to act in the environment. Choose a custom ID such as `staging`, or generate a random ID with `ID.unique()`. Valid chars are a-z, 0-9, and hyphen. Can't start with a special char. Max length is 36 chars.
         name : str
             Environment name. Max length: 128 chars.
         resources : Optional[List[EnvironmentResource]]
             Resources to copy from the project into the environment, by type. A structural type such as `database`, `table`, `column`, `index`, `bucket`, `team`, `function` or `site` copies the structure and its settings; `row`, `file`, `user`, `membership`, `deployment` and `site-deployment` copy what it holds. A function or site is copied with its active deployment; add `deployment` or `site-deployment` to copy every deployment. Users are copied newest first and at most 90 of them, leaving room under the limit of 100 users of an environment for test accounts; the memberships of users left behind are not copied. Leave empty for an empty environment. Maximum of 100 types.
         Returns
         -------
-        ProjectModel
+        Environment
             API response as a typed Pydantic model
 
         Raises
@@ -321,22 +339,22 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return self._parse_response(response, model=Environment)
 
     def get_environment(
         self,
         environment_id: str,
-    ) -> ProjectModel:
+    ) -> Environment:
         """
-        Get an environment of the project by its unique ID.
+        Get an environment of the project by its ID, the one passed in the `X-Appwrite-Environment` header to act in it.
 
         Parameters
         ----------
         environment_id : str
-            Environment unique ID.
+            Environment ID.
         Returns
         -------
-        ProjectModel
+        Environment
             API response as a typed Pydantic model
 
         Raises
@@ -361,25 +379,25 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return self._parse_response(response, model=Environment)
 
     def update_environment(
         self,
         environment_id: str,
         name: str,
-    ) -> ProjectModel:
+    ) -> Environment:
         """
-        Update the name of an environment of the project.
+        Update the name of an environment of the project. The environment ID cannot be changed.
 
         Parameters
         ----------
         environment_id : str
-            Environment unique ID.
+            Environment ID.
         name : str
             Environment name. Max length: 128 chars.
         Returns
         -------
-        ProjectModel
+        Environment
             API response as a typed Pydantic model
 
         Raises
@@ -408,7 +426,7 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return self._parse_response(response, model=Environment)
 
     def delete_environment(
         self,
@@ -420,7 +438,7 @@ class Project(Service):
         Parameters
         ----------
         environment_id : str
-            Environment unique ID.
+            Environment ID.
         Returns
         -------
         Dict[str, Any]
@@ -756,7 +774,8 @@ class Project(Service):
     def update_labels(
         self,
         labels: List[str],
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Update the project labels. Labels can be used to easily filter projects in an organization.
 
@@ -764,9 +783,12 @@ class Project(Service):
         ----------
         labels : List[str]
             Array of project labels. Replaces the previous labels. Maximum of 1000 labels are allowed, each up to 36 alphanumeric characters long.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -792,7 +814,7 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def list_mock_phones(
         self,
@@ -1075,7 +1097,8 @@ class Project(Service):
         device_code_duration: Optional[float] = None,
         default_scopes: Optional[List[str]] = None,
         installation_scopes: Optional[List[str]] = None,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Update the OAuth2 server (OIDC provider) configuration.
 
@@ -1113,9 +1136,12 @@ class Project(Service):
             List of OAuth2 scopes used when an authorization request omits the scope parameter. Every default scope must also be allowed by the OAuth2 server. Maximum of 100 scopes are allowed, each up to 128 characters long.
         installation_scopes : Optional[List[str]]
             List of scopes an application may request when installed on a team. Omitting the parameter clears the list, so no installation scopes can be granted. Maximum of 100 scopes are allowed, each up to 128 characters long.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -1172,7 +1198,7 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_o_auth2_amazon(
         self,
@@ -2619,6 +2645,56 @@ class Project(Service):
 
         return self._parse_response(response, model=OAuth2Microsoft)
 
+    def update_o_auth2_naver(
+        self,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
+        enabled: Optional[bool] = None,
+    ) -> OAuth2Naver:
+        """
+        Update the project OAuth2 Naver configuration.
+
+        Parameters
+        ----------
+        client_id : Optional[str]
+            'Client ID' of Naver OAuth2 app. For example: jK8pQ0000000000000Zv
+        client_secret : Optional[str]
+            'Client Secret' of Naver OAuth2 app. For example: 9f42A0000000000c1dEb. Find it under Application > My Applications, on the overview of your app
+        enabled : Optional[bool]
+            OAuth2 sign-in method status. Set to true to enable new session creation. Setting to true will trigger end-to-end credentials validation, and will throw if the credentials are invalid.
+        Returns
+        -------
+        OAuth2Naver
+            API response as a typed Pydantic model
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/project/oauth2/naver'
+        api_params = {}
+        if client_id is not None:
+            api_params['clientId'] = self._normalize_value(client_id)
+        if client_secret is not None:
+            api_params['clientSecret'] = self._normalize_value(client_secret)
+        if enabled is not None:
+            api_params['enabled'] = self._normalize_value(enabled)
+
+        response = self.client.call(
+            'patch',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'content-type': 'application/json',
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return self._parse_response(response, model=OAuth2Naver)
+
     def update_o_auth2_notion(
         self,
         oauth_client_id: Optional[str] = None,
@@ -3419,6 +3495,106 @@ class Project(Service):
 
         return self._parse_response(response, model=OAuth2Twitch)
 
+    def update_o_auth2_vipps(
+        self,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
+        enabled: Optional[bool] = None,
+    ) -> OAuth2Vipps:
+        """
+        Update the project OAuth2 Vipps MobilePay configuration.
+
+        Parameters
+        ----------
+        client_id : Optional[str]
+            'Client ID' of Vipps MobilePay OAuth2 app. For example: 9a3a4b3e-0000-0000-0000-0f1a6d1c3b2e
+        client_secret : Optional[str]
+            'Client Secret' of Vipps MobilePay OAuth2 app. For example: Ay1jb000000000000000000000000000000Vx3k
+        enabled : Optional[bool]
+            OAuth2 sign-in method status. Set to true to enable new session creation. Setting to true will trigger end-to-end credentials validation, and will throw if the credentials are invalid.
+        Returns
+        -------
+        OAuth2Vipps
+            API response as a typed Pydantic model
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/project/oauth2/vipps'
+        api_params = {}
+        if client_id is not None:
+            api_params['clientId'] = self._normalize_value(client_id)
+        if client_secret is not None:
+            api_params['clientSecret'] = self._normalize_value(client_secret)
+        if enabled is not None:
+            api_params['enabled'] = self._normalize_value(enabled)
+
+        response = self.client.call(
+            'patch',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'content-type': 'application/json',
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return self._parse_response(response, model=OAuth2Vipps)
+
+    def update_o_auth2_vipps_sandbox(
+        self,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
+        enabled: Optional[bool] = None,
+    ) -> OAuth2Vipps:
+        """
+        Update the project OAuth2 Vipps MobilePay Sandbox configuration.
+
+        Parameters
+        ----------
+        client_id : Optional[str]
+            'Client ID' of Vipps MobilePay Sandbox OAuth2 app. For example: 9a3a4b3e-0000-0000-0000-0f1a6d1c3b2e
+        client_secret : Optional[str]
+            'Client Secret' of Vipps MobilePay Sandbox OAuth2 app. For example: Ay1jb000000000000000000000000000000Vx3k
+        enabled : Optional[bool]
+            OAuth2 sign-in method status. Set to true to enable new session creation. Setting to true will trigger end-to-end credentials validation, and will throw if the credentials are invalid.
+        Returns
+        -------
+        OAuth2Vipps
+            API response as a typed Pydantic model
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/project/oauth2/vippsSandbox'
+        api_params = {}
+        if client_id is not None:
+            api_params['clientId'] = self._normalize_value(client_id)
+        if client_secret is not None:
+            api_params['clientSecret'] = self._normalize_value(client_secret)
+        if enabled is not None:
+            api_params['enabled'] = self._normalize_value(enabled)
+
+        response = self.client.call(
+            'patch',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'content-type': 'application/json',
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return self._parse_response(response, model=OAuth2Vipps)
+
     def update_o_auth2_webflow(
         self,
         client_id: Optional[str] = None,
@@ -3824,6 +4000,8 @@ class Project(Service):
         OAuth2Microsoft,
         OAuth2TikTok,
         OAuth2Kakao,
+        OAuth2Naver,
+        OAuth2Vipps,
     ]:
         """
         Get a single OAuth2 provider configuration. Credential fields (client secret, p8 file, key/team IDs) are write-only and always returned empty.
@@ -3834,7 +4012,7 @@ class Project(Service):
             OAuth2 provider key. For example: github, google, apple.
         Returns
         -------
-        Union[OAuth2Github, OAuth2Discord, OAuth2Figma, OAuth2Dropbox, OAuth2Dailymotion, OAuth2Bitbucket, OAuth2Bitly, OAuth2Box, OAuth2Autodesk, OAuth2Google, OAuth2Zoom, OAuth2Zoho, OAuth2Yandex, OAuth2X, OAuth2WordPress, OAuth2Webflow, OAuth2Twitch, OAuth2Stripe, OAuth2Spotify, OAuth2Slack, OAuth2Podio, OAuth2Notion, OAuth2Salesforce, OAuth2Yahoo, OAuth2HuggingFace, OAuth2Resend, OAuth2Cloudflare, OAuth2Linkedin, OAuth2Disqus, OAuth2Amazon, OAuth2Etsy, OAuth2Facebook, OAuth2Tradeshift, OAuth2Paypal, OAuth2Gitlab, OAuth2Authentik, OAuth2Auth0, OAuth2FusionAuth, OAuth2Keycloak, OAuth2Oidc, OAuth2Apple, OAuth2Okta, OAuth2Kick, OAuth2Microsoft, OAuth2TikTok, OAuth2Kakao]
+        Union[OAuth2Github, OAuth2Discord, OAuth2Figma, OAuth2Dropbox, OAuth2Dailymotion, OAuth2Bitbucket, OAuth2Bitly, OAuth2Box, OAuth2Autodesk, OAuth2Google, OAuth2Zoom, OAuth2Zoho, OAuth2Yandex, OAuth2X, OAuth2WordPress, OAuth2Webflow, OAuth2Twitch, OAuth2Stripe, OAuth2Spotify, OAuth2Slack, OAuth2Podio, OAuth2Notion, OAuth2Salesforce, OAuth2Yahoo, OAuth2HuggingFace, OAuth2Resend, OAuth2Cloudflare, OAuth2Linkedin, OAuth2Disqus, OAuth2Amazon, OAuth2Etsy, OAuth2Facebook, OAuth2Tradeshift, OAuth2Paypal, OAuth2Gitlab, OAuth2Authentik, OAuth2Auth0, OAuth2FusionAuth, OAuth2Keycloak, OAuth2Oidc, OAuth2Apple, OAuth2Okta, OAuth2Kick, OAuth2Microsoft, OAuth2TikTok, OAuth2Kakao, OAuth2Naver, OAuth2Vipps]
             API response as one of the typed response models
 
         Raises
@@ -3957,8 +4135,14 @@ class Project(Service):
         if response.get('$id') == 'facebook':
             return self._parse_response(response, model=OAuth2Facebook)
 
+        if response.get('$id') == 'tradeshift':
+            return self._parse_response(response, model=OAuth2Tradeshift)
+
         if response.get('$id') == 'tradeshiftBox':
             return self._parse_response(response, model=OAuth2Tradeshift)
+
+        if response.get('$id') == 'paypal':
+            return self._parse_response(response, model=OAuth2Paypal)
 
         if response.get('$id') == 'paypalSandbox':
             return self._parse_response(response, model=OAuth2Paypal)
@@ -3999,7 +4183,48 @@ class Project(Service):
         if response.get('$id') == 'kakao':
             return self._parse_response(response, model=OAuth2Kakao)
 
+        if response.get('$id') == 'naver':
+            return self._parse_response(response, model=OAuth2Naver)
+
+        if response.get('$id') == 'vipps':
+            return self._parse_response(response, model=OAuth2Vipps)
+
+        if response.get('$id') == 'vippsSandbox':
+            return self._parse_response(response, model=OAuth2Vipps)
+
         raise AppwriteException('Unable to match response to any known model')
+
+    def delete_passwords(
+        self,
+    ) -> Dict[str, Any]:
+        """
+        Delete all passwords in the project, forcing every user to reset their password. Any password set before this request stops working for email and password sign-in immediately: signing in returns a `user_password_reset_required` error until the user sets a new password through password recovery, or until a new password is set for them with the Users API. Existing sessions are not affected; call the delete sessions endpoint to sign users out as well. Users without a password and API keys are not affected by this action.
+        Returns
+        -------
+        Dict[str, Any]
+            API response as a dictionary
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/project/passwords'
+        api_params = {}
+
+        response = self.client.call(
+            'delete',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'content-type': 'application/json',
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return response
 
     def list_platforms(
         self,
@@ -4733,10 +4958,56 @@ class Project(Service):
 
         return self._parse_response(response, model=PolicyList)
 
+    def update_account_devices_policy(
+        self,
+        enabled: bool,
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
+        """
+        Update whether account devices are enabled for the project. When enabled, a browser can create an account device that holds multiple sessions and switch between them. When disabled, account devices can no longer be created, so each browser is limited to a single active session.
+
+        Parameters
+        ----------
+        enabled : bool
+            Set to true to allow account devices, or false to disable them for this project.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
+        Returns
+        -------
+        ProjectModel[T]
+            API response as a typed Pydantic model
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/project/policies/account-devices'
+        api_params = {}
+        if enabled is None:
+            raise AppwriteException('Missing required parameter: "enabled"')
+        api_params['enabled'] = self._normalize_value(enabled)
+
+        response = self.client.call(
+            'patch',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'content-type': 'application/json',
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return ProjectModel.with_data(response, model_type)
+
     def update_deny_aliased_email_policy(
         self,
         enabled: bool,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Configures if aliased emails such as subaddresses and emails with suffixes are denied during new users sign-ups and email updates.
 
@@ -4744,9 +5015,12 @@ class Project(Service):
         ----------
         enabled : bool
             Set whether or not to block aliased emails during signup and email updates.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -4772,12 +5046,13 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_deny_corporate_email_policy(
         self,
         enabled: bool,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Configures if only corporate email addresses (non-free and non-disposable domains) are allowed during new user sign-ups and email updates.
 
@@ -4785,9 +5060,12 @@ class Project(Service):
         ----------
         enabled : bool
             Set whether or not to restrict sign-ups and email updates to corporate email addresses only.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -4813,12 +5091,13 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_deny_disposable_email_policy(
         self,
         enabled: bool,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Configures if disposable emails from known temporary domains are denied during new users sign-ups and email updates.
 
@@ -4826,9 +5105,12 @@ class Project(Service):
         ----------
         enabled : bool
             Set whether or not to block disposable email addresses during signup and email updates.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -4854,12 +5136,13 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_deny_free_email_policy(
         self,
         enabled: bool,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Configures if emails from free providers such as Gmail or Yahoo are denied during new users sign-ups and email updates.
 
@@ -4867,9 +5150,12 @@ class Project(Service):
         ----------
         enabled : bool
             Set whether or not to block free email addresses during signup and email updates.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -4895,12 +5181,13 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_deny_realtime_guests_policy(
         self,
         enabled: bool,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Configures if guests, connections without a signed-in user, may subscribe to realtime channels. When enabled, a guest can still connect and sign in over the connection, but cannot subscribe until it does.
 
@@ -4908,9 +5195,12 @@ class Project(Service):
         ----------
         enabled : bool
             Set whether or not to stop guests from subscribing to realtime channels.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -4936,7 +5226,7 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_membership_privacy_policy(
         self,
@@ -4946,7 +5236,8 @@ class Project(Service):
         user_name: Optional[bool] = None,
         user_mfa: Optional[bool] = None,
         user_accessed_at: Optional[bool] = None,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Updating this policy allows you to control if team members can see other members information. When enabled, all team members can see ID, name, email, phone number, and MFA status of other members..
 
@@ -4964,9 +5255,12 @@ class Project(Service):
             Set to true if you want make user MFA status visible to all team members, or false to hide it.
         user_accessed_at : Optional[bool]
             Set to true if you want make user last access time visible to all team members, or false to hide it.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5001,7 +5295,7 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_mfa_factors_policy(
         self,
@@ -5009,7 +5303,8 @@ class Project(Service):
         email: Optional[bool] = None,
         phone: Optional[bool] = None,
         custom: Optional[bool] = None,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Updating this policy allows you to control which factors users can use to complete an MFA challenge. Disabled factors cannot be used to create a challenge and are reported as unavailable when listing factors. The custom factor is disabled by default; enable it to deliver challenge codes through your own channel. Recovery codes always remain available as a fallback.
 
@@ -5023,9 +5318,12 @@ class Project(Service):
             Set to true to allow phone (SMS) to complete an MFA challenge, or false to disable it.
         custom : Optional[bool]
             Set to true to allow the custom factor to complete an MFA challenge, or false to disable it.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5056,12 +5354,13 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_passkey_policy(
         self,
         rp_id: str,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Set the relying party ID passkeys are bound to: the domain of your application. Passkeys work on the project's web platforms on that domain or its subdomains, and on the domain itself for Apple apps. A localhost web platform enables passkeys for local development without a relying party ID. The relying party ID cannot change while users have passkeys, and any change invalidates ceremonies in progress.
 
@@ -5069,9 +5368,12 @@ class Project(Service):
         ----------
         rp_id : str
             Relying party ID: the domain of your application, such as `example.com`. Use `localhost` for local development, or an empty string to unset it.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5097,13 +5399,14 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_password_dictionary_policy(
         self,
         enabled: bool,
         deny_list: Optional[List[str]] = None,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Updating this policy allows you to control if new passwords are checked against most common passwords dictionary. When enabled, and user changes their password, password must not be contained in the dictionary.
 
@@ -5115,9 +5418,12 @@ class Project(Service):
             Toggle password dictionary policy. Set to true if you want password change to block passwords in the dictionary, or false to allow them. When changing this policy, existing passwords remain valid.
         deny_list : Optional[List[str]]
             Custom blocked values using case-sensitive equality. Up to 100 entries of 1 to 256 characters. Omit or pass null to preserve, an array to replace, or [] to clear. Combined authentication settings must fit within 16,384 characters.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5145,12 +5451,13 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_password_history_policy(
         self,
         total: Optional[float],
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Updates one of password strength policies. Based on total length configured, previous password hashes are stored, and users cannot choose a new password that is already stored in the passwird history list, when updating an user password, or setting new one through password recovery.
 
@@ -5160,9 +5467,12 @@ class Project(Service):
         ----------
         total : Optional[float]
             Set the password history length per user. Value can be between 1 and 20, or null to disable the limit.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5186,13 +5496,14 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_password_personal_data_policy(
         self,
         enabled: bool,
         deny_list: Optional[List[str]] = None,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Updating this policy allows you to control if password strength is checked against personal data. When enabled, and user sets or changes their password, the password must not contain user ID, name, email or phone number.
 
@@ -5205,9 +5516,12 @@ class Project(Service):
             Toggle password personal data policy. Set to true if you want to block passwords including user's personal data, or false to allow it. When changing this policy, existing passwords remain valid.
         deny_list : Optional[List[str]]
             Custom blocked values using case-insensitive substring matching. Up to 100 entries of 1 to 256 characters. Omit or pass null to preserve, an array to replace, or [] to clear. Combined authentication settings must fit within 16,384 characters.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5235,14 +5549,15 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_password_pwned_policy(
         self,
         enabled: Optional[bool] = None,
         sessions: Optional[bool] = None,
         users: Optional[bool] = None,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Updating this policy allows you to control if passwords are checked against the Have I Been Pwned breach database. When enabled, every password a user signs up, signs in or resets with is checked and the result is recorded on the user as `passwordPwned`. On its own the policy only records. Enable `users` to reject a breached password when a user signs up or sets a new password, and `sessions` to refuse a sign-in with a breached password until it is reset. Only the first five characters of the password hash are ever shared with the service. Options left out keep their current value.
 
@@ -5254,9 +5569,12 @@ class Project(Service):
             Whether a sign-in with a breached password is refused until the password is reset. Default is false, which allows the sign-in and only records the result.
         users : Optional[bool]
             Whether a breached password is rejected when a user signs up or sets a new password. Default is false, which allows the password and only records the result.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5285,13 +5603,14 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_password_rotation_policy(
         self,
         enabled: Optional[bool] = None,
         max_age: Optional[float] = None,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Require a password reset when an email/password sign-in uses a password older than the configured maximum age. Options left out keep their current value.
 
@@ -5301,9 +5620,12 @@ class Project(Service):
             Enable password rotation. Disabled by default.
         max_age : Optional[float]
             Maximum password age in seconds. Minimum allowed value is 86400 seconds (1 day), and maximum is 10 years, which is 315360000 seconds. Defaults to 1 year, which is 31536000 seconds.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5330,7 +5652,7 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_password_strength_policy(
         self,
@@ -5395,7 +5717,8 @@ class Project(Service):
     def update_session_alert_policy(
         self,
         enabled: bool,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Updating this policy allows you to control if email alert is sent upon session creation. When enabled, and user signs into their account, they will be sent an email notification. There is an exception, the first session after a new sign up does not trigger an alert, even if the policy is enabled.
 
@@ -5403,9 +5726,12 @@ class Project(Service):
         ----------
         enabled : bool
             Toggle session alert policy. Set to true if you want users to receive email notifications when a sessions are created for their users, or false to not send email alerts.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5431,12 +5757,13 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_session_duration_policy(
         self,
         duration: float,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Update maximum duration how long sessions created within a project should stay active for.
 
@@ -5444,9 +5771,12 @@ class Project(Service):
         ----------
         duration : float
             Maximum session length in seconds. Minium allowed value is 60 seconds, and maximum is 1 year, which is 31536000 seconds.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5472,12 +5802,13 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_session_invalidation_policy(
         self,
         enabled: bool,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Updating this policy allows you to control if existing sessions should be invalidated when a password of a user is changed. When enabled, and user changes their password, they will be logged out of all their devices.
 
@@ -5485,9 +5816,12 @@ class Project(Service):
         ----------
         enabled : bool
             Toggle session invalidation policy. Set to true if you want password change to invalidate all sessions of an user, or false to keep sessions active.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5513,12 +5847,13 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_session_limit_policy(
         self,
         total: float,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Update the maximum number of sessions allowed per user. When the limit is hit, the oldest session will be deleted to make room for new one.
 
@@ -5526,9 +5861,12 @@ class Project(Service):
         ----------
         total : float
             Set the maximum number of sessions allowed per user. Value can be between 1 and 100.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5554,12 +5892,13 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_user_limit_policy(
         self,
         total: Optional[float],
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Update the maximum number of users in the project. When the limit is hit or amount of existing users already exceeded the limit, all users remain active, but new user sign up will be prohibited.
 
@@ -5567,9 +5906,12 @@ class Project(Service):
         ----------
         total : Optional[float]
             Set the maximum number of users allowed in the project. Value can be between 0 and 10000. Use 0 or null to disable the limit.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5593,7 +5935,7 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def get_policy(
         self,
@@ -5618,6 +5960,7 @@ class Project(Service):
         PolicyDenyCorporateEmail,
         PolicyDenyRealtimeGuests,
         PolicyPasskey,
+        PolicyAccountDevices,
     ]:
         """
         Get a policy by its unique ID. This endpoint returns the current configuration for the requested project policy.
@@ -5625,10 +5968,10 @@ class Project(Service):
         Parameters
         ----------
         policy_id : ProjectPolicyId
-            Policy ID. Can be one of: password-dictionary, password-history, password-strength, password-personal-data, password-pwned, password-rotation, session-alert, session-duration, session-invalidation, session-limit, user-limit, membership-privacy, mfa-factors, deny-aliased-email, deny-disposable-email, deny-free-email, deny-corporate-email, deny-realtime-guests, passkey.
+            Policy ID. Can be one of: password-dictionary, password-history, password-strength, password-personal-data, password-pwned, password-rotation, session-alert, session-duration, session-invalidation, session-limit, user-limit, membership-privacy, mfa-factors, deny-aliased-email, deny-disposable-email, deny-free-email, deny-corporate-email, deny-realtime-guests, passkey, account-devices.
         Returns
         -------
-        Union[PolicyPasswordDictionary, PolicyPasswordHistory, PolicyPasswordStrength, PolicyPasswordPersonalData, PolicyPasswordPwned, PolicyPasswordRotation, PolicySessionAlert, PolicySessionDuration, PolicySessionInvalidation, PolicySessionLimit, PolicyUserLimit, PolicyMembershipPrivacy, PolicyMfaFactors, PolicyDenyAliasedEmail, PolicyDenyDisposableEmail, PolicyDenyFreeEmail, PolicyDenyCorporateEmail, PolicyDenyRealtimeGuests, PolicyPasskey]
+        Union[PolicyPasswordDictionary, PolicyPasswordHistory, PolicyPasswordStrength, PolicyPasswordPersonalData, PolicyPasswordPwned, PolicyPasswordRotation, PolicySessionAlert, PolicySessionDuration, PolicySessionInvalidation, PolicySessionLimit, PolicyUserLimit, PolicyMembershipPrivacy, PolicyMfaFactors, PolicyDenyAliasedEmail, PolicyDenyDisposableEmail, PolicyDenyFreeEmail, PolicyDenyCorporateEmail, PolicyDenyRealtimeGuests, PolicyPasskey, PolicyAccountDevices]
             API response as one of the typed response models
 
         Raises
@@ -5712,13 +6055,100 @@ class Project(Service):
         if response.get('$id') == 'passkey':
             return self._parse_response(response, model=PolicyPasskey)
 
+        if response.get('$id') == 'account-devices':
+            return self._parse_response(response, model=PolicyAccountDevices)
+
         raise AppwriteException('Unable to match response to any known model')
+
+    def get_prefs(
+        self,
+        model_type: Type[T] = dict,
+    ) -> Preferences[T]:
+        """
+        Get the project preferences. Preferences are a key-value object stored on the project for anyone working on it.
+
+        Parameters
+        ----------
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
+        Returns
+        -------
+        Preferences[T]
+            API response as a typed Pydantic model
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/project/prefs'
+        api_params = {}
+
+        response = self.client.call(
+            'get',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return Preferences.with_data(response, model_type)
+
+    def update_prefs(
+        self,
+        prefs: Dict[str, Any],
+        model_type: Type[T] = dict,
+    ) -> Preferences[T]:
+        """
+        Update the project preferences. The object you pass is stored as is and replaces any previous value. The maximum allowed prefs size is 64kB and throws an error if exceeded.
+
+        Parameters
+        ----------
+        prefs : Dict[str, Any]
+            Prefs key-value JSON object.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
+        Returns
+        -------
+        Preferences[T]
+            API response as a typed Pydantic model
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/project/prefs'
+        api_params = {}
+        if prefs is None:
+            raise AppwriteException('Missing required parameter: "prefs"')
+        api_params['prefs'] = self._normalize_value(prefs)
+
+        response = self.client.call(
+            'put',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'content-type': 'application/json',
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return Preferences.with_data(response, model_type)
 
     def update_protocol(
         self,
         protocol_id: ProjectProtocolId,
         enabled: bool,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Update properties of a specific protocol. Use this endpoint to enable or disable a protocol in your project.
 
@@ -5728,9 +6158,12 @@ class Project(Service):
             Protocol name. Can be one of: rest, graphql, websocket
         enabled : bool
             Protocol status.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5759,13 +6192,14 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def update_service(
         self,
         service_id: ProjectServiceId,
         enabled: bool,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Update properties of a specific service. Use this endpoint to enable or disable a service in your project.
 
@@ -5775,9 +6209,12 @@ class Project(Service):
             Service name. Can be one of: account, avatars, databases, tablesdb, locale, health, project, storage, teams, users, vcs, sites, functions, proxy, graphql, migrations, messaging, advisor, oauth2
         enabled : bool
             Service status.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5806,7 +6243,7 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def delete_sessions(
         self,
@@ -5852,7 +6289,8 @@ class Project(Service):
         reply_to_name: Optional[str] = None,
         secure: Optional[ProjectSMTPSecure] = None,
         enabled: Optional[bool] = None,
-    ) -> ProjectModel:
+        model_type: Type[T] = dict,
+    ) -> ProjectModel[T]:
         """
         Update the SMTP configuration for your project. Use this endpoint to configure your project's SMTP provider with your custom settings for sending transactional emails.
 
@@ -5878,9 +6316,12 @@ class Project(Service):
             Configures if communication with SMTP server is encrypted. Allowed values are: tls, ssl. Leave empty for no encryption.
         enabled : Optional[bool]
             Enable or disable custom SMTP. Custom SMTP is useful for branding purposes, but also allows use of custom email templates.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectModel
+        ProjectModel[T]
             API response as a typed Pydantic model
 
         Raises
@@ -5923,7 +6364,7 @@ class Project(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectModel)
+        return ProjectModel.with_data(response, model_type)
 
     def create_smtp_test(
         self,

@@ -1,5 +1,8 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
+# Portions Copyright (c) 2023 Leon Derczynski and NVIDIA CORPORATION & AFFILIATES.
+# Garak-derived portions are licensed under Apache-2.0 and modified by Microsoft Corporation.
+# See THIRD_PARTY_NOTICES.txt for attribution and source details.
 
 
 from pyrit.converter.converter import Converter, ConverterResult
@@ -14,13 +17,15 @@ class BrailleConverter(Converter):
     Braille characters (U+2800 to U+28FF). Every printable ASCII character is
     mapped: letters, digits, punctuation, and symbols. Uppercase letters are
     prefixed with the Braille capitalization indicator and digit runs with the
-    number indicator. Characters with no Braille mapping (accented and CJK
-    letters, emoji, control characters) pass through unchanged rather than being
-    dropped, so the encoded prompt keeps its meaning.
+    number indicator. A letter from a to j directly after a number is prefixed
+    with the letter sign, so it is not read as another digit. Characters with no
+    Braille mapping (accented and CJK letters, emoji, control characters) pass
+    through unchanged rather than being dropped, so the encoded prompt keeps its
+    meaning.
 
     The letter, digit, and core punctuation mappings are based on the
     implementation from Garak:
-    https://github.com/NVIDIA/garak/blob/main/garak/probes/encoding.py
+    https://github.com/NVIDIA/garak/blob/3f50ea5ff9cd7050099940647c15c39b07a93392/garak/probes/encoding.py
     The ASCII symbol cells follow Unified English Braille (UEB).
 
     Note: This converter is useful for testing how AI systems handle Braille-encoded
@@ -55,7 +60,8 @@ class BrailleConverter(Converter):
         """
         Retrieve the braille representation of the input text.
 
-        Taken from Garak https://github.com/NVIDIA/garak/blob/main/garak/probes/encoding.py
+        Taken from Garak:
+        https://github.com/NVIDIA/garak/blob/3f50ea5ff9cd7050099940647c15c39b07a93392/garak/probes/encoding.py
 
         Args:
             text (str): The input text to be converted to braille.
@@ -92,6 +98,7 @@ class BrailleConverter(Converter):
             "y": "\u283d",
             "num": "\u283c",
             "caps": "\u2820",
+            "letter": "\u2830",
             ".": "\u2832",
             "'": "\u2804",
             ",": "\u2802",
@@ -99,7 +106,7 @@ class BrailleConverter(Converter):
             "/": "\u280c",
             "!": "\u2816",
             "?": "\u2826",
-            "$": "\u2832",
+            "$": "\u2808\u280e",
             ":": "\u2812",
             ";": "\u2806",
             "(": "\u2836",
@@ -137,7 +144,9 @@ class BrailleConverter(Converter):
             "0": "\u281a",
             " ": " ",
         }
-        number_punctuations = [".", ",", "-", "/", "$"]
+        # Symbols that keep numeric mode (UEB rule 6.2.1); a hyphen ends it (rule 6.3.1).
+        number_punctuations = [".", ",", "/"]
+        digit_letters = "abcdefghij"
 
         output = ""
 
@@ -147,6 +156,8 @@ class BrailleConverter(Converter):
                 if char.isdigit() and not is_number:
                     is_number = True
                     output += character_unicodes["num"]
+                elif is_number and char in digit_letters:
+                    output += character_unicodes["letter"]
                 output += character_unicodes[char]
             elif char.isupper() and char.lower() in character_unicodes:
                 output += character_unicodes["caps"]

@@ -594,7 +594,24 @@ class TestWaitClaimReady(unittest.TestCase):
                 )
         self.assertTrue(ready)
         self.assertEqual(services.calls, 2)
-        sleep.assert_called_once_with(2)
+        sleep.assert_called_once_with(0.1)
+
+    def test_backs_off_from_fast_polls(self):
+        """A cold claim is ready a few seconds in: start at 0.1s so the wait
+        doesn't round it up to a slow poll, then back off to poll_interval."""
+        services = FakeServicesApi(
+            statuses=[ServiceStatus.STARTING] * 6 + [ServiceStatus.HEALTHY]
+        )
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(services_api=services),
+        ):
+            with patch("koyeb.sandbox.pool.time.sleep") as sleep:
+                ready = wait_claim_ready("svc-1", timeout=10, api_token="tok")
+        self.assertTrue(ready)
+        self.assertEqual(
+            [c.args[0] for c in sleep.call_args_list], [0.1, 0.2, 0.4, 0.5, 0.5, 0.5]
+        )
 
     def test_accepts_claim_result(self):
         services = FakeServicesApi(statuses=[ServiceStatus.HEALTHY])
@@ -819,6 +836,26 @@ class TestAsyncPoolMirror(unittest.TestCase):
 
             with self.assertRaises(ServiceTerminalStateError):
                 asyncio.run(run())
+
+    def test_async_wait_claim_ready_backs_off(self):
+        services = FakeAsyncServicesApi(
+            statuses=[ServiceStatus.STARTING] * 4 + [ServiceStatus.HEALTHY]
+        )
+        sleeps = []
+
+        async def fake_sleep(seconds):
+            sleeps.append(seconds)
+
+        with patch(
+            "koyeb.sandbox.pool.get_async_api_clients",
+            return_value=_fake_async_clients(services_api=services),
+        ):
+            with patch("koyeb.sandbox.pool.asyncio.sleep", fake_sleep):
+                ready = asyncio.run(
+                    wait_claim_ready_async("svc-1", timeout=10, api_token="tok")
+                )
+        self.assertTrue(ready)
+        self.assertEqual(sleeps, [0.1, 0.2, 0.4, 0.5])
 
     def test_async_pool_update_delete_refresh(self):
         definition = AsyncDeploymentDefinition(name="my-pool")

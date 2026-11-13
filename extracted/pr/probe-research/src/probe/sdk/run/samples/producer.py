@@ -105,11 +105,15 @@ def _get_ending_status() -> str:
     return "completed"
 
 
-def _release_at_exit(handle_ref: weakref.ref) -> None:
-    handle = handle_ref()
+def release_producer(handle: Any) -> None:
+    """End this producer's lease now, as its process's exit would (`PointsSender.close`); never raises."""
     if handle is None or getattr(handle, "_closed_status", None) is not None:
         return
     try:
         handle.finish(_get_ending_status(), flush_timeout=RELEASE_FLUSH_SECONDS)
-    except Exception:  # noqa: BLE001 -- a release at exit never raises
+    except Exception:  # noqa: BLE001 -- a release never raises
         pass
+
+
+def _release_at_exit(handle_ref: weakref.ref) -> None:
+    release_producer(handle_ref())

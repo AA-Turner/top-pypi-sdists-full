@@ -1,0 +1,1757 @@
+"""Kernel composition for the numba implementation.
+
+Every operation is described by a ``State`` namedtuple - its named per-group
+scratch arrays - and a handful of tiny jitted building blocks:
+
+``init(size, n_input, out_dtype, aux_dtype, in_dtype, fill_value,
+forced_fill) -> state``
+    allocates the scratch arrays, including the ``out`` result array.  The
+    auxiliary dtype carries the widened accumulation dtype of the dispersion
+    kernels (the running deviation sum); every other operation ignores it.
+``seed(state, a)``
+    optional pre-loop initialization that needs input data (the min/max
+    scratch of the integer exactness gates)
+``update(state, ri, i, val, fill_value, extra)``
+    folds one value into the state (``i`` is the input position, only the
+    argreductions use it; ``extra`` is the argument the operation has of its
+    own - the ``ddof`` of the variance, the sample spacing ``dx`` of the
+    trapezoid - and the zero an operation without one is called with.  The
+    driver reaches the building blocks positionally, so a block that uses the
+    value names it, and one that ignores it leaves it as ``extra``)
+``record(state, ri, i)``
+    optional per-position side effect of the cumulative kernels
+``gate(state, n_values)``
+    optional exactness check between the accumulation and the finishing pass
+``finish(state, g, fill_value, extra) -> value``
+    optional per-group second pass (mean, std, var); groups that received too
+    few values return the fill value
+``untouched(state) -> bool array``
+    the groups that received no value, queried to apply a custom fill value
+    (empty whenever the fill value equals the forced default - the ops then
+    skip their untouched bookkeeping entirely)
+``combine(acc, other, fill_value, extra)``
+    optional fold of the states of two chunks of the data into one - the
+    operations that provide one can be reduced in chunks, and their driver
+    then has a parallel path
+
+The parallel path has one state per chunk or one per thread, and more chunks
+than threads: the pool's threads take the chunks from a queue, so a busy core
+delays only its own chunk.  The chunks are aggregated into the state of the
+thread that takes them, so a thread never writes into the state of another and
+no lock is needed.  The float sums fold in the order the chunks reach the
+threads, so they differ in the last bits from run to run - the extremes, the
+counts and the logic are exact.  The thread count is the pool size of numba,
+and one state per thread suffices because a thread id is bounded by it.
+Whether the states are one per chunk or one per thread is a question of memory:
+a state is group-sized, so chunk states cost twice the thread states - with few
+groups per chunk wins (the fold runs in chunk order, the same bits every time),
+with many groups the memory counts.
+
+The factory assembles these into ONE compiled driver per operation that owns
+the group loop, bounds checks and pass structure, and exposes it as a function
+callable from jitted code and from python alike.  The driver hands the argument
+the operation has of its own on as the ``extra`` of the pass structure.  The
+python-level ``aggregate()`` calls the same driver with fully resolved
+arguments - exactly one compiled artifact per operation.  Unused building
+blocks are replaced by synthesized no-ops, which LLVM folds away.
+"""
+
+import functools
+from collections.abc import Callable
+from typing import Any, Literal, NamedTuple, cast
+
+import numba as nb
+import numpy as np
+import numpy.typing as npt
+
+from numpy_groupies.dtypes import (
+    TEMPORAL_KINDS,
+    is_temporal_input,
+)
+from numpy_groupies.functions import func_argument_default, nan
+from numpy_groupies.npg_numba.jit import njit_stable, register_overload
+from numpy_groupies.npg_numba.mt import (
+    GROUP_MT_MIN_VALUES,
+    MT_MIN_VALUES,
+    chunk_count,
+    should_use_mt,
+)
+from numpy_groupies.temporal import NAT_TICK
+from numpy_groupies.typing import AResult, AScalar
+from numpy_groupies.validation import (
+    EMPTY_GROUP_IDX,
+    FILL_NOT_BOOLEAN,
+    FILL_NOT_CONVERTIBLE,
+    LENGTH_MISMATCH,
+    NEGATIVE_INDICES,
+    NON_INTEGER_GROUP_IDX,
+    TOO_LARGE,
+    TOO_LARGE_SIZE_PREFIX,
+    check_fill_value_for_dtype,
+    is_integer_dtype,
+    is_numeric_dtype,
+)
+
+
+@njit_stable
+def complex_less(x: Any, y: Any) -> bool:
+    """The ordering every reduction kernel of this package compares with.
+
+    Plain ``<`` for real values; complexes lexicographically (the real part
+    first, the imaginary one on a tie), compared per part with ordinary float
+    comparisons rather than a total order - so a nan in either part is
+    incomparable, and ``1+nanj < 2+1j`` is False.
+
+    A jitted function with an ``isinstance`` branch rather than an overload -
+    measured, the call is not what the group loop costs (1.1ms vs 1.3ms with an
+    inlined overload).  The test names what numba can name: the python class
+    ``complex`` is complex128 there, so ``np.complex64`` has to be spelled out
+    as well, and the abstract ``np.complexfloating`` cannot be named at all -
+    numba types the classes of an ``isinstance`` tuple as constants, and numpy
+    refuses that one as a dtype, which would take the whole reduction down.
+
+    Disk cached like its callers - numba cannot resolve an uncached callee from
+    cached caller code at all (the loaded module dies on a NULL ``descr`` in
+    ``NRT_adapt_ndarray_to_python``).  It is therefore not inlined, which the
+    kernels account for by resolving the comparison into a local variable
+    before the select expression instead of calling inside it.
+    """
+    if isinstance(x, (complex, np.complex64)) and isinstance(y, (complex, np.complex64)):
+        if x.real < y.real:
+            return not (np.isnan(x.imag) or np.isnan(y.imag))
+        if x.real == y.real:
+            # numba's compare is already a bool, only numpy's stub answers
+            # np.bool_ - the call is a no-op in compiled code
+            return bool(x.imag < y.imag)
+        return False
+    if isinstance(x, (complex, np.complex64)) or isinstance(y, (complex, np.complex64)):
+        raise TypeError("can not compare float with complex")
+    less: bool = x < y
+    return less
+
+
+# ---------------------------------------------------------------------------
+# compile-time dtype rules - run inside the overload builders on numba types,
+# returning the (out_dtype, aux_dtype) pair of np.dtypes
+
+
+def _as_np_dtype(a_type: nb.types.Type) -> np.dtype:
+    """The np.dtype of the numba array type an overload builder sees."""
+    # only the numba type of the value array is handed in - the type lattice
+    # has no named ancestor of ArrayCTypes that carries dtype
+    array_type = cast("nb.types.ArrayCTypes", a_type)
+    return nb.np.numpy_support.as_dtype(array_type.dtype)
+
+
+def rule_same(a_type: nb.types.Type) -> tuple[np.dtype, np.dtype]:
+    """min/max/first/last: the input dtype passes through."""
+    dt = _as_np_dtype(a_type)
+    return dt, dt
+
+
+def rule_sum(a_type: nb.types.Type) -> tuple[np.dtype, np.dtype]:
+    """sum and the running sums: narrow integers widen to the int64/uint64 of
+    their own sign.  The njit-kernel approximation - the python-level
+    ``aggregate()`` keeps the value-count-dependent overflow guesses of the
+    ladder, which cannot be resolved at compile time."""
+    dt = _as_np_dtype(a_type)
+    if dt == np.dtype(np.uint64):
+        return dt, dt
+    if dt.kind == "u":
+        return np.dtype(np.uint64), np.dtype(np.uint64)
+    if dt.kind in "ib":
+        return np.dtype(np.int64), np.dtype(np.int64)
+    return dt, dt
+
+
+def rule_widen_int(a_type: nb.types.Type) -> tuple[np.dtype, np.dtype]:
+    """prod and cumprod: integers widen to the accumulator of their own sign
+    (int64 for signed and bool, uint64 for unsigned, whose uint64 stays),
+    everything else passes through - matching the python-level rules."""
+    dt = _as_np_dtype(a_type)
+    if dt.kind == "u":
+        return np.dtype(np.uint64), np.dtype(np.uint64)
+    if dt.kind in "ib":
+        return np.dtype(np.int64), np.dtype(np.int64)
+    return dt, dt
+
+
+def rule_float(a_type: nb.types.Type) -> tuple[np.dtype, np.dtype]:
+    """mean/median/trapezoid: inexact input and the durations keep their dtype
+    (a timedelta64 mean is a timedelta64, like numpy's mean), otherwise
+    everything widens to float64."""
+    dt = _as_np_dtype(a_type)
+    out = dt if dt.kind in "fcm" else np.dtype(np.float64)
+    return out, out
+
+
+def rule_real_float(a_type: nb.types.Type) -> tuple[np.dtype, np.dtype]:
+    """var/std: real float passes through, complex input yields the real
+    counterpart (complex64 -> float32), integers/bools widen to float64.
+    The auxiliary dtype is the deviation-sum accumulator, which stays complex
+    for complex input and widens like the running mean."""
+    dt = _as_np_dtype(a_type)
+    if dt.kind == "f":
+        out = dt
+    elif dt.kind == "c":
+        out = np.dtype(dt.char.lower())
+    else:
+        out = np.dtype(np.float64)
+    return out, np.result_type(dt, np.float64)
+
+
+def rule_sumofsquares(a_type: nb.types.Type) -> tuple[np.dtype, np.dtype]:
+    """sumofsquares: like var/std, but integers widen to the exact integral
+    accumulator (int64 for signed and bool, uint64 for unsigned, whose squares
+    leave the signed range)."""
+    dt = _as_np_dtype(a_type)
+    if dt.kind == "f":
+        out = dt
+    elif dt.kind == "c":
+        out = np.dtype(dt.char.lower())
+    elif dt.kind == "u":
+        out = np.dtype(np.uint64)
+    else:
+        out = np.dtype(np.int64)
+    return out, out
+
+
+def rule_bool(a_type: nb.types.Type) -> tuple[np.dtype, np.dtype]:
+    out = np.dtype(np.bool_)
+    return out, out
+
+
+def rule_object(a_type: nb.types.Type) -> tuple[np.dtype, np.dtype]:
+    """array: the result is a sequence per group, carried as an object-dtype
+    collection of the sequences themselves - not numbers."""
+    out = np.dtype(object)
+    return out, out
+
+
+def rule_int64(a_type: nb.types.Type) -> tuple[np.dtype, np.dtype]:
+    out = np.dtype(np.int64)
+    return out, out
+
+
+def _resolve_default_fill(fill_default: AScalar, out_dtype: np.dtype) -> AScalar:
+    """The njit-kernel twin of the DEFAULT_FILL_VALUE resolution: a nan default
+    only fits inexact outputs (a complex output needs the nan in both parts),
+    a temporal output takes its unit's zero or NaT as the scalar (an int cannot
+    be written into a temporal array), integer and bool fall back to 0."""
+    if out_dtype.kind in TEMPORAL_KINDS:
+        if fill_default != fill_default:  # nan
+            return cast("AScalar", np.asarray(NAT_TICK).view(out_dtype)[()])
+        return cast("AScalar", np.asarray(0, dtype=np.int64).view(out_dtype)[()])
+    if fill_default != fill_default:  # nan
+        if out_dtype.kind == "c":
+            return complex(fill_default, fill_default)
+        if out_dtype.kind not in "fc":
+            return 0
+    return fill_default
+
+
+# What the drivers of this package are written for: two flat 1d arrays, of
+# integer labels and of numeric values, of the same length and not empty.
+# Shape and dtype are what a type knows - jitted code is answered by the
+# typing function of the kernel, a python call by its body, and the two value
+# checks go into both entry points (see ``_make_stub``).  ``aggregate()`` is
+# the entry point that knows an axis, an indexed ``group_idx`` and a single
+# value repeated over every label, and it validates all of that in
+# ``numpy_groupies.input_validation`` before a driver sees anything.  The
+# words of the complaints live in ``numpy_groupies.validation`` - python call
+# and kernels say the same things about the same faults.
+_FLAT_INPUT = "the kernels take flat one-dimensional input"
+_SCALAR_INPUT = "the kernels take one value per label - a scalar is not supported"
+_NUMERIC_VALUES = "the kernels take numeric values"
+
+# the temporal dtypes a kernel does not take.  The comparisons of compiled code
+# order temporal values (NaT as the smallest tick) and ``val != val`` detects
+# NaT like a nan, so the selection and reduction kernels run on temporal values
+# directly - but the arithmetic of the squared moments has no temporal unit
+# (numpy refuses it as well), the sort of numba makes no move when a NaT is in
+# the values (its comparison leaves the NaT incomparable, and the algorithm
+# hands the input back - numba/numba#10981; the partition answers the NaT the
+# way numpy does), and the truthiness and hashing of a temporal value are not
+# compiled operations.
+_TEMPORAL_KERNEL_REFUSED = frozenset(
+    {
+        "sort",
+        "all",
+        "any",
+        "prod",
+        "cumprod",
+        "var",
+        "std",
+        "skew",
+        "kurt",
+        "trapezoid",
+        "sumofsquares",
+    }
+)
+# a datetime64 sum has no unit to accumulate either; the durations of a
+# timedelta64 add up fine, NaT included, which the addition propagates
+_TEMPORAL_DATETIME_REFUSED = frozenset({"sum", "cumsum"})
+
+
+def _temporal_refusal(stub_name: str, a_dtype: np.dtype) -> str:
+    """The complaint of a kernel that does not take temporal values."""
+    base = stub_name.removeprefix("nan")
+    if a_dtype.kind == "M" and base in _TEMPORAL_DATETIME_REFUSED:
+        return (
+            f"the {stub_name} kernel takes no {a_dtype.name} values - numpy refuses {base} "
+            f"of datetime64 values as well, and so does aggregate()"
+        )
+    return (
+        f"the {stub_name} kernel takes no {a_dtype.name} values - aggregate() aggregates "
+        f"temporal input on its int64 ticks"
+    )
+
+
+def _temporal_gate(stub_name: str, a_dtype: np.dtype) -> None:
+    """Refuse the temporal dtypes a kernel cannot take, by its name."""
+    base = stub_name.removeprefix("nan")
+    if base in _TEMPORAL_KERNEL_REFUSED or (a_dtype.kind == "M" and base in _TEMPORAL_DATETIME_REFUSED):
+        raise TypeError(_temporal_refusal(stub_name, a_dtype))
+
+
+# what only the kernel of an operation that cannot place a fill value has to
+# say - the collecting one, whose absent group holds an empty sequence
+_REFUSAL = "The {name} kernel has no fill_value - an absent group holds an empty sequence"
+
+
+def _ndim(x: Any) -> int:
+    """The number of dimensions of an argument, before it is converted - the
+    conversion would promote a scalar to a one-element array and mask the
+    right complaint."""
+    ndim = getattr(x, "ndim", None)
+    if ndim is None:
+        return int(np.ndim(x))
+    return int(ndim)
+
+
+def _kernel_inputs(group_idx: Any, a: Any) -> tuple[Any, Any]:
+    """The two arrays of a python call of a kernel, contiguous and checked.
+
+    What the typing function answers for jitted code by type - a shape it can
+    see, a dtype it can name - the python call answers here, where the arrays
+    are values again and it can name the entry point that knows an axis.
+    """
+    ndim_group_idx = _ndim(group_idx)
+    ndim_a = _ndim(a)
+    if ndim_a == 0:
+        raise ValueError(_SCALAR_INPUT)
+    if ndim_group_idx != 1 or ndim_a != 1:
+        raise ValueError(f"{_FLAT_INPUT} - use aggregate() for an axis or an indexed group_idx")
+    group_idx = np.ascontiguousarray(group_idx)
+    a = np.ascontiguousarray(a)
+    if not is_integer_dtype(group_idx.dtype):
+        # the same complaint the python-level call makes about the labels
+        raise TypeError(NON_INTEGER_GROUP_IDX)
+    if not is_numeric_dtype(a.dtype) and a.dtype.kind not in TEMPORAL_KINDS:
+        raise ValueError(f"{_NUMERIC_VALUES}, not {a.dtype}")
+    return group_idx, a
+
+
+def _temporal_fill_scalar(fill_value: Any, out_dtype: np.dtype) -> AScalar:
+    """The fill value of a temporal output, as the scalar of its dtype: a nan
+    (and the averaging functions' default) is the unit's NaT, an integer the
+    tick it names, and a temporal value passes through."""
+    if isinstance(fill_value, (float, np.floating)) and fill_value != fill_value:
+        return cast("AScalar", np.asarray(NAT_TICK).view(out_dtype)[()])
+    if isinstance(fill_value, (np.datetime64, np.timedelta64)):
+        if np.asarray(fill_value).dtype.kind == out_dtype.kind:
+            return cast("AScalar", np.asarray(fill_value).astype(out_dtype)[()])
+        raise ValueError(FILL_NOT_CONVERTIBLE.format(dtype=out_dtype.type.__name__))
+    if isinstance(fill_value, (bool, np.bool_, int, np.integer)):
+        # the tick of the value - NaT is the tick -2**63
+        return cast("AScalar", np.asarray(NAT_TICK + int(fill_value)).view(out_dtype)[()])
+    raise ValueError(FILL_NOT_CONVERTIBLE.format(dtype=out_dtype.type.__name__))
+
+
+def _numpy_dtype(dtype: Any) -> np.dtype | None:
+    """The numpy dtype of a dtype of either world (numba translates its element
+    types, and the ``numpy_groupies.validation`` predicates ask the translated
+    one)."""
+    if dtype is None:
+        return None
+    if isinstance(dtype, np.dtype):
+        return dtype
+    return nb.np.numpy_support.as_dtype(dtype)
+
+
+def _fill_type_ok(fill_type: Any) -> bool:
+    """Whether the type of the fill value can hold a number.
+
+    The typing function sees the type, not the value: a non-number (a string,
+    say) is refused ahead of the driver's numba error.  A None is the "give me
+    the default" of the signature, and an optional value may hold it - both
+    are fine.
+    """
+    if fill_type is None:
+        # the signature default: numba hands the None of an omitted argument here
+        return True
+    if isinstance(
+        fill_type, (nb.types.NoneType, nb.types.Number, nb.types.Boolean, nb.types.NPDatetime, nb.types.NPTimedelta)
+    ):
+        return True
+    if isinstance(fill_type, nb.types.Omitted):
+        # an omitted argument - it carries the signature's None, which asks for
+        # the operation's default
+        return fill_type.value is None
+    if isinstance(fill_type, nb.types.Optional):
+        return isinstance(
+            fill_type.type, (nb.types.Number, nb.types.Boolean, nb.types.NPDatetime, nb.types.NPTimedelta)
+        )
+    return False
+
+
+def _fill_fits(fill_value: Any, low: Any, high: Any, high_exclusive: Any) -> bool:
+    """Whether the fill value fits the output it fills.
+
+    The overload below picks the comparison that is exact per type: a signed
+    integer against the integer bounds of the output, everything else against
+    the bounds a float holds exactly (a nan fits nothing) - an unsigned at the
+    very top of the output range is refused, where numpy would take it.  The
+    function itself is never called - jitted code reaches the overload's
+    implementation.
+    """
+    raise NotImplementedError("the overload of _fill_fits provides the implementation")
+
+
+@register_overload(_fill_fits)
+def _fill_fits_overload(fill_value: Any, low: Any, high: Any, high_exclusive: Any) -> Callable[..., bool]:
+    if isinstance(fill_value, nb.types.Integer) and getattr(fill_value, "signed", True):
+        # against the integer bounds - the largest one fits exactly, which a
+        # float comparison would not say
+        def _fill_fits_body(fill_value: Any, low: Any, high: Any, high_exclusive: Any) -> bool:
+            return bool(low <= fill_value <= high)
+    else:
+        # against the bounds a float holds exactly - a nan fits nothing
+        def _fill_fits_body(fill_value: Any, low: Any, high: Any, high_exclusive: Any) -> bool:
+            return bool(fill_value == fill_value and low <= fill_value < high_exclusive)
+
+    return _fill_fits_body
+
+
+@njit_stable
+def _fill_differs(fill_value: Any, forced_fill: float) -> bool:
+    """Whether the fill value is the caller's own rather than the forced default.
+
+    A temporal fill is compared within its own unit - a nan differs, the zero
+    of the unit does not - because numba knows no comparison of a temporal
+    scalar with the integer default.  The isinstance is dead code for the
+    numeric dtypes.
+    """
+    if isinstance(fill_value, (np.datetime64, np.timedelta64)):
+        # a temporal fill differs from the forced default when it is a NaT -
+        # the unit's zero is the default of the fill-with-zero operations
+        return bool(fill_value != fill_value)
+    return bool(fill_value != forced_fill)
+
+
+@njit_stable
+def _require_inputs(group_idx: Any, a: Any) -> None:
+    """The two value checks a call of a kernel cannot be trusted to skip: an
+    empty ``group_idx`` leaves the driver nothing to reduce, and a short ``a``
+    has it read past the end of the array, which numba never catches.  The
+    python call asks the same two questions in ``_python_prologue``."""
+    if len(group_idx) == 0:
+        raise ValueError(EMPTY_GROUP_IDX)
+    if len(a) != len(group_idx):
+        raise ValueError(LENGTH_MISMATCH)
+
+
+@njit_stable
+def _require_fittable(
+    fill_value: Any,
+    is_bool: bool,
+    is_exact: bool,
+    low: int,
+    high: int,
+    high_exclusive: float,
+    message: str,
+) -> None:
+    """Whether the fill value fits the output, as compiled code sees it: a
+    boolean output takes the two booleans, an integer output an exact number
+    of its own range, the inexact ones anything, and a temporal output the
+    temporal value it is handed - a NaT is the fill a NaT result asks for, no
+    bound of a number holds it.  The bounds and the complaint are resolved by
+    the typing function once per compiled signature (``_typing_prologue``) -
+    jitted code cannot ask numpy.
+    """
+    if isinstance(fill_value, (np.datetime64, np.timedelta64)):
+        return
+    if is_bool and fill_value != 0 and fill_value != 1:
+        raise ValueError(FILL_NOT_BOOLEAN)
+    if is_exact and not _fill_fits(fill_value, low, high, high_exclusive):
+        raise ValueError(message)
+
+
+@functools.cache
+def _array_type(dtype: np.dtype) -> nb.types.Type:
+    """The numba type of a contiguous 1d array of *dtype*.
+
+    The dtype rules are read through this type from the python call too, so the
+    two calls of one kernel cannot disagree about the output dtype.  One type
+    per dtype is enough, and cached - ``typeof`` of an array costs a dozen
+    microseconds, more than the whole call of a small kernel.
+    """
+    return cast("nb.types.Type", nb.typeof(np.empty(0, dtype=dtype)))
+
+
+@njit_stable
+def _raise_too_large_for_size(size_arg: int) -> None:
+    """The complaint of an explicit size that is too small.
+
+    Built in a function of its own: the numba string machinery inlined into
+    the caller cost the hot loops of every operation ~15% - more than the
+    size in the message is worth.
+    """
+    raise ValueError(TOO_LARGE_SIZE_PREFIX + str(size_arg))
+
+
+@njit_stable
+def output_size(group_idx: npt.NDArray[np.integer], size_arg: int) -> int:
+    """The resolved output size of one aggregation: one past the largest group
+    index, capped by an explicitly requested size - afterwards every index is
+    within ``[0, size)``."""
+    size: int = np.max(group_idx) + 1
+    if size_arg >= 0:
+        # an explicit output size may be larger than the largest index, but
+        # never smaller
+        if size > size_arg:
+            _raise_too_large_for_size(size_arg)
+        size = size_arg
+    return size
+
+
+# ---------------------------------------------------------------------------
+# the kernel of a function on the int64 ticks of temporal values
+#
+# For the functions whose numeric kernel is not exact on the ticks - the mean,
+# the median, the quantile - the stub hands the ticks to the tick kernel and
+# views its answer back into the unit of the input.  The tick kernel stays
+# behind the stub: no function of the package.
+
+
+class TickKernel(NamedTuple):
+    """The kernel of a function on the int64 ticks of temporal values: the
+    function's arguments come first, as in its stub.  The ``nan`` call leaves
+    a group's NaT out, the ``plain`` one takes the group over with it."""
+
+    plain: Callable[..., Any]
+    nan: Callable[..., Any] | None = None
+
+
+# ---------------------------------------------------------------------------
+# the argument an operation has of its own: nothing (``none``), the variance
+# ``ddof``, the quantile ``q``, the trapezoid ``dx`` or the sort ``reverse`` -
+# named as the caller names it, all the way from the kernel signature to the
+# jitted driver's signature.
+Variant = Literal["none", "ddof", "q_method", "dx", "reverse", "topk"]
+
+# the kernels' defaults for their own argument, as in the table
+# (``numpy_groupies.functions.FUNC_EXTRAS``) - except the trapezoid ``dx``,
+# carried as the integer 1: a float in the driver slot compiles the trapezoid
+# kernel a few percent slower (the nan variant measured ~3% slower).
+_KERNEL_ARGUMENT_DEFAULTS: dict[str, Any] = {"dx": 1}
+
+# the variants ``build_kernel`` composes - the quantile and the reverse flag
+# belong to the hand-written pass structures of ``numpy_groupies.npg_numba.specials``
+ComposedVariant = Literal["none", "ddof", "dx"]
+
+# what the python half of a kernel call hands the driver: the two checked
+# arrays, the resolved dtype pair and the resolved fill value
+_PythonCall = tuple[Any, Any, np.dtype, np.dtype, AScalar]
+
+# what the typing function of a kernel resolves once per compiled signature:
+# the dtype pair, the default fill value, the fill-fit complaint and rules
+_TypingCall = tuple[np.dtype, np.dtype, AScalar, str, bool, bool, int, int, float]
+
+# the two halves of a kernel call; one variant of an operation is the pair of
+# the python entry point and the typing function of the overload
+_PythonPrologue = Callable[[Any, Any, int, AScalar | None], _PythonCall]
+_TypingPrologue = Callable[[Any, Any, Any], _TypingCall]
+_Kernel = tuple[Callable[..., Any], Callable[..., Any]]
+
+
+def _no_fill_value(fill_type: Any) -> bool:
+    """Whether the argument of the signature asks for the default fill value -
+    the None of the default arrives as the default itself, as the numba type
+    of a None the caller passed, or as an omitted argument's value."""
+    if fill_type is None or isinstance(fill_type, nb.types.NoneType):
+        return True
+    return bool(isinstance(fill_type, nb.types.Omitted) and fill_type.value is None)
+
+
+def _is_temporal_type(a: Any) -> bool:
+    """Whether the values of a call are temporal ones, read from the numpy dtype
+    behind the numba type the overload's typing function sees."""
+    a_dtype = _numpy_dtype(getattr(a, "dtype", None))
+    return a_dtype is not None and a_dtype.kind in TEMPORAL_KINDS
+
+
+def _kernel_checks(group_idx: Any, a: Any) -> tuple[Any, Any]:
+    """The checks every call of a kernel does: the flat input, the numeric
+    values and the integer labels, plus the two value checks (an empty
+    ``group_idx``, an ``a`` of another length)."""
+    group_idx, a = _kernel_inputs(group_idx, a)
+    if len(group_idx) == 0:
+        raise ValueError(EMPTY_GROUP_IDX)
+    if len(a) != len(group_idx):
+        raise ValueError(LENGTH_MISMATCH)
+    return group_idx, a
+
+
+def _python_prologue(
+    rule: Callable[[nb.types.Type], tuple[np.dtype, np.dtype]],
+    fill_default: AScalar,
+    reject_fill: bool,
+    stub_name: str,
+    tick: Callable[..., Any] | None = None,
+) -> _PythonPrologue:
+    """The python half of a call of a kernel: everything between the arguments
+    of the signature and the arguments of the driver.  What the typing function
+    answers by rule once per compiled signature, this answers by hand once per
+    call - the same dtype rule, the same fill rules asked of numpy itself (the
+    very function the python-level ``aggregate()`` uses), so the two cannot
+    disagree.
+    """
+
+    def resolve(group_idx: Any, a: Any, size: int, fill_value: AScalar | None) -> _PythonCall:
+        group_idx, a = _kernel_inputs(group_idx, a)
+        if a.dtype.kind in TEMPORAL_KINDS and tick is None:
+            _temporal_gate(stub_name, a.dtype)
+        if reject_fill and fill_value is not None:
+            # this driver cannot place a fill value - saying so beats ignoring
+            # the argument silently
+            raise ValueError(_REFUSAL.format(name=stub_name))
+        if len(group_idx) == 0:
+            raise ValueError(EMPTY_GROUP_IDX)
+        if len(a) != len(group_idx):
+            raise ValueError(LENGTH_MISMATCH)
+        out_dtype, aux_dtype = rule(_array_type(a.dtype))
+        if fill_value is None:
+            fill_value = _resolve_default_fill(fill_default, out_dtype)
+        elif out_dtype.kind in TEMPORAL_KINDS:
+            fill_value = _temporal_fill_scalar(fill_value, out_dtype)
+        else:
+            fill_value = check_fill_value_for_dtype(fill_value, out_dtype)
+        return group_idx, a, out_dtype, aux_dtype, fill_value
+
+    return resolve
+
+
+def _temporal_typing_call(out_dtype: np.dtype, aux_dtype: np.dtype) -> _TypingCall:
+    """The typing call of the temporal branch of a kernel: the answer is a value
+    of the input's unit (the tick kernel answers the ticks, the stub views them
+    back), the fill the unit's NaT - a caller's temporal fill is checked
+    against no numeric bound."""
+    return (
+        out_dtype,
+        aux_dtype,
+        _resolve_default_fill(nan, out_dtype),
+        FILL_NOT_CONVERTIBLE.format(dtype=out_dtype.type.__name__),
+        False,
+        False,
+        0,
+        0,
+        0.0,
+    )
+
+
+def _typing_prologue(
+    rule: Callable[[nb.types.Type], tuple[np.dtype, np.dtype]],
+    fill_default: AScalar,
+    reject_fill: bool,
+    stub_name: str,
+    tick: Callable[..., Any] | None = None,
+) -> _TypingPrologue:
+    """The compile-time half of a call of a kernel: what the typing function of
+    the overload answers before it returns the implementation.
+
+    Shape and dtype are what a type knows, so the flat input, the numeric
+    values and the integer labels are refused here; the two value checks go to
+    the implementation (``_require_inputs``).  The fill value is decided as far
+    as a type reaches - a non-number cannot be put into any output, a driver
+    that cannot place one refuses it while the argument still is a type - and
+    what fits the output *dtype* is resolved into the numbers and the one
+    message ``_require_fittable`` compares against.
+    """
+
+    def prepare(group_idx: Any, a: Any, fill_value: Any) -> _TypingCall:
+        # a multidimensional group_idx would be walked by row and answered
+        # with a result that is quietly wrong
+        if getattr(group_idx, "ndim", -1) != 1 or getattr(a, "ndim", -1) != 1:
+            raise nb.TypingError(_FLAT_INPUT)
+        # an index numba does not know: a float one is rounded by the caller,
+        # a bool one is not an index at all
+        if not is_integer_dtype(_numpy_dtype(getattr(group_idx, "dtype", None))):
+            raise nb.TypingError(NON_INTEGER_GROUP_IDX)
+        a_dtype = _numpy_dtype(getattr(a, "dtype", None))
+        temporal = a_dtype is not None and a_dtype.kind in TEMPORAL_KINDS
+        if not temporal and not is_numeric_dtype(a_dtype):
+            raise nb.TypingError(_NUMERIC_VALUES)
+        if temporal and a_dtype is not None:
+            if tick is None:
+                try:
+                    _temporal_gate(stub_name, a_dtype)
+                except TypeError as err:
+                    raise nb.TypingError(str(err)) from None
+            else:
+                # the tick kernel answers the ticks - viewed back into the unit
+                out_dtype, aux_dtype = rule_same(a)
+                return _temporal_typing_call(out_dtype, aux_dtype)
+        out_dtype, aux_dtype = rule(a)
+        if reject_fill:
+            if not _no_fill_value(fill_value):
+                raise nb.TypingError(_REFUSAL.format(name=stub_name))
+        elif not _fill_type_ok(fill_value):
+            raise nb.TypingError(FILL_NOT_CONVERTIBLE.format(dtype=out_dtype.type.__name__))
+        default_fill = _resolve_default_fill(fill_default, out_dtype)
+        # the fill rules as compiled code sees them: a boolean output takes
+        # the two booleans, an integer output an exact number of its own range,
+        # the inexact ones anything, a temporal output the temporal fill it is
+        # handed - a NaT fits by being NaT, which no number is
+        fill_is_bool = out_dtype.kind == "b"
+        fill_is_exact = out_dtype.kind in "iu"
+        if fill_is_exact:
+            info = np.iinfo(out_dtype)
+            fill_min = int(info.min) if info.min < 0 else 0
+            fill_max = int(info.max)
+            # the exclusive bound, which a float holds exactly
+            fill_max_exclusive = float(info.max) + 1.0
+        else:
+            fill_min, fill_max, fill_max_exclusive = 0, 0, 0.0
+        message = FILL_NOT_CONVERTIBLE.format(dtype=out_dtype.type.__name__)
+        return (
+            out_dtype,
+            aux_dtype,
+            default_fill,
+            message,
+            fill_is_bool,
+            fill_is_exact,
+            fill_min,
+            fill_max,
+            fill_max_exclusive,
+        )
+
+    return prepare
+
+
+# the three functions of the one signature of an operation - the stub (the
+# python entry point), the typing function of its overload and the
+# implementation that function returns - each spelling the signature out
+# rather than having it assembled: numba compares the typing function with
+# the implementation it returns, argument names and annotations included, and
+# the argument an operation has of its own is what a caller of the kernel
+# reads the signature for.  Their bodies are shared: the stub of every variant
+# calls the driver through the helper below, and the implementation asks the
+# same two questions - the two input checks and the fill value.  Only the
+# signatures differ.
+
+
+def _round_float16(ret: Any) -> AResult | list[AResult]:
+    """The result of a kernel that ran on the float32 its float16 input was
+    widened to: float results are rounded back to the input dtype (every
+    float16 survives the widening exactly), other kinds pass through - and the
+    collecting function's list of group arrays, rounded entry by entry."""
+    if isinstance(ret, np.ndarray):
+        return ret.astype(np.float16) if ret.dtype.kind == "f" else ret
+    return [one.astype(np.float16) if one.dtype.kind == "f" else one for one in ret]
+
+
+def _call_kernel_stub(
+    driver: Callable[..., AResult | list[AResult]],
+    resolve: _PythonPrologue,
+    group_idx: Any,
+    a: Any,
+    size: int,
+    fill_value: AScalar | None,
+    extra_args: tuple[Any, ...] = (),
+) -> AResult | list[AResult]:
+    """The python half of a call of a kernel: the two arrays, the size, the two
+    dtypes and the fill value - plus, for an operation that has one, its own
+    argument as the last one (the ``ddof``, the quantile ``q``, the ``dx``, the
+    ``reverse`` flag); an operation without one hands the driver nothing.
+
+    A float16 input is widened to float32 ahead of the driver, an inexact
+    result rounded back after it: numba has no float16, and the values survive
+    the widening cast exactly.  From jitted code a float16 never reaches this
+    point - the typing sees no float16 signatures - so the branch costs the
+    python call one dtype comparison.
+    """
+    is16 = getattr(a, "dtype", None) == np.float16
+    if is16:
+        a = a.astype(np.float32)
+    group_idx, a, out_dtype, aux_dtype, fill = resolve(group_idx, a, size, fill_value)
+    ret = driver(group_idx, a, size, out_dtype, aux_dtype, fill, *extra_args)
+    return _round_float16(ret) if is16 else ret
+
+
+def _kernel_none(
+    name: str,
+    driver: Callable[..., AResult | list[AResult]],
+    resolve: _PythonPrologue,
+    prepare: _TypingPrologue,
+    tick: Callable[..., Any] | None = None,
+) -> _Kernel:
+    """The kernel of an operation that takes nothing of its own; with a tick
+    kernel, the stub answers the temporal input with it - the values handed
+    over as their int64 ticks, the answer viewed back into the unit."""
+
+    def stub(group_idx: Any, a: Any, size: int = -1, fill_value: float | None = None) -> AResult | list[AResult]:
+        if tick is not None and is_temporal_input(a):
+            group_idx, a = _kernel_checks(group_idx, a)
+            ticks = a.view(np.int64)
+            fill = NAT_TICK if fill_value is None else np.int64(fill_value)
+            # the answer of the tick kernel, viewed back into the unit
+            answer: AResult = tick(group_idx, ticks, size, fill).view(a.dtype)
+            return answer
+        return _call_kernel_stub(driver, resolve, group_idx, a, size, fill_value)
+
+    def typing(
+        group_idx: Any, a: Any, size: int = -1, fill_value: float | None = None
+    ) -> Callable[..., AResult | list[AResult]]:
+        out_dtype, aux_dtype, default_fill, message, is_bool, is_exact, low, high, high_exclusive = prepare(
+            group_idx, a, fill_value
+        )
+        if tick is not None and _is_temporal_type(a):
+
+            def _temporal_impl(
+                group_idx: Any, a: Any, size: int = -1, fill_value: float | None = None
+            ) -> AResult | list[AResult]:
+                _require_inputs(group_idx, a)
+                ticks = a.view(np.int64)
+                fill = NAT_TICK if fill_value is None else np.int64(fill_value)
+                # the answer of the tick kernel, viewed back into the unit
+                answer: AResult = tick(group_idx, ticks, size, fill).view(a.dtype)
+                return answer
+
+            _temporal_impl.__qualname__ = f"{name}_temporal_impl"
+            return _temporal_impl
+
+        def _kernel_impl(
+            group_idx: Any, a: Any, size: int = -1, fill_value: float | None = None
+        ) -> AResult | list[AResult]:
+            _require_inputs(group_idx, a)
+            if fill_value is None:
+                return driver(group_idx, a, size, out_dtype, aux_dtype, default_fill)
+            else:
+                _require_fittable(fill_value, is_bool, is_exact, low, high, high_exclusive, message)
+                return driver(group_idx, a, size, out_dtype, aux_dtype, fill_value)
+
+        _kernel_impl.__qualname__ = f"{name}_kernel_impl"
+        return _kernel_impl
+
+    return stub, typing
+
+
+def _kernel_ddof(
+    name: str,
+    driver: Callable[..., AResult | list[AResult]],
+    resolve: _PythonPrologue,
+    prepare: _TypingPrologue,
+    tick: Callable[..., Any] | None = None,
+) -> _Kernel:
+    """The kernel of an operation that takes the ``ddof`` of the variance."""
+    if tick is not None:
+        # this operation has no kernel on the ticks
+        raise TypeError("the _kernel_ddof kernel takes no tick kernel")
+
+    def stub(
+        group_idx: Any, a: Any, ddof: int = 0, size: int = -1, fill_value: float | None = None
+    ) -> AResult | list[AResult]:
+        return _call_kernel_stub(driver, resolve, group_idx, a, size, fill_value, (ddof,))
+
+    def typing(
+        group_idx: Any, a: Any, ddof: int = 0, size: int = -1, fill_value: float | None = None
+    ) -> Callable[..., AResult | list[AResult]]:
+        out_dtype, aux_dtype, default_fill, message, is_bool, is_exact, low, high, high_exclusive = prepare(
+            group_idx, a, fill_value
+        )
+
+        def _kernel_impl(
+            group_idx: Any, a: Any, ddof: int = 0, size: int = -1, fill_value: float | None = None
+        ) -> AResult | list[AResult]:
+            _require_inputs(group_idx, a)
+            if fill_value is None:
+                return driver(group_idx, a, size, out_dtype, aux_dtype, default_fill, ddof)
+            else:
+                _require_fittable(fill_value, is_bool, is_exact, low, high, high_exclusive, message)
+                return driver(group_idx, a, size, out_dtype, aux_dtype, fill_value, ddof)
+
+        _kernel_impl.__qualname__ = f"{name}_kernel_impl"
+        return _kernel_impl
+
+    return stub, typing
+
+
+def _kernel_dx(
+    name: str,
+    driver: Callable[..., AResult | list[AResult]],
+    resolve: _PythonPrologue,
+    prepare: _TypingPrologue,
+    tick: Callable[..., Any] | None = None,
+) -> _Kernel:
+    """The kernel of an operation that takes the sample spacing ``dx`` of the
+    trapezoid.  The default is the integer 1, not the float 1.0: a float in
+    the driver slot compiles the trapezoid kernel a few percent slower (the
+    nan variant measured ~3% slower)."""
+    if tick is not None:
+        # this operation has no kernel on the ticks
+        raise TypeError("the _kernel_dx kernel takes no tick kernel")
+
+    def stub(
+        group_idx: Any, a: Any, dx: float = 1, size: int = -1, fill_value: float | None = None
+    ) -> AResult | list[AResult]:
+        return _call_kernel_stub(driver, resolve, group_idx, a, size, fill_value, (dx,))
+
+    def typing(
+        group_idx: Any, a: Any, dx: float = 1, size: int = -1, fill_value: float | None = None
+    ) -> Callable[..., AResult | list[AResult]]:
+        out_dtype, aux_dtype, default_fill, message, is_bool, is_exact, low, high, high_exclusive = prepare(
+            group_idx, a, fill_value
+        )
+
+        def _kernel_impl(
+            group_idx: Any, a: Any, dx: float = 1, size: int = -1, fill_value: float | None = None
+        ) -> AResult | list[AResult]:
+            _require_inputs(group_idx, a)
+            if fill_value is None:
+                return driver(group_idx, a, size, out_dtype, aux_dtype, default_fill, dx)
+            else:
+                _require_fittable(fill_value, is_bool, is_exact, low, high, high_exclusive, message)
+                return driver(group_idx, a, size, out_dtype, aux_dtype, fill_value, dx)
+
+        _kernel_impl.__qualname__ = f"{name}_kernel_impl"
+        return _kernel_impl
+
+    return stub, typing
+
+
+def _kernel_reverse(
+    name: str,
+    driver: Callable[..., AResult | list[AResult]],
+    resolve: _PythonPrologue,
+    prepare: _TypingPrologue,
+    tick: Callable[..., Any] | None = None,
+) -> _Kernel:
+    """The kernel of an operation that takes the ``reverse`` flag of the sort."""
+    if tick is not None:
+        # this operation has no kernel on the ticks
+        raise TypeError("the _kernel_reverse kernel takes no tick kernel")
+
+    def stub(
+        group_idx: Any, a: Any, reverse: bool = False, size: int = -1, fill_value: float | None = None
+    ) -> AResult | list[AResult]:
+        return _call_kernel_stub(driver, resolve, group_idx, a, size, fill_value, (reverse,))
+
+    def typing(
+        group_idx: Any, a: Any, reverse: bool = False, size: int = -1, fill_value: float | None = None
+    ) -> Callable[..., AResult | list[AResult]]:
+        out_dtype, aux_dtype, default_fill, message, is_bool, is_exact, low, high, high_exclusive = prepare(
+            group_idx, a, fill_value
+        )
+
+        def _kernel_impl(
+            group_idx: Any, a: Any, reverse: bool = False, size: int = -1, fill_value: float | None = None
+        ) -> AResult | list[AResult]:
+            _require_inputs(group_idx, a)
+            if fill_value is None:
+                return driver(group_idx, a, size, out_dtype, aux_dtype, default_fill, reverse)
+            else:
+                _require_fittable(fill_value, is_bool, is_exact, low, high, high_exclusive, message)
+                return driver(group_idx, a, size, out_dtype, aux_dtype, fill_value, reverse)
+
+        _kernel_impl.__qualname__ = f"{name}_kernel_impl"
+        return _kernel_impl
+
+    return stub, typing
+
+
+def _kernel_q_method(
+    name: str,
+    driver: Callable[..., AResult | list[AResult]],
+    resolve: _PythonPrologue,
+    prepare: _TypingPrologue,
+    tick: Callable[..., Any] | None = None,
+) -> _Kernel:
+    """The kernel of an operation that takes a quantile and the method of the
+    interpolation - the numpy method name, branched on once per group, which
+    costs nothing next to the work of the group itself.  All five methods run
+    in the compiled kernel, numeric and ticks alike."""
+    default_q = func_argument_default(name, "q")
+    default_method = func_argument_default(name, "method")
+
+    def stub(
+        group_idx: Any,
+        a: Any,
+        q: float = default_q,
+        method: str = default_method,
+        size: int = -1,
+        fill_value: float | None = None,
+    ) -> AResult | list[AResult]:
+        if tick is not None and is_temporal_input(a):
+            group_idx, a = _kernel_checks(group_idx, a)
+            ticks = a.view(np.int64)
+            fill = NAT_TICK if fill_value is None else np.int64(fill_value)
+            # the answer of the tick kernel, viewed back into the unit
+            answer: AResult = tick(group_idx, ticks, q, method, size, fill).view(a.dtype)
+            return answer
+        return _call_kernel_stub(driver, resolve, group_idx, a, size, fill_value, (q, method))
+
+    def typing(
+        group_idx: Any,
+        a: Any,
+        q: float = default_q,
+        method: str = default_method,
+        size: int = -1,
+        fill_value: float | None = None,
+    ) -> Callable[..., AResult | list[AResult]]:
+        out_dtype, aux_dtype, default_fill, message, is_bool, is_exact, low, high, high_exclusive = prepare(
+            group_idx, a, fill_value
+        )
+        if tick is not None and _is_temporal_type(a):
+
+            def _temporal_impl(
+                group_idx: Any,
+                a: Any,
+                q: float = default_q,
+                method: str = default_method,
+                size: int = -1,
+                fill_value: float | None = None,
+            ) -> AResult | list[AResult]:
+                _require_inputs(group_idx, a)
+                ticks = a.view(np.int64)
+                fill = NAT_TICK if fill_value is None else np.int64(fill_value)
+                # the answer of the tick kernel, viewed back into the unit
+                answer: AResult = tick(group_idx, ticks, q, method, size, fill).view(a.dtype)
+                return answer
+
+            _temporal_impl.__qualname__ = f"{name}_temporal_impl"
+            return _temporal_impl
+
+        def _kernel_impl(
+            group_idx: Any,
+            a: Any,
+            q: float = default_q,
+            method: str = default_method,
+            size: int = -1,
+            fill_value: float | None = None,
+        ) -> AResult | list[AResult]:
+            _require_inputs(group_idx, a)
+            if fill_value is None:
+                return driver(group_idx, a, size, out_dtype, aux_dtype, default_fill, q, method)
+            else:
+                _require_fittable(fill_value, is_bool, is_exact, low, high, high_exclusive, message)
+                return driver(group_idx, a, size, out_dtype, aux_dtype, fill_value, q, method)
+
+        _kernel_impl.__qualname__ = f"{name}_kernel_impl"
+        return _kernel_impl
+
+    return stub, typing
+
+
+def _kernel_topk(
+    name: str,
+    driver: Callable[..., AResult | list[AResult]],
+    resolve: _PythonPrologue,
+    prepare: _TypingPrologue,
+    tick: Callable[..., Any] | None = None,
+) -> _Kernel:
+    """The kernel of the topk: how many values every group keeps, largest or
+    smallest.  The two arguments arrive in the slots the other operations use
+    for the ``ddof`` and the ``q``."""
+    if tick is not None:
+        # this operation has no kernel on the ticks
+        raise TypeError("the _kernel_topk kernel takes no tick kernel")
+
+    def stub(
+        group_idx: Any, a: Any, k: int = 5, largest: bool = True, size: int = -1, fill_value: float | None = None
+    ) -> AResult | list[AResult]:
+        return _call_kernel_stub(driver, resolve, group_idx, a, size, fill_value, ((k, largest),))
+
+    def typing(
+        group_idx: Any, a: Any, k: int = 5, largest: bool = True, size: int = -1, fill_value: float | None = None
+    ) -> Callable[..., AResult | list[AResult]]:
+        out_dtype, aux_dtype, default_fill, message, is_bool, is_exact, low, high, high_exclusive = prepare(
+            group_idx, a, fill_value
+        )
+
+        def _kernel_impl(
+            group_idx: Any,
+            a: Any,
+            k: int = 5,
+            largest: bool = True,
+            size: int = -1,
+            fill_value: float | None = None,
+        ) -> AResult | list[AResult]:
+            _require_inputs(group_idx, a)
+            if fill_value is None:
+                return driver(group_idx, a, size, out_dtype, aux_dtype, default_fill, (k, largest))
+            else:
+                _require_fittable(fill_value, is_bool, is_exact, low, high, high_exclusive, message)
+                return driver(group_idx, a, size, out_dtype, aux_dtype, fill_value, (k, largest))
+
+        _kernel_impl.__qualname__ = f"{name}_kernel_impl"
+        return _kernel_impl
+
+    return stub, typing
+
+
+_KERNEL_BUILDERS: dict[
+    Variant, Callable[[str, Callable[..., Any], _PythonPrologue, _TypingPrologue, Callable[..., Any] | None], _Kernel]
+] = {
+    "none": _kernel_none,
+    "ddof": _kernel_ddof,
+    "q_method": _kernel_q_method,
+    "dx": _kernel_dx,
+    "reverse": _kernel_reverse,
+    "topk": _kernel_topk,
+}
+
+
+# the typing functions of the kernels, by the name of their operation - the
+# test suite compares their signature with the stub's
+_TYPING_FUNCTIONS: dict[str, Callable[..., Any]] = {}
+
+
+def _make_stub(
+    stub_name: str,
+    driver: Callable[..., AResult | list[AResult]],
+    rule: Callable[[nb.types.Type], tuple[np.dtype, np.dtype]],
+    fill_default: AScalar,
+    doc: str | None,
+    variant: Variant = "none",
+    reject_fill: bool = False,
+    tick: Callable[..., Any] | None = None,
+) -> Callable[..., Any]:
+    """Create the kernel of one variant: the function of the name of its
+    operation (``mean``, ``nanmean``) with the signature of that operation.
+
+    The stub is one function with two ways in, both ending at the same compiled
+    driver with the same arguments: from python the dtypes are resolved itself
+    (``_python_prologue``), from jitted code the ``@overload`` resolves the
+    dtype rule at compile time (``_typing_prologue``).  Both say no to the
+    input the drivers were not written for, in the same words - a fraction of
+    what ``aggregate()`` asks, which also knows an axis, an indexed
+    ``group_idx`` and a single value repeated over every label.
+    ``fill_value=None`` asks for the dtype-dependent function default, resolved
+    per path.  The signature is the one of the operation: its own argument
+    first, ``size`` and ``fill_value`` last - spelled out by the variant
+    builder, which also gives the driver of that variant its signature.
+    """
+
+    resolve = _python_prologue(rule, fill_default, reject_fill, stub_name, tick)
+    prepare = _typing_prologue(rule, fill_default, reject_fill, stub_name, tick)
+    stub, typing = _KERNEL_BUILDERS[variant](stub_name, driver, resolve, prepare, tick)
+    _TYPING_FUNCTIONS[stub_name] = typing
+
+    stub.__name__ = stub.__qualname__ = stub_name
+    stub.__module__ = __name__
+    # the typing function carries the name of the operation in its qualname -
+    # numba mangles the symbol from module and qualname, and two sharing them
+    # would share the symbol
+    typing.__name__ = f"_typing_{stub_name}"
+    typing.__qualname__ = f"_typing_{stub_name}"
+    typing.__module__ = __name__
+    stub.__doc__ = (
+        f"{doc or f'The {stub_name} of every group'} - the compiled kernel, "
+        "callable from jitted code and from python with the same arguments."
+    )
+
+    # no jit_options cache here: the shim of the implementation is compiled by
+    # numba's overload machinery OUTSIDE the revisioned ``njit_stable``
+    # namespace, and its cache key does not reliably capture the identity of
+    # the captured driver - stale shims of earlier refactors kept being served
+    # (observed as a nanfirst running plain-first machine code).  The shim
+    # compiles in microseconds; the driver stays cached through ``njit_stable``.
+    # the overload hands the typing function numba's own types at compile time
+    # and returns the implementation it compiles - same signature for both,
+    # which is why the builders above write both of them down
+    register_overload(stub)(typing)
+
+    return stub
+
+
+# ---------------------------------------------------------------------------
+# the driver of a variant: the pass structure of ``build_kernel`` behind the
+# signature of the operation - the argument an operation has of its own keeps
+# its name from the kernel caller to the update step; the driver itself hands
+# it on as the ``extra`` of the pass structure.
+
+
+def build_driver(
+    name: str, passes: Any, suffix: str, multi_threading: bool = False
+) -> Callable[..., AResult | list[AResult]]:
+    """The driver of an operation: the two arrays, the size, the two dtypes and
+    the fill value - plus, for an operation that has one, its own argument as
+    the last one, with a default so that an operation without one hands the
+    driver nothing and the zero passes on.
+
+    The parallel driver takes the number of the threads as its first argument:
+    the pool's threads are read when the wrapper is built - a number read
+    inside the compiled code would keep the driver out of the on-disk cache
+    (numba refuses to cache a function that reads a dynamic global).
+    """
+    if multi_threading:
+
+        def driver_mt(
+            n_threads: int,
+            group_idx: npt.NDArray[np.integer],
+            a: npt.NDArray[np.number],
+            size_arg: int,
+            out_dtype: np.dtype,
+            aux_dtype: np.dtype,
+            fill_value: float,
+            extra: Any = 0,
+        ) -> AResult | list[AResult]:
+            result: AResult | list[AResult] = passes(
+                group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, extra, n_threads
+            )
+            return result
+
+        return njit_stable(driver_mt, name=f"{name}{suffix}")
+
+    def driver(
+        group_idx: npt.NDArray[np.integer],
+        a: npt.NDArray[np.number],
+        size_arg: int,
+        out_dtype: np.dtype,
+        aux_dtype: np.dtype,
+        fill_value: float,
+        extra: Any = 0,
+    ) -> AResult | list[AResult]:
+        result: AResult | list[AResult] = passes(group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, extra)
+        return result
+
+    return njit_stable(driver, name=f"{name}{suffix}")
+
+
+class KernelHandle(NamedTuple):
+    """The compiled artifact of one operation variant.
+
+    ``stub``        the kernel of the operation: the function it is exported
+                    under, by name - the same call from python and jitted code
+    ``driver``      the raw compiled driver - the python-level ``aggregate()``
+                    calls it with fully resolved arguments
+    ``variant``     the driver's own argument, the one the caller of ``driver``
+                    has to supply - ``npg_numba.ops`` picks it out of the two
+                    its own entry point takes
+    ``forced_fill`` the seeding default of the output (None: seeded with the
+                    fill value itself)
+    ``aux_widen``   the auxiliary dtype is the input dtype widened with
+                    float64 (the dispersion accumulators)
+    ``nton``        the output has the input length (the cumulatives)
+    ``fallback``    python-level callable for dtypes the compiled driver
+                    cannot handle (complex medians: numba cannot partition
+                    complex values)
+    ``refusal``     the TypeError message for the dtypes the driver cannot
+                    take at all - raised ahead of the kernel, where nothing
+                    parallel is running yet
+    ``placeable``   the dtypes the compiled driver can take - None means the
+                    default: only complex input goes to the fallback
+    ``post``        turns the driver result into the caller's (the collecting
+                    function assembles an object array of the groups)
+    ``assembles``   the driver assembles the result - the fill value is then
+                    the post hook's business, not the driver's
+    ``mt_driver``   the parallel driver beside the sequential one (chunked via
+                    ``combine``, or ranged group loops via
+                    ``mt_driver_factory``): the variant signature with the
+                    thread count in front, falling back to the very driver
+                    that always ran, so a fallback cannot change a result
+    ``mt_min_values`` the values from which the parallel path is worth a look
+                    - the cost model's floor; the pool size is a runtime call
+                    a too-small call should not pay for
+    """
+
+    name: str
+    nans: bool
+    stub: Callable[..., Any]
+    # the driver returns the result array - or the list of the group arrays,
+    # for the collecting function
+    driver: Callable[..., AResult | list[AResult]]
+    variant: Variant
+    forced_fill: float | int | None
+    aux_widen: bool
+    nton: bool
+    fallback: Callable[..., AResult] | None = None
+    refusal: str | None = None
+    placeable: Callable[[np.dtype | None], bool] | None = None
+    post: Callable[..., AResult] | None = None
+    assembles: bool = False
+    mt_driver: Callable[..., AResult | list[AResult]] | None = None
+    mt_min_values: int = 0
+
+
+def make_tick_call(name: str, handle: KernelHandle) -> Callable[..., Any]:
+    """The call of a tick kernel that takes no argument of its own.
+
+    The driver is bound in the closure - a global would be a name the compiler
+    cannot type.  The call is the sequential one: the parallel passes are
+    reached through the operation of the backend (the path ``aggregate()``
+    takes) - a compiled function that calls a parallel one cannot be cached
+    on disk, and the cache is worth more than the threads here.
+    """
+    driver = handle.driver
+
+    @njit_stable(name=name)
+    def call(group_idx: Any, ticks: Any, size: int, fill: int) -> AResult | list[AResult]:
+        return driver(group_idx, ticks, size, np.dtype(np.int64), np.dtype(np.int64), fill)
+
+    return call
+
+
+def make_tick_call_q(name: str, handle: KernelHandle, scale: float = 1.0) -> Callable[..., Any]:
+    """The call of a tick kernel that takes a quantile.
+
+    ``scale`` is the factor the quantile is multiplied with first (the
+    percentile argues in percent); the method passes through - the tick
+    kernel holds the five numpy methods like the numeric one does.
+    """
+    driver = handle.driver
+
+    @njit_stable(name=name)
+    def call(group_idx: Any, ticks: Any, q: float, method: str, size: int, fill: int) -> AResult | list[AResult]:
+        return driver(group_idx, ticks, size, np.dtype(np.int64), np.dtype(np.int64), fill, q * scale, method)
+
+    return call
+
+
+class KernelPair(NamedTuple):
+    """Plain and nan-variant handles of one operation; the four operations that
+    do not skip nans have no nan variant - ``nan_variant`` is None and the
+    property raises there."""
+
+    plain: KernelHandle
+    nan_variant: KernelHandle | None
+
+    @property
+    def nan(self) -> KernelHandle:
+        """The handle of the nan variant of the operation."""
+        if self.nan_variant is None:
+            raise ValueError(f"{self.plain.name} does not have a nan-version")
+        return self.nan_variant
+
+
+def build_kernel(
+    name: str,
+    *,
+    # the building blocks are jitted - their state differs from operation to
+    # operation, so their parameters stay open
+    init: Callable[..., Any],
+    update: Callable[..., None],
+    rule: Callable[[nb.types.Type], tuple[np.dtype, np.dtype]],
+    fill_default: AScalar = 0,
+    forced_fill: float | None = None,
+    seed: Callable[..., None] | None = None,
+    record: Callable[..., None] | None = None,
+    gate: Callable[..., None] | None = None,
+    finish: Callable[..., Any] | None = None,
+    untouched: Callable[..., npt.NDArray[np.bool_]] | None = None,
+    update_nan: Callable[..., None] | None = None,
+    combine: Callable[..., None] | None = None,
+    combine_nan: Callable[..., None] | None = None,
+    state_size: int = 1,
+    nans: bool = True,
+    variant: ComposedVariant = "none",
+    aux_widen: bool = False,
+    nton: bool = False,
+    fallback: Callable[..., AResult] | None = None,
+    refusal: str | None = None,
+    placeable: Callable[[np.dtype | None], bool] | None = None,
+    post: Callable[..., AResult] | None = None,
+    assembles: bool = False,
+    doc: str | None = None,
+    tick: TickKernel | None = None,
+) -> KernelPair:
+    """Compose the kernels of one operation from jitted building blocks.
+
+    See the module docstring for the building-block signatures.  Both the plain
+    and (unless ``nans=False``) the nan-guarded variant are built; the nan one
+    uses ``update_nan`` when provided - a branchless select-form body that
+    folds the nan handling into its stores so LLVM keeps the loop vectorized -
+    and otherwise the generic guard that skips nan values before ``update``.
+
+    ``variant`` names the operation's own argument and decides the signature
+    of driver and kernel together, so the two cannot drift apart.
+    ``combine`` folds two chunk states into one and enables the parallel path
+    - the skewness and kurtosis moments fold as the merge of Chan et al. over
+    their Welford running moments, not a plain addition.  ``state_size``
+    counts the state arrays against the two of the sum - the state of every
+    thread has to be filled and folded again, which the cost model needs to
+    know.
+    """
+    init_c = njit_stable(init)
+    update_c = njit_stable(update)
+    update_nan_c = njit_stable(update_nan) if update_nan is not None else None
+
+    # synthesized no-ops for the unused building blocks - all of them get
+    # inlined and folded away, the driver never branches on their presence.
+    # They carry no operation in their name: one and the same function in
+    # every operation - same source, no closure over anything operation
+    # specific - so symbol, cache entry and specialization are shared instead
+    # of copied.  Sharing is only sound while that holds, and these four once
+    # did carry the operation: numba 0.68 corrupted the boxing of the second
+    # driver's return array when the nan variants of sum and sumofsquares ran
+    # in that order (one state struct, one signature between them), which #129
+    # answered with a name per operation.  The corruption does not reproduce
+    # in either order, cold or warm cache, so they are shared again - should
+    # the error ("In 'NRT_adapt_ndarray_to_python', 'descr' is NULL") ever
+    # come back, the name is the knob.  The blocks that *are* used are
+    # different functions per operation and keep the operation's name (see
+    # below), as do the drivers and the kernels; the annotations below are
+    # documentation only - numba compiles from the argument types, the type
+    # checker needs them
+    def _seed_none(st: Any, a: Any) -> None:
+        pass
+
+    def _record_none(st: Any, ri: int, i: int) -> None:
+        pass
+
+    def _gate_none(st: Any, n_values: int) -> None:
+        pass
+
+    def _finish_none(st: Any, g: int, fill_value: float, extra: Any) -> np.generic:
+        # the element of the array - the stubs of numpy know no type for it
+        value: np.generic = st.out[g]
+        return value
+
+    # the same story in the other direction: nested blocks of this factory need
+    # the operation in their name - two different functions that share module,
+    # qualname and signature share numba's mangled symbol, and a driver loaded
+    # from the on-disk cache would bind its callees into the environment of the
+    # other function, correct types and wrong results (caught for ``last``
+    # against ``nanlast``, both taking an int64 and a float64 array)
+    seed_c = njit_stable(seed) if seed is not None else njit_stable(_seed_none)
+    record_c = njit_stable(record) if record is not None else njit_stable(_record_none)
+    gate_c = njit_stable(gate) if gate is not None else njit_stable(_gate_none)
+    finish_c = njit_stable(finish) if finish is not None else njit_stable(_finish_none)
+    if untouched is not None:
+        untouched_c = njit_stable(untouched)
+
+        def fill_untouched(st: Any, size: int, fill_value: float) -> None:
+            # a custom fill value also belongs to the untouched groups, whose
+            # output was seeded with the forced default of the operation
+            if forced_fill is not None and _fill_differs(fill_value, forced_fill):
+                un = untouched_c(st)
+                for g in range(size):
+                    if un[g]:
+                        st.out[g] = fill_value
+
+    else:
+
+        def fill_untouched(st: Any, size: int, fill_value: float) -> None:
+            pass
+
+    fill_untouched = njit_stable(fill_untouched, name=f"{name}_fill_untouched")
+
+    @njit_stable(name=f"{name}_finish_pass")
+    def finish_pass(st: Any, size: int, n_values: int, fill_value: float, extra: Any) -> AResult:
+        """The gate, the per-group finishing pass and the fill of the untouched
+        groups - the same last third of an aggregation's work in the sequential
+        and the parallel path."""
+        gate_c(st, n_values)
+        # the state array is bound to a local: a write through the field of a
+        # state that came out of a list lands in a copy of it and is lost
+        out: AResult = st.out
+        for g in range(size):
+            out[g] = finish_c(st, g, fill_value, extra)
+        fill_untouched(st, size, fill_value)
+        return out
+
+    def build(nan_variant: bool) -> KernelHandle:
+        # plain and nan variant are two compiled artifacts of the same source
+        # block - without the name prefix their drivers share a symbol too
+        # (caught for ``last`` and ``nanlast``)
+        op_name = name if not nan_variant else f"nan{name}"
+        if nan_variant:
+            if update_nan_c is not None:
+                update_ = update_nan_c
+            else:
+
+                def guarded_update(
+                    st: Any,
+                    ri: int,
+                    i: int,
+                    val: float,
+                    fill_value: float,
+                    extra: Any,
+                ) -> None:
+                    if val == val:
+                        update_c(st, ri, i, val, fill_value, extra)
+
+                update_ = njit_stable(guarded_update, name=f"{op_name}_guarded_update")
+        else:
+            update_ = update_c
+
+        def kernel(
+            group_idx: npt.NDArray[np.integer],
+            a: npt.NDArray[np.number],
+            st: Any,
+            fill_value: float,
+            extra: Any,
+            size: int,
+        ) -> int:
+            # a function of its own on purpose: arrays living in the caller's
+            # frame (allocated there, reached through the state) measure the
+            # same loop ~12% slower - numba reloads the data pointers around
+            # every store (numba 0.68, argmax)
+            # a fault of the indices is returned, not raised: an exception out
+            # of the parallel region does not reach the caller in one piece
+            # (numba hands it over mangled, and with a single chunk it loses it
+            # altogether) - the driver reads the code and raises the same
+            # complaint
+            # the code travels as a number, not as a flag in an array: the
+            # store into the array would keep the loop from being vectorized
+            # (measured ten times slower)
+            fault = 0
+            for i in range(group_idx.shape[0]):
+                ri = group_idx[i]
+                if ri < 0:
+                    fault |= 1
+                    continue
+                if ri >= size:
+                    fault |= 2
+                    continue
+                update_(st, ri, i, a[i], fill_value, extra)
+                record_c(st, ri, i)
+            return fault
+
+        kernel = njit_stable(kernel, name=f"{op_name}_kernel")
+
+        def _raise_fault(fault: int) -> None:
+            # the indices complaint, in the words of the validation module -
+            # the kernel could not raise it itself
+            if fault & 1:
+                raise ValueError(NEGATIVE_INDICES)
+            if fault & 2:
+                raise ValueError(TOO_LARGE)
+
+        _raise_fault = njit_stable(_raise_fault, name=f"{op_name}_raise_fault")
+
+        # the pass structure of the operation, behind the driver variant that
+        # ``build_driver`` below builds around it: ``extra`` is the operation's
+        # own argument - the ddof, the dx, or the zero of one that has nothing
+        # of its own.  One call of a call, like the building blocks it runs -
+        # a driver is reached once per aggregation.
+        def passes(
+            group_idx: npt.NDArray[np.integer],
+            a: npt.NDArray[np.number],
+            size_arg: int,
+            out_dtype: np.dtype,
+            aux_dtype: np.dtype,
+            fill_value: float,
+            extra: Any,
+        ) -> AResult | list[AResult]:
+            # numba's np.max reduction is several times faster here than a
+            # scalar loop; negative indices are caught by the kernel's bounds
+            # check below
+            size = np.max(group_idx) + 1
+            if size_arg >= 0:
+                # an explicit size may be larger than the largest index, never smaller
+                if size > size_arg:
+                    _raise_too_large_for_size(size_arg)
+                size = size_arg
+            st = init_c(size, len(group_idx), out_dtype, aux_dtype, a.dtype, fill_value, forced_fill)
+            seed_c(st, a)
+            fault = kernel(group_idx, a, st, fill_value, extra, size)
+            _raise_fault(fault)
+            return finish_pass(st, size, len(group_idx), fill_value, extra)
+
+        passes = njit_stable(passes, name=f"{op_name}_passes")
+        driver = build_driver(op_name, passes, "_driver")
+
+        mt_driver = None
+        if combine is not None:
+            # The parallel path: one state per chunk, folded in the order of
+            # their index - the sequential kernel's result up to the order of
+            # the additions, and bit for bit with a single chunk.
+            #
+            # The nan variant folds with its own body where the plain one is
+            # not enough (the select-form kernels); chosen here in the factory,
+            # so the driver carries no branch for it.
+            combine_c = njit_stable(
+                combine_nan if (nan_variant and combine_nan is not None) else combine,
+                name=f"{op_name}_combine",
+            )
+
+            def mt_passes(
+                group_idx: npt.NDArray[np.integer],
+                a: npt.NDArray[np.number],
+                size_arg: int,
+                out_dtype: np.dtype,
+                aux_dtype: np.dtype,
+                fill_value: float,
+                extra: Any,
+                n_threads: int,
+            ) -> AResult | list[AResult]:
+                size = np.max(group_idx) + 1
+                if size_arg >= 0:
+                    if size > size_arg:
+                        _raise_too_large_for_size(size_arg)
+                    size = size_arg
+                n_values = len(group_idx)
+                if not should_use_mt(size, n_threads, n_values, state_size):
+                    # not worth it, or only one thread: the sequential path,
+                    # with its result bit for bit
+                    return passes(group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, extra)
+                n_chunks = chunk_count(n_threads, n_values)
+                chunk = (n_values + n_chunks - 1) // n_chunks
+                faults = np.zeros(n_chunks, np.int64)
+                # states one per chunk or one per thread, the memory decides: a
+                # state is group-sized, so chunk states cost twice the thread
+                # states - with few groups per chunk wins (the fold runs in
+                # chunk order, the same bits every time, not the order the pool
+                # happened to hand the chunks out in), with many groups the
+                # memory counts.
+                #
+                # The extra states may not be more than a tenth of the data
+                # itself: a state is group-sized, the data value-sized.
+                per_chunk = n_threads * size * state_size * 10 <= n_values
+                n_states = n_chunks if per_chunk else n_threads
+                # one state per thread, written by that thread alone - no lock;
+                # a busy thread delays its chunk and not the whole call, the
+                # threads that are done take the chunks that are left.
+                states = [
+                    init_c(size, n_values, out_dtype, aux_dtype, a.dtype, fill_value, forced_fill)
+                    for _ in range(n_states)
+                ]
+                for c in nb.prange(n_chunks):
+                    start = c * chunk
+                    stop = min(start + chunk, n_values)
+                    if stop > start:
+                        # the state of the chunk, or of the thread that takes it
+                        state = states[c] if per_chunk else states[nb.get_thread_id()]
+                        seed_c(state, a[start:stop])
+                        faults[c] = kernel(group_idx[start:stop], a[start:stop], state, fill_value, extra, size)
+                # the states, folded in the order of their index
+                acc = states[0]
+                for c in range(1, n_states):
+                    combine_c(acc, states[c], fill_value, extra)
+                fault = faults[0]
+                for c in range(1, n_chunks):
+                    fault |= faults[c]
+                _raise_fault(fault)
+                return finish_pass(acc, size, n_values, fill_value, extra)
+
+            mt_passes = njit_stable(mt_passes, name=f"{op_name}_mt_passes", parallel=True)
+            mt_driver = build_driver(op_name, mt_passes, "_mt_driver", multi_threading=True)
+
+        stub = _make_stub(
+            op_name,
+            driver,
+            rule,
+            fill_default,
+            doc,
+            variant,
+            tick=None if tick is None else (tick.plain if not nan_variant else tick.nan),
+        )
+        return KernelHandle(
+            name=op_name,
+            nans=nan_variant,
+            stub=stub,
+            driver=driver,
+            variant=variant,
+            forced_fill=forced_fill,
+            aux_widen=aux_widen,
+            nton=nton,
+            fallback=fallback,
+            refusal=refusal,
+            placeable=placeable,
+            post=post,
+            assembles=assembles,
+            mt_driver=mt_driver,
+            mt_min_values=MT_MIN_VALUES if mt_driver is not None else 0,
+        )
+
+    plain = build(False)
+    nan_variant = build(True) if nans else None
+    return KernelPair(plain, nan_variant)
+
+
+def build_custom_kernel(
+    name: str,
+    *,
+    driver_factory: Callable[[bool], Any],
+    rule: Callable[[nb.types.Type], tuple[np.dtype, np.dtype]],
+    fill_default: AScalar = 0,
+    forced_fill: float | None = None,
+    nans: bool = True,
+    variant: Variant = "none",
+    aux_widen: bool = False,
+    nton: bool = False,
+    fallback: Callable[..., AResult] | None = None,
+    refusal: str | None = None,
+    placeable: Callable[[np.dtype | None], bool] | None = None,
+    post: Callable[..., AResult] | None = None,
+    assembles: bool = False,
+    reject_fill: bool = False,
+    mt_driver_factory: Callable[[bool, Callable[..., Any]], Any] | None = None,
+    doc: str | None = None,
+    tick: TickKernel | None = None,
+) -> KernelPair:
+    """Compose the kernels of an operation with a hand-written driver.
+
+    ``driver_factory(nans)`` returns the compiled driver with the signature of
+    the ``variant`` - the same arguments the kernel is called with, behind the
+    two arrays, the size, the dtype pair and the fill value.  For the pass
+    structures that do not fit the accumulate/finish pattern (median groups the
+    data with a counting sort before selecting, sort before ordering).
+
+    ``reject_fill`` says the driver cannot place a fill value: the kernel
+    refuses one instead of ignoring it silently - a typing error to jitted
+    code, a ValueError to python.
+
+    ``mt_driver_factory(nans, driver)`` returns the parallel passes, which take
+    the number of the threads as their last argument on top of the variant's;
+    the sequential driver is handed to the factory as its second argument, so
+    the passes can fall back to it - their decision whether the parallel path
+    is worth it, and a fallback to the very driver that always ran is the one
+    that cannot change a result.  For the operations that cannot be reduced in
+    chunks (no ``combine``) but whose group loop can be cut into ranges.
+    """
+
+    def build(nan_variant: bool) -> KernelHandle:
+        driver = driver_factory(nan_variant)
+        stub_name_variant = name if not nan_variant else "nan" + name
+        mt_driver = None
+        if mt_driver_factory is not None:
+            mt_driver = build_driver(
+                stub_name_variant,
+                mt_driver_factory(nan_variant, driver),
+                "_mt_driver",
+                multi_threading=True,
+            )
+        stub = _make_stub(
+            stub_name_variant,
+            driver,
+            rule,
+            fill_default,
+            doc,
+            variant,
+            reject_fill,
+            tick=None if tick is None else (tick.plain if not nan_variant else tick.nan),
+        )
+        return KernelHandle(
+            name=stub_name_variant,
+            nans=nan_variant,
+            stub=stub,
+            driver=driver,
+            variant=variant,
+            forced_fill=forced_fill,
+            aux_widen=aux_widen,
+            nton=nton,
+            fallback=fallback,
+            refusal=refusal,
+            placeable=placeable,
+            post=post,
+            assembles=assembles,
+            mt_driver=mt_driver,
+            mt_min_values=GROUP_MT_MIN_VALUES if mt_driver is not None else 0,
+        )
+
+    plain = build(False)
+    nan_variant = build(True) if nans else None
+    return KernelPair(plain, nan_variant)

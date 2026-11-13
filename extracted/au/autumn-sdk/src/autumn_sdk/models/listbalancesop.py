@@ -25,7 +25,7 @@ class ListBalancesGlobals(BaseModel):
         Optional[str],
         pydantic.Field(alias="x-api-version"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
-    ] = "2.5.0"
+    ] = "2.6.0"
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -50,6 +50,16 @@ ListBalancesStatusRequestBody = Literal[
 ]
 
 
+ListBalancesFeatureIDTypedDict = TypeAliasType(
+    "ListBalancesFeatureIDTypedDict", Union[str, List[str]]
+)
+r"""Only return balances for this feature, or for any of these features."""
+
+
+ListBalancesFeatureID = TypeAliasType("ListBalancesFeatureID", Union[str, List[str]])
+r"""Only return balances for this feature, or for any of these features."""
+
+
 class ListBalancesParamsTypedDict(TypedDict):
     customer_id: NotRequired[str]
     r"""Only return rows for this customer. Omit to list across every customer."""
@@ -63,8 +73,8 @@ class ListBalancesParamsTypedDict(TypedDict):
     r"""Statuses to include. Defaults to active. A balance is expired when its plan expired, or when a standalone balance passed its expires_at."""
     plan_id: NotRequired[Nullable[str]]
     r"""Only return balances from this plan. Pass null for standalone balances only (top-ups, balances.create, rollovers)."""
-    feature_id: NotRequired[str]
-    r"""Only return balances for this feature."""
+    feature_id: NotRequired[ListBalancesFeatureIDTypedDict]
+    r"""Only return balances for this feature, or for any of these features."""
 
 
 class ListBalancesParams(BaseModel):
@@ -86,8 +96,8 @@ class ListBalancesParams(BaseModel):
     plan_id: OptionalNullable[str] = UNSET
     r"""Only return balances from this plan. Pass null for standalone balances only (top-ups, balances.create, rollovers)."""
 
-    feature_id: Optional[str] = None
-    r"""Only return balances for this feature."""
+    feature_id: Optional[ListBalancesFeatureID] = None
+    r"""Only return balances for this feature, or for any of these features."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -345,6 +355,8 @@ r"""Whether this balance is active or expired."""
 
 
 class ListBalancesRolloverTypedDict(TypedDict):
+    id: str
+    r"""ID of this rollover. Matches balance_id in track and events.list deductions that drew from it."""
     granted: float
     r"""Amount originally rolled over from a previous period, before any of it was consumed."""
     balance: float
@@ -354,6 +366,9 @@ class ListBalancesRolloverTypedDict(TypedDict):
 
 
 class ListBalancesRollover(BaseModel):
+    id: str
+    r"""ID of this rollover. Matches balance_id in track and events.list deductions that drew from it."""
+
     granted: float
     r"""Amount originally rolled over from a previous period, before any of it was consumed."""
 
@@ -366,7 +381,7 @@ class ListBalancesRollover(BaseModel):
 
 class ListBalancesListTypedDict(TypedDict):
     plan_id: Nullable[str]
-    r"""The plan ID this balance originates from, or null for standalone balances."""
+    r"""The plan ID this balance originates from, or null for standalone and pooled balances."""
     included_grant: float
     r"""Amount granted from the plan's included usage."""
     prepaid_grant: float
@@ -383,6 +398,10 @@ class ListBalancesListTypedDict(TypedDict):
     r"""Pricing configuration if this balance has usage-based pricing."""
     expires_at: Nullable[float]
     r"""Timestamp when this balance expires, or null for no expiration."""
+    internal_id: str
+    r"""Internal ID of the underlying balance row. Matches balance_id in track and events.list deductions."""
+    origin_plan_id: Nullable[str]
+    r"""The plan this balance came from. Same as plan_id for plan balances; for balances carried over on a plan change, the plan they were moved off. Null for balances.create grants."""
     feature_id: str
     r"""The feature this balance is for."""
     status: ListBalancesListStatus
@@ -405,7 +424,7 @@ class ListBalancesListTypedDict(TypedDict):
 
 class ListBalancesList(BaseModel):
     plan_id: Nullable[str]
-    r"""The plan ID this balance originates from, or null for standalone balances."""
+    r"""The plan ID this balance originates from, or null for standalone and pooled balances."""
 
     included_grant: float
     r"""Amount granted from the plan's included usage."""
@@ -430,6 +449,12 @@ class ListBalancesList(BaseModel):
 
     expires_at: Nullable[float]
     r"""Timestamp when this balance expires, or null for no expiration."""
+
+    internal_id: str
+    r"""Internal ID of the underlying balance row. Matches balance_id in track and events.list deductions."""
+
+    origin_plan_id: Nullable[str]
+    r"""The plan this balance came from. Same as plan_id for plan balances; for balances carried over on a plan change, the plan they were moved off. Null for balances.create grants."""
 
     feature_id: str
     r"""The feature this balance is for."""
@@ -462,7 +487,15 @@ class ListBalancesList(BaseModel):
     def serialize_model(self, handler):
         optional_fields = set(["id", "source", "allocation"])
         nullable_fields = set(
-            ["plan_id", "reset", "price", "expires_at", "allocation", "entity_id"]
+            [
+                "plan_id",
+                "reset",
+                "price",
+                "expires_at",
+                "allocation",
+                "origin_plan_id",
+                "entity_id",
+            ]
         )
         serialized = handler(self)
         m = {}

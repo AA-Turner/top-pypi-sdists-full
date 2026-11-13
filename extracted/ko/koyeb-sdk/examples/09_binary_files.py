@@ -28,12 +28,11 @@ def main():
 
         fs = sandbox.filesystem
 
-        # Write binary data (encoding="base64" handles the encoding automatically)
+        # Raw bytes land on disk as-is on the streamed routes (executor v0.0.24+).
         binary_data = b"Binary data: \x00\x01\x02\x03\xff\xfe\xfd"
-        fs.write_file("/tmp/binary.bin", binary_data, encoding="base64")
+        fs.write_file("/tmp/binary.bin", binary_data)
 
-        # Read binary data (encoding="base64" decodes and returns bytes)
-        file_info = fs.read_file("/tmp/binary.bin", encoding="base64")
+        file_info = fs.read_file("/tmp/binary.bin", encoding=None)
         print(f"Original: {binary_data}")
         print(f"Read back: {file_info.content}")
         assert binary_data == file_info.content

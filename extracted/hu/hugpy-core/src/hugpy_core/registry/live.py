@@ -116,13 +116,13 @@ def gpu_feed() -> dict:
             pid = int(pid_s)
             key = residents.get((worker, pid))
             kind = "hugpy" if key or pid in ours else ("probe" if pid in probes else "observed")
-            rows.append({"kind": kind, "model_key": key, "service": "fitevict" if kind == "hugpy" else
+            rows.append({"kind": kind, "model_key": key, "service": "hugpy-wrapper" if kind == "hugpy" else
                          ("llama.cpp dry run" if kind == "probe" else "gpu process"),
                          "pids": [pid], "gpu_indices": [card["device"]], "vram_bytes": int(nbytes),
                          "vram_mib": int(nbytes) // 1048576, "state": "running",
                          "evictable": kind == "hugpy", "immutable": kind == "observed",
                          "api_available": bool(key), "activity": {},
-                         "note": ("Hugpy managed (fitevict)" if kind == "hugpy" else
+                         "note": ("Hugpy managed (hugpy-wrapper)" if kind == "hugpy" else
                                   "transient sizing probe" if kind == "probe" else
                                   "GPU process observed; not managed by hugpy")})
     return {"cards": d.get("gpu", []), "activity": activity,
@@ -150,7 +150,7 @@ th{color:#7d8696;font-weight:normal}.n{text-align:right}
 </style></head><body>
 <div id=st>connecting…</div>
 <h2>GPU</h2><div id=gpu></div>
-<h2>Models on the boxes (fitevict front door)</h2><table id=res></table>
+<h2>Models on the boxes (wrapper front door)</h2><table id=res></table>
 <h2>Recent calls</h2><table id=calls></table>
 <script>
 const B=n=>n==null?'—':Number(n).toLocaleString('en-US')+' B';

@@ -248,7 +248,7 @@ class EmrEc2SparkSessionManager(SparkSessionManager):
         )
         return str(value).lower() == "true"
 
-    def _get_service_specific_configs(self) -> dict:
+    def _get_service_specific_configs(self, account_id=None) -> dict:
         """Build EMR on EC2-specific spark configs (Layer 2).
 
         Applies FTA/compatibility-mode configs unless the connection requests native
@@ -278,16 +278,19 @@ class EmrEc2SparkSessionManager(SparkSessionManager):
         # (StartSession/GetSession/GetSessionEndpoint/TerminateSession/
         # ListSessions) -- not elasticmapreduce:DescribeCluster -- so the client
         # cannot determine the release to gate on. OpenLineage is passed
-        # unconditionally here; on EMR 8.2+ the server-side injection takes
-        # precedence over any duplicate client config.
+        # unconditionally here.
         try:
             configs.update(
                 {
                     "spark.extraListeners": "io.openlineage.spark.agent.OpenLineageSparkListener",
                     "spark.openlineage.transport.type": "amazon_datazone_api",
                     "spark.openlineage.transport.domainId": self.project.domain_id,
+                    "spark.openlineage.transport.region": self._utils._get_domain_region(),
+                    "spark.openlineage.columnLineage.datasetLineageEnabled": "true",
                 }
             )
+            if account_id:
+                configs["spark.glue.accountId"] = account_id
             logger.info("OpenLineage configs added for EMR on EC2")
         except Exception as e:
             logger.warning(f"Failed to add OpenLineage configs: {e}")
@@ -306,7 +309,7 @@ class EmrEc2SparkSessionManager(SparkSessionManager):
         Returns a tuple of (user_id, spark_configs) with all config layers merged.
         """
         user_id, account_id = self._get_user_id_account_id()
-        service_configs = self._get_service_specific_configs()
+        service_configs = self._get_service_specific_configs(account_id=account_id)
         spark_configs = build_spark_configs(
             account_id=account_id,
             service_configs=service_configs,

@@ -20,7 +20,7 @@ import shlex
 import sys
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, assert_never
 
 from pyrit.cli import _banner as banner
 from pyrit.cli._auth import AUTH_MODES, AuthMode
@@ -93,6 +93,7 @@ class PyRITShell(cmd.Cmd):
         list-initializers          - List all available initializers
         list-targets               - List all available targets
         list-converters            - List all registered converter instances
+        list-operations            - List saved Operations and their IDs
         add-initializer <file>...  - Register initializer(s) from Python script file(s)
         run <scenario> [opts]      - Run a scenario with optional parameters
         scenario-history [N]       - List the last N (default 10) scenario runs
@@ -213,12 +214,16 @@ class PyRITShell(cmd.Cmd):
         from pyrit.cli._auth import CliAuthenticationError
         from pyrit.cli._config_reader import ConfigError
         from pyrit.cli._output import print_error_with_hint
-        from pyrit.cli.api_client import PyRITApiClient
+        from pyrit.cli.api_client import CompatibilityError, PyRITApiClient
 
         self._base_url = base_url
         try:
             client = PyRITApiClient(base_url=base_url, auth_mode=self._resolve_auth_mode())
             self._run_async(client.__aenter__(), timeout=None)
+        except CompatibilityError as exc:
+            self._api_client = None
+            _print_shell_exception(exc=exc)
+            return False
         except CliAuthenticationError as exc:
             self._api_client = None
             print_error_with_hint(
@@ -234,7 +239,7 @@ class PyRITShell(cmd.Cmd):
             self._api_client = None
             print_error_with_hint(
                 message=f"Could not initialize the client for {base_url}: {exc}",
-                hint="Check the server's /api/auth/config endpoint and your network connection.",
+                hint="Check the server's /api/auth/config and /api/version endpoints and your network connection.",
             )
             return False
 
@@ -369,6 +374,21 @@ class PyRITShell(cmd.Cmd):
         except Exception as e:
             print(f"Error listing converters: {e}")
 
+    def do_list_operations(self, arg: str) -> None:
+        """List saved Operations and their IDs."""
+        if arg.strip():
+            print(f"Error: list-operations does not accept arguments, got: {arg.strip()}")
+            return
+        if not self._ensure_client():
+            return
+        from pyrit.cli import _output
+
+        try:
+            operations = self._run_async(self._api_client.list_operations_async())
+            _output.print_operation_list(items=operations)
+        except Exception as e:
+            print(f"Error listing operations: {e}")
+
     def do_add_initializer(self, arg: str) -> None:
         """
         Register an initializer from a Python script file.
@@ -396,7 +416,7 @@ class PyRITShell(cmd.Cmd):
                 print(f"Error: File not found: {script_path}")
                 return
             try:
-                content = script_path.read_text()
+                content = script_path.read_text(encoding="utf-8")
                 self._run_async(
                     self._api_client.register_initializer_async(name=script_path.stem, script_content=content)
                 )
@@ -430,8 +450,13 @@ class PyRITShell(cmd.Cmd):
             --max-concurrency <N>           Maximum concurrent operations
             --max-retries <N>               Maximum retry attempts
             --memory-labels <JSON>          JSON string of labels
-            --dataset-names <name> ...      Override default dataset names
-            --max-dataset-size <N>          Maximum items per dataset
+            --operation-id <UUID>           Saved Operation ID (see list-operations)
+            --datasets <name[:N|:all]> ...  Select sources and optional caps
+            --max-per-dataset <N|all>       Default per-source cap
+            --max-total <N|all>             Combined attack-group cap
+            --dataset-fetch <policy>       never, if_missing, or always (replace stored data)
+            --dataset-names <name> ...      Deprecated source selection
+            --max-dataset-size <N>          Deprecated total cap
             --<scenario-flag> <value>       Scenario-declared parameters (see list-scenarios)
 
         Notes:
@@ -448,8 +473,8 @@ class PyRITShell(cmd.Cmd):
             return
 
         from pyrit.cli._cli_args import (
+            build_dataset_request_fields,
             build_parameters_from_api,
-            collapse_dataset_filters,
             extract_scenario_args,
             parse_run_arguments,
         )
@@ -458,6 +483,7 @@ class PyRITShell(cmd.Cmd):
             print_scenario_run_progress,
             print_scenario_run_summary,
         )
+        from pyrit.cli.api_client import CompatibilityError
         from pyrit.cli.pyrit_scan import _is_read_timeout, _print_cli_exception, _print_debug_traceback
         from pyrit.models import ScenarioRunState
         from pyrit.models.catalog import RunScenarioRequest
@@ -512,23 +538,27 @@ class PyRITShell(cmd.Cmd):
             request_kwargs["max_concurrency"] = args["max_concurrency"]
         if args.get("max_retries") is not None:
             request_kwargs["max_retries"] = args["max_retries"]
-        if args.get("dataset_names"):
-            request_kwargs["dataset_names"] = args["dataset_names"]
-        if args.get("max_dataset_size") is not None:
-            request_kwargs["max_dataset_size"] = args["max_dataset_size"]
-        if args.get("dataset_filters"):
-            request_kwargs["dataset_filters"] = collapse_dataset_filters(args["dataset_filters"])
+        try:
+            request_kwargs.update(build_dataset_request_fields(args))
+        except ValueError as exc:
+            print(f"Error: {exc}")
+            return
         if args.get("memory_labels"):
             request_kwargs["labels"] = args["memory_labels"]
+        if args.get("operation_id") is not None:
+            request_kwargs["operation_id"] = args["operation_id"]
 
         scenario_params = extract_scenario_args(parsed=args)
         if scenario_params:
             request_kwargs["scenario_params"] = scenario_params
 
-        request = RunScenarioRequest(**request_kwargs)
+        try:
+            request = RunScenarioRequest(**request_kwargs)
+        except ValueError as exc:
+            print(f"Error: {exc}")
+            return
 
         # Start run
-        total_techniques = len(request.techniques or [])
         print(f"\nRunning scenario: {scenario_name}")
         sys.stdout.flush()
 
@@ -559,7 +589,7 @@ class PyRITShell(cmd.Cmd):
         try:
             while True:
                 run = self._run_async(self._api_client.get_scenario_run_async(scenario_result_id=scenario_result_id))
-                print_scenario_run_progress(run=run, total_techniques=total_techniques)
+                print_scenario_run_progress(run=run)
                 if run.status in {
                     ScenarioRunState.COMPLETED,
                     ScenarioRunState.FAILED,
@@ -575,6 +605,11 @@ class PyRITShell(cmd.Cmd):
             except Exception:
                 print("Warning: could not cancel scenario run.")
             print("Returning to shell.")
+            return
+
+        except CompatibilityError as exc:
+            _print_shell_exception(exc=exc)
+            print("Polling stopped; the server run may still be active. Returning to shell.")
             return
 
         # Print results
@@ -643,6 +678,7 @@ class PyRITShell(cmd.Cmd):
         Usage:
             scenario-results <scenario_result_id>
                 [--view overview|attacks|conversations|full]
+                [--format pretty|json|html] [--output PATH]
                 [--attack-result-ids <id> ...] [--limit N]
 
         Views:
@@ -650,9 +686,10 @@ class PyRITShell(cmd.Cmd):
                            rates (the default).
             attacks        One row per attack result (id, objective, outcome,
                            turns, score).
-            conversations  The main-conversation transcript for each attack
-                           (messages plus their scores and full rationale).
-            full           The attacks table followed by the transcripts.
+            conversations  Per-attack summary (outcome, turns, score, objective)
+                           plus the message transcript for each attack.
+            full           The scenario overview followed by every attack's
+                           conversation.
 
         For conversations/full, when neither --attack-result-ids nor --limit is
         given, at most 5 attacks are shown to avoid dumping a whole run.
@@ -663,13 +700,14 @@ class PyRITShell(cmd.Cmd):
         import shlex
 
         from pyrit.cli._cli_args import ScenarioResultView, build_scenario_results_parser
-        from pyrit.cli._output import print_attacks_table, print_conversations, print_scenario_result_async
+        from pyrit.cli._output import print_conversations_async, print_full_async, print_scenario_result_async
         from pyrit.cli._results import (
             apply_view_limit_policy,
-            build_attacks_table_payload,
-            build_conversations_payload_async,
+            resolve_output_sink,
             resolve_view,
+            warn_if_view_ignored_by_html,
         )
+        from pyrit.output import output_scenario_attacks_async
 
         try:
             tokens = shlex.split(arg)
@@ -679,7 +717,8 @@ class PyRITShell(cmd.Cmd):
         if not tokens:
             print(
                 "Usage: scenario-results <scenario_result_id> "
-                "[--view overview|attacks|conversations|full] [--attack-result-ids <id> ...] [--limit N]"
+                "[--view overview|attacks|conversations|full] [--format pretty|json|html] [--output PATH] "
+                "[--attack-result-ids <id> ...] [--limit N]"
             )
             print("Use 'scenario-history' to see available run IDs.")
             return
@@ -691,7 +730,18 @@ class PyRITShell(cmd.Cmd):
             return
 
         view = resolve_view(view=parsed.view)
-        limit = apply_view_limit_policy(view=view, limit=parsed.limit, attack_result_ids=parsed.attack_result_ids)
+        # html always renders a complete report and ignores the default heavy-view cap,
+        # so skip the limit policy (and its warning) for it.
+        if parsed.format == "html":
+            warn_if_view_ignored_by_html(view=parsed.view)
+            limit = parsed.limit
+        else:
+            limit = apply_view_limit_policy(view=view, limit=parsed.limit, attack_result_ids=parsed.attack_result_ids)
+        try:
+            sink = resolve_output_sink(output_path=parsed.output, output_format=parsed.format)
+        except ValueError as exc:
+            print(f"Error: {exc}")
+            return
 
         try:
             result = self._run_async(
@@ -701,35 +751,61 @@ class PyRITShell(cmd.Cmd):
             _print_shell_exception(exc=exc)
             return
 
-        if view is ScenarioResultView.OVERVIEW:
-            self._run_async(print_scenario_result_async(result=result))
-            return
-
-        if view in (ScenarioResultView.ATTACKS, ScenarioResultView.FULL):
-            attacks_payload = build_attacks_table_payload(
-                result=result,
-                scenario_result_id=parsed.scenario_result_id,
-                attack_result_ids=parsed.attack_result_ids,
-                limit=limit,
-            )
-            print_attacks_table(payload=attacks_payload)
-            if view is ScenarioResultView.ATTACKS:
-                return
-
         try:
-            conversations_payload = self._run_async(
-                build_conversations_payload_async(
-                    result=result,
-                    client=self._api_client,
-                    scenario_result_id=parsed.scenario_result_id,
-                    attack_result_ids=parsed.attack_result_ids,
-                    limit=limit,
+            if parsed.format == "html":
+                # html is always the full report regardless of --view; honor only an explicit --limit.
+                self._run_async(
+                    print_full_async(
+                        result=result,
+                        client=self._api_client,
+                        scenario_result_id=parsed.scenario_result_id,
+                        format="html",
+                        sink=sink,
+                        attack_result_ids=parsed.attack_result_ids,
+                        limit=parsed.limit,
+                    )
                 )
-            )
+            elif view is ScenarioResultView.OVERVIEW:
+                self._run_async(print_scenario_result_async(result=result, format=parsed.format, sink=sink))
+            elif view is ScenarioResultView.ATTACKS:
+                self._run_async(
+                    output_scenario_attacks_async(
+                        result,
+                        attack_result_ids=parsed.attack_result_ids,
+                        limit=limit,
+                        format=parsed.format,
+                        sink=sink,
+                    )
+                )
+            elif view is ScenarioResultView.FULL:
+                self._run_async(
+                    print_full_async(
+                        result=result,
+                        client=self._api_client,
+                        scenario_result_id=parsed.scenario_result_id,
+                        format=parsed.format,
+                        sink=sink,
+                        attack_result_ids=parsed.attack_result_ids,
+                        limit=limit,
+                    )
+                )
+            elif view is ScenarioResultView.CONVERSATIONS:
+                self._run_async(
+                    print_conversations_async(
+                        result=result,
+                        client=self._api_client,
+                        scenario_result_id=parsed.scenario_result_id,
+                        format=parsed.format,
+                        sink=sink,
+                        attack_result_ids=parsed.attack_result_ids,
+                        limit=limit,
+                    )
+                )
+            else:
+                assert_never(view)
         except Exception as exc:
             _print_shell_exception(exc=exc)
             return
-        print_conversations(payload=conversations_payload)
 
     def do_print_scenario(self, arg: str) -> None:
         """
@@ -741,7 +817,7 @@ class PyRITShell(cmd.Cmd):
         Usage:
             print-scenario <scenario_result_id>
         """
-        from pyrit.common.deprecation import print_deprecation_message
+        from pyrit.common import print_deprecation_message
 
         print_deprecation_message(
             old_item="print-scenario",

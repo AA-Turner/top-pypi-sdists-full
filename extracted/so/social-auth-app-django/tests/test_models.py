@@ -3,19 +3,19 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import ClassVar
-from unittest import mock
+from unittest import mock, skipUnless
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
-from django.db import IntegrityError, connection, models
-from django.test import TestCase, override_settings
+from django.db import DatabaseError, IntegrityError, connection, models
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.test.utils import isolate_apps
 from django.utils import timezone
 from social_core.backends.cognito import CognitoOAuth2
-from social_core.exceptions import AuthAssociationError
+from social_core.exceptions import AuthAssociationError, AuthCredentialError
 from social_core.pipeline.user import get_username
 
 from social_django import storage
@@ -154,11 +154,143 @@ class TestUserSocialAuth(TestCase):
         db_eml = self.user_model._default_manager.get(username=self.user.username).email
         self.assertEqual(db_eml, eml)
 
+    def test_changed_fields_keeps_concurrent_changes(self):
+        user = UserSocialAuth.get_social_auth("my-provider", "1234").user
+        self.user_model._default_manager.filter(pk=user.pk).update(is_active=False, email="new@example.com")
+
+        for first_name in ("First", "Second"):
+            user.first_name = first_name
+            UserSocialAuth.changed_fields(user, {"first_name"})
+
+            user.refresh_from_db()
+            self.assertEqual(user.first_name, first_name)
+            self.assertEqual(user.email, "new@example.com")
+            self.assertFalse(user.is_active)
+
+    def test_changed_fields_saves_deferred_field(self):
+        user = self.user_model._default_manager.defer("email").get(pk=self.user.pk)
+        user.email = "deferred@example.com"
+        UserSocialAuth.changed_fields(user, {"email"})
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "deferred@example.com")
+
+    @isolate_apps()
+    def test_changed_fields_preserves_auto_now(self):
+        class Profile(models.Model):
+            name = models.CharField(max_length=50)
+            modified = models.DateTimeField(auto_now=True)
+
+            class Meta:
+                app_label = "tests"
+
+        profile = Profile(name="after")
+        with mock.patch.object(profile, "save") as save:
+            UserSocialAuth.changed_fields(profile, {"name"})
+        self.assertEqual(save.call_args.kwargs["update_fields"], {"name", "modified"})
+
+    @isolate_apps()
+    def test_changed_fields_falls_back_for_property(self):
+        class Profile(models.Model):
+            first_name = models.CharField(max_length=50)
+
+            class Meta:
+                app_label = "tests"
+
+            @property
+            def display_name(self):
+                return self.first_name
+
+            @display_name.setter
+            def display_name(self, value):
+                self.first_name = value
+
+        profile = Profile(first_name="after")
+        with mock.patch.object(profile, "save") as save:
+            UserSocialAuth.changed_fields(profile, {"display_name"})
+        save.assert_called_once_with()
+
+    def test_changed_fields_calls_custom_changed_hook(self):
+        called = []
+
+        class CustomStorage(storage.DjangoUserMixin):
+            @classmethod
+            def changed(cls, user):
+                called.append(user)
+                user.save(update_fields=["first_name"])
+
+        self.user.first_name = "Updated"
+        CustomStorage.changed_fields(self.user, {"first_name"})
+
+        self.assertEqual(called, [self.user])
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "Updated")
+
+    def test_changed_fields_calls_static_changed_hook(self):
+        called = []
+
+        class CustomStorage(storage.DjangoUserMixin):
+            @staticmethod
+            def changed(user):
+                called.append(user)
+
+        CustomStorage.changed_fields(self.user, {"first_name"})
+        self.assertEqual(called, [self.user])
+
+    @isolate_apps()
+    def test_changed_fields_saves_image_dimensions(self):
+        class Profile(models.Model):
+            image = models.ImageField(width_field="width", height_field="height")
+            width = models.PositiveIntegerField(default=0)
+            height = models.PositiveIntegerField(default=0)
+
+            class Meta:
+                app_label = "tests"
+
+        profile = Profile()
+        with mock.patch.object(profile, "save") as save:
+            UserSocialAuth.changed_fields(profile, {"image"})
+        self.assertEqual(save.call_args.kwargs["update_fields"], {"image", "width", "height"})
+
     def test_set_extra_data(self):
         self.usa.set_extra_data({"a": "b"})
         self.usa.refresh_from_db()
         db_data = UserSocialAuth.objects.get(id=self.usa.id).extra_data
         self.assertEqual(db_data, {"a": "b"})
+
+    def test_set_extra_data_saves_new_association(self):
+        social = UserSocialAuth(user=self.user, provider="another-provider", uid="5678")
+        social.set_extra_data({"a": "b"})
+        self.assertEqual(UserSocialAuth.objects.get(pk=social.pk).extra_data, {"a": "b"})
+
+    def test_set_extra_data_keeps_concurrent_changes(self):
+        UserSocialAuth.objects.filter(pk=self.usa.pk).update(uid="5678", id_key="sub")
+        self.usa.set_extra_data({"a": "b"})
+        self.usa.refresh_from_db()
+        self.assertEqual((self.usa.uid, self.usa.id_key, self.usa.extra_data), ("5678", "sub", {"a": "b"}))
+
+    def test_set_extra_data_uses_write_router_after_replica_read(self):
+        self.usa._state.db = "replica"
+
+        with mock.patch("social_django.storage.router.db_for_write", return_value="default") as db_for_write:
+            self.usa.set_extra_data({"a": "b"})
+
+        db_for_write.assert_called_once_with(UserSocialAuth, instance=self.usa)
+        self.assertEqual(UserSocialAuth.objects.get(pk=self.usa.pk).extra_data, {"a": "b"})
+
+    def test_set_extra_data_does_not_recreate_disconnected_association(self):
+        pk = self.usa.pk
+        UserSocialAuth.objects.filter(pk=pk).delete()
+        with self.assertRaises(AuthCredentialError) as error:
+            self.usa.set_extra_data({"access_token": "new"})
+        self.assertEqual(error.exception.code, "reauthentication_required")
+        self.assertFalse(UserSocialAuth.objects.filter(pk=pk).exists())
+
+    def test_set_extra_data_preserves_unrelated_database_error(self):
+        with (
+            mock.patch.object(self.usa, "save", side_effect=DatabaseError("write failed")),
+            self.assertRaisesRegex(DatabaseError, "write failed"),
+        ):
+            self.usa.set_extra_data({"a": "b"})
 
     def test_disconnect(self):
         m = mock.Mock()
@@ -249,6 +381,29 @@ class TestUserSocialAuth(TestCase):
             qs = UserSocialAuth.get_users_by_email(email=self.user.email)
             self.assertEqual(qs.count(), 1)
 
+    def test_get_users_by_email_ignores_case(self):
+        self.assertEqual(list(UserSocialAuth.get_users_by_email(email="User@EXAMPLE.com")), [self.user])
+
+    def test_get_users_by_email_rechecks_database_match(self):
+        # SQLite compiles iexact to LIKE, which stops reading its pattern at U+0000
+        self.assertEqual(list(UserSocialAuth.get_users_by_email(email="user@example.com\x00.evil.example")), [])
+        # PostgreSQL/Oracle uppercase both sides, MySQL follows the column collation
+        self.user.email = "kiss@example.com"
+        self.user.save()
+        loose_match = self.user_model._default_manager.all()
+        for email in (
+            "k\u0131ss@example.com",
+            "ki\u017fs@example.com",
+            "kiß@example.com",
+            "\u212aiss@example.com",  # KELVIN SIGN, which str.lower() maps to "k"
+            "kíss@example.com",
+        ):
+            with (
+                self.subTest(email=email),
+                mock.patch.object(UserSocialAuth, "filter_active_users", return_value=loose_match),
+            ):
+                self.assertEqual(list(UserSocialAuth.get_users_by_email(email=email)), [])
+
     def test_get_social_auth(self):
         usa = self.usa
         # Model
@@ -312,6 +467,12 @@ class TestUserSocialAuth(TestCase):
                     id_key="ID",
                 )
             )
+
+    def test_mixin_lookup_preserves_deferred_user(self):
+        manager = UserSocialAuth.objects.defer("user")
+        with mock.patch.object(UserSocialAuth, "_manager", return_value=manager):
+            social = storage.DjangoUserMixin.get_social_auth.__func__(UserSocialAuth, "my-provider", "1234")
+        self.assertEqual(social.pk, self.usa.pk)
 
     def test_manager_rejects_case_insensitive_id_key_match(self):
         self.usa.id_key = "id"
@@ -550,6 +711,33 @@ class TestUserSocialAuth(TestCase):
                     self.assertEqual(field.to_python(result["username"]), identifier)
 
 
+class TestCustomAssociationStorage(TransactionTestCase):
+    @isolate_apps()
+    def test_extra_data_saves_without_default_timestamp_field(self):
+        class CustomAssociation(models.Model, storage.DjangoUserMixin):
+            extra_data = models.JSONField(default=dict)
+            refreshed = models.DateTimeField(auto_now=True)
+
+            class Meta:
+                app_label = "tests"
+
+        with connection.schema_editor() as editor:
+            editor.create_model(CustomAssociation)
+        try:
+            social = CustomAssociation.objects.create()
+            previous = timezone.now() - timedelta(days=1)
+            CustomAssociation.objects.filter(pk=social.pk).update(refreshed=previous)
+
+            social.set_extra_data({"token": "new"})
+
+            social.refresh_from_db()
+            self.assertEqual(social.extra_data, {"token": "new"})
+            self.assertGreater(social.refreshed, previous)
+        finally:
+            with connection.schema_editor() as editor:
+                editor.delete_model(CustomAssociation)
+
+
 class TestNonce(TestCase):
     def test_use(self):
         self.assertEqual(Nonce.objects.count(), 0)
@@ -626,10 +814,126 @@ class TestAssociation(TestCase):
 
         qs = Association.get(handle="a")
         self.assertEqual(qs.count(), 1)
+        self.assertEqual(Association.get().count(), 1)
         self.assertEqual(qs[0].secret, "Yg==\n")
+
+        Association.store(
+            server_url="/",
+            association=mock.Mock(handle="a", secret=b"c", issued=3, lifetime=4, assoc_type="c"),
+        )
+        self.assertEqual(Association.get(server_url="/", handle="a").get().secret, "Yw==\n")
+        self.assertEqual(Association.objects.count(), 1)
 
         Association.remove(ids_to_delete=[qs.first().id])
         self.assertEqual(Association.objects.count(), 0)
+
+    def test_get_store_compare_exactly(self):
+        other = Association.objects.create(
+            server_url="https://lögin.example/openid",
+            handle="a",
+            secret="Yg==\n",  # ruff: ignore[hardcoded-password-func-arg]
+            issued=1,
+            lifetime=2,
+            assoc_type="c",
+        )
+        # Simulate a case- and accent-insensitive collation (MySQL/MariaDB)
+        everything = Association.objects.all
+        with mock.patch.object(Association.objects, "filter", side_effect=lambda *_args, **_kwargs: everything()):
+            self.assertFalse(Association.get(server_url="https://login.example/openid", handle="a").exists())
+            self.assertFalse(Association.get(server_url="https://lögin.example/openid", handle="A").exists())
+            self.assertEqual(Association.get(server_url="https://lögin.example/openid", handle="a").get(), other)
+            Association.store(
+                server_url="https://login.example/openid",
+                association=mock.Mock(handle="a", secret=b"x", issued=1, lifetime=2, assoc_type="c"),
+            )
+        other.refresh_from_db()
+        self.assertEqual(other.secret, "Yg==\n")
+        self.assertEqual(Association.objects.count(), 2)
+
+    @skipUnless(connection.vendor == "sqlite", "SQLite NOCASE index models a case-insensitive unique constraint")
+    def test_store_rejects_colliding_association_under_case_insensitive_constraint(self):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "CREATE UNIQUE INDEX test_association_nocase ON social_auth_association "
+                "(server_url COLLATE NOCASE, handle COLLATE NOCASE)"
+            )
+        try:
+            previous = Association.objects.create(
+                server_url="https://LOGIN.example/openid",
+                handle="A",
+                secret="b2xk\n",  # ruff: ignore[hardcoded-password-func-arg]
+                issued=1,
+                lifetime=2,
+                assoc_type="HMAC-SHA1",
+            )
+            with self.assertRaises(AuthAssociationError) as caught:
+                Association.store(
+                    server_url="https://login.example/openid",
+                    association=mock.Mock(handle="a", secret=b"new", issued=3, lifetime=4, assoc_type="HMAC-SHA256"),
+                )
+            self.assertEqual(caught.exception.code, "openid_association_collision")
+            previous.refresh_from_db()
+            self.assertEqual(
+                (previous.server_url, previous.handle, previous.secret),
+                ("https://LOGIN.example/openid", "A", "b2xk\n"),
+            )
+            self.assertEqual(Association.get(server_url="https://LOGIN.example/openid", handle="A").get(), previous)
+            self.assertFalse(Association.get(server_url="https://login.example/openid", handle="a").exists())
+            self.assertEqual(Association.objects.count(), 1)
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute("DROP INDEX test_association_nocase")
+
+    def test_store_preserves_unrelated_integrity_error(self):
+        query = mock.Mock()
+        query.create.side_effect = IntegrityError("unrelated failure")
+        query.select_for_update.return_value.get.side_effect = Association.DoesNotExist
+        with (
+            mock.patch.object(Association.objects, "using", return_value=query),
+            self.assertRaisesRegex(IntegrityError, "unrelated failure"),
+        ):
+            Association.store(
+                server_url="https://login.example/openid",
+                association=mock.Mock(handle="a", secret=b"new", issued=3, lifetime=4, assoc_type="HMAC-SHA256"),
+            )
+
+    def test_store_retries_when_conflicting_row_is_removed(self):
+        error = IntegrityError("duplicate key")
+        error.__cause__ = sqlite3.IntegrityError("UNIQUE constraint failed: social_auth_association.server_url")
+        query = mock.Mock()
+        query.create.side_effect = [error, None]
+        query.select_for_update.return_value.get.side_effect = Association.DoesNotExist
+        with mock.patch.object(Association.objects, "using", return_value=query):
+            Association.store(
+                server_url="https://login.example/openid",
+                association=mock.Mock(handle="a", secret=b"new", issued=3, lifetime=4, assoc_type="HMAC-SHA256"),
+            )
+        self.assertEqual(query.create.call_count, 2)
+
+    def test_store_rejects_collation_match_after_unique_conflict(self):
+        previous = Association.objects.create(
+            server_url="https://lögin.example/openid",
+            handle="a",
+            secret="b2xk\n",  # ruff: ignore[hardcoded-password-func-arg]
+            issued=1,
+            lifetime=2,
+            assoc_type="HMAC-SHA1",
+        )
+        query = mock.Mock()
+        query.create.side_effect = IntegrityError("colliding key")
+        query.select_for_update.return_value.get.return_value = previous
+        with (
+            mock.patch.object(Association.objects, "using", return_value=query),
+            self.assertRaises(AuthAssociationError) as caught,
+        ):
+            Association.store(
+                server_url="https://login.example/openid",
+                association=mock.Mock(handle="a", secret=b"new", issued=3, lifetime=4, assoc_type="HMAC-SHA256"),
+            )
+        self.assertEqual(caught.exception.code, "openid_association_collision")
+        query.create.assert_called_once()
+        previous.refresh_from_db()
+        self.assertEqual(previous.secret, "b2xk\n")
 
 
 class TestCode(TestCase):
@@ -639,6 +943,27 @@ class TestCode(TestCase):
         self.assertEqual(code1, code2)
         self.assertIsNone(Code.get_code(code="xyz"))
 
+    def test_verify_claims_code_once(self):
+        Code.objects.create(email="test@example.com", code="abc")
+        first = Code.get_code(code="abc")
+        second = Code.get_code(code="abc")  # read before the first request marks it used
+        first.verify()
+        self.assertTrue(first.verified)
+        self.assertTrue(Code.objects.get(pk=first.pk).verified)
+        with self.assertRaises(AuthCredentialError) as ctx:
+            second.verify()
+        self.assertEqual(ctx.exception.code, "email_verification_rejected")
+
+    def test_verify_uses_write_router_after_replica_read(self):
+        code = Code.objects.create(email="test@example.com", code="abc")
+        code._state.db = "replica"
+
+        with mock.patch("social_django.storage.router.db_for_write", return_value="default") as db_for_write:
+            code.verify()
+
+        db_for_write.assert_called_once_with(Code, instance=code)
+        self.assertTrue(Code.objects.get(pk=code.pk).verified)
+
 
 class TestPartial(TestCase):
     def test_load_destroy(self):
@@ -646,9 +971,81 @@ class TestPartial(TestCase):
         p = Partial.objects.create(token=token_value, backend="y", data={})
         self.assertEqual(Partial.load(token=token_value), p)
         self.assertIsNone(Partial.load(token="y"))  # ruff: ignore[hardcoded-password-func-arg]
+        self.assertIsNone(DjangoStrategy(DjangoStorage).partial_load("missing"))
 
         Partial.destroy(token=token_value)
         self.assertEqual(Partial.objects.count(), 0)
+
+    @staticmethod
+    def create_partial(age: timedelta, *, now: datetime | None = None) -> Partial:
+        partial = Partial.objects.create(
+            token="x",  # ruff: ignore[hardcoded-password-func-arg]
+            backend="y",
+            data={"args": [], "kwargs": {}},
+        )
+        timestamp = (now if now is not None else partial.timestamp) - age
+        if now is not None and not settings.USE_TZ:
+            timestamp = timestamp.replace(tzinfo=None)
+        Partial.objects.filter(pk=partial.pk).update(timestamp=timestamp)
+        partial.refresh_from_db()
+        return partial
+
+    @override_settings(TIME_ZONE="Europe/Prague")
+    def test_load_expired(self):
+        strategy = DjangoStrategy(DjangoStorage)
+        now = datetime(2026, 2, 1, 12, tzinfo=ZoneInfo("Europe/Prague"))
+        for use_tz in (True, False):
+            with self.subTest(use_tz=use_tz), override_settings(USE_TZ=use_tz):
+                clock = now if use_tz else now.replace(tzinfo=None)
+                partial = self.create_partial(timedelta(days=7) - timedelta(microseconds=1), now=now)
+                with mock.patch("social_django.storage.timezone.now", return_value=clock):
+                    self.assertEqual(strategy.partial_load(partial.token), partial)
+                Partial.destroy(partial.token)
+
+                partial = self.create_partial(timedelta(days=7), now=now)
+                with mock.patch("social_django.storage.timezone.now", return_value=clock):
+                    self.assertIsNone(strategy.partial_load(partial.token))
+                self.assertFalse(Partial.objects.exists())
+
+    def test_undated_partial_is_expired(self):
+        partial = self.create_partial(timedelta(0))
+        partial.timestamp = None
+        self.assertTrue(partial.is_expired(60))
+
+    def test_destroy_expired(self):
+        Partial.destroy(self.create_partial(timedelta(days=30)).token)
+        self.assertFalse(Partial.objects.exists())
+
+    @override_settings(SOCIAL_AUTH_EMAIL_VALIDATION_EXPIRED_THRESHOLD=60)
+    def test_expiry_follows_email_validation(self):
+        self.assertIsNone(DjangoStrategy(DjangoStorage).partial_load(self.create_partial(timedelta(seconds=61)).token))
+
+    @override_settings(
+        SOCIAL_AUTH_EMAIL_VALIDATION_EXPIRED_THRESHOLD=60,
+        SOCIAL_AUTH_PARTIAL_PIPELINE_EXPIRED_THRESHOLD=120,
+    )
+    def test_configured_expiry(self):
+        strategy = DjangoStrategy(DjangoStorage)
+        partial = self.create_partial(timedelta(seconds=61))
+        self.assertEqual(strategy.partial_load(partial.token), partial)
+        Partial.objects.filter(pk=partial.pk).update(timestamp=partial.timestamp - timedelta(seconds=121))
+        self.assertIsNone(strategy.partial_load(partial.token))
+
+    @override_settings(SOCIAL_AUTH_EMAIL_VALIDATION_EXPIRED_THRESHOLD=10 * 24 * 60 * 60)
+    def test_longer_effective_email_lifetime_is_honored(self):
+        partial = self.create_partial(timedelta(days=8))
+        self.assertEqual(DjangoStrategy(DjangoStorage).partial_load(partial.token), partial)
+        Partial.destroy(partial.token)
+
+    def test_disabled_expiry(self):
+        for threshold in (None, 0):
+            with (
+                self.subTest(threshold=threshold),
+                override_settings(SOCIAL_AUTH_PARTIAL_PIPELINE_EXPIRED_THRESHOLD=threshold),
+            ):
+                partial = self.create_partial(timedelta(days=30))
+                self.assertEqual(DjangoStrategy(DjangoStorage).partial_load(partial.token), partial)
+                Partial.destroy(partial.token)
 
 
 class TestDjangoStorage(TestCase):

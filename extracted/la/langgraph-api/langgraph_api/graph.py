@@ -42,6 +42,7 @@ from langgraph_api.feature_flags import (
 from langgraph_api.js.base import BaseRemotePregel, is_js_path
 from langgraph_api.schema import Config
 from langgraph_api.timing import profiled_import
+from langgraph_api.timing.startup import set_phase
 from langgraph_api.utils.config import run_in_executor, var_child_runnable_config
 from langgraph_api.utils.errors import GraphLoadError
 
@@ -510,9 +511,10 @@ async def collect_graphs_from_env(
 ) -> None:
     """Return graphs from env.
 
-    When ``allow_js`` is False (Python process runner), raise if any JS graph
+    When ``allow_js`` is False (Python process executor), raise if any JS graph
     specs are configured instead of starting the JS sidecar.
     """
+    set_phase("loading_graphs")
 
     # Not in public docs: LANGSERVE_GRAPHS is internal, set by CLI from langgraph.json "graphs" field
     paths_str = os.getenv("LANGSERVE_GRAPHS")
@@ -606,7 +608,7 @@ async def collect_graphs_from_env(
 
     if js_specs and not allow_js:
         raise NotImplementedError(
-            "JS graphs are not supported in the Python process runner. "
+            "JS graphs are not supported in the Python process executor. "
             f"Configured JS graph ids: {[s.id for s in js_specs]}"
         )
 
@@ -625,6 +627,7 @@ async def collect_graphs_from_env(
             wait_until_js_ready,
         )
 
+        set_phase("waiting_for_js_graphs")
         js_bg_tasks.add(
             asyncio.create_task(
                 run_remote_checkpointer(),
@@ -659,6 +662,7 @@ async def collect_graphs_from_env(
         await wait_until_js_ready(js_bg_tasks)
 
         for spec in js_specs:
+            set_phase("registering_js_graph", graph_id=spec.id)
             graph = RemotePregel(graph_id=spec.id)
             if register and USE_RUNTIME_CONTEXT_API:
                 await graph.prefetch_context_jsonschema()
@@ -668,14 +672,20 @@ async def collect_graphs_from_env(
                 )
 
     for spec in py_specs:
+        set_phase("loading_graph", graph_id=spec.id)
         try:
             graph = await run_in_executor(None, _graph_from_spec, spec)
         except Exception as exc:
             raise GraphLoadError(spec, exc) from exc
         if register:
+            set_phase("registering_graph", graph_id=spec.id)
             await register_graph(
                 spec.id, graph, spec.config, description=spec.description
             )
+
+    # Close out the last graph phase so later stalls (queue start, custom app
+    # lifespan, etc.) are not attributed to that graph.
+    set_phase("graphs_ready")
 
 
 def _handle_exception(task: asyncio.Task) -> None:

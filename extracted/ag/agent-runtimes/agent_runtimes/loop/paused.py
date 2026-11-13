@@ -16,13 +16,13 @@ A session lives in one of two places, and is listed under it:
 A session has one uid for its whole life, wherever it lives; `transfer`
 moves it from one place to the other under the same uid.
 
-Before asking where a new agent should run, `loop` lists the person's paused
-sessions that can be gone on with, in those two groups, *On this machine*
-first — each with its kind (an agent's, an application's), its agent, its
-title and when it started, newest first, the five most recent of each. One
-picked is resumed where it lives, its conversation loaded; *Start a new
-session* goes on to the usual questions. With none paused nothing is
-printed.
+As it starts, `loop` draws the screen `loop sessions` draws (its picker,
+`agent_runtimes.loop.picker`), its launch rows first — *Start a new
+session*, on this machine or on Datalayer when where it runs is still to be
+asked, highlighted — and under them the same sessions in the same two
+groups, *On this machine* first. One picked is resumed where it lives, its
+conversation loaded, as `loop --resume <uid>` resumes it. With no session
+listed nothing is drawn and the usual questions follow.
 
 What `loop` resumes from a terminal:
 
@@ -56,16 +56,9 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from agent_runtimes.apps.record import session_kind
-
-#: How many paused sessions are offered at the start.
-OFFERED = 5
-
-#: How many of those `loop` does not resume are drawn beside them, with why
-#: and where they are opened.
-NOT_RESUMED_SHOWN = 3
 
 #: How many are read to say how many more there are.
 READ = 50
@@ -77,8 +70,6 @@ ON_DATALAYER = "cloud"
 #: The store a session on this machine is kept in.
 FILE = "file"
 RECORD = "record"
-
-NEW_SESSION = "Start a new session"
 
 
 @dataclass(frozen=True)
@@ -110,6 +101,14 @@ class Paused:
     """``open``, ``paused`` or ``ended``."""
     team_run: str = ""
     """For a seat of a team run, its run (the root execution): resumed with it."""
+    deployment_paused: bool = False
+    """Whether it is a session of one of the person's own deployments that is
+    paused: resuming it asks first to resume the deployment. Not shown in a
+    listing, whose State says the session's state alone."""
+    runs_on: str = ""
+    """What its record says it runs on: ``runtime``, ``agentcore``, ``team_run``, or ``""``."""
+    runs_on_id: str = ""
+    """The runtime's uid (``local`` for one started by hand), or AgentCore's ARN."""
 
     @property
     def resumable(self) -> bool:
@@ -221,6 +220,19 @@ DEPLOYMENT_WHY_NOT = (
     "a session of somebody else's deployment: a terminal starts a runtime for a "
     "deployment of its owner's only"
 )
+AGENT_WHY_NOT = (
+    "a session of the agent {agent}, which is no longer an agentspec of the catalogue: "
+    "a runtime on Datalayer cannot start it — clone it onto another agent to go on"
+)
+
+
+def agentspec_in_catalogue(agent: str) -> bool:
+    """Whether an agentspec is one of the catalogue's."""
+    from agent_runtimes.specs.agents.agents import get_agent_spec
+
+    return bool(agent) and get_agent_spec(agent) is not None
+
+
 TEAM_WHY_NOT = (
     "a seat of a team run whose run the record does not name: it is resumed "
     "with its run, agent-teams sessions resume <run>"
@@ -230,14 +242,21 @@ TEAM_WHY_NOT = (
 #: What the two places are called, wherever sessions are listed.
 PLACE_TITLES = {ON_THIS_MACHINE: "On this machine", ON_DATALAYER: "On Datalayer"}
 
-#: How local and cloud sessions are managed, in two sentences: said by the
-#: picker, by `/sessions` and by `loop sessions --help`.
-MANAGED = (
-    "On this machine: a session is a folder of ~/.datalayer/sessions, named by its uid, "
+#: How the sessions of each place are managed, in a sentence: said under the
+#: place's title by the picker and by `loop sessions` printed.
+MANAGED_BY_PLACE = {
+    ON_THIS_MACHINE: "A session is a folder of ~/.datalayer/sessions, named by its uid, "
     "kept until you delete it, seen only here and resumed by a runtime on this machine.",
-    "On Datalayer: a session is in your Datalayer account's record, seen on the web, in the "
+    ON_DATALAYER: "A session is in your Datalayer account's record, seen on the web, in the "
     "desktop app and from any machine signed in, and resumed on a runtime Datalayer launches. "
     "Signed out, only the sessions on this machine are listed.",
+}
+
+#: The same, each sentence naming its place: said by `/sessions` and by
+#: `loop sessions --help`, where no title stands above it.
+MANAGED = tuple(
+    f"{PLACE_TITLES[place]}: {sentence[0].lower()}{sentence[1:]}"
+    for place, sentence in MANAGED_BY_PLACE.items()
 )
 
 #: A choice that is a group's title, not to be picked.
@@ -255,20 +274,24 @@ def catalogue_names() -> Dict[str, str]:
 
 
 def paused_of(
-    sessions: List[Mapping[str, Any]],
+    sessions: Sequence[Mapping[str, Any]],
     store: str,
     deployments: Optional[Mapping[str, Mapping[str, Any]]] = None,
     names: Optional[Mapping[str, str]] = None,
     states: Tuple[str, ...] = ("paused",),
+    in_catalogue: Optional[Callable[[str], bool]] = None,
 ) -> List[Paused]:
     """The sessions among described ones, as a store lists them: the paused
     ones, unless other ``states`` are named.
 
     ``deployments`` are the person's, by uid (their application's name, their
-    address); ``names`` the catalogue's applications' names by id.
+    address, whether it is paused); ``names`` the catalogue's applications'
+    names by id; ``in_catalogue`` says whether an agentspec is one of the
+    catalogue's (what a runtime on Datalayer can start).
     """
     deployments = deployments or {}
     names = catalogue_names() if names is None else names
+    in_catalogue = in_catalogue or agentspec_in_catalogue
     rows: List[Paused] = []
     for session in sessions:
         if session.get("state") not in states or session.get("archived"):
@@ -298,6 +321,16 @@ def paused_of(
             slug = str(deployment.get("slug") or "")
             if slug and deployment.get("target") == "hosted":
                 address = f"{SITE}/apps/{slug}?thread={session.get('uid') or ''}"
+        elif kind == "agent" and store == RECORD:
+            # On Datalayer a runtime starts an agentspec of the catalogue:
+            # one that left it cannot be started again.
+            spec = (
+                app_uid[len("agent:") :]
+                if app_uid.startswith("agent:")
+                else str(session.get("agent") or "")
+            )
+            if spec and not in_catalogue(spec):
+                why_not = AGENT_WHY_NOT.format(agent=spec)
         app_name = ""
         if kind == "application":
             app_name = (
@@ -324,6 +357,12 @@ def paused_of(
                 address=address,
                 state=str(session.get("state") or ""),
                 team_run=team_run,
+                runs_on=str(runs_on.get("kind") or ""),
+                runs_on_id=str(runs_on.get("uid") or runs_on.get("arn") or ""),
+                # One of the person's own, paused: its owner resumes it, so
+                # the session stays listed, and resuming it asks first.
+                deployment_paused=bool(deployment)
+                and str(deployment.get("state") or "live") == "paused",
             )
         )
     return rows
@@ -335,11 +374,18 @@ def local_paused(
     states: Tuple[str, ...] = ("paused",),
 ) -> List[Paused]:
     """The sessions kept in files on this machine: the paused ones, unless
-    other ``states`` are named."""
+    other ``states`` are named.
+    """
+    from agent_runtimes.apps.local_rule import reconciled
     from agent_runtimes.apps.session_store import FileSessionStore
 
     files = store or FileSessionStore()
-    return paused_of(files.described(), FILE, None, names, states)
+    described = files.described()
+    if hasattr(files, "write"):
+        # As the rule says them (`local_rule`): a seat whose local run is
+        # over is ended, an open one whose process is gone is paused.
+        described = reconciled(files, described)
+    return paused_of(described, FILE, None, names, states)
 
 
 async def _ask_the_record(token: str, state: str = "paused") -> Dict[str, Any]:
@@ -387,8 +433,27 @@ def record_paused(
         Whatever kept the record from answering: `paused_sessions` says it
         in a line and goes on.
     """
-    only = states[0] if len(states) == 1 else ""
-    answered = asker(token) if asker else asyncio.run(_ask_the_record(token, only))
+    if asker:
+        answered = asker(token)
+    else:
+        # Unsaid, the record answers the open and the paused ones: the ended
+        # are asked for by their state.
+        only = states[0] if len(states) == 1 else ""
+        answered = asyncio.run(_ask_the_record(token, only))
+        if not only and "ended" in states:
+            ended = asyncio.run(_ask_the_record(token, "ended"))
+            known = {session.get("uid") for session in answered["sessions"]}
+            answered = {
+                "sessions": answered["sessions"]
+                + [s for s in ended["sessions"] if s.get("uid") not in known],
+                "deployments": answered["deployments"]
+                + [
+                    d
+                    for d in ended["deployments"]
+                    if d.get("uid")
+                    not in {one.get("uid") for one in answered["deployments"]}
+                ],
+            }
     deployments = {
         str(deployment.get("uid") or ""): deployment
         for deployment in answered.get("deployments") or []
@@ -430,6 +495,86 @@ def paused_sessions(
 
 #: Every state a session has, for a listing of all of them.
 STATES = ("open", "paused", "ended")
+
+#: What is listed unless more is asked: the sessions that run (``open``) and
+#: those that can be gone on with (``paused``).
+LISTED_STATES = ("open", "paused")
+
+
+def is_listed(row: Paused) -> bool:
+    """Whether a session is listed by default: it runs, or it can be gone on
+    with — from here, or at the address it is opened at. An ended one is
+    not (it is cloned or exported, by its uid), nor a paused one nothing
+    resumes (a seat whose run the record does not name).
+    """
+    if row.state == "open":
+        return True
+    return row.state == "paused" and (row.resumable or bool(row.address))
+
+
+def listed(rows: Sequence[Paused]) -> List[Paused]:
+    """The sessions among some that are listed by default (`is_listed`),
+    each once in its place: a record that answers a session twice lists it
+    once (a transferred session is listed in each place, ended in one).
+    """
+    seen: set[tuple[str, str]] = set()
+    kept: List[Paused] = []
+    for row in rows:
+        if is_listed(row) and (row.uid, row.where) not in seen:
+            seen.add((row.uid, row.where))
+            kept.append(row)
+    return kept
+
+
+class RunsElsewhere(Exception):
+    """An open session that a terminal cannot join where it runs: said in a sentence."""
+
+
+def joined_runtime(row: Paused, running: Callable[[], Sequence[str]]) -> str:
+    """The runtime an open session runs on, to be joined rather than resumed:
+    its uid, when it runs on a runtime on Datalayer that ``running`` (the
+    names and uids of the person's running runtimes) still lists. ``""``
+    for a session that is resumed as a paused one is — not open, kept on
+    this machine, or open on a runtime that is gone (the record's rule: an
+    open session whose runtime no longer exists is paused).
+
+    Raises
+    ------
+    RunsElsewhere
+        An open session that runs where a terminal cannot join it: a seat of
+        a running team run, or a run in AgentCore.
+    """
+    if row.state != "open" or row.where != ON_DATALAYER:
+        return ""
+    if row.team_run:
+        raise RunsElsewhere(
+            f"Session {row.uid} is a seat of team run {row.team_run}, which is running: "
+            f"follow it with `agent-teams sessions show {row.team_run}` or at {row.address}; "
+            f"once it is paused, `{team_resume_command(row.team_run)}` goes on with it."
+        )
+    if row.runs_on == "agentcore":
+        where = f": open it at {row.address}" if row.address else ""
+        raise RunsElsewhere(
+            f"Session {row.uid} is running now in AgentCore, where a terminal cannot "
+            f"join a run{where}. Once its run ends it is paused, and resumed from here."
+        )
+    if row.runs_on == "runtime" and row.runs_on_id not in ("", "local"):
+        if row.runs_on_id in set(running()):
+            return row.runs_on_id
+    return ""
+
+
+def clone_command(row: Paused) -> str:
+    """The command that clones a session to go on from it: a team run's
+    seat is cloned with its run, any other session by its uid.
+    """
+    if row.team_run:
+        return f"agent-teams sessions clone {row.team_run}"
+    if row.app_uid.startswith("team:"):
+        return "agent-teams sessions clone <run> (`agent-teams sessions list --all` names its run)"
+    return f"loop sessions clone {row.uid}" + (
+        " --cloud" if row.where == ON_DATALAYER else ""
+    )
 
 
 def grouped(rows: List[Paused]) -> List[Tuple[str, List[Paused]]]:
@@ -474,88 +619,30 @@ def paused_line(row: Paused, now: Optional[datetime] = None) -> str:
     )
 
 
-def choose_paused(
-    rows: List[Paused],
-    *,
-    ask: Optional[Callable[..., Optional[str]]] = None,
-    now: Optional[datetime] = None,
-) -> Optional[Paused]:
-    """The paused session the person goes on with, or ``None`` for a new one.
-
-    With none paused, nobody is asked. The five most recent are offered,
-    those `loop` resumes first, *Start a new session* before them and
-    chosen by Enter. One it does not resume from a terminal is drawn too,
-    not to be picked, with why and where it is opened instead. The rest are
-    counted, with where they are listed.
-    """
-    if not rows:
-        return None
-    from agent_runtimes.loop.launch import _select
-
-    # The two places apart, *On this machine* first: in each, what can be
-    # gone on with here, then the most recent of what is opened elsewhere:
-    # never only counted.
-    choices: List[Tuple[Any, ...]] = [(NEW_SESSION, "")]
-    offered: List[Paused] = []
-    counts: List[str] = []
-    for place, of_place in grouped(rows):
-        if not of_place:
-            continue
-        shown = [row for row in of_place if row.resumable][:OFFERED] + [
-            row for row in of_place if not row.resumable
-        ][:NOT_RESUMED_SHOWN]
-        more = len(of_place) - len(shown)
-        counts.append(
-            f"{len(of_place)} on {'this machine' if place == ON_THIS_MACHINE else 'Datalayer'}"
-        )
-        choices.append(
-            (
-                f"{PLACE_TITLES[place]} ({len(of_place)}"
-                + (f"; {more} more: loop sessions" if more else "")
-                + ")",
-                SEPARATOR,
-            )
-        )
-        for row in shown:
-            line = paused_line(row, now)
-            if row.team_run and row.resumable:
-                # A seat goes on with its run: the run is what is resumed.
-                choices.append((f"Resume its team run {row.team_run}: {line}", row.uid))
-            elif row.resumable:
-                choices.append((f"Resume: {line}", row.uid))
-            else:
-                where = f": open {row.address}" if row.address else ""
-                choices.append((line, row.uid, f"{row.why_not}{where}"))
-        offered += shown
-    count = len(rows)
-    question = (
-        f"You have {count} paused session{'s' if count != 1 else ''} ({', '.join(counts)})"
-        ". Go on with one, or start a new one?"
-    )
-    answer = (ask or _select)(question, choices, "")
-    if answer is None:
-        raise KeyboardInterrupt
-    return next((row for row in offered if row.uid == answer), None)
-
-
 __all__ = [
-    "NEW_SESSION",
-    "OFFERED",
     "ON_DATALAYER",
     "ON_THIS_MACHINE",
     "Paused",
-    "choose_paused",
     "local_paused",
     "paused_line",
     "paused_of",
     "paused_sessions",
     "record_paused",
+    "AGENT_WHY_NOT",
     "DEPLOYMENT_WHY_NOT",
+    "agentspec_in_catalogue",
     "MANAGED",
+    "MANAGED_BY_PLACE",
     "PLACE_TITLES",
     "SEPARATOR",
+    "LISTED_STATES",
     "STATES",
     "TEAM_WHY_NOT",
+    "clone_command",
+    "joined_runtime",
+    "RunsElsewhere",
+    "is_listed",
+    "listed",
     "grouped",
     "TeamResumeUnavailable",
     "catalogue_names",

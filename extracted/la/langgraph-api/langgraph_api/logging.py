@@ -18,7 +18,13 @@ LOG_LEVEL = log_env("LOG_LEVEL", cast=str, default="INFO")
 
 logger = logging.getLogger()
 logging.getLogger().setLevel(LOG_LEVEL.upper())
-logging.getLogger("psycopg").setLevel(logging.WARNING)
+WARNING_ONLY_LOGGERS = (
+    "psycopg",
+    "mcp.server.streamable_http",
+    "mcp.server.streamable_http_manager",
+)
+for library_logger in WARNING_ONLY_LOGGERS:
+    logging.getLogger(library_logger).setLevel(logging.WARNING)
 
 
 class _GrpcCallbackFilter(logging.Filter):

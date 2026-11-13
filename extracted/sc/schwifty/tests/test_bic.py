@@ -9,6 +9,8 @@ from schwifty import BIC
 from schwifty import exceptions
 from schwifty import registry
 from schwifty.domain import Bank
+from schwifty.domain import BankStatus
+from schwifty.domain import SEPAScheme
 
 
 def test_bic() -> None:
@@ -52,15 +54,16 @@ def test_bic_properties() -> None:
         "GLS Gemeinschaftsbank",
         "GLS Gemeinschaftsbank (GAA)",
     ]
+    # The short names follow the records, which rank equally and are ordered by name.
     assert bic.bank_short_names == [
-        "GLS Bank in Bochum (GAA)",
         "GLS Gemeinschaftsbk Bochum",
+        "GLS Bank in Bochum (GAA)",
     ]
     assert bic.country == countries.get(alpha_2="DE")
     with pytest.warns(DeprecationWarning, match="Use `BIC.bank_names` instead"):
         assert bic.bank_name == "GLS Gemeinschaftsbank"
     with pytest.warns(DeprecationWarning, match="Use `BIC.bank_short_names` instead"):
-        assert bic.bank_short_name == "GLS Bank in Bochum (GAA)"
+        assert bic.bank_short_name == "GLS Gemeinschaftsbk Bochum"
     with pytest.warns(DeprecationWarning, match="Use `BIC.domestic_bank_codes` instead"):
         assert bic.country_bank_code == "43060967"
     assert bic.exists
@@ -138,6 +141,68 @@ def test_bic_prefers_exact_institution_entry(monkeypatch: pytest.MonkeyPatch) ->
     assert bic.domestic_bank_codes == ["10000000"]
     assert bic.bank_names == ["Exact institution"]
     assert bic.bank_short_names == []
+
+
+def test_banks_of_a_bic_are_ranked(monkeypatch: pytest.MonkeyPatch) -> None:
+    banks = [
+        Bank("DE", "TESTDEFF", "10000001", "Absorbed bank", status=BankStatus.MERGED, primary=True),
+        Bank("DE", "TESTDEFF", "10000002", "Closed bank", status=BankStatus.CLOSED, primary=True),
+        Bank("DE", "TESTDEFF", "10000003", "Bank branch"),
+        Bank("DE", "TESTDEFF", "10000004", "Bank", primary=True),
+        Bank("DE", "TESTDEFF", "10000000", "Another bank", primary=True),
+    ]
+    monkeypatch.setattr(
+        registry, "get_banks_by_bic", lambda code: banks if code == "TESTDEFF" else []
+    )
+    bic = BIC("TESTDEFF")
+    # Active before merged before closed, primary before non-primary, then by name.
+    assert bic.domestic_bank_codes == ["10000000", "10000004", "10000003", "10000001", "10000002"]
+    assert bic.bank_names[0] == "Another bank"
+    assert bic.bank == bic.banks[0]
+    assert bic.bank is not None
+    assert bic.bank.bank_code == "10000000"
+
+
+def test_bank_of_a_bic_with_banks_that_merged_into_it() -> None:
+    # Banco de Sabadell absorbed the banks whose codes share its BIC (#113).
+    bic = BIC("BSABESBB")
+    assert bic.bank is not None
+    assert bic.bank.name == "BANCO DE SABADELL, S.A."
+    assert bic.bank_names[0] == "BANCO DE SABADELL, S.A."
+    assert bic.domestic_bank_codes[0] == "0081"
+    assert all(bank.status is BankStatus.MERGED for bank in bic.banks[2:])
+
+
+def test_bank_of_a_bic() -> None:
+    assert BIC("MARKDEF1100").bank == registry.get_banks_by_code("DE", "10000000")[0]
+    # A branch BIC that the registry doesn't list falls back to the institution.
+    assert BIC("DEUTDEDBXYZ").bank == BIC("DEUTDEDB").bank
+    assert BIC("DEUTDEDBXYZ").banks == []
+    assert BIC("ZZZZDEFFXXX", allow_invalid=True).bank is None
+
+
+def test_sepa_schemes() -> None:
+    assert BIC("AACSDE33").sepa_schemes == {
+        SEPAScheme.CREDIT_TRANSFER,
+        SEPAScheme.CORE_DIRECT_DEBIT,
+        SEPAScheme.B2B_DIRECT_DEBIT,
+        SEPAScheme.CARD_CLEARING,
+    }
+    # Both forms of the BIC of a primary office are the same BIC.
+    assert BIC("AACSDE33XXX").sepa_schemes == BIC("AACSDE33").sepa_schemes
+    # A branch that the SCL directory lists has its own schemes, other branches the ones of the
+    # institution.
+    assert BIC("DEUTDEDBPAL").sepa_schemes == {SEPAScheme.CREDIT_TRANSFER}
+    assert BIC("DEUTDEDBXYZ").sepa_schemes == BIC("DEUTDEDB").sepa_schemes
+    # The directory doesn't list the BIC, so its participation is unknown.
+    assert BIC("ZZZZDEFFXXX", allow_invalid=True).sepa_schemes == frozenset()
+
+
+def test_bank_codes_of_irish_credit_unions() -> None:
+    # Irish and Maltese IBANs use the bank code of the BIC, which the SCL directory provides.
+    assert BIC.from_bank_code("IE", "ABRN") == "ABRNIE21"
+    assert BIC("ABRNIE21").bank_names == ["PEOPLE FIRST CREDIT UNION LIMITED"]
+    assert BIC.from_bank_code("MT", "CFTE") == "CFTEMTM1"
 
 
 @pytest.mark.parametrize(
@@ -242,7 +307,7 @@ def test_bic_structure_is_validated_over_full_string() -> None:
         ("FR", "30004", "BNPAFRPP"),
         ("FR", "30066", "CMCIFRPP"),
         ("FR", "17469", "SOCBPFTX"),
-        ("FR", "10096", "CMCIFRPP"),
+        ("FR", "10096", "CMCIFRP1LYB"),  # its own BIC, not the one of its group
         ("FR", "18719", "BFCORERX"),  # head office, not the Mayotte branch
         ("FR", "30077", "SMCTFR2A"),
         ("FR", "13489", "NORDFRPP"),
@@ -253,12 +318,14 @@ def test_bic_structure_is_validated_over_full_string() -> None:
         ("IT", "01030", "PASCITMM"),  # curated
         ("LV", "RIKO", "RIKOLV2X"),
         ("MC", "30003", "SOGEMCM1"),
+        ("MC", "30004", "BNPAMCM1"),  # French bank code of a Monegasque branch
         ("ME", "907", "CBCGMEPG"),
         ("MT", "CFTE", "CFTEMTM1"),
         ("NL", "ADYB", "ADYBNL2A"),
         ("PK", "UNIL", "UNILPKKA"),
         ("PL", "10100055", "NBPLPLPW"),
         ("PL", "10900004", "WBKPPLPP"),
+        ("PT", "5200", "CDOTPTP1"),
         ("RO", "BTRL", "BTRLRO22"),
         ("SE", "500", "ESSESESS"),
         ("SI", "01050", "BSLJSI2XFNB"),

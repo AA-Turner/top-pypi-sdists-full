@@ -52,14 +52,14 @@ def strip_ilwdchar(xmldoc):
     specifically for their needs.
     """
     for table in xmldoc.getElementsByTagName(ligolw.Table.tagName):
-        logging.info("table %s:" % table.Name)
+        logging.info("table %s:", table.Name)
         # first strip table names from column names that shouldn't
         # have them
         if table.Name in lsctables.TableByName:
             validcolumns = lsctables.TableByName[table.Name].validcolumns
-            stripped_column_to_valid_column = dict(
-                (ligolw.Column.ColumnName(name), name) for name in validcolumns
-            )
+            stripped_column_to_valid_column = {
+                ligolw.Column.ColumnName(name): name for name in validcolumns
+            }
             for column in table.getElementsByTagName(ligolw.Column.tagName):
                 if column.getAttribute("Name") not in validcolumns:
                     before = column.getAttribute("Name")
@@ -67,8 +67,10 @@ def strip_ilwdchar(xmldoc):
                         "Name", stripped_column_to_valid_column[column.Name]
                     )
                     logging.info(
-                        "renamed %s column %s to %s"
-                        % (table.Name, before, column.getAttribute("Name"))
+                        "renamed %s column %s to %s",
+                        table.Name,
+                        before,
+                        column.getAttribute("Name"),
                     )
 
         # convert ilwd:char IDs to integers
@@ -80,7 +82,7 @@ def strip_ilwdchar(xmldoc):
         if not idattrs:
             logging.info("no ID columns to convert")
             continue
-        logging.info("converting ID column(s) %s" % ", ".join(sorted(idattrs)))
+        logging.info("converting ID column(s) %s", ", ".join(sorted(idattrs)))
         for row in table:
             for attr in idattrs:
                 new_value = getattr(row, attr)
@@ -90,5 +92,11 @@ def strip_ilwdchar(xmldoc):
         # update the column types
         for attr in idattrs:
             table.getColumnByName(attr).Type = "int_8s"
+
+    for param in xmldoc.getElementsByTagName(ligolw.Param.tagName):
+        if param.Type == "ilwd:char":
+            logging.info("converting param %s", param.Name)
+            param.Type = "int_8s"
+            param.value = int(param.value.split(":")[-1])
 
     return xmldoc

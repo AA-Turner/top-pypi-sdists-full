@@ -14,7 +14,6 @@ if typing.TYPE_CHECKING:
     from .account_links.client import AccountLinksClient, AsyncAccountLinksClient
     from .accounts.client import AccountsClient, AsyncAccountsClient
     from .ad_campaigns.client import AdCampaignsClient, AsyncAdCampaignsClient
-    from .ad_conversion_value_rules.client import AdConversionValueRulesClient, AsyncAdConversionValueRulesClient
     from .ad_groups.client import AdGroupsClient, AsyncAdGroupsClient
     from .ad_pixels.client import AdPixelsClient, AsyncAdPixelsClient
     from .ads.client import AdsClient, AsyncAdsClient
@@ -27,11 +26,16 @@ if typing.TYPE_CHECKING:
     from .apps.client import AppsClient, AsyncAppsClient
     from .audiences.client import AsyncAudiencesClient, AudiencesClient
     from .authorized_users.client import AsyncAuthorizedUsersClient, AuthorizedUsersClient
+    from .automation_enrollments.client import AsyncAutomationEnrollmentsClient, AutomationEnrollmentsClient
+    from .automation_steps.client import AsyncAutomationStepsClient, AutomationStepsClient
+    from .automations.client import AsyncAutomationsClient, AutomationsClient
     from .bounties.client import AsyncBountiesClient, BountiesClient
     from .bounty_submissions.client import AsyncBountySubmissionsClient, BountySubmissionsClient
     from .card_transactions.client import AsyncCardTransactionsClient, CardTransactionsClient
     from .cards.client import AsyncCardsClient, CardsClient
     from .cashback_rules.client import AsyncCashbackRulesClient, CashbackRulesClient
+    from .channel_members.client import AsyncChannelMembersClient, ChannelMembersClient
+    from .channels.client import AsyncChannelsClient, ChannelsClient
     from .chat_channels.client import AsyncChatChannelsClient, ChatChannelsClient
     from .checkout_configurations.client import AsyncCheckoutConfigurationsClient, CheckoutConfigurationsClient
     from .claim_links.client import AsyncClaimLinksClient, ClaimLinksClient
@@ -92,7 +96,9 @@ if typing.TYPE_CHECKING:
     from .reactions.client import AsyncReactionsClient, ReactionsClient
     from .refunds.client import AsyncRefundsClient, RefundsClient
     from .resolution_center_cases.client import AsyncResolutionCenterCasesClient, ResolutionCenterCasesClient
+    from .review_reports.client import AsyncReviewReportsClient, ReviewReportsClient
     from .reviews.client import AsyncReviewsClient, ReviewsClient
+    from .search.client import AsyncSearchClient, SearchClient
     from .setup_intents.client import AsyncSetupIntentsClient, SetupIntentsClient
     from .shipments.client import AsyncShipmentsClient, ShipmentsClient
     from .social_accounts.client import AsyncSocialAccountsClient, SocialAccountsClient
@@ -156,7 +162,7 @@ class Whop:
     from whop_sdk import Whop
 
     client = Whop(
-        "2026-10-28",
+        "2026-11-10-1",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -166,7 +172,7 @@ class Whop:
         self,
         *,
         environment: WhopEnvironment = WhopEnvironment.PRODUCTION,
-        api_version_date: typing.Optional[str] = "2026-10-28",
+        api_version_date: typing.Optional[str] = "2026-11-10-1",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -201,10 +207,9 @@ class Whop:
         self._account_links: typing.Optional[AccountLinksClient] = None
         self._accounts: typing.Optional[AccountsClient] = None
         self._ad_campaigns: typing.Optional[AdCampaignsClient] = None
-        self._ad_conversion_value_rules: typing.Optional[AdConversionValueRulesClient] = None
         self._ad_groups: typing.Optional[AdGroupsClient] = None
-        self._ad_pixels: typing.Optional[AdPixelsClient] = None
         self._ads: typing.Optional[AdsClient] = None
+        self._ad_pixels: typing.Optional[AdPixelsClient] = None
         self._affiliates: typing.Optional[AffiliatesClient] = None
         self._ai_chats: typing.Optional[AiChatsClient] = None
         self._api_keys: typing.Optional[ApiKeysClient] = None
@@ -214,11 +219,16 @@ class Whop:
         self._apps: typing.Optional[AppsClient] = None
         self._audiences: typing.Optional[AudiencesClient] = None
         self._authorized_users: typing.Optional[AuthorizedUsersClient] = None
+        self._automation_enrollments: typing.Optional[AutomationEnrollmentsClient] = None
+        self._automation_steps: typing.Optional[AutomationStepsClient] = None
+        self._automations: typing.Optional[AutomationsClient] = None
         self._bounties: typing.Optional[BountiesClient] = None
         self._bounty_submissions: typing.Optional[BountySubmissionsClient] = None
         self._card_transactions: typing.Optional[CardTransactionsClient] = None
         self._cards: typing.Optional[CardsClient] = None
         self._cashback_rules: typing.Optional[CashbackRulesClient] = None
+        self._channel_members: typing.Optional[ChannelMembersClient] = None
+        self._channels: typing.Optional[ChannelsClient] = None
         self._chat_channels: typing.Optional[ChatChannelsClient] = None
         self._checkout_configurations: typing.Optional[CheckoutConfigurationsClient] = None
         self._claim_links: typing.Optional[ClaimLinksClient] = None
@@ -279,7 +289,9 @@ class Whop:
         self._reactions: typing.Optional[ReactionsClient] = None
         self._refunds: typing.Optional[RefundsClient] = None
         self._resolution_center_cases: typing.Optional[ResolutionCenterCasesClient] = None
+        self._review_reports: typing.Optional[ReviewReportsClient] = None
         self._reviews: typing.Optional[ReviewsClient] = None
+        self._search: typing.Optional[SearchClient] = None
         self._setup_intents: typing.Optional[SetupIntentsClient] = None
         self._shipments: typing.Optional[ShipmentsClient] = None
         self._social_accounts: typing.Optional[SocialAccountsClient] = None
@@ -328,14 +340,6 @@ class Whop:
         return self._ad_campaigns
 
     @property
-    def ad_conversion_value_rules(self):
-        if self._ad_conversion_value_rules is None:
-            from .ad_conversion_value_rules.client import AdConversionValueRulesClient  # noqa: E402
-
-            self._ad_conversion_value_rules = AdConversionValueRulesClient(client_wrapper=self._client_wrapper)
-        return self._ad_conversion_value_rules
-
-    @property
     def ad_groups(self):
         if self._ad_groups is None:
             from .ad_groups.client import AdGroupsClient  # noqa: E402
@@ -344,20 +348,20 @@ class Whop:
         return self._ad_groups
 
     @property
-    def ad_pixels(self):
-        if self._ad_pixels is None:
-            from .ad_pixels.client import AdPixelsClient  # noqa: E402
-
-            self._ad_pixels = AdPixelsClient(client_wrapper=self._client_wrapper)
-        return self._ad_pixels
-
-    @property
     def ads(self):
         if self._ads is None:
             from .ads.client import AdsClient  # noqa: E402
 
             self._ads = AdsClient(client_wrapper=self._client_wrapper)
         return self._ads
+
+    @property
+    def ad_pixels(self):
+        if self._ad_pixels is None:
+            from .ad_pixels.client import AdPixelsClient  # noqa: E402
+
+            self._ad_pixels = AdPixelsClient(client_wrapper=self._client_wrapper)
+        return self._ad_pixels
 
     @property
     def affiliates(self):
@@ -432,6 +436,30 @@ class Whop:
         return self._authorized_users
 
     @property
+    def automation_enrollments(self):
+        if self._automation_enrollments is None:
+            from .automation_enrollments.client import AutomationEnrollmentsClient  # noqa: E402
+
+            self._automation_enrollments = AutomationEnrollmentsClient(client_wrapper=self._client_wrapper)
+        return self._automation_enrollments
+
+    @property
+    def automation_steps(self):
+        if self._automation_steps is None:
+            from .automation_steps.client import AutomationStepsClient  # noqa: E402
+
+            self._automation_steps = AutomationStepsClient(client_wrapper=self._client_wrapper)
+        return self._automation_steps
+
+    @property
+    def automations(self):
+        if self._automations is None:
+            from .automations.client import AutomationsClient  # noqa: E402
+
+            self._automations = AutomationsClient(client_wrapper=self._client_wrapper)
+        return self._automations
+
+    @property
     def bounties(self):
         if self._bounties is None:
             from .bounties.client import BountiesClient  # noqa: E402
@@ -470,6 +498,22 @@ class Whop:
 
             self._cashback_rules = CashbackRulesClient(client_wrapper=self._client_wrapper)
         return self._cashback_rules
+
+    @property
+    def channel_members(self):
+        if self._channel_members is None:
+            from .channel_members.client import ChannelMembersClient  # noqa: E402
+
+            self._channel_members = ChannelMembersClient(client_wrapper=self._client_wrapper)
+        return self._channel_members
+
+    @property
+    def channels(self):
+        if self._channels is None:
+            from .channels.client import ChannelsClient  # noqa: E402
+
+            self._channels = ChannelsClient(client_wrapper=self._client_wrapper)
+        return self._channels
 
     @property
     def chat_channels(self):
@@ -952,12 +996,28 @@ class Whop:
         return self._resolution_center_cases
 
     @property
+    def review_reports(self):
+        if self._review_reports is None:
+            from .review_reports.client import ReviewReportsClient  # noqa: E402
+
+            self._review_reports = ReviewReportsClient(client_wrapper=self._client_wrapper)
+        return self._review_reports
+
+    @property
     def reviews(self):
         if self._reviews is None:
             from .reviews.client import ReviewsClient  # noqa: E402
 
             self._reviews = ReviewsClient(client_wrapper=self._client_wrapper)
         return self._reviews
+
+    @property
+    def search(self):
+        if self._search is None:
+            from .search.client import SearchClient  # noqa: E402
+
+            self._search = SearchClient(client_wrapper=self._client_wrapper)
+        return self._search
 
     @property
     def setup_intents(self):
@@ -1140,7 +1200,7 @@ class AsyncWhop:
     from whop_sdk import AsyncWhop
 
     client = AsyncWhop(
-        "2026-10-28",
+        "2026-11-10-1",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -1150,7 +1210,7 @@ class AsyncWhop:
         self,
         *,
         environment: WhopEnvironment = WhopEnvironment.PRODUCTION,
-        api_version_date: typing.Optional[str] = "2026-10-28",
+        api_version_date: typing.Optional[str] = "2026-11-10-1",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -1185,10 +1245,9 @@ class AsyncWhop:
         self._account_links: typing.Optional[AsyncAccountLinksClient] = None
         self._accounts: typing.Optional[AsyncAccountsClient] = None
         self._ad_campaigns: typing.Optional[AsyncAdCampaignsClient] = None
-        self._ad_conversion_value_rules: typing.Optional[AsyncAdConversionValueRulesClient] = None
         self._ad_groups: typing.Optional[AsyncAdGroupsClient] = None
-        self._ad_pixels: typing.Optional[AsyncAdPixelsClient] = None
         self._ads: typing.Optional[AsyncAdsClient] = None
+        self._ad_pixels: typing.Optional[AsyncAdPixelsClient] = None
         self._affiliates: typing.Optional[AsyncAffiliatesClient] = None
         self._ai_chats: typing.Optional[AsyncAiChatsClient] = None
         self._api_keys: typing.Optional[AsyncApiKeysClient] = None
@@ -1198,11 +1257,16 @@ class AsyncWhop:
         self._apps: typing.Optional[AsyncAppsClient] = None
         self._audiences: typing.Optional[AsyncAudiencesClient] = None
         self._authorized_users: typing.Optional[AsyncAuthorizedUsersClient] = None
+        self._automation_enrollments: typing.Optional[AsyncAutomationEnrollmentsClient] = None
+        self._automation_steps: typing.Optional[AsyncAutomationStepsClient] = None
+        self._automations: typing.Optional[AsyncAutomationsClient] = None
         self._bounties: typing.Optional[AsyncBountiesClient] = None
         self._bounty_submissions: typing.Optional[AsyncBountySubmissionsClient] = None
         self._card_transactions: typing.Optional[AsyncCardTransactionsClient] = None
         self._cards: typing.Optional[AsyncCardsClient] = None
         self._cashback_rules: typing.Optional[AsyncCashbackRulesClient] = None
+        self._channel_members: typing.Optional[AsyncChannelMembersClient] = None
+        self._channels: typing.Optional[AsyncChannelsClient] = None
         self._chat_channels: typing.Optional[AsyncChatChannelsClient] = None
         self._checkout_configurations: typing.Optional[AsyncCheckoutConfigurationsClient] = None
         self._claim_links: typing.Optional[AsyncClaimLinksClient] = None
@@ -1263,7 +1327,9 @@ class AsyncWhop:
         self._reactions: typing.Optional[AsyncReactionsClient] = None
         self._refunds: typing.Optional[AsyncRefundsClient] = None
         self._resolution_center_cases: typing.Optional[AsyncResolutionCenterCasesClient] = None
+        self._review_reports: typing.Optional[AsyncReviewReportsClient] = None
         self._reviews: typing.Optional[AsyncReviewsClient] = None
+        self._search: typing.Optional[AsyncSearchClient] = None
         self._setup_intents: typing.Optional[AsyncSetupIntentsClient] = None
         self._shipments: typing.Optional[AsyncShipmentsClient] = None
         self._social_accounts: typing.Optional[AsyncSocialAccountsClient] = None
@@ -1312,14 +1378,6 @@ class AsyncWhop:
         return self._ad_campaigns
 
     @property
-    def ad_conversion_value_rules(self):
-        if self._ad_conversion_value_rules is None:
-            from .ad_conversion_value_rules.client import AsyncAdConversionValueRulesClient  # noqa: E402
-
-            self._ad_conversion_value_rules = AsyncAdConversionValueRulesClient(client_wrapper=self._client_wrapper)
-        return self._ad_conversion_value_rules
-
-    @property
     def ad_groups(self):
         if self._ad_groups is None:
             from .ad_groups.client import AsyncAdGroupsClient  # noqa: E402
@@ -1328,20 +1386,20 @@ class AsyncWhop:
         return self._ad_groups
 
     @property
-    def ad_pixels(self):
-        if self._ad_pixels is None:
-            from .ad_pixels.client import AsyncAdPixelsClient  # noqa: E402
-
-            self._ad_pixels = AsyncAdPixelsClient(client_wrapper=self._client_wrapper)
-        return self._ad_pixels
-
-    @property
     def ads(self):
         if self._ads is None:
             from .ads.client import AsyncAdsClient  # noqa: E402
 
             self._ads = AsyncAdsClient(client_wrapper=self._client_wrapper)
         return self._ads
+
+    @property
+    def ad_pixels(self):
+        if self._ad_pixels is None:
+            from .ad_pixels.client import AsyncAdPixelsClient  # noqa: E402
+
+            self._ad_pixels = AsyncAdPixelsClient(client_wrapper=self._client_wrapper)
+        return self._ad_pixels
 
     @property
     def affiliates(self):
@@ -1416,6 +1474,30 @@ class AsyncWhop:
         return self._authorized_users
 
     @property
+    def automation_enrollments(self):
+        if self._automation_enrollments is None:
+            from .automation_enrollments.client import AsyncAutomationEnrollmentsClient  # noqa: E402
+
+            self._automation_enrollments = AsyncAutomationEnrollmentsClient(client_wrapper=self._client_wrapper)
+        return self._automation_enrollments
+
+    @property
+    def automation_steps(self):
+        if self._automation_steps is None:
+            from .automation_steps.client import AsyncAutomationStepsClient  # noqa: E402
+
+            self._automation_steps = AsyncAutomationStepsClient(client_wrapper=self._client_wrapper)
+        return self._automation_steps
+
+    @property
+    def automations(self):
+        if self._automations is None:
+            from .automations.client import AsyncAutomationsClient  # noqa: E402
+
+            self._automations = AsyncAutomationsClient(client_wrapper=self._client_wrapper)
+        return self._automations
+
+    @property
     def bounties(self):
         if self._bounties is None:
             from .bounties.client import AsyncBountiesClient  # noqa: E402
@@ -1454,6 +1536,22 @@ class AsyncWhop:
 
             self._cashback_rules = AsyncCashbackRulesClient(client_wrapper=self._client_wrapper)
         return self._cashback_rules
+
+    @property
+    def channel_members(self):
+        if self._channel_members is None:
+            from .channel_members.client import AsyncChannelMembersClient  # noqa: E402
+
+            self._channel_members = AsyncChannelMembersClient(client_wrapper=self._client_wrapper)
+        return self._channel_members
+
+    @property
+    def channels(self):
+        if self._channels is None:
+            from .channels.client import AsyncChannelsClient  # noqa: E402
+
+            self._channels = AsyncChannelsClient(client_wrapper=self._client_wrapper)
+        return self._channels
 
     @property
     def chat_channels(self):
@@ -1936,12 +2034,28 @@ class AsyncWhop:
         return self._resolution_center_cases
 
     @property
+    def review_reports(self):
+        if self._review_reports is None:
+            from .review_reports.client import AsyncReviewReportsClient  # noqa: E402
+
+            self._review_reports = AsyncReviewReportsClient(client_wrapper=self._client_wrapper)
+        return self._review_reports
+
+    @property
     def reviews(self):
         if self._reviews is None:
             from .reviews.client import AsyncReviewsClient  # noqa: E402
 
             self._reviews = AsyncReviewsClient(client_wrapper=self._client_wrapper)
         return self._reviews
+
+    @property
+    def search(self):
+        if self._search is None:
+            from .search.client import AsyncSearchClient  # noqa: E402
+
+            self._search = AsyncSearchClient(client_wrapper=self._client_wrapper)
+        return self._search
 
     @property
     def setup_intents(self):

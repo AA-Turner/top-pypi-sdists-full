@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmnr
-Version: 0.8.10
+Version: 0.9.1
 Summary: Python SDK for Laminar
 Author: lmnr.ai
 Author-email: lmnr.ai <founders@lmnr.ai>
@@ -23,71 +23,14 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.39.0,<2.0.0
 Requires-Dist: opentelemetry-instrumentation>=0.54b0,<1.0.0
 Requires-Dist: opentelemetry-instrumentation-threading>=0.54b0,<1.0.0
 Requires-Dist: opentelemetry-semantic-conventions>=0.62b1,<1.0.0
-Requires-Dist: opentelemetry-semantic-conventions-ai==0.5.1
 Requires-Dist: orjson>=3.0.0,<4.0.0
 Requires-Dist: packaging>=22.0,<27.0
 Requires-Dist: pydantic>=2.0.3,<3.0.0
 Requires-Dist: python-dotenv>=1.0,<2.0
 Requires-Dist: tqdm>=4.0,<5.0
-Requires-Dist: tenacity>=8.0,<10.0
+Requires-Dist: typing-extensions>=4.4.0,<5.0.0
 Requires-Dist: wrapt>=1.14,<3.0.0
-Requires-Dist: opentelemetry-instrumentation-alephalpha==0.62.4 ; extra == 'alephalpha'
-Requires-Dist: opentelemetry-instrumentation-alephalpha==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-bedrock==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-chromadb==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-crewai==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-haystack==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-lancedb==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-llamaindex==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-marqo==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-mistralai==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-ollama==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-qdrant==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-replicate==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-sagemaker==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-together==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-transformers==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-watsonx==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-weaviate==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-bedrock==0.62.4 ; extra == 'bedrock'
-Requires-Dist: opentelemetry-instrumentation-chromadb==0.62.4 ; extra == 'chromadb'
-Requires-Dist: opentelemetry-instrumentation-crewai==0.62.4 ; extra == 'crewai'
-Requires-Dist: opentelemetry-instrumentation-haystack==0.62.4 ; extra == 'haystack'
-Requires-Dist: opentelemetry-instrumentation-lancedb==0.62.4 ; extra == 'lancedb'
-Requires-Dist: opentelemetry-instrumentation-llamaindex==0.62.4 ; extra == 'llamaindex'
-Requires-Dist: opentelemetry-instrumentation-marqo==0.62.4 ; extra == 'marqo'
-Requires-Dist: opentelemetry-instrumentation-mistralai==0.62.4 ; extra == 'mistralai'
-Requires-Dist: opentelemetry-instrumentation-ollama==0.62.4 ; extra == 'ollama'
-Requires-Dist: opentelemetry-instrumentation-qdrant==0.62.4 ; extra == 'qdrant'
-Requires-Dist: opentelemetry-instrumentation-replicate==0.62.4 ; extra == 'replicate'
-Requires-Dist: opentelemetry-instrumentation-sagemaker==0.62.4 ; extra == 'sagemaker'
-Requires-Dist: opentelemetry-instrumentation-together==0.62.4 ; extra == 'together'
-Requires-Dist: opentelemetry-instrumentation-transformers==0.62.4 ; extra == 'transformers'
-Requires-Dist: opentelemetry-instrumentation-watsonx==0.62.4 ; extra == 'watsonx'
-Requires-Dist: opentelemetry-instrumentation-weaviate==0.62.4 ; extra == 'weaviate'
 Requires-Python: >=3.11, <4
-Provides-Extra: alephalpha
-Provides-Extra: all
-Provides-Extra: bedrock
-Provides-Extra: chromadb
-Provides-Extra: cohere
-Provides-Extra: crewai
-Provides-Extra: haystack
-Provides-Extra: lancedb
-Provides-Extra: langchain
-Provides-Extra: llamaindex
-Provides-Extra: marqo
-Provides-Extra: mcp
-Provides-Extra: mistralai
-Provides-Extra: ollama
-Provides-Extra: qdrant
-Provides-Extra: replicate
-Provides-Extra: sagemaker
-Provides-Extra: together
-Provides-Extra: transformers
-Provides-Extra: vertexai
-Provides-Extra: watsonx
-Provides-Extra: weaviate
 Description-Content-Type: text/markdown
 
 # Laminar Python
@@ -109,12 +52,6 @@ First, install the package, specifying the extras you want to use.
 
 ```sh
 uv add lmnr
-```
-
-To install all possible instrumentations, use the following command:
-
-```sh
-uv add lmnr --all-extras
 ```
 
 Initialize Laminar in your code:

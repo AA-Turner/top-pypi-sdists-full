@@ -5,6 +5,7 @@ from ..enums.authenticator_type import AuthenticatorType
 from ..enums.authentication_factor import AuthenticationFactor
 from ..enums.id_token_provider import IdTokenProvider
 from ..enums.o_auth_provider import OAuthProvider
+from ..enums.analytics_property_type import AnalyticsPropertyType
 from ..enums.analytics_interval import AnalyticsInterval
 from ..enums.analytics_dimension import AnalyticsDimension
 from ..enums.browser import Browser
@@ -98,6 +99,11 @@ from ..enums.deployment_status import DeploymentStatus
 from ..enums.execution_resource_type import ExecutionResourceType
 from ..enums.execution_trigger import ExecutionTrigger
 from ..enums.execution_status import ExecutionStatus
+from ..enums.alert_status import AlertStatus
+from ..enums.alert_metric import AlertMetric
+from ..enums.alert_comparator import AlertComparator
+from ..enums.monitor_type import MonitorType
+from ..enums.monitor_resource_type import MonitorResourceType
 from ..enums.o_auth2_github_prompt import OAuth2GithubPrompt
 from ..enums.o_auth2_discord_prompt import OAuth2DiscordPrompt
 from ..enums.o_auth2_google_prompt import OAuth2GooglePrompt
@@ -137,6 +143,9 @@ class ValueClassEncoder(json.JSONEncoder):
             return o.value
 
         if isinstance(o, OAuthProvider):
+            return o.value
+
+        if isinstance(o, AnalyticsPropertyType):
             return o.value
 
         if isinstance(o, AnalyticsInterval):
@@ -416,6 +425,21 @@ class ValueClassEncoder(json.JSONEncoder):
             return o.value
 
         if isinstance(o, ExecutionStatus):
+            return o.value
+
+        if isinstance(o, AlertStatus):
+            return o.value
+
+        if isinstance(o, AlertMetric):
+            return o.value
+
+        if isinstance(o, AlertComparator):
+            return o.value
+
+        if isinstance(o, MonitorType):
+            return o.value
+
+        if isinstance(o, MonitorResourceType):
             return o.value
 
         if isinstance(o, OAuth2GithubPrompt):

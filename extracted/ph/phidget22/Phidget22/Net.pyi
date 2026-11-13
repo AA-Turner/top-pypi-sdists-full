@@ -38,6 +38,9 @@ class Net:
     def setOnServerAddedHandler(
         self, handler: Optional[Callable[[Net, PhidgetServer, object], None]]
     ) -> None: ...
+    def setOnServerChangedHandler(
+        self, handler: Optional[Callable[[Net, PhidgetServer, object], None]]
+    ) -> None: ...
     def setOnServerRemovedHandler(
         self, handler: Optional[Callable[[Net, PhidgetServer], None]]
     ) -> None: ...

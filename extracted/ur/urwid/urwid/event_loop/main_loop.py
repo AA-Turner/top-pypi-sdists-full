@@ -240,6 +240,7 @@ class MainLoop:
         "_input_filter",
         "_poll_interval",
         "_pop_ups",
+        "_size_read_after_resize",
         "_thread_calls",
         "_thread_calls_unwatchable",
         "_topmost_widget",
@@ -292,6 +293,8 @@ class MainLoop:
 
         self.screen: BaseScreen = screen
         self.screen_size: tuple[int, int] | None = None
+        # process_input read the screen size after the last "window resize" of its batch, so it is current
+        self._size_read_after_resize = False
 
         self._unhandled_input = unhandled_input
         self._input_filter = input_filter
@@ -466,7 +469,7 @@ class MainLoop:
         """Remove an alarm. Return ``True`` if *handle* was found, ``False`` otherwise."""
         return self.event_loop.remove_alarm(handle)
 
-    if not IS_WINDOWS and sys.implementation.name != "graalpy":
+    if not IS_WINDOWS:
 
         def watch_pipe(self, callback: Callable[[bytes], bool | None]) -> int:
             """Create a pipe used by another thread or subprocess to trigger *callback* in the main loop.
@@ -960,8 +963,10 @@ class MainLoop:
         with self._as_running():
             if keys := self.input_filter(keys, raw):
                 self.process_input(keys)
-                if "window resize" in keys:
+                # one read of the screen size per resize, as a screen that scripts its sizes expects
+                if "window resize" in keys and not self._size_read_after_resize:
                     self.screen_size = None
+                self._size_read_after_resize = False
 
     def _run_screen_event_loop(self) -> None:
         """Run the screen event loop, used when the screen does not support using external event loops.
@@ -1013,8 +1018,10 @@ class MainLoop:
                 _tm, _tie_break, callback = heapq.heappop(alarms)
                 callback()
 
-            if "window resize" in keys:
+            # one read of the screen size per resize, as a screen that scripts its sizes expects
+            if "window resize" in keys and not self._size_read_after_resize:
                 self.screen_size = None
+            self._size_read_after_resize = False
 
     def _test_run_screen_event_loop(self) -> None:
         """Doctest for :meth:`_run_screen_event_loop`.
@@ -1038,17 +1045,23 @@ class MainLoop:
         screen.get_input(True)
         """
 
-    def process_input(self, keys: Iterable[str | tuple[str, int, int, int]]) -> bool:
+    def process_input(
+        self,
+        keys: Iterable[str | tuple[str, int, int, int] | tuple[Literal["cursor position"], int, int]],
+    ) -> bool:
         """Pass keyboard input and mouse events to :attr:`widget`.
 
         This method is called automatically from the :meth:`run` method when
         there is input, but may also be called to simulate input from the user.
 
         *keys* is a list of input returned from :attr:`screen`'s get_input() method or its event loop hook.
+        The input after a ``"window resize"`` is handled at the screen size read after it.
         The widgets handle it with this loop as the running loop, also when the loop is not started.
+        A cursor position report is skipped, since no widget handles it.
+        An application that queries the cursor position takes the report in its *input_filter*.
 
         :returns: ``True`` if any key was handled by a widget or the :meth:`unhandled_input` method.
-        :raises TypeError: an item of *keys* is neither a key name nor a mouse event tuple.
+        :raises TypeError: an item of *keys* is neither a key name, a mouse event tuple nor a cursor position report.
         """
         with self._as_running(explicit=True):
             self.logger.debug(f"Processing input: keys={keys!r}")
@@ -1059,11 +1072,15 @@ class MainLoop:
 
             for key in keys:
                 if key == "window resize":
+                    # the keys after it in the same batch arrived at the new size
+                    self.screen_size = None
+                    self._size_read_after_resize = False
                     continue
 
                 # a handler of an earlier key may have paused the loop, which drops the screen size
                 if not self.screen_size:
                     self.screen_size = self.screen.get_cols_rows()
+                    self._size_read_after_resize = True
 
                 if isinstance(key, str):
                     if self._topmost_widget.selectable():
@@ -1074,7 +1091,8 @@ class MainLoop:
                             something_handled = True
                             continue
 
-                elif is_mouse_event(key):
+                # is_mouse_event() checks the type and the length too, but mypy narrows *key* only by these checks
+                elif isinstance(key, tuple) and len(key) == 4 and is_mouse_event(key):
                     event, button, col, row = key
                     if hasattr(self._topmost_widget, "mouse_event") and self._topmost_widget.mouse_event(
                         self.screen_size,
@@ -1087,8 +1105,12 @@ class MainLoop:
                         something_handled = True
                         continue
 
+                elif isinstance(key, tuple) and len(key) == 3 and key[0] == "cursor position":
+                    self.logger.debug(f"Skipped a cursor position report no input filter took: {key!r}")
+                    continue
+
                 else:
-                    raise TypeError(f"{key!r} is not str | tuple[str, int, int, int]")
+                    raise TypeError(f"{key!r} is neither a key name, a mouse event tuple nor a cursor position report")
 
                 if key:
                     if command_map[key] == Command.REDRAW_SCREEN:  # type: ignore[index]  # not `str` is mouse event

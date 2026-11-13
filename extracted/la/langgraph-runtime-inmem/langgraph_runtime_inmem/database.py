@@ -185,12 +185,27 @@ def _load_ops_file() -> None:
     orphaned = [r for r in GLOBAL_STORE.get("runs") or [] if r["status"] == "running"]
     now = datetime.now(UTC)
     for run in orphaned:
-        run["status"] = "pending"
+        # An interrupt recorded before the crash stands, so that run is not retried. A
+        # rollback needs the checkpointer, which starts later: the worker that picks the
+        # run up applies it before the graph runs.
+        run["status"] = (
+            "interrupted" if run.get("cancel_action") == "interrupt" else "pending"
+        )
         run["updated_at"] = now
-    if orphaned:
+    # No worker will finish those runs, so nothing else moves their threads off busy.
+    stopped = {r["thread_id"] for r in orphaned if r["status"] == "interrupted"}
+    if stopped:
+        from langgraph_runtime_inmem.ops import _thread_status  # noqa: PLC0415
+
+        conn = InMemConnectionProto()
+        for thread in GLOBAL_STORE.get("threads") or []:
+            if thread["thread_id"] in stopped:
+                thread["status"] = _thread_status(conn, thread["thread_id"])
+    retried = [str(r["run_id"]) for r in orphaned if r["status"] == "pending"]
+    if retried:
         logger.warning(
             "Retrying runs left running by a previous process that did not shut down cleanly",
-            run_ids=[str(r["run_id"]) for r in orphaned],
+            run_ids=retried,
         )
 
 
@@ -204,6 +219,19 @@ def upgrade_thread_status_facts(store: dict[str, Any]) -> None:
     """
     store.setdefault("thread_has_next", {})
     store.setdefault("thread_failed", {})
+
+
+def upgrade_thread_priority_settings(store: dict[str, Any]) -> None:
+    """Give threads saved by older versions, before priority settings, none yet."""
+    for thread in store.get("threads") or ():
+        for key in ("run_priority", "fairness_group"):
+            thread.setdefault(key, None)
+
+
+def upgrade_run_priorities(store: dict[str, Any]) -> None:
+    """Give runs saved by older versions, before runs had a priority, the default level."""
+    for run in store.get("runs") or ():
+        run.setdefault("priority", 0)
 
 
 def _set_aside_ops_file(reason: Exception) -> None:
@@ -293,6 +321,8 @@ async def start_pool() -> None:
         if not GLOBAL_STORE.get(k):
             GLOBAL_STORE[k] = []
     upgrade_thread_status_facts(GLOBAL_STORE)
+    upgrade_run_priorities(GLOBAL_STORE)
+    upgrade_thread_priority_settings(GLOBAL_STORE)
     # Remove agents that were created by the system to avoid removed graphs
     if GLOBAL_STORE.get("assistants"):
         for a in GLOBAL_STORE["assistants"]:

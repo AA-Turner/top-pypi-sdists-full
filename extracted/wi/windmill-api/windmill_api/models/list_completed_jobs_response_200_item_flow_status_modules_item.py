@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -72,7 +72,8 @@ class ListCompletedJobsResponse200ItemFlowStatusModulesItem:
             'ListCompletedJobsResponse200ItemFlowStatusModulesItemAgentActionsItemType3',
             'ListCompletedJobsResponse200ItemFlowStatusModulesItemAgentActionsItemType4',
             'ListCompletedJobsResponse200ItemFlowStatusModulesItemAgentActionsItemType5']]]):
-        agent_actions_success (Union[Unset, List[bool]]):
+        agent_actions_success (Union[Unset, List[Optional[bool]]]): The outcome of each agent action, by position. null
+            while a background tool call is still running.
     """
 
     type: ListCompletedJobsResponse200ItemFlowStatusModulesItemType
@@ -102,7 +103,7 @@ class ListCompletedJobsResponse200ItemFlowStatusModulesItem:
             ]
         ],
     ] = UNSET
-    agent_actions_success: Union[Unset, List[bool]] = UNSET
+    agent_actions_success: Union[Unset, List[Optional[bool]]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -201,7 +202,7 @@ class ListCompletedJobsResponse200ItemFlowStatusModulesItem:
 
                 agent_actions.append(agent_actions_item)
 
-        agent_actions_success: Union[Unset, List[bool]] = UNSET
+        agent_actions_success: Union[Unset, List[Optional[bool]]] = UNSET
         if not isinstance(self.agent_actions_success, Unset):
             agent_actions_success = self.agent_actions_success
 
@@ -415,7 +416,7 @@ class ListCompletedJobsResponse200ItemFlowStatusModulesItem:
 
             agent_actions.append(agent_actions_item)
 
-        agent_actions_success = cast(List[bool], d.pop("agent_actions_success", UNSET))
+        agent_actions_success = cast(List[Optional[bool]], d.pop("agent_actions_success", UNSET))
 
         list_completed_jobs_response_200_item_flow_status_modules_item = cls(
             type=type,

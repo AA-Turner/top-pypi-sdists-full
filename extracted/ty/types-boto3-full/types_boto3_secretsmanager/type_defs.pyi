@@ -23,7 +23,13 @@ from typing import IO, Any, Union
 
 from botocore.response import StreamingBody
 
-from .literals import FilterNameStringTypeType, SortByTypeType, SortOrderTypeType, StatusTypeType
+from .literals import (
+    FilterNameStringTypeType,
+    ReplicaRestrictionTypeType,
+    SortByTypeType,
+    SortOrderTypeType,
+    StatusTypeType,
+)
 
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
@@ -32,6 +38,8 @@ else:
 
 __all__ = (
     "APIErrorTypeTypeDef",
+    "AssociateCrossAccountReplicaRequestTypeDef",
+    "AssociateCrossAccountReplicaResponseTypeDef",
     "BatchGetSecretValueRequestTypeDef",
     "BatchGetSecretValueResponseTypeDef",
     "BlobTypeDef",
@@ -39,12 +47,16 @@ __all__ = (
     "CancelRotateSecretResponseTypeDef",
     "CreateSecretRequestTypeDef",
     "CreateSecretResponseTypeDef",
+    "CrossAccountPrimaryTypeTypeDef",
+    "CrossAccountReplicaEntryTypeDef",
     "DeleteResourcePolicyRequestTypeDef",
     "DeleteResourcePolicyResponseTypeDef",
     "DeleteSecretRequestTypeDef",
     "DeleteSecretResponseTypeDef",
     "DescribeSecretRequestTypeDef",
     "DescribeSecretResponseTypeDef",
+    "DisassociateCrossAccountReplicaRequestTypeDef",
+    "DisassociateCrossAccountReplicaResponseTypeDef",
     "EmptyResponseMetadataTypeDef",
     "ExternalSecretRotationMetadataItemTypeDef",
     "FilterTypeDef",
@@ -54,6 +66,9 @@ __all__ = (
     "GetResourcePolicyResponseTypeDef",
     "GetSecretValueRequestTypeDef",
     "GetSecretValueResponseTypeDef",
+    "ListResourcePoliciesRequestPaginateTypeDef",
+    "ListResourcePoliciesRequestTypeDef",
+    "ListResourcePoliciesResponseTypeDef",
     "ListSecretVersionIdsRequestTypeDef",
     "ListSecretVersionIdsResponseTypeDef",
     "ListSecretsRequestPaginateTypeDef",
@@ -70,6 +85,7 @@ __all__ = (
     "ReplicateSecretToRegionsRequestTypeDef",
     "ReplicateSecretToRegionsResponseTypeDef",
     "ReplicationStatusTypeTypeDef",
+    "ResourcePolicySummaryTypeDef",
     "ResponseMetadataTypeDef",
     "RestoreSecretRequestTypeDef",
     "RestoreSecretResponseTypeDef",
@@ -98,9 +114,11 @@ class APIErrorTypeTypeDef(TypedDict):
     ErrorCode: NotRequired[str]
     Message: NotRequired[str]
 
-class FilterTypeDef(TypedDict):
-    Key: NotRequired[FilterNameStringTypeType]
-    Values: NotRequired[Sequence[str]]
+class AssociateCrossAccountReplicaRequestTypeDef(TypedDict):
+    SecretId: str
+    CrossAccountReplicaARN: str
+    ReplicaRestriction: NotRequired[ReplicaRestrictionTypeType]
+    ReplicationRoleARN: NotRequired[str]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -108,6 +126,10 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+class FilterTypeDef(TypedDict):
+    Key: NotRequired[FilterNameStringTypeType]
+    Values: NotRequired[Sequence[str]]
 
 class SecretValueEntryTypeDef(TypedDict):
     ARN: NotRequired[str]
@@ -138,8 +160,20 @@ class ReplicationStatusTypeTypeDef(TypedDict):
     StatusMessage: NotRequired[str]
     LastAccessedDate: NotRequired[datetime]
 
+class CrossAccountPrimaryTypeTypeDef(TypedDict):
+    PrimarySecretARN: NotRequired[str]
+    ReplicationStatus: NotRequired[StatusTypeType]
+    StatusMessage: NotRequired[str]
+
+class CrossAccountReplicaEntryTypeDef(TypedDict):
+    ReplicaSecretARN: NotRequired[str]
+    ReplicationRoleARN: NotRequired[str]
+    ReplicationStatus: NotRequired[StatusTypeType]
+    StatusMessage: NotRequired[str]
+
 class DeleteResourcePolicyRequestTypeDef(TypedDict):
     SecretId: str
+    PolicyName: NotRequired[str]
 
 class DeleteSecretRequestTypeDef(TypedDict):
     SecretId: str
@@ -158,6 +192,10 @@ class RotationRulesTypeTypeDef(TypedDict):
     Duration: NotRequired[str]
     ScheduleExpression: NotRequired[str]
 
+class DisassociateCrossAccountReplicaRequestTypeDef(TypedDict):
+    SecretId: str
+    CrossAccountReplicaARN: str
+
 class GetRandomPasswordRequestTypeDef(TypedDict):
     PasswordLength: NotRequired[int]
     ExcludeCharacters: NotRequired[str]
@@ -170,11 +208,25 @@ class GetRandomPasswordRequestTypeDef(TypedDict):
 
 class GetResourcePolicyRequestTypeDef(TypedDict):
     SecretId: str
+    PolicyName: NotRequired[str]
 
 class GetSecretValueRequestTypeDef(TypedDict):
     SecretId: str
     VersionId: NotRequired[str]
     VersionStage: NotRequired[str]
+
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+class ListResourcePoliciesRequestTypeDef(TypedDict):
+    SecretId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ResourcePolicySummaryTypeDef(TypedDict):
+    PolicyName: NotRequired[str]
 
 class ListSecretVersionIdsRequestTypeDef(TypedDict):
     SecretId: str
@@ -189,14 +241,10 @@ class SecretVersionsListEntryTypeDef(TypedDict):
     CreatedDate: NotRequired[datetime]
     KmsKeyIds: NotRequired[list[str]]
 
-class PaginatorConfigTypeDef(TypedDict):
-    MaxItems: NotRequired[int]
-    PageSize: NotRequired[int]
-    StartingToken: NotRequired[str]
-
 class PutResourcePolicyRequestTypeDef(TypedDict):
     SecretId: str
     ResourcePolicy: str
+    PolicyName: NotRequired[str]
     BlockPublicPolicy: NotRequired[bool]
 
 class RemoveRegionsFromReplicationRequestTypeDef(TypedDict):
@@ -227,19 +275,11 @@ class ValidationErrorsEntryTypeDef(TypedDict):
     CheckName: NotRequired[str]
     ErrorMessage: NotRequired[str]
 
-class BatchGetSecretValueRequestTypeDef(TypedDict):
-    SecretIdList: NotRequired[Sequence[str]]
-    Filters: NotRequired[Sequence[FilterTypeDef]]
-    MaxResults: NotRequired[int]
-    NextToken: NotRequired[str]
-
-class ListSecretsRequestTypeDef(TypedDict):
-    IncludePlannedDeletion: NotRequired[bool]
-    MaxResults: NotRequired[int]
-    NextToken: NotRequired[str]
-    Filters: NotRequired[Sequence[FilterTypeDef]]
-    SortOrder: NotRequired[SortOrderTypeType]
-    SortBy: NotRequired[SortByTypeType]
+class AssociateCrossAccountReplicaResponseTypeDef(TypedDict):
+    ARN: str
+    CrossAccountReplicaARN: str
+    ReplicationStatus: StatusTypeType
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CancelRotateSecretResponseTypeDef(TypedDict):
     ARN: str
@@ -250,12 +290,18 @@ class CancelRotateSecretResponseTypeDef(TypedDict):
 class DeleteResourcePolicyResponseTypeDef(TypedDict):
     ARN: str
     Name: str
+    PolicyName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteSecretResponseTypeDef(TypedDict):
     ARN: str
     Name: str
     DeletionDate: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DisassociateCrossAccountReplicaResponseTypeDef(TypedDict):
+    ARN: str
+    CrossAccountReplicaARN: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EmptyResponseMetadataTypeDef(TypedDict):
@@ -269,6 +315,7 @@ class GetResourcePolicyResponseTypeDef(TypedDict):
     ARN: str
     Name: str
     ResourcePolicy: str
+    PolicyName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetSecretValueResponseTypeDef(TypedDict):
@@ -284,6 +331,7 @@ class GetSecretValueResponseTypeDef(TypedDict):
 class PutResourcePolicyResponseTypeDef(TypedDict):
     ARN: str
     Name: str
+    PolicyName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutSecretValueResponseTypeDef(TypedDict):
@@ -318,6 +366,20 @@ class UpdateSecretVersionStageResponseTypeDef(TypedDict):
     ARN: str
     Name: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+class BatchGetSecretValueRequestTypeDef(TypedDict):
+    SecretIdList: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ListSecretsRequestTypeDef(TypedDict):
+    IncludePlannedDeletion: NotRequired[bool]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    SortOrder: NotRequired[SortOrderTypeType]
+    SortBy: NotRequired[SortByTypeType]
 
 class BatchGetSecretValueResponseTypeDef(TypedDict):
     SecretValues: list[SecretValueEntryTypeDef]
@@ -364,6 +426,7 @@ CreateSecretRequestTypeDef = TypedDict(
         "AddReplicaRegions": NotRequired[Sequence[ReplicaRegionTypeTypeDef]],
         "ForceOverwriteReplicaSecret": NotRequired[bool],
         "Type": NotRequired[str],
+        "CrossAccountPrimaryARN": NotRequired[str],
     },
 )
 
@@ -412,6 +475,8 @@ DescribeSecretResponseTypeDef = TypedDict(
         "CreatedDate": datetime,
         "PrimaryRegion": str,
         "ReplicationStatus": list[ReplicationStatusTypeTypeDef],
+        "CrossAccountPrimary": CrossAccountPrimaryTypeTypeDef,
+        "CrossAccountReplicas": list[CrossAccountReplicaEntryTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -453,12 +518,9 @@ SecretListEntryTypeDef = TypedDict(
     },
 )
 
-class ListSecretVersionIdsResponseTypeDef(TypedDict):
-    Versions: list[SecretVersionsListEntryTypeDef]
-    ARN: str
-    Name: str
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+class ListResourcePoliciesRequestPaginateTypeDef(TypedDict):
+    SecretId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListSecretsRequestPaginateTypeDef(TypedDict):
     IncludePlannedDeletion: NotRequired[bool]
@@ -466,6 +528,18 @@ class ListSecretsRequestPaginateTypeDef(TypedDict):
     SortOrder: NotRequired[SortOrderTypeType]
     SortBy: NotRequired[SortByTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListResourcePoliciesResponseTypeDef(TypedDict):
+    ResourcePolicies: list[ResourcePolicySummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListSecretVersionIdsResponseTypeDef(TypedDict):
+    Versions: list[SecretVersionsListEntryTypeDef]
+    ARN: str
+    Name: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class ValidateResourcePolicyResponseTypeDef(TypedDict):
     PolicyValidationPassed: bool

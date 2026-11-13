@@ -8,11 +8,11 @@ import asyncio
 import base64
 import hashlib
 import tempfile
-import time
+import uuid
 import wave
 from mimetypes import guess_type
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, get_args
+from typing import TYPE_CHECKING, Any, Literal, get_args
 from urllib.parse import urlparse
 
 import aiofiles
@@ -22,9 +22,7 @@ from pyrit.memory.storage.storage import DiskStorageIO, StorageIO
 
 if TYPE_CHECKING:
     from pyrit.memory import MemoryInterface
-    from pyrit.models.literals import PromptDataType
-    from pyrit.models.messages.message_piece import MessagePiece
-    from pyrit.models.seeds.seed import Seed
+    from pyrit.models import MessagePiece, PromptDataType, Seed
 
 # Define allowed categories for validation
 AllowedCategories = Literal["seed-prompt-entries", "prompt-memory-entries", "scorable-content-entries"]
@@ -44,6 +42,19 @@ def _write_wav_sync(
         wav_file.setsampwidth(sample_width)
         wav_file.setframerate(sample_rate)
         wav_file.writeframes(data)
+
+
+def _validate_category(category: object) -> None:
+    """
+    Reject missing storage categories before selecting a serializer.
+
+    Raises:
+        ValueError: If the category is missing.
+    """
+    if not category:
+        raise ValueError(
+            f"The 'category' argument is mandatory and must be one of the following: {get_args(AllowedCategories)}."
+        )
 
 
 def data_serializer_factory(
@@ -69,10 +80,7 @@ def data_serializer_factory(
         ValueError: If the category is not provided or invalid.
 
     """
-    if not category:
-        raise ValueError(
-            f"The 'category' argument is mandatory and must be one of the following: {get_args(AllowedCategories)}."
-        )
+    _validate_category(category)
     if value is not None:
         if data_type in ["text", "reasoning", "function_call", "tool_call", "function_call_output"]:
             return TextDataTypeSerializer(prompt_text=value, data_type=data_type)
@@ -208,7 +216,13 @@ class DataTypeSerializer(abc.ABC):
 
         Raises:
             RuntimeError: If storage IO is not initialized.
+            ValueError: If a non-WAV file path was already reserved for this serializer.
         """
+        if self._file_path and Path(str(self._file_path)).suffix.casefold() != ".wav":
+            raise ValueError(
+                f"A file path was already reserved with a non-WAV extension ({self._file_path}); "
+                "formatted audio is always saved as WAV."
+            )
         original_file_extension = self.file_extension
         self.file_extension = "wav"
         if output_filename:
@@ -344,14 +358,13 @@ class DataTypeSerializer(abc.ABC):
         if not self.data_sub_directory:
             raise RuntimeError("Data sub directory not set")
 
-        ticks = int(time.time() * 1_000_000)
         if self._memory.results_path:
             results_path = str(self._memory.results_path)
         else:
             from pyrit.common.path import DB_DATA_PATH
 
             results_path = str(DB_DATA_PATH)
-        file_name = file_name if file_name else str(ticks)
+        file_name = file_name if file_name else str(uuid.uuid4())
         file_suffix = Path(file_name).suffix
         if file_suffix.casefold() == f".{self.file_extension}".casefold():
             file_name = file_name[: -len(file_suffix)]
@@ -400,7 +413,7 @@ class DataTypeSerializer(abc.ABC):
 
     def _is_azure_storage_url(self, path: str) -> bool:
         """
-        Validate whether the given path is an Azure Storage URL.
+        Classify HTTP(S) URLs by the Azure Blob Storage hostname suffix.
 
         Args:
             path (str): Path or URL to check.
@@ -410,7 +423,8 @@ class DataTypeSerializer(abc.ABC):
 
         """
         parsed = urlparse(path)
-        return parsed.scheme in ("http", "https") and "blob.core.windows.net" in parsed.netloc
+        hostname = parsed.hostname or ""
+        return parsed.scheme in ("http", "https") and hostname.endswith(".blob.core.windows.net")
 
 
 class TextDataTypeSerializer(DataTypeSerializer):
@@ -481,7 +495,7 @@ class URLDataTypeSerializer(DataTypeSerializer):
         self.value = prompt_text
         self.data_sub_directory = f"/{category}/urls"
         self.file_extension = extension if extension else "txt"
-        self.on_disk = not (prompt_text.startswith(("http://", "https://")))
+        self.on_disk = not (prompt_text.lower().startswith(("http://", "https://")))
 
     def data_on_disk(self) -> bool:
         """
@@ -665,7 +679,7 @@ async def set_message_piece_sha256_async(message_piece: MessagePiece) -> None:
     message_piece.converted_value_sha256 = await converted_serializer.get_sha256_async()
 
 
-async def set_seed_sha256_async(seed: Seed) -> None:
+async def set_seed_sha256_async(seed: Seed[Any]) -> None:
     """
     Compute and assign the SHA256 hash value for a seed's value.
 

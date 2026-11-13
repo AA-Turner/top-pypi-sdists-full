@@ -30,7 +30,7 @@ from azure.core.tracing.decorator import distributed_trace
 from azure.core.tracing.decorator_async import distributed_trace_async
 from azure.core.utils import case_insensitive_dict
 
-from ... import models as _models
+from ... import models as _models, types as _types
 from ..._operations._operations import (
     build_key_vault_backup_key_request,
     build_key_vault_create_key_request,
@@ -51,6 +51,8 @@ from ..._operations._operations import (
     build_key_vault_release_request,
     build_key_vault_restore_key_request,
     build_key_vault_rotate_key_request,
+    build_key_vault_secure_unwrap_key_request,
+    build_key_vault_secure_wrap_key_request,
     build_key_vault_sign_request,
     build_key_vault_unwrap_key_request,
     build_key_vault_update_key_request,
@@ -63,7 +65,6 @@ from ..._utils.utils import ClientMixinABC
 from ..._validation import api_version_validation
 from .._configuration import KeyVaultClientConfiguration
 
-JSON = MutableMapping[str, Any]
 T = TypeVar("T")
 ClsType = Optional[Callable[[PipelineResponse[HttpRequest, AsyncHttpResponse], T, dict[str, Any]], Any]]
 
@@ -104,7 +105,12 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
 
     @overload
     async def create_key(
-        self, key_name: str, parameters: JSON, *, content_type: str = "application/json", **kwargs: Any
+        self,
+        key_name: str,
+        parameters: _types.KeyCreateParameters,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
     ) -> _models.KeyBundle:
         """Creates a new key, stores it, then returns key parameters and attributes to the client.
 
@@ -118,7 +124,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
          Required.
         :type key_name: str
         :param parameters: The parameters to create a key. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.keyvault.keys._generated.types.KeyCreateParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -154,7 +160,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
 
     @distributed_trace_async
     async def create_key(
-        self, key_name: str, parameters: Union[_models.KeyCreateParameters, JSON, IO[bytes]], **kwargs: Any
+        self,
+        key_name: str,
+        parameters: Union[_models.KeyCreateParameters, _types.KeyCreateParameters, IO[bytes]],
+        **kwargs: Any
     ) -> _models.KeyBundle:
         """Creates a new key, stores it, then returns key parameters and attributes to the client.
 
@@ -167,10 +176,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
          The value provided should not include personally identifiable or sensitive information.
          Required.
         :type key_name: str
-        :param parameters: The parameters to create a key. Is one of the following types:
-         KeyCreateParameters, JSON, IO[bytes] Required.
-        :type parameters: ~azure.keyvault.keys._generated.models.KeyCreateParameters or JSON or
-         IO[bytes]
+        :param parameters: The parameters to create a key. Is either a KeyCreateParameters type or a
+         IO[bytes] type. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.KeyCreateParameters or
+         ~azure.keyvault.keys._generated.types.KeyCreateParameters or IO[bytes]
         :return: KeyBundle. The KeyBundle is compatible with MutableMapping
         :rtype: ~azure.keyvault.keys._generated.models.KeyBundle
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -346,7 +355,12 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
 
     @overload
     async def import_key(
-        self, key_name: str, parameters: JSON, *, content_type: str = "application/json", **kwargs: Any
+        self,
+        key_name: str,
+        parameters: _types.KeyImportParameters,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
     ) -> _models.KeyBundle:
         """Imports an externally created key, stores it, and returns key parameters and attributes to the
         client.
@@ -360,7 +374,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
          identifiable or sensitive information. Required.
         :type key_name: str
         :param parameters: The parameters to import a key. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.keyvault.keys._generated.types.KeyImportParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -396,7 +410,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
 
     @distributed_trace_async
     async def import_key(
-        self, key_name: str, parameters: Union[_models.KeyImportParameters, JSON, IO[bytes]], **kwargs: Any
+        self,
+        key_name: str,
+        parameters: Union[_models.KeyImportParameters, _types.KeyImportParameters, IO[bytes]],
+        **kwargs: Any
     ) -> _models.KeyBundle:
         """Imports an externally created key, stores it, and returns key parameters and attributes to the
         client.
@@ -409,10 +426,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
          the purpose of running the service. The value provided should not include personally
          identifiable or sensitive information. Required.
         :type key_name: str
-        :param parameters: The parameters to import a key. Is one of the following types:
-         KeyImportParameters, JSON, IO[bytes] Required.
-        :type parameters: ~azure.keyvault.keys._generated.models.KeyImportParameters or JSON or
-         IO[bytes]
+        :param parameters: The parameters to import a key. Is either a KeyImportParameters type or a
+         IO[bytes] type. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.KeyImportParameters or
+         ~azure.keyvault.keys._generated.types.KeyImportParameters or IO[bytes]
         :return: KeyBundle. The KeyBundle is compatible with MutableMapping
         :rtype: ~azure.keyvault.keys._generated.models.KeyBundle
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -592,7 +609,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: JSON,
+        parameters: _types.KeyUpdateParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -609,7 +626,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :param key_version: The version of the key to update. Required.
         :type key_version: str
         :param parameters: The parameters of the key to update. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.keyvault.keys._generated.types.KeyUpdateParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -654,7 +671,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: Union[_models.KeyUpdateParameters, JSON, IO[bytes]],
+        parameters: Union[_models.KeyUpdateParameters, _types.KeyUpdateParameters, IO[bytes]],
         **kwargs: Any
     ) -> _models.KeyBundle:
         """The update key operation changes specified attributes of a stored key and can be applied to any
@@ -668,10 +685,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :type key_name: str
         :param key_version: The version of the key to update. Required.
         :type key_version: str
-        :param parameters: The parameters of the key to update. Is one of the following types:
-         KeyUpdateParameters, JSON, IO[bytes] Required.
-        :type parameters: ~azure.keyvault.keys._generated.models.KeyUpdateParameters or JSON or
-         IO[bytes]
+        :param parameters: The parameters of the key to update. Is either a KeyUpdateParameters type or
+         a IO[bytes] type. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.KeyUpdateParameters or
+         ~azure.keyvault.keys._generated.types.KeyUpdateParameters or IO[bytes]
         :return: KeyBundle. The KeyBundle is compatible with MutableMapping
         :rtype: ~azure.keyvault.keys._generated.models.KeyBundle
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -878,7 +895,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "vaultBaseUrl": self._serialize.url(
@@ -976,7 +996,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "vaultBaseUrl": self._serialize.url(
@@ -1126,7 +1149,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
 
     @overload
     async def restore_key(
-        self, parameters: JSON, *, content_type: str = "application/json", **kwargs: Any
+        self, parameters: _types.KeyRestoreParameters, *, content_type: str = "application/json", **kwargs: Any
     ) -> _models.KeyBundle:
         """Restores a backed up key to a vault.
 
@@ -1142,7 +1165,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         in the target Key Vault. This operation requires the keys/restore permission.
 
         :param parameters: The parameters to restore the key. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.keyvault.keys._generated.types.KeyRestoreParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -1180,7 +1203,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
 
     @distributed_trace_async
     async def restore_key(
-        self, parameters: Union[_models.KeyRestoreParameters, JSON, IO[bytes]], **kwargs: Any
+        self, parameters: Union[_models.KeyRestoreParameters, _types.KeyRestoreParameters, IO[bytes]], **kwargs: Any
     ) -> _models.KeyBundle:
         """Restores a backed up key to a vault.
 
@@ -1195,10 +1218,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         same Microsoft Azure Subscription as the source Key Vault The user must have RESTORE permission
         in the target Key Vault. This operation requires the keys/restore permission.
 
-        :param parameters: The parameters to restore the key. Is one of the following types:
-         KeyRestoreParameters, JSON, IO[bytes] Required.
-        :type parameters: ~azure.keyvault.keys._generated.models.KeyRestoreParameters or JSON or
-         IO[bytes]
+        :param parameters: The parameters to restore the key. Is either a KeyRestoreParameters type or
+         a IO[bytes] type. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.KeyRestoreParameters or
+         ~azure.keyvault.keys._generated.types.KeyRestoreParameters or IO[bytes]
         :return: KeyBundle. The KeyBundle is compatible with MutableMapping
         :rtype: ~azure.keyvault.keys._generated.models.KeyBundle
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -1309,7 +1332,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: JSON,
+        parameters: _types.KeyOperationsParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -1330,7 +1353,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :param key_version: The version of the key. Required.
         :type key_version: str
         :param parameters: The parameters for the encryption operation. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.keyvault.keys._generated.types.KeyOperationsParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -1379,7 +1402,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: Union[_models.KeyOperationsParameters, JSON, IO[bytes]],
+        parameters: Union[_models.KeyOperationsParameters, _types.KeyOperationsParameters, IO[bytes]],
         **kwargs: Any
     ) -> _models.KeyOperationResult:
         """Encrypts an arbitrary sequence of bytes using an encryption key that is stored in a key vault.
@@ -1397,10 +1420,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :type key_name: str
         :param key_version: The version of the key. Required.
         :type key_version: str
-        :param parameters: The parameters for the encryption operation. Is one of the following types:
-         KeyOperationsParameters, JSON, IO[bytes] Required.
-        :type parameters: ~azure.keyvault.keys._generated.models.KeyOperationsParameters or JSON or
-         IO[bytes]
+        :param parameters: The parameters for the encryption operation. Is either a
+         KeyOperationsParameters type or a IO[bytes] type. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.KeyOperationsParameters or
+         ~azure.keyvault.keys._generated.types.KeyOperationsParameters or IO[bytes]
         :return: KeyOperationResult. The KeyOperationResult is compatible with MutableMapping
         :rtype: ~azure.keyvault.keys._generated.models.KeyOperationResult
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -1515,7 +1538,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: JSON,
+        parameters: _types.KeyOperationsParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -1538,7 +1561,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :param key_version: The version of the key. Required.
         :type key_version: str
         :param parameters: The parameters for the decryption operation. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.keyvault.keys._generated.types.KeyOperationsParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -1589,7 +1612,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: Union[_models.KeyOperationsParameters, JSON, IO[bytes]],
+        parameters: Union[_models.KeyOperationsParameters, _types.KeyOperationsParameters, IO[bytes]],
         **kwargs: Any
     ) -> _models.KeyOperationResult:
         """Decrypts a single block of encrypted data.
@@ -1609,10 +1632,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :type key_name: str
         :param key_version: The version of the key. Required.
         :type key_version: str
-        :param parameters: The parameters for the decryption operation. Is one of the following types:
-         KeyOperationsParameters, JSON, IO[bytes] Required.
-        :type parameters: ~azure.keyvault.keys._generated.models.KeyOperationsParameters or JSON or
-         IO[bytes]
+        :param parameters: The parameters for the decryption operation. Is either a
+         KeyOperationsParameters type or a IO[bytes] type. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.KeyOperationsParameters or
+         ~azure.keyvault.keys._generated.types.KeyOperationsParameters or IO[bytes]
         :return: KeyOperationResult. The KeyOperationResult is compatible with MutableMapping
         :rtype: ~azure.keyvault.keys._generated.models.KeyOperationResult
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -1720,7 +1743,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: JSON,
+        parameters: _types.KeySignParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -1736,7 +1759,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :param key_version: The version of the key. Required.
         :type key_version: str
         :param parameters: The parameters for the signing operation. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.keyvault.keys._generated.types.KeySignParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -1780,7 +1803,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: Union[_models.KeySignParameters, JSON, IO[bytes]],
+        parameters: Union[_models.KeySignParameters, _types.KeySignParameters, IO[bytes]],
         **kwargs: Any
     ) -> _models.KeyOperationResult:
         """Creates a signature from a digest using the specified key.
@@ -1793,9 +1816,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :type key_name: str
         :param key_version: The version of the key. Required.
         :type key_version: str
-        :param parameters: The parameters for the signing operation. Is one of the following types:
-         KeySignParameters, JSON, IO[bytes] Required.
-        :type parameters: ~azure.keyvault.keys._generated.models.KeySignParameters or JSON or IO[bytes]
+        :param parameters: The parameters for the signing operation. Is either a KeySignParameters type
+         or a IO[bytes] type. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.KeySignParameters or
+         ~azure.keyvault.keys._generated.types.KeySignParameters or IO[bytes]
         :return: KeyOperationResult. The KeyOperationResult is compatible with MutableMapping
         :rtype: ~azure.keyvault.keys._generated.models.KeyOperationResult
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -1905,7 +1929,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: JSON,
+        parameters: _types.KeyVerifyParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -1923,7 +1947,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :param key_version: The version of the key. Required.
         :type key_version: str
         :param parameters: The parameters for verify operations. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.keyvault.keys._generated.types.KeyVerifyParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -1969,7 +1993,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: Union[_models.KeyVerifyParameters, JSON, IO[bytes]],
+        parameters: Union[_models.KeyVerifyParameters, _types.KeyVerifyParameters, IO[bytes]],
         **kwargs: Any
     ) -> _models.KeyVerifyResult:
         """Verifies a signature using a specified key.
@@ -1984,10 +2008,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :type key_name: str
         :param key_version: The version of the key. Required.
         :type key_version: str
-        :param parameters: The parameters for verify operations. Is one of the following types:
-         KeyVerifyParameters, JSON, IO[bytes] Required.
-        :type parameters: ~azure.keyvault.keys._generated.models.KeyVerifyParameters or JSON or
-         IO[bytes]
+        :param parameters: The parameters for verify operations. Is either a KeyVerifyParameters type
+         or a IO[bytes] type. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.KeyVerifyParameters or
+         ~azure.keyvault.keys._generated.types.KeyVerifyParameters or IO[bytes]
         :return: KeyVerifyResult. The KeyVerifyResult is compatible with MutableMapping
         :rtype: ~azure.keyvault.keys._generated.models.KeyVerifyResult
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -2098,7 +2122,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: JSON,
+        parameters: _types.KeyOperationsParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -2117,7 +2141,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :param key_version: The version of the key. Required.
         :type key_version: str
         :param parameters: The parameters for wrap operation. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.keyvault.keys._generated.types.KeyOperationsParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -2164,7 +2188,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: Union[_models.KeyOperationsParameters, JSON, IO[bytes]],
+        parameters: Union[_models.KeyOperationsParameters, _types.KeyOperationsParameters, IO[bytes]],
         **kwargs: Any
     ) -> _models.KeyOperationResult:
         """Wraps a symmetric key using a specified key.
@@ -2180,10 +2204,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :type key_name: str
         :param key_version: The version of the key. Required.
         :type key_version: str
-        :param parameters: The parameters for wrap operation. Is one of the following types:
-         KeyOperationsParameters, JSON, IO[bytes] Required.
-        :type parameters: ~azure.keyvault.keys._generated.models.KeyOperationsParameters or JSON or
-         IO[bytes]
+        :param parameters: The parameters for wrap operation. Is either a KeyOperationsParameters type
+         or a IO[bytes] type. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.KeyOperationsParameters or
+         ~azure.keyvault.keys._generated.types.KeyOperationsParameters or IO[bytes]
         :return: KeyOperationResult. The KeyOperationResult is compatible with MutableMapping
         :rtype: ~azure.keyvault.keys._generated.models.KeyOperationResult
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -2257,6 +2281,430 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         return deserialized  # type: ignore
 
     @overload
+    async def secure_wrap_key(
+        self,
+        key_name: str,
+        key_version: str,
+        parameters: _models.SecureKeyWrapOperationParameters,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
+    ) -> _models.SecureKeyOperationResult:
+        """Creates a new 256 bit AES key within the trusted execution environment and wraps this key using
+        a specified key.
+
+        The SECURE WRAP operation creates a new 256 bit AES key within the trusted execution
+        environment(TEE) and encrypts the same with a key encryption key that has previously been
+        stored in an Azure Key Vault. The WRAP operation is only strictly necessary for symmetric keys
+        stored in Azure Key Vault since protection with an asymmetric key can be performed using the
+        public portion of the key. This operation is supported for asymmetric keys as a convenience for
+        callers that have a key-reference but do not have access to the public key material. This
+        operation requires the keys/wrapKey permission.
+
+        :param key_name: The name of the key. Required.
+        :type key_name: str
+        :param key_version: The version of the key. Required.
+        :type key_version: str
+        :param parameters: The parameters for wrap operation. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.SecureKeyWrapOperationParameters
+        :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: SecureKeyOperationResult. The SecureKeyOperationResult is compatible with
+         MutableMapping
+        :rtype: ~azure.keyvault.keys._generated.models.SecureKeyOperationResult
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @overload
+    async def secure_wrap_key(
+        self,
+        key_name: str,
+        key_version: str,
+        parameters: _types.SecureKeyWrapOperationParameters,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
+    ) -> _models.SecureKeyOperationResult:
+        """Creates a new 256 bit AES key within the trusted execution environment and wraps this key using
+        a specified key.
+
+        The SECURE WRAP operation creates a new 256 bit AES key within the trusted execution
+        environment(TEE) and encrypts the same with a key encryption key that has previously been
+        stored in an Azure Key Vault. The WRAP operation is only strictly necessary for symmetric keys
+        stored in Azure Key Vault since protection with an asymmetric key can be performed using the
+        public portion of the key. This operation is supported for asymmetric keys as a convenience for
+        callers that have a key-reference but do not have access to the public key material. This
+        operation requires the keys/wrapKey permission.
+
+        :param key_name: The name of the key. Required.
+        :type key_name: str
+        :param key_version: The version of the key. Required.
+        :type key_version: str
+        :param parameters: The parameters for wrap operation. Required.
+        :type parameters: ~azure.keyvault.keys._generated.types.SecureKeyWrapOperationParameters
+        :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: SecureKeyOperationResult. The SecureKeyOperationResult is compatible with
+         MutableMapping
+        :rtype: ~azure.keyvault.keys._generated.models.SecureKeyOperationResult
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @overload
+    async def secure_wrap_key(
+        self,
+        key_name: str,
+        key_version: str,
+        parameters: IO[bytes],
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
+    ) -> _models.SecureKeyOperationResult:
+        """Creates a new 256 bit AES key within the trusted execution environment and wraps this key using
+        a specified key.
+
+        The SECURE WRAP operation creates a new 256 bit AES key within the trusted execution
+        environment(TEE) and encrypts the same with a key encryption key that has previously been
+        stored in an Azure Key Vault. The WRAP operation is only strictly necessary for symmetric keys
+        stored in Azure Key Vault since protection with an asymmetric key can be performed using the
+        public portion of the key. This operation is supported for asymmetric keys as a convenience for
+        callers that have a key-reference but do not have access to the public key material. This
+        operation requires the keys/wrapKey permission.
+
+        :param key_name: The name of the key. Required.
+        :type key_name: str
+        :param key_version: The version of the key. Required.
+        :type key_version: str
+        :param parameters: The parameters for wrap operation. Required.
+        :type parameters: IO[bytes]
+        :keyword content_type: Body Parameter content-type. Content type parameter for binary body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: SecureKeyOperationResult. The SecureKeyOperationResult is compatible with
+         MutableMapping
+        :rtype: ~azure.keyvault.keys._generated.models.SecureKeyOperationResult
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @distributed_trace_async
+    @api_version_validation(
+        method_added_on="2026-01-01-preview",
+        params_added_on={"2026-01-01-preview": ["key_name", "key_version", "content_type", "accept", "api_version"]},
+        api_versions_list=["2026-01-01-preview", "2026-03-01-preview", "2026-04-01"],
+    )
+    async def secure_wrap_key(
+        self,
+        key_name: str,
+        key_version: str,
+        parameters: Union[_models.SecureKeyWrapOperationParameters, _types.SecureKeyWrapOperationParameters, IO[bytes]],
+        **kwargs: Any
+    ) -> _models.SecureKeyOperationResult:
+        """Creates a new 256 bit AES key within the trusted execution environment and wraps this key using
+        a specified key.
+
+        The SECURE WRAP operation creates a new 256 bit AES key within the trusted execution
+        environment(TEE) and encrypts the same with a key encryption key that has previously been
+        stored in an Azure Key Vault. The WRAP operation is only strictly necessary for symmetric keys
+        stored in Azure Key Vault since protection with an asymmetric key can be performed using the
+        public portion of the key. This operation is supported for asymmetric keys as a convenience for
+        callers that have a key-reference but do not have access to the public key material. This
+        operation requires the keys/wrapKey permission.
+
+        :param key_name: The name of the key. Required.
+        :type key_name: str
+        :param key_version: The version of the key. Required.
+        :type key_version: str
+        :param parameters: The parameters for wrap operation. Is either a
+         SecureKeyWrapOperationParameters type or a IO[bytes] type. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.SecureKeyWrapOperationParameters or
+         ~azure.keyvault.keys._generated.types.SecureKeyWrapOperationParameters or IO[bytes]
+        :return: SecureKeyOperationResult. The SecureKeyOperationResult is compatible with
+         MutableMapping
+        :rtype: ~azure.keyvault.keys._generated.models.SecureKeyOperationResult
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+        error_map: MutableMapping = {
+            401: ClientAuthenticationError,
+            404: ResourceNotFoundError,
+            409: ResourceExistsError,
+            304: ResourceNotModifiedError,
+        }
+        error_map.update(kwargs.pop("error_map", {}) or {})
+
+        _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
+        _params = kwargs.pop("params", {}) or {}
+
+        content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
+        cls: ClsType[_models.SecureKeyOperationResult] = kwargs.pop("cls", None)
+
+        content_type = content_type or "application/json"
+        _content = None
+        if isinstance(parameters, (IOBase, bytes)):
+            _content = parameters
+        else:
+            _content = json.dumps(parameters, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+
+        _request = build_key_vault_secure_wrap_key_request(
+            key_name=key_name,
+            key_version=key_version,
+            content_type=content_type,
+            api_version=self._config.api_version,
+            content=_content,
+            headers=_headers,
+            params=_params,
+        )
+        path_format_arguments = {
+            "vaultBaseUrl": self._serialize.url(
+                "self._config.vault_base_url", self._config.vault_base_url, "str", skip_quote=True
+            ),
+        }
+        _request.url = self._client.format_url(_request.url, **path_format_arguments)
+
+        _decompress = kwargs.pop("decompress", True)
+        _stream = kwargs.pop("stream", False)
+        pipeline_response: PipelineResponse = await self._client._pipeline.run(  # type: ignore # pylint: disable=protected-access
+            _request, stream=_stream, **kwargs
+        )
+
+        response = pipeline_response.http_response
+
+        if response.status_code not in [200]:
+            if _stream:
+                try:
+                    await response.read()  # Load the body in memory and close the socket
+                except (StreamConsumedError, StreamClosedError):
+                    pass
+            map_error(status_code=response.status_code, response=response, error_map=error_map)
+            error = _failsafe_deserialize(
+                _models.KeyVaultError,
+                response,
+            )
+            raise HttpResponseError(response=response, model=error)
+
+        if _stream:
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
+        else:
+            deserialized = _deserialize(_models.SecureKeyOperationResult, response.json())
+
+        if cls:
+            return cls(pipeline_response, deserialized, {})  # type: ignore
+
+        return deserialized  # type: ignore
+
+    @overload
+    async def secure_unwrap_key(
+        self,
+        key_name: str,
+        key_version: str,
+        parameters: _models.SecureKeyUnWrapOperationParameters,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
+    ) -> _models.SecureKeyOperationResult:
+        """Securely unwraps a previously wrapped symmetric key using a specified key, ensuring TEE
+        attestation via Microsoft Azure Attestation (MAA) before unwrapping.
+
+        The SECURE UNWRAP operation supports decryption of a symmetric key using the target key
+        encryption key. This operation is the reverse of the SECURE WRAP operation. The SECURE UNWRAP
+        operation applies to asymmetric and symmetric keys stored in Azure Key Vault since it uses the
+        private portion of the key. This operation requires the keys/unwrapKey permission. The SECURE
+        UNWRAP operation ensures that MAA (Microsoft Azure Attestation Service) is used to attest the
+        TEE (Trusted Execution Environment) before the key is unwrapped.
+
+        :param key_name: The name of the key. Required.
+        :type key_name: str
+        :param key_version: The version of the key. Required.
+        :type key_version: str
+        :param parameters: The parameters for unwrap operation. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.SecureKeyUnWrapOperationParameters
+        :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: SecureKeyOperationResult. The SecureKeyOperationResult is compatible with
+         MutableMapping
+        :rtype: ~azure.keyvault.keys._generated.models.SecureKeyOperationResult
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @overload
+    async def secure_unwrap_key(
+        self,
+        key_name: str,
+        key_version: str,
+        parameters: _types.SecureKeyUnWrapOperationParameters,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
+    ) -> _models.SecureKeyOperationResult:
+        """Securely unwraps a previously wrapped symmetric key using a specified key, ensuring TEE
+        attestation via Microsoft Azure Attestation (MAA) before unwrapping.
+
+        The SECURE UNWRAP operation supports decryption of a symmetric key using the target key
+        encryption key. This operation is the reverse of the SECURE WRAP operation. The SECURE UNWRAP
+        operation applies to asymmetric and symmetric keys stored in Azure Key Vault since it uses the
+        private portion of the key. This operation requires the keys/unwrapKey permission. The SECURE
+        UNWRAP operation ensures that MAA (Microsoft Azure Attestation Service) is used to attest the
+        TEE (Trusted Execution Environment) before the key is unwrapped.
+
+        :param key_name: The name of the key. Required.
+        :type key_name: str
+        :param key_version: The version of the key. Required.
+        :type key_version: str
+        :param parameters: The parameters for unwrap operation. Required.
+        :type parameters: ~azure.keyvault.keys._generated.types.SecureKeyUnWrapOperationParameters
+        :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: SecureKeyOperationResult. The SecureKeyOperationResult is compatible with
+         MutableMapping
+        :rtype: ~azure.keyvault.keys._generated.models.SecureKeyOperationResult
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @overload
+    async def secure_unwrap_key(
+        self,
+        key_name: str,
+        key_version: str,
+        parameters: IO[bytes],
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
+    ) -> _models.SecureKeyOperationResult:
+        """Securely unwraps a previously wrapped symmetric key using a specified key, ensuring TEE
+        attestation via Microsoft Azure Attestation (MAA) before unwrapping.
+
+        The SECURE UNWRAP operation supports decryption of a symmetric key using the target key
+        encryption key. This operation is the reverse of the SECURE WRAP operation. The SECURE UNWRAP
+        operation applies to asymmetric and symmetric keys stored in Azure Key Vault since it uses the
+        private portion of the key. This operation requires the keys/unwrapKey permission. The SECURE
+        UNWRAP operation ensures that MAA (Microsoft Azure Attestation Service) is used to attest the
+        TEE (Trusted Execution Environment) before the key is unwrapped.
+
+        :param key_name: The name of the key. Required.
+        :type key_name: str
+        :param key_version: The version of the key. Required.
+        :type key_version: str
+        :param parameters: The parameters for unwrap operation. Required.
+        :type parameters: IO[bytes]
+        :keyword content_type: Body Parameter content-type. Content type parameter for binary body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: SecureKeyOperationResult. The SecureKeyOperationResult is compatible with
+         MutableMapping
+        :rtype: ~azure.keyvault.keys._generated.models.SecureKeyOperationResult
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @distributed_trace_async
+    @api_version_validation(
+        method_added_on="2026-01-01-preview",
+        params_added_on={"2026-01-01-preview": ["key_name", "key_version", "content_type", "accept", "api_version"]},
+        api_versions_list=["2026-01-01-preview", "2026-03-01-preview", "2026-04-01"],
+    )
+    async def secure_unwrap_key(
+        self,
+        key_name: str,
+        key_version: str,
+        parameters: Union[
+            _models.SecureKeyUnWrapOperationParameters, _types.SecureKeyUnWrapOperationParameters, IO[bytes]
+        ],
+        **kwargs: Any
+    ) -> _models.SecureKeyOperationResult:
+        """Securely unwraps a previously wrapped symmetric key using a specified key, ensuring TEE
+        attestation via Microsoft Azure Attestation (MAA) before unwrapping.
+
+        The SECURE UNWRAP operation supports decryption of a symmetric key using the target key
+        encryption key. This operation is the reverse of the SECURE WRAP operation. The SECURE UNWRAP
+        operation applies to asymmetric and symmetric keys stored in Azure Key Vault since it uses the
+        private portion of the key. This operation requires the keys/unwrapKey permission. The SECURE
+        UNWRAP operation ensures that MAA (Microsoft Azure Attestation Service) is used to attest the
+        TEE (Trusted Execution Environment) before the key is unwrapped.
+
+        :param key_name: The name of the key. Required.
+        :type key_name: str
+        :param key_version: The version of the key. Required.
+        :type key_version: str
+        :param parameters: The parameters for unwrap operation. Is either a
+         SecureKeyUnWrapOperationParameters type or a IO[bytes] type. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.SecureKeyUnWrapOperationParameters or
+         ~azure.keyvault.keys._generated.types.SecureKeyUnWrapOperationParameters or IO[bytes]
+        :return: SecureKeyOperationResult. The SecureKeyOperationResult is compatible with
+         MutableMapping
+        :rtype: ~azure.keyvault.keys._generated.models.SecureKeyOperationResult
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+        error_map: MutableMapping = {
+            401: ClientAuthenticationError,
+            404: ResourceNotFoundError,
+            409: ResourceExistsError,
+            304: ResourceNotModifiedError,
+        }
+        error_map.update(kwargs.pop("error_map", {}) or {})
+
+        _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
+        _params = kwargs.pop("params", {}) or {}
+
+        content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
+        cls: ClsType[_models.SecureKeyOperationResult] = kwargs.pop("cls", None)
+
+        content_type = content_type or "application/json"
+        _content = None
+        if isinstance(parameters, (IOBase, bytes)):
+            _content = parameters
+        else:
+            _content = json.dumps(parameters, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+
+        _request = build_key_vault_secure_unwrap_key_request(
+            key_name=key_name,
+            key_version=key_version,
+            content_type=content_type,
+            api_version=self._config.api_version,
+            content=_content,
+            headers=_headers,
+            params=_params,
+        )
+        path_format_arguments = {
+            "vaultBaseUrl": self._serialize.url(
+                "self._config.vault_base_url", self._config.vault_base_url, "str", skip_quote=True
+            ),
+        }
+        _request.url = self._client.format_url(_request.url, **path_format_arguments)
+
+        _decompress = kwargs.pop("decompress", True)
+        _stream = kwargs.pop("stream", False)
+        pipeline_response: PipelineResponse = await self._client._pipeline.run(  # type: ignore # pylint: disable=protected-access
+            _request, stream=_stream, **kwargs
+        )
+
+        response = pipeline_response.http_response
+
+        if response.status_code not in [200]:
+            if _stream:
+                try:
+                    await response.read()  # Load the body in memory and close the socket
+                except (StreamConsumedError, StreamClosedError):
+                    pass
+            map_error(status_code=response.status_code, response=response, error_map=error_map)
+            error = _failsafe_deserialize(
+                _models.KeyVaultError,
+                response,
+            )
+            raise HttpResponseError(response=response, model=error)
+
+        if _stream:
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
+        else:
+            deserialized = _deserialize(_models.SecureKeyOperationResult, response.json())
+
+        if cls:
+            return cls(pipeline_response, deserialized, {})  # type: ignore
+
+        return deserialized  # type: ignore
+
+    @overload
     async def unwrap_key(
         self,
         key_name: str,
@@ -2292,7 +2740,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: JSON,
+        parameters: _types.KeyOperationsParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -2309,7 +2757,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :param key_version: The version of the key. Required.
         :type key_version: str
         :param parameters: The parameters for the key operation. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.keyvault.keys._generated.types.KeyOperationsParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -2354,7 +2802,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: Union[_models.KeyOperationsParameters, JSON, IO[bytes]],
+        parameters: Union[_models.KeyOperationsParameters, _types.KeyOperationsParameters, IO[bytes]],
         **kwargs: Any
     ) -> _models.KeyOperationResult:
         """Unwraps a symmetric key using the specified key that was initially used for wrapping that key.
@@ -2368,10 +2816,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :type key_name: str
         :param key_version: The version of the key. Required.
         :type key_version: str
-        :param parameters: The parameters for the key operation. Is one of the following types:
-         KeyOperationsParameters, JSON, IO[bytes] Required.
-        :type parameters: ~azure.keyvault.keys._generated.models.KeyOperationsParameters or JSON or
-         IO[bytes]
+        :param parameters: The parameters for the key operation. Is either a KeyOperationsParameters
+         type or a IO[bytes] type. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.KeyOperationsParameters or
+         ~azure.keyvault.keys._generated.types.KeyOperationsParameters or IO[bytes]
         :return: KeyOperationResult. The KeyOperationResult is compatible with MutableMapping
         :rtype: ~azure.keyvault.keys._generated.models.KeyOperationResult
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -2479,7 +2927,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: JSON,
+        parameters: _types.KeyReleaseParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -2495,7 +2943,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
          Required.
         :type key_version: str
         :param parameters: The parameters for the key release operation. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.keyvault.keys._generated.types.KeyReleaseParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -2539,7 +2987,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         self,
         key_name: str,
         key_version: str,
-        parameters: Union[_models.KeyReleaseParameters, JSON, IO[bytes]],
+        parameters: Union[_models.KeyReleaseParameters, _types.KeyReleaseParameters, IO[bytes]],
         **kwargs: Any
     ) -> _models.KeyReleaseResult:
         """Releases a key.
@@ -2552,10 +3000,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :param key_version: Adding the version parameter retrieves a specific version of a key.
          Required.
         :type key_version: str
-        :param parameters: The parameters for the key release operation. Is one of the following types:
-         KeyReleaseParameters, JSON, IO[bytes] Required.
-        :type parameters: ~azure.keyvault.keys._generated.models.KeyReleaseParameters or JSON or
-         IO[bytes]
+        :param parameters: The parameters for the key release operation. Is either a
+         KeyReleaseParameters type or a IO[bytes] type. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.KeyReleaseParameters or
+         ~azure.keyvault.keys._generated.types.KeyReleaseParameters or IO[bytes]
         :return: KeyReleaseResult. The KeyReleaseResult is compatible with MutableMapping
         :rtype: ~azure.keyvault.keys._generated.models.KeyReleaseResult
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -2688,7 +3136,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "vaultBaseUrl": self._serialize.url(
@@ -3029,7 +3480,12 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
 
     @overload
     async def update_key_rotation_policy(
-        self, key_name: str, key_rotation_policy: JSON, *, content_type: str = "application/json", **kwargs: Any
+        self,
+        key_name: str,
+        key_rotation_policy: _types.KeyRotationPolicy,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
     ) -> _models.KeyRotationPolicy:
         """Updates the rotation policy for a key.
 
@@ -3039,7 +3495,7 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
         :param key_name: The name of the key in the given vault. Required.
         :type key_name: str
         :param key_rotation_policy: The policy for the key. Required.
-        :type key_rotation_policy: JSON
+        :type key_rotation_policy: ~azure.keyvault.keys._generated.types.KeyRotationPolicy
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -3071,7 +3527,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
 
     @distributed_trace_async
     async def update_key_rotation_policy(
-        self, key_name: str, key_rotation_policy: Union[_models.KeyRotationPolicy, JSON, IO[bytes]], **kwargs: Any
+        self,
+        key_name: str,
+        key_rotation_policy: Union[_models.KeyRotationPolicy, _types.KeyRotationPolicy, IO[bytes]],
+        **kwargs: Any
     ) -> _models.KeyRotationPolicy:
         """Updates the rotation policy for a key.
 
@@ -3080,10 +3539,10 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
 
         :param key_name: The name of the key in the given vault. Required.
         :type key_name: str
-        :param key_rotation_policy: The policy for the key. Is one of the following types:
-         KeyRotationPolicy, JSON, IO[bytes] Required.
-        :type key_rotation_policy: ~azure.keyvault.keys._generated.models.KeyRotationPolicy or JSON or
-         IO[bytes]
+        :param key_rotation_policy: The policy for the key. Is either a KeyRotationPolicy type or a
+         IO[bytes] type. Required.
+        :type key_rotation_policy: ~azure.keyvault.keys._generated.models.KeyRotationPolicy or
+         ~azure.keyvault.keys._generated.types.KeyRotationPolicy or IO[bytes]
         :return: KeyRotationPolicy. The KeyRotationPolicy is compatible with MutableMapping
         :rtype: ~azure.keyvault.keys._generated.models.KeyRotationPolicy
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -3175,14 +3634,14 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
 
     @overload
     async def get_random_bytes(
-        self, parameters: JSON, *, content_type: str = "application/json", **kwargs: Any
+        self, parameters: _types.GetRandomBytesRequest, *, content_type: str = "application/json", **kwargs: Any
     ) -> _models.RandomBytes:
         """Get the requested number of bytes containing random values.
 
         Get the requested number of bytes containing random values from a managed HSM.
 
         :param parameters: The request object to get random bytes. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.keyvault.keys._generated.types.GetRandomBytesRequest
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -3211,16 +3670,16 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
 
     @distributed_trace_async
     async def get_random_bytes(
-        self, parameters: Union[_models.GetRandomBytesRequest, JSON, IO[bytes]], **kwargs: Any
+        self, parameters: Union[_models.GetRandomBytesRequest, _types.GetRandomBytesRequest, IO[bytes]], **kwargs: Any
     ) -> _models.RandomBytes:
         """Get the requested number of bytes containing random values.
 
         Get the requested number of bytes containing random values from a managed HSM.
 
-        :param parameters: The request object to get random bytes. Is one of the following types:
-         GetRandomBytesRequest, JSON, IO[bytes] Required.
-        :type parameters: ~azure.keyvault.keys._generated.models.GetRandomBytesRequest or JSON or
-         IO[bytes]
+        :param parameters: The request object to get random bytes. Is either a GetRandomBytesRequest
+         type or a IO[bytes] type. Required.
+        :type parameters: ~azure.keyvault.keys._generated.models.GetRandomBytesRequest or
+         ~azure.keyvault.keys._generated.types.GetRandomBytesRequest or IO[bytes]
         :return: RandomBytes. The RandomBytes is compatible with MutableMapping
         :rtype: ~azure.keyvault.keys._generated.models.RandomBytes
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -3295,7 +3754,15 @@ class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
     @api_version_validation(
         method_added_on="7.6-preview.2",
         params_added_on={"7.6-preview.2": ["key_name", "key_version", "accept", "api_version"]},
-        api_versions_list=["7.6-preview.2", "7.6", "2025-06-01-preview", "2025-07-01"],
+        api_versions_list=[
+            "7.6-preview.2",
+            "7.6",
+            "2025-06-01-preview",
+            "2025-07-01",
+            "2026-01-01-preview",
+            "2026-03-01-preview",
+            "2026-04-01",
+        ],
     )
     async def get_key_attestation(self, key_name: str, key_version: str, **kwargs: Any) -> _models.KeyBundle:
         """Gets the public part of a stored key along with its attestation blob.

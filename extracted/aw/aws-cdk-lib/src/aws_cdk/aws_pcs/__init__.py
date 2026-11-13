@@ -1814,6 +1814,7 @@ class CfnComputeNodeGroup(
                 template_id="templateId",
                 version="version"
             ),
+            launch_template_mode="launchTemplateMode",
             name="name",
             node_lifecycle_actions=pcs.CfnComputeNodeGroup.NodeLifecycleActionsProperty(
                 stages=pcs.CfnComputeNodeGroup.NodeLifecycleStagesProperty(
@@ -1853,6 +1854,7 @@ class CfnComputeNodeGroup(
                 script_caching_policy="scriptCachingPolicy"
             ),
             purchase_option="purchaseOption",
+            security_group_ids=["securityGroupIds"],
             slurm_configuration=pcs.CfnComputeNodeGroup.SlurmConfigurationProperty(
                 gres_custom_settings=[{
                     "gres_custom_settings_key": "gresCustomSettings"
@@ -1866,6 +1868,7 @@ class CfnComputeNodeGroup(
             spot_options=pcs.CfnComputeNodeGroup.SpotOptionsProperty(
                 allocation_strategy="allocationStrategy"
             ),
+            ssh_key_name="sshKeyName",
             tags={
                 "tags_key": "tags"
             }
@@ -1884,11 +1887,14 @@ class CfnComputeNodeGroup(
         subnet_ids: typing.Sequence[builtins.str],
         ami_id: typing.Optional[builtins.str] = None,
         custom_launch_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.CustomLaunchTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        launch_template_mode: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         node_lifecycle_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.NodeLifecycleActionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         purchase_option: typing.Optional[builtins.str] = None,
+        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         slurm_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.SlurmConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         spot_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.SpotOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ssh_key_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::PCS::ComputeNodeGroup``.
@@ -1902,11 +1908,14 @@ class CfnComputeNodeGroup(
         :param subnet_ids: The list of subnet IDs where instances are provisioned by the compute node group. The subnets must be in the same VPC as the cluster.
         :param ami_id: The ID of the Amazon Machine Image (AMI) that AWS PCS uses to launch instances. If not provided, AWS PCS uses the AMI ID specified in the custom launch template.
         :param custom_launch_template: An Amazon EC2 launch template AWS PCS uses to launch compute nodes.
+        :param launch_template_mode: How AWS PCS gets the launch template for the compute node group. CUSTOM uses CustomLaunchTemplate. MANAGED has AWS PCS generate and manage the launch template from the instance settings; omit CustomLaunchTemplate. Defaults to CUSTOM on create.
         :param name: The name that identifies the compute node group.
         :param node_lifecycle_actions: Custom scripts that run at defined points in a compute node's lifecycle.
         :param purchase_option: Specifies how EC2 instances are purchased on your behalf. AWS PCS supports On-Demand Instances, Spot Instances, and Amazon EC2 Capacity Blocks for ML. For more information, see `Amazon EC2 billing and purchasing options <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-purchasing-options.html>`_ in the *Amazon Elastic Compute Cloud User Guide* . For more information about AWS PCS support for Capacity Blocks, see `Using Amazon EC2 Capacity Blocks for ML with AWS PCS <https://docs.aws.amazon.com/pcs/latest/userguide/capacity-blocks.html>`_ in the *AWS PCS User Guide* . If you don't provide this option, it defaults to On-Demand.
+        :param security_group_ids: The IDs of the EC2 security groups configured directly on the compute node group. These replace the security groups from the custom launch template. A request cannot specify this property with a launch template that defines NetworkInterfaces. When not provided and a custom launch template is present, AWS PCS uses the security groups from the launch template.
         :param slurm_configuration: Additional options related to the Slurm scheduler.
         :param spot_options: Additional configuration when you specify ``SPOT`` as the ``purchaseOption`` for the ``CreateComputeNodeGroup`` API action.
+        :param ssh_key_name: The name of the EC2 key pair configured directly on the compute node group. The key pair must exist in the caller's account and Region and overrides the key pair from the custom launch template. When not provided and a custom launch template is present, AWS PCS uses the key pair from the launch template.
         :param tags: 1 or more tags added to the resource. Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
         '''
         if __debug__:
@@ -1921,11 +1930,14 @@ class CfnComputeNodeGroup(
             subnet_ids=subnet_ids,
             ami_id=ami_id,
             custom_launch_template=custom_launch_template,
+            launch_template_mode=launch_template_mode,
             name=name,
             node_lifecycle_actions=node_lifecycle_actions,
             purchase_option=purchase_option,
+            security_group_ids=security_group_ids,
             slurm_configuration=slurm_configuration,
             spot_options=spot_options,
+            ssh_key_name=ssh_key_name,
             tags=tags,
         )
 
@@ -2157,6 +2169,19 @@ class CfnComputeNodeGroup(
         jsii.set(self, "customLaunchTemplate", value)
 
     @builtins.property
+    @jsii.member(jsii_name="launchTemplateMode")
+    def launch_template_mode(self) -> typing.Optional[builtins.str]:
+        '''How AWS PCS gets the launch template for the compute node group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "launchTemplateMode"))
+
+    @launch_template_mode.setter
+    def launch_template_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e86b238f675f8c78e76dd48666862cdd31ac36b994be28f8ad99b3d6efc7d9ac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "launchTemplateMode", value)
+
+    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> typing.Optional[builtins.str]:
         '''The name that identifies the compute node group.'''
@@ -2201,6 +2226,22 @@ class CfnComputeNodeGroup(
         jsii.set(self, "purchaseOption", value)
 
     @builtins.property
+    @jsii.member(jsii_name="securityGroupIds")
+    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The IDs of the EC2 security groups configured directly on the compute node group.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "securityGroupIds"))
+
+    @security_group_ids.setter
+    def security_group_ids(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__43570f7b6d91c6c0251d1da4c5f3a42d5dbebc37350d7056aa0b8c657aab523c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "securityGroupIds", value)
+
+    @builtins.property
     @jsii.member(jsii_name="slurmConfiguration")
     def slurm_configuration(
         self,
@@ -2235,6 +2276,19 @@ class CfnComputeNodeGroup(
             type_hints = cached_type_hints(_typecheckingstub__25d7dc8c33129932f54cb9e69a7f2e96a79caaf423f50891bd309efbb2cf8a56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "spotOptions", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="sshKeyName")
+    def ssh_key_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the EC2 key pair configured directly on the compute node group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sshKeyName"))
+
+    @ssh_key_name.setter
+    def ssh_key_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5c707fa04fa2ec9878d4082a638cd8ea71eb117cd21d14cc4875d54ea52f75fc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sshKeyName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3214,11 +3268,14 @@ class CfnComputeNodeGroup(
         "subnet_ids": "subnetIds",
         "ami_id": "amiId",
         "custom_launch_template": "customLaunchTemplate",
+        "launch_template_mode": "launchTemplateMode",
         "name": "name",
         "node_lifecycle_actions": "nodeLifecycleActions",
         "purchase_option": "purchaseOption",
+        "security_group_ids": "securityGroupIds",
         "slurm_configuration": "slurmConfiguration",
         "spot_options": "spotOptions",
+        "ssh_key_name": "sshKeyName",
         "tags": "tags",
     },
 )
@@ -3233,11 +3290,14 @@ class CfnComputeNodeGroupProps:
         subnet_ids: typing.Sequence[builtins.str],
         ami_id: typing.Optional[builtins.str] = None,
         custom_launch_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.CustomLaunchTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        launch_template_mode: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         node_lifecycle_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.NodeLifecycleActionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         purchase_option: typing.Optional[builtins.str] = None,
+        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         slurm_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.SlurmConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         spot_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.SpotOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ssh_key_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnComputeNodeGroup``.
@@ -3249,11 +3309,14 @@ class CfnComputeNodeGroupProps:
         :param subnet_ids: The list of subnet IDs where instances are provisioned by the compute node group. The subnets must be in the same VPC as the cluster.
         :param ami_id: The ID of the Amazon Machine Image (AMI) that AWS PCS uses to launch instances. If not provided, AWS PCS uses the AMI ID specified in the custom launch template.
         :param custom_launch_template: An Amazon EC2 launch template AWS PCS uses to launch compute nodes.
+        :param launch_template_mode: How AWS PCS gets the launch template for the compute node group. CUSTOM uses CustomLaunchTemplate. MANAGED has AWS PCS generate and manage the launch template from the instance settings; omit CustomLaunchTemplate. Defaults to CUSTOM on create.
         :param name: The name that identifies the compute node group.
         :param node_lifecycle_actions: Custom scripts that run at defined points in a compute node's lifecycle.
         :param purchase_option: Specifies how EC2 instances are purchased on your behalf. AWS PCS supports On-Demand Instances, Spot Instances, and Amazon EC2 Capacity Blocks for ML. For more information, see `Amazon EC2 billing and purchasing options <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-purchasing-options.html>`_ in the *Amazon Elastic Compute Cloud User Guide* . For more information about AWS PCS support for Capacity Blocks, see `Using Amazon EC2 Capacity Blocks for ML with AWS PCS <https://docs.aws.amazon.com/pcs/latest/userguide/capacity-blocks.html>`_ in the *AWS PCS User Guide* . If you don't provide this option, it defaults to On-Demand.
+        :param security_group_ids: The IDs of the EC2 security groups configured directly on the compute node group. These replace the security groups from the custom launch template. A request cannot specify this property with a launch template that defines NetworkInterfaces. When not provided and a custom launch template is present, AWS PCS uses the security groups from the launch template.
         :param slurm_configuration: Additional options related to the Slurm scheduler.
         :param spot_options: Additional configuration when you specify ``SPOT`` as the ``purchaseOption`` for the ``CreateComputeNodeGroup`` API action.
+        :param ssh_key_name: The name of the EC2 key pair configured directly on the compute node group. The key pair must exist in the caller's account and Region and overrides the key pair from the custom launch template. When not provided and a custom launch template is present, AWS PCS uses the key pair from the launch template.
         :param tags: 1 or more tags added to the resource. Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html
@@ -3283,6 +3346,7 @@ class CfnComputeNodeGroupProps:
                     template_id="templateId",
                     version="version"
                 ),
+                launch_template_mode="launchTemplateMode",
                 name="name",
                 node_lifecycle_actions=pcs.CfnComputeNodeGroup.NodeLifecycleActionsProperty(
                     stages=pcs.CfnComputeNodeGroup.NodeLifecycleStagesProperty(
@@ -3322,6 +3386,7 @@ class CfnComputeNodeGroupProps:
                     script_caching_policy="scriptCachingPolicy"
                 ),
                 purchase_option="purchaseOption",
+                security_group_ids=["securityGroupIds"],
                 slurm_configuration=pcs.CfnComputeNodeGroup.SlurmConfigurationProperty(
                     gres_custom_settings=[{
                         "gres_custom_settings_key": "gresCustomSettings"
@@ -3335,6 +3400,7 @@ class CfnComputeNodeGroupProps:
                 spot_options=pcs.CfnComputeNodeGroup.SpotOptionsProperty(
                     allocation_strategy="allocationStrategy"
                 ),
+                ssh_key_name="sshKeyName",
                 tags={
                     "tags_key": "tags"
                 }
@@ -3349,11 +3415,14 @@ class CfnComputeNodeGroupProps:
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             check_type(argname="argument ami_id", value=ami_id, expected_type=type_hints["ami_id"])
             check_type(argname="argument custom_launch_template", value=custom_launch_template, expected_type=type_hints["custom_launch_template"])
+            check_type(argname="argument launch_template_mode", value=launch_template_mode, expected_type=type_hints["launch_template_mode"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument node_lifecycle_actions", value=node_lifecycle_actions, expected_type=type_hints["node_lifecycle_actions"])
             check_type(argname="argument purchase_option", value=purchase_option, expected_type=type_hints["purchase_option"])
+            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
             check_type(argname="argument slurm_configuration", value=slurm_configuration, expected_type=type_hints["slurm_configuration"])
             check_type(argname="argument spot_options", value=spot_options, expected_type=type_hints["spot_options"])
+            check_type(argname="argument ssh_key_name", value=ssh_key_name, expected_type=type_hints["ssh_key_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_id": cluster_id,
@@ -3366,16 +3435,22 @@ class CfnComputeNodeGroupProps:
             self._values["ami_id"] = ami_id
         if custom_launch_template is not None:
             self._values["custom_launch_template"] = custom_launch_template
+        if launch_template_mode is not None:
+            self._values["launch_template_mode"] = launch_template_mode
         if name is not None:
             self._values["name"] = name
         if node_lifecycle_actions is not None:
             self._values["node_lifecycle_actions"] = node_lifecycle_actions
         if purchase_option is not None:
             self._values["purchase_option"] = purchase_option
+        if security_group_ids is not None:
+            self._values["security_group_ids"] = security_group_ids
         if slurm_configuration is not None:
             self._values["slurm_configuration"] = slurm_configuration
         if spot_options is not None:
             self._values["spot_options"] = spot_options
+        if ssh_key_name is not None:
+            self._values["ssh_key_name"] = ssh_key_name
         if tags is not None:
             self._values["tags"] = tags
 
@@ -3460,6 +3535,17 @@ class CfnComputeNodeGroupProps:
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.CustomLaunchTemplateProperty"]], result)
 
     @builtins.property
+    def launch_template_mode(self) -> typing.Optional[builtins.str]:
+        '''How AWS PCS gets the launch template for the compute node group.
+
+        CUSTOM uses CustomLaunchTemplate. MANAGED has AWS PCS generate and manage the launch template from the instance settings; omit CustomLaunchTemplate. Defaults to CUSTOM on create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-launchtemplatemode
+        '''
+        result = self._values.get("launch_template_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
         '''The name that identifies the compute node group.
 
@@ -3491,6 +3577,17 @@ class CfnComputeNodeGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The IDs of the EC2 security groups configured directly on the compute node group.
+
+        These replace the security groups from the custom launch template. A request cannot specify this property with a launch template that defines NetworkInterfaces. When not provided and a custom launch template is present, AWS PCS uses the security groups from the launch template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-securitygroupids
+        '''
+        result = self._values.get("security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def slurm_configuration(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.SlurmConfigurationProperty"]]:
@@ -3511,6 +3608,17 @@ class CfnComputeNodeGroupProps:
         '''
         result = self._values.get("spot_options")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.SpotOptionsProperty"]], result)
+
+    @builtins.property
+    def ssh_key_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the EC2 key pair configured directly on the compute node group.
+
+        The key pair must exist in the caller's account and Region and overrides the key pair from the custom launch template. When not provided and a custom launch template is present, AWS PCS uses the key pair from the launch template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-sshkeyname
+        '''
+        result = self._values.get("ssh_key_name")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -4426,11 +4534,14 @@ def _typecheckingstub__5d74625cecbce8d2048b29b24f3148123fb31c64b330ed51fd45d2b2c
     subnet_ids: typing.Sequence[builtins.str],
     ami_id: typing.Optional[builtins.str] = None,
     custom_launch_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.CustomLaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    launch_template_mode: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     node_lifecycle_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.NodeLifecycleActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     purchase_option: typing.Optional[builtins.str] = None,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     slurm_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.SlurmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     spot_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.SpotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ssh_key_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4502,6 +4613,12 @@ def _typecheckingstub__bf4a47490919e9b97683082d58e0ccf8649fd09ec2c5f621c3f8467d8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e86b238f675f8c78e76dd48666862cdd31ac36b994be28f8ad99b3d6efc7d9ac(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__621c25d891dcaffc1e388ad783cc5d71aeffd2776b0166c92fce41e6d992d2d7(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -4520,6 +4637,12 @@ def _typecheckingstub__abf0b129d8eff2b9d98cc25ed6c3cbfebb7f706aa5948692e942f1a48
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__43570f7b6d91c6c0251d1da4c5f3a42d5dbebc37350d7056aa0b8c657aab523c(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8d5c6af28cfa6220ac6fe417a830b4b39cfb3320cd91ef31f4ef71aa5f6d934b(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComputeNodeGroup.SlurmConfigurationProperty]],
 ) -> None:
@@ -4528,6 +4651,12 @@ def _typecheckingstub__8d5c6af28cfa6220ac6fe417a830b4b39cfb3320cd91ef31f4ef71aa5
 
 def _typecheckingstub__25d7dc8c33129932f54cb9e69a7f2e96a79caaf423f50891bd309efbb2cf8a56(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComputeNodeGroup.SpotOptionsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c707fa04fa2ec9878d4082a638cd8ea71eb117cd21d14cc4875d54ea52f75fc(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4638,11 +4767,14 @@ def _typecheckingstub__b89ff3536491b7ea531bd9d6ca00d7d32a25ce4c02b926c6d677abde1
     subnet_ids: typing.Sequence[builtins.str],
     ami_id: typing.Optional[builtins.str] = None,
     custom_launch_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.CustomLaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    launch_template_mode: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     node_lifecycle_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.NodeLifecycleActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     purchase_option: typing.Optional[builtins.str] = None,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     slurm_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.SlurmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     spot_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.SpotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ssh_key_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

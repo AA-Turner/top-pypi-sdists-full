@@ -188,6 +188,7 @@ async def run_worker(request_path: Path) -> int:
             runtime_backend=request.runtime_backend,
             llm_backend=request.llm_backend,
             opencode_mode=request.opencode_mode,
+            **({"project_dir": request.project_dir} if request.project_dir is not None else {}),
             durable_jobs=True,
             forced_inline_job_id=request.job_id,
         )
@@ -229,6 +230,11 @@ async def run_worker(request_path: Path) -> int:
                             job_id=request.job_id,
                             request_tool_name=request.tool_name,
                             rejection=rejection,
+                            **(
+                                {"launch_token": request.launch_token}
+                                if request.launch_token is not None
+                                else {}
+                            ),
                         )
                         return 1
                 await _compensate_unaccepted_start_failure(
@@ -283,18 +289,12 @@ async def run_worker(request_path: Path) -> int:
 
 
 def _flush_telemetry_before_exit() -> None:
-    """Deliver the queued terminal `workflow_outcome` event before this
-    worker process exits.
+    """Attempt delivery of queued outcomes before this worker exits.
 
-    run_worker only returns once the owned job has a durable terminal event,
-    which is exactly when JobManager queues the one `workflow_outcome` event
-    PostHog's published counting rule reads (see TELEMETRY.md). That event
-    sits in telemetry's daemon-thread queue until something flushes it;
-    nothing else in this process ever will, and this worker is about to
-    exit. A detached job worker is a short-lived background process, not an
-    interactive command, so a bounded exit delay here does not violate
-    telemetry's "never blocks a command" contract -- there is no command
-    left to keep responsive by the time this runs.
+    JobManager queues a terminal ``workflow_outcome`` when an accepted job
+    settles. Ordinary capture uses a daemon thread, so main explicitly waits
+    up to 5 seconds on run_worker exit paths. This best-effort flush can delay
+    process exit and does not guarantee delivery or change durable job state.
     """
     usage_telemetry.flush(timeout=5.0)
 

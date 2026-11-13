@@ -18,7 +18,7 @@ class MultiUpdateGlobals(BaseModel):
         Optional[str],
         pydantic.Field(alias="x-api-version"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
-    ] = "2.5.0"
+    ] = "2.6.0"
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -118,7 +118,7 @@ class MultiUpdateParamsTypedDict(TypedDict):
     refund_last_payment: NotRequired[MultiUpdateRefundLastPayment]
     r"""Controls how the last payment is refunded on immediate cancellation. 'prorated' refunds the unused portion, 'full' refunds the entire last payment."""
     subscription_params: NotRequired[Dict[str, Any]]
-    r"""Additional parameters to pass into the Stripe subscription update or cancel call."""
+    r"""Additional parameters to pass into the Stripe subscription update or cancel call. Fields Autumn manages itself are rejected with a 400; use invoice_mode to bill by invoice."""
 
 
 class MultiUpdateParams(BaseModel):
@@ -135,7 +135,7 @@ class MultiUpdateParams(BaseModel):
     r"""Controls how the last payment is refunded on immediate cancellation. 'prorated' refunds the unused portion, 'full' refunds the entire last payment."""
 
     subscription_params: Optional[Dict[str, Any]] = None
-    r"""Additional parameters to pass into the Stripe subscription update or cancel call."""
+    r"""Additional parameters to pass into the Stripe subscription update or cancel call. Fields Autumn manages itself are rejected with a 400; use invoice_mode to bill by invoice."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):

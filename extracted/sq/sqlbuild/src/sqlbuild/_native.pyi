@@ -190,6 +190,7 @@ COLUMN_MIGRATION_TABLE_NAME: str
 OLD_NAME_VIEW_TABLE_NAME: str
 MICROBATCH_TABLE_NAME: str
 NODE_RESULTS_TABLE_NAME: str
+OBSERVATIONS_TABLE_NAME: str
 AUDIT_RESULTS_TABLE_NAME: str
 JANITOR_EVENTS_TABLE_NAME: str
 COLUMN_NODE_TYPE: str
@@ -5502,6 +5503,20 @@ def build_consumption_prune_sql(
     render_qualified_name: Callable[..., str | None],
     retain_versions: int,
 ) -> str: ...
+def build_observations_create_table_sql(
+    *,
+    database: str | None,
+    schema: str,
+    render_qualified_name: Callable[..., str | None],
+    render_framework_type: Callable[[FrameworkType], str],
+) -> str: ...
+def build_observations_prune_sql(
+    *,
+    database: str | None,
+    schema: str,
+    render_qualified_name: Callable[..., str | None],
+    retain_versions: int,
+) -> str: ...
 def build_source_freshness_create_table_sql(
     *,
     database: str | None,
@@ -6351,6 +6366,7 @@ class CostArtifactError(ValueError): ...
 class CommandTerminated(KeyboardInterrupt): ...
 class SourceFreshnessInputError(ValueError): ...
 class SourceFreshnessObservationError(ValueError): ...
+class WarehouseAccessRefusedError(RuntimeError): ...
 
 class CostTelemetryHealth:
     def mark_ledger_failure(self, *, run_id: str, error: BaseException) -> None: ...
@@ -11665,12 +11681,6 @@ class MicrobatchLimitAction(StrEnum):
     ERROR = "error"
     WARN = "warn"
 
-class ColumnContractMode(StrEnum):
-    """Default contract behavior for model column declarations."""
-
-    IMPLICIT = "implicit"
-    EXPLICIT = "explicit"
-
 class SourceFreshnessStrategy(StrEnum):
     ADAPTER = "adapter"
     COLUMN = "column"
@@ -11958,7 +11968,7 @@ class SettingsConfig(NativeRecord):
     sql_analysis: bool
     require_sql_analysis: bool
     query_change_tracking: bool
-    column_contract_mode: ColumnContractMode
+    check_declared_columns: bool
     concurrency: int
     auto_load_sources: bool
     microbatch_concurrency: bool
@@ -11977,7 +11987,7 @@ class SettingsConfig(NativeRecord):
         sql_analysis: bool = ...,
         require_sql_analysis: bool = ...,
         query_change_tracking: bool = ...,
-        column_contract_mode: ColumnContractMode = ...,
+        check_declared_columns: bool = ...,
         concurrency: int = ...,
         auto_load_sources: bool = ...,
         microbatch_concurrency: bool = ...,

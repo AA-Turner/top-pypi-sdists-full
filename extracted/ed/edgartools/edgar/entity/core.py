@@ -582,7 +582,11 @@ class Company(Entity):
 
     @property
     def tickers(self):
-        """Get all ticker symbols for this company."""
+        """Get all ticker symbols for this company.
+
+        This is SEC's current ticker list. For the securities a filing registered,
+        with their class of stock, use ``filing.obj().trading_symbols``.
+        """
         if hasattr(self.data, 'tickers'):
             return self.data.tickers
         return []
@@ -1077,32 +1081,30 @@ class Company(Entity):
             concise_format: If True, display values as $1.0B, if False display as $1,000,000,000
 
         Returns:
-            MultiPeriodStatement, TTMStatement, or DataFrame with income statement data
+            MultiPeriodStatement, TTMStatement, or DataFrame with income statement data,
+            or None if SEC has no company facts for this company
+
+        Raises:
+            ValidationError: If period is not 'annual', 'quarterly' or 'ttm'
 
         Example:
             >>> company = Company("AAPL")
             >>> stmt = company.income_statement(period='ttm')  # Trailing 12 months
             >>> stmt = company.income_statement(period='quarterly', periods=8)
         """
-        # Handle legacy parameter
-        if annual is not None:
-            period = 'annual' if annual else 'quarterly'
+        # Validate before looking for facts: a bad argument is an error whether
+        # or not this company has facts (GH #1732). `annual` overrides `period`.
+        period = EntityFacts._resolve_period(period, annual)
 
         facts = self.facts
         if not facts:
             return None
-
-        try:
-            return facts.income_statement(
-                periods=periods,
-                period=period,
-                as_dataframe=as_dataframe,
-                concise_format=concise_format
-            )
-        except Exception as e:
-            from edgar.core import log
-            log.debug(f"Error getting income statement for {self.name}: {e}")
-        return None
+        return facts.income_statement(
+            periods=periods,
+            period=period,
+            as_dataframe=as_dataframe,
+            concise_format=concise_format
+        )
 
     def balance_sheet(
         self,
@@ -1123,30 +1125,24 @@ class Company(Entity):
             concise_format: If True, display values as $1.0B, if False display as $1,000,000,000
 
         Returns:
-            MultiPeriodStatement or DataFrame with balance sheet data
+            MultiPeriodStatement or DataFrame with balance sheet data,
+            or None if SEC has no company facts for this company
 
         Raises:
-            ValueError: If period='ttm' (not applicable for balance sheet)
+            ValidationError: If period is not 'annual' or 'quarterly' ('ttm' is not
+                applicable to a balance sheet). ValidationError IS-A ValueError.
         """
-        if annual is not None:
-            period = 'annual' if annual else 'quarterly'
-
-        if period == 'ttm':
-            raise ValueError("TTM not applicable for Balance Sheet (point-in-time data)")
+        period = EntityFacts._resolve_balance_sheet_period(period, annual)
 
         facts = self.facts
-        if facts:
-            try:
-                return facts.balance_sheet(
-                    periods=periods,
-                    period=period,
-                    as_dataframe=as_dataframe,
-                    concise_format=concise_format
-                )
-            except Exception as e:
-                from edgar.core import log
-                log.debug(f"Error getting balance sheet for {self.name}: {e}")
-        return None
+        if not facts:
+            return None
+        return facts.balance_sheet(
+            periods=periods,
+            period=period,
+            as_dataframe=as_dataframe,
+            concise_format=concise_format
+        )
 
     def cash_flow_statement(
         self,
@@ -1167,26 +1163,23 @@ class Company(Entity):
             concise_format: If True, display values as $1.0B, if False display as $1,000,000,000
 
         Returns:
-            MultiPeriodStatement, TTMStatement, or DataFrame with cash flow data
+            MultiPeriodStatement, TTMStatement, or DataFrame with cash flow data,
+            or None if SEC has no company facts for this company
+
+        Raises:
+            ValidationError: If period is not 'annual', 'quarterly' or 'ttm'
         """
-        if annual is not None:
-            period = 'annual' if annual else 'quarterly'
+        period = EntityFacts._resolve_period(period, annual)
 
         facts = self.facts
         if not facts:
             return None
-
-        try:
-            return facts.cash_flow_statement(
-                periods=periods,
-                period=period,
-                as_dataframe=as_dataframe,
-                concise_format=concise_format
-            )
-        except Exception as e:
-            from edgar.core import log
-            log.debug(f"Error getting cash flow for {self.name}: {e}")
-        return None
+        return facts.cash_flow_statement(
+            periods=periods,
+            period=period,
+            as_dataframe=as_dataframe,
+            concise_format=concise_format
+        )
 
     # -------------------------------------------------------------------------
     # Concept Discovery Methods
@@ -1287,7 +1280,8 @@ class Company(Entity):
     # TTM (Trailing Twelve Months) Methods
     # -------------------------------------------------------------------------
 
-    def get_ttm(self, concept: str, as_of: Optional[Union[date, str]] = None) -> TTMMetric:
+    def get_ttm(self, concept: str, as_of: Optional[Union[date, str]] = None, *,
+                filed_by: Optional[Union[date, str]] = None) -> TTMMetric:
         """Calculate Trailing Twelve Months value for a concept.
 
         Args:
@@ -1296,6 +1290,13 @@ class Company(Entity):
                    - date object
                    - ISO string 'YYYY-MM-DD'
                    - Quarter string 'YYYY-QN' (e.g., '2024-Q2')
+                   This is a reporting-period cutoff: a quarter may be read from a
+                   later filing's comparative.
+            filed_by: Keyword-only. Use only facts from filings made on or before
+                this date (inclusive, by SEC filing date): a date or ISO string
+                'YYYY-MM-DD' (quarter strings are rejected). Given alone it is also
+                the reporting cutoff. Returns the latest gap-free four-quarter
+                window, whose ``as_of_date`` may be earlier than the cutoff.
 
         Returns:
             TTMMetric with value, periods, and metadata
@@ -1308,19 +1309,27 @@ class Company(Entity):
             >>> company = Company("AAPL")
             >>> ttm = company.get_ttm("Revenues")
             >>> print(f"TTM Revenue: ${ttm.value / 1e9:.1f}B")
+            >>> # What was known from filings made by 2023-08-04
+            >>> ttm = company.get_ttm("RevenueFromContractWithCustomerExcludingAssessedTax", filed_by="2023-08-04")
         """
         facts = self.facts
         if not facts:
             raise KeyError("No company facts available")
-        return facts.get_ttm(concept, as_of)
+        return facts.get_ttm(concept, as_of, filed_by=filed_by)
 
-    def get_ttm_revenue(self, as_of: Optional[Union[date, str]] = None) -> TTMMetric:
+    def get_ttm_revenue(self, as_of: Optional[Union[date, str]] = None, *,
+                        filed_by: Optional[Union[date, str]] = None) -> TTMMetric:
         """Get Trailing Twelve Months revenue.
 
         Tries common revenue concepts in order of preference.
 
         Args:
-            as_of: Calculate TTM as of this date (optional)
+            as_of: Calculate TTM as of this date (optional); a reporting-period cutoff
+            filed_by: Keyword-only. Use only facts from filings made on or before
+                this date (inclusive, by SEC filing date): a date or ISO string
+                'YYYY-MM-DD' (quarter strings are rejected). Given alone it is also
+                the reporting cutoff. Returns the latest gap-free four-quarter
+                window, whose ``as_of_date`` may be earlier than the cutoff.
 
         Returns:
             TTMMetric with revenue value and metadata
@@ -1331,15 +1340,21 @@ class Company(Entity):
         facts = self.facts
         if not facts:
             raise KeyError("No company facts available")
-        return facts.get_ttm_revenue(as_of)
+        return facts.get_ttm_revenue(as_of, filed_by=filed_by)
 
-    def get_ttm_net_income(self, as_of: Optional[Union[date, str]] = None) -> TTMMetric:
+    def get_ttm_net_income(self, as_of: Optional[Union[date, str]] = None, *,
+                           filed_by: Optional[Union[date, str]] = None) -> TTMMetric:
         """Get Trailing Twelve Months net income.
 
         Tries common net income concepts in order of preference.
 
         Args:
-            as_of: Calculate TTM as of this date (optional)
+            as_of: Calculate TTM as of this date (optional); a reporting-period cutoff
+            filed_by: Keyword-only. Use only facts from filings made on or before
+                this date (inclusive, by SEC filing date): a date or ISO string
+                'YYYY-MM-DD' (quarter strings are rejected). Given alone it is also
+                the reporting cutoff. Returns the latest gap-free four-quarter
+                window, whose ``as_of_date`` may be earlier than the cutoff.
 
         Returns:
             TTMMetric with net income value and metadata
@@ -1350,7 +1365,7 @@ class Company(Entity):
         facts = self.facts
         if not facts:
             raise KeyError("No company facts available")
-        return facts.get_ttm_net_income(as_of)
+        return facts.get_ttm_net_income(as_of, filed_by=filed_by)
 
     def __str__(self):
         if self._data is not None and self._data.name:

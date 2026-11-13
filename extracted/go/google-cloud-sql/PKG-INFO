@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-sql
-Version: 0.1.4
+Version: 0.1.5
 Summary: Google Cloud Sql API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-sql
 Author: Google LLC

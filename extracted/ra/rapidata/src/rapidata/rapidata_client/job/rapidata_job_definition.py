@@ -21,10 +21,11 @@ from rapidata.rapidata_client.job.cost import (
     _poll_for_cost_estimate,
 )
 from rapidata.rapidata_client.job._revision_body import (
+    _check_stopping_fits,
     _full_body,
     _get_answer_options,
     _get_instruction,
-    _get_responses,
+    _get_stopping,
     _with_answer_options,
     _with_instruction,
     _with_responses,
@@ -40,6 +41,8 @@ if TYPE_CHECKING:
     from rapidata.rapidata_client.datapoints.assets.uploaded_asset import (
         UploadedAsset,
     )
+    from rapidata.rapidata_client.job.adaptive_stopping import AdaptiveStopping
+    from rapidata.rapidata_client.job.quorum_stopping import QuorumStopping
     from rapidata.rapidata_client.settings import RapidataSetting
 
 RevisionState = Literal["Pending", "Completed", "Failed"]
@@ -81,6 +84,7 @@ class RapidataJobDefinition:
         self._revision_number = revision
         self._loaded_snapshot: GetJobRevisionEndpointOutput | None = None
         self._pending: dict[str, Any] = {}
+        self._text_assets: tuple[str, bool] | None = None
 
     @property
     def estimated_cost(self) -> CostEstimate:
@@ -171,6 +175,20 @@ class RapidataJobDefinition:
             self._loaded_snapshot = self._fetch_revision(self.revision)
             return self._loaded_snapshot.state.value  # type: ignore[return-value]
 
+    def _has_text_assets(self) -> bool:
+        """Known locally for a dataset this object uploaded, otherwise one datapoint read."""
+        from rapidata.rapidata_client.audience._language_filter_check import (
+            dataset_has_text_assets,
+        )
+
+        dataset_id = self.dataset_id
+        if self._text_assets is None or self._text_assets[0] != dataset_id:
+            self._text_assets = (
+                dataset_id,
+                dataset_has_text_assets(self._openapi_service, dataset_id),
+            )
+        return self._text_assets[1]
+
     @property
     def dataset_id(self) -> str:
         """The dataset of this revision, including an unsaved ``set_datapoints()``."""
@@ -216,16 +234,33 @@ class RapidataJobDefinition:
         self._pending["answer_options"] = list(value)
 
     @property
-    def responses_per_datapoint(self) -> int:
-        """The maximum number of responses collected per datapoint."""
+    def responses_per_datapoint(self) -> int | AdaptiveStopping | QuorumStopping:
+        """How many responses are collected per datapoint.
+
+        An int for a fixed count, or the ``AdaptiveStopping`` / ``QuorumStopping`` the
+        job definition stops by. Assigning one of those replaces the rule; assigning an
+        int sets a fixed count. A legacy ``confidence_threshold`` definition reads as its
+        cap, and an int changes that cap.
+        """
         return self._effective(
-            "responses_per_datapoint", _get_responses(self._snapshot.referee)
+            "responses_per_datapoint", _get_stopping(self._snapshot.referee)
         )
 
     @responses_per_datapoint.setter
-    def responses_per_datapoint(self, value: int) -> None:
-        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
-            raise ValueError("responses_per_datapoint must be a positive integer")
+    def responses_per_datapoint(
+        self, value: int | AdaptiveStopping | QuorumStopping
+    ) -> None:
+        from rapidata.rapidata_client.job.adaptive_stopping import AdaptiveStopping
+        from rapidata.rapidata_client.job.quorum_stopping import QuorumStopping
+
+        if not isinstance(value, (AdaptiveStopping, QuorumStopping)) and (
+            isinstance(value, bool) or not isinstance(value, int) or value < 1
+        ):
+            raise ValueError(
+                "responses_per_datapoint must be a positive integer, "
+                "AdaptiveStopping or QuorumStopping"
+            )
+        _check_stopping_fits(self._snapshot.workflow, value)
         _with_responses(self._snapshot.referee, value)
         self._pending["responses_per_datapoint"] = value
 
@@ -380,6 +415,7 @@ class RapidataJobDefinition:
                 )
 
             self._pending["dataset_id"] = rapidata_dataset.id
+            self._text_assets = (rapidata_dataset.id, data_type == "text")
 
     def save(self, require_latest: bool = False) -> int:
         """Create a new revision from this object and move the object to it.

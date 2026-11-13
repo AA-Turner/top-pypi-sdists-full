@@ -15842,18 +15842,13 @@ class CfnNetworkConnector(
         # The values are placeholders you should change.
         from aws_cdk import aws_lambda as lambda_
         
-        # elastic_ip_configuration: Any
-        
         cfn_network_connector = lambda_.CfnNetworkConnector(self, "MyCfnNetworkConnector",
             configuration=lambda.CfnNetworkConnector.ConfigProperty(
                 vpc_egress_configuration=lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
                     associated_compute_resource_types=["associatedComputeResourceTypes"],
                     network_protocol="networkProtocol",
                     security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"],
-        
-                    # the properties below are optional
-                    elastic_ip_configuration=elastic_ip_configuration
+                    subnet_ids=["subnetIds"]
                 )
             ),
         
@@ -16104,17 +16099,12 @@ class CfnNetworkConnector(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lambda as lambda_
                 
-                # elastic_ip_configuration: Any
-                
                 config_property = lambda.CfnNetworkConnector.ConfigProperty(
                     vpc_egress_configuration=lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
                         associated_compute_resource_types=["associatedComputeResourceTypes"],
                         network_protocol="networkProtocol",
                         security_group_ids=["securityGroupIds"],
-                        subnet_ids=["subnetIds"],
-                
-                        # the properties below are optional
-                        elastic_ip_configuration=elastic_ip_configuration
+                        subnet_ids=["subnetIds"]
                     )
                 )
             '''
@@ -16158,7 +16148,6 @@ class CfnNetworkConnector(
             "network_protocol": "networkProtocol",
             "security_group_ids": "securityGroupIds",
             "subnet_ids": "subnetIds",
-            "elastic_ip_configuration": "elasticIpConfiguration",
         },
     )
     class VpcEgressConfigurationProperty:
@@ -16169,7 +16158,6 @@ class CfnNetworkConnector(
             network_protocol: builtins.str,
             security_group_ids: typing.Sequence[builtins.str],
             subnet_ids: typing.Sequence[builtins.str],
-            elastic_ip_configuration: typing.Any = None,
         ) -> None:
             '''The VPC egress configuration for the network connector.
 
@@ -16179,7 +16167,6 @@ class CfnNetworkConnector(
             :param network_protocol: The network protocol for the connector. Specify IPv4 for IPv4-only networking, or DualStack for both IPv4 and IPv6.
             :param security_group_ids: The IDs of the VPC security groups to attach to the ENIs. All security groups must be in the same VPC as the subnets.
             :param subnet_ids: The IDs of the VPC subnets where Lambda provisions elastic network interfaces (ENIs). Specify 1 to 16 subnets. All subnets must be in the same VPC.
-            :param elastic_ip_configuration: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -16190,16 +16177,11 @@ class CfnNetworkConnector(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lambda as lambda_
                 
-                # elastic_ip_configuration: Any
-                
                 vpc_egress_configuration_property = lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
                     associated_compute_resource_types=["associatedComputeResourceTypes"],
                     network_protocol="networkProtocol",
                     security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"],
-                
-                    # the properties below are optional
-                    elastic_ip_configuration=elastic_ip_configuration
+                    subnet_ids=["subnetIds"]
                 )
             '''
             if __debug__:
@@ -16208,15 +16190,12 @@ class CfnNetworkConnector(
                 check_type(argname="argument network_protocol", value=network_protocol, expected_type=type_hints["network_protocol"])
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-                check_type(argname="argument elastic_ip_configuration", value=elastic_ip_configuration, expected_type=type_hints["elastic_ip_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "associated_compute_resource_types": associated_compute_resource_types,
                 "network_protocol": network_protocol,
                 "security_group_ids": security_group_ids,
                 "subnet_ids": subnet_ids,
             }
-            if elastic_ip_configuration is not None:
-                self._values["elastic_ip_configuration"] = elastic_ip_configuration
 
         @builtins.property
         def associated_compute_resource_types(self) -> typing.List[builtins.str]:
@@ -16266,14 +16245,6 @@ class CfnNetworkConnector(
             assert result is not None, "Required property 'subnet_ids' is missing"
             return typing.cast(typing.List[builtins.str], result)
 
-        @builtins.property
-        def elastic_ip_configuration(self) -> typing.Any:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html#cfn-lambda-networkconnector-vpcegressconfiguration-elasticipconfiguration
-            '''
-            result = self._values.get("elastic_ip_configuration")
-            return typing.cast(typing.Any, result)
-
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -16322,18 +16293,13 @@ class CfnNetworkConnectorProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_lambda as lambda_
             
-            # elastic_ip_configuration: Any
-            
             cfn_network_connector_props = lambda.CfnNetworkConnectorProps(
                 configuration=lambda.CfnNetworkConnector.ConfigProperty(
                     vpc_egress_configuration=lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
                         associated_compute_resource_types=["associatedComputeResourceTypes"],
                         network_protocol="networkProtocol",
                         security_group_ids=["securityGroupIds"],
-                        subnet_ids=["subnetIds"],
-            
-                        # the properties below are optional
-                        elastic_ip_configuration=elastic_ip_configuration
+                        subnet_ids=["subnetIds"]
                     )
                 ),
             
@@ -33601,6 +33567,13 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_lambda.Runtime
         return typing.cast("Runtime", jsii.sget(cls, "NODEJS_24_X"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="NODEJS_26_X")
+    @builtins.classmethod
+    def NODEJS_26_X(cls) -> "Runtime":
+        '''The NodeJS 26.x runtime (nodejs26.x).'''
+        return typing.cast("Runtime", jsii.sget(cls, "NODEJS_26_X"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="NODEJS_4_3")
     @builtins.classmethod
     def NODEJS_4_3(cls) -> "Runtime":
@@ -48486,7 +48459,6 @@ def _typecheckingstub__3fc56694727efe6f010831a4021c9e2946b305d97a58cfe4a799743dc
     network_protocol: builtins.str,
     security_group_ids: typing.Sequence[builtins.str],
     subnet_ids: typing.Sequence[builtins.str],
-    elastic_ip_configuration: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass

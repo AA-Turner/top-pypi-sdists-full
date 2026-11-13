@@ -9,6 +9,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from ..models.check_status import CheckStatus
+from ..models.check_waiting_for import CheckWaitingFor
 from ..types import UNSET, Unset
 from typing import cast
 import datetime
@@ -55,6 +56,12 @@ class Check:
                 `action_required` means the job needs someone's approval, and `url`
                 is where to give it. The page shows it as waiting for approval,
                 the same as a held run whose `status` is "waiting".
+            waiting_for (CheckWaitingFor | Unset): Why a queued Forgejo job has not started: `jobs` when it waits on
+                earlier jobs it needs (Forgejo's `blocked`), `runner` when it is
+                ready and waits for a runner to pick it up (`waiting`). The page
+                words it. Absent for GitHub, for a job that is not queued, and
+                for a blocked job in a run that has failed, which will never
+                start.
             job_id (int | Unset): The Actions job (or check run) id to pass to GET /api/v1/checks/log.
                 Absent for a legacy commit status and for a workflow held for
                 approval, which have no output to read.
@@ -114,6 +121,7 @@ class Check:
     status: CheckStatus
     url: str
     conclusion: str | Unset = UNSET
+    waiting_for: CheckWaitingFor | Unset = UNSET
     job_id: int | Unset = UNSET
     run_id: int | Unset = UNSET
     run_name: str | Unset = UNSET
@@ -139,6 +147,11 @@ class Check:
         url = self.url
 
         conclusion = self.conclusion
+
+        waiting_for: str | Unset = UNSET
+        if not isinstance(self.waiting_for, Unset):
+            waiting_for = self.waiting_for.value
+
 
         job_id = self.job_id
 
@@ -176,6 +189,8 @@ class Check:
         })
         if conclusion is not UNSET:
             field_dict["conclusion"] = conclusion
+        if waiting_for is not UNSET:
+            field_dict["waitingFor"] = waiting_for
         if job_id is not UNSET:
             field_dict["jobId"] = job_id
         if run_id is not UNSET:
@@ -216,6 +231,16 @@ class Check:
         url = d.pop("url")
 
         conclusion = d.pop("conclusion", UNSET)
+
+        _waiting_for = d.pop("waitingFor", UNSET)
+        waiting_for: CheckWaitingFor | Unset
+        if isinstance(_waiting_for,  Unset):
+            waiting_for = UNSET
+        else:
+            waiting_for = CheckWaitingFor(_waiting_for)
+
+
+
 
         job_id = d.pop("jobId", UNSET)
 
@@ -260,6 +285,7 @@ class Check:
             status=status,
             url=url,
             conclusion=conclusion,
+            waiting_for=waiting_for,
             job_id=job_id,
             run_id=run_id,
             run_name=run_name,

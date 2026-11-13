@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: cwcwidth
-Version: 0.1.12
+Version: 0.1.13
 Summary: Python bindings for wc(s)width
-Home-page: https://github.com/sebastinas/cwcwidth
-Author: Sebastian Ramacher
-Author-email: sebastian@ramacher.at
-License: MIT
+Author-email: Sebastian Ramacher <sebastian@ramacher.at>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/sebastinas/cwcwidth
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3

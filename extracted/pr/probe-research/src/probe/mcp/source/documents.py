@@ -6,6 +6,7 @@ import base64
 from ...sdk import errors
 from ...shared.reads.search_contract import EntityType, NoteCatalogKind
 from ..delivery.context import current_delivery, document_hint, pin_document, source_changed
+from probe.mcp.source.people import PeopleFilters
 
 #: `kind_rank` per notes-catalog kind, exactly as the catalog's SQL arms number
 #: them (app/notes_catalog/service.py): the tiebreak inside one `created_at`,
@@ -45,7 +46,12 @@ class DocumentReadsMixin:
         return base64.urlsafe_b64encode(f"{created_at}|{rank}|{row_id}".encode()).decode()
 
     def notes_catalog(
-        self, *, query: str | None = None, cursor: str | None = None, limit: int
+        self,
+        *,
+        query: str | None = None,
+        cursor: str | None = None,
+        limit: int,
+        filters: PeopleFilters = PeopleFilters(),
     ) -> dict:
         """``GET /v1/notes``, the tenant-wide catalog: `{items, next_cursor}`.
 
@@ -54,7 +60,7 @@ class DocumentReadsMixin:
         openable here now (`sub_note:<id>`), so hiding them would hide the one
         row a search was most likely looking for."""
         return self.client.list_notes(
-            query=query, cursor=cursor, limit=limit, include_sub_notes=True
+            query=query, cursor=cursor, limit=limit, include_sub_notes=True, **filters.to_query()
         )
 
     def project_overview(self, project_id: str) -> dict:

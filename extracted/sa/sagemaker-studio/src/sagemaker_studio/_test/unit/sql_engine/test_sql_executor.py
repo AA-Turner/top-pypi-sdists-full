@@ -5,11 +5,22 @@ from unittest.mock import Mock
 import pandas as pd
 
 from sagemaker_studio.sql_engine.database_transformer import DatabaseTransformer
+from sagemaker_studio.sql_engine.redshift_transformer import RedshiftTransformer
 from sagemaker_studio.sql_engine.resource_fetching_definition import (
     FetchMode,
     ResourceFetchingDefinition,
 )
 from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
+
+
+def _identity_row_limits(statements, limit_query_results=None):
+    """Stand in for DatabaseTransformer.apply_row_limits on a bare Mock transformer.
+
+    Faithful to the real classmethod for these tests: with limit_query_results=None
+    apply_row_limit returns early on the non-int gate, so every statement comes back
+    unchanged and the list is passed through as-is.
+    """
+    return statements
 
 
 class TestGetResources(unittest.TestCase):
@@ -562,6 +573,7 @@ class TestMultiStatementExecution(unittest.TestCase):
             Mock(statement="SELECT 1", statement_type="SELECT")
         ]
         mock_transformer.get_loggers.return_value = []  # Return empty list for loggers
+        mock_transformer.apply_row_limits.side_effect = _identity_row_limits
         self.executor._transformer_classes = {"REDSHIFT": mock_transformer}
 
         # Mock connection.execute to return a result with rows
@@ -585,6 +597,7 @@ class TestMultiStatementExecution(unittest.TestCase):
             Mock(statement="SELECT 2", statement_type="SELECT"),
         ]
         mock_transformer.get_loggers.return_value = []  # Return empty list for loggers
+        mock_transformer.apply_row_limits.side_effect = _identity_row_limits
         self.executor._transformer_classes = {"REDSHIFT": mock_transformer}
 
         # Mock connection.execute to return results with rows
@@ -613,6 +626,7 @@ class TestMultiStatementExecution(unittest.TestCase):
             Mock(statement="SELECT :param", statement_type="SELECT")
         ]
         mock_transformer.get_loggers.return_value = []  # Return empty list for loggers
+        mock_transformer.apply_row_limits.side_effect = _identity_row_limits
         self.executor._transformer_classes = {"REDSHIFT": mock_transformer}
 
         mock_result = Mock()
@@ -636,6 +650,7 @@ class TestMultiStatementExecution(unittest.TestCase):
             Mock(statement="INSERT INTO t VALUES (1)", statement_type="INSERT")
         ]
         mock_transformer.get_loggers.return_value = []  # Return empty list for loggers
+        mock_transformer.apply_row_limits.side_effect = _identity_row_limits
         self.executor._transformer_classes = {"REDSHIFT": mock_transformer}
 
         # Mock connection.execute to return a result without rows
@@ -660,6 +675,7 @@ class TestMultiStatementExecution(unittest.TestCase):
             Mock(statement="INVALID", statement_type="UNKNOWN"),
         ]
         mock_transformer.get_loggers.return_value = []  # Return empty list for loggers
+        mock_transformer.apply_row_limits.side_effect = _identity_row_limits
         self.executor._transformer_classes = {"REDSHIFT": mock_transformer}
 
         # First call succeeds, second fails
@@ -711,6 +727,7 @@ class TestMultiStatementExecution(unittest.TestCase):
             Mock(statement="SELECT 1", statement_type="SELECT")
         ]
         mock_transformer.get_loggers.return_value = []  # Return empty list for loggers
+        mock_transformer.apply_row_limits.side_effect = _identity_row_limits
         self.executor._transformer_classes = {"REDSHIFT": mock_transformer}
 
         # Mock engine.connect to raise SQLAlchemyError
@@ -724,6 +741,7 @@ class TestMultiStatementExecution(unittest.TestCase):
         mock_transformer = Mock()
         mock_transformer.split_query.return_value = []
         mock_transformer.get_loggers.return_value = []  # Return empty list for loggers
+        mock_transformer.apply_row_limits.side_effect = _identity_row_limits
         self.executor._transformer_classes = {"REDSHIFT": mock_transformer}
 
         results = list(self.executor.execute(self.mock_engine, ""))
@@ -763,6 +781,7 @@ class TestExecuteWithOptionalConnection(unittest.TestCase):
             Mock(statement="SELECT 1", statement_type="SELECT")
         ]
         self.mock_transformer.get_loggers.return_value = []
+        self.mock_transformer.apply_row_limits.side_effect = _identity_row_limits
         self.executor._transformer_classes = {"REDSHIFT": self.mock_transformer}
 
     def test_execute_without_connection_creates_and_closes_connection(self):
@@ -1334,3 +1353,237 @@ class TestSqlExecutorTeradataModuleImport(unittest.TestCase):
                 sys.modules.pop(transformer_module_name, None)
             # Reload to restore normal state
             importlib.reload(se_module)
+
+
+class _CapturingStatementExecutor:
+    """Fake per-statement executor that records the text SqlExecutor submits.
+
+    Injected at the ``statement_executor`` seam, which is the same seam the async
+    materialization path injects (``_async_statement_executor``), so the transformer,
+    the split and the row-limit pass are all real.
+    """
+
+    def __init__(self):
+        self.submitted = []
+
+    def __call__(self, connection, statement, parameters=None):
+        self.submitted.append(statement)
+        return pd.DataFrame({"col": [1]})
+
+
+def _execute_capturing(query, connection_type="REDSHIFT", **execute_kwargs):
+    """Execute `query` through a real transformer; return the capture and the results."""
+    executor = SqlExecutor()
+    engine = Mock()
+    engine.get_execution_options.return_value = {"connection_type": connection_type}
+    capture = _CapturingStatementExecutor()
+    results = list(
+        executor.execute(
+            engine,
+            query,
+            connection=Mock(),
+            statement_executor=capture,
+            **execute_kwargs,
+        )
+    )
+    return capture, results
+
+
+class TestExecuteRowLimitSubmission(unittest.TestCase):
+    """What SqlExecutor.execute submits with and without a requested row limit.
+
+    Uses the real RedshiftTransformer, so the split, the eligibility gates and the
+    appended clause are all real rather than a restatement of the mock.
+    """
+
+    QUERIES = [
+        "SELECT a FROM t",
+        "SELECT a FROM t WHERE b = 1 ORDER BY a",
+        "SELECT a FROM t; SELECT b FROM u",
+        "SELECT a FROM t LIMIT 5",
+        "CREATE TABLE z AS SELECT a FROM t",
+        "INSERT INTO z SELECT a FROM t",
+    ]
+
+    def test_no_kwarg_submits_split_query_output_byte_identically(self):
+        """No effective row limit leaves the statement byte-identical."""
+        for query in self.QUERIES:
+            with self.subTest(query=query):
+                capture, results = _execute_capturing(query)
+                expected = [s.statement for s in RedshiftTransformer.split_query(query)]
+                self.assertEqual(capture.submitted, expected)
+                self.assertEqual(len(results), len(expected))
+
+    def test_executor_submits_exactly_what_transformer_produced(self):
+        """The executor submits exactly what the transformer produced."""
+        for query in self.QUERIES:
+            # 0 is an ineffective limit, 10**9 proves there is no upper bound.
+            for limit in (None, 0, 100, 10**9):
+                with self.subTest(query=query, limit=limit):
+                    capture, _ = _execute_capturing(query, limit_query_results=limit)
+                    statements = RedshiftTransformer.split_query(query)
+                    expected = [
+                        s.statement for s in RedshiftTransformer.apply_row_limits(statements, limit)
+                    ]
+                    self.assertEqual(capture.submitted, expected)
+
+    def test_mixed_multi_statement_limits_only_the_eligible_statement(self):
+        """Statement 0 is eligible; 1 is DDL and 2 already carries the author's limit.
+
+        _Requirements: 5.2, 5.3, 5.4, 6.4_
+        """
+        query = "SELECT a FROM t; CREATE TABLE z AS SELECT b FROM u; SELECT c FROM v LIMIT 5"
+        capture, results = _execute_capturing(query, limit_query_results=100)
+
+        self.assertEqual(
+            capture.submitted,
+            [
+                "SELECT a FROM t\nLIMIT 100",
+                "CREATE TABLE z AS SELECT b FROM u",
+                "SELECT c FROM v LIMIT 5",
+            ],
+        )
+        # 6.4: the two statements the transformer declined to limit still execute and
+        # still yield a result, rather than being skipped.
+        self.assertEqual([r.statement_index for r in results], [0, 1, 2])
+        self.assertEqual([r.statement_type for r in results], ["SELECT", "CREATE", "SELECT"])
+        self.assertTrue(all(r.status == "success" for r in results))
+        self.assertTrue(all(r.result is not None for r in results))
+
+    def test_every_eligible_statement_in_a_multi_statement_query_gains_the_limit(self):
+        """The test above has its one eligible statement first, so it still passes if only
+        the first statement is ever limited. Here the eligible statements follow an
+        ineligible one.
+
+        _Requirements: 5.1, 5.2, 5.3_
+        """
+        query = "CREATE TABLE z AS SELECT b FROM u; SELECT a FROM t; SELECT c FROM v"
+        capture, results = _execute_capturing(query, limit_query_results=100)
+
+        self.assertEqual(
+            capture.submitted,
+            [
+                "CREATE TABLE z AS SELECT b FROM u",
+                "SELECT a FROM t\nLIMIT 100",
+                "SELECT c FROM v\nLIMIT 100",
+            ],
+        )
+        self.assertEqual([r.statement_index for r in results], [0, 1, 2])
+
+
+class TestRowLimitAndMaxStatements(unittest.TestCase):
+    """Row limiting does not change how many statements a cell may hold.
+
+    apply_row_limits rebuilds the list one statement at a time, so the count it hands
+    execute_statements is the count split_query produced. These assert that at the
+    MAX_STATEMENTS boundary, which is the only place the count is read.
+    """
+
+    @staticmethod
+    def _query(count):
+        return "; ".join(f"SELECT c{i} FROM t{i}" for i in range(count))
+
+    def test_the_maximum_number_of_statements_is_unchanged_by_a_limit(self):
+        query = self._query(SqlExecutor.MAX_STATEMENTS)
+        for limit in (None, 100):
+            with self.subTest(limit=limit):
+                capture, results = _execute_capturing(query, limit_query_results=limit)
+                self.assertEqual(len(capture.submitted), SqlExecutor.MAX_STATEMENTS)
+                self.assertEqual(len(results), SqlExecutor.MAX_STATEMENTS)
+        # Every one of the ten was limited, so the accepted count is not ten because the
+        # limit quietly dropped some of them.
+        capture, _ = _execute_capturing(query, limit_query_results=100)
+        self.assertTrue(all(s.endswith("\nLIMIT 100") for s in capture.submitted))
+
+    def test_too_many_statements_raises_the_same_error_with_a_limit(self):
+        query = self._query(SqlExecutor.MAX_STATEMENTS + 1)
+        messages = []
+        for limit in (None, 100):
+            with self.assertRaises(ValueError) as caught:
+                _execute_capturing(query, limit_query_results=limit)
+            messages.append(str(caught.exception))
+
+        self.assertEqual(messages[0], messages[1])
+        self.assertIn(f"Too many statements: {SqlExecutor.MAX_STATEMENTS + 1}", messages[0])
+
+
+class TestQueryHistoryRecordsSubmittedText(unittest.TestCase):
+    """Query history records the text that was submitted.
+
+    execute_statements sets ExecutionResult.statement = stmt.statement, so the recorded
+    text is the submitted text with no additional code. These tests assert that at the
+    ExecutionResult level and then one layer further, at the sqlutils metadata entry that
+    KernelServer actually reads.
+    """
+
+    def test_execution_result_records_the_submitted_text(self):
+        query = "SELECT a FROM t"
+        for limit in (None, 100):
+            with self.subTest(limit=limit):
+                capture, results = _execute_capturing(query, limit_query_results=limit)
+                self.assertEqual([r.statement for r in results], capture.submitted)
+        # The limited run must actually change the statement, or the pair above would
+        # hold for a no-op implementation.
+        capture, _ = _execute_capturing(query, limit_query_results=100)
+        self.assertEqual(capture.submitted, ["SELECT a FROM t\nLIMIT 100"])
+
+    def test_sqlutils_metadata_entry_carries_the_limited_text(self):
+        """The `statement` entry on _last_sql_execution_metadata, not ExecutionResult, is
+        what KernelServer's query_history/handler.py reads into HistoryItem.query_text."""
+        from sagemaker_studio.utils import sqlutils
+
+        executor = SqlExecutor()
+        engine = Mock()
+        engine.get_execution_options.return_value = {"connection_type": "REDSHIFT"}
+        capture = _CapturingStatementExecutor()
+
+        # Same composition the native route uses: the capture wrapper around executor.execute.
+        stream = sqlutils._stream_and_capture_metadata(
+            executor.execute(
+                engine,
+                "SELECT a FROM t",
+                connection=Mock(),
+                statement_executor=capture,
+                limit_query_results=100,
+            ),
+            connection_id="c1",
+            connection_type="REDSHIFT",
+        )
+        list(stream)
+
+        recorded = [entry["statement"] for entry in sqlutils._last_sql_execution_metadata]
+        self.assertEqual(recorded, ["SELECT a FROM t\nLIMIT 100"])
+        self.assertEqual(recorded, capture.submitted)
+
+    def test_athena_records_the_authors_bytes_plus_the_clause(self):
+        """The recorded text is the author's, whitespace included, plus only the clause."""
+        from sagemaker_studio.sql_engine.sql_executor import ErrorStrategy
+        from sagemaker_studio.utils import athena_v4
+
+        original = "select  a  from  t"  # unnormalized on purpose
+        submitted = []
+
+        def execute_method(statement):
+            submitted.append(statement)
+            return pd.DataFrame({"col": [1]})
+
+        def run(limit):
+            submitted.clear()
+            results = list(
+                athena_v4.execute_query_statements(
+                    SimpleNamespace(execution_parameters=None),
+                    original,
+                    ErrorStrategy.STOP_ON_ERROR,
+                    execute_method=execute_method,
+                    limit_query_results=limit,
+                )
+            )
+            return list(submitted), results
+
+        no_limit, results = run(None)
+        self.assertEqual(no_limit, [original])
+        self.assertEqual([r.statement for r in results], [original])
+
+        limited, results = run(100)
+        self.assertEqual(limited, [f"{original}\nLIMIT 100"])
+        self.assertEqual([r.statement for r in results], limited)

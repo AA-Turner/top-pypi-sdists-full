@@ -8,9 +8,16 @@ from importlib import import_module
 if typing.TYPE_CHECKING:
     from .types import (
         ConnectExternalAccountsRequestPlatform,
-        ConnectExternalAccountsRequestScopesItem,
         ConnectExternalAccountsResponse,
-        CreateExternalAccountsRequestPlatform,
+        CreateExternalAccountsRequestBody,
+        CreateExternalAccountsRequestBodyAimerce,
+        CreateExternalAccountsRequestBodyFacebook,
+        CreateExternalAccountsRequestBodyKlaviyo,
+        CreateExternalAccountsRequestBodyTiktok,
+        CreateExternalAccountsRequestBody_Aimerce,
+        CreateExternalAccountsRequestBody_Facebook,
+        CreateExternalAccountsRequestBody_Klaviyo,
+        CreateExternalAccountsRequestBody_Tiktok,
         DeleteExternalAccountsResponse,
         ListExternalAccountsRequestDirection,
         ListExternalAccountsRequestOrder,
@@ -20,17 +27,19 @@ if typing.TYPE_CHECKING:
         ListExternalAccountsResponse,
         ListExternalAccountsResponsePageInfo,
     )
-    from . import lead_forms, partners, posts
-    from .lead_forms import ListLeadFormsResponse
-    from .partners import DeletePartnersResponse, ListPartnersResponse, ListPartnersResponsePageInfo
-    from .posts import ListPostsResponse, ListPostsResponsePageInfo
 _dynamic_imports: typing.Dict[str, str] = {
     "ConnectExternalAccountsRequestPlatform": ".types",
-    "ConnectExternalAccountsRequestScopesItem": ".types",
     "ConnectExternalAccountsResponse": ".types",
-    "CreateExternalAccountsRequestPlatform": ".types",
+    "CreateExternalAccountsRequestBody": ".types",
+    "CreateExternalAccountsRequestBodyAimerce": ".types",
+    "CreateExternalAccountsRequestBodyFacebook": ".types",
+    "CreateExternalAccountsRequestBodyKlaviyo": ".types",
+    "CreateExternalAccountsRequestBodyTiktok": ".types",
+    "CreateExternalAccountsRequestBody_Aimerce": ".types",
+    "CreateExternalAccountsRequestBody_Facebook": ".types",
+    "CreateExternalAccountsRequestBody_Klaviyo": ".types",
+    "CreateExternalAccountsRequestBody_Tiktok": ".types",
     "DeleteExternalAccountsResponse": ".types",
-    "DeletePartnersResponse": ".partners",
     "ListExternalAccountsRequestDirection": ".types",
     "ListExternalAccountsRequestOrder": ".types",
     "ListExternalAccountsRequestPlatform": ".types",
@@ -38,14 +47,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListExternalAccountsRequestTrustLevel": ".types",
     "ListExternalAccountsResponse": ".types",
     "ListExternalAccountsResponsePageInfo": ".types",
-    "ListLeadFormsResponse": ".lead_forms",
-    "ListPartnersResponse": ".partners",
-    "ListPartnersResponsePageInfo": ".partners",
-    "ListPostsResponse": ".posts",
-    "ListPostsResponsePageInfo": ".posts",
-    "lead_forms": ".lead_forms",
-    "partners": ".partners",
-    "posts": ".posts",
 }
 
 
@@ -72,11 +73,17 @@ def __dir__():
 
 __all__ = [
     "ConnectExternalAccountsRequestPlatform",
-    "ConnectExternalAccountsRequestScopesItem",
     "ConnectExternalAccountsResponse",
-    "CreateExternalAccountsRequestPlatform",
+    "CreateExternalAccountsRequestBody",
+    "CreateExternalAccountsRequestBodyAimerce",
+    "CreateExternalAccountsRequestBodyFacebook",
+    "CreateExternalAccountsRequestBodyKlaviyo",
+    "CreateExternalAccountsRequestBodyTiktok",
+    "CreateExternalAccountsRequestBody_Aimerce",
+    "CreateExternalAccountsRequestBody_Facebook",
+    "CreateExternalAccountsRequestBody_Klaviyo",
+    "CreateExternalAccountsRequestBody_Tiktok",
     "DeleteExternalAccountsResponse",
-    "DeletePartnersResponse",
     "ListExternalAccountsRequestDirection",
     "ListExternalAccountsRequestOrder",
     "ListExternalAccountsRequestPlatform",
@@ -84,12 +91,4 @@ __all__ = [
     "ListExternalAccountsRequestTrustLevel",
     "ListExternalAccountsResponse",
     "ListExternalAccountsResponsePageInfo",
-    "ListLeadFormsResponse",
-    "ListPartnersResponse",
-    "ListPartnersResponsePageInfo",
-    "ListPostsResponse",
-    "ListPostsResponsePageInfo",
-    "lead_forms",
-    "partners",
-    "posts",
 ]

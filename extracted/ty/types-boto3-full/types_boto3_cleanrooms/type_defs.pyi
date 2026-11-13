@@ -523,6 +523,7 @@ __all__ = (
     "QueryConstraintTypeDef",
     "ReceiverConfigurationTypeDef",
     "ResponseMetadataTypeDef",
+    "RetryInfoTypeDef",
     "S3LocationTypeDef",
     "SchemaAnalysisRuleRequestTypeDef",
     "SchemaStatusDetailTypeDef",
@@ -1550,9 +1551,8 @@ class PopulationAnalysisSqlParametersTypeDef(TypedDict):
 class ProtectedJobDirectAnalysisConfigurationDetailsTypeDef(TypedDict):
     receiverAccountIds: NotRequired[list[str]]
 
-class ProtectedJobErrorTypeDef(TypedDict):
-    message: str
-    code: str
+class RetryInfoTypeDef(TypedDict):
+    retryable: NotRequired[bool]
 
 class ProtectedJobMemberOutputConfigurationInputTypeDef(TypedDict):
     accountId: str
@@ -1592,10 +1592,6 @@ class ProtectedQueryS3OutputTypeDef(TypedDict):
 
 class ProtectedQuerySingleMemberOutputTypeDef(TypedDict):
     accountId: str
-
-class ProtectedQueryErrorTypeDef(TypedDict):
-    message: str
-    code: str
 
 class ProtectedQuerySQLParametersOutputTypeDef(TypedDict):
     queryString: NotRequired[str]
@@ -2240,6 +2236,16 @@ class ProtectedJobConfigurationDetailsTypeDef(TypedDict):
     directAnalysisConfigurationDetails: NotRequired[
         ProtectedJobDirectAnalysisConfigurationDetailsTypeDef
     ]
+
+class ProtectedJobErrorTypeDef(TypedDict):
+    message: str
+    code: str
+    retry: NotRequired[RetryInfoTypeDef]
+
+class ProtectedQueryErrorTypeDef(TypedDict):
+    message: str
+    code: str
+    retry: NotRequired[RetryInfoTypeDef]
 
 class ProtectedJobOutputConfigurationInputTypeDef(TypedDict):
     member: NotRequired[ProtectedJobMemberOutputConfigurationInputTypeDef]

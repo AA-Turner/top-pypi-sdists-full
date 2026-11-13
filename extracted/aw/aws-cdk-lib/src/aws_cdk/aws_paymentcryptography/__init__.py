@@ -997,8 +997,8 @@ class CfnKey(
         jsii_struct_bases=[],
         name_mapping={
             "status": "status",
-            "kms_key_arn": "kmsKeyArn",
-            "kms_key_id": "kmsKeyId",
+            "kms_encryption_key_arn": "kmsEncryptionKeyArn",
+            "kms_encryption_key_id": "kmsEncryptionKeyId",
             "status_message": "statusMessage",
         },
     )
@@ -1007,8 +1007,8 @@ class CfnKey(
             self,
             *,
             status: builtins.str,
-            kms_key_arn: typing.Optional[builtins.str] = None,
-            kms_key_id: typing.Optional[builtins.str] = None,
+            kms_encryption_key_arn: typing.Optional[builtins.str] = None,
+            kms_encryption_key_id: typing.Optional[builtins.str] = None,
             status_message: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Represents the replication status information for a key in a replication region for `Multi-Region key replication <https://docs.aws.amazon.com/payment-cryptography/latest/userguide/keys-multi-region-replication.html>`_ .
@@ -1016,8 +1016,8 @@ class CfnKey(
             This structure contains details about the current state of key replication, including any status messages and operational information about the replication process.
 
             :param status: The current status of key replication in this AWS Region . This field indicates whether the key replication is in progress, completed successfully, or has encountered an error. Possible values include states such as ``SYNCRHONIZED`` , ``IN_PROGRESS`` , ``DELETE_IN_PROGRESS`` , or ``FAILED`` . This provides visibility into the replication process for monitoring and troubleshooting purposes.
-            :param kms_key_arn: The ARN of the AWS KMS key that protects the replica in this region.
-            :param kms_key_id: The AWS KMS key requested for this region, when replication failed before its ARN was known.
+            :param kms_encryption_key_arn: The ARN of the AWS KMS key that protects the replica in this region.
+            :param kms_encryption_key_id: The AWS KMS key requested for this region, when replication failed before its ARN was known.
             :param status_message: A message that provides additional information about the current replication status of the key. This field contains details about any issues or progress updates related to key replication operations. It may include information about replication failures, synchronization status, or other operational details.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-replicationstatustype.html
@@ -1033,24 +1033,24 @@ class CfnKey(
                     status="status",
                 
                     # the properties below are optional
-                    kms_key_arn="kmsKeyArn",
-                    kms_key_id="kmsKeyId",
+                    kms_encryption_key_arn="kmsEncryptionKeyArn",
+                    kms_encryption_key_id="kmsEncryptionKeyId",
                     status_message="statusMessage"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__04dc32e9896c99b8bbd4055bd1aa79b5781435e781cfe41e6d7532befcb03b03)
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+                check_type(argname="argument kms_encryption_key_arn", value=kms_encryption_key_arn, expected_type=type_hints["kms_encryption_key_arn"])
+                check_type(argname="argument kms_encryption_key_id", value=kms_encryption_key_id, expected_type=type_hints["kms_encryption_key_id"])
                 check_type(argname="argument status_message", value=status_message, expected_type=type_hints["status_message"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "status": status,
             }
-            if kms_key_arn is not None:
-                self._values["kms_key_arn"] = kms_key_arn
-            if kms_key_id is not None:
-                self._values["kms_key_id"] = kms_key_id
+            if kms_encryption_key_arn is not None:
+                self._values["kms_encryption_key_arn"] = kms_encryption_key_arn
+            if kms_encryption_key_id is not None:
+                self._values["kms_encryption_key_id"] = kms_encryption_key_id
             if status_message is not None:
                 self._values["status_message"] = status_message
 
@@ -1067,21 +1067,21 @@ class CfnKey(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        def kms_encryption_key_arn(self) -> typing.Optional[builtins.str]:
             '''The ARN of the AWS KMS key that protects the replica in this region.
 
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-replicationstatustype.html#cfn-paymentcryptography-key-replicationstatustype-kmskeyarn
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-replicationstatustype.html#cfn-paymentcryptography-key-replicationstatustype-kmsencryptionkeyarn
             '''
-            result = self._values.get("kms_key_arn")
+            result = self._values.get("kms_encryption_key_arn")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
-        def kms_key_id(self) -> typing.Optional[builtins.str]:
+        def kms_encryption_key_id(self) -> typing.Optional[builtins.str]:
             '''The AWS KMS key requested for this region, when replication failed before its ARN was known.
 
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-replicationstatustype.html#cfn-paymentcryptography-key-replicationstatustype-kmskeyid
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-replicationstatustype.html#cfn-paymentcryptography-key-replicationstatustype-kmsencryptionkeyid
             '''
-            result = self._values.get("kms_key_id")
+            result = self._values.get("kms_encryption_key_id")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -1481,8 +1481,8 @@ def _typecheckingstub__19bb5a67c0e2112fa91ea214bcd53a4406d0b3e006c09d38e9c0cd851
 def _typecheckingstub__04dc32e9896c99b8bbd4055bd1aa79b5781435e781cfe41e6d7532befcb03b03(
     *,
     status: builtins.str,
-    kms_key_arn: typing.Optional[builtins.str] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
+    kms_encryption_key_arn: typing.Optional[builtins.str] = None,
+    kms_encryption_key_id: typing.Optional[builtins.str] = None,
     status_message: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

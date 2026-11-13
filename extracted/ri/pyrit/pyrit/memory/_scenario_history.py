@@ -1,0 +1,299 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+
+"""Private scenario-history page query component."""
+
+from __future__ import annotations
+
+import uuid
+from contextlib import closing
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Literal
+
+from sqlalchemy import String, and_, case, cast, func, or_, select
+
+from pyrit.memory.analytics_sql import JsonArrayItems, JsonArrayValue, JsonScalar, UuidHex
+from pyrit.memory.memory_models import AttackResultEntry, ConversationEntry, FindingEvidenceEntry, ScenarioResultEntry
+from pyrit.models import SCENARIO_CONVERSATIONS_METADATA_KEY
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from sqlalchemy.sql import ColumnElement
+
+    from pyrit.memory.memory_interface import (
+        MemoryInterface,
+        ScenarioHistoryKeysetCursor,
+        ScenarioHistoryRunRecord,
+    )
+
+
+class _ScenarioHistoryQueries:
+    """
+    Private query builder for scenario-history page retrieval.
+
+    Owns filter normalization, cursor handling, compact SQL construction,
+    and row-to-record conversion. Reaches backend-specific expressions
+    through MemoryInterface hooks. Not exported from pyrit.memory.
+    """
+
+    def __init__(self, *, memory: MemoryInterface) -> None:
+        """Inject MemoryInterface for hook access and session management."""
+        self._memory = memory
+
+    def get_page(
+        self,
+        *,
+        scenario_names: Sequence[str] | None,
+        statuses: Sequence[str] | None,
+        labels: Mapping[str, str | Sequence[str]] | None,
+        operation_ids: Sequence[uuid.UUID] | None = None,
+        reference_id: uuid.UUID | None = None,
+        cursor: ScenarioHistoryKeysetCursor | None,
+        limit: int,
+        sort_by: Literal["created_at", "activity"] = "created_at",
+    ) -> tuple[list[ScenarioHistoryRunRecord], bool]:
+        """
+        Return one descending scenario-history page.
+
+        Args:
+            scenario_names: Filter by scenario name or registry name (exact match after strip).
+            statuses: Filter by scenario run state (case-insensitive, normalized to upper).
+            labels: Filter by label key-value pairs (exact match; keys restricted to [A-Za-z0-9_.-]+).
+            operation_ids: Saved Operation IDs to match, without legacy name resolution.
+            reference_id: Exact conversation, attack, finding, or scenario result ID.
+            cursor: Keyset cursor for pagination (sort timestamp DESC, id DESC).
+            limit: Page size (1-100).
+            sort_by: Sort by creation time or scenario activity time.
+
+        Returns:
+            tuple[list[ScenarioHistoryRunRecord], bool]:
+                Page records and whether another page exists.
+
+        Raises:
+            ValueError: If the limit, cursor ID, or label keys are invalid.
+        """
+        # Import here to avoid circular dependency
+        from pyrit.memory.memory_interface import ScenarioHistoryRunRecord
+
+        if limit < 1 or limit > 100:
+            raise ValueError("Scenario history limit must be between 1 and 100.")
+        if sort_by not in ("created_at", "activity"):
+            raise ValueError(f"Unsupported scenario history sort mode: {sort_by!r}.")
+        sort_timestamp = self._get_sort_timestamp(sort_by=sort_by)
+
+        conditions: list[Any] = []
+        if reference_id is not None:
+            conversation_attacks = select(ConversationEntry.attack_result_id).where(
+                ConversationEntry.conversation_id == str(reference_id)
+            )
+            finding_attacks = select(FindingEvidenceEntry.attack_result_id).where(
+                FindingEvidenceEntry.finding_id == reference_id
+            )
+            matching_attack = select(AttackResultEntry.id).where(
+                AttackResultEntry.attribution_parent_id == ScenarioResultEntry.id,
+                or_(
+                    AttackResultEntry.id == reference_id,
+                    AttackResultEntry.conversation_id == str(reference_id),
+                    self._memory._get_condition_json_array_match(
+                        json_column=AttackResultEntry.pruned_conversation_ids,
+                        property_path="$",
+                        array_to_match=[str(reference_id)],
+                    ),
+                    AttackResultEntry.id.in_(conversation_attacks),
+                    AttackResultEntry.id.in_(finding_attacks),
+                ),
+            )
+            conditions.append(
+                or_(
+                    ScenarioResultEntry.id == reference_id,
+                    matching_attack.exists(),
+                    self._recorded_conversation_match(reference_id),
+                )
+            )
+        if operation_ids:
+            conditions.append(ScenarioResultEntry.operation_id.in_(operation_ids))
+        effective_names = sorted({name.strip() for name in scenario_names or [] if name.strip()})
+        if effective_names:
+            conditions.append(
+                or_(
+                    ScenarioResultEntry.scenario_name.in_(effective_names),
+                    self._memory._get_scenario_registry_name_condition(scenario_names=effective_names),
+                )
+            )
+        effective_statuses = sorted({status.strip().upper() for status in statuses or [] if status.strip()})
+        if effective_statuses:
+            conditions.append(ScenarioResultEntry.scenario_run_state.in_(effective_statuses))
+        effective_labels = {
+            key: value
+            for key, value in (labels or {}).items()
+            if (isinstance(value, str) and value) or (not isinstance(value, str) and len(value) > 0)
+        }
+        invalid_keys = sorted(key for key in effective_labels if not self._memory._LABEL_KEY_PATTERN.fullmatch(key))
+        if invalid_keys:
+            raise ValueError(
+                f"Invalid label key(s) {invalid_keys!r}: keys must match {self._memory._LABEL_KEY_PATTERN.pattern}."
+            )
+        if effective_labels:
+            conditions.append(self._memory._get_scenario_result_labels_condition(labels=effective_labels))
+        if cursor is not None:
+            cursor_id = uuid.UUID(cursor.scenario_result_id)
+            conditions.append(
+                or_(
+                    sort_timestamp < cursor.timestamp,
+                    and_(
+                        sort_timestamp == cursor.timestamp,
+                        ScenarioResultEntry.id < cursor_id,
+                    ),
+                )
+            )
+
+        statement = select(
+            ScenarioResultEntry.id,
+            ScenarioResultEntry.scenario_name,
+            ScenarioResultEntry.scenario_version,
+            ScenarioResultEntry.pyrit_version,
+            ScenarioResultEntry.scenario_identifier,
+            ScenarioResultEntry.objective_target_identifier,
+            ScenarioResultEntry.scenario_run_state,
+            ScenarioResultEntry.labels,
+            ScenarioResultEntry.operation_id,
+            ScenarioResultEntry.timestamp,
+            self._memory._get_scenario_started_at_expression().label("started_at"),
+            ScenarioResultEntry.completion_time,
+            ScenarioResultEntry.error_message,
+            ScenarioResultEntry.error_type,
+            *(
+                expression.label(label)
+                for expression, label in zip(
+                    self._memory._get_scenario_history_plan_expressions(),
+                    ("scenario_registry_name", "plan_atomic_groups", "plan_seed_id_map"),
+                    strict=True,
+                )
+            ),
+        )
+        if conditions:
+            statement = statement.where(and_(*conditions))
+        statement = statement.order_by(
+            sort_timestamp.desc(),
+            ScenarioResultEntry.id.desc(),
+        ).limit(limit + 1)
+        with closing(self._memory._get_session()) as session:
+            rows = session.execute(statement).all()
+        page_rows = rows[:limit]
+
+        records = [
+            ScenarioHistoryRunRecord(
+                scenario_result_id=str(row.id),
+                scenario_name=row.scenario_name,
+                scenario_version=row.scenario_version,
+                pyrit_version=row.pyrit_version,
+                scenario_identifier=row.scenario_identifier or {},
+                objective_target_identifier=row.objective_target_identifier or {},
+                status=row.scenario_run_state,
+                labels=row.labels or {},
+                operation_id=row.operation_id,
+                created_at=row.timestamp,
+                started_at=_parse_scenario_started_at(raw_value=row.started_at),
+                completed_at=row.completion_time,
+                error_message=row.error_message,
+                error_type=row.error_type,
+                scenario_registry_name=row.scenario_registry_name,
+                plan_atomic_groups=row.plan_atomic_groups,
+                plan_seed_id_map=row.plan_seed_id_map,
+            )
+            for row in page_rows
+        ]
+        return records, len(rows) > limit
+
+    @staticmethod
+    def _get_sort_timestamp(*, sort_by: Literal["created_at", "activity"]) -> Any:
+        """
+        Build the timestamp expression used for history ordering and keyset pagination.
+
+        Returns:
+            Any: The SQL timestamp expression shared by ordering and the keyset predicate.
+        """
+        if sort_by == "created_at":
+            return ScenarioResultEntry.timestamp
+        latest_attempt_timestamp = (
+            select(func.max(AttackResultEntry.timestamp))
+            .where(AttackResultEntry.attribution_parent_id == ScenarioResultEntry.id)
+            .correlate(ScenarioResultEntry)
+            .scalar_subquery()
+        )
+        latest_activity = case(
+            (latest_attempt_timestamp > ScenarioResultEntry.timestamp, latest_attempt_timestamp),
+            else_=ScenarioResultEntry.timestamp,
+        )
+        return case(
+            (
+                and_(
+                    ScenarioResultEntry.scenario_run_state.in_(("COMPLETED", "FAILED", "CANCELLED")),
+                    ScenarioResultEntry.completion_time > latest_activity,
+                ),
+                ScenarioResultEntry.completion_time,
+            ),
+            else_=latest_activity,
+        )
+
+    @staticmethod
+    def _recorded_conversation_match(reference_id: uuid.UUID) -> ColumnElement[bool]:
+        """
+        Match verified SDK provenance when no result row has been persisted.
+
+        Returns:
+            ColumnElement[bool]: A correlated match against the saved conversation's owner.
+        """
+        records = JsonArrayItems(
+            JsonArrayValue(ScenarioResultEntry.scenario_metadata, f"$.{SCENARIO_CONVERSATIONS_METADATA_KEY}")
+        ).table_valued("value", "type")
+        document = case((cast(records.c.type, String(8)).in_(("object", "5")), records.c.value), else_="{}")
+        verified_link = (
+            select(records.c.value)
+            .where(
+                JsonScalar(document, "$.conversation_id") == ConversationEntry.conversation_id,
+                UuidHex(JsonScalar(document, "$.attack_result_id"))
+                == UuidHex(cast(ConversationEntry.attack_result_id, String(36))),
+            )
+            .correlate(ScenarioResultEntry, ConversationEntry)
+            .exists()
+        )
+        persisted_result = (
+            select(AttackResultEntry.id)
+            .where(AttackResultEntry.id == ConversationEntry.attack_result_id)
+            .correlate(ConversationEntry)
+            .exists()
+        )
+        return (
+            select(ConversationEntry.conversation_id)
+            .where(
+                or_(
+                    ConversationEntry.conversation_id == str(reference_id),
+                    ConversationEntry.attack_result_id == reference_id,
+                ),
+                ~persisted_result,
+                verified_link,
+            )
+            .correlate(ScenarioResultEntry)
+            .exists()
+        )
+
+
+def _parse_scenario_started_at(*, raw_value: Any) -> datetime | None:
+    """
+    Parse a persisted aware scenario start timestamp.
+
+    Args:
+        raw_value: Raw value from the database (typically a string or None).
+
+    Returns:
+        datetime | None: Aware start timestamp, or None for legacy or malformed values.
+    """
+    if not isinstance(raw_value, str):
+        return None
+    try:
+        value = datetime.fromisoformat(raw_value)
+    except ValueError:
+        return None
+    return value if value.tzinfo is not None else None

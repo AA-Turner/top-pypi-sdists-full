@@ -32,7 +32,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="phidget22",
-    version='1.26.20260821',
+    version='1.27.20261112',
     author="Phidgets Inc",
     author_email="support@phidgets.com",
     description="Phidget22 Python Library",

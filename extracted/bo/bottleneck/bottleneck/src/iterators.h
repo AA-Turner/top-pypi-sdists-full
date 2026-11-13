@@ -105,9 +105,10 @@ init_iter_all(iter *it, PyArrayObject *a, int ravel, int anyorder)
         it->length = PyArray_SIZE(a);
         it->astride = 0;
         for (i=ndim-1; i > -1; i--) {
-            /* protect against length zero  strides such as in
-             * np.ones((2, 2))[..., np.newaxis] */
-            if (strides[i] == 0) {
+            /* skip length-one axes and zero strides; their stride is never
+             * traversed and may be arbitrarily large in a transposed view
+             * such as np.zeros((1, 500, 2)).transpose(1, 2, 0) */
+            if (shape[i] == 1 || strides[i] == 0) {
                 continue;
             }
             it->astride = strides[i];
@@ -119,9 +120,10 @@ init_iter_all(iter *it, PyArrayObject *a, int ravel, int anyorder)
             it->length = PyArray_SIZE(a);
             it->astride = 0;
             for (i=0; i < ndim; i++) {
-                /* protect against length zero  strides such as in
-                 * np.ones((2, 2), order='F')[np.newaxis, ...] */
-                if (strides[i] == 0) {
+                /* skip length-one axes and zero strides; their stride is never
+                 * traversed and may be arbitrarily large in a transposed view
+                 * such as np.zeros((1, 192, 121)).transpose(0, 2, 1) */
+                if (shape[i] == 1 || strides[i] == 0) {
                     continue;
                 }
                 it->astride = strides[i];
@@ -368,7 +370,7 @@ init_iter3(iter3 *it, PyArrayObject *a, PyObject *y, PyObject *z, int axis)
 #define  AX(dtype, x)   *(npy_##dtype *)(it.pa + (x) * it.astride)
 #define  AOLD(dtype)    *(npy_##dtype *)(it.pa + (it.i - window) * it.astride)
 
-#define  SI(pa)         pa[it.i * it.stride]    
+#define  SI(pa)         pa[it.i * it.stride]
 
 #define  YPP            *py++
 #define  YI(dtype)      *(npy_##dtype *)(it.py + it.i++ * it.ystride)

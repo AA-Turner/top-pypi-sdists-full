@@ -8,23 +8,26 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from pyrit.common import verify_and_resolve_path
 from pyrit.common.path import SCORER_CONTENT_CLASSIFIERS_PATH
+from pyrit.common.yaml_helper import safe_load_yaml
 from pyrit.exceptions import InvalidJsonException
 from pyrit.models import (
     ComponentIdentifier,
     JsonResponseConfig,
     JsonSchemaDefinition,
     MessagePiece,
+    Observation,
     Score,
+    ScoringExpectation,
     SeedPrompt,
     UnvalidatedScore,
 )
 from pyrit.prompt_target import CHAT_TARGET_REQUIREMENTS, PromptTarget
-from pyrit.score.llm_scoring import _run_llm_scoring_async
+from pyrit.score.llm_scoring import _parse_judgment_observation
+from pyrit.score.observation.target_judge import JudgmentRequest, TargetJudge
 from pyrit.score.response_handler import JsonSchemaResponseHandler, ResponseHandler
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
 from pyrit.score.system_prompt import _render_system_prompt_template
@@ -37,6 +40,8 @@ from pyrit.score.true_false.true_false_scorer import MessageTrueFalseScorer
 if TYPE_CHECKING:
     import uuid
     from collections.abc import Sequence
+
+    from pyrit.score.observation.execution import _ObservationEvidence
 
 _DEFAULT_CONTENT_CLASSIFIER_SYSTEM_PROMPT_PATH = (
     SCORER_CONTENT_CLASSIFIERS_PATH / "content_classifier_system_prompt.yaml"
@@ -91,7 +96,7 @@ class ContentClassifier(BaseModel):
             ValueError: If the YAML does not contain a mapping or fails model validation.
         """
         resolved_path = verify_and_resolve_path(path)
-        loaded = yaml.safe_load(resolved_path.read_text(encoding="utf-8"))
+        loaded = safe_load_yaml(resolved_path.read_text(encoding="utf-8"))
         if not isinstance(loaded, Mapping):
             raise ValueError(f"Content classifier YAML file '{resolved_path}' must contain a mapping.")
         return cls.model_validate(loaded)
@@ -148,6 +153,19 @@ class _ContentClassifierResponseHandler(ResponseHandler):
     def json_response_config(self) -> JsonResponseConfig:
         """The wrapped handler's JSON-response request."""
         return self._response_handler.json_response_config
+
+    def _replay_identifier(self) -> dict[str, object] | None:
+        """Return the wrapped parser and category validation contract."""
+        wrapped = self._response_handler._get_replay_identifier()
+        if wrapped is None:
+            return None
+        return {
+            "handler": f"{type(self).__module__}.{type(self).__qualname__}",
+            "version": 1,
+            "wrapped": wrapped,
+            "category_names": sorted(self._category_names),
+            "fallback_category": self._fallback_category,
+        }
 
     def parse(
         self,
@@ -249,10 +267,10 @@ class SelfAskCategoryScorer(MessageTrueFalseScorer):
         super().__init__(
             score_aggregator=score_aggregator,
             validator=validator or self._DEFAULT_VALIDATOR,
-            chat_target=chat_target,
         )
 
         self._prompt_target = chat_target
+        self._judge = TargetJudge(target=chat_target, requirements=type(self).TARGET_REQUIREMENTS)
         self._content_classifier = content_classifier
         self._system_prompt, schema = self._resolve_system_prompt(system_prompt)
         # When the caller does not supply a response handler, the default JSON handler carries the
@@ -331,32 +349,62 @@ class SelfAskCategoryScorer(MessageTrueFalseScorer):
             prompt_target=self._prompt_target.get_identifier(),
         )
 
-    async def _score_piece_async(self, message_piece: MessagePiece, *, objective: str | None = None) -> list[Score]:
+    async def _score_piece_with_expectation_async(
+        self, message_piece: MessagePiece, *, expectation: ScoringExpectation | None
+    ) -> list[Score]:
         """
-        Scores the given message using the chat target.
-
-        Args:
-            message_piece (MessagePiece): The message piece to score.
-            objective (str | None): The task based on which the text should be scored
-                (the original attacker model's objective). Defaults to None.
+        Render the judge request and convert the result.
 
         Returns:
-            list[Score]: The message_piece's score.
-                         The category that fits best in the response is used for score_category.
-                         The score_value is True in all cases unless no category fits. In which case,
-                         the score value is false and the _false_category is used.
+            list[Score]: The scorer's verdict.
         """
-        unvalidated_score = await _run_llm_scoring_async(
-            chat_target=self._prompt_target,
-            system_prompt=self._system_prompt,
+        unvalidated_score = await self._judge.judge_async(
             response_handler=self._response_handler,
-            value=message_piece.converted_value,
-            data_type=message_piece.converted_value_data_type,
-            scored_prompt_id=message_piece.id,
-            scorer_identifier=self.get_identifier(),
-            objective=objective,
+            request=self._capture_judgment_evidence(
+                JudgmentRequest(
+                    expectation=expectation,
+                    system_prompt=self._system_prompt,
+                    value=message_piece.converted_value,
+                    data_type=message_piece.converted_value_data_type,
+                    scored_prompt_id=message_piece.id,
+                    scorer_identifier=self.get_identifier(),
+                    judgment_replay_identifier=self._get_judgment_replay_identifier(),
+                )
+            ),
         )
 
         score = unvalidated_score.to_score(score_value=unvalidated_score.raw_score_value, score_type="true_false")
 
         return [score]
+
+    def _judgment_replay_identifier(self) -> dict[str, object]:
+        """Return the shared category judgment contract."""
+        return {"version": 1}
+
+    def _score_judgment_observation(
+        self,
+        *,
+        observation: Observation,
+        evidence: _ObservationEvidence,
+        expectation: ScoringExpectation | None,
+    ) -> list[Score]:
+        """
+        Replay retained category judgment evidence.
+
+        Returns:
+            list[Score]: The replayed category score.
+        """
+        unvalidated = _parse_judgment_observation(
+            observation=observation,
+            evidence=evidence,
+            response_handler=self._response_handler,
+            scorer_identifier=self.get_identifier(),
+            judgment_replay_identifier=self._get_judgment_replay_identifier(),
+            expectation=expectation,
+        )
+        return [
+            unvalidated.to_score(
+                score_value=unvalidated.raw_score_value.lower(),
+                score_type="true_false",
+            )
+        ]

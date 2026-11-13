@@ -1,9 +1,9 @@
 """Run Athena queries directly through the AWS API.
 
-V4 executions use GetQueryResultStream and Apache Arrow IPC, whether their results are in Athena
-managed storage or a customer output location. V1-V3 executions use paginated GetQueryResults.
-Query-level EngineVersion overrides are resolved from the completed query before selecting the
-reader, so a V3 workgroup can run a V4 query without being misclassified.
+V4 managed-result executions use GetQueryResultStream and Apache Arrow IPC. V1-V3 executions and
+customer-managed results use paginated GetQueryResults. Query-level EngineVersion overrides are
+resolved from the completed query before selecting the reader, so a V3 workgroup can run a V4
+managed query without being misclassified.
 
 GetQueryResultStream and the query-level EngineVersion input are supplied by the internal Athena
 model bundled at ``boto3_models/athena/2017-05-18/service-2.json``.
@@ -28,19 +28,22 @@ from pandas import DataFrame, Series
 
 from sagemaker_studio.sql_engine.database_transformer import SqlStatement
 from sagemaker_studio.sql_engine.sql_executor import SingleStatementResult
+from sagemaker_studio.utils._statement_cancel import report_cancelled, run_bounded
 
 logger = logging.getLogger(__name__)
 
 # First Athena engine version that uses the DuckDB/Arrow result path.
 MIN_ENGINE_VERSION = 4
+# sqlglot grammars for the client-side split, parameter scan and row limit: engine version 4 is
+# DuckDB, versions 1-3 are Trino.
+_DUCKDB = "duckdb"
+_ATHENA = "athena"
 # Accepted names during the V4 -> Athena DuckDB transition. Service responses use the
 # customer-facing names; internal names are accepted defensively during the regional rollout.
 _V4_ENGINE_VERSION_NAMES = frozenset(
     {
         "Athena engine version 4",
         "Athena DuckDB",
-        "KeplerSparkSQL-2.x",
-        "DuckDB-2.x",
     }
 )
 _ENGINE_VERSION_NUMBER = re.compile(r"(\d+)\s*$")
@@ -73,9 +76,15 @@ _workgroup_infos: Dict[Tuple[str, str], "WorkgroupInfo"] = {}
 
 
 class WorkgroupInfo(NamedTuple):
-    """What a single GetWorkGroup call tells us about how a workgroup runs queries."""
+    """What a single GetWorkGroup call tells us about how a workgroup runs queries.
+
+    ``managed_storage`` is True when the workgroup stores results in Athena managed storage (read
+    with GetQueryResultStream), and False for a customer output location or when the signal is
+    absent -- so the Arrow path is only taken on an explicit managed-storage signal.
+    """
 
     engine_version: Optional[int]
+    managed_storage: bool
 
 
 class AthenaQueryError(RuntimeError):
@@ -137,14 +146,43 @@ def _sql_literal(value: Any) -> str:
     raise TypeError(f"Unsupported Athena query parameter type: {type(value).__name__}")
 
 
-def _bind_parameters(statement: str, parameters: Any) -> str:
+def _query_dialect(executor: "AthenaV4Executor") -> str:
+    """sqlglot grammar for the client-side split, parameter scan and row limit, from the engine
+    version known before StartQueryExecution (the query-level override when it names a version,
+    else the workgroup's): "duckdb" on version 4+, otherwise "athena" (Trino) -- including when
+    the version is unknown, as before version 4."""
+    version = _engine_version_number(getattr(executor, "selected_engine_version", None))
+    if version is None:
+        version = getattr(executor, "workgroup_engine_version", None)
+    # Anything but an int (e.g. a stand-in executor) is an unknown version.
+    if isinstance(version, int) and not isinstance(version, bool) and version >= MIN_ENGINE_VERSION:
+        return _DUCKDB
+    return _ATHENA
+
+
+def _tokenizer(dialect: str = _ATHENA):
+    """sqlglot tokenizer for Athena SQL in ``dialect``.
+
+    Engine version 4 is DuckDB: ``Tokenizer(dialect=...)`` ignores the dialect and uses generic
+    rules (no ``$$`` strings), so the DuckDB tokenizer is taken from the Dialect. Versions 1-3 keep
+    the generic ``Tokenizer(dialect="athena")`` they have always been split and bound with.
+    """
+    import sqlglot
+    from sqlglot.tokens import Tokenizer
+
+    if dialect == _ATHENA:
+        return Tokenizer(dialect=_ATHENA)
+    return sqlglot.Dialect.get_or_raise(_DUCKDB).tokenizer()
+
+
+def _bind_parameters(statement: str, parameters: Any, dialect: str = _ATHENA) -> str:
     """Substitute parameters at sqlglot token offsets, preserving comments and formatting."""
     if parameters is None:
         return statement
 
-    from sqlglot.tokens import Tokenizer, TokenType
+    from sqlglot.tokens import TokenType
 
-    tokens = Tokenizer(dialect="athena").tokenize(statement)
+    tokens = _tokenizer(dialect).tokenize(statement)
     replacements = []
     if isinstance(parameters, dict):
         for token in tokens:
@@ -180,36 +218,30 @@ def _bind_parameters(statement: str, parameters: Any) -> str:
     return statement
 
 
-def split_query(query: str) -> List[SqlStatement]:
-    """Split Athena SQL on real semicolon tokens while preserving each statement's text."""
-    import sqlglot
-    from sqlglot.tokens import Tokenizer, TokenType
+def split_query(query: str, dialect: str = _ATHENA) -> List[SqlStatement]:
+    """Split Athena SQL into statements, preserving each statement's text.
 
-    tokenizer = Tokenizer(dialect="athena")
-    tokens = tokenizer.tokenize(query)
-    boundaries = [token for token in tokens if token.token_type is TokenType.SEMICOLON]
-    statements: List[SqlStatement] = []
-    start = 0
-    for boundary in [*boundaries, None]:
-        end = boundary.start if boundary is not None else len(query)
-        statement = query[start:end].strip()
-        start = boundary.end + 1 if boundary is not None else len(query)
-        if not statement or not tokenizer.tokenize(statement):
-            continue
-        try:
-            parsed = sqlglot.parse_one(statement, read="athena")
-            statement_type = parsed.key.upper() if parsed.key else "UNKNOWN"
-        except Exception:
-            statement_type = "UNKNOWN"
-        statements.append(SqlStatement(statement=statement, statement_type=statement_type))
-    return statements
+    ``dialect`` is ``"duckdb"`` (engine version 4) or ``"athena"`` (versions 1-3 or unknown). The
+    split is the transformer's own: ``DuckDBTransformer`` / ``AthenaTransformer``, which tokenize
+    with the dialect's tokenizer and fall back to splitting on ``;`` if sqlglot cannot tokenize,
+    so the engine, not the client, answers for syntax the grammar does not know.
+    """
+    from sagemaker_studio.sql_engine.athena_transformer import AthenaTransformer
+    from sagemaker_studio.sql_engine.duckdb_transformer import DuckDBTransformer
+
+    transformer = DuckDBTransformer if dialect == _DUCKDB else AthenaTransformer
+    return transformer.split_query(query)
 
 
-def _statement_parameter_sets(statements: List[SqlStatement], parameters: Any) -> List[Any]:
+def _statement_parameter_sets(
+    statements: List[SqlStatement], parameters: Any, dialect: str = _ATHENA
+) -> List[Any]:
     """Return the parameters belonging to each statement, validating before execution."""
-    from sqlglot.tokens import Tokenizer, TokenType
+    from sqlglot.tokens import TokenType
 
-    tokenizer = Tokenizer(dialect="athena")
+    # The same grammar _bind_parameters substitutes with, so counts and offsets agree.
+    tokenizer = _tokenizer(dialect)
+
     if isinstance(parameters, dict):
         names = []
         for item in statements:
@@ -253,12 +285,23 @@ def execute_query_statements(
     query: str,
     error_strategy: Any,
     execute_method: Optional[Any] = None,
+    limit_query_results: Optional[int] = None,
 ):
     """Execute split statements with parameters scoped to each statement."""
+    from sagemaker_studio.sql_engine.athena_transformer import AthenaTransformer
+    from sagemaker_studio.sql_engine.duckdb_transformer import DuckDBTransformer
     from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
 
-    statements = split_query(query)
-    parameter_sets = iter(_statement_parameter_sets(statements, executor.execution_parameters))
+    dialect = _query_dialect(executor)
+    statements = split_query(query, dialect)
+    # Parameter sets come from the author's text, so they must be computed before limiting.
+    parameter_sets = iter(
+        _statement_parameter_sets(statements, executor.execution_parameters, dialect=dialect)
+    )
+    # Limit in the grammar the engine runs: DuckDB on version 4 (`$$`, `lambda x:`, QUALIFY, ...),
+    # AthenaTransformer otherwise (`X'ab'`, UNLOAD, MSCK REPAIR TABLE), as before version 4.
+    transformer = DuckDBTransformer if dialect == _DUCKDB else AthenaTransformer
+    statements = transformer.apply_row_limits(statements, limit_query_results)
     execute = execute_method or executor.execute
 
     def execute_statement(statement: str):
@@ -304,13 +347,27 @@ def _session_with_refreshable_credentials(credential_provider: Any) -> Any:
     return session
 
 
+def _uses_managed_storage(configuration: dict) -> bool:
+    """Whether ``configuration`` (a WorkGroupConfiguration) stores results in Athena managed
+    storage rather than a customer output location.
+
+    The signal is ``ManagedQueryResultsConfiguration.Enabled``; a customer output location is
+    ``ResultConfiguration.OutputLocation`` instead, and the two are mutually exclusive. Managed
+    storage is reported only on an explicit ``Enabled`` truth; an absent or unexpected shape
+    selects the native Row/Datum reader.
+    """
+    managed = configuration.get("ManagedQueryResultsConfiguration") or {}
+    return bool(managed.get("Enabled"))
+
+
 def workgroup_info(client: Any, work_group: str) -> WorkgroupInfo:
     """How ``work_group`` runs queries, from a single GetWorkGroup call: its major engine version
-    (None when unknown)."""
+    (None when unknown) and whether it stores results in Athena managed storage."""
     response = client.get_work_group(WorkGroup=work_group)
     configuration = (response.get("WorkGroup") or {}).get("Configuration") or {}
     return WorkgroupInfo(
         engine_version=_effective_engine_version_number(configuration.get("EngineVersion")),
+        managed_storage=_uses_managed_storage(configuration),
     )
 
 
@@ -372,8 +429,8 @@ def athena_executor(
 ) -> Optional["AthenaV4Executor"]:
     """Build the SDK-owned executor for any Athena connection.
 
-    V4 executions use Arrow, whatever their result storage. Older engines use paginated
-    GetQueryResults. A query-level ``EngineVersion`` override takes precedence over the
+    V4 executions with managed results use Arrow. Older engines and customer-managed results use
+    paginated GetQueryResults. A query-level ``EngineVersion`` override takes precedence over the
     workgroup's engine when selecting the result reader.
     """
     if not _is_athena_connection(conn):
@@ -393,13 +450,12 @@ def athena_executor(
         info = _cached_workgroup_info(client, conn_key, work_group)
     except Exception as error:
         logger.warning(
-            "Could not read Athena workgroup %s; each query's own engine version selects its result "
-            "reader: %s: %s",
+            "Could not read Athena workgroup %s; using the native row reader: %s: %s",
             work_group,
             type(error).__name__,
             error,
         )
-        info = WorkgroupInfo(engine_version=None)
+        info = WorkgroupInfo(engine_version=None, managed_storage=False)
 
     override = selected_engine_version
     if override is None:
@@ -427,6 +483,7 @@ def athena_executor(
         work_group,
         catalog=catalog,
         schema=schema,
+        managed_storage=info.managed_storage,
         workgroup_engine_version=info.engine_version,
         selected_engine_version=override,
         execution_parameters=parameters,
@@ -467,6 +524,7 @@ class AthenaV4Executor:
         work_group: str,
         catalog: Optional[str] = None,
         schema: Optional[str] = None,
+        managed_storage: bool = True,
         workgroup_engine_version: Optional[int] = MIN_ENGINE_VERSION,
         selected_engine_version: Optional[str] = None,
         execution_parameters: Optional[Any] = None,
@@ -475,13 +533,14 @@ class AthenaV4Executor:
         self.work_group = work_group
         self.catalog = catalog
         self.schema = schema
+        self.managed_storage = managed_storage
         self.workgroup_engine_version = workgroup_engine_version
         self.selected_engine_version = selected_engine_version
         self.execution_parameters = execution_parameters
         self._executions: Dict[str, dict] = {}
 
     def _prepare_statement(self, statement: str) -> str:
-        return _bind_parameters(statement, self.execution_parameters)
+        return _bind_parameters(statement, self.execution_parameters, _query_dialect(self))
 
     def start(self, statement: str) -> str:
         """Start one query using the workgroup or an explicit query-level engine override."""
@@ -517,10 +576,11 @@ class AthenaV4Executor:
                 time.sleep(delay)
                 delay = min(delay * 2, _POLL_MAX_SECONDS)
         except KeyboardInterrupt:
-            try:
-                self.client.stop_query_execution(QueryExecutionId=query_execution_id)
-            except Exception:
-                logger.debug("Failed to stop Athena query %s", query_execution_id, exc_info=True)
+            accepted = run_bounded(
+                lambda: self.client.stop_query_execution(QueryExecutionId=query_execution_id),
+                f"Athena query {query_execution_id} cancel",
+            )
+            report_cancelled("Athena", accepted)
             raise
         if state != "SUCCEEDED":
             raise AthenaQueryError(
@@ -546,7 +606,7 @@ class AthenaV4Executor:
         if execution is None:
             execution = self._executions.get(query_execution_id)
         version = self._execution_version(execution)
-        return version is not None and version >= MIN_ENGINE_VERSION
+        return self.managed_storage and version is not None and version >= MIN_ENGINE_VERSION
 
     @staticmethod
     def _skip_row_header(execution: Optional[dict]) -> bool:

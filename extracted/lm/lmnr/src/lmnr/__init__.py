@@ -1,3 +1,4 @@
+from .opentelemetry_lib.bridges import Bridge
 from .opentelemetry_lib.litellm import LaminarLiteLLMCallback
 from .opentelemetry_lib.tracing.attributes import Attributes
 from .opentelemetry_lib.tracing.default_initializers import (
@@ -14,6 +15,7 @@ from .sdk.decorators import observe
 from .sdk.evaluations import evaluate
 from .sdk.laminar import Laminar
 from .sdk.types import (
+    InstrumentOptions,
     LaminarSpanContext,
     MaskInputOptions,
     SessionRecordingOptions,
@@ -26,7 +28,9 @@ register_default_initializers()
 __all__ = [
     "AsyncLaminarClient",
     "Attributes",
+    "Bridge",
     "EvaluationDataset",
+    "InstrumentOptions",
     "Instruments",
     "Laminar",
     "LaminarClient",

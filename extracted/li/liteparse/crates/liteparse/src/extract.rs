@@ -352,16 +352,22 @@ fn extract_single_page(
     // walk — so the whole path costs one `form_type()` call for most files.
     let extract_text = |page: &Page| -> Result<Vec<TextItem>, LiteParseError> {
         let text_page = page.text()?;
-        let spans = page_math_spans(page, &text_page, &view_box, &paths, glyph_resolver)
-            .unwrap_or_default();
+        let spans = page_math_spans(
+            page,
+            &text_page,
+            &view_box,
+            &paths,
+            glyph_resolver,
+            output_options.keep_clipped_text,
+        )
+        .unwrap_or_default();
         let (emitted, consumed) = crate::tex_math::emitted(&spans);
         let mut items = extract_page_text_items(
             page,
             &text_page,
             &view_box,
             glyph_resolver,
-            output_options.emit_word_boxes,
-            output_options.extract_text_metadata,
+            output_options,
             &consumed,
         )?;
         items.extend(emitted.into_iter().map(math_item));
@@ -400,6 +406,7 @@ fn extract_single_page(
     };
     assign_links(&mut text_items, &links);
     assign_strikethrough(&mut text_items, &graphics);
+    assign_underline(&mut text_items, &graphics);
 
     Ok(PageExtraction {
         page: LitePage {
@@ -505,6 +512,11 @@ pub struct ExtractionOutputOptions {
     pub extract_form_fields: bool,
     pub extract_structure_tree: bool,
     pub emit_word_boxes: bool,
+    /// Split items at a superscript / subscript run (a size step with a baseline shift), so
+    /// markdown can mark it. Plain text keeps such runs in their word.
+    pub split_scripts: bool,
+    /// Keep native text hidden by rectangular clips (e.g. overflow in a fixed-height cell).
+    pub keep_clipped_text: bool,
 }
 
 fn non_empty(value: &Option<String>) -> Option<String> {
@@ -682,6 +694,92 @@ fn assign_strikethrough(items: &mut [TextItem], graphics: &[GraphicPrimitive]) {
             if overlap >= item.width * STRIKE_MIN_COVER_FRACTION {
                 item.strike = true;
                 break;
+            }
+        }
+    }
+}
+
+/// Mark text items underlined by a thin horizontal line just below their baseline. Unlike a
+/// strikethrough, an underline is judged per line rather than per item: the text sitting on it
+/// must cover most of its length, so table borders, rules and dividers (which run on past the
+/// text above them) underline nothing, while one underline under several word items marks them
+/// all.
+fn assign_underline(items: &mut [TextItem], graphics: &[GraphicPrimitive]) {
+    let mut segs: Vec<(f32, f32, f32)> = Vec::new();
+    for g in graphics {
+        match g {
+            GraphicPrimitive::Stroke {
+                x1,
+                y1,
+                x2,
+                y2,
+                width,
+                ..
+            } => {
+                let (dx, dy) = ((x1 - x2).abs(), (y1 - y2).abs());
+                if dy <= STRIKE_MAX_THICKNESS_PT
+                    && *width <= STRIKE_MAX_THICKNESS_PT
+                    && dx > 4.0 * dy.max(0.1)
+                {
+                    segs.push((x1.min(*x2), x1.max(*x2), (y1 + y2) * 0.5));
+                }
+            }
+            GraphicPrimitive::Rect { bbox, .. } => {
+                if bbox.height <= STRIKE_MAX_THICKNESS_PT && bbox.width > 4.0 * bbox.height.max(0.1)
+                {
+                    segs.push((bbox.x, bbox.x + bbox.width, bbox.y + bbox.height * 0.5));
+                }
+            }
+        }
+    }
+    for &(sx0, sx1, sy) in &segs {
+        let len = sx1 - sx0;
+        if len < 2.0 {
+            continue;
+        }
+        // Items whose baseline region the line runs under: below the lower fifth of the box,
+        // at most a quarter of the box height (2 pt floor) beneath it.
+        let on: Vec<usize> = items
+            .iter()
+            .enumerate()
+            .filter(|(_, it)| {
+                !it.math
+                    && it.width > 0.0
+                    && it.height > 0.0
+                    && it.rotation.rem_euclid(360.0) < 1.0
+                    && !it.text.trim().is_empty()
+                    && sy >= it.y + it.height * 0.80
+                    && sy <= it.y + it.height + (it.height * 0.25).max(2.0)
+                    && it.x < sx1
+                    && it.x + it.width > sx0
+            })
+            .map(|(i, _)| i)
+            .collect();
+        if on.is_empty() {
+            continue;
+        }
+        // Covered length of the line (union of the items' clipped extents).
+        let mut spans: Vec<(f32, f32)> = on
+            .iter()
+            .map(|&i| (items[i].x.max(sx0), (items[i].x + items[i].width).min(sx1)))
+            .collect();
+        spans.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let (mut covered, mut reach) = (0.0f32, f32::NEG_INFINITY);
+        for (a, b) in spans {
+            let a = a.max(reach);
+            if b > a {
+                covered += b - a;
+            }
+            reach = reach.max(b);
+        }
+        if covered < len * 0.7 {
+            continue;
+        }
+        for i in on {
+            let it = &mut items[i];
+            let overlap = ((it.x + it.width).min(sx1) - it.x.max(sx0)).max(0.0);
+            if overlap >= it.width * 0.5 {
+                it.underline = true;
             }
         }
     }
@@ -1497,10 +1595,16 @@ fn extract_page_text_items(
     text_page: &TextPage,
     view_box: &RectF,
     glyph_resolver: Option<&dyn crate::GlyphResolver>,
-    emit_word_boxes: bool,
-    extract_text_metadata: bool,
+    output_options: &ExtractionOutputOptions,
     math_chars: &std::collections::HashSet<i32>,
 ) -> Result<Vec<TextItem>, LiteParseError> {
+    let ExtractionOutputOptions {
+        emit_word_boxes,
+        extract_text_metadata,
+        split_scripts,
+        keep_clipped_text,
+        ..
+    } = *output_options;
     let char_count = text_page.char_count();
     if char_count <= 0 {
         return Ok(Vec::new());
@@ -1536,7 +1640,7 @@ fn extract_page_text_items(
         eprintln!("[extract-debug] char_count={char_count}, skip_invisible={skip_invisible}");
     }
 
-    let clips = crate::text_clip::TextClip::new(page);
+    let clips = crate::text_clip::TextClip::new(page, text_page, keep_clipped_text);
     let page_rotation = page.rotation();
     let vp_xform = page.viewport_transform(view_box);
     let mut items: Vec<TextItem> = Vec::new();
@@ -1554,11 +1658,11 @@ fn extract_page_text_items(
             ch: &ch,
             rec: char_chunks.as_mut().and_then(|chunks| chunks.record(i)),
         };
-        if clips.hides(&cv) || math_chars.contains(&i) {
+        if clips.hides(i) || math_chars.contains(&i) {
             seg.flush(&mut items);
             continue;
         }
-        let unicode = cv.unicode();
+        let unicode = lam_alef_order(text_page, i, char_count, cv.unicode(), cv.char_code());
         let is_generated = cv.is_generated();
 
         // Skip invisible text (render mode 3) only when the page also has visible text.
@@ -1791,7 +1895,40 @@ fn extract_page_text_items(
                     c,
                 );
             }
-            if !y_overlap || line_changed || gap >= MAX_INLINE_GAP || dot_leader_break {
+            // A size step with a baseline shift (a superscript / subscript run, or back from
+            // one) starts a new item, so projection can tell the raised or lowered run from the
+            // text it follows. A declared size change alone is no script: producers draw the same
+            // visible text with different size / matrix pairs ("290-300." after a reference's
+            // "Nat. Energy 2018, 3,"), and splitting those let projection misplace the piece.
+            let size_break = split_scripts
+                && seg.font_height.is_some_and(|sh| {
+                    let m = obj_meta.meta_for(&ch, cv.text_object());
+                    let fh = if m.font_size > 0.0 {
+                        m.scale_y.map(|sy| m.font_size * sy)
+                    } else {
+                        None
+                    };
+                    let shifted = (vp_strict.bottom - seg.last_char_bottom).abs()
+                        > 0.15
+                            * (seg.vp_bottom - seg.vp_top)
+                                .abs()
+                                .max(vp_strict.bottom - vp_strict.top);
+                    shifted
+                        && fh.is_some_and(|fh| {
+                            sh > 0.0 && fh > 0.0 && (fh < sh * 0.78 || sh < fh * 0.78)
+                        })
+                });
+            if !y_overlap || line_changed || gap >= MAX_INLINE_GAP || dot_leader_break || size_break
+            {
+                // A break for the size step alone into smaller type: the run keeps its host's band.
+                let host = (size_break
+                    && y_overlap
+                    && !line_changed
+                    && gap < MAX_INLINE_GAP
+                    && !dot_leader_break
+                    && (vp_loose.bottom - vp_loose.top).abs()
+                        < 0.85 * (seg.vp_bottom - seg.vp_top).abs())
+                .then_some((seg.vp_top, seg.vp_bottom));
                 seg.flush(&mut items);
                 let meta = obj_meta.meta_for(&ch, cv.text_object());
                 seg.start(
@@ -1803,6 +1940,7 @@ fn extract_page_text_items(
                     page_rotation,
                     &meta,
                 );
+                seg.host_band = host;
                 seg.append_ligature_tail(ligature_tail);
             } else if seg.pending_space {
                 let avg_cw = seg.avg_char_width();
@@ -1961,6 +2099,7 @@ fn page_math_spans(
     view_box: &RectF,
     paths: &[PathObject],
     glyph_resolver: Option<&dyn crate::GlyphResolver>,
+    keep_clipped_text: bool,
 ) -> Option<Vec<crate::tex_math::MathSpan>> {
     use crate::tex_math::{RawChar, RawText, Rule};
     let char_count = text_page.char_count();
@@ -1984,7 +2123,7 @@ fn page_math_spans(
     if !has_tex_font {
         return None;
     }
-    let clips = crate::text_clip::TextClip::new(page);
+    let clips = crate::text_clip::TextClip::new(page, text_page, keep_clipped_text);
     let page_rotation = page.rotation();
     let vp_xform = page.viewport_transform(view_box);
     let (_, page_h) = page.viewport_size(view_box);
@@ -2007,7 +2146,7 @@ fn page_math_spans(
             ch: &ch,
             rec: char_chunks.as_mut().and_then(|chunks| chunks.record(i)),
         };
-        if cv.is_generated() || cv.text_render_mode() == Some(3) || clips.hides(&cv) {
+        if cv.is_generated() || cv.text_render_mode() == Some(3) || clips.hides(i) {
             continue;
         }
         // Upright glyphs only.
@@ -2707,6 +2846,49 @@ impl<'a> GlyphDecoder<'a> {
     }
 }
 
+const ARABIC_LAM: u32 = 0x0644;
+
+/// How far (points) past a word's rightmost letter a combining mark may sit and still belong
+/// to the letter just before the word (see `SegmentBuilder::place_rtl_mark`).
+const RTL_MARK_REACH: f32 = 3.0;
+
+/// Combining marks of the Hebrew and Arabic blocks (points, cantillation, harakat).
+fn is_rtl_combining_mark(c: char) -> bool {
+    matches!(c as u32, 0x0591..=0x05BD | 0x05BF | 0x05C1..=0x05C2 | 0x05C4..=0x05C5 | 0x05C7
+        | 0x0610..=0x061A | 0x064B..=0x065F | 0x0670 | 0x06D6..=0x06DC | 0x06DF..=0x06E4
+        | 0x06E7..=0x06E8 | 0x06EA..=0x06ED)
+}
+
+/// Alef and its hamza / madda forms, the second letter of a lam-alef ligature.
+fn is_alef(u: u32) -> bool {
+    matches!(u, 0x0622 | 0x0623 | 0x0625 | 0x0627)
+}
+
+/// Logical order for a lam-alef ligature glyph. One glyph draws lam + alef ("لا", "لأ"), and
+/// many producers write its ToUnicode entry in visual order, alef first; PDFium then hands back
+/// two chars sharing the glyph's char code, alef then lam ("األثاث" for "الأثاث"). Separate
+/// alef and lam glyphs (the article "ال") carry different codes and are left alone.
+fn lam_alef_order(text_page: &TextPage, i: i32, char_count: i32, unicode: u32, code: u32) -> u32 {
+    let shares_glyph = |j: i32| {
+        (0..char_count)
+            .contains(&j)
+            .then(|| {
+                let c = text_page.char_at_unchecked(j);
+                (c.char_code() == code).then(|| c.unicode())
+            })
+            .flatten()
+    };
+    if is_alef(unicode) && shares_glyph(i + 1) == Some(ARABIC_LAM) {
+        return ARABIC_LAM;
+    }
+    if unicode == ARABIC_LAM
+        && let Some(prev) = shares_glyph(i - 1).filter(|&u| is_alef(u))
+    {
+        return prev;
+    }
+    unicode
+}
+
 /// Control/PUA/sentinel codepoints that signal a garbage /ToUnicode mapping.
 fn is_suspicious_unicode(unicode: u32) -> bool {
     matches!(unicode, 0 | 0xFFFE | 0xFFFF) || unicode < 0x20 || (0xE000..=0xF8FF).contains(&unicode)
@@ -3240,6 +3422,15 @@ struct SegmentBuilder {
     emit_words: bool,
     // When false, source-code/trailing-space metadata is not accumulated.
     extract_text_metadata: bool,
+    // Set on a run split off at a size step into smaller raised / lowered type: the host
+    // segment's (top, bottom), which the item takes as its band (see `TextItem::script_geom`).
+    host_band: Option<(f32, f32)>,
+    // The last run that took a host band: (top, bottom, right edge), so a later small-type
+    // segment continuing it ("LC" "50" ... "(mg/L)", other cells drawn in between) takes it too.
+    last_script: Option<(f32, f32, f32)>,
+    // Right-to-left letters of the segment as (byte end in `text`, loose left, loose right), so
+    // a combining mark drawn over an earlier letter can be placed after it (see `push_char`).
+    rtl_spans: Vec<(usize, f32, f32)>,
 }
 
 impl SegmentBuilder {
@@ -3287,6 +3478,9 @@ impl SegmentBuilder {
             word_has: false,
             emit_words,
             extract_text_metadata,
+            host_band: None,
+            last_script: None,
+            rtl_spans: Vec::new(),
         }
     }
 
@@ -3402,8 +3596,33 @@ impl SegmentBuilder {
         page_rotation: i32,
         meta: &ObjTextMeta,
     ) {
+        // a run in smaller raised / lowered type keeps its host's band past a space or other
+        // break while it stays in that type on that line; full-size type ends it
+        let small_inside = |top: f32, bottom: f32| {
+            // line-box (loose) heights on both sides: a full-size `(` has less ink than the
+            // host's box, but the same box
+            let mid = (vp_loose.top + vp_loose.bottom) * 0.5;
+            mid > top
+                && mid < bottom
+                && (vp_loose.bottom - vp_loose.top).abs() < 0.85 * (bottom - top).abs()
+        };
+        self.host_band = self
+            .host_band
+            .filter(|&(top, bottom)| small_inside(top, bottom))
+            .or_else(|| {
+                self.last_script.and_then(|(top, bottom, right)| {
+                    let near = vp_loose.left >= right - 1.0
+                        && vp_loose.left - right < 2.0 * (bottom - top).abs();
+                    (near && small_inside(top, bottom)).then_some((top, bottom))
+                })
+            });
         self.text.clear();
         self.text.push(c);
+        self.rtl_spans.clear();
+        if crate::bidi::is_rtl_char(c) {
+            self.rtl_spans
+                .push((self.text.len(), vp_loose.left, vp_loose.right));
+        }
         self.vp_left = vp_loose.left;
         self.vp_right = vp_loose.right;
         self.vp_top = vp_loose.top;
@@ -3527,7 +3746,21 @@ impl SegmentBuilder {
         cv: &CharView<'_, '_>,
         recovered: bool,
     ) {
+        if self.place_rtl_mark(c, vp_loose) {
+            // the segment's box still covers the mark; the trailing-edge fields stay on the
+            // last letter, so the next char's gap is measured from it
+            self.vp_left = self.vp_left.min(vp_loose.left);
+            self.vp_right = self.vp_right.max(vp_loose.right);
+            self.vp_top = self.vp_top.min(vp_loose.top);
+            self.vp_bottom = self.vp_bottom.max(vp_loose.bottom);
+            self.char_count += 1;
+            return;
+        }
         self.text.push(c);
+        if crate::bidi::is_rtl_char(c) {
+            self.rtl_spans
+                .push((self.text.len(), vp_loose.left, vp_loose.right));
+        }
         self.add_word_char(c, vp_loose);
         self.vp_left = self.vp_left.min(vp_loose.left);
         self.vp_right = self.vp_right.max(vp_loose.right);
@@ -3566,6 +3799,62 @@ impl SegmentBuilder {
                 self.font_is_buggy = true;
             }
         }
+    }
+
+    /// A right-to-left combining mark (Arabic harakat, Hebrew points) that PDFium hands over
+    /// after the rest of its word ("يقصدُ" for "يُقصد"): insert it after the letter of the
+    /// current word that its box sits over. Returns false when the mark already follows its
+    /// letter, or no letter of the word lies under it; the caller then appends it as usual.
+    fn place_rtl_mark(&mut self, c: char, vp_loose: &RectF) -> bool {
+        if self.dir_rtl != Some(true) || !is_rtl_combining_mark(c) || self.rtl_spans.len() < 2 {
+            return false;
+        }
+        let word_start = self.text.rfind(char::is_whitespace).map_or(0, |i| i + 1);
+        let cx = (vp_loose.left + vp_loose.right) / 2.0;
+        let Some(k) = self
+            .rtl_spans
+            .iter()
+            .position(|&(end, l, r)| end > word_start && cx >= l - 0.5 && cx <= r + 0.5)
+        else {
+            // Just past the word's first (rightmost) letter: the mark sits on the letter before
+            // the word, which PDFium hands over separately and line assembly puts back in front.
+            let word_right = self
+                .rtl_spans
+                .iter()
+                .filter(|s| s.0 > word_start)
+                .map(|s| s.2)
+                .fold(f32::MIN, f32::max);
+            if word_right > f32::MIN && cx > word_right && cx - word_right < RTL_MARK_REACH {
+                self.text.insert(word_start, c);
+                if self.emit_words && self.word_has {
+                    self.cur_word.insert(0, c);
+                }
+                let n = c.len_utf8();
+                for s in self.rtl_spans.iter_mut().filter(|s| s.0 > word_start) {
+                    s.0 += n;
+                }
+                return true;
+            }
+            return false;
+        };
+        if k + 1 == self.rtl_spans.len() {
+            return false;
+        }
+        let at = self.rtl_spans[k].0;
+        self.text.insert(at, c);
+        if self.emit_words && self.word_has {
+            let in_word = self.cur_word.len() + at;
+            if let Some(w) = in_word.checked_sub(self.text.len() - c.len_utf8())
+                && self.cur_word.is_char_boundary(w)
+            {
+                self.cur_word.insert(w, c);
+            }
+        }
+        let n = c.len_utf8();
+        for s in &mut self.rtl_spans[k..] {
+            s.0 += n;
+        }
+        true
     }
 
     /// Append extra characters to the segment text (for ligature expansion).
@@ -3621,12 +3910,19 @@ impl SegmentBuilder {
         let trimmed = self.text.trim();
         if !trimmed.is_empty() {
             let width = self.vp_right - self.vp_left;
-            let height = self.vp_bottom - self.vp_top;
+            let (band_top, band_bottom) = self.host_band.unwrap_or((self.vp_top, self.vp_bottom));
+            if let Some((t, b)) = self.host_band {
+                self.last_script = Some((t, b, self.vp_right));
+            }
+            let script_geom = self
+                .host_band
+                .map(|_| (self.vp_top, self.vp_bottom - self.vp_top));
+            let height = band_bottom - band_top;
 
             items.push(TextItem {
                 text: trimmed.to_string(),
                 x: self.vp_left,
-                y: self.vp_top,
+                y: band_top,
                 width,
                 height,
                 rotation: self.rotation_deg,
@@ -3658,6 +3954,11 @@ impl SegmentBuilder {
                 confidence: None,
                 link: None,
                 strike: false,
+                underline: false,
+                sup: false,
+                sub: false,
+                style_pieces: Vec::new(),
+                script_geom,
                 math: false,
                 words: std::mem::take(&mut self.words),
             });

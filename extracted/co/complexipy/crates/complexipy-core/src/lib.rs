@@ -1,5 +1,6 @@
 #[cfg(feature = "runner")]
 pub mod api;
+mod bindings;
 pub mod classes;
 pub mod cognitive_complexity;
 #[cfg(feature = "config")]
@@ -10,6 +11,7 @@ pub mod fix;
 pub mod fs_guard;
 #[cfg(feature = "runner")]
 pub(crate) mod helpers;
+mod recursion;
 mod refactor_plans;
 mod rules;
 #[cfg(feature = "runner")]
@@ -24,8 +26,9 @@ pub use api::{code_complexity, file_complexity};
 /// Names here are a compatibility promise; do not move or rename them
 /// without a major release.
 pub use classes::{
-    Applicability, CodeComplexity, CodeSuggestion, FileComplexity, FunctionComplexity,
-    IgnoredLocation, LineComplexity, RefactorPlan, RemovableIgnore, RuleCategory,
+    Applicability, CodeComplexity, CodeInsertion, CodeSuggestion, FileComplexity,
+    FunctionComplexity, IgnoredLocation, LineComplexity, RefactorPlan, RemovableIgnore,
+    RuleCategory,
 };
 pub use diff::{DiffEntry, DiffStatus, compute_diff, compute_staged_diff, has_regressions};
 #[cfg(feature = "runner")]
@@ -34,11 +37,12 @@ pub use helpers::exclude::{
     unmatchable_exclude_patterns,
 };
 pub use rules::{
-    AnalysisOptions, RuleSet, no_active_rule_warning, registered_rule_ids, unknown_rule_warning,
+    AnalysisOptions, RuleMetadata, RuleSet, no_active_rule_warning, registered_rule_ids,
+    registered_rules, rule_metadata, unknown_rule_warning,
 };
 #[cfg(feature = "runner")]
 pub use runner::{
     collect_all_ignored_locations_shared as collect_all_ignored_locations,
     collect_removable_ignored_locations_shared as collect_removable_ignored_locations,
-    run_analysis_shared,
+    discover_python_files, run_analysis_shared,
 };

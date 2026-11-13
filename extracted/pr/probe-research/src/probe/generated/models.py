@@ -150,6 +150,7 @@ from .enums import (  # noqa: F401 - re-exported
     LivenessProtocolEnum,
     RunListView,
     RunStatus,
+    RunType,
     ObservedBy,
     Status3,
     CompareMode,
@@ -8029,6 +8030,7 @@ class IngestRun(BaseModel):
     notes: str | None = Field(None, title='Notes')
     parent_external_id: str | None = Field(None, title='Parent External Id')
     parent_relation: ParentRelation | None = None
+    run_type: RunType | None = None
     source: str | None = Field('api', title='Source')
     started_at: AwareDatetime | None = Field(None, title='Started At')
     status: RunStatus | None = 'running'
@@ -8663,6 +8665,7 @@ class PublicRunOut(BaseModel):
     parent_relation: str | None = Field(None, title='Parent Relation')
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
     project_id: UUID | None = Field(None, title='Project Id')
+    run_type: RunType | None = 'general'
     slug: str | None = Field(None, title='Slug')
     source: str = Field(..., title='Source')
     started_at: AwareDatetime | None = Field(None, title='Started At')
@@ -8793,6 +8796,7 @@ class RunDetailOut(BaseModel):
     parent_relation: ParentRelation | None = None
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
     project_id: UUID = Field(..., title='Project Id')
+    run_type: RunType | None = 'general'
     slug: str | None = Field(None, title='Slug')
     source: str = Field(..., title='Source')
     started_at: AwareDatetime | None = Field(None, title='Started At')
@@ -8851,6 +8855,7 @@ class RunListLightOut(BaseModel):
     )
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
     project_id: UUID = Field(..., title='Project Id')
+    run_type: RunType | None = 'general'
     slug: str | None = Field(None, title='Slug')
     started_at: AwareDatetime | None = Field(None, title='Started At')
     status: RunStatus
@@ -9160,6 +9165,7 @@ class RunPatch(BaseModel):
         description="Move (file) the run into this project or experiment: an id or slug. Omit to leave it where it is; null (unfiling) is refused. This is an explicit move, not an echo of the read field: the run detail's project_id is the HOME project, so sending it back for a run in an experiment moves the run out of the experiment (project-direct).",
         title='Project Id',
     )
+    run_type: RunType | None = None
     status: RunStatus | None = None
     summary_markdown: str | None = Field(None, title='Summary Markdown')
     summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
@@ -10511,6 +10517,7 @@ class RunCreate(BaseModel):
     parent_provenance: ParentProvenance | None = None
     parent_relation: ParentRelation | None = None
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+    run_type: RunType | None = None
     slug: str | None = Field(None, title='Slug')
     source: str | None = Field('api', title='Source')
     started_at: AwareDatetime | None = Field(None, title='Started At')

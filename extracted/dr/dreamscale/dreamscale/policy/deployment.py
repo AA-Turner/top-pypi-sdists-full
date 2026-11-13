@@ -62,6 +62,9 @@ CLIENT_FEATURES = (
     "punched_quic_fallback_v2", "follows_keep_warm_v1",
 )
 CLIENT_FEATURES += _catalog_features(CLIENT_FEATURES)
+# Praxis-1 sessions may ask for the lightning engine (DSL-429). A literal for
+# dreamscale_transport.praxis.ENGINE_CLIENT_FEATURE: the pinned transport release predates it.
+CLIENT_FEATURES += ("praxis_engine_v1",)
 # Every units family's deployment host, by its id or its public name: `dreamscale run <robot>
 # --deployment` drives each at its session's rate and chunk.
 _DEPLOYMENT_HOSTS = frozenset(

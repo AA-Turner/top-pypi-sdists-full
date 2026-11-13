@@ -111,12 +111,23 @@ _STATEFUL_SETTINGS = {
                         "feedback_description": "each camera's last 2.4 s and the state",
                         "pause_for_inference": True},
 }
+# A model whose own evaluation is synchronous (Sim.pause_for_inference): physics waits for each
+# chunk instead of holding in real time.
+_PAUSED = {"hold_description": "physics paused during inference (upstream_eval)",
+           "pause_for_inference": True}
 # The live viewer's camera layout, by native observation.
 _VIEWER_CAMERAS = {"robocasa": "left | right | wrist",
                    "robocasa_window": "left | right | wrist",
                    "rho_end_effector": "head | left wrist | right wrist"}
 # RoboLab DROID requests carry three views at 15 Hz: they get twice the usual reply timeout.
 _SLOW_OBSERVATIONS = frozenset({"franka"})
+
+
+def stateful_settings(model) -> dict:
+    """A native-observation model's stateful episode settings: its observation's hold and
+    feedback, and paused physics when its own evaluation is synchronous."""
+    return {**_STATEFUL_SETTINGS.get(_observation(model), {}),
+            **(_PAUSED if _SIMS[model].pause_for_inference else {})}
 
 
 def _observation(model) -> str | None:
@@ -1515,7 +1526,7 @@ class SimArm:
                     "chunk_size": execute, "min_chunk_size": self._contract.fewest_chunk_rows,
                     "request_input": lambda obs: obs,
                     "hold_action": self._env.hold_action,
-                    **_STATEFUL_SETTINGS.get(_observation(self.model), {})}
+                    **stateful_settings(self.model)}
                    if self.model in NATIVE_OBSERVATION_MODELS else {}),
             )
         finally:

@@ -14,6 +14,7 @@
 import { Counter, Trend } from 'k6/metrics';
 import { Benchmarks } from './benchmark-runners/dist/benchmarks.js';
 import { get_profile } from './benchmark-runners/dist/benchmark_profiles.js';
+import { probeServerCpus } from './cpu-probe.js';
 
 const BASE_URL = __ENV.BASE_URL;
 const LANGSMITH_API_KEY = __ENV.LANGSMITH_API_KEY;
@@ -218,6 +219,8 @@ export function handleSummary(data) {
     p95SuccessDurationMs:
       durOk?.['p(95)'] != null ? Math.round(durOk['p(95)']) : null,
     clientOverheadMs: roundedTrend(data.metrics.client_overhead),
+    // Asked after every step: a cell that autoscales adds workers as the load climbs.
+    cpuByHost: probeServerCpus(BASE_URL, LANGSMITH_API_KEY),
     httpReqBlockedP95Ms: rounded(data.metrics.http_req_blocked?.values?.['p(95)']),
     // A timed-out request is cut off at REQUEST_TIMEOUT, so its recorded
     // duration is a floor, not a measurement: a request that would have taken

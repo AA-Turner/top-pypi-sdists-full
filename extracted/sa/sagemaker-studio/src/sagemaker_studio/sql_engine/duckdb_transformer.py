@@ -7,6 +7,8 @@ from .resource_fetching_definition import ResourceFetchingDefinition
 class DuckDBTransformer(DatabaseTransformer):
     """Database transformer for DuckDB local execution."""
 
+    supports_row_limit = True  # DuckDB accepts a trailing "LIMIT n"
+
     @classmethod
     def get_dialect(cls) -> Optional[str]:
         return "duckdb"

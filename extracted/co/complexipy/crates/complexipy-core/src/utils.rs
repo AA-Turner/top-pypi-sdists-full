@@ -1,13 +1,15 @@
 use regex::Regex;
+use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{self as ast, Stmt};
 use std::sync::OnceLock;
 
 mod export_deps {
-    pub use crate::classes::{FileComplexity, FunctionComplexity};
+    pub use crate::classes::{FileComplexity, FunctionComplexity, LineComplexity};
     pub use crate::fs_guard::write_atomic;
     pub use crate::sanitize::neutralize_csv_cell;
     pub use csv::Writer;
     pub use serde_json;
+    pub use std::collections::BTreeMap;
     pub use std::path::Path;
 }
 
@@ -41,6 +43,26 @@ pub fn output_csv_shared(
     show_detailed_results: bool,
     max_complexity: u64,
 ) -> Result<(), ExportError> {
+    let bytes = render_csv(
+        functions_complexity,
+        sort,
+        show_detailed_results,
+        max_complexity,
+    )?;
+    write_atomic(Path::new(invocation_path), &bytes).map_err(|e| {
+        ExportError::Io(format!(
+            "Failed to create CSV at {}: {}",
+            invocation_path, e
+        ))
+    })
+}
+
+pub fn render_csv(
+    functions_complexity: Vec<FileComplexity>,
+    sort: &str,
+    show_detailed_results: bool,
+    max_complexity: u64,
+) -> Result<Vec<u8>, ExportError> {
     match sort {
         "asc" | "desc" | "name" | "file_name" => {}
         other => return Err(ExportError::InvalidSort(other.to_string())),
@@ -50,12 +72,7 @@ pub fn output_csv_shared(
 
     writer
         .write_record(["Path", "File Name", "Function Name", "Cognitive Complexity"])
-        .map_err(|e| {
-            ExportError::Io(format!(
-                "Failed to write CSV header at {}: {}",
-                invocation_path, e
-            ))
-        })?;
+        .map_err(|e| ExportError::Io(format!("Failed to write CSV header: {}", e)))?;
 
     let mut all_functions: Vec<(String, String, FunctionComplexity)> = vec![];
     for file in functions_complexity {
@@ -89,15 +106,9 @@ pub fn output_csv_shared(
             .map_err(|e| ExportError::Io(format!("Failed to write CSV row: {}", e)))?;
     }
 
-    let bytes = writer
+    writer
         .into_inner()
-        .map_err(|e| ExportError::Io(format!("Failed to write CSV: {}", e)))?;
-    write_atomic(Path::new(invocation_path), &bytes).map_err(|e| {
-        ExportError::Io(format!(
-            "Failed to create CSV at {}: {}",
-            invocation_path, e
-        ))
-    })
+        .map_err(|e| ExportError::Io(format!("Failed to write CSV: {}", e)))
 }
 
 pub fn output_json_shared(
@@ -107,6 +118,38 @@ pub fn output_json_shared(
     max_complexity: u64,
     suggest_refactors: bool,
 ) -> Result<(), ExportError> {
+    let bytes = render_json(
+        functions_complexity,
+        show_detailed_results,
+        max_complexity,
+        suggest_refactors,
+    )?;
+    write_atomic(Path::new(invocation_path), &bytes).map_err(|e| {
+        ExportError::Io(format!(
+            "Failed to write JSON to {}: {}",
+            invocation_path, e
+        ))
+    })
+}
+
+fn scoring_lines(line_complexities: &[LineComplexity]) -> Vec<serde_json::Value> {
+    let mut per_line: BTreeMap<u64, u64> = BTreeMap::new();
+    for line in line_complexities {
+        *per_line.entry(line.line).or_default() += line.complexity;
+    }
+    per_line
+        .into_iter()
+        .filter(|&(_, complexity)| complexity > 0)
+        .map(|(line, complexity)| serde_json::json!({"line": line, "complexity": complexity}))
+        .collect()
+}
+
+pub fn render_json(
+    functions_complexity: Vec<FileComplexity>,
+    show_detailed_results: bool,
+    max_complexity: u64,
+    suggest_refactors: bool,
+) -> Result<Vec<u8>, ExportError> {
     let mut json_data = Vec::new();
 
     for file in functions_complexity {
@@ -122,6 +165,9 @@ pub fn output_json_shared(
                     "file_name": file.file_name,
                     "function_name": function.name,
                     "complexity": function.complexity,
+                    "line_start": function.line_start,
+                    "line_end": function.line_end,
+                    "line_complexities": scoring_lines(&function.line_complexities),
                     "refactor_plans": refactor_plans
                 });
                 json_data.push(entry);
@@ -131,16 +177,7 @@ pub fn output_json_shared(
 
     let json_string = serde_json::to_string_pretty(&json_data)
         .map_err(|e| ExportError::Serialize(format!("Failed to serialize JSON: {}", e)))?;
-    write_atomic(
-        Path::new(invocation_path),
-        format!("{}\n", json_string).as_bytes(),
-    )
-    .map_err(|e| {
-        ExportError::Io(format!(
-            "Failed to write JSON to {}: {}",
-            invocation_path, e
-        ))
-    })
+    Ok(format!("{}\n", json_string).into_bytes())
 }
 
 pub fn create_snapshot_file_shared(
@@ -288,84 +325,113 @@ pub fn split_lines(text: &str) -> impl Iterator<Item = &str> {
     })
 }
 
-pub fn is_decorator(statement: &Stmt) -> bool {
-    if let Stmt::FunctionDef(f) = statement
-        && f.body.len() == 2
-    {
-        return matches!(&f.body[0], Stmt::FunctionDef(..))
-            && matches!(&f.body[1], Stmt::Return(..));
-    }
-    false
+/// Returns the nested function of a decorator: a function whose body, after
+/// an optional docstring, is only a nested `def` and a `return` of its name or
+/// of a call that takes it as a direct argument, such as
+/// `functools.wraps(f)(inner)`. A call of the nested function does not count.
+pub fn decorator_inner(statement: &Stmt) -> Option<(&Stmt, &Stmt)> {
+    let Stmt::FunctionDef(f) = statement else {
+        return None;
+    };
+    let body = match f.body.as_slice() {
+        [Stmt::Expr(docstring), rest @ ..] if docstring.value.is_string_literal_expr() => rest,
+        body => body,
+    };
+    let [inner @ Stmt::FunctionDef(def), returned @ Stmt::Return(ret)] = body else {
+        return None;
+    };
+    let is_inner =
+        |expr: &ast::Expr| matches!(expr, ast::Expr::Name(name) if name.id == def.name.id);
+    let returns_inner = match ret.value.as_deref() {
+        Some(ast::Expr::Call(call)) => {
+            !is_inner(&call.func)
+                && (call.arguments.args.iter().any(is_inner)
+                    || call
+                        .arguments
+                        .keywords
+                        .iter()
+                        .any(|kw| kw.arg.is_some() && is_inner(&kw.value)))
+        }
+        Some(value) => is_inner(value),
+        None => false,
+    };
+    returns_inner.then_some((inner, returned))
 }
 
 pub fn count_bool_ops(expr: &ast::Expr, nesting_level: u64) -> u64 {
-    let mut complexity: u64 = 0;
+    own_score(expr, nesting_level).unwrap_or_else(|| count_child_expressions(expr, nesting_level))
+}
 
-    match expr {
-        ast::Expr::BoolOp(b) => {
-            complexity += operator_sequences(b, None);
-        }
-        ast::Expr::UnaryOp(u) => {
-            complexity += nested_operator_sequences(&u.operand, None);
-        }
+/// Scores `expr` when it has a rule of its own, or returns `None` for an
+/// expression that is only crossed to reach the scored expressions below it.
+fn own_score(expr: &ast::Expr, nesting_level: u64) -> Option<u64> {
+    let score = match expr {
+        ast::Expr::BoolOp(b) => operator_sequences(b, nesting_level),
+        ast::Expr::UnaryOp(u) => count_bool_ops(&u.operand, nesting_level),
         ast::Expr::Compare(c) => {
-            complexity += count_bool_ops(&c.left, nesting_level);
-            for comparator in c.comparators.iter() {
-                complexity += count_bool_ops(comparator, nesting_level);
-            }
+            count_bool_ops(&c.left, nesting_level)
+                + c.comparators
+                    .iter()
+                    .map(|comparator| count_bool_ops(comparator, nesting_level))
+                    .sum::<u64>()
         }
         ast::Expr::If(i) => {
-            complexity += 1 + nesting_level;
-            complexity += count_bool_ops(&i.test, nesting_level);
-            complexity += count_bool_ops(&i.body, nesting_level + 1);
-            complexity += count_bool_ops(&i.orelse, nesting_level + 1);
+            1 + nesting_level
+                + count_bool_ops(&i.test, nesting_level)
+                + count_bool_ops(&i.body, nesting_level + 1)
+                + count_bool_ops(&i.orelse, nesting_level + 1)
         }
         ast::Expr::Lambda(l) => {
-            complexity += count_bool_ops(&l.body, nesting_level + 1);
+            l.parameters
+                .iter()
+                .flat_map(|p| p.iter_non_variadic_params())
+                .filter_map(|parameter| parameter.default.as_deref())
+                .map(|default| count_bool_ops(default, nesting_level))
+                .sum::<u64>()
+                + count_bool_ops(&l.body, nesting_level + 1)
         }
-        ast::Expr::ListComp(c) => {
-            complexity += count_comprehension(&[&c.elt], &c.generators, nesting_level);
-        }
-        ast::Expr::SetComp(c) => {
-            complexity += count_comprehension(&[&c.elt], &c.generators, nesting_level);
-        }
-        ast::Expr::Generator(c) => {
-            complexity += count_comprehension(&[&c.elt], &c.generators, nesting_level);
-        }
+        ast::Expr::ListComp(c) => count_comprehension(&[&c.elt], &c.generators, nesting_level),
+        ast::Expr::SetComp(c) => count_comprehension(&[&c.elt], &c.generators, nesting_level),
+        ast::Expr::Generator(c) => count_comprehension(&[&c.elt], &c.generators, nesting_level),
         ast::Expr::DictComp(c) => {
             let elements: Vec<&ast::Expr> =
                 c.key.as_deref().into_iter().chain([&*c.value]).collect();
-            complexity += count_comprehension(&elements, &c.generators, nesting_level);
+            count_comprehension(&elements, &c.generators, nesting_level)
         }
-        ast::Expr::Call(c) => {
-            for arg in c.arguments.args.iter() {
-                complexity += count_bool_ops(arg, nesting_level);
-            }
-        }
-        ast::Expr::Tuple(t) => {
-            for element in t.elts.iter() {
-                complexity += count_bool_ops(element, nesting_level);
-            }
-        }
-        ast::Expr::List(l) => {
-            for element in l.elts.iter() {
-                complexity += count_bool_ops(element, nesting_level);
-            }
-        }
-        ast::Expr::Set(s) => {
-            for element in s.elts.iter() {
-                complexity += count_bool_ops(element, nesting_level);
-            }
-        }
-        ast::Expr::Dict(d) => {
-            for value in d.iter_values() {
-                complexity += count_bool_ops(value, nesting_level);
-            }
-        }
-        _ => {}
-    }
+        _ => return None,
+    };
+    Some(score)
+}
 
+/// Sums the scores of the scored expressions below `expr`, crossing the
+/// others with an explicit stack instead of recursion.
+fn count_child_expressions(expr: &ast::Expr, nesting_level: u64) -> u64 {
+    let mut complexity: u64 = 0;
+    let mut pending = direct_children(expr);
+    while let Some(child) = pending.pop() {
+        match own_score(child, nesting_level) {
+            Some(score) => complexity += score,
+            None => pending.extend(direct_children(child)),
+        }
+    }
     complexity
+}
+
+fn direct_children(expr: &ast::Expr) -> Vec<&ast::Expr> {
+    let mut children = ChildExpressions::default();
+    visitor::walk_expr(&mut children, expr);
+    children.exprs
+}
+
+#[derive(Default)]
+struct ChildExpressions<'a> {
+    exprs: Vec<&'a ast::Expr>,
+}
+
+impl<'a> Visitor<'a> for ChildExpressions<'a> {
+    fn visit_expr(&mut self, expr: &'a ast::Expr) {
+        self.exprs.push(expr);
+    }
 }
 
 fn count_comprehension(
@@ -373,45 +439,78 @@ fn count_comprehension(
     generators: &[ast::Comprehension],
     nesting_level: u64,
 ) -> u64 {
-    let mut complexity: u64 = 0;
-    let inner_nesting = nesting_level + 1;
+    generators
+        .iter()
+        .flat_map(|generator| std::iter::once(&generator.iter).chain(generator.ifs.iter()))
+        .chain(elements.iter().copied())
+        .map(|expr| count_bool_ops(expr, nesting_level))
+        .sum()
+}
 
-    for generator in generators.iter() {
-        complexity += 1 + nesting_level;
-        complexity += count_bool_ops(&generator.iter, nesting_level);
-        for filter in generator.ifs.iter() {
-            complexity += 1;
-            complexity += count_bool_ops(filter, inner_nesting);
+enum ChainItem<'a> {
+    Operand(&'a ast::Expr),
+    Operator(ast::BoolOp),
+}
+
+fn push_chain<'a>(stack: &mut Vec<ChainItem<'a>>, bool_op: &'a ast::ExprBoolOp) {
+    for (position, value) in bool_op.values.iter().enumerate().rev() {
+        stack.push(ChainItem::Operand(value));
+        if position > 0 {
+            stack.push(ChainItem::Operator(bool_op.op));
         }
     }
+}
 
-    for element in elements.iter() {
-        complexity += count_bool_ops(element, inner_nesting);
+/// Counts the sequences of like boolean operators in the chain rooted at
+/// `bool_op`, read left to right: the operators of nested boolean operations
+/// sit between the operators around them, and each change of operator starts
+/// a new sequence. Operands that are not boolean operations are scored on
+/// their own, so the operand of a `not` starts a chain of its own.
+fn operator_sequences(bool_op: &ast::ExprBoolOp, nesting_level: u64) -> u64 {
+    let mut complexity: u64 = 0;
+    let mut previous: Option<ast::BoolOp> = None;
+    let mut stack = Vec::new();
+    push_chain(&mut stack, bool_op);
+    while let Some(item) = stack.pop() {
+        match item {
+            ChainItem::Operand(ast::Expr::BoolOp(nested)) => push_chain(&mut stack, nested),
+            ChainItem::Operand(operand) => complexity += count_bool_ops(operand, nesting_level),
+            ChainItem::Operator(operator) => {
+                if previous != Some(operator) {
+                    complexity += 1;
+                }
+                previous = Some(operator);
+            }
+        }
     }
-
     complexity
 }
 
-/// Counts the sequences of like boolean operators in `bool_op`. The node
-/// starts a new sequence unless `enclosing` is the operator of the boolean
-/// operation directly around it; `None` means a unary operator or nothing
-/// encloses it.
-fn operator_sequences(bool_op: &ast::ExprBoolOp, enclosing: Option<ast::BoolOp>) -> u64 {
-    let starts_sequence = u64::from(enclosing != Some(bool_op.op));
-    starts_sequence
-        + bool_op
-            .values
-            .iter()
-            .map(|value| nested_operator_sequences(value, Some(bool_op.op)))
-            .sum::<u64>()
-}
-
-fn nested_operator_sequences(expr: &ast::Expr, enclosing: Option<ast::BoolOp>) -> u64 {
-    match expr {
-        ast::Expr::BoolOp(bool_op) => operator_sequences(bool_op, enclosing),
-        ast::Expr::UnaryOp(unary) => nested_operator_sequences(&unary.operand, None),
-        _ => 0,
+/// The line of the `else` keyword that opens the suite whose first statement
+/// starts at `suite_start`. A clause keyword opens its own line, so the search
+/// looks at that statement's line (`else: pass`) and then back over blank and
+/// comment lines only. Falls back to the statement's own line.
+pub fn else_keyword_line(code: &str, suite_start: usize, index: &LineIndex) -> u64 {
+    let statement_line = line_start_of(code, suite_start);
+    let mut line_start = statement_line;
+    loop {
+        let text = line_at(code, line_start).trim_start();
+        let opens_else = text
+            .strip_prefix("else")
+            .is_some_and(|rest| rest.starts_with(':') || rest.starts_with(char::is_whitespace));
+        if opens_else {
+            return index.line_of(line_start);
+        }
+        let skippable = text.is_empty() || text.starts_with('#');
+        if line_start != statement_line && !skippable {
+            break;
+        }
+        match previous_line_start(code, line_start) {
+            Some(previous) => line_start = previous,
+            None => break,
+        }
     }
+    index.line_of(statement_line)
 }
 
 fn line_start_of(code: &str, offset: usize) -> usize {
@@ -486,6 +585,23 @@ fn noqa_re() -> &'static Regex {
     })
 }
 
+/// Whether `code` holds ignore marker text anywhere, comment or not.
+pub fn has_marker_text(code: &str) -> bool {
+    ignore_re().is_match(code) || noqa_re().is_match(code)
+}
+
+/// `code` with every ignore marker and the trailing spaces of each line
+/// removed, so two sources that differ only in their markers compare equal.
+pub fn without_markers(code: &str) -> String {
+    code.lines()
+        .map(|line| {
+            let line = ignore_re().replace_all(line, "");
+            noqa_re().replace_all(&line, "").trim_end().to_string()
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Extract an ignore directive from a line.
 ///
 /// Returns `Some(..)` for `# complexipy: ignore` and `# noqa: complexipy`,
@@ -513,7 +629,7 @@ impl CommentRanges {
     /// Tokenizes `code` only when it holds marker text somewhere, so a file
     /// without markers costs one scan.
     pub fn of(code: &str) -> Self {
-        if !ignore_re().is_match(code) && !noqa_re().is_match(code) {
+        if !has_marker_text(code) {
             return Self::default();
         }
         Self(crate::syntax_tree::comment_ranges(code))

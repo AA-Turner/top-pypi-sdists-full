@@ -228,7 +228,7 @@ def insert_from_urls(urls, contenthandler, **kwargs):
 
     for n, url in enumerate(urls, 1):
         if verbose:
-            sys.stderr.write("%d/%d:" % (n, len(urls)))
+            sys.stderr.write(f"{n}/{len(urls)}:")
         insert_from_url(url, contenthandler=contenthandler, **kwargs)
 
     #

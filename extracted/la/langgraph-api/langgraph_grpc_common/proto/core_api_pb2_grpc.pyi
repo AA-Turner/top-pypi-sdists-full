@@ -288,6 +288,8 @@ class RunsStub:
     Delete: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.DeleteRunRequest, _core_api_pb2.UUID]
     Search: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.SearchRunsRequest, _core_api_pb2.SearchRunsResponse]
     Cancel: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.CancelRunRequest, _empty_pb2.Empty]
+    CancelAcceptedBefore: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.CancelAcceptedBeforeRequest, _core_api_pb2.CancelAcceptedBeforeResponse]
+    """Cancel runs accepted before a boundary, in bounded batches (operator method, no auth)"""
     SetStatus: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.SetRunStatusRequest, _empty_pb2.Empty]
     Requeue: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.RequeueRunRequest, _empty_pb2.Empty]
     """Re-queue a drained run: counts the drain, then makes the run pending so
@@ -311,6 +313,8 @@ class RunsStub:
     """Get run statistics (internal method, no auth)"""
     PoolStats: _grpc.UnaryUnaryMultiCallable[_empty_pb2.Empty, _core_api_pb2.ConnectionPoolStats]
     """Get connection pool stats for metrics aggregation (internal method, no auth)"""
+    PrometheusMetrics: _grpc.UnaryUnaryMultiCallable[_empty_pb2.Empty, _core_api_pb2.PrometheusMetricsResponse]
+    """Dump Go Prometheus registry text for Python /metrics merge (internal, no auth)"""
     Count: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.CountRunsRequest, _core_api_pb2.CountResponse]
     """Count runs matching criteria (internal method, no auth)"""
     Next: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.NextRunRequest, _core_api_pb2.NextRunResponse]
@@ -328,6 +332,8 @@ class RunsAsyncStub(RunsStub):
     Delete: _aio.UnaryUnaryMultiCallable[_core_api_pb2.DeleteRunRequest, _core_api_pb2.UUID]  # type: ignore[assignment]
     Search: _aio.UnaryUnaryMultiCallable[_core_api_pb2.SearchRunsRequest, _core_api_pb2.SearchRunsResponse]  # type: ignore[assignment]
     Cancel: _aio.UnaryUnaryMultiCallable[_core_api_pb2.CancelRunRequest, _empty_pb2.Empty]  # type: ignore[assignment]
+    CancelAcceptedBefore: _aio.UnaryUnaryMultiCallable[_core_api_pb2.CancelAcceptedBeforeRequest, _core_api_pb2.CancelAcceptedBeforeResponse]  # type: ignore[assignment]
+    """Cancel runs accepted before a boundary, in bounded batches (operator method, no auth)"""
     SetStatus: _aio.UnaryUnaryMultiCallable[_core_api_pb2.SetRunStatusRequest, _empty_pb2.Empty]  # type: ignore[assignment]
     Requeue: _aio.UnaryUnaryMultiCallable[_core_api_pb2.RequeueRunRequest, _empty_pb2.Empty]  # type: ignore[assignment]
     """Re-queue a drained run: counts the drain, then makes the run pending so
@@ -351,6 +357,8 @@ class RunsAsyncStub(RunsStub):
     """Get run statistics (internal method, no auth)"""
     PoolStats: _aio.UnaryUnaryMultiCallable[_empty_pb2.Empty, _core_api_pb2.ConnectionPoolStats]  # type: ignore[assignment]
     """Get connection pool stats for metrics aggregation (internal method, no auth)"""
+    PrometheusMetrics: _aio.UnaryUnaryMultiCallable[_empty_pb2.Empty, _core_api_pb2.PrometheusMetricsResponse]  # type: ignore[assignment]
+    """Dump Go Prometheus registry text for Python /metrics merge (internal, no auth)"""
     Count: _aio.UnaryUnaryMultiCallable[_core_api_pb2.CountRunsRequest, _core_api_pb2.CountResponse]  # type: ignore[assignment]
     """Count runs matching criteria (internal method, no auth)"""
     Next: _aio.UnaryUnaryMultiCallable[_core_api_pb2.NextRunRequest, _core_api_pb2.NextRunResponse]  # type: ignore[assignment]
@@ -395,6 +403,14 @@ class RunsServicer(metaclass=_abc_1.ABCMeta):
         request: _core_api_pb2.CancelRunRequest,
         context: _ServicerContext,
     ) -> _typing.Union[_empty_pb2.Empty, _abc.Awaitable[_empty_pb2.Empty]]: ...
+
+    @_abc_1.abstractmethod
+    def CancelAcceptedBefore(
+        self,
+        request: _core_api_pb2.CancelAcceptedBeforeRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_core_api_pb2.CancelAcceptedBeforeResponse, _abc.Awaitable[_core_api_pb2.CancelAcceptedBeforeResponse]]:
+        """Cancel runs accepted before a boundary, in bounded batches (operator method, no auth)"""
 
     @_abc_1.abstractmethod
     def SetStatus(
@@ -466,6 +482,14 @@ class RunsServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_core_api_pb2.ConnectionPoolStats, _abc.Awaitable[_core_api_pb2.ConnectionPoolStats]]:
         """Get connection pool stats for metrics aggregation (internal method, no auth)"""
+
+    @_abc_1.abstractmethod
+    def PrometheusMetrics(
+        self,
+        request: _empty_pb2.Empty,
+        context: _ServicerContext,
+    ) -> _typing.Union[_core_api_pb2.PrometheusMetricsResponse, _abc.Awaitable[_core_api_pb2.PrometheusMetricsResponse]]:
+        """Dump Go Prometheus registry text for Python /metrics merge (internal, no auth)"""
 
     @_abc_1.abstractmethod
     def Count(

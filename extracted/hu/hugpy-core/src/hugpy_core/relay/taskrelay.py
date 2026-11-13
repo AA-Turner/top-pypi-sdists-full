@@ -18,12 +18,13 @@ from flask import Response, request
 from hugpy_core.relay.openai import openai_error
 from hugpy_core.relay.pick import NoWorker, pick, confirm_routed_allocation, requested_worker_name, requested_worker_names
 
-# The front door's task routes (fitevict engines/runners RunnerSpec.endpoint +
-# extra routes). A protocol table: routes, not models.
+# The front door's task routes (the wrapper's engines/runner_specs.json
+# RunnerSpec.endpoint + extra routes). A protocol table: routes, not models.
 TASK_ROUTES = ("/v1/embeddings", "/v1/summarize", "/v1/keywords",
                "/v1/audio/transcriptions", "/v1/audio/translations", "/v1/audio/speech",
                "/v1/images/generations", "/v1/images/edits", "/v1/videos/generations",
-               "/v1/videos/upscale", "/v1/videos/interpolate")
+               "/v1/videos/upscale", "/v1/videos/interpolate", "/v1/videos/track",
+               "/v1/meshes/generations")
 TIMEOUT_S = 1800.0
 
 
@@ -36,6 +37,14 @@ def _model_of(raw: bytes, ctype: str) -> "str | None":
     except ValueError:
         return None
     return body.get("model") if isinstance(body, dict) else None
+
+
+def _renamed(raw: bytes, ctype: str, model: str) -> bytes:
+    """The request body with its ``model`` replaced by ``model``."""
+    if ctype.lower().startswith("multipart/"):
+        return re.sub(rb'(name="model"\r\n\r\n)[^\r]+(\r\n)', lambda m: m.group(1) + model.encode() + m.group(2),
+                      raw, count=1)
+    return _with_model(raw, ctype, model)
 
 
 def _with_model(raw: bytes, ctype: str, model: str) -> bytes:
@@ -100,6 +109,10 @@ def _relay(route: str, *, source=None):
         if model:
             worker = pick(model, pool=source.args.get("pool") or "", pin=pin,
                           workers=requested_worker_names(alloc))
+            from hugpy_core.relay.pick import served_name
+            served = served_name(model, worker)
+            if served != model:       # a short or legacy name: send the one this worker serves
+                raw = _renamed(raw, ctype, served)
         else:
             # no model named: central inference chooses (relay/central.py)
             from hugpy_core.relay.central import choose
@@ -113,7 +126,8 @@ def _relay(route: str, *, source=None):
                 task = source.form.get("task")
             model, worker, _chosen = choose(task=task, route=route, pool=source.args.get("pool") or "",
                                             pin=pin, workers=requested_worker_names(alloc))
-            raw = _with_model(raw, ctype, model)
+            from hugpy_core.relay.pick import served_name
+            raw = _with_model(raw, ctype, served_name(model, worker))
     except NoWorker as exc:
         return openai_error(str(exc), exc.status)
     except ValueError as exc:
@@ -164,6 +178,17 @@ def _relay(route: str, *, source=None):
         # A wildcard/cold route becomes a durable allocation only after the
         # worker fitted and loaded the model successfully.
         confirm_routed_allocation(model, worker, source="routing")
+        if out_type.split(";")[0].strip().lower() == "application/json":
+            # The standalone wrapper returns artifact handles; core delivers the
+            # bytes the caller's response_format asked for (relay/artifacts.py).
+            try:
+                payload = json.loads(data.decode("utf-8", "replace") or "{}")
+                from hugpy_core.relay.artifacts import deliver
+                delivered = deliver(worker, route, raw, ctype, payload)
+                if delivered is not payload:
+                    data = json.dumps(delivered).encode("utf-8")
+            except ValueError:
+                pass
     resp = Response(data, status=status, mimetype=out_type.split(";")[0])
     if execution_id:
         resp.headers["X-Hugpy-Execution-Request-Id"] = execution_id

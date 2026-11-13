@@ -386,9 +386,7 @@ def _sweep_sibling_conflicts(events, items, config, gh_ops, *, dry_run: bool) ->
     # so a fresh conflict elsewhere isn't clobbered.
     if sweep_events:
         try:
-            fresh = _mq.load_queue()
-            by_id = {ev.entry.assignment_id: ev.entry for ev in sweep_events}
-            _mq.save_queue([by_id.get(x.assignment_id, x) for x in fresh])
+            _save_merge_back([ev.entry for ev in sweep_events])
         except Exception as e:  # noqa: BLE001 — fail open, per the sweep's own contract
             click.echo(
                 "  sibling-conflict fix-dispatch state failed to persist "
@@ -1748,6 +1746,25 @@ def _board_row_merge_gate_ok(a, config, board, gh_ops: "GhOps | None") -> bool:
     return merge_decision is not None and merge_decision.ok
 
 
+def _save_merge_back(mutated: list) -> None:
+    """Persist *mutated* queue entries, keyed by ``assignment_id`` — the
+    shared tail of every merge-back save in :func:`merge` (the ``--only``
+    path, the standing-conflict early return, and the whole-queue path all
+    reach this instead of repeating it).
+
+    :func:`coord.merge_queue.save_queue` upserts by key rather than
+    replacing the whole table, so handing it exactly *mutated* — the rows
+    THIS call actually changed — is sufficient: any other row is left
+    exactly as whatever last wrote it left it, concurrent writer or not.
+    Reloading the queue and re-saving every row in it, mutated or not,
+    would only widen the lost-update window onto rows this call never
+    touched, for no benefit.
+    """
+    from coord import merge_queue as _mq  # noqa: PLC0415
+
+    _mq.save_queue(mutated)
+
+
 def _explain_missing_only_entry(
     key: str, config, gh_ops: "GhOps | None" = None
 ) -> list[str]:
@@ -2323,14 +2340,33 @@ def merge(
             # a row with a genuinely STALE verdict used to read as "gated"
             # here and get enqueued (and then merge-attempted) on the same
             # false-green basis the fallback message below was fixed for.
+            #
+            # #3993: a row that ISN'T fully gated can still be worth the
+            # inline scan — when the only thing blocking it is a review
+            # gate that `mq.scoped_review_block_reason` confirms is a voided
+            # approval eligible for a SCOPED re-review (a prior approve
+            # voided by a DONE conflict-fix/ci-fix/fix-round, not a fresh
+            # never-reviewed row). `enqueue_approved_work` itself only ever
+            # creates an entry for that one shape when a gate is failing —
+            # every other failing-gate row still falls straight through to
+            # `_explain_missing_only_entry` below, unchanged. This is the
+            # ONLY place the drive's `--only` retry can recover a review
+            # voided by a conflict-fix whose merge-queue entry went missing
+            # (or was never created) — without it the row deadlocks: no
+            # entry exists for `dispatch_scoped_reviews_for_queue` to scan,
+            # and nothing else ever re-creates one for a gate-blocked row on
+            # this path.
             _retry_board = load_board()
             if _retry_board is not None:
                 _retry_rows = mq.resolve_board_work_key(_retry_board, only_assignment)
-                _retry_all_gated = bool(_retry_rows) and all(
+                _retry_all_recoverable = bool(_retry_rows) and all(
                     _board_row_merge_gate_ok(a, cfg_only, _retry_board, gh_ops)
+                    or mq.scoped_review_block_reason(
+                        a, cfg_only, _retry_board, gh_ops,
+                    ) is not None
                     for a in _retry_rows
                 )
-                if _retry_all_gated:
+                if _retry_all_recoverable:
                     mq.enqueue_approved_work(cfg_only, _retry_board)
                     only_queue = mq.load_queue()
                     only_entry = mq.resolve_entry_key(only_queue, only_assignment)
@@ -2497,12 +2533,7 @@ def merge(
                 cfg_only, dry_run=dry_run,
             )
             if not dry_run:
-                all_items_only = mq.load_queue()
-                by_id_only = {only_entry.assignment_id: only_entry}
-                merged_only = [
-                    by_id_only.get(x.assignment_id, x) for x in all_items_only
-                ]
-                mq.save_queue(merged_only)
+                _save_merge_back([only_entry])
         # #2157/#3836: the dispatch above can land `only_entry` on MERGED
         # (e.g. a future in-pass takeover reachable from this retry), same
         # as the early MERGED short-circuit above it — re-check here too, so
@@ -2631,10 +2662,7 @@ def merge(
         )
         if not dry_run:
             # Save only the modified entry back; all other entries are untouched.
-            all_items_only = mq.load_queue()
-            by_id_only = {only_entry.assignment_id: only_entry}
-            merged_only = [by_id_only.get(x.assignment_id, x) for x in all_items_only]
-            mq.save_queue(merged_only)
+            _save_merge_back([only_entry])
         click.echo("")
         click.echo(
             "Summary (--only): "
@@ -3013,10 +3041,7 @@ def merge(
             # redispatch above mutated (e.g. a retry-cap escalation to
             # HUMAN_REQUIRED) before returning, same convention as the
             # --only path above.
-            all_items = mq.load_queue()
-            by_id = {x.assignment_id: x for x in items}
-            merged = [by_id.get(x.assignment_id, x) for x in all_items]
-            mq.save_queue(merged)
+            _save_merge_back(items)
         # Still surface terminal states so the user knows what happened.
         for x in items:
             click.echo(f"  [{x.state}] {x.repo_name} #{x.issue_number} ({x.branch})")
@@ -3091,10 +3116,7 @@ def merge(
     # Save state only when we actually moved
     if not dry_run:
         # Persist the updated entries by merging back over the on-disk queue.
-        all_items = mq.load_queue()
-        by_id = {x.assignment_id: x for x in items}
-        merged = [by_id.get(x.assignment_id, x) for x in all_items]
-        mq.save_queue(merged)
+        _save_merge_back(items)
 
     # Summary
     states: dict[str, int] = {}

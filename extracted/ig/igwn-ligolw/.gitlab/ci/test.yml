@@ -1,7 +1,7 @@
 # -- igwn-ligolw test configuration
 
 include:
-  - component: git.ligo.org/computing/gitlab/components/python/test@2
+  - component: git.ligo.org/computing/gitlab/components/python/test@4
     inputs:
       job_name: .pytest
       coverage: false
@@ -86,7 +86,12 @@ python_test_manylinux_x86_64_3.13:
  image: "python:3.13"
  needs: ["wheel_manylinux_x86_64: [3.13]"]
 
-# python_test_manylinux_x86_64_3.14:  <== need LALSuite wheel
-#  extends: .test
-#  image: "python:3.14"
-#  needs: ["wheel_manylinux_x86_64: [3.14]"]
+python_test_manylinux_x86_64_3.14:
+ extends: .test
+ image: "python:3.14"
+ needs: ["wheel_manylinux_x86_64: [3.14]"]
+
+python_test_manylinux_x86_64_3.15:
+ extends: .test
+ image: "python:3.15"
+ needs: ["wheel_manylinux_x86_64: [3.15]"]

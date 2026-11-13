@@ -43,7 +43,7 @@ def presence(worker, state, models, storage=None, resources=None):
     host = (state.get('host_state') or [{}])[0]
     payload = {
         'id': name, 'name': name, 'url': worker['url'], 'last_seen': time.time(),
-        'engine': {'name': 'fitevict', 'supports_gpu_offload': True},
+        'engine': state.get('engine') or {'name': 'fitevict', 'supports_gpu_offload': True},
         'ram_total': host.get('mem_total'), 'free_ram': host.get('mem_available'),
         'ram_free_bytes': host.get('mem_free'), 'swap_total': host.get('swap_total'), 'swap_free': host.get('swap_free'),
         'gpus': [{'index': g.get('device'), 'name': g.get('name'), 'uuid': g.get('uuid'),
@@ -101,7 +101,7 @@ def collect(worker, since=-1, wait=30):
     db = store()
     with db.connect() as conn:
         cols = mirror.Columns(conn)
-        cursors = {table: mirror.cursor(conn, name, table, store_id) for table in mirror.LOG_TABLES}
+        cursors = {table: mirror.cursor(conn, name, table, store_id) for table in mirror.log_tables(state)}
     # Finish all network reads before opening the write transaction.
     logs = {}
     for table, cursor in cursors.items():
@@ -119,7 +119,10 @@ def collect(worker, since=-1, wait=30):
                 raise ValueError(f'{table}: telemetry cursor did not advance')
             cursor = next_cursor
         logs[table] = rows
-    models = get(worker, '/v1/models').get('data')
+    models_path = ((state.get('data_service') or {}).get('paths') or {}).get('models') or '/v1/models'
+    if not isinstance(models_path, str) or not models_path.startswith('/') or models_path.startswith('//'):
+        raise ValueError('Invalid worker model inventory path')
+    models = get(worker, models_path).get('data')
     if not isinstance(models, list):
         raise ValueError('worker did not return a model inventory')
     try:
@@ -147,8 +150,12 @@ def collect(worker, since=-1, wait=30):
         for table, rows in logs.items():
             counts[table] = mirror.apply_log(conn, cols, name, table, rows, store_id)
         observe_worker(payload, conn=conn)
-        from hugpy_core.intake.wrapper_settings import apply_report
-        apply_report(conn, name, state.get("pair_settings"))
+        # Only a wrapper that owns a settings surface can report pair settings.
+        # The native wrapper advertises no pair_settings path and sends an empty
+        # list; treating that as "no overrides" would wipe saved knobs each pass.
+        if 'pair_settings' in ((payload.get('data_service') or {}).get('paths') or {}):
+            from hugpy_core.intake.wrapper_settings import apply_report
+            apply_report(conn, name, state.get("pair_settings"))
         conn.execute('INSERT INTO worker_presence(worker,payload) VALUES (%s,%s) '
                      'ON CONFLICT(worker) DO UPDATE SET payload=EXCLUDED.payload, observed_at=now()',
                      (name, Jsonb(mirror.without_nul(payload))))
@@ -213,6 +220,8 @@ def run(stop):
     try:
         while not stop.is_set():
             try:
+                from hugpy_core.models.current_catalog import refresh_local
+                refresh_local()
                 from hugpy_core.registry.registrations import is_connected
                 configs = {w['name']: w for w in registrations() if is_connected(w)}
                 for name in list(active):

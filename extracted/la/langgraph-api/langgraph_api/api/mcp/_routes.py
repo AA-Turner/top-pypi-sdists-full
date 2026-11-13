@@ -1,34 +1,35 @@
 from __future__ import annotations
 
+from http import HTTPStatus
+from typing import TYPE_CHECKING
+
 from starlette.responses import Response
 
-from langgraph_api.api.mcp._handlers import (
-    handle_delete_request,
-    handle_get_request,
-    handle_post_request,
-)
-from langgraph_api.route import ApiRequest, ApiRoute
+from langgraph_api.api.mcp._origins import OriginPolicy
+from langgraph_api.api.mcp._server import serve
+from langgraph_api.config import CORS_SETTINGS
+from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
+
+if TYPE_CHECKING:
+    from starlette.types import ASGIApp
 
 __all__ = ["mcp_routes"]
 
-
-async def handle_mcp_endpoint(request: ApiRequest) -> Response:
-    # MCP endpoint handler that implements the Streamable HTTP protocol.
-    # Supports POST (JSON-RPC request) and DELETE (terminate session).
-    # GET (streaming session resumption) and text/event-stream not yet supported.
-    # Route request based on HTTP method
-    if request.method == "DELETE":
-        return handle_delete_request()
-    elif request.method == "GET":
-        return handle_get_request()
-    elif request.method == "POST":
-        return await handle_post_request(request)
-    else:
-        # Method not allowed
-        return Response(status_code=405)
+ORIGIN_POLICY = OriginPolicy.of(CORS_SETTINGS)
 
 
-# Define routes for the MCP endpoint
+async def handle_mcp_endpoint(request: ApiRequest) -> ASGIApp:
+    if not ORIGIN_POLICY.allows(request.headers.get("origin")):
+        return ApiResponse(
+            {"error": "Origin is not allowed"}, status_code=HTTPStatus.FORBIDDEN
+        )
+    if request.method != "POST":
+        return Response(
+            status_code=HTTPStatus.METHOD_NOT_ALLOWED, headers={"Allow": "POST"}
+        )
+    return serve
+
+
 mcp_routes = [
     ApiRoute("/mcp", handle_mcp_endpoint, methods=["GET", "POST", "DELETE"]),
 ]

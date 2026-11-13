@@ -16,6 +16,7 @@ from rich.text import Text
 
 from pipecatcloud._utils.async_utils import synchronizer
 from pipecatcloud._utils.auth_utils import requires_login
+from pipecatcloud._utils.base_image import warn_latest_base_image
 from pipecatcloud._utils.build_utils import (
     BuildStatus,
     create_deterministic_tarball,
@@ -60,19 +61,23 @@ ALIVE_CHECK_SLEEP = 5
 MAX_CONSECUTIVE_POLL_FAILURES = 5
 
 
-def _poll_failure_is_transient(error: dict | None) -> bool:
+def _poll_failure_is_transient(error: dict | None, no_response: bool = False) -> bool:
     """Decide whether a failed status poll should be retried rather than aborting.
 
     A status poll can fail in a few ways, and only some are worth retrying:
 
-    - **No error payload** (``error is None``): the request never received a
-      response (connection reset, timeout) or the service object isn't visible
-      yet. Always transient.
+    - **No error payload** (``error is None``): the service object isn't visible
+      yet, or the answer carried no body. Always transient.
+    - **No response at all** (``no_response``, from ``API.no_response()``): the
+      request never reached the API or its answer never came back (connection
+      reset, timeout). Always transient. The error it carries describes the
+      connection rather than anything the server said, so it has no code to
+      classify below.
     - **5xx**: a server-side blip (e.g. the 502 from PCC-867). Transient.
     - **4xx or a non-numeric application code**: a real client/auth/config
       problem that won't clear on its own. Not transient — abort.
     """
-    if not error:
+    if not error or no_response:
         return True
     code = str(error.get("code", "")) if isinstance(error, dict) else ""
     if code.isdigit():
@@ -124,6 +129,8 @@ async def _cloud_build_flow(
             "  https://github.com/pipecat-ai/pipecat-quickstart"
         )
         return None
+
+    warn_latest_base_image(dockerfile_path)
 
     # Show build summary and confirm in interactive mode
     if not auto_yes:
@@ -337,10 +344,10 @@ async def _deploy(params: DeployConfigParams, org, force: bool = False):
                         if current
                         else ""
                     )
-                    + f"[dim]Change its link with [bold]{PIPECAT_CLI_NAME} agent link "
+                    + f"[dim]Change its link with [bold]{PIPECAT_CLI_NAME} project link "
                     f"{params.agent_name} --repo {params.git.repo} --branch "
                     f"{params.git.branch}[/bold], then deploy it with [bold]"
-                    f"{PIPECAT_CLI_NAME} agent deploy {params.agent_name} --github[/bold].[/dim]"
+                    f"{PIPECAT_CLI_NAME} project deploy {params.agent_name} --github[/bold].[/dim]"
                 )
                 raise typer.Exit(1)
 
@@ -469,7 +476,7 @@ async def _deploy(params: DeployConfigParams, org, force: bool = False):
                 # network, not-yet-visible service) are retried up to a small
                 # consecutive cap; non-transient ones (4xx/auth) abort right away.
                 if error or agent_status is None:
-                    if _poll_failure_is_transient(error):
+                    if _poll_failure_is_transient(error, API.no_response()):
                         consecutive_failures += 1
                         if consecutive_failures <= MAX_CONSECUTIVE_POLL_FAILURES:
                             logger.debug(
@@ -492,7 +499,7 @@ async def _deploy(params: DeployConfigParams, org, force: bool = False):
                             "Error checking deployment status: the API returned a "
                             f"transient error {MAX_CONSECUTIVE_POLL_FAILURES} times in a row.\n"
                             "Your deployment may still be in progress. Check it with "
-                            f"`{PIPECAT_CLI_NAME} agent status {params.agent_name}`"
+                            f"`{PIPECAT_CLI_NAME} project status {params.agent_name}`"
                         )
                         raise typer.Exit(1)
                     # Non-transient error (4xx, auth, etc.) — abort immediately.
@@ -572,7 +579,7 @@ async def _deploy(params: DeployConfigParams, org, force: bool = False):
         console.success(
             f"Agent deployment [bold]'{params.agent_name}'[/bold] is ready\n\n"
             f"[white]Start a session with your new agent by running:\n[/white]"
-            f"[bold]`{PIPECAT_CLI_NAME} agent start {params.agent_name}`[/bold]"
+            f"[bold]`{PIPECAT_CLI_NAME} project start {params.agent_name}`[/bold]"
             f"{extra_message}",
             title_extra=f"{'Update' if existing_agent else 'Deployment'} complete",
         )
@@ -583,8 +590,8 @@ async def _deploy(params: DeployConfigParams, org, force: bool = False):
             Panel(
                 f"Service is available and serving traffic, but the new deployment hasn't fully rolled out after {timeout_seconds}s.\n"
                 f"This is normal for deployments with large images or high replica counts.\n\n"
-                f"[bold]Check status:[/bold]  `{PIPECAT_CLI_NAME} agent status {params.agent_name}`\n"
-                f"[bold]View logs:[/bold]    `{PIPECAT_CLI_NAME} agent logs {params.agent_name}`",
+                f"[bold]Check status:[/bold]  `{PIPECAT_CLI_NAME} project status {params.agent_name}`\n"
+                f"[bold]View logs:[/bold]    `{PIPECAT_CLI_NAME} project logs {params.agent_name}`",
                 title="Deployment still in progress",
                 title_align="left",
                 border_style="yellow",
@@ -595,8 +602,8 @@ async def _deploy(params: DeployConfigParams, org, force: bool = False):
         console.print(
             Panel(
                 f"Deployment is degraded: {last_status.degraded_reason}\n\n"
-                f"[bold]Check status:[/bold]  `{PIPECAT_CLI_NAME} agent status {params.agent_name}`\n"
-                f"[bold]View logs:[/bold]    `{PIPECAT_CLI_NAME} agent logs {params.agent_name}`",
+                f"[bold]Check status:[/bold]  `{PIPECAT_CLI_NAME} project status {params.agent_name}`\n"
+                f"[bold]View logs:[/bold]    `{PIPECAT_CLI_NAME} project logs {params.agent_name}`",
                 title="Deployment degraded",
                 title_align="left",
                 border_style="red",
@@ -607,7 +614,7 @@ async def _deploy(params: DeployConfigParams, org, force: bool = False):
         timeout_seconds = MAX_ALIVE_CHECKS * ALIVE_CHECK_SLEEP
         console.error(
             f"Deployment did not become available within {timeout_seconds} seconds.\n"
-            f"Please check logs with `{PIPECAT_CLI_NAME} agent logs {params.agent_name}`"
+            f"Please check logs with `{PIPECAT_CLI_NAME} project logs {params.agent_name}`"
         )
         raise typer.Exit(1)
 

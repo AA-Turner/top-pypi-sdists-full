@@ -39,12 +39,13 @@ from .buffer import Buffer, BufferReadError
 
 TLS_VERSION_1_2 = 0x0303
 TLS_VERSION_1_3 = 0x0304
-TLS_VERSION_1_3_DRAFT_28 = 0x7F1C
-TLS_VERSION_1_3_DRAFT_27 = 0x7F1B
-TLS_VERSION_1_3_DRAFT_26 = 0x7F1A
 
 CLIENT_CONTEXT_STRING = b"TLS 1.3, client CertificateVerify"
 SERVER_CONTEXT_STRING = b"TLS 1.3, server CertificateVerify"
+
+# TLS allows handshake messages of up to 16 MiB, but handshakes need far less, so
+# we refuse to buffer larger ones.
+MAX_HANDSHAKE_MESSAGE_SIZE = 65536
 
 T = TypeVar("T")
 
@@ -136,6 +137,10 @@ class AlertUnsupportedCertificate(Alert):
     description = AlertDescription.unsupported_certificate
 
 
+class AlertUnsupportedExtension(Alert):
+    description = AlertDescription.unsupported_extension
+
+
 class Direction(Enum):
     DECRYPT = 0
     ENCRYPT = 1
@@ -224,14 +229,14 @@ def verify_certificate(
     cafile: str | None = None,
     capath: str | None = None,
 ) -> None:
-    # verify dates
+    # Verify the validity period.
     now = utcnow()
     if now < certificate.not_valid_before_utc:
         raise AlertCertificateExpired("Certificate is not valid yet")
     if now > certificate.not_valid_after_utc:
         raise AlertCertificateExpired("Certificate is no longer valid")
 
-    # verify subject
+    # Verify the subject.
     if server_name is not None:
         try:
             ipaddress.ip_address(server_name)
@@ -250,16 +255,15 @@ def verify_certificate(
                     certificate, server_name
                 )
 
-        except ValueError as exc:
-            # The certificate's extensions are only parsed when accessed.
-            raise AlertBadCertificate(
-                "Certificate extensions could not be parsed"
-            ) from exc
         except (
             service_identity.CertificateError,
             service_identity.VerificationError,
         ) as exc:
-            patterns = service_identity.cryptography.extract_patterns(certificate)
+            try:
+                patterns = service_identity.cryptography.extract_patterns(certificate)
+            except service_identity.CertificateError:
+                # The certificate has an invalid pattern, which exc describes.
+                patterns = []
             if len(patterns) == 0:
                 errmsg = str(exc)
             elif len(patterns) == 1:
@@ -271,8 +275,14 @@ def verify_certificate(
                 )
 
             raise AlertBadCertificate(errmsg) from exc
+        except Exception as exc:
+            # The certificate's extensions are only parsed when accessed, and
+            # cryptography has no common class for its parsing errors.
+            raise AlertBadCertificate(
+                "Certificate extensions could not be parsed"
+            ) from exc
 
-    # load CAs
+    # Load the trusted CAs.
     store = crypto.X509Store()
 
     if cadata is None and cafile is None and capath is None:
@@ -286,29 +296,45 @@ def verify_certificate(
     if cafile is not None or capath is not None:
         store.load_locations(cafile, capath)
 
-    # verify certificate chain
-    store_ctx = crypto.X509StoreContext(
-        store,
-        crypto.X509.from_cryptography(certificate),
-        [crypto.X509.from_cryptography(cert) for cert in chain],
-    )
+    # Verify the certificate chain.
     try:
+        # OpenSSL parses certificates more strictly than cryptography.
+        store_ctx = crypto.X509StoreContext(
+            store,
+            crypto.X509.from_cryptography(certificate),
+            [crypto.X509.from_cryptography(cert) for cert in chain],
+        )
         store_ctx.verify_certificate()
+    except crypto.Error as exc:
+        raise AlertBadCertificate("Certificate could not be parsed") from exc
     except crypto.X509StoreContextError as exc:
         raise AlertBadCertificate(exc.args[0])
 
 
 class CipherSuite(IntEnum):
-    AES_128_GCM_SHA256 = 0x1301
-    AES_256_GCM_SHA384 = 0x1302
-    CHACHA20_POLY1305_SHA256 = 0x1303
-    EMPTY_RENEGOTIATION_INFO_SCSV = 0x00FF
+    """
+    A TLS cipher suite.
+    """
+
+    TLS_AES_128_GCM_SHA256 = 0x1301
+    TLS_AES_256_GCM_SHA384 = 0x1302
+    TLS_CHACHA20_POLY1305_SHA256 = 0x1303
+    TLS_EMPTY_RENEGOTIATION_INFO_SCSV = 0x00FF
+
+    # Names used before the TLS_ prefix was added, kept for compatibility.
+    # Defined after the new names, they are aliases and never a member's name.
+    AES_128_GCM_SHA256 = TLS_AES_128_GCM_SHA256
+    AES_256_GCM_SHA384 = TLS_AES_256_GCM_SHA384
+    CHACHA20_POLY1305_SHA256 = TLS_CHACHA20_POLY1305_SHA256
+    EMPTY_RENEGOTIATION_INFO_SCSV = TLS_EMPTY_RENEGOTIATION_INFO_SCSV
 
 
 class CompressionMethod(IntEnum):
     NULL = 0
 
 
+# Members are the extensions we recognize, which a ServerHello or
+# EncryptedExtensions must not carry unless allowed there (RFC 9846 section 4.3).
 class ExtensionType(IntEnum):
     SERVER_NAME = 0
     STATUS_REQUEST = 5
@@ -323,8 +349,6 @@ class ExtensionType(IntEnum):
     PSK_KEY_EXCHANGE_MODES = 45
     KEY_SHARE = 51
     QUIC_TRANSPORT_PARAMETERS = 0x0039
-    QUIC_TRANSPORT_PARAMETERS_DRAFT = 0xFFA5
-    ENCRYPTED_SERVER_NAME = 65486
 
 
 class Group(IntEnum):
@@ -461,6 +485,27 @@ def push_opaque(buf: Buffer, capacity: int, value: bytes) -> None:
     """
     with push_block(buf, capacity):
         buf.push_bytes(value)
+
+
+def pull_extensions(buf: Buffer, func: Callable[[int, int], None]) -> None:
+    """
+    Pull a list of extensions, calling `func` with the type and length of each.
+    """
+    extension_types: set[int] = set()
+
+    def pull_extension() -> None:
+        extension_type = buf.pull_uint16()
+        # An extension type must not appear twice (RFC 9846 section 4.3).
+        if extension_type in extension_types:
+            raise AlertIllegalParameter(f"Extension {extension_type:#06x} is repeated")
+        extension_types.add(extension_type)
+
+        # Data left over after the extension's structure requires a
+        # decode_error (RFC 9846 section 4.3).
+        with pull_block(buf, 2) as extension_length:
+            func(extension_type, extension_length)
+
+    pull_list(buf, 2, pull_extension)
 
 
 @contextmanager
@@ -616,15 +661,25 @@ def pull_handshake_type(buf: Buffer, expected_type: HandshakeType) -> None:
     assert message_type == expected_type
 
 
+def pull_legacy_session_id(buf: Buffer) -> bytes:
+    legacy_session_id = pull_opaque(buf, 1)
+    # An out-of-range length requires a decode_error (RFC 9846 section 6).
+    if len(legacy_session_id) > 32:
+        raise AlertDecodeError("legacy_session_id is too long")
+    return legacy_session_id
+
+
 def pull_client_hello(buf: Buffer) -> ClientHello:
     pull_handshake_type(buf, HandshakeType.CLIENT_HELLO)
     with pull_block(buf, 3):
+        # A legacy_version other than 1.2 requires a protocol_version alert
+        # (RFC 9846 section 4.2.2).
         if buf.pull_uint16() != TLS_VERSION_1_2:
-            raise AlertDecodeError("ClientHello version is not 1.2")
+            raise AlertProtocolVersion("ClientHello version is not 1.2")
 
         hello = ClientHello(
             random=buf.pull_bytes(32),
-            legacy_session_id=pull_opaque(buf, 1),
+            legacy_session_id=pull_legacy_session_id(buf),
             cipher_suites=pull_list(buf, 2, buf.pull_uint16),
             legacy_compression_methods=pull_list(buf, 1, buf.pull_uint8),
         )
@@ -632,15 +687,15 @@ def pull_client_hello(buf: Buffer) -> ClientHello:
         # extensions
         after_psk = False
 
-        def pull_extension() -> None:
+        def pull_extension(extension_type: int, extension_length: int) -> None:
             # pre_shared_key MUST be last
             nonlocal after_psk
             if after_psk:
-                # the alert is Illegal Parameter per RFC 8446 section 4.2.11.
-                raise AlertIllegalParameter("PreSharedKey is not the last extension")
+                # the alert is Illegal Parameter per RFC 9846 section 4.3.11.
+                raise AlertIllegalParameter(
+                    "ClientHello has a pre_shared_key which is not the last extension"
+                )
 
-            extension_type = buf.pull_uint16()
-            extension_length = buf.pull_uint16()
             if extension_type == ExtensionType.KEY_SHARE:
                 hello.key_share = pull_list(buf, 2, partial(pull_key_share, buf))
             elif extension_type == ExtensionType.SUPPORTED_VERSIONS:
@@ -667,7 +722,7 @@ def pull_client_hello(buf: Buffer) -> ClientHello:
                     (extension_type, buf.pull_bytes(extension_length))
                 )
 
-        pull_list(buf, 2, pull_extension)
+        pull_extensions(buf, pull_extension)
 
     return hello
 
@@ -740,20 +795,20 @@ class ServerHello:
 def pull_server_hello(buf: Buffer) -> ServerHello:
     pull_handshake_type(buf, HandshakeType.SERVER_HELLO)
     with pull_block(buf, 3):
+        # A legacy_version other than 1.2 requires a protocol_version alert
+        # (RFC 9846 section 4.2.3).
         if buf.pull_uint16() != TLS_VERSION_1_2:
-            raise AlertDecodeError("ServerHello version is not 1.2")
+            raise AlertProtocolVersion("ServerHello version is not 1.2")
 
         hello = ServerHello(
             random=buf.pull_bytes(32),
-            legacy_session_id=pull_opaque(buf, 1),
+            legacy_session_id=pull_legacy_session_id(buf),
             cipher_suite=buf.pull_uint16(),
             compression_method=buf.pull_uint8(),
         )
 
         # extensions
-        def pull_extension() -> None:
-            extension_type = buf.pull_uint16()
-            extension_length = buf.pull_uint16()
+        def pull_extension(extension_type: int, extension_length: int) -> None:
             if extension_type == ExtensionType.SUPPORTED_VERSIONS:
                 hello.supported_version = buf.pull_uint16()
             elif extension_type == ExtensionType.KEY_SHARE:
@@ -765,7 +820,7 @@ def pull_server_hello(buf: Buffer) -> ServerHello:
                     (extension_type, buf.pull_bytes(extension_length))
                 )
 
-        pull_list(buf, 2, pull_extension)
+        pull_extensions(buf, pull_extension)
 
     return hello
 
@@ -821,9 +876,7 @@ def pull_new_session_ticket(buf: Buffer) -> NewSessionTicket:
         new_session_ticket.ticket_nonce = pull_opaque(buf, 1)
         new_session_ticket.ticket = pull_opaque(buf, 2)
 
-        def pull_extension() -> None:
-            extension_type = buf.pull_uint16()
-            extension_length = buf.pull_uint16()
+        def pull_extension(extension_type: int, extension_length: int) -> None:
             if extension_type == ExtensionType.EARLY_DATA:
                 new_session_ticket.max_early_data_size = buf.pull_uint32()
             else:
@@ -831,7 +884,7 @@ def pull_new_session_ticket(buf: Buffer) -> NewSessionTicket:
                     (extension_type, buf.pull_bytes(extension_length))
                 )
 
-        pull_list(buf, 2, pull_extension)
+        pull_extensions(buf, pull_extension)
 
     return new_session_ticket
 
@@ -868,9 +921,7 @@ def pull_encrypted_extensions(buf: Buffer) -> EncryptedExtensions:
     pull_handshake_type(buf, HandshakeType.ENCRYPTED_EXTENSIONS)
     with pull_block(buf, 3):
 
-        def pull_extension() -> None:
-            extension_type = buf.pull_uint16()
-            extension_length = buf.pull_uint16()
+        def pull_extension(extension_type: int, extension_length: int) -> None:
             if extension_type == ExtensionType.ALPN:
                 protocols = pull_list(buf, 2, partial(pull_alpn_protocol, buf))
 
@@ -887,7 +938,7 @@ def pull_encrypted_extensions(buf: Buffer) -> EncryptedExtensions:
                     (extension_type, buf.pull_bytes(extension_length))
                 )
 
-        pull_list(buf, 2, pull_extension)
+        pull_extensions(buf, pull_extension)
 
     return extensions
 
@@ -970,9 +1021,7 @@ def pull_certificate_request(buf: Buffer) -> CertificateRequest:
     with pull_block(buf, 3):
         certificate_request.request_context = pull_opaque(buf, 1)
 
-        def pull_extension() -> None:
-            extension_type = buf.pull_uint16()
-            extension_length = buf.pull_uint16()
+        def pull_extension(extension_type: int, extension_length: int) -> None:
             if extension_type == ExtensionType.SIGNATURE_ALGORITHMS:
                 certificate_request.signature_algorithms = pull_list(
                     buf, 2, buf.pull_uint16
@@ -982,7 +1031,7 @@ def pull_certificate_request(buf: Buffer) -> CertificateRequest:
                     (extension_type, buf.pull_bytes(extension_length))
                 )
 
-        pull_list(buf, 2, pull_extension)
+        pull_extensions(buf, pull_extension)
 
     return certificate_request
 
@@ -1122,9 +1171,9 @@ class KeyScheduleProxy:
 
 
 CIPHER_SUITES: dict = {
-    CipherSuite.AES_128_GCM_SHA256: hashes.SHA256,
-    CipherSuite.AES_256_GCM_SHA384: hashes.SHA384,
-    CipherSuite.CHACHA20_POLY1305_SHA256: hashes.SHA256,
+    CipherSuite.TLS_AES_128_GCM_SHA256: hashes.SHA256,
+    CipherSuite.TLS_AES_256_GCM_SHA384: hashes.SHA384,
+    CipherSuite.TLS_CHACHA20_POLY1305_SHA256: hashes.SHA256,
 }
 
 SIGNATURE_ALGORITHMS: dict = {
@@ -1324,9 +1373,9 @@ class Context:
             self._cipher_suites = cipher_suites
         else:
             self._cipher_suites = [
-                CipherSuite.AES_256_GCM_SHA384,
-                CipherSuite.AES_128_GCM_SHA256,
-                CipherSuite.CHACHA20_POLY1305_SHA256,
+                CipherSuite.TLS_AES_256_GCM_SHA384,
+                CipherSuite.TLS_AES_128_GCM_SHA256,
+                CipherSuite.TLS_CHACHA20_POLY1305_SHA256,
             ]
         self._legacy_compression_methods: list[int] = [CompressionMethod.NULL]
         self._psk_key_exchange_modes: list[int] = [PskKeyExchangeMode.PSK_DHE_KE]
@@ -1356,13 +1405,15 @@ class Context:
         self.key_schedule: KeySchedule | None = None
         self.received_extensions: list[Extension] | None = None
         self._certificate_request: CertificateRequest | None = None
+        self._early_data_offered = False
         self._key_schedule_psk: KeySchedule | None = None
         self._key_schedule_proxy: KeyScheduleProxy | None = None
         self._new_session_ticket: NewSessionTicket | None = None
         self._peer_certificate: x509.Certificate | None = None
         self._peer_certificate_chain: list[x509.Certificate] = []
         self._psk_key_exchange_mode: int | None = None
-        self._receive_buffer = b""
+        self._receive_buffer = bytearray()
+        self._server_name_sent = False
         self._session_resumed = False
         self._enc_key: bytes | None = None
         self._dec_key: bytes | None = None
@@ -1382,6 +1433,15 @@ class Context:
             self.state = State.SERVER_EXPECT_CLIENT_HELLO
 
     @property
+    def peer_certificates(self) -> list[x509.Certificate]:
+        """
+        Returns the certificates presented by the peer, leaf first.
+        """
+        if self._peer_certificate is None:
+            return []
+        return [self._peer_certificate] + self._peer_certificate_chain
+
+    @property
     def session_resumed(self) -> bool:
         """
         Returns True if session resumption was successfully used.
@@ -1395,6 +1455,8 @@ class Context:
             self._client_send_hello(output_buf[Epoch.INITIAL])
             return
 
+        # A bytearray appends and drops data in place, which keeps reassembly
+        # linear in the amount of data received.
         self._receive_buffer += input_data
         while len(self._receive_buffer) >= 4:
             # determine message length
@@ -1403,11 +1465,14 @@ class Context:
                 self._receive_buffer[1:4], byteorder="big"
             )
 
+            if message_length > 4 + MAX_HANDSHAKE_MESSAGE_SIZE:
+                raise AlertIllegalParameter("TLS message is too large")
+
             # check message is complete
             if len(self._receive_buffer) < message_length:
                 break
-            message = self._receive_buffer[:message_length]
-            self._receive_buffer = self._receive_buffer[message_length:]
+            message = bytes(self._receive_buffer[:message_length])
+            del self._receive_buffer[:message_length]
 
             # process the message
             try:
@@ -1508,13 +1573,15 @@ class Context:
             length=self.key_schedule.algorithm.digest_size,
         )
 
+        # Tickets must not be used for longer than 7 days, regardless of the
+        # ticket_lifetime (RFC 9846 section 4.7.1).
+        lifetime = min(new_session_ticket.ticket_lifetime, 604800)
         timestamp = utcnow()
         return SessionTicket(
             age_add=new_session_ticket.ticket_age_add,
             cipher_suite=self.key_schedule.cipher_suite,
             max_early_data_size=new_session_ticket.max_early_data_size,
-            not_valid_after=timestamp
-            + datetime.timedelta(seconds=new_session_ticket.ticket_lifetime),
+            not_valid_after=timestamp + datetime.timedelta(seconds=lifetime),
             not_valid_before=timestamp,
             other_extensions=other_extensions,
             resumption_secret=resumption_secret,
@@ -1528,15 +1595,15 @@ class Context:
                 "CertificateVerify has a signature algorithm we did not advertise"
             )
 
-        # We advertise RSASSA-PKCS1-v1_5 for signatures in certificates, but RSA
-        # signatures in CertificateVerify must use RSASSA-PSS (RFC 8446 section 4.4.3).
+        # We advertise RSASSA-PKCS1-v1_5 for signatures in certificates, but these
+        # algorithms are not defined for CertificateVerify (RFC 9846 section 4.3.3).
         if verify.algorithm in RSA_PKCS1_SIGNATURE_ALGORITHMS:
             raise AlertIllegalParameter(
                 "CertificateVerify has an RSASSA-PKCS1-v1_5 signature algorithm"
             )
 
         # The signature algorithm must be compatible with the key in the peer's
-        # certificate (RFC 8446 section 4.4.3).
+        # certificate (RFC 9846 section 4.5.2).
         try:
             public_key = self._peer_certificate.public_key()
         except UnsupportedAlgorithm as exc:
@@ -1600,6 +1667,7 @@ class Context:
             server_name = self._server_name
         else:
             server_name = None
+        self._server_name_sent = server_name is not None
 
         hello = ClientHello(
             random=self.client_random,
@@ -1630,6 +1698,7 @@ class Context:
             # update hello
             if self.session_ticket.max_early_data_size is not None:
                 hello.early_data = True
+                self._early_data_offered = True
             hello.pre_shared_key = OfferedPsks(
                 identities=[
                     (self.session_ticket.ticket, self.session_ticket.obfuscated_age)
@@ -1649,7 +1718,7 @@ class Context:
             if hello.pre_shared_key is not None:
                 # The binder is computed over the ClientHello truncated before
                 # the binders list, then written over its zero-filled
-                # placeholder (RFC 8446 section 4.2.11.2).
+                # placeholder (RFC 9846 section 4.3.11.2).
                 binder_start = output_buf.tell() - binder_length
                 binders_start = binder_start - 3
                 self._key_schedule_psk.update_hash(
@@ -1677,14 +1746,23 @@ class Context:
     def _client_handle_hello(self, input_buf: Buffer, output_buf: Buffer) -> None:
         peer_hello = pull_server_hello(input_buf)
 
+        # A cipher suite we did not offer requires an illegal_parameter alert
+        # (RFC 9846 section 4.2.3).
         cipher_suite = negotiate(
             self._cipher_suites,
             [peer_hello.cipher_suite],
-            AlertHandshakeFailure("Unsupported cipher suite"),
+            AlertIllegalParameter(
+                "ServerHello has a cipher suite we did not advertise"
+            ),
         )
         if peer_hello.compression_method not in self._legacy_compression_methods:
             raise AlertIllegalParameter(
                 "ServerHello has a compression method we did not advertise"
+            )
+        # The server must echo our legacy_session_id (RFC 9846 section 4.2.3).
+        if peer_hello.legacy_session_id != self.legacy_session_id:
+            raise AlertIllegalParameter(
+                "ServerHello has a legacy_session_id we did not send"
             )
         if peer_hello.supported_version not in self._supported_versions:
             raise AlertIllegalParameter(
@@ -1692,19 +1770,35 @@ class Context:
             )
 
         # We only offer (EC)DHE key exchange, so the server must send a key share
-        # (RFC 8446 section 9.2).
+        # (RFC 9846 section 9.2).
         if peer_hello.key_share is None:
             raise AlertMissingExtension("ServerHello has no key share")
 
-        # select key schedule
+        # Every extension a ServerHello may carry has been parsed, so any other one
+        # is either in the wrong message or unsolicited (RFC 9846 section 4.3).
+        for extension_type, _ in peer_hello.other_extensions:
+            if extension_type in list(ExtensionType):
+                raise AlertIllegalParameter(
+                    f"ServerHello has a prohibited extension {extension_type:#06x}"
+                )
+            raise AlertUnsupportedExtension(
+                f"ServerHello has an unsolicited extension {extension_type:#06x}"
+            )
+
+        # If the server accepted our PSK, keep its key schedule. The server may
+        # select any cipher suite with the PSK's hash (RFC 9846 section 4.3.11):
+        # the key schedule only depends on the hash, but traffic keys are for the
+        # selected cipher suite.
         if peer_hello.pre_shared_key is not None:
             if (
                 self._key_schedule_psk is None
                 or peer_hello.pre_shared_key != 0
-                or cipher_suite != self._key_schedule_psk.cipher_suite
+                or cipher_suite_hash(cipher_suite).name
+                != self._key_schedule_psk.algorithm.name
             ):
                 raise AlertIllegalParameter
             self.key_schedule = self._key_schedule_psk
+            self.key_schedule.cipher_suite = cipher_suite
             self._session_resumed = True
         else:
             self.key_schedule = self._key_schedule_proxy.select(cipher_suite)
@@ -1743,7 +1837,7 @@ class Context:
         self.key_schedule.extract(shared_key)
 
         # Both handshake secrets are available once the ServerHello is processed
-        # (RFC 8446 section 7.1). Provide the write key to QUIC straight away, as
+        # (RFC 9846 section 7.1). Provide the write key to QUIC straight away, as
         # it may need to acknowledge Handshake packets before EncryptedExtensions
         # arrives (RFC 9001 section 4.1.4).
         self._setup_traffic_protection(
@@ -1759,13 +1853,58 @@ class Context:
         encrypted_extensions = pull_encrypted_extensions(input_buf)
 
         # If we offered ALPN, the server must select one of our protocols
-        # (RFC 9001 section 8.1). RFC 8446 only defines no_application_protocol
+        # (RFC 9001 section 8.1). RFC 9846 only defines no_application_protocol
         # for servers, but RFC 9001 requires QUIC clients to use it too.
         if (
             self._alpn_protocols is not None
             and encrypted_extensions.alpn_protocol not in self._alpn_protocols
         ):
             raise AlertNoApplicationProtocol("No common ALPN protocols")
+
+        # The server may only answer what we offered, with extensions specified for
+        # EncryptedExtensions (RFC 9846 section 4.3), and only accept early data
+        # along with our PSK (RFC 9846 section 4.3.11).
+        if (
+            self._alpn_protocols is None
+            and encrypted_extensions.alpn_protocol is not None
+        ):
+            raise AlertUnsupportedExtension(
+                "EncryptedExtensions has an unsolicited ALPN"
+            )
+        if encrypted_extensions.early_data:
+            if not self._early_data_offered:
+                raise AlertUnsupportedExtension(
+                    "EncryptedExtensions has an unsolicited early_data"
+                )
+            if not self._session_resumed:
+                raise AlertIllegalParameter(
+                    "EncryptedExtensions accepts early data without our PSK"
+                )
+        expected = [extension_type for extension_type, _ in self.handshake_extensions]
+        expected.append(ExtensionType.SUPPORTED_GROUPS)
+        if self._server_name_sent:
+            expected.append(ExtensionType.SERVER_NAME)
+        for extension_type, extension_data in encrypted_extensions.other_extensions:
+            if extension_type in list(ExtensionType) and extension_type not in (
+                ExtensionType.QUIC_TRANSPORT_PARAMETERS,
+                ExtensionType.SERVER_NAME,
+                ExtensionType.SUPPORTED_GROUPS,
+            ):
+                raise AlertIllegalParameter(
+                    "EncryptedExtensions has a prohibited extension "
+                    f"{extension_type:#06x}"
+                )
+            if extension_type not in expected:
+                raise AlertUnsupportedExtension(
+                    "EncryptedExtensions has an unsolicited extension "
+                    f"{extension_type:#06x}"
+                )
+            # The server_name acknowledgement is empty (RFC 6066 section 3), so any
+            # data in it is left over (RFC 9846 section 4.3).
+            if extension_type == ExtensionType.SERVER_NAME and extension_data:
+                raise AlertDecodeError(
+                    "EncryptedExtensions has a non-empty server_name"
+                )
 
         self.alpn_negotiated = encrypted_extensions.alpn_protocol
         self.early_data_accepted = encrypted_extensions.early_data
@@ -1792,7 +1931,7 @@ class Context:
         certificate = pull_certificate(input_buf)
 
         # The server must send at least one certificate, otherwise the client
-        # must abort with a decode_error alert (RFC 8446 section 4.4.2.4).
+        # must abort with a decode_error alert (RFC 9846 section 4.5.1.3).
         if not certificate.certificates:
             raise AlertDecodeError("Certificate message is empty")
         self.key_schedule.update_hash(input_buf.data)
@@ -1934,38 +2073,56 @@ class Context:
         cipher_suite = negotiate(
             self._cipher_suites,
             peer_hello.cipher_suites,
-            AlertHandshakeFailure("No supported cipher suite"),
-        )
-        compression_method = negotiate(
-            self._legacy_compression_methods,
-            peer_hello.legacy_compression_methods,
-            AlertHandshakeFailure("No supported compression method"),
+            AlertHandshakeFailure("ClientHello has no supported cipher suite"),
         )
         psk_key_exchange_mode = negotiate(
             self._psk_key_exchange_modes, peer_hello.psk_key_exchange_modes
         )
-        signature_algorithm = negotiate(
-            self._signature_algorithms_for_private_key(),
-            peer_hello.signature_algorithms,
-            AlertHandshakeFailure("No supported signature algorithm"),
-        )
         supported_version = negotiate(
             self._supported_versions,
             peer_hello.supported_versions,
-            AlertProtocolVersion("No supported protocol version"),
+            AlertProtocolVersion("ClientHello has no supported protocol version"),
         )
 
+        # The only compression method in TLS 1.3 is null (RFC 9846 section 4.2.2).
+        if peer_hello.legacy_compression_methods != [CompressionMethod.NULL]:
+            raise AlertIllegalParameter(
+                "ClientHello has a compression method other than null"
+            )
+
         # We only support (EC)DHE key exchange, so the client must send a key share
-        # (RFC 8446 section 9.2).
+        # with its supported groups. Without a PSK, it must also send signature
+        # algorithms (RFC 9846 section 9.2).
         if peer_hello.key_share is None:
             raise AlertMissingExtension("ClientHello has no key share")
+        if peer_hello.supported_groups is None:
+            raise AlertMissingExtension("ClientHello has no supported groups")
+        if (
+            peer_hello.pre_shared_key is None
+            and peer_hello.signature_algorithms is None
+        ):
+            raise AlertMissingExtension("ClientHello has no signature algorithms")
+
+        # A client offering a PSK must send its key exchange modes (RFC 9846
+        # section 4.3.9).
+        if (
+            peer_hello.pre_shared_key is not None
+            and peer_hello.psk_key_exchange_modes is None
+        ):
+            raise AlertMissingExtension("ClientHello has no PSK key exchange modes")
+
+        signature_algorithm = negotiate(
+            self._signature_algorithms_for_private_key(),
+            peer_hello.signature_algorithms,
+            AlertHandshakeFailure("ClientHello has no supported signature algorithm"),
+        )
 
         # negotiate ALPN
         if self._alpn_protocols is not None:
             self.alpn_negotiated = negotiate(
                 self._alpn_protocols,
                 peer_hello.alpn_protocols,
-                AlertNoApplicationProtocol("No common ALPN protocols"),
+                AlertNoApplicationProtocol("ClientHello has no common ALPN protocol"),
             )
 
         self.client_random = peer_hello.random
@@ -2011,15 +2168,19 @@ class Context:
                 expected_binder = self.key_schedule.finished_verify_data(binder_key)
 
                 if binder != expected_binder:
-                    raise AlertHandshakeFailure("PSK validation failed")
+                    raise AlertHandshakeFailure("ClientHello has an invalid PSK binder")
 
                 self.key_schedule.update_hash(
                     input_buf.data_slice(hash_offset, hash_offset + 3 + binder_length)
                 )
                 self._session_resumed = True
 
-                # calculate early data key
-                if peer_hello.early_data:
+                # Accept early data only if the ticket allows it
+                # (RFC 9846 section 4.7.1), and calculate its key.
+                if (
+                    peer_hello.early_data
+                    and session_ticket.max_early_data_size is not None
+                ):
                     early_key = self.key_schedule.derive_secret(b"c e traffic")
                     self.early_data_accepted = True
                     self.update_traffic_key_cb(
@@ -2068,14 +2229,14 @@ class Context:
         except ValueError:
             raise AlertIllegalParameter("ClientHello has an invalid key share")
         if shared_key is None:
-            raise AlertHandshakeFailure("No supported key share")
+            raise AlertHandshakeFailure("ClientHello has no supported key share")
 
         # send hello
         hello = ServerHello(
             random=self.server_random,
             legacy_session_id=self.legacy_session_id,
             cipher_suite=cipher_suite,
-            compression_method=compression_method,
+            compression_method=CompressionMethod.NULL,
             key_share=encode_public_key(public_key),
             pre_shared_key=pre_shared_key,
             supported_version=supported_version,
@@ -2169,7 +2330,7 @@ class Context:
 
         # If the client sends an empty Certificate message, the server may
         # continue the handshake without client authentication
-        # (RFC 8446 section 4.4.2.4).
+        # (RFC 9846 section 4.5.1.3).
         if certificate.certificates:
             self._set_peer_certificate(certificate)
             self._set_state(State.SERVER_EXPECT_CERTIFICATE_VERIFY)
@@ -2243,7 +2404,8 @@ class Context:
 
     def _set_peer_certificate(self, certificate: Certificate) -> None:
         # A certificate which cannot be parsed is corrupt, which calls for
-        # a bad_certificate alert (RFC 8446 section 6.2).
+        # a bad_certificate alert (RFC 9846 section 6.2). cryptography has no
+        # common class for its parsing errors.
         try:
             self._peer_certificate = x509.load_der_x509_certificate(
                 certificate.certificates[0][0]
@@ -2252,7 +2414,7 @@ class Context:
                 x509.load_der_x509_certificate(certificate.certificates[i][0])
                 for i in range(1, len(certificate.certificates))
             ]
-        except ValueError as exc:
+        except Exception as exc:
             raise AlertBadCertificate("Certificate could not be parsed") from exc
 
     def _set_state(self, state: State) -> None:
@@ -2263,8 +2425,8 @@ class Context:
     def _signature_algorithms_for_private_key(self) -> list[SignatureAlgorithm]:
         signature_algorithms: list[SignatureAlgorithm] = []
         if isinstance(self.certificate_private_key, rsa.RSAPrivateKey):
-            # RSA signatures in CertificateVerify must use RSASSA-PSS
-            # (RFC 8446 section 4.4.3).
+            # RSASSA-PKCS1-v1_5 is not defined for CertificateVerify, so RSA
+            # signatures use RSASSA-PSS (RFC 9846 section 4.3.3).
             signature_algorithms = [
                 SignatureAlgorithm.RSA_PSS_RSAE_SHA256,
                 SignatureAlgorithm.RSA_PSS_RSAE_SHA384,

@@ -5,11 +5,16 @@ import shutil
 import sys
 from distutils.command.config import config as _config
 
-from setuptools import Command, find_packages, setup
+from setuptools import Command, setup
 from setuptools.command.build_ext import build_ext as _build_ext
 from setuptools.extension import Extension
 
 import versioneer
+
+define_macros = [
+    # keep in sync with runtime requirements (pyproject.toml)
+    ("NPY_NO_DEPRECATED_API", "NPY_2_0_API_VERSION"),
+]
 
 
 class config(_config):
@@ -68,10 +73,8 @@ class build_ext(_build_ext):
     def finalize_options(self):
         _build_ext.finalize_options(self)
         # prevent numpy from thinking it is still in its setup process
-        if sys.version_info < (3,):
-            import __builtin__ as builtins
-        else:
-            import builtins
+        import builtins
+
         builtins.__NUMPY_SETUP__ = False
         import numpy
 
@@ -111,6 +114,7 @@ def prepare_modules():
             "bottleneck.reduce",
             sources=["bottleneck/src/reduce.c"],
             depends=base_includes,
+            define_macros=define_macros,
             extra_compile_args=["-O2"],
         )
     ]
@@ -122,6 +126,7 @@ def prepare_modules():
                 "bottleneck/src/move_median/move_median.c",
             ],
             depends=base_includes + ["bottleneck/src/move_median/move_median.h"],
+            define_macros=define_macros,
             extra_compile_args=["-O2"],
         )
     ]
@@ -130,6 +135,7 @@ def prepare_modules():
             "bottleneck.nonreduce",
             sources=["bottleneck/src/nonreduce.c"],
             depends=base_includes,
+            define_macros=define_macros,
             extra_compile_args=["-O2"],
         )
     ]
@@ -138,64 +144,18 @@ def prepare_modules():
             "bottleneck.nonreduce_axis",
             sources=["bottleneck/src/nonreduce_axis.c"],
             depends=base_includes,
+            define_macros=define_macros,
             extra_compile_args=["-O2"],
         )
     ]
     return ext
 
 
-def get_long_description():
-    with open("README.rst", "r") as fid:
-        long_description = fid.read()
-    idx = max(0, long_description.find("Bottleneck is a collection"))
-    long_description = long_description[idx:]
-    return long_description
-
-
-CLASSIFIERS = [
-    "Development Status :: 5 - Production/Stable",
-    "Environment :: Console",
-    "Intended Audience :: Science/Research",
-    "Intended Audience :: Financial and Insurance Industry",
-    "Operating System :: OS Independent",
-    "Programming Language :: C",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
-    "Programming Language :: Python :: Free Threading :: 2 - Beta",
-    "Topic :: Scientific/Engineering",
-]
-
-
-metadata = dict(
-    name="Bottleneck",
-    maintainer="Christopher Whelan",
-    maintainer_email="bottle-neck@googlegroups.com",
-    description="Fast NumPy array functions written in C",
-    long_description=get_long_description(),
-    long_description_content_type="text/x-rst",
-    url="https://github.com/pydata/bottleneck",
-    download_url="http://pypi.python.org/pypi/Bottleneck",
-    license="Simplified BSD",
-    classifiers=CLASSIFIERS,
-    platforms="OS Independent",
+setup(
     version=versioneer.get_version(),
-    packages=find_packages(),
     package_data={
-        "bottleneck": ["LICENSE"],
         "bottleneck.tests": ["data/*/*"],
     },
-    python_requires=">=3.10",
-    install_requires=["numpy"],
-    extras_require={"doc": ["numpydoc", "sphinx", "gitpython"]},
     cmdclass=cmdclass,
     ext_modules=prepare_modules(),
-    zip_safe=False,
 )
-
-
-setup(**metadata)

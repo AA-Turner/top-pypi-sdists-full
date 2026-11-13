@@ -380,10 +380,16 @@ class TestCloudStoreOps:
         local = tmp_path / "payload.bin"
         local.write_bytes(b"0123456789")
 
+        # The readback confirms a HEAD miss with a parent listing, so both
+        # must come up empty.
         with (
             patch(
                 "application_sdk.storage.ops.get_file_meta",
                 new=_async_return(None),
+            ),
+            patch(
+                "application_sdk.storage.ops._list_items",
+                new=_async_return([]),
             ),
             pytest.raises(StorageError, match="absent from the store"),
         ):
@@ -942,7 +948,7 @@ class TestS3RegionLookup:
 
     @staticmethod
     def _regions_built(monkeypatch):
-        from application_sdk.storage import _obstore_config
+        from application_sdk import _obstore_config
 
         built: list[str | None] = []
 
@@ -1115,7 +1121,8 @@ class TestS3RegionLookup:
         assert client_kwargs["timeout"] == 10.0
 
     async def test_rebuild_uses_credentials_as_given(self, monkeypatch):
-        from application_sdk.storage import _obstore_config, cloud
+        from application_sdk import _obstore_config
+        from application_sdk.storage import cloud
 
         built: list[tuple[str, dict]] = []
 

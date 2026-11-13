@@ -19,6 +19,18 @@ def _read(worker_id, path, body=None):
         return {'ok': False, 'error': 'Worker model browser unavailable: ' + str(exc)}, 502
 
 
+def _native(worker_id):
+    """True when the worker's wrapper is the native build (hugpy-wrapper-native)."""
+    from hugpy_core.registry import registry
+    from hugpy_core.relay.relay import is_native
+    live = registry.lookup_worker(worker_id)
+    return live is not None and is_native(live)
+
+
+def _not_on_native(what, instead):
+    return {'ok': False, 'error': f'{what} has no backing on this wrapper build; {instead}'}, 501
+
+
 def catalog(worker_id):
     return _read(worker_id, '/v1/models')
 
@@ -26,17 +38,33 @@ def catalog(worker_id):
 def pair(worker_id, model_key=''):
     if not isinstance(model_key, str) or not model_key.strip():
         return {'ok': False, 'error': 'model_key is required'}, 400
+    if _native(worker_id):
+        # The native wrapper's per-model surface is its options row.
+        return _read(worker_id, '/v1/models/options?' + urlencode({'model': model_key}))
     return _read(worker_id, '/v1/settings/pair?' + urlencode({'model_key': model_key}))
 
 
 def limits(worker_id):
+    if _native(worker_id):
+        # Box-wide room is the "*" options row (per-tier sliders over the box).
+        return _read(worker_id, '/v1/models/options?' + urlencode({'model': '*'}))
     return _read(worker_id, '/limits')
 
 
 def report(worker_id, section=''):
     """Fixed Wrapper reports used by the shared terminal settings editor."""
     paths = {'residents': '/residents', 'health': '/health', 'runtime': '/v1/settings/runtime',
-             'keys': '/v1/keys?all=1', 'schema': '/v1/settings/schema'}
+             'keys': '/v1/keys?all=1', 'schema': '/v1/settings/schema',
+             'planner': '/v1/plan', 'queue': '/v1/queue', 'observation': '/v1/telemetry/state'}
+    if _native(worker_id):
+        native_paths = {'health': '/health', 'queue': '/v1/queue', 'planner': '/v1/queue/plan',
+                        'observation': '/v1/telemetry/state'}
+        if section in native_paths:
+            return _read(worker_id, native_paths[section])
+        if section in paths:
+            return _not_on_native(f'the {section} report',
+                                  'residents arrive with telemetry state; it keeps no keys, '
+                                  'runtime settings or settings schema')
     if section not in paths:
         return {'ok': False, 'error': 'Unknown settings report'}, 400
     return _read(worker_id, paths[section])
@@ -48,6 +76,10 @@ def set_limits(worker_id, changes=None):
     allowed = {'gpu_limit', 'ram_limit', 'storage_limit', 'cpu_limit', 'protected'}
     if not isinstance(patch, dict) or not patch or set(patch) - allowed:
         return {'ok': False, 'error': 'Choose a live resource limit'}, 400
+    if _native(worker_id):
+        return _not_on_native('live resource limits',
+                              'per-model tier limits are set through the model options '
+                              '(POST /v1/models/options {model, limit_gib})')
     try:
         configured = target(worker_id)
         receipt = request(configured, '/limits', patch)
@@ -69,27 +101,41 @@ def preview(worker_id, model_key='', settings=None):
         return {'ok': False, 'error': 'settings must describe only the selected model'}, 400
     if any(not isinstance(value, dict) for value in settings.values()):
         return {'ok': False, 'error': 'model settings must be an object'}, 400
+    if _native(worker_id):
+        # The nearest native read is the options row: real fit ranges and
+        # presets for the unit, instead of a fabricated verdict plan.
+        return _read(worker_id, '/v1/models/options?' + urlencode({'model': model_key}))
     # Preview computes a verdict at the owning Wrapper; it never saves settings
     # or submits an operator action and never loads a model.
     return _read(worker_id, '/v1/verdicts/plan', {'model_key': model_key, 'settings': settings})
 
 
 def processes(worker_id):
+    if _native(worker_id):
+        return _not_on_native('the process browser',
+                              'engine processes appear in telemetry state residents')
     return _read(worker_id, '/v1/telemetry/processes')
 
 
 def terminate_process(worker_id, pid=None, identity=None):
     if type(pid) is not int or pid <= 1 or not isinstance(identity, str) or not identity:
         return {'ok': False, 'error': 'PID and observed process identity are required'}, 400
+    if _native(worker_id):
+        return _not_on_native('terminating a worker process',
+                              'the native wrapper manages its engine children itself')
     return _read(worker_id, '/v1/operator/terminate-process', {'pid': pid, 'identity': identity})
 
 
 def browse_drives(worker_id, path='/', offset=0):
+    if _native(worker_id):
+        return _not_on_native('browsing the worker drive',
+                              'drives belong to discovery now; the fleet catalog '
+                              '(/fleet/catalog) lists every model and its on-drive state')
     return _read(worker_id, '/v1/drives/browse?' + urlencode({'path': path, 'offset': offset}))
 
 
 def browse_central_drives(path='/', offset=0):
-    from fitevict.serve.directory_browser import browse
+    from hugpy_core.lifted.directory_browser import browse
     try:
         return browse(path, int(offset))
     except (OSError, ValueError) as exc:

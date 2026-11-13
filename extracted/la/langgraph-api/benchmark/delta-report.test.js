@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { DESIGN, aggregateByCell, aggregateSamples, buildReport, collectRun, gain, growthTables, loadDeltaHistory } from './delta-report.js';
+import { DESIGN, aggregateByCell, aggregateSamples, buildReport, collectRun, gain, growthTables, loadDeltaHistory, nightRecord } from './delta-report.js';
 import { PHONE_WIDTH, footer, widestCodeLine } from './slack.js';
 
 const MB = 1024 * 1024;
@@ -66,11 +66,10 @@ function run({ base = {}, delta = {}, summary, stepOutcome = 'success' } = {}) {
   };
 }
 
-const nightFrom = (r) => Object.fromEntries(r.cells.map((c) => [c.cell, { buckets: c.buckets }]));
 const base = { apiVersion: '0.16.0rc2', now: new Date('2026-09-30T14:00:00Z'), artifactUrl: 'https://github.com/x/y/actions/runs/1' };
 
 test('a clean night is the verdict, one table at the last turn, and a footer', () => {
-  const history = Array.from({ length: 9 }, () => nightFrom(run()));
+  const history = Array.from({ length: 9 }, () => nightRecord(run()));
   const { text } = buildReport(run(), { ...base, history });
   assert.deepEqual(text.split('\n'), [
     '🟢 *Delta Channel · Sep 30* · API 0.16.0rc2 · all quiet',
@@ -106,7 +105,7 @@ test('the thread shows each metric as the threads grow, with the gain at every r
 });
 
 test('a delta metric outside its usual range is named above the table once five nights exist', () => {
-  const history = Array.from({ length: 5 }, () => nightFrom(run()));
+  const history = Array.from({ length: 5 }, () => nightRecord(run()));
   const { text, thread } = buildReport(run({ delta: { read: 130, save: 30 } }), { ...base, history });
   assert.match(text, /^🟡 .* · 1 regression$/m);
   assert.match(text, /^⚠️ \*delta read 0\.10 → 0\.13 s \(\+30%\)\*$/m);
@@ -115,10 +114,29 @@ test('a delta metric outside its usual range is named above the table once five 
 });
 
 test('fewer than five nights compare nothing, and the post says so', () => {
-  const history = Array.from({ length: 4 }, () => nightFrom(run()));
+  const history = Array.from({ length: 4 }, () => nightRecord(run()));
   const { text } = buildReport(run({ delta: { read: 500 } }), { ...base, history });
   assert.doesNotMatch(text, /⚠️/);
   assert.match(text, /^_4 of 5 nights of history, no change flags yet_$/m);
+});
+
+test('a night is compared with the nine latest nights saved on its cpu', () => {
+  const rome = { 'AuthenticAMD 143/49': 10 };
+  const dir = mkdtempSync(path.join(tmpdir(), 'delta-cpu-'));
+  const save = (runId, night) => {
+    mkdirSync(path.join(dir, runId), { recursive: true });
+    writeFileSync(path.join(dir, runId, 'delta_report.json'), JSON.stringify(nightRecord(night)));
+  };
+  save('100', run({ delta: { read: 200 }, summary: { serverCpus: rome } }));
+  for (let runId = 101; runId <= 109; runId++) save(String(runId), run({ summary: { serverCpus: rome } }));
+  const history = loadDeltaHistory(dir);
+
+  const moved = buildReport(run({ delta: { read: 130 }, summary: { serverCpus: { 'AuthenticAMD 143/49': 2, 'GenuineIntel 6/79': 8 } } }), { ...base, history });
+  assert.match(moved.text, /^🟢 \*Delta Channel · Sep 30\* · API 0\.16\.0rc2 · mostly intel broadwell · all quiet$/m, 'against the rome nights this would be +30%');
+  assert.match(moved.text, /^_0 of 5 nights of history on this cpu, no change flags yet_$/m);
+
+  const stayed = buildReport(run({ delta: { read: 130 }, summary: { serverCpus: rome } }), { ...base, history });
+  assert.match(stayed.text, /^⚠️ \*delta read 0\.10 → 0\.13 s \(\+30%\)\*$/m, 'the 0.20 s read of the tenth night back is outside the baseline');
 });
 
 test('history keeps only nights measured with this design, newest first', () => {
@@ -131,7 +149,7 @@ test('history keeps only nights measured with this design, newest first', () => 
   write('300', { design: DESIGN, cells: { control: { tag: 'newer' } } });
   write('200', { cells: { control: { tag: 'one job per cell' } } });
   write('250', { design: 'paired-messages', cells: { control: { tag: 'median write' } } });
-  assert.deepEqual(loadDeltaHistory(dir).map((night) => night.control.tag), ['newer', 'older']);
+  assert.deepEqual(loadDeltaHistory(dir).map((night) => night.cells.control.tag), ['newer', 'older']);
 });
 
 test('without storage readings the data row is left out and the post says why', () => {
@@ -193,4 +211,9 @@ test('a single downloaded artifact is read from the results directory itself', a
   const run = await collectRun(dir);
   assert.equal(run.stepOutcome, 'success');
   assert.equal(run.cells.find((c) => c.cell === 'delta_50').buckets['1-50'].saveMeanMs, 30);
+});
+
+test('the run line names the cpus the workers ran on', () => {
+  const { thread } = buildReport(run({ summary: { serverCpus: { 'AuthenticAMD 143/49': 6, 'GenuineIntel 6/79': 4 } } }), base);
+  assert.match(thread[0], /^\*Run\* · .* · no correctness failures · 6 amd rome, 4 intel broadwell$/m);
 });

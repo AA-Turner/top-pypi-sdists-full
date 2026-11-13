@@ -1,6 +1,7 @@
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 
 import sqlglot
 from sqlglot.tokens import TokenType
@@ -9,6 +10,64 @@ from sagemaker_studio.sql_engine.resource_fetching_definition import (
     ResourceFetchingDefinition,
     SQLAlchemyMetadataAction,
 )
+
+logger = logging.getLogger(__name__)
+
+# Read-only sqlglot statement keys. INSERT ... SELECT ("insert") and CTAS ("create") fall out.
+_ROW_LIMITABLE_STATEMENT_TYPES = frozenset({"SELECT", "UNION", "INTERSECT", "EXCEPT"})
+
+# Every opted-in dialect takes a trailing LIMIT n.
+_ROW_LIMIT_CLAUSE = "LIMIT"
+
+# The statement_type split_query assigns when sqlglot could not parse the statement.
+_UNCLASSIFIED_STATEMENT_TYPE = "UNKNOWN"
+
+# Logged only when no parse can classify a statement; deliberate exclusions stay silent.
+_ROW_LIMIT_NOT_APPLIED = (
+    "Row limit not applied: could not parse this statement (statement_type=%s, dialect=%s); "
+    "it is submitted as written, without the requested limit of %s rows"
+)
+
+# A quoted string parses in every position a placeholder can occupy, including after
+# TIMESTAMP or DATE, where a bare placeholder does not parse at all.
+_PLACEHOLDER_MASK = "'0'"
+
+
+def _is_name(text: str) -> bool:
+    """True for [A-Za-z_][A-Za-z0-9_]*, the placeholder names athena_v4 binds."""
+    return text.isascii() and text.isidentifier()
+
+
+def _mask_placeholders(statement: str, dialect: Optional[str]) -> str:
+    """
+    Return a copy of ``statement`` with each placeholder replaced by a literal.
+
+    Masks ``?``, ``:name``, ``$1``, ``$name`` and ``@name``. The copy is only parsed for
+    classification, never submitted. Placeholders are found by token, so ``::`` casts and
+    markers inside string literals are left alone.
+    """
+    tokens = sqlglot.Dialect.get_or_raise(dialect).tokenize(statement)
+    spans = []
+    for marker, following in zip(tokens, [*tokens[1:], None]):
+        if marker.token_type is TokenType.PLACEHOLDER:
+            spans.append((marker.start, marker.end + 1))
+            continue
+        if marker.token_type not in (TokenType.COLON, TokenType.PARAMETER):
+            continue
+        # The name must be the very next token, touching the marker. Raw text, not
+        # token.text, so a quoted identifier like :"x" is not taken for a name.
+        if following is None or following.start != marker.end + 1:
+            continue
+        name = statement[following.start : following.end + 1]
+        is_position = marker.token_type is TokenType.PARAMETER and name.isdigit()
+        # A keyword after the marker is still a name: :date tokenizes as DATE, not VAR.
+        if _is_name(name) or is_position:
+            spans.append((marker.start, following.end + 1))
+
+    # Reversed, so each replacement leaves the offsets of the earlier ones valid.
+    for start, end in reversed(spans):
+        statement = statement[:start] + _PLACEHOLDER_MASK + statement[end:]
+    return statement
 
 
 @dataclass
@@ -27,6 +86,9 @@ class DatabaseTransformer(ABC):
     into SQLAlchemy-compatible formats. Each concrete implementation handles
     a specific database type and its connection requirements.
     """
+
+    # Opt-in: True only where the dialect's native row limit is a trailing LIMIT n.
+    supports_row_limit: ClassVar[bool] = False
 
     @classmethod
     @abstractmethod
@@ -257,3 +319,97 @@ class DatabaseTransformer(ABC):
                 for stmt in query.split(";")
                 if stmt.strip()
             ]
+
+    @classmethod
+    def apply_row_limit(
+        cls,
+        statement: str,
+        statement_type: str,
+        limit_query_results: Optional[int] = None,
+    ) -> str:
+        """
+        Return ``statement`` with a row limit appended, or unchanged.
+
+        sqlglot decides eligibility only; the clause is appended as text, so the author's
+        parameters, comments and syntax survive verbatim. An existing limit is never lowered.
+
+        Args:
+            statement (str): One SQL statement, as produced by split_query.
+            statement_type (str): The matching SqlStatement.statement_type.
+            limit_query_results (Optional[int]): Requested maximum rows. None disables
+                the transform.
+
+        Returns:
+            str: ``statement`` followed by the row-limit clause, or ``statement`` unchanged.
+        """
+        if not cls.supports_row_limit:
+            return statement
+        # bool is an int subclass, and formatting True would append "LIMIT True".
+        if isinstance(limit_query_results, bool) or not isinstance(limit_query_results, int):
+            return statement
+        if limit_query_results <= 0:
+            return statement
+        dialect = cls.get_dialect()
+        # Usually a placeholder blocked split_query's parse; classify a masked copy instead.
+        masked = statement_type == _UNCLASSIFIED_STATEMENT_TYPE
+        if not masked and statement_type not in _ROW_LIMITABLE_STATEMENT_TYPES:
+            return statement
+
+        try:
+            node = sqlglot.parse_one(
+                _mask_placeholders(statement, dialect) if masked else statement, dialect=dialect
+            )
+        except Exception:
+            logger.warning(
+                _ROW_LIMIT_NOT_APPLIED,
+                statement_type,
+                dialect,
+                limit_query_results,
+                exc_info=True,
+            )
+            return statement
+
+        if masked and node.key.upper() not in _ROW_LIMITABLE_STATEMENT_TYPES:
+            return statement
+
+        # Never lower an existing limit. args["limit"] covers LIMIT, FETCH FIRST and TOP.
+        if node.args.get("limit") is not None:
+            return statement
+        # LIMIT must precede FOR UPDATE, so a locking read has no appendable position.
+        if node.args.get("locks"):
+            return statement
+        # SELECT ... INTO creates a table, so a limit here would truncate what it writes.
+        if node.args.get("into") is not None:
+            return statement
+        # Spark wants LIMIT before OFFSET, so an offset leaves no portable trailing position.
+        if node.args.get("offset") is not None:
+            return statement
+
+        # The newline is load-bearing: a trailing line comment would swallow the clause.
+        return f"{statement}\n{_ROW_LIMIT_CLAUSE} {limit_query_results}"
+
+    @classmethod
+    def apply_row_limits(
+        cls,
+        statements: List[SqlStatement],
+        limit_query_results: Optional[int] = None,
+    ) -> List[SqlStatement]:
+        """
+        Apply apply_row_limit to each statement, preserving order, count and type.
+
+        Args:
+            statements (List[SqlStatement]): Statements as produced by split_query.
+            limit_query_results (Optional[int]): Requested maximum rows per statement.
+
+        Returns:
+            List[SqlStatement]: Statements in the same order, each limited or unchanged.
+        """
+        return [
+            SqlStatement(
+                statement=cls.apply_row_limit(
+                    item.statement, item.statement_type, limit_query_results
+                ),
+                statement_type=item.statement_type,
+            )
+            for item in statements
+        ]

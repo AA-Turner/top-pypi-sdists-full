@@ -20,7 +20,6 @@ from contrast_fireball import (
 import contrast
 from contrast.agent import agent_state, scope, thread_watcher
 from contrast.agent.assess.preflight import finding_hash, route_hash
-from contrast.agent.inventory.library_reader import LibraryObservations
 from contrast.agent.middlewares import response_wrappers
 from contrast.agent.request import Request
 from contrast.reporting.request_masker import RequestMasker
@@ -59,7 +58,6 @@ class ContrastContext:
         self.protect_enabled = protect_enabled
         self.shield_enabled = shield_enabled
 
-        self.observed_libraries = LibraryObservations([])
         self.attack_events: list[ProtectEventSample] = []
         self.findings: list[AssessFinding] = []
 
@@ -122,7 +120,6 @@ class ContrastContext:
         thread_watcher.ensure_running(agent_state.module)
 
         self._send_attacks()
-        self._send_library_observations()
         self._send_findings()
 
     def _send_attacks(self) -> None:
@@ -130,12 +127,6 @@ class ContrastContext:
             agent_state.module.fireball_client.new_protect_events(self.attack_events)
             for sample in self.attack_events:
                 security_log_attack(sample)
-
-    def _send_library_observations(self) -> None:
-        if library_observations := self.observed_libraries.to_list():
-            agent_state.module.fireball_client.new_library_observations(
-                library_observations
-            )
 
     def _send_findings(self) -> None:
         if self.findings:

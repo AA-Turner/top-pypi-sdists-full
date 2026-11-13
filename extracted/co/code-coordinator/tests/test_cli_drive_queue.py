@@ -34,7 +34,7 @@ from click.testing import CliRunner
 
 from coord import state
 from coord.cli import main
-from coord.models import Assignment
+from coord.models import NEEDS_DECOMPOSITION_MARKER, Assignment
 from coord.drive import tmux_session_alive as _REAL_TMUX_SESSION_ALIVE
 from coord.drive_queue import (
     DEFAULT_MAX_ATTEMPTS,
@@ -2397,7 +2397,7 @@ def test_clear_refusal_records_the_recheck_on_the_refused_assignment(cli, seed, 
         "clear-refusal", REPO, "1650", "--reason", "quadraui#971 landed",
     )
     assert result.exit_code == 0, result.output
-    assert "recorded premise recheck" in result.output
+    assert "recorded recheck" in result.output
     assert "a-claude-coordinator-0" in result.output
     row = coord_db.execute(
         "SELECT premise_rechecked_at, premise_rechecked_reason, status "
@@ -2411,11 +2411,36 @@ def test_clear_refusal_records_the_recheck_on_the_refused_assignment(cli, seed, 
     assert row["status"] == "refused_premise"
 
 
+def test_clear_refusal_accepts_a_needs_decomposition_assignment(cli, seed, coord_db):
+    """#3996: `clear-refusal` is no longer `refused_premise`-only — a
+    `needs_decomposition` row records the identical columns, which
+    `coord.drive.decide()`'s `needs_decomposition` branch reads back as
+    license to dispatch fresh work."""
+    seed(assignments=[{"issue_number": 1650, "status": "needs_decomposition"}])
+    result = cli(
+        "clear-refusal", REPO, "1650", "--reason",
+        "split into quadraui#2408-2410, re-scoped to part 4",
+    )
+    assert result.exit_code == 0, result.output
+    assert "recorded recheck" in result.output
+    row = coord_db.execute(
+        "SELECT premise_rechecked_at, premise_rechecked_reason, status "
+        "FROM assignments WHERE assignment_id = ?",
+        ("a-claude-coordinator-0",),
+    ).fetchone()
+    assert row["premise_rechecked_at"] is not None
+    assert row["premise_rechecked_reason"] == (
+        "split into quadraui#2408-2410, re-scoped to part 4"
+    )
+    assert row["status"] == "needs_decomposition"
+
+
 def test_clear_refusal_of_a_non_refused_assignment_exits_non_zero(cli, seed):
     seed(assignments=[{"issue_number": 1650, "status": "done"}])
     result = cli("clear-refusal", REPO, "1650", "--reason", "landed")
     assert result.exit_code != 0
-    assert "not 'refused_premise'" in result.output
+    assert "not one of" in result.output
+    assert "'done'" in result.output
 
 
 def test_clear_refusal_of_an_issue_with_no_work_row_exits_non_zero(cli):
@@ -7096,6 +7121,134 @@ def test_status_alert_names_the_root_only_not_the_chained_dependents(cli):
     assert "coord drive-queue remove" in result.output
     assert "coord drive-queue add" in result.output
     assert "self-heal" in result.output
+
+
+# ── #3983: a `parked` needs-decomposition root straining a dependent chain ──
+#
+# The quadraui#2341 incident: a worker parked the row `needs_decomposition`
+# (#3931) with `attempts=0`, and 13 other rows sat `waiting` chained behind it
+# via `after=`. `status` read `alert: (none)` for ~13h — this root is
+# `parked`, not `blocked`, and the dependents are `waiting` (never dispatched,
+# so they carry none of #2978's own "pre-req ... it will never satisfy"
+# caption), neither of which the earlier #2944/#2978 regressions above cover.
+
+# Composed from `NEEDS_DECOMPOSITION_MARKER` rather than hand-copied — a row
+# this test builds must keep matching `is_needs_decomposition_reason` if the
+# marker text itself ever changes, the same guarantee the sibling test in
+# tests/test_drive_queue.py already has.
+_NEEDS_DECOMPOSITION_PARK_REASON = (
+    "pre-dispatch refusal on assignment claude-coordinator-2341-x (needs_"
+    "decomposition, 13h old) — the worker concluded the issue itself needs "
+    "epic decomposition rather than one leg of work; the worker did the "
+    "CORRECT thing. Needs the coordinator: decompose the issue into "
+    "the proposed sub-issues (posted to the issue — see the worker's own "
+    "split proposal) and close or re-scope this one. Once replaced, dispatch "
+    "the new sub-issues normally; this row does not auto-resume.\n"
+    "   inspect: coord log claude-coordinator-2341-x --machine dellserver\n"
+    f"   {NEEDS_DECOMPOSITION_MARKER}"
+    " — parking without spending an attempt; needs the coordinator, "
+    "not a relaunch — decompose the issue into the proposed sub-issues "
+    "(posted to the issue) and close or re-scope this one, then dispatch "
+    "the replacements normally."
+)
+
+
+def test_status_alert_fires_for_a_parked_needs_decomposition_root_with_a_chain(cli):
+    cli("add", REPO, "2341")
+    state._update_drive_queue_entry_local(
+        REPO, 2341, state="parked", attempts=0, deferrals=380,
+        last_reason=_NEEDS_DECOMPOSITION_PARK_REASON,
+    )
+    root_key = f"{REPO}#2341"
+    for issue in range(3000, 3013):
+        cli("add", REPO, str(issue), "--after", "2341")
+
+    result = cli("status")
+    assert result.exit_code == 0, result.output
+    assert "alert: (none)" not in result.output
+    assert root_key in result.output
+    assert "380 deferrals" in result.output
+    assert "13 dependent" in result.output
+    # #3983 review: names the CAUSE (#3979's classification) and how long
+    # the row has sat this way, not just the bare state/deferral count.
+    assert "needs-decomposition" in result.output
+    assert ", stuck " in result.output
+    # ... and never proposes the one remedy the row's own reason already
+    # says a relaunch cannot satisfy — `remove`+`add` would just re-launch
+    # the drive straight back into the identical park.
+    assert "coord drive-queue remove" not in result.output
+    assert "decompose the issue" in result.output
+
+    result_json = cli("status", "--json")
+    payload = json.loads(result_json.output)
+    assert "remove" not in payload["alert"]["proposed_command"]
+    assert payload["alert"]["proposed_command"] == "coord drive-queue list --repo claude-coordinator"
+
+
+def test_status_alert_fires_for_a_parked_needs_decomposition_root_with_no_dependents(cli):
+    """Same root, no chain behind it — still alerts, but the line must not
+    claim a blocked chain that does not exist."""
+    cli("add", REPO, "2341")
+    state._update_drive_queue_entry_local(
+        REPO, 2341, state="parked", attempts=0, deferrals=380,
+        last_reason=_NEEDS_DECOMPOSITION_PARK_REASON,
+    )
+
+    result = cli("status")
+    assert result.exit_code == 0, result.output
+    assert "alert: (none)" not in result.output
+    assert f"{REPO}#2341" in result.output
+    assert "380 deferrals" in result.output
+    assert "needs-decomposition" in result.output
+    assert "coord drive-queue remove" not in result.output
+    # No chain behind this root — the per-entry "N dependent entries chained
+    # behind it will self-heal" note (`describe_unreachable_wait`'s own
+    # trailing clause, only added when `dependents` is non-zero) must not
+    # appear when there is nothing to self-heal.
+    assert "dependent entr" not in result.output
+    assert "self-heal" not in result.output
+
+
+# ── #3983: a tick's own benign "nothing eligible to launch" write must not ──
+# mask the #2944/#2978 finding underneath it. The quadraui#2341 incident: the
+# 13 dependents above never reach `blocked` (`_resolve_prereqs` treats a
+# `parked` pre-req as an ordinary deferral, not the unsatisfiable shape a
+# `blocked`/`failed` one gets), so every tick re-wrote step 4's no-remedy
+# sentinel over the root's own finding — this is the escalation record a
+# real tick persists in that exact shape, built directly rather than via a
+# real `tick` invocation (no live tmux/gh boundary to stub for this).
+
+
+def test_status_alert_survives_a_benign_per_tick_no_remedy_write(cli):
+    from coord.drive_queue import (
+        QUEUE_ALERT_ISSUE,
+        QUEUE_ALERT_NO_REMEDY_COMMAND,
+        QUEUE_ALERT_REPO,
+        QUEUE_ALERT_STAGE,
+    )
+    from coord.state import record_drive_escalation
+
+    cli("add", REPO, "2341")
+    state._update_drive_queue_entry_local(
+        REPO, 2341, state="parked", attempts=0, deferrals=380,
+        last_reason=_NEEDS_DECOMPOSITION_PARK_REASON,
+    )
+    root_key = f"{REPO}#2341"
+    for issue in range(3000, 3013):
+        cli("add", REPO, str(issue), "--after", "2341")
+    record_drive_escalation(
+        QUEUE_ALERT_REPO, QUEUE_ALERT_ISSUE,
+        stage=QUEUE_ALERT_STAGE,
+        reason="nothing eligible to launch: considered 13 waiting entries, 3 free slot(s)",
+        gate_readings="",
+        proposed_command=QUEUE_ALERT_NO_REMEDY_COMMAND,
+    )
+
+    result = cli("status")
+    assert result.exit_code == 0, result.output
+    assert "alert: (none)" not in result.output
+    assert root_key in result.output
+    assert "13 dependent" in result.output
 
 
 # ── deploy gates (#1757) ─────────────────────────────────────────────────────

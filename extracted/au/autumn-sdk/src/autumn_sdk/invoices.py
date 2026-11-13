@@ -42,7 +42,7 @@ class Invoices(BaseSDK):
         period_start: Optional[int] = None,
         period_end: Optional[int] = None,
         preview: Optional[bool] = None,
-        issue_method: Optional[models.CreateInvoiceIssueMethod] = None,
+        issue_method: Optional[models.CreateInvoiceIssueMethodRequest] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -196,7 +196,7 @@ class Invoices(BaseSDK):
         period_start: Optional[int] = None,
         period_end: Optional[int] = None,
         preview: Optional[bool] = None,
-        issue_method: Optional[models.CreateInvoiceIssueMethod] = None,
+        issue_method: Optional[models.CreateInvoiceIssueMethodRequest] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -1291,7 +1291,7 @@ class Invoices(BaseSDK):
         lines: Optional[
             Union[List[models.LineRequest], List[models.LineRequestTypedDict]]
         ] = None,
-        destination: Optional[models.Destination] = "customer_balance",
+        destination: Optional[models.IssueCreditNoteDestination] = "customer_balance",
         send_email: Optional[bool] = True,
         reason: Optional[models.ReasonRequestBody] = None,
         memo: Optional[str] = None,
@@ -1404,7 +1404,7 @@ class Invoices(BaseSDK):
         lines: Optional[
             Union[List[models.LineRequest], List[models.LineRequestTypedDict]]
         ] = None,
-        destination: Optional[models.Destination] = "customer_balance",
+        destination: Optional[models.IssueCreditNoteDestination] = "customer_balance",
         send_email: Optional[bool] = True,
         reason: Optional[models.ReasonRequestBody] = None,
         memo: Optional[str] = None,
@@ -1516,7 +1516,8 @@ class Invoices(BaseSDK):
         invoice_template_id: Optional[str] = None,
         net_terms_days: Optional[int] = None,
         preview: Optional[bool] = None,
-        issue_method: Optional[models.ReissueInvoiceIssueMethod] = None,
+        issue_method: Optional[models.ReissueInvoiceIssueMethodRequest] = None,
+        destination: Optional[models.ReissueInvoiceDestination] = None,
         update_customer_email: Optional[str] = None,
         invoice: Optional[
             Union[
@@ -1540,6 +1541,7 @@ class Invoices(BaseSDK):
         :param net_terms_days: Number of days the customer has to pay the replacement invoice. Defaults to the original invoice's due date; required when that date has already passed. A card-charged invoice has no due date and its replacement is charged immediately; setting this makes the replacement a send-invoice one instead.
         :param preview: If true, returns the replacement invoice's lines and totals without voiding anything or issuing it.
         :param issue_method: How far the replacement advances: draft, finalize (opened without emails, reminders or charges) or send. Defaults to send. The original is retired either way.
+        :param destination: Where a paid original's money goes. customer_balance (the default) credits the customer's balance, which then covers the replacement. refund and out_of_band credit the replacement's cost for it to draw on and return only the difference, to the original payment method (refund) or as money returned outside Stripe (out_of_band); they are rejected when the replacement costs more than the original, when nothing is left to return, or when the original was paid from customer credit. Ignored when the original is open or a draft, since it is voided instead.
         :param update_customer_email: Updates the customer's billing email before the replacement is issued, so Stripe sends the new invoice to this address.
         :param invoice: Changes that apply to the replacement invoice only.
         :param customer: Changes written to the customer, which the replacement snapshots and later invoices inherit.
@@ -1565,6 +1567,7 @@ class Invoices(BaseSDK):
             net_terms_days=net_terms_days,
             preview=preview,
             issue_method=issue_method,
+            destination=destination,
             update_customer_email=update_customer_email,
             invoice=utils.get_pydantic_model(
                 invoice, Optional[models.ReissueInvoiceInvoiceRequestBody]
@@ -1641,7 +1644,8 @@ class Invoices(BaseSDK):
         invoice_template_id: Optional[str] = None,
         net_terms_days: Optional[int] = None,
         preview: Optional[bool] = None,
-        issue_method: Optional[models.ReissueInvoiceIssueMethod] = None,
+        issue_method: Optional[models.ReissueInvoiceIssueMethodRequest] = None,
+        destination: Optional[models.ReissueInvoiceDestination] = None,
         update_customer_email: Optional[str] = None,
         invoice: Optional[
             Union[
@@ -1665,6 +1669,7 @@ class Invoices(BaseSDK):
         :param net_terms_days: Number of days the customer has to pay the replacement invoice. Defaults to the original invoice's due date; required when that date has already passed. A card-charged invoice has no due date and its replacement is charged immediately; setting this makes the replacement a send-invoice one instead.
         :param preview: If true, returns the replacement invoice's lines and totals without voiding anything or issuing it.
         :param issue_method: How far the replacement advances: draft, finalize (opened without emails, reminders or charges) or send. Defaults to send. The original is retired either way.
+        :param destination: Where a paid original's money goes. customer_balance (the default) credits the customer's balance, which then covers the replacement. refund and out_of_band credit the replacement's cost for it to draw on and return only the difference, to the original payment method (refund) or as money returned outside Stripe (out_of_band); they are rejected when the replacement costs more than the original, when nothing is left to return, or when the original was paid from customer credit. Ignored when the original is open or a draft, since it is voided instead.
         :param update_customer_email: Updates the customer's billing email before the replacement is issued, so Stripe sends the new invoice to this address.
         :param invoice: Changes that apply to the replacement invoice only.
         :param customer: Changes written to the customer, which the replacement snapshots and later invoices inherit.
@@ -1690,6 +1695,7 @@ class Invoices(BaseSDK):
             net_terms_days=net_terms_days,
             preview=preview,
             issue_method=issue_method,
+            destination=destination,
             update_customer_email=update_customer_email,
             invoice=utils.get_pydantic_model(
                 invoice, Optional[models.ReissueInvoiceInvoiceRequestBody]
@@ -1954,7 +1960,7 @@ class Invoices(BaseSDK):
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
     ) -> models.VoidInvoiceResponse:
-        r"""Voids an open or uncollectible Stripe invoice. Any plan still waiting on the invoice to be paid expires. Voiding an unpaid subscription invoice lets Stripe re-derive the subscription status from its remaining invoices, which can move a past-due subscription back to active. Already-void invoices are returned unchanged.
+        r"""Voids a draft, open or uncollectible Stripe invoice. A draft is retired without charging or emailing the customer: a one-off draft is deleted from Stripe, and a subscription draft is finalized without collection and then voided. Any plan still waiting on the invoice to be paid expires. Voiding an unpaid subscription invoice lets Stripe re-derive the subscription status from its remaining invoices, which can move a past-due subscription back to active. Already-void invoices are returned unchanged.
 
         :param invoice_id: The Autumn invoice ID to void.
         :param retries: Override the default retry configuration for this method
@@ -2044,7 +2050,7 @@ class Invoices(BaseSDK):
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
     ) -> models.VoidInvoiceResponse:
-        r"""Voids an open or uncollectible Stripe invoice. Any plan still waiting on the invoice to be paid expires. Voiding an unpaid subscription invoice lets Stripe re-derive the subscription status from its remaining invoices, which can move a past-due subscription back to active. Already-void invoices are returned unchanged.
+        r"""Voids a draft, open or uncollectible Stripe invoice. A draft is retired without charging or emailing the customer: a one-off draft is deleted from Stripe, and a subscription draft is finalized without collection and then voided. Any plan still waiting on the invoice to be paid expires. Voiding an unpaid subscription invoice lets Stripe re-derive the subscription status from its remaining invoices, which can move a past-due subscription back to active. Already-void invoices are returned unchanged.
 
         :param invoice_id: The Autumn invoice ID to void.
         :param retries: Override the default retry configuration for this method

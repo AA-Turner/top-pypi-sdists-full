@@ -1,6 +1,6 @@
 [package]
 name = "rsloop"
-version = "0.1.66"
+version = "0.1.68"
 edition = "2024"
 description = "An event loop for asyncio written in Rust"
 documentation = "https://github.com/RustedBytes/rsloop#readme"
@@ -24,16 +24,16 @@ crossbeam-queue = "0.3"
 errno = { version = "0.3", optional = true }
 futures = { version = "0.3", default-features = false, features = ["std"] }
 futures-util = "0.3"
-hotpath = { version = "0.28.3", optional = true }
+hotpath = { version = "0.31", optional = true }
 libc = "0.2"
 memchr = "2"
 mio = "1"
 once_cell = { version = "1", optional = true }
 oneshot = { version = "0.2", features = ["async", "std"] }
 pin-project-lite = "0.2"
-pyo3 = { version = "0.29.3" }
-pyo3-async-runtimes = { version = "0.29", default-features = false }
-rustls = "0.23.45"
+pyo3 = { version = "0.30.1" }
+pyo3-async-runtimes = { version = "0.30", default-features = false }
+rustls = "0.23.46"
 rustls-native-certs = "0.8"
 rustls-pemfile = "2"
 rusty_pool = { version = "0.7", default-features = false, optional = true }
@@ -47,7 +47,7 @@ tokio = { version = "1", default-features = false, features = ["io-util"] }
 proptest = { version = "1", default-features = false, features = ["std"] }
 
 [build-dependencies]
-pyo3-build-config = "0.29.3"
+pyo3-build-config = "0.30.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 io-uring = "0.7"
@@ -90,6 +90,9 @@ pedantic = { level = "allow", priority = -1 }
 perf = { level = "warn", priority = -1 }
 style = { level = "allow", priority = -1 }
 suspicious = { level = "warn", priority = -1 }
+
+[lints.cargo]
+unused_dependencies = "warn"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)", "cfg(musl_v1_2_3)", "cfg(syscall_accept4)", "cfg(feature, values(\"blocking-default\", \"fs\", \"pipe\", \"process\", \"signal\", \"splice\", \"stdio\"))"] }

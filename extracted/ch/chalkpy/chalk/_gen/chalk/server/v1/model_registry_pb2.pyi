@@ -1,6 +1,8 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
-from chalk._gen.chalk.graph.v1 import source_file_reference_pb2 as _source_file_reference_pb2
+from chalk._gen.chalk.graph.v1 import (
+    source_file_reference_pb2 as _source_file_reference_pb2,
+)
 from chalk._gen.chalk.models.v1 import model_artifact_pb2 as _model_artifact_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
@@ -77,7 +79,9 @@ class ModelArtifact(_message.Message):
         key: str
         value: _struct_pb2.Value
         def __init__(
-            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+            self,
+            key: _Optional[str] = ...,
+            value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
         ) -> None: ...
 
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -131,7 +135,9 @@ class ModelVersion(_message.Message):
         key: str
         value: _struct_pb2.Value
         def __init__(
-            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+            self,
+            key: _Optional[str] = ...,
+            value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
         ) -> None: ...
 
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -188,7 +194,9 @@ class Model(_message.Message):
         key: str
         value: _struct_pb2.Value
         def __init__(
-            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+            self,
+            key: _Optional[str] = ...,
+            value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
         ) -> None: ...
 
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -226,7 +234,15 @@ class Model(_message.Message):
     ) -> None: ...
 
 class ListModelsRequest(_message.Message):
-    __slots__ = ("cursor", "limit", "include_deleted", "search", "filters", "sort_column", "sort_order")
+    __slots__ = (
+        "cursor",
+        "limit",
+        "include_deleted",
+        "search",
+        "filters",
+        "sort_column",
+        "sort_order",
+    )
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_DELETED_FIELD_NUMBER: _ClassVar[int]
@@ -259,7 +275,9 @@ class ListModelsResponse(_message.Message):
     models: _containers.RepeatedCompositeFieldContainer[Model]
     next_cursor: str
     def __init__(
-        self, models: _Optional[_Iterable[_Union[Model, _Mapping]]] = ..., next_cursor: _Optional[str] = ...
+        self,
+        models: _Optional[_Iterable[_Union[Model, _Mapping]]] = ...,
+        next_cursor: _Optional[str] = ...,
     ) -> None: ...
 
 class GetModelRequest(_message.Message):
@@ -271,7 +289,10 @@ class GetModelRequest(_message.Message):
     model_name: str
     include_deleted: bool
     def __init__(
-        self, model_id: _Optional[str] = ..., model_name: _Optional[str] = ..., include_deleted: bool = ...
+        self,
+        model_id: _Optional[str] = ...,
+        model_name: _Optional[str] = ...,
+        include_deleted: bool = ...,
     ) -> None: ...
 
 class GetModelResponse(_message.Message):
@@ -289,7 +310,9 @@ class CreateModelRequest(_message.Message):
         key: str
         value: _struct_pb2.Value
         def __init__(
-            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+            self,
+            key: _Optional[str] = ...,
+            value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
         ) -> None: ...
 
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -320,7 +343,9 @@ class UpdateModelOperation(_message.Message):
         key: str
         value: _struct_pb2.Value
         def __init__(
-            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+            self,
+            key: _Optional[str] = ...,
+            value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
         ) -> None: ...
 
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -366,7 +391,9 @@ class DeleteModelRequest(_message.Message):
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     model_id: str
     model_name: str
-    def __init__(self, model_id: _Optional[str] = ..., model_name: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self, model_id: _Optional[str] = ..., model_name: _Optional[str] = ...
+    ) -> None: ...
 
 class DeleteModelResponse(_message.Message):
     __slots__ = ("model",)
@@ -431,14 +458,19 @@ class GetModelVersionRequest(_message.Message):
     version: int
     include_deleted: bool
     def __init__(
-        self, model_name: _Optional[str] = ..., version: _Optional[int] = ..., include_deleted: bool = ...
+        self,
+        model_name: _Optional[str] = ...,
+        version: _Optional[int] = ...,
+        include_deleted: bool = ...,
     ) -> None: ...
 
 class GetModelVersionResponse(_message.Message):
     __slots__ = ("model_version",)
     MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
     model_version: ModelVersion
-    def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...
+    ) -> None: ...
 
 class CreateModelArtifactRequest(_message.Message):
     __slots__ = ("model_artifact_id", "model_artifact", "metadata")
@@ -449,7 +481,9 @@ class CreateModelArtifactRequest(_message.Message):
         key: str
         value: _struct_pb2.Value
         def __init__(
-            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+            self,
+            key: _Optional[str] = ...,
+            value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
         ) -> None: ...
 
     MODEL_ARTIFACT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -461,7 +495,9 @@ class CreateModelArtifactRequest(_message.Message):
     def __init__(
         self,
         model_artifact_id: _Optional[str] = ...,
-        model_artifact: _Optional[_Union[_model_artifact_pb2.ModelArtifactSpec, _Mapping]] = ...,
+        model_artifact: _Optional[
+            _Union[_model_artifact_pb2.ModelArtifactSpec, _Mapping]
+        ] = ...,
         metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
     ) -> None: ...
 
@@ -469,10 +505,18 @@ class CreateModelArtifactResponse(_message.Message):
     __slots__ = ("model_artifact",)
     MODEL_ARTIFACT_FIELD_NUMBER: _ClassVar[int]
     model_artifact: ModelArtifact
-    def __init__(self, model_artifact: _Optional[_Union[ModelArtifact, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self, model_artifact: _Optional[_Union[ModelArtifact, _Mapping]] = ...
+    ) -> None: ...
 
 class CreateModelVersionRequest(_message.Message):
-    __slots__ = ("model_name", "model_artifact_id", "model_artifact", "aliases", "metadata")
+    __slots__ = (
+        "model_name",
+        "model_artifact_id",
+        "model_artifact",
+        "aliases",
+        "metadata",
+    )
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -480,7 +524,9 @@ class CreateModelVersionRequest(_message.Message):
         key: str
         value: _struct_pb2.Value
         def __init__(
-            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+            self,
+            key: _Optional[str] = ...,
+            value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
         ) -> None: ...
 
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -497,7 +543,9 @@ class CreateModelVersionRequest(_message.Message):
         self,
         model_name: _Optional[str] = ...,
         model_artifact_id: _Optional[str] = ...,
-        model_artifact: _Optional[_Union[_model_artifact_pb2.ModelArtifactSpec, _Mapping]] = ...,
+        model_artifact: _Optional[
+            _Union[_model_artifact_pb2.ModelArtifactSpec, _Mapping]
+        ] = ...,
         aliases: _Optional[_Iterable[str]] = ...,
         metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
     ) -> None: ...
@@ -506,7 +554,9 @@ class CreateModelVersionResponse(_message.Message):
     __slots__ = ("model_version",)
     MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
     model_version: ModelVersion
-    def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...
+    ) -> None: ...
 
 class ModelVersionKey(_message.Message):
     __slots__ = ("model_name", "version")
@@ -514,7 +564,9 @@ class ModelVersionKey(_message.Message):
     VERSION_FIELD_NUMBER: _ClassVar[int]
     model_name: str
     version: int
-    def __init__(self, model_name: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self, model_name: _Optional[str] = ..., version: _Optional[int] = ...
+    ) -> None: ...
 
 class UpdateModelVersionOperation(_message.Message):
     __slots__ = ("aliases", "metadata")
@@ -525,7 +577,9 @@ class UpdateModelVersionOperation(_message.Message):
         key: str
         value: _struct_pb2.Value
         def __init__(
-            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+            self,
+            key: _Optional[str] = ...,
+            value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
         ) -> None: ...
 
     ALIASES_FIELD_NUMBER: _ClassVar[int]
@@ -533,7 +587,9 @@ class UpdateModelVersionOperation(_message.Message):
     aliases: _containers.RepeatedScalarFieldContainer[str]
     metadata: _containers.MessageMap[str, _struct_pb2.Value]
     def __init__(
-        self, aliases: _Optional[_Iterable[str]] = ..., metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...
+        self,
+        aliases: _Optional[_Iterable[str]] = ...,
+        metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
     ) -> None: ...
 
 class UpdateModelVersionRequest(_message.Message):
@@ -555,19 +611,25 @@ class UpdateModelVersionResponse(_message.Message):
     __slots__ = ("model_version",)
     MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
     model_version: ModelVersion
-    def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...
+    ) -> None: ...
 
 class DeleteModelVersionRequest(_message.Message):
     __slots__ = ("model_version_key",)
     MODEL_VERSION_KEY_FIELD_NUMBER: _ClassVar[int]
     model_version_key: ModelVersionKey
-    def __init__(self, model_version_key: _Optional[_Union[ModelVersionKey, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self, model_version_key: _Optional[_Union[ModelVersionKey, _Mapping]] = ...
+    ) -> None: ...
 
 class DeleteModelVersionResponse(_message.Message):
     __slots__ = ("model_version",)
     MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
     model_version: ModelVersion
-    def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...
+    ) -> None: ...
 
 class GetModelArtifactUploadUrlsRequest(_message.Message):
     __slots__ = ("file_names",)
@@ -583,14 +645,18 @@ class GetModelArtifactUploadUrlsResponse(_message.Message):
         VALUE_FIELD_NUMBER: _ClassVar[int]
         key: str
         value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[str] = ...
+        ) -> None: ...
 
     UPLOAD_URLS_FIELD_NUMBER: _ClassVar[int]
     MODEL_ARTIFACT_ID_FIELD_NUMBER: _ClassVar[int]
     upload_urls: _containers.ScalarMap[str, str]
     model_artifact_id: str
     def __init__(
-        self, upload_urls: _Optional[_Mapping[str, str]] = ..., model_artifact_id: _Optional[str] = ...
+        self,
+        upload_urls: _Optional[_Mapping[str, str]] = ...,
+        model_artifact_id: _Optional[str] = ...,
     ) -> None: ...
 
 class DownloadModelArtifactRequest(_message.Message):
@@ -651,7 +717,9 @@ class ModelRelation(_message.Message):
     input_features: _containers.RepeatedScalarFieldContainer[str]
     output_feature: str
     def __init__(
-        self, input_features: _Optional[_Iterable[str]] = ..., output_feature: _Optional[str] = ...
+        self,
+        input_features: _Optional[_Iterable[str]] = ...,
+        output_feature: _Optional[str] = ...,
     ) -> None: ...
 
 class ModelReference(_message.Message):
@@ -689,7 +757,9 @@ class ModelReference(_message.Message):
         deployment_id: _Optional[str] = ...,
         relations: _Optional[_Iterable[_Union[ModelRelation, _Mapping]]] = ...,
         resolvers: _Optional[_Iterable[str]] = ...,
-        source_file_reference: _Optional[_Union[_source_file_reference_pb2.SourceFileReference, _Mapping]] = ...,
+        source_file_reference: _Optional[
+            _Union[_source_file_reference_pb2.SourceFileReference, _Mapping]
+        ] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
@@ -727,7 +797,9 @@ class GetModelReferenceResponse(_message.Message):
     __slots__ = ("model_reference",)
     MODEL_REFERENCE_FIELD_NUMBER: _ClassVar[int]
     model_reference: ModelReference
-    def __init__(self, model_reference: _Optional[_Union[ModelReference, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self, model_reference: _Optional[_Union[ModelReference, _Mapping]] = ...
+    ) -> None: ...
 
 class RunCriterion(_message.Message):
     __slots__ = ("run_id", "run_name", "metric", "direction")
@@ -760,7 +832,13 @@ class CreateModelVersionFromArtifactOverride(_message.Message):
     ) -> None: ...
 
 class CreateModelVersionFromArtifactRequest(_message.Message):
-    __slots__ = ("model_name", "model_artifact_id", "training_run", "aliases", "override")
+    __slots__ = (
+        "model_name",
+        "model_artifact_id",
+        "training_run",
+        "aliases",
+        "override",
+    )
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     MODEL_ARTIFACT_ID_FIELD_NUMBER: _ClassVar[int]
     TRAINING_RUN_FIELD_NUMBER: _ClassVar[int]
@@ -777,14 +855,18 @@ class CreateModelVersionFromArtifactRequest(_message.Message):
         model_artifact_id: _Optional[str] = ...,
         training_run: _Optional[_Union[RunCriterion, _Mapping]] = ...,
         aliases: _Optional[_Iterable[str]] = ...,
-        override: _Optional[_Union[CreateModelVersionFromArtifactOverride, _Mapping]] = ...,
+        override: _Optional[
+            _Union[CreateModelVersionFromArtifactOverride, _Mapping]
+        ] = ...,
     ) -> None: ...
 
 class CreateModelVersionFromArtifactResponse(_message.Message):
     __slots__ = ("model_version",)
     MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
     model_version: ModelVersion
-    def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...
+    ) -> None: ...
 
 class ListModelArtifactsRequest(_message.Message):
     __slots__ = ("script_task_id", "training_run_id", "cursor", "limit", "filters")
@@ -835,7 +917,9 @@ class GetModelArtifactResponse(_message.Message):
     __slots__ = ("model_artifact",)
     MODEL_ARTIFACT_FIELD_NUMBER: _ClassVar[int]
     model_artifact: ModelArtifact
-    def __init__(self, model_artifact: _Optional[_Union[ModelArtifact, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self, model_artifact: _Optional[_Union[ModelArtifact, _Mapping]] = ...
+    ) -> None: ...
 
 class ListModelsFilters(_message.Message):
     __slots__ = ("statuses", "created_by")

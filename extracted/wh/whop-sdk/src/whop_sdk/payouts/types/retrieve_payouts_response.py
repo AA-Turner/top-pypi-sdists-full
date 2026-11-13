@@ -134,7 +134,7 @@ class RetrievePayoutsResponse(UniversalBaseModel):
 
     source: typing.Optional[RetrievePayoutsResponseSource] = pydantic.Field(default=None)
     """
-    How the payout was created. `automatic` means a scheduled auto-payout; `null` on payouts created before source tracking or through internal tooling. Only returned to callers with payout:withdrawal:read on the owning ledger.
+    How the payout was created. `automatic` means a scheduled auto-payout. `null` when the payout has no recorded source. Only returned to callers with payout:withdrawal:read on the owning ledger.
     """
 
     speed: RetrievePayoutsResponseSpeed = pydantic.Field()
@@ -164,7 +164,7 @@ class RetrievePayoutsResponse(UniversalBaseModel):
 
     trace_code: typing.Optional[str] = pydantic.Field(default=None)
     """
-    ACH trace number the recipient's bank can use to locate this payout. Assigned when the payout is submitted to the bank, so it is `null` before then and on payouts not sent over ACH.
+    Payment network reference for this payout, such as an ACH trace number, an RTP or FedNow end-to-end ID, a wire IMAD, or a SWIFT UETR. `null` until the reference is available, and on payouts that have none.
     """
 
     if IS_PYDANTIC_V2:

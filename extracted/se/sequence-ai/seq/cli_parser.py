@@ -176,7 +176,8 @@ the core flow:
 policy      ls status logs doctor shell debug versions source upgrade rollback stop start rename rm
             set settings fork data
 robot       create list show set rm key                   (a robot of your own: make it, set its policies)
-gpu         add places list ssh remove                    (GPU machines you run yourself, root over SSH)
+gpu         add places list history allow ssh save saved remove
+                                                          (GPU machines you run yourself, root over SSH)
 record      add list revoke                               (keys for your own recorder of a policy's steps)
 key         list add set revoke                           (your keys: you, signed in)
 benchmark   ls tasks versions source logs shell status upgrade cancel rm
@@ -799,26 +800,59 @@ def build_parser() -> argparse.ArgumentParser:
                                        "benchmark may use it, RT cores, video encoding; and what a CPU core and a "
                                        "GiB of memory cost.")
 
-    gpusub = _group(ap, sub, "gpu", "GPU machines you run yourself: open them near a place, list them, ssh in as root, "
-                                    "remove them. A machine is a container you are root in, on one card — install and "
-                                    "run what you like; remove ends it and its disk. (seq gpus, plural, is the card "
-                                    "catalogue and its prices.)")
-    p = gpusub.add_parser("add", help="open GPU machines near a place — a machine with that card you are root on, "
-                                      "yours until seq gpu remove; reach it with seq gpu ssh")
+    gpusub = _group(ap, sub, "gpu", "GPU machines you run yourself: open them near a place in the US, list them, ssh in "
+                                    "as root, remove them. A machine is a container you are root in, on one card — "
+                                    "install and run what you like; remove ends it and its disk. (seq gpus, plural, is "
+                                    "the card catalogue and its prices.)")
+    p = gpusub.add_parser("add", help="open GPU machines near a place in the US — a machine with that card you are root "
+                                      "on, yours until seq gpu remove; reach it with seq gpu ssh")
     p.add_argument("--place", required=True, metavar="PLACE",
-                   help='where to open them near: a city ("San Francisco, CA") or lat,lon ("37.77,-122.42"), as seq '
-                        "gpu places lists them - the platform opens each on the nearest place it can get the card")
+                   help='where to open them near, in the US: a US city ("San Francisco, CA") or a lat,lon in the US '
+                        '("37.77,-122.42"), as seq gpu places lists them - one outside the US is refused; the platform '
+                        "opens each on the nearest place it can get the card")
     p.add_argument("--gpu", required=True, metavar="CARD", help="the card, as seq gpus names them (L4, A100-40GB)")
-    p.add_argument("--count", type=int, default=1, metavar="N", help="how many, all opened or none (default 1)")
-    p = gpusub.add_parser("places", help="the cities a --place can be, whose name or another name they go by starts "
+    p.add_argument("--count", type=int, default=1, metavar="N",
+                   help="how many (default 1): your limits and credit are checked for all before any opens, and none is "
+                        "added if one finds nowhere to ask for its card; then each waits for its own, up to 20 minutes")
+    p.add_argument("--from", dest="snapshot", metavar="NAME",
+                   help="start from a snapshot of yours (seq gpu save), its run command with it unless --run is given")
+    p.add_argument("--port", type=int, action="append", dest="ports", metavar="PORT",
+                   help="a TCP port your server listens on, reached straight at the GPU's address: 1024-65535, not 22 or "
+                        "8080; give it again for more, up to 8")
+    p.add_argument("--allow", action="append", metavar="CIDR",
+                   help="an IPv4 range or address that may reach the ports; give it again for more. None: only the "
+                        "IPv4 address you run this from, asked over IPv4. 0.0.0.0/0 is every address - authenticate in "
+                        "your server")
+    p.add_argument("--run", metavar="CMD",
+                   help="a command run in the container as it starts (bash, from /root, its output in "
+                        "/var/log/seq-run.log), started again when it exits; once it exits within 10 s five times "
+                        "running it is not, and seq gpu list says run failing")
+    p.add_argument("--name", metavar="NAME",
+                   help="a fixed name, 1-40 lowercase letters, digits and hyphens: the GPU is also reached at "
+                        "NAME.<your id>.gpu.generalsequences.com, which moves to each GPU you add later with this name once "
+                        "it runs - set your robots up with it once. One GPU's: not with --count above 1")
+    p.add_argument("--no-wait", action="store_true", dest="no_wait",
+                   help="return as soon as they are asked for; by default it waits until each runs and says its address, "
+                        "and Ctrl-C meanwhile cancels those not running, unbilled")
+    p = gpusub.add_parser("places", help="the US cities a --place can be, whose name or another name they go by starts "
                                          "with the words, the largest first: each with its latitude and longitude, "
-                                         "and the other name it was found by (as Paris of the North)")
+                                         "and the other name it was found by (as Big Apple)")
     p.add_argument("text", nargs="*", metavar="WORDS",
-                   help='the start of a city\'s name or another name it goes by, a state or a country after a comma '
-                        '("san fr", "Springfield, IL"); none lists the largest cities')
+                   help='the start of a US city\'s name or another name it goes by, a state after a comma '
+                        '("san fr", "Springfield, IL"); none lists the largest US cities')
     p.add_argument("--limit", type=int, default=8, metavar="N", help="how many to list, 1 to 20 (default 8)")
-    gpusub.add_parser("list", help="your GPU machines: id, where, card, status, when it started, what it has cost, and "
-                                   "how many of your GPU limit they hold")
+    gpusub.add_parser("list", help="your GPU machines that are live: id, the place you asked for, card, status, when it "
+                                   "started, its address and ports, the robots on them and their round trip, what it "
+                                   "started from (image), what it has cost, and how many of your GPU limit they hold")
+    p = gpusub.add_parser("history", help="your GPU machines that are over, kept 30 days, the one ended last first: id, the "
+                                          "place you asked for, card, status, when it started and ended, what it cost, and "
+                                          "why one failed")
+    _page_args(p)
+    p = gpusub.add_parser("allow", help="who reaches a GPU's ports from now on, in place of those it had - for when your "
+                                        "robot's or office's address changes; the GPU is not restarted")
+    p.add_argument("id", metavar="ID", help="the machine id, as seq gpu list shows it")
+    p.add_argument("ranges", nargs="+", metavar="CIDR",
+                   help="IPv4 ranges or addresses (203.0.113.0/24, 198.51.100.7); 0.0.0.0/0 is every address")
     p = gpusub.add_parser("ssh", help="SSH into a GPU machine as root, with your ~/.ssh key (one is made if you have "
                                       "none); a command after -- runs once, else a shell opens")
     p.add_argument("id", metavar="ID", help="the machine id, as seq gpu list shows it")
@@ -826,10 +860,28 @@ def build_parser() -> argparse.ArgumentParser:
                    help="after --: a command to run once on the machine, e.g. -- nvidia-smi; none opens a shell")
     p.add_argument("--print", action="store_true", dest="ssh_print",
                    help="instead of connecting, keep the certificate under ~/.config/sequences and print an ~/.ssh/config "
-                        "Host block for it - for VS Code Remote-SSH or a plain ssh gpu-<id>")
+                        "Host block for it, named by its id - for VS Code Remote-SSH or a plain ssh <id>")
+    p = gpusub.add_parser("save", help="keep a GPU's disk - what you installed over its base image - as a snapshot to "
+                                       "start others from with seq gpu add --from; it saves in the background while the "
+                                       "GPU runs, and its storage is billed each month")
+    p.add_argument("id", metavar="ID", help="the machine id, as seq gpu list shows it")
+    p.add_argument("--name", required=True, metavar="NAME", help="the snapshot's name, as seq gpu add --from takes it")
+    p.add_argument("--replace", action="store_true", help="take the place of a snapshot of that name")
+    p = gpusub.add_parser("saved", help="your snapshots: name, status, size, what it was saved from, when, and what it "
+                                        "costs a month; seq gpu saved remove NAME deletes one")
+    savedsub = p.add_subparsers(dest="saved_cmd", metavar="<command>", action=_DescFromHelp)
+    q = savedsub.add_parser("remove", help="delete a snapshot: its storage stops being billed")
+    q.add_argument("name", metavar="NAME", help="the snapshot's name, as seq gpu saved shows it")
     p = gpusub.add_parser("remove", help="shut a GPU machine down now - this ends the machine and its disk; billing "
                                          "stops")
     p.add_argument("id", metavar="ID", help="the machine id, as seq gpu list shows it")
+    p.add_argument("--force", action="store_true", help="remove one being saved, giving that snapshot up")
+    p = gpusub.add_parser("logs", help="a GPU machine's log, oldest first: what happened to it and what its command "
+                                       "printed; kept 90 days after it ends")
+    p.add_argument("id", metavar="ID", help="the machine id, as seq gpu list or seq gpu history shows it")
+    p.add_argument("--since", metavar="WHEN",
+                   help="from this time on: 30m, 1h or 2d back from now, or a time such as 2026-11-12T21:00:00Z")
+    p.add_argument("--follow", "-f", action="store_true", help="go on printing what comes, until the machine ends")
     acct = sub.add_parser("account", description="What this month has spent under your plan's monthly limit and "
                                                  "the payment method its bill goes to, and your GPUs: the limit, how "
                                                  "many serving, evals, "

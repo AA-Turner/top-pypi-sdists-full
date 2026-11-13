@@ -1,11 +1,11 @@
 [build-system]
 build-backend = "uv_build"
-requires = ["uv_build>=0.12.0,<0.13.0"]
+requires = ["uv_build>=0.13.0,<0.14.0"]
 
 [project]
 name = "cucumber-tag-expressions"
 description = "Provides a tag-expression parser and evaluation logic for cucumber/behave"
-version = "11.0.1"
+version = "11.1.0"
 keywords = [
     "BDD",
     "testing",

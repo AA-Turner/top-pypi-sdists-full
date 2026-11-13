@@ -19,7 +19,12 @@ from typing import Literal
 if typing.TYPE_CHECKING:
     from packaging.version import Version
 
-    from langgraph_api.config import AuthConfig, HttpConfig, StoreConfig
+    from langgraph_api.config import (
+        AuthConfig,
+        HttpConfig,
+        PriorityConfig,
+        StoreConfig,
+    )
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -184,6 +189,7 @@ def run_server(
     reload_excludes: Sequence[str] | None = None,
     store: typing.Optional["StoreConfig"] = None,
     auth: typing.Optional["AuthConfig"] = None,
+    priority: typing.Optional["PriorityConfig"] = None,
     http: typing.Optional["HttpConfig"] = None,
     ui: dict | None = None,
     webhooks: dict | None = None,
@@ -270,6 +276,7 @@ def run_server(
         LANGSERVE_GRAPHS=json.dumps(graphs) if graphs else None,
         LANGSMITH_LANGGRAPH_API_VARIANT="local_dev",
         LANGGRAPH_AUTH=json.dumps(auth) if auth else None,
+        LANGGRAPH_PRIORITY=json.dumps(priority) if priority else None,
         LANGGRAPH_HTTP=json.dumps(http) if http else None,
         LANGGRAPH_UI=json.dumps(ui) if ui else None,
         LANGGRAPH_WEBHOOKS=json.dumps(webhooks) if webhooks else None,

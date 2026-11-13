@@ -142,8 +142,8 @@ def sync_detailed(
     20,000 characters (`truncated`), the conversation keeps its first 50
     comments (`commentsTruncated`, with the full `commentCount`), and a
     reaction names at most its first 10 people while `count` is the full
-    number. An avatar is the forge's own URL, passed through unchanged and
-    never proxied.
+    number. An avatar is the forge's own URL, passed through unchanged;
+    the page loads it through GET /api/v1/images.
 
     The error answers are those of GET /api/v1/pull-requests/details, with
     the same codes. An issue that doesn't exist is a 404, and a forge that
@@ -203,8 +203,8 @@ def sync(
     20,000 characters (`truncated`), the conversation keeps its first 50
     comments (`commentsTruncated`, with the full `commentCount`), and a
     reaction names at most its first 10 people while `count` is the full
-    number. An avatar is the forge's own URL, passed through unchanged and
-    never proxied.
+    number. An avatar is the forge's own URL, passed through unchanged;
+    the page loads it through GET /api/v1/images.
 
     The error answers are those of GET /api/v1/pull-requests/details, with
     the same codes. An issue that doesn't exist is a 404, and a forge that
@@ -259,8 +259,8 @@ async def asyncio_detailed(
     20,000 characters (`truncated`), the conversation keeps its first 50
     comments (`commentsTruncated`, with the full `commentCount`), and a
     reaction names at most its first 10 people while `count` is the full
-    number. An avatar is the forge's own URL, passed through unchanged and
-    never proxied.
+    number. An avatar is the forge's own URL, passed through unchanged;
+    the page loads it through GET /api/v1/images.
 
     The error answers are those of GET /api/v1/pull-requests/details, with
     the same codes. An issue that doesn't exist is a 404, and a forge that
@@ -320,8 +320,8 @@ async def asyncio(
     20,000 characters (`truncated`), the conversation keeps its first 50
     comments (`commentsTruncated`, with the full `commentCount`), and a
     reaction names at most its first 10 people while `count` is the full
-    number. An avatar is the forge's own URL, passed through unchanged and
-    never proxied.
+    number. An avatar is the forge's own URL, passed through unchanged;
+    the page loads it through GET /api/v1/images.
 
     The error answers are those of GET /api/v1/pull-requests/details, with
     the same codes. An issue that doesn't exist is a 404, and a forge that

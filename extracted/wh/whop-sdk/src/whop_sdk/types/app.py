@@ -8,6 +8,7 @@ from .account_parent import AccountParent
 from .app_api_key import AppApiKey
 from .app_app_type import AppAppType
 from .app_banner_image import AppBannerImage
+from .app_category import AppCategory
 from .app_creator import AppCreator
 from .app_default_api_key import AppDefaultApiKey
 from .app_deployment import AppDeployment
@@ -62,6 +63,11 @@ class App(UniversalBaseModel):
     businesses_with_recent_sales_count: int = pydantic.Field()
     """
     Website businesses created from this app as a template that processed a payment in the last 24 hours. Recounted hourly, so it can be up to an hour behind.
+    """
+
+    category: typing.Optional[AppCategory] = pydantic.Field(default=None)
+    """
+    The app's App Store category, or `null` when none has been set. An app can show a category that `GET /apps/categories` does not list, if it was categorized before the current store categories.
     """
 
     creator: AppCreator = pydantic.Field()
@@ -160,6 +166,11 @@ class App(UniversalBaseModel):
     preview_token: typing.Optional[str] = pydantic.Field(default=None)
     """
     A short-lived signed pass scoping the caller to this app's gated preview hosts — every build preview and the live dev-server sandbox. Add it to a preview host as the `__whop_preview` query param (or `x-whop-preview-token` header). `null` unless the caller is a team member who can read the app's developer settings.
+    """
+
+    product_category: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Product category a business built from this app as a template sells, such as `pressure_washing`, or `null` when none has been set.
     """
 
     product_id: typing.Optional[str] = pydantic.Field(default=None)

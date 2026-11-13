@@ -6,23 +6,17 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.social_account import SocialAccount
-from ..types.social_account_post import SocialAccountPost
 from .raw_client import AsyncRawSocialAccountsClient, RawSocialAccountsClient
 from .types.connect_social_accounts_request_platform import ConnectSocialAccountsRequestPlatform
-from .types.connect_social_accounts_request_scopes_item import ConnectSocialAccountsRequestScopesItem
 from .types.connect_social_accounts_response import ConnectSocialAccountsResponse
-from .types.create_social_accounts_request_platform import CreateSocialAccountsRequestPlatform
+from .types.create_social_accounts_request_body import CreateSocialAccountsRequestBody
 from .types.delete_social_accounts_response import DeleteSocialAccountsResponse
-from .types.lead_forms_social_accounts_response import LeadFormsSocialAccountsResponse
 from .types.list_social_accounts_request_direction import ListSocialAccountsRequestDirection
 from .types.list_social_accounts_request_order import ListSocialAccountsRequestOrder
 from .types.list_social_accounts_request_platform import ListSocialAccountsRequestPlatform
 from .types.list_social_accounts_request_scopes_item import ListSocialAccountsRequestScopesItem
 from .types.list_social_accounts_request_trust_level import ListSocialAccountsRequestTrustLevel
 from .types.list_social_accounts_response import ListSocialAccountsResponse
-from .types.partners_social_accounts_response import PartnersSocialAccountsResponse
-from .types.posts_social_accounts_response import PostsSocialAccountsResponse
-from .types.remove_partner_social_accounts_response import RemovePartnerSocialAccountsResponse
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -74,7 +68,7 @@ class SocialAccountsClient:
             The User that the external accounts are connected to. Provide either this or account_id.
 
         platform : typing.Optional[ListSocialAccountsRequestPlatform]
-            Only return external accounts for the platform that is specified.
+            Only return external accounts for the platform that is specified. An `aimerce` account is returned only with this filter, which requires the `company:manage_checkout` scope instead of `social_account:read`.
 
         trust_level : typing.Optional[ListSocialAccountsRequestTrustLevel]
             Only return external accounts linked with this trust level, such as `oauth` for accounts connected through OAuth.
@@ -116,7 +110,7 @@ class SocialAccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -144,26 +138,14 @@ class SocialAccountsClient:
         )
 
     def create(
-        self,
-        *,
-        platform: CreateSocialAccountsRequestPlatform,
-        account_id: typing.Optional[str] = OMIT,
-        api_key: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request: CreateSocialAccountsRequestBody, request_options: typing.Optional[RequestOptions] = None
     ) -> SocialAccount:
         """
         Deprecated compatibility endpoint. Create external accounts with `POST /external_accounts` instead.
 
         Parameters
         ----------
-        platform : CreateSocialAccountsRequestPlatform
-            The platform to create the external account on. `facebook` requires the account's `banner_image`, `logo`, and `description`, and `tiktok` requires its `logo`; configure them with [Update Account](/api-reference/beta/accounts/update-account). The account is returned before the platform has created it — its `id` is usable right away, and the rest of the profile fills in once provisioning finishes. `klaviyo` connects the account's existing Klaviyo account with the `api_key` you pass.
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) to create the external account for. An account-scoped API key may omit this to default to its own account. Account API keys cannot update their own account's branding through Update Account; use a user-authenticated path.
-
-        api_key : typing.Optional[str]
-            A private API key for the account on the platform. Required for `klaviyo`, which needs read access to Accounts; not accepted for other platforms. Whop checks the key with the platform before connecting and never returns it.
+        request : CreateSocialAccountsRequestBody
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -176,19 +158,18 @@ class SocialAccountsClient:
         Examples
         --------
         from whop_sdk import Whop
+        from whop_sdk.social_accounts import CreateSocialAccountsRequestBody_Facebook
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
         client.social_accounts.create(
-            platform="facebook",
+            request=CreateSocialAccountsRequestBody_Facebook(),
         )
         """
-        _response = self._raw_client.create(
-            platform=platform, account_id=account_id, api_key=api_key, request_options=request_options
-        )
+        _response = self._raw_client.create(request=request, request_options=request_options)
         return _response.data
 
     def connect(
@@ -197,7 +178,6 @@ class SocialAccountsClient:
         platform: ConnectSocialAccountsRequestPlatform,
         redirect_url: str,
         account_id: typing.Optional[str] = OMIT,
-        scopes: typing.Optional[typing.Sequence[ConnectSocialAccountsRequestScopesItem]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ConnectSocialAccountsResponse:
         """
@@ -206,16 +186,13 @@ class SocialAccountsClient:
         Parameters
         ----------
         platform : ConnectSocialAccountsRequestPlatform
-            The platform to connect the external account on. Use `meta_business` to connect Meta Business assets, which is how Facebook Pages and Instagram accounts are connected — there is no separate `instagram` value. Use `tiktok` for TikTok accounts, `snapchat` for Snapchat Public Profiles, `linkedin` to connect the authenticated user’s LinkedIn profile, `youtube` to connect their YouTube channel, or `x` to connect their X profile. Use `quickbooks` to connect the account’s QuickBooks Online company: pass `account_id`, omit `scopes`, and the user picks the company in QuickBooks.
+            The platform to connect the external account on. Use `tiktok` to connect the authenticated user’s TikTok profile, `linkedin` for their LinkedIn profile, `youtube` for their YouTube channel, or `x` for their X profile. Use `quickbooks` to connect the account’s QuickBooks Online company: pass `account_id`, and the user picks the company in QuickBooks.
 
         redirect_url : str
             Where to send the user once they finish connecting their accounts. Must be an `https` URL on whop.com; any other host is rejected. On success, the user is redirected with an `external_account_connected` query param naming the platform; if the connection fails, with an `external_account_error` query param instead. The same values also arrive as `social_account_connected` / `social_account_error`.
 
         account_id : typing.Optional[str]
             The Account (biz_ identifier) to connect the external account for. An account-scoped API key may omit this to default to its own account. Omit for user profile connections.
-
-        scopes : typing.Optional[typing.Sequence[ConnectSocialAccountsRequestScopesItem]]
-            The connection purpose. For `meta_business` and `snapchat`, `advertise` is required and connects company advertising assets. For `linkedin`, `youtube`, and `x`, omit scopes to connect the authenticated user’s profile; advertising is not supported. For `tiktok`, omit scopes to connect the authenticated user’s profile, or pass `advertise` to connect company advertising assets. For `quickbooks`, omit scopes; the connection belongs to the account in `account_id`. Profile connections still request the platform permissions needed to read the profile.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -230,21 +207,17 @@ class SocialAccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
         client.social_accounts.connect(
-            platform="meta_business",
-            redirect_url="https://whop.com/dashboard/biz_xxxxxxxxxxxxxx/ads/settings",
+            platform="tiktok",
+            redirect_url="https://whop.com/dashboard/biz_xxxxxxxxxxxxxx/settings",
         )
         """
         _response = self._raw_client.connect(
-            platform=platform,
-            redirect_url=redirect_url,
-            account_id=account_id,
-            scopes=scopes,
-            request_options=request_options,
+            platform=platform, redirect_url=redirect_url, account_id=account_id, request_options=request_options
         )
         return _response.data
 
@@ -281,7 +254,7 @@ class SocialAccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -291,257 +264,6 @@ class SocialAccountsClient:
         """
         _response = self._raw_client.delete(id, account_id=account_id, user_id=user_id, request_options=request_options)
         return _response.data
-
-    def lead_forms(
-        self, id: str, *, account_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> LeadFormsSocialAccountsResponse:
-        """
-        Deprecated compatibility endpoint. List lead forms with `GET /external_accounts/{id}/lead_forms` instead.
-
-        Parameters
-        ----------
-        id : str
-            The social account (a sacc_ identifier) whose lead forms to list.
-
-        account_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        LeadFormsSocialAccountsResponse
-            lead forms listed through the deprecated path
-
-        Examples
-        --------
-        from whop_sdk import Whop
-
-        client = Whop(
-            "2026-10-28",
-            idempotency_key="YOUR_IDEMPOTENCY_KEY",
-            token="YOUR_TOKEN",
-        )
-        client.social_accounts.lead_forms(
-            id="id",
-            account_id="account_id",
-        )
-        """
-        _response = self._raw_client.lead_forms(id, account_id=account_id, request_options=request_options)
-        return _response.data
-
-    def partners(
-        self,
-        id: str,
-        *,
-        account_id: typing.Optional[str] = None,
-        first: typing.Optional[int] = None,
-        after: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[SocialAccount, PartnersSocialAccountsResponse]:
-        """
-        Deprecated compatibility endpoint. List partners with `GET /external_accounts/{external_account_id}/partners` instead.
-
-        Parameters
-        ----------
-        id : str
-            The brand's Instagram social account (a sacc_ identifier).
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
-
-        first : typing.Optional[int]
-            Number of results to return from the start of the range.
-
-        after : typing.Optional[str]
-            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        SyncPager[SocialAccount, PartnersSocialAccountsResponse]
-            partners listed through the deprecated path
-
-        Examples
-        --------
-        from whop_sdk import Whop
-
-        client = Whop(
-            "2026-10-28",
-            idempotency_key="YOUR_IDEMPOTENCY_KEY",
-            token="YOUR_TOKEN",
-        )
-        response = client.social_accounts.partners(
-            id="id",
-        )
-        for item in response:
-            yield item
-        # alternatively, you can paginate page-by-page
-        for page in response.iter_pages():
-            yield page
-        """
-        return self._raw_client.partners(
-            id, account_id=account_id, first=first, after=after, request_options=request_options
-        )
-
-    def add_partner(
-        self,
-        id: str,
-        *,
-        username: str,
-        account_id: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> SocialAccount:
-        """
-        Deprecated compatibility endpoint. Add partners with `POST /external_accounts/{external_account_id}/partners` instead.
-
-        Parameters
-        ----------
-        id : str
-            The brand's Instagram social account (a sacc_ identifier).
-
-        username : str
-            The creator's Instagram username, with or without the leading `@`. The creator needs a professional (Business or Creator) Instagram account.
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        SocialAccount
-            creator invited through the deprecated path
-
-        Examples
-        --------
-        from whop_sdk import Whop
-
-        client = Whop(
-            "2026-10-28",
-            idempotency_key="YOUR_IDEMPOTENCY_KEY",
-            token="YOUR_TOKEN",
-        )
-        client.social_accounts.add_partner(
-            id="id",
-            username="@luverahealth",
-        )
-        """
-        _response = self._raw_client.add_partner(
-            id, username=username, account_id=account_id, request_options=request_options
-        )
-        return _response.data
-
-    def remove_partner(
-        self,
-        id: str,
-        partner_id: str,
-        *,
-        account_id: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> RemovePartnerSocialAccountsResponse:
-        """
-        Deprecated compatibility endpoint. Remove partners with `DELETE /external_accounts/{external_account_id}/partners/{id}` instead.
-
-        Parameters
-        ----------
-        id : str
-            The brand's Instagram social account (a sacc_ identifier).
-
-        partner_id : str
-            The partner creator's social account (a sacc_ identifier).
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        RemovePartnerSocialAccountsResponse
-            partner removed through the deprecated path
-
-        Examples
-        --------
-        from whop_sdk import Whop
-
-        client = Whop(
-            "2026-10-28",
-            idempotency_key="YOUR_IDEMPOTENCY_KEY",
-            token="YOUR_TOKEN",
-        )
-        client.social_accounts.remove_partner(
-            id="id",
-            partner_id="partner_id",
-        )
-        """
-        _response = self._raw_client.remove_partner(
-            id, partner_id, account_id=account_id, request_options=request_options
-        )
-        return _response.data
-
-    def posts(
-        self,
-        id: str,
-        *,
-        account_id: str,
-        post_id: typing.Optional[str] = None,
-        first: typing.Optional[int] = None,
-        after: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[SocialAccountPost, PostsSocialAccountsResponse]:
-        """
-        Deprecated compatibility endpoint. List posts with `GET /external_accounts/{id}/posts` instead.
-
-        Parameters
-        ----------
-        id : str
-            The social account (a sacc_ identifier) whose posts to list.
-
-        account_id : str
-
-        post_id : typing.Optional[str]
-
-        first : typing.Optional[int]
-            Number of results to return from the start of the range.
-
-        after : typing.Optional[str]
-            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        SyncPager[SocialAccountPost, PostsSocialAccountsResponse]
-            posts listed through the deprecated path
-
-        Examples
-        --------
-        from whop_sdk import Whop
-
-        client = Whop(
-            "2026-10-28",
-            idempotency_key="YOUR_IDEMPOTENCY_KEY",
-            token="YOUR_TOKEN",
-        )
-        response = client.social_accounts.posts(
-            id="id",
-            account_id="account_id",
-        )
-        for item in response:
-            yield item
-        # alternatively, you can paginate page-by-page
-        for page in response.iter_pages():
-            yield page
-        """
-        return self._raw_client.posts(
-            id, account_id=account_id, post_id=post_id, first=first, after=after, request_options=request_options
-        )
 
     def refresh(
         self,
@@ -574,7 +296,7 @@ class SocialAccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -632,7 +354,7 @@ class AsyncSocialAccountsClient:
             The User that the external accounts are connected to. Provide either this or account_id.
 
         platform : typing.Optional[ListSocialAccountsRequestPlatform]
-            Only return external accounts for the platform that is specified.
+            Only return external accounts for the platform that is specified. An `aimerce` account is returned only with this filter, which requires the `company:manage_checkout` scope instead of `social_account:read`.
 
         trust_level : typing.Optional[ListSocialAccountsRequestTrustLevel]
             Only return external accounts linked with this trust level, such as `oauth` for accounts connected through OAuth.
@@ -676,7 +398,7 @@ class AsyncSocialAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -711,26 +433,14 @@ class AsyncSocialAccountsClient:
         )
 
     async def create(
-        self,
-        *,
-        platform: CreateSocialAccountsRequestPlatform,
-        account_id: typing.Optional[str] = OMIT,
-        api_key: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request: CreateSocialAccountsRequestBody, request_options: typing.Optional[RequestOptions] = None
     ) -> SocialAccount:
         """
         Deprecated compatibility endpoint. Create external accounts with `POST /external_accounts` instead.
 
         Parameters
         ----------
-        platform : CreateSocialAccountsRequestPlatform
-            The platform to create the external account on. `facebook` requires the account's `banner_image`, `logo`, and `description`, and `tiktok` requires its `logo`; configure them with [Update Account](/api-reference/beta/accounts/update-account). The account is returned before the platform has created it — its `id` is usable right away, and the rest of the profile fills in once provisioning finishes. `klaviyo` connects the account's existing Klaviyo account with the `api_key` you pass.
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) to create the external account for. An account-scoped API key may omit this to default to its own account. Account API keys cannot update their own account's branding through Update Account; use a user-authenticated path.
-
-        api_key : typing.Optional[str]
-            A private API key for the account on the platform. Required for `klaviyo`, which needs read access to Accounts; not accepted for other platforms. Whop checks the key with the platform before connecting and never returns it.
+        request : CreateSocialAccountsRequestBody
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -745,9 +455,10 @@ class AsyncSocialAccountsClient:
         import asyncio
 
         from whop_sdk import AsyncWhop
+        from whop_sdk.social_accounts import CreateSocialAccountsRequestBody_Facebook
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -755,15 +466,13 @@ class AsyncSocialAccountsClient:
 
         async def main() -> None:
             await client.social_accounts.create(
-                platform="facebook",
+                request=CreateSocialAccountsRequestBody_Facebook(),
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.create(
-            platform=platform, account_id=account_id, api_key=api_key, request_options=request_options
-        )
+        _response = await self._raw_client.create(request=request, request_options=request_options)
         return _response.data
 
     async def connect(
@@ -772,7 +481,6 @@ class AsyncSocialAccountsClient:
         platform: ConnectSocialAccountsRequestPlatform,
         redirect_url: str,
         account_id: typing.Optional[str] = OMIT,
-        scopes: typing.Optional[typing.Sequence[ConnectSocialAccountsRequestScopesItem]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ConnectSocialAccountsResponse:
         """
@@ -781,16 +489,13 @@ class AsyncSocialAccountsClient:
         Parameters
         ----------
         platform : ConnectSocialAccountsRequestPlatform
-            The platform to connect the external account on. Use `meta_business` to connect Meta Business assets, which is how Facebook Pages and Instagram accounts are connected — there is no separate `instagram` value. Use `tiktok` for TikTok accounts, `snapchat` for Snapchat Public Profiles, `linkedin` to connect the authenticated user’s LinkedIn profile, `youtube` to connect their YouTube channel, or `x` to connect their X profile. Use `quickbooks` to connect the account’s QuickBooks Online company: pass `account_id`, omit `scopes`, and the user picks the company in QuickBooks.
+            The platform to connect the external account on. Use `tiktok` to connect the authenticated user’s TikTok profile, `linkedin` for their LinkedIn profile, `youtube` for their YouTube channel, or `x` for their X profile. Use `quickbooks` to connect the account’s QuickBooks Online company: pass `account_id`, and the user picks the company in QuickBooks.
 
         redirect_url : str
             Where to send the user once they finish connecting their accounts. Must be an `https` URL on whop.com; any other host is rejected. On success, the user is redirected with an `external_account_connected` query param naming the platform; if the connection fails, with an `external_account_error` query param instead. The same values also arrive as `social_account_connected` / `social_account_error`.
 
         account_id : typing.Optional[str]
             The Account (biz_ identifier) to connect the external account for. An account-scoped API key may omit this to default to its own account. Omit for user profile connections.
-
-        scopes : typing.Optional[typing.Sequence[ConnectSocialAccountsRequestScopesItem]]
-            The connection purpose. For `meta_business` and `snapchat`, `advertise` is required and connects company advertising assets. For `linkedin`, `youtube`, and `x`, omit scopes to connect the authenticated user’s profile; advertising is not supported. For `tiktok`, omit scopes to connect the authenticated user’s profile, or pass `advertise` to connect company advertising assets. For `quickbooks`, omit scopes; the connection belongs to the account in `account_id`. Profile connections still request the platform permissions needed to read the profile.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -807,7 +512,7 @@ class AsyncSocialAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -815,19 +520,15 @@ class AsyncSocialAccountsClient:
 
         async def main() -> None:
             await client.social_accounts.connect(
-                platform="meta_business",
-                redirect_url="https://whop.com/dashboard/biz_xxxxxxxxxxxxxx/ads/settings",
+                platform="tiktok",
+                redirect_url="https://whop.com/dashboard/biz_xxxxxxxxxxxxxx/settings",
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.connect(
-            platform=platform,
-            redirect_url=redirect_url,
-            account_id=account_id,
-            scopes=scopes,
-            request_options=request_options,
+            platform=platform, redirect_url=redirect_url, account_id=account_id, request_options=request_options
         )
         return _response.data
 
@@ -866,7 +567,7 @@ class AsyncSocialAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -884,299 +585,6 @@ class AsyncSocialAccountsClient:
             id, account_id=account_id, user_id=user_id, request_options=request_options
         )
         return _response.data
-
-    async def lead_forms(
-        self, id: str, *, account_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> LeadFormsSocialAccountsResponse:
-        """
-        Deprecated compatibility endpoint. List lead forms with `GET /external_accounts/{id}/lead_forms` instead.
-
-        Parameters
-        ----------
-        id : str
-            The social account (a sacc_ identifier) whose lead forms to list.
-
-        account_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        LeadFormsSocialAccountsResponse
-            lead forms listed through the deprecated path
-
-        Examples
-        --------
-        import asyncio
-
-        from whop_sdk import AsyncWhop
-
-        client = AsyncWhop(
-            "2026-10-28",
-            idempotency_key="YOUR_IDEMPOTENCY_KEY",
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.social_accounts.lead_forms(
-                id="id",
-                account_id="account_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.lead_forms(id, account_id=account_id, request_options=request_options)
-        return _response.data
-
-    async def partners(
-        self,
-        id: str,
-        *,
-        account_id: typing.Optional[str] = None,
-        first: typing.Optional[int] = None,
-        after: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[SocialAccount, PartnersSocialAccountsResponse]:
-        """
-        Deprecated compatibility endpoint. List partners with `GET /external_accounts/{external_account_id}/partners` instead.
-
-        Parameters
-        ----------
-        id : str
-            The brand's Instagram social account (a sacc_ identifier).
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
-
-        first : typing.Optional[int]
-            Number of results to return from the start of the range.
-
-        after : typing.Optional[str]
-            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncPager[SocialAccount, PartnersSocialAccountsResponse]
-            partners listed through the deprecated path
-
-        Examples
-        --------
-        import asyncio
-
-        from whop_sdk import AsyncWhop
-
-        client = AsyncWhop(
-            "2026-10-28",
-            idempotency_key="YOUR_IDEMPOTENCY_KEY",
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            response = await client.social_accounts.partners(
-                id="id",
-            )
-            async for item in response:
-                yield item
-
-            # alternatively, you can paginate page-by-page
-            async for page in response.iter_pages():
-                yield page
-
-
-        asyncio.run(main())
-        """
-        return await self._raw_client.partners(
-            id, account_id=account_id, first=first, after=after, request_options=request_options
-        )
-
-    async def add_partner(
-        self,
-        id: str,
-        *,
-        username: str,
-        account_id: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> SocialAccount:
-        """
-        Deprecated compatibility endpoint. Add partners with `POST /external_accounts/{external_account_id}/partners` instead.
-
-        Parameters
-        ----------
-        id : str
-            The brand's Instagram social account (a sacc_ identifier).
-
-        username : str
-            The creator's Instagram username, with or without the leading `@`. The creator needs a professional (Business or Creator) Instagram account.
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        SocialAccount
-            creator invited through the deprecated path
-
-        Examples
-        --------
-        import asyncio
-
-        from whop_sdk import AsyncWhop
-
-        client = AsyncWhop(
-            "2026-10-28",
-            idempotency_key="YOUR_IDEMPOTENCY_KEY",
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.social_accounts.add_partner(
-                id="id",
-                username="@luverahealth",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.add_partner(
-            id, username=username, account_id=account_id, request_options=request_options
-        )
-        return _response.data
-
-    async def remove_partner(
-        self,
-        id: str,
-        partner_id: str,
-        *,
-        account_id: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> RemovePartnerSocialAccountsResponse:
-        """
-        Deprecated compatibility endpoint. Remove partners with `DELETE /external_accounts/{external_account_id}/partners/{id}` instead.
-
-        Parameters
-        ----------
-        id : str
-            The brand's Instagram social account (a sacc_ identifier).
-
-        partner_id : str
-            The partner creator's social account (a sacc_ identifier).
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        RemovePartnerSocialAccountsResponse
-            partner removed through the deprecated path
-
-        Examples
-        --------
-        import asyncio
-
-        from whop_sdk import AsyncWhop
-
-        client = AsyncWhop(
-            "2026-10-28",
-            idempotency_key="YOUR_IDEMPOTENCY_KEY",
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.social_accounts.remove_partner(
-                id="id",
-                partner_id="partner_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.remove_partner(
-            id, partner_id, account_id=account_id, request_options=request_options
-        )
-        return _response.data
-
-    async def posts(
-        self,
-        id: str,
-        *,
-        account_id: str,
-        post_id: typing.Optional[str] = None,
-        first: typing.Optional[int] = None,
-        after: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[SocialAccountPost, PostsSocialAccountsResponse]:
-        """
-        Deprecated compatibility endpoint. List posts with `GET /external_accounts/{id}/posts` instead.
-
-        Parameters
-        ----------
-        id : str
-            The social account (a sacc_ identifier) whose posts to list.
-
-        account_id : str
-
-        post_id : typing.Optional[str]
-
-        first : typing.Optional[int]
-            Number of results to return from the start of the range.
-
-        after : typing.Optional[str]
-            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncPager[SocialAccountPost, PostsSocialAccountsResponse]
-            posts listed through the deprecated path
-
-        Examples
-        --------
-        import asyncio
-
-        from whop_sdk import AsyncWhop
-
-        client = AsyncWhop(
-            "2026-10-28",
-            idempotency_key="YOUR_IDEMPOTENCY_KEY",
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            response = await client.social_accounts.posts(
-                id="id",
-                account_id="account_id",
-            )
-            async for item in response:
-                yield item
-
-            # alternatively, you can paginate page-by-page
-            async for page in response.iter_pages():
-                yield page
-
-
-        asyncio.run(main())
-        """
-        return await self._raw_client.posts(
-            id, account_id=account_id, post_id=post_id, first=first, after=after, request_options=request_options
-        )
 
     async def refresh(
         self,
@@ -1211,7 +619,7 @@ class AsyncSocialAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

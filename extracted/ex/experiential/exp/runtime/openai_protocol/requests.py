@@ -33,6 +33,7 @@ from exp.runtime.models.providers.openrouter_routing import ProviderRoutingPrefe
 from exp.runtime.openai_protocol.cache_control import (
     drop_opencode_cache_control,
     restore_chat_cache_control,
+    restore_chat_tool_cache_control,
 )
 from exp.runtime.openai_protocol.client_field_repairs import (
     chat_output_cap,
@@ -111,6 +112,7 @@ from exp.runtime.openai_protocol.responses_probe import (
     require_responses_input,
     require_responses_text_spelling,
 )
+from exp.runtime.openai_protocol.responses_thinking import translate_responses_thinking
 from exp.runtime.openai_protocol.structured_text import (
     chat_json_object_output,
     chat_structured_text,
@@ -270,8 +272,8 @@ def decode_chat(
 ) -> DecodedGatewayRequest:
     """Decode one Chat Completions body without silently dropping fields.
 
-    OpenCode may attach an Anthropic-style ``cache_control`` annotation on Chat messages and on
-    text content parts. Supported ephemeral forms are validated outside official OpenAI
+    OpenCode may attach ``cache_control`` to Chat messages, text parts and function definitions.
+    Supported ephemeral forms are validated outside official OpenAI
     validation and retained on canonical cache carriers for adapters that support them. Unknown
     keys on messages, their tool calls and content parts are dropped with disclosure
     (:mod:`exp.runtime.openai_protocol.unknown_message_fields`); every other unknown nested
@@ -351,7 +353,10 @@ def decode_chat(
         canonical = GatewayRequest(
             surface=GatewayApiSurface.CHAT_COMPLETIONS,
             messages=messages,
-            tools=tuple(_chat_tool(tool) for tool in request.tools if tool.type == "function"),
+            tools=restore_chat_tool_cache_control(
+                tuple(_chat_tool(tool) for tool in request.tools if tool.type == "function"),
+                cache_payload,
+            ),
             provider_native_tools=chat_native_tools,
             tool_search=chat_tool_search(chat_native_tools),
             tool_choice=chat_tool_choice(request.tool_choice, native_tools=chat_native_tools),
@@ -475,6 +480,7 @@ def decode_responses(
     payload, alias_disclosures = repair_responses(
         *fold_prompt_cache_key_alias(drop_null_defaults(payload, RESPONSES_NULLABLE_PARAMS))
     )
+    payload, thinking_disclosures, thinking_default_enable = translate_responses_thinking(payload)
     payload, media_disclosures = degrade_responses_media(payload)
     breakpoints = extract_prompt_cache_breakpoints(payload, container="input")
     payload = breakpoints.payload
@@ -565,6 +571,7 @@ def decode_responses(
             json_object_output=responses_json_object_output(request.text),
             ignored_parameters=(
                 *alias_disclosures,
+                *thinking_disclosures,
                 *media_disclosures,
                 *document_disclosures,
                 *breakpoints.disclosures,
@@ -587,6 +594,7 @@ def decode_responses(
             include_output_text_logprobs=include_output_text_logprobs,
             include_web_search_sources=include_web_search_sources,
             reasoning_effort=(request.reasoning.effort if request.reasoning is not None else None),
+            thinking_default_enable=thinking_default_enable,
             reasoning_context=(
                 request.reasoning.context if request.reasoning is not None else None
             ),

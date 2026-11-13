@@ -16,10 +16,13 @@ from .types.list_members_request_most_recent_actions_item import ListMembersRequ
 from .types.list_members_request_order import ListMembersRequestOrder
 from .types.list_members_request_status import ListMembersRequestStatus
 from .types.list_members_response import ListMembersResponse
+from .types.update_members_request_unsubscribe_status import UpdateMembersRequestUnsubscribeStatus
 
 if typing.TYPE_CHECKING:
     from .logs.client import AsyncLogsClient, LogsClient
     from .notes.client import AsyncNotesClient, NotesClient
+# this is used as the default value for optional parameters
+OMIT = typing.cast(typing.Any, ...)
 
 
 class MembersClient:
@@ -65,6 +68,7 @@ class MembersClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
+        include_total_count: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Member, ListMembersResponse]:
         """
@@ -109,7 +113,7 @@ class MembersClient:
             Only members who joined before this ISO 8601 timestamp.
 
         order : typing.Optional[ListMembersRequestOrder]
-            Sort field. `most_recent_action_at` places members without one first when ascending and last when descending.
+            Sort field. `most_recent_action_at` and `last_activity_at` place members without one first when ascending and last when descending.
 
         direction : typing.Optional[ListMembersRequestDirection]
             Sort direction.
@@ -126,6 +130,9 @@ class MembersClient:
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
+        include_total_count : typing.Optional[bool]
+            Set to `true` to return the number of matching results in `page_info.total_count`. Send `first=0` as well to return the count without any results.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -139,7 +146,7 @@ class MembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -174,6 +181,7 @@ class MembersClient:
             after=after,
             last=last,
             before=before,
+            include_total_count=include_total_count,
             request_options=request_options,
         )
 
@@ -199,7 +207,7 @@ class MembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -208,6 +216,90 @@ class MembersClient:
         )
         """
         _response = self._raw_client.retrieve(id, request_options=request_options)
+        return _response.data
+
+    def update(
+        self,
+        id: str,
+        *,
+        name: typing.Optional[str] = OMIT,
+        unsubscribe_status: typing.Optional[UpdateMembersRequestUnsubscribeStatus] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Member:
+        """
+        Updates a member. The account can update `name`, the customer name its invoices show for this member; it doesn't change the user's Whop profile. The member can update `unsubscribe_status`, with a credential for their own user that holds `user:notifications:update`, to unsubscribe from the account's marketing communications or resubscribe. Each sends only its own field.
+
+        Parameters
+        ----------
+        id : str
+            Member ID (`mber_` tag).
+
+        name : typing.Optional[str]
+            The customer name to show on this member's invoices, at most 255 bytes. Leading and trailing spaces are trimmed. `null` or a blank string clears it, so invoices show the user's own name again.
+
+        unsubscribe_status : typing.Optional[UpdateMembersRequestUnsubscribeStatus]
+            `unsubscribed` to stop the account's marketing communications, or `null` to resubscribe. Only the member can set it.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Member
+            member resubscribed from their own session
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-11-10-1",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        client.members.update(
+            id="id",
+        )
+        """
+        _response = self._raw_client.update(
+            id, name=name, unsubscribe_status=unsubscribe_status, request_options=request_options
+        )
+        return _response.data
+
+    def unsubscribe(self, id: str, *, token: str, request_options: typing.Optional[RequestOptions] = None) -> None:
+        """
+        Unsubscribes a member from the account's marketing communications with the token from their unsubscribe link. Inboxes post here directly for one-click unsubscribe (RFC 8058).
+
+        Parameters
+        ----------
+        id : str
+            The member to unsubscribe, prefixed `mber_`.
+
+        token : str
+            The token from the member's unsubscribe link.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-11-10-1",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        client.members.unsubscribe(
+            id="id",
+            token="token",
+        )
+        """
+        _response = self._raw_client.unsubscribe(id, token=token, request_options=request_options)
         return _response.data
 
     @property
@@ -270,6 +362,7 @@ class AsyncMembersClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
+        include_total_count: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Member, ListMembersResponse]:
         """
@@ -314,7 +407,7 @@ class AsyncMembersClient:
             Only members who joined before this ISO 8601 timestamp.
 
         order : typing.Optional[ListMembersRequestOrder]
-            Sort field. `most_recent_action_at` places members without one first when ascending and last when descending.
+            Sort field. `most_recent_action_at` and `last_activity_at` place members without one first when ascending and last when descending.
 
         direction : typing.Optional[ListMembersRequestDirection]
             Sort direction.
@@ -331,6 +424,9 @@ class AsyncMembersClient:
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
+        include_total_count : typing.Optional[bool]
+            Set to `true` to return the number of matching results in `page_info.total_count`. Send `first=0` as well to return the count without any results.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -346,7 +442,7 @@ class AsyncMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -388,6 +484,7 @@ class AsyncMembersClient:
             after=after,
             last=last,
             before=before,
+            include_total_count=include_total_count,
             request_options=request_options,
         )
 
@@ -415,7 +512,7 @@ class AsyncMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -430,6 +527,108 @@ class AsyncMembersClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.retrieve(id, request_options=request_options)
+        return _response.data
+
+    async def update(
+        self,
+        id: str,
+        *,
+        name: typing.Optional[str] = OMIT,
+        unsubscribe_status: typing.Optional[UpdateMembersRequestUnsubscribeStatus] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Member:
+        """
+        Updates a member. The account can update `name`, the customer name its invoices show for this member; it doesn't change the user's Whop profile. The member can update `unsubscribe_status`, with a credential for their own user that holds `user:notifications:update`, to unsubscribe from the account's marketing communications or resubscribe. Each sends only its own field.
+
+        Parameters
+        ----------
+        id : str
+            Member ID (`mber_` tag).
+
+        name : typing.Optional[str]
+            The customer name to show on this member's invoices, at most 255 bytes. Leading and trailing spaces are trimmed. `null` or a blank string clears it, so invoices show the user's own name again.
+
+        unsubscribe_status : typing.Optional[UpdateMembersRequestUnsubscribeStatus]
+            `unsubscribed` to stop the account's marketing communications, or `null` to resubscribe. Only the member can set it.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Member
+            member resubscribed from their own session
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-11-10-1",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.members.update(
+                id="id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.update(
+            id, name=name, unsubscribe_status=unsubscribe_status, request_options=request_options
+        )
+        return _response.data
+
+    async def unsubscribe(
+        self, id: str, *, token: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> None:
+        """
+        Unsubscribes a member from the account's marketing communications with the token from their unsubscribe link. Inboxes post here directly for one-click unsubscribe (RFC 8058).
+
+        Parameters
+        ----------
+        id : str
+            The member to unsubscribe, prefixed `mber_`.
+
+        token : str
+            The token from the member's unsubscribe link.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-11-10-1",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.members.unsubscribe(
+                id="id",
+                token="token",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.unsubscribe(id, token=token, request_options=request_options)
         return _response.data
 
     @property

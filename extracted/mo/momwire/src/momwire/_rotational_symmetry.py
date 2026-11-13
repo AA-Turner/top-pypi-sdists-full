@@ -54,11 +54,14 @@ from __future__ import annotations
 import hashlib
 import math
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from typing import NamedTuple
 
 import numpy as np
+from threadpoolctl import threadpool_limits
 from ._vec3 import norm3
 from . import _lapack
+from ._near_interface import _table_threads
 
 # 1e-9 of the deck's largest extent. The registered tolerance (§3.1): the
 # structure probe measures rotated radials landing 3.9e-16 m (4 radials) to
@@ -526,7 +529,9 @@ def _port_sites(solver, polylines):
                 break
             acc += seg[e]
         sites.append((f"feed {i}", np.asarray(point, dtype=float)))
-    for i, (j, _v) in enumerate(solver.junction_ports):
+    # A family without junction ports or node gaps (the point-matched
+    # sinusoidal one, momwire#1912) has nothing there to add.
+    for i, (j, _v) in enumerate(getattr(solver, "junction_ports", None) or ()):
         sites.append(
             (
                 f"junction port {i}",
@@ -535,7 +540,7 @@ def _port_sites(solver, polylines):
                 ),
             )
         )
-    for i, (w, end, _v) in enumerate(solver.node_gaps):
+    for i, (w, end, _v) in enumerate(getattr(solver, "node_gaps", None) or ()):
         pl = polylines[int(w)]
         sites.append(
             (f"node gap {i}", np.asarray(pl[0] if end == "start" else pl[-1], float))
@@ -979,31 +984,60 @@ def harmonic_blocks(solver, Z, sectors, axial, harmonics, row_of=None):
     """
     n = len(sectors)
     out = {}
-    if 0 in harmonics:
-        K0, _m, _p = harmonic_zero_block(solver, Z, sectors, axial, row_of=row_of)
-        out[0] = _lapack.lu_factor(K0, overwrite_a=True)
-        del K0
     s0 = sectors[0]
     r_s0 = s0 if row_of is None else row_of[s0]
     m = int(s0.size)
     hs = [h for h in harmonics if h != 0]
-    if not hs:
+    if not hs and 0 not in harmonics:
         return out
-    # Sector t's block C_t is gathered ONCE and folded into every harmonic
-    # (momwire#1902): the h-outer form gathered it once per harmonic, N - 1
-    # fancy-index copies of an m x m block where one does, and that was 46 %
-    # of a 13-frequency C6 sweep. Each Lambda_h still receives its terms in
-    # ascending t as `w * C_t` then an add, so the sums are bit-identical to
-    # the h-outer form. The N - 1 accumulators are the blocks the factors
-    # replace in place, so the peak is one gathered block above it.
+    # Lambda_h = sum_t w_ht C_t for every h at once (momwire#1919): per column
+    # strip, the (N-1) x N weights against the N gathered strips of C_t, as one
+    # product on the seam's matmul. The per-sector `multiply` + `add` passes it
+    # replaces were single-threaded numpy over m x m blocks. The strips are
+    # independent, so they run on a small pool, one single-threaded product
+    # each: a threaded numpy product leaves its BLAS workers spinning, and the
+    # factorisations that follow ran 40 % slower for it (measured, Haswell).
+    # Strips are m / (N * workers) columns wide, so the gathered stacks are
+    # together about one m x m block (the #1902 peak: one gathered block above
+    # the accumulators, which are the blocks the factors replace in place).
+    # Harmonic 0 rides the same product (a row of ones), straight into the
+    # corner of its own F-ordered (m + p) block.
+    p = int(axial.size)
+    cols = ([0] if 0 in harmonics else []) + hs
+    w = np.exp(2j * math.pi * np.outer(cols, np.arange(n)) / n)
     lams = {h: np.zeros((m, m), dtype=np.complex128, order="F") for h in hs}
-    term = np.empty((m, m), dtype=np.complex128, order="F")
-    for t in range(n):
-        C_t = Z[np.ix_(r_s0, sectors[t])]
-        for h in hs:
-            np.multiply(np.exp(2j * math.pi * h * t / n), C_t, out=term)
-            lams[h] += term
-        del C_t
+    K0 = None
+    if 0 in harmonics:
+        K0 = np.zeros((m + p, m + p), dtype=np.complex128, order="F")
+        lams[0] = K0[:m, :m]
+    workers = max(1, min(_table_threads(), m))
+    cb = max(8, m // (4 * n * workers))
+
+    def _strip(j0):
+        j1 = min(j0 + cb, m)
+        stack = np.empty((n, m * (j1 - j0)), dtype=np.complex128)
+        for t in range(n):
+            stack[t] = Z[np.ix_(r_s0, sectors[t][j0:j1])].ravel()
+        prod = _lapack.matmul(w, stack)
+        del stack
+        for i, h in enumerate(cols):
+            lams[h][:, j0:j1] = prod[i].reshape(m, j1 - j0)
+
+    starts = range(0, m, cb)
+    if workers < 2:
+        for j0 in starts:
+            _strip(j0)
+    else:
+        with (
+            threadpool_limits(limits=1, user_api="blas"),
+            ThreadPoolExecutor(max_workers=workers) as pool,
+        ):
+            list(pool.map(_strip, starts))
+    if K0 is not None:
+        del lams[0]
+        harmonic_zero_block(solver, Z, sectors, axial, row_of=row_of, K0=K0)
+        out[0] = _lapack.lu_factor(K0, overwrite_a=True)
+        del K0
     for h in hs:
         out[h] = _lapack.lu_factor(lams.pop(h), overwrite_a=True)
     return out
@@ -1210,6 +1244,71 @@ def dof_signs(solver, wire_basis_global, n_basis_total):
     return D
 
 
+def segment_groups(solver, seg_first, n_segs):
+    """`(sectors, axial)` for a family whose unknowns are its SEGMENTS
+    (momwire#1912: the point-matched sinusoidal solver, one three-term basis
+    and one match point per segment) — `dof_groups` with the segment as the
+    dof.
+
+    `seg_first[w]` is wire w's first segment; a wire's segments are the
+    contiguous run up to the next wire's first (`n_segs` closing the last).
+    `sectors[s][i]` and `sectors[t][i]` are the same segment of the same
+    wire of the same orbit under the rotation, so the basis CENTRED on it
+    and the match point AT its centre are both images of sector 0's — the
+    one fact the block-circulant reading of a point-matched Z needs, since
+    rows and columns are indexed by the same segments.
+
+    A member drawn the other way (`SectorMap.reversed`) lists its segments
+    backwards: condition 3 has already held its per-edge counts to the
+    mirror of sector 0's, so its segment i from the far end is the image of
+    sector 0's segment i. Its basis and its match-point tangent both run the
+    other way too, which is `segment_signs`.
+    """
+    smap = solver._rotational_map
+    rev = smap.reversed
+    first = np.asarray(seg_first, dtype=np.int64)
+    stop = np.append(first[1:], np.int64(n_segs))
+    sectors = []
+    for s in range(smap.n_sectors):
+        idx = []
+        for c, w in enumerate(smap.sectors[s]):
+            run = np.arange(first[w], stop[w], dtype=np.int64)
+            idx.append(run[::-1] if rev and rev[s][c] else run)
+        sectors.append(np.concatenate(idx) if idx else np.zeros(0, np.int64))
+    sizes = {int(x.size) for x in sectors}
+    if len(sizes) != 1:
+        raise AssertionError(f"sector segment counts differ: {sorted(sizes)}")
+    on_sector = np.zeros(int(n_segs), dtype=bool)
+    for idx in sectors:
+        on_sector[idx] = True
+    return sectors, np.nonzero(~on_sector)[0].astype(np.int64)
+
+
+def segment_signs(solver, seg_first, n_segs):
+    """`dof_signs` for a segment-dof family (momwire#1912): -1 on every
+    segment of a member drawn the other way, None when there is none.
+
+    The three-term basis on a segment is written along that segment's own
+    tangent, and so is the point-matched row (the tangential field at its
+    centre): reversing a wire flips both, so rotating sector 0's basis onto
+    it gives MINUS its own, and the same for the row. The operator in the
+    signed bases is D Z D; sector 0 and the axial group are never flipped,
+    so the rows the route fills keep their sign and only the columns need
+    it, exactly as on the Galerkin family."""
+    smap = solver._rotational_map
+    if not smap.reversed:
+        return None
+    first = np.asarray(seg_first, dtype=np.int64)
+    stop = np.append(first[1:], np.int64(n_segs))
+    D = np.ones(int(n_segs), dtype=np.float64)
+    for s, row in enumerate(smap.reversed):
+        for c, back in enumerate(row):
+            if back:
+                w = smap.sectors[s][c]
+                D[first[w] : stop[w]] = -1.0
+    return D
+
+
 def observer_rows(solver, geom):
     """The observer segments one sector's fill needs: sector 0's wires and
     every axial wire. No basis straddles two wires (S-0's S0a), so a
@@ -1224,7 +1323,7 @@ def observer_rows(solver, geom):
     return np.sort(np.concatenate(runs))
 
 
-def harmonic_zero_block(solver, Z, sectors, axial, row_of=None):
+def harmonic_zero_block(solver, Z, sectors, axial, row_of=None, K0=None):
     """The harmonic-0 block and its consistency reading.
 
     `Z` is the square fill, or with `row_of` the ROW-COMPACT one
@@ -1247,6 +1346,11 @@ def harmonic_zero_block(solver, Z, sectors, axial, row_of=None):
     rather than one copy averages their roundoff, and their spread is a
     free check on the sector assignment (they are not bit-identical:
     rotated copies round differently).
+
+    `K0`, when given, is the (m + p) x (m + p) array to fill, whose upper-left
+    m x m block already holds Lambda_0 (`harmonic_blocks` accumulates it with
+    the other harmonics' sum, momwire#1919); the sector rows are then not
+    gathered again.
     """
     n = len(sectors)
     m = int(sectors[0].size)
@@ -1256,11 +1360,12 @@ def harmonic_zero_block(solver, Z, sectors, axial, row_of=None):
     # The rows the gathers read, where they live in `Z`.
     r_s0 = s0 if row_of is None else row_of[s0]
     r_ax = axial if row_of is None else row_of[axial]
-    K0 = np.empty((m + p, m + p), dtype=np.complex128)
-    lam0 = Z[np.ix_(r_s0, sectors[0])].copy()
-    for t in range(1, n):
-        lam0 += Z[np.ix_(r_s0, sectors[t])]
-    K0[:m, :m] = lam0
+    if K0 is None:
+        K0 = np.empty((m + p, m + p), dtype=np.complex128)
+        lam0 = Z[np.ix_(r_s0, sectors[0])].copy()
+        for t in range(1, n):
+            lam0 += Z[np.ix_(r_s0, sectors[t])]
+        K0[:m, :m] = lam0
     K0[:m, m:] = sq * Z[np.ix_(r_s0, axial)]
     c_0 = Z[np.ix_(r_ax, sectors[0])]
     c_sum = c_0.copy()

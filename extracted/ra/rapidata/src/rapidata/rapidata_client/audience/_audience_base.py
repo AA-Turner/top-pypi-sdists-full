@@ -84,6 +84,9 @@ class RapidataAudienceBase:
 
         Raises:
             RuntimeError: If the job definition has unsaved changes.
+            ValueError: If the audience has no ``LanguageFilter`` while the job definition
+                uses ``OriginalLanguageOnlySetting``, or has text assets without
+                ``TranslateTextAssetsSetting``.
         """
         with tracer.start_as_current_span(f"{type(self).__name__}.assign_job"):
             return self._create_job(job_definition, run_after=run_after)
@@ -117,6 +120,7 @@ class RapidataAudienceBase:
                 f"Job definition '{job_definition.id}' has unsaved changes. "
                 "Call save() to run them, or discard_changes() to run the loaded revision."
             )
+        self._check_language_filter(job_definition)
         logger.debug(f"Assigning job to audience: {self.id}")
         preceding_job_id = (
             run_after.id if isinstance(run_after, RapidataJob) else run_after
@@ -146,6 +150,39 @@ class RapidataAudienceBase:
         self._warn_if_content_check_skip_denied(job, response.content_check_skip_denied)
         self._warn_if_no_graduated_annotators(job)
         return job
+
+    def _check_language_filter(self, job_definition: RapidataJobDefinition) -> None:
+        """Raise before job creation when the job shows untranslated text (OriginalLanguageOnlySetting,
+        or text assets without TranslateTextAssetsSetting) on an audience without a LanguageFilter.
+        A failed lookup lets the job through.
+        """
+        from rapidata.rapidata_client.audience._language_filter_check import (
+            SKIP_HINT,
+            audience_requires_language,
+            language_requirement,
+        )
+
+        if rapidata_config.skipLanguageFilterCheck:
+            return
+        try:
+            reason = language_requirement(
+                job_definition.settings, job_definition._has_text_assets
+            )
+            if reason is None or audience_requires_language(
+                self._openapi_service, self.id
+            ):
+                return
+        except Exception:
+            logger.debug(
+                "Could not check the language filter of audience '%s'",
+                self.id,
+                exc_info=True,
+            )
+            return
+        raise ValueError(
+            f"Job definition '{job_definition.name}' cannot run on audience '{self._name}' "
+            f"({self.id}): {reason} {SKIP_HINT}"
+        )
 
     def _warn_if_no_graduated_annotators(self, job: RapidataJob) -> None:
         """Hook: warn when no annotator has graduated to answer the job yet.

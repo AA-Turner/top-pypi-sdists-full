@@ -167,10 +167,7 @@ pub fn get_category_icon(category: &RuleCategory) -> &'static str {
 }
 
 pub fn get_category_name(category: &RuleCategory) -> &'static str {
-    match category {
-        RuleCategory::Complexity => "Complexity",
-        RuleCategory::Readability => "Readability",
-    }
+    category.name()
 }
 
 pub fn get_applicability_icon(applicability: &Applicability) -> &'static str {
@@ -250,6 +247,19 @@ fn output_suggestion(
                 sections.push(output_code_snippet(&original_code, original_start, color));
             }
         }
+    }
+
+    for insertion in &suggestion.insertions {
+        sections.push(format!(
+            "\n          {}",
+            format!("Insert before line {}:", insertion.before_line)
+                .if_supports_color(Stream::Stdout, |text| text.dimmed())
+        ));
+        sections.push(output_code_snippet(
+            insertion.text.trim_end_matches('\n'),
+            insertion.before_line as usize,
+            color,
+        ));
     }
 
     if !suggestion.replacement.is_empty() {

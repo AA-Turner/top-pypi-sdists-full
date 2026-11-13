@@ -13,7 +13,7 @@ from pyrit.models import Modality, SeedDataset, SeedPrompt
 from pyrit.models.harm_category import HarmCategory
 
 if TYPE_CHECKING:
-    from pyrit.models.seeds.seed_group import SeedUnion
+    from pyrit.models import SeedUnion
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ class _MLCommonsAILuminateDataset(_RemoteDatasetLoader):
         return "mlcommons_ailuminate"
 
     @override
-    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
+    async def _fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch AILuminate dataset and return as SeedDataset.
 

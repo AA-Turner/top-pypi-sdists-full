@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-shopping-merchant-products
-Version: 1.9.0
+Version: 2.0.0
 Summary: Google Shopping Merchant Products API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-shopping-merchant-products
 Author: Google LLC

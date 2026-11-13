@@ -8,7 +8,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { MIN_HISTORY_NIGHTS, compare, flaggedChange, formatDelta, formatMove, loadDailyHistory, sparkline } from './history.js';
+import { MIN_HISTORY_NIGHTS, compare, cpuSignature, describeCpus, flaggedChange, formatDelta, formatMove, loadDailyHistory, sameCpu, sparkline } from './history.js';
 import { runnerColumnName, runnerShortName } from './runner-descriptions.js';
 import { dotFor, footer, postReport } from './slack.js';
 
@@ -235,11 +235,28 @@ function failureReason(run) {
   return `step finished as \`${run.stepOutcome}\``;
 }
 
-/** The flag baseline stays at a week; the older nights only draw the trend. */
-/** Nights in the table's trend, tonight included. The flags compare against the other nights, so both mean the same window. */
+/** Nights in the table's trend, tonight included. The flags compare with as many past nights, taken from those on tonight's CPU. */
 export const NIGHTS = 10;
 
 const baseline = (run) => (run.history ?? []).slice(0, NIGHTS - 1);
+
+// The trend draws every night; the flags compare only nights on tonight's CPU.
+const comparable = (run) => sameCpu(run.history ?? [], run.summary?.metrics?.serverCpus).slice(0, NIGHTS - 1);
+
+const cpuOf = (run) => cpuSignature(run.summary?.metrics?.serverCpus);
+
+/** Tonight's CPUs against the newest past night's, when both are known and differ. */
+function newMachine(run) {
+  const tonight = cpuOf(run);
+  const before = cpuSignature(run.history?.[0]?.serverCpus);
+  return tonight && before && tonight !== before ? `${runName(run)} on ${tonight} (was ${before})` : null;
+}
+
+function cpuClause(runs) {
+  const known = runs.map(cpuOf).filter(Boolean);
+  if (known.length === 0) return '';
+  return known.every((cpu) => cpu === known[0]) ? ` · ${known[0]}` : ' · cpus differ by runner';
+}
 
 function p95Of(metrics) {
   return succeeded(metrics) && isNumber(metrics?.p95Duration) ? metrics.p95Duration : null;
@@ -281,7 +298,7 @@ export function buildDigest(runs, context = {}) {
   } = context;
 
   const changesByRun = new Map(
-    runs.map((run) => [run, run.summary?.metrics ? figureChanges(run.summary.metrics, baseline(run)) : []])
+    runs.map((run) => [run, run.summary?.metrics ? figureChanges(run.summary.metrics, comparable(run)) : []])
   );
   const unhealthy = runs.filter((run) => !isHealthy({ stepOutcome: run.stepOutcome, metrics: run.summary?.metrics }));
   const withErrors = runs.filter((run) => hasErrors(run.summary?.metrics));
@@ -295,7 +312,7 @@ export function buildDigest(runs, context = {}) {
       if (moved.length > 0) list.push(`${runName(run)} ${moved.map((c, i) => (i === 0 ? `${c.label} ${c.move}` : `${c.label} ${roundedDelta(c.deltaPct)}`)).join(', ')}`);
     }
   }
-  const nights = Math.max(0, ...runs.map((run) => baseline(run).length));
+  const nights = Math.max(0, ...runs.map((run) => comparable(run).length));
   const checked = nights >= MIN_HISTORY_NIGHTS;
   const tools = runs.map((run) => [run, toolLine(run.summary?.metrics)]).filter(([, line]) => line);
 
@@ -312,7 +329,7 @@ export function buildDigest(runs, context = {}) {
   const date = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   const passed = runs.length - unhealthy.length;
   const lines = [
-    `${dot} *Daily Benchmark${titleSuffix} · ${date}*${manual ? ' · manual run' : ''}${apiVersion ? ` · API ${apiVersion}` : ''} · ${passed} of ${runs.length} passed · ${clauses.join(' · ')}`,
+    `${dot} *Daily Benchmark${titleSuffix} · ${date}*${manual ? ' · manual run' : ''}${apiVersion ? ` · API ${apiVersion}` : ''}${cpuClause(runs)} · ${passed} of ${runs.length} passed · ${clauses.join(' · ')}`,
   ];
   if (unhealthy.length > 0) {
     lines.push(`*Failed:* ${unhealthy.map((run) => `${runName(run)}: ${failureReason(run)}`).join(' · ')}`);
@@ -333,10 +350,12 @@ export function buildDigest(runs, context = {}) {
     );
   }
   if (regressed.length > 0) lines.push(`*Regressed:* ${regressed.join(' · ')}`);
+  const moved = runs.map(newMachine).filter(Boolean);
+  if (moved.length > 0) lines.push(`*New machine:* ${moved.join(' · ')} · compared only with nights on the same cpu`);
   for (const [run, line] of tools) lines.push(`:warning: ${runName(run)}: ${line}`);
 
   lines.push(...digestTable(runs));
-  if (!checked) lines.push(`_${nights} of ${MIN_HISTORY_NIGHTS} nights of history, no change flags yet_`);
+  if (!checked) lines.push(`_${nights} of ${MIN_HISTORY_NIGHTS} nights of history${runs.some(cpuOf) ? ' on this cpu' : ''}, no change flags yet_`);
   lines.push(footer(docsAnchor, artifactUrl));
 
   return { text: lines.join('\n'), thread: [perRunDetail(runs, changesByRun, improved, loadSentence(runs))] };
@@ -365,9 +384,10 @@ function perRunDetail(runs, changesByRun, improved, load) {
       lines.push(`${runName(run)}: ${noResults(run)}`);
       continue;
     }
-    const counts = `${count(metrics.totalRuns)} runs, ${count(metrics.failedRuns)} failed`;
+    const cpus = describeCpus(metrics.serverCpus);
+    const counts = `${count(metrics.totalRuns)} runs, ${count(metrics.failedRuns)} failed${cpus ? ` · ${cpus}` : ''}`;
     const changes = changesByRun.get(run);
-    const nights = baseline(run).length;
+    const nights = comparable(run).length;
     const drift =
       changes.length > 0
         ? `vs ${nights} nights: ${changes.map((c) => `${c.label} ${formatDelta(c.deltaPct)}${c.flagged ? ` ${c.arrow}` : ''}`).join(' · ')}`

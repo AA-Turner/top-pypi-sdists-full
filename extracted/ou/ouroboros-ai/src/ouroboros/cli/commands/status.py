@@ -37,6 +37,7 @@ from ouroboros.cli.formatters.tables import (
 from ouroboros.config.loader import get_zcode_cli_path, load_config
 from ouroboros.config.models import resolve_event_store_path
 from ouroboros.config.zcode_model_config import inspect_zcode_model_config
+from ouroboros.core.errors import ConfigError
 from ouroboros.events.base import BaseEvent
 from ouroboros.mcp.tools.project_status_handler import ProjectStatusHandler
 from ouroboros.mcp.tools.projection_handlers import ProjectionQueryHandler
@@ -879,11 +880,15 @@ def _check_credentials(data: dict, config_path: Path) -> dict[str, str]:
         return _health_row("Credentials", "error", f"missing {credentials_path} for {provider}")
 
     try:
-        raw_credentials = yaml.safe_load(credentials_path.read_text())
+        raw_credentials = yaml.safe_load(credentials_path.read_text(encoding="utf-8"))
         if raw_credentials is None:
             raw_credentials = {}
-    except (OSError, yaml.YAMLError) as exc:
-        return _health_row("Credentials", "error", f"cannot read credentials: {exc}")
+    except UnicodeDecodeError:
+        return _health_row("Credentials", "error", "credentials.yaml is not valid UTF-8")
+    except yaml.YAMLError:
+        return _health_row("Credentials", "error", "credentials.yaml contains invalid YAML")
+    except OSError:
+        return _health_row("Credentials", "error", "cannot read credentials.yaml")
 
     if not isinstance(raw_credentials, dict):
         return _health_row("Credentials", "error", "credentials.yaml must contain a mapping")
@@ -917,6 +922,17 @@ def health() -> None:
     try:
         data, config_path = _load_config()
         load_config(config_path)
+    except ConfigError:
+        # Validation details may contain configuration values or arbitrary keys.
+        # Health output is commonly copied into issue reports.
+        data = None
+        checks.append(
+            _health_row(
+                "Configuration",
+                "error",
+                "configuration validation failed; inspect config.yaml locally",
+            )
+        )
     except Exception as exc:
         checks.append(_health_row("Configuration", "error", str(exc)))
     else:

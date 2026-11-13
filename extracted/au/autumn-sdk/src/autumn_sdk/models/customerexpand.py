@@ -18,4 +18,5 @@ CustomerExpand = Literal[
     "balances.feature",
     "flags.feature",
     "billing_controls.auto_topups.purchase_limit",
+    "pooled_contributions",
 ]

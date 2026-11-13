@@ -1,12 +1,14 @@
 """
 """
+
 import sys
+import warnings
 from types import FunctionType
 from typing import TYPE_CHECKING
 from typing import Callable
 
 
-# Prevent gradio from importing spaces
+# Prevent partially-imported gradio from importing spaces
 if (gr := sys.modules.get('gradio')) is not None: # pragma: no cover
     try:
         gr.Blocks
@@ -15,9 +17,16 @@ if (gr := sys.modules.get('gradio')) is not None: # pragma: no cover
 
 
 from .zero.decorator import GPU
-from .gradio import gradio_auto_wrap
-from .gradio import disable_gradio_auto_wrap
-from .gradio import enable_gradio_auto_wrap
+
+
+def gradio_auto_wrap(task): # pragma: no cover
+    return task
+
+def disable_gradio_auto_wrap(*args, **kwargs): # pragma: no cover
+    warnings.warn("gradio_auto_wrap has no effect and is deprecated")
+
+def enable_gradio_auto_wrap(*args, **kwargs): # pragma: no cover
+    warnings.warn("gradio_auto_wrap has no effect and is deprecated")
 
 
 class LazyImported:

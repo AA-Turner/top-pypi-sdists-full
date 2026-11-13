@@ -547,6 +547,12 @@ def catalog(code: str, **kwargs) -> DreamscaleError:
             cause="the control plane predates region fallback",
             fix="leave --region-fallback/--no-region-fallback out for now, or retry later",
         ),
+        "engine_unavailable": ErrorInfo(
+            code="engine_unavailable",
+            problem="this Dreamscale server can't run the lightning engine yet",
+            cause="the control plane predates engine selection; no session was started",
+            fix="leave engine/--engine out (standard) for now, or retry later",
+        ),
         "deployment_rename_unavailable": ErrorInfo(
             code="deployment_rename_unavailable",
             problem="this Dreamscale server cannot rename deployments yet",

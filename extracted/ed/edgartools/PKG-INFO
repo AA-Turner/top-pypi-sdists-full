@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: edgartools
-Version: 6.0.0
+Version: 6.1.0
 Summary: Python library to access and analyze SEC Edgar filings, XBRL financial statements, 10-K, 10-Q, and 8-K reports
 Project-URL: Homepage, https://github.com/dgunning/edgartools
 Project-URL: Documentation, https://dgunning.github.io/edgartools/
@@ -94,6 +94,8 @@ Description-Content-Type: text/markdown
 **EdgarTools** is a Python library for SEC EDGAR filings as structured data: financial statements, insider trades, fund holdings, proxy statements and dozens of other filing types, through one consistent Python API. SEC publishes every filing since 1994 for free, and almost none of it is ready to use; EdgarTools turns a filing into a typed Python object. Free and open source, MIT-licensed.
 
 **[Docs](https://edgartools.readthedocs.io/en/latest/)** · **[Cheat sheet](https://edgartools.readthedocs.io/en/latest/quick-guide/)** · Agents: **[Skill](https://edgartools.readthedocs.io/en/latest/ai/skills/)** · **[MCP server](https://edgartools.readthedocs.io/en/latest/ai/mcp-setup/)** · Hosted: **[edgar.tools](https://www.edgar.tools)**
+
+**EdgarTools 6.0** needs Python 3.11 or newer and renames or removes some 5.x APIs. Read [Upgrading to 6.0](https://edgartools.readthedocs.io/en/latest/upgrade/6.0/) before you upgrade, and [Upgrading to 6.1](https://edgartools.readthedocs.io/en/latest/upgrade/6.1/) for what changed since.
 
 ![EdgarTools SEC filing data extraction demo](https://raw.githubusercontent.com/dgunning/edgartools/main/docs/images/edgartools-demo.gif)
 

@@ -5,6 +5,8 @@ from .database_transformer import DatabaseTransformer
 
 class MSSQLTransformer(DatabaseTransformer):
 
+    # No row limit: T-SQL limits with "SELECT TOP n", which has no trailing position.
+
     @classmethod
     def get_dialect(cls) -> Optional[str]:
         return "tsql"

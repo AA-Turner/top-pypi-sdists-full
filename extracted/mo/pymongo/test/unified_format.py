@@ -31,17 +31,15 @@ import sys
 import time
 import traceback
 from collections import defaultdict
-from collections.abc import Mapping
 from inspect import iscoroutinefunction
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import pytest
 
 import pymongo
 from bson import SON, json_util
 from bson.codec_options import DEFAULT_CODEC_OPTIONS
-from bson.objectid import ObjectId
 from gridfs import GridFSBucket, GridOut, NoFile
 from gridfs.errors import CorruptGridFile
 from pymongo import ASCENDING, CursorType, MongoClient, _csot
@@ -79,7 +77,6 @@ from pymongo.synchronous.database import Database
 from pymongo.synchronous.encryption import ClientEncryption
 from pymongo.synchronous.helpers import next
 from pymongo.topology_description import TopologyDescription
-from pymongo.typings import _Address
 from pymongo.write_concern import WriteConcern
 from test import (
     IntegrationTest,
@@ -111,6 +108,12 @@ from test.utils_shared import (
 )
 from test.utils_spec_runner import SpecRunnerThread
 from test.version import Version
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from bson.objectid import ObjectId
+    from pymongo.typings import _Address
 
 _IS_SYNC = True
 
@@ -183,6 +186,16 @@ def is_run_on_requirement_satisfied(requirement):
         and auth_satisfied
         and csfle_satisfied
     )
+
+
+def _unwrap_server_error(exception):
+    """Return the error that carries the server's response details and labels."""
+    if isinstance(exception, ClientBulkWriteException) and exception.error is not None:
+        return exception.error
+    # EncryptionError wraps the original exception.
+    if isinstance(exception, EncryptionError) and isinstance(exception.cause, PyMongoError):
+        return exception.cause
+    return exception
 
 
 class NonLazyCursor:
@@ -672,11 +685,10 @@ class UnifiedSpecTestMixinV1(IntegrationTest):
         error_labels_omit = spec.get("errorLabelsOmit")
         expect_result = spec.get("expectResult")
         error_response = spec.get("errorResponse")
+        write_concern_errors = spec.get("writeConcernErrors")
+        server_error = _unwrap_server_error(exception)
         if error_response:
-            if isinstance(exception, ClientBulkWriteException):
-                self.match_evaluator.match_result(error_response, exception.error.details)
-            else:
-                self.match_evaluator.match_result(error_response, exception.details)
+            self.match_evaluator.match_result(error_response, server_error.details)
 
         if is_error:
             # already satisfied because exception was raised
@@ -713,31 +725,40 @@ class UnifiedSpecTestMixinV1(IntegrationTest):
             self.assertIn(error_contains.lower(), errmsg)
 
         if error_code:
-            if isinstance(exception, ClientBulkWriteException):
-                self.assertEqual(error_code, exception.error.details.get("code"))
-            else:
-                self.assertEqual(error_code, exception.details.get("code"))
+            self.assertEqual(error_code, server_error.details.get("code"))
 
         if error_code_name:
-            if isinstance(exception, ClientBulkWriteException):
-                self.assertEqual(error_code, exception.error.details.get("codeName"))
-            else:
-                self.assertEqual(error_code_name, exception.details.get("codeName"))
+            self.assertEqual(error_code_name, server_error.details.get("codeName"))
 
         if error_labels_contain:
-            if isinstance(exception, ClientBulkWriteException):
-                error = exception.error
-            else:
-                error = exception
             labels = [
-                err_label for err_label in error_labels_contain if error.has_error_label(err_label)
+                err_label
+                for err_label in error_labels_contain
+                if server_error.has_error_label(err_label)
             ]
             self.assertEqual(labels, error_labels_contain)
 
         if error_labels_omit:
             for err_label in error_labels_omit:
-                if exception.has_error_label(err_label):
+                if server_error.has_error_label(err_label):
                     self.fail(f"Exception '{exception}' unexpectedly had label '{err_label}'")
+
+        if write_concern_errors is not None:
+            if not isinstance(exception, ClientBulkWriteException):
+                self.fail(
+                    f"writeConcernErrors can only be specified with {ClientBulkWriteException} exceptions, got {exception}"
+                )
+            actual_write_concern_errors = exception.details.get("writeConcernErrors", [])
+            self.assertEqual(len(write_concern_errors), len(actual_write_concern_errors))
+            for expected_wce, actual_wce in zip(
+                write_concern_errors, actual_write_concern_errors, strict=True
+            ):
+                # Use the spec's WriteConcernError field names.
+                formatted_actual_wce = {
+                    "code": actual_wce.get("code", ""),
+                    "message": actual_wce.get("errmsg", ""),
+                }
+                self.match_evaluator.match_result(expected_wce, formatted_actual_wce)
 
         if expect_result:
             if isinstance(exception, BulkWriteError):
@@ -1251,7 +1272,7 @@ class UnifiedSpecTestMixinV1(IntegrationTest):
         old_description: TopologyDescription = self.entity_map[spec["priorTopologyDescription"]]
         timeout = spec["timeoutMS"] / 1000.0
 
-        def get_primary(td: TopologyDescription) -> Optional[_Address]:
+        def get_primary(td: TopologyDescription) -> _Address | None:
             servers = writable_server_selector(Selection.from_topology_description(td))
             if servers and servers[0].server_type == SERVER_TYPE.RSPrimary:
                 return servers[0].address
@@ -1437,7 +1458,7 @@ class UnifiedSpecTestMixinV1(IntegrationTest):
                     len(actual_logs),
                     f"expected {client['messages']} but got {actual_logs}",
                 )
-                for expected_msg, actual_msg in zip(client["messages"], actual_logs):
+                for expected_msg, actual_msg in zip(client["messages"], actual_logs, strict=True):
                     expected_data, actual_data = expected_msg.pop("data"), actual_msg.pop("data")
 
                     if "failureIsRedacted" in expected_msg:

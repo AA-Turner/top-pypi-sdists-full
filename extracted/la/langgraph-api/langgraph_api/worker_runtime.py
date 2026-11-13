@@ -1,4 +1,4 @@
-"""Shared graph execution setup for single-process worker and multi-process runner."""
+"""Shared graph execution setup for single-process worker and multi-process executor."""
 
 from __future__ import annotations
 

@@ -26,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError, m
 
 from mistralai.workflows.client import get_mistral_client
 from mistralai.workflows.core._logger import get_logger
-from mistralai.workflows.core.auth import get_token_provider
+from mistralai.workflows.core.auth import RunAs, get_token_provider
 from mistralai.workflows.core.config import config
 from mistralai.workflows.core.graph_summary_validators import (
     CONDITIONAL_TYPE,
@@ -227,7 +227,7 @@ def _get_client() -> Mistral | None:
     if _cached_client is None:
         provider = get_token_provider()
         if provider is not None:
-            _cached_client = get_mistral_client(token_provider=provider)
+            _cached_client = get_mistral_client(token_provider=provider, run_as=RunAs.DEPLOYMENT)
     return _cached_client
 
 

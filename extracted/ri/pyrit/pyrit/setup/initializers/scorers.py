@@ -23,11 +23,12 @@ from typing import TYPE_CHECKING, ClassVar, TypeVar, cast
 
 from azure.ai.contentsafety.models import TextCategory
 
-from pyrit.models import SeedPrompt
-from pyrit.models.parameter import Parameter
+from pyrit.common.async_compatibility import run_legacy_sync_async
+from pyrit.models import Parameter, SeedPrompt
 from pyrit.registry import ScorerRegistry, TargetRegistry
 from pyrit.score import (
     AzureContentFilterScorer,
+    DecisionScorer,
     FloatScaleThresholdScorer,
     LikertScalePaths,
     RefusalScorerPaths,
@@ -65,6 +66,10 @@ class ScorerInitializerTags(str, Enum):
     LIKERT = "likert"
     TASK_ACHIEVED = "task_achieved"
     OBJECTIVE_COMPOSITE = "objective_composite"
+    MICROSOFT_DECISION = "microsoft_decision"
+
+    # Batch-evaluation exclusions do not affect availability for normal scoring.
+    SKIP_BATCH_EVALUATION = "skip_batch_evaluation"
 
     # Overall best objective scorer (used by scenarios)
     BEST_OBJECTIVE = "best_objective"
@@ -155,9 +160,14 @@ class ScorerInitializer(PyRITInitializer):
         ),
     }
 
-    @property
-    def supported_parameters(self) -> list[Parameter]:
-        """The list of parameters this initializer accepts."""
+    @classmethod
+    def supported_parameters(cls) -> list[Parameter]:
+        """
+        Declare the initializer parameters.
+
+        Returns:
+            list[Parameter]: Supported inputs and defaults.
+        """
         return [
             Parameter(
                 name="tags",
@@ -187,6 +197,15 @@ class ScorerInitializer(PyRITInitializer):
         Raises:
             RuntimeError: If the TargetRegistry is empty or hasn't been initialized.
         """
+        await run_legacy_sync_async(self._register_scorers)
+
+    def _register_scorers(self) -> None:
+        """
+        Construct template-backed scorers without blocking the caller's event loop.
+
+        Raises:
+            RuntimeError: If the target registry is empty.
+        """
         target_registry = TargetRegistry.get_registry_singleton()
 
         if len(target_registry.instances) == 0:
@@ -200,6 +219,7 @@ class ScorerInitializer(PyRITInitializer):
         self._register_scale_scorers()
         self._register_acs_threshold_scorers()
         self._register_task_achieved_scorers()
+        self._register_decision_scorers()
         self._register_core_harm_scorers()
         self._tag_best_per_category()
         self._register_compound_objective_scorers()
@@ -452,6 +472,30 @@ class ScorerInitializer(PyRITInitializer):
             tags=task_tag,
         )
 
+    def _register_decision_scorers(self) -> None:
+        """Register decision probability and threshold scorers for explicit use."""
+        target = self._get_chat_target("microsoft_decision")
+        decision_tags = [ScorerInitializerTags.MICROSOFT_DECISION]
+
+        def _build_decision_scorer() -> DecisionScorer:
+            return DecisionScorer(chat_target=self._require_dependency(target, name="microsoft_decision"))
+
+        self._try_register(
+            name="task_achieved_microsoft_decision",
+            factory=_build_decision_scorer,
+            required_targets=[target],
+            tags=[*decision_tags, ScorerInitializerTags.SKIP_BATCH_EVALUATION],
+        )
+        self._try_register(
+            name="task_achieved_microsoft_decision_threshold_07",
+            factory=lambda: FloatScaleThresholdScorer(
+                scorer=_build_decision_scorer(),
+                threshold=0.7,
+            ),
+            required_targets=[target],
+            tags=decision_tags,
+        )
+
     # ---------------------------------------------------------------------------
     # Per-category best tagging
     # ---------------------------------------------------------------------------
@@ -553,19 +597,28 @@ class ScorerInitializer(PyRITInitializer):
         """
         Tag the overall best objective scorer.
 
-        Uses metrics-based selection (F1 score) when evaluation data is available,
-        falling back to a hardcoded default composite scorer.
+        Ranks F1 only when a positive input count confirms complete coverage.
+        Otherwise uses a configured composite fallback, not an F1-backed winner.
         """
         scorer_registry = self._get_scorer_registry()
         best_name: str | None = None
         best_f1: float = -1.0
 
         for entry in scorer_registry.instances.get_all_instances():
+            if ScorerInitializerTags.MICROSOFT_DECISION in entry.tags:
+                continue
             eval_hash = entry.instance.get_identifier().eval_hash
             if not eval_hash:
                 continue
             metrics = find_objective_metrics_by_eval_hash(eval_hash=eval_hash)
-            if metrics is not None and metrics.f1_score > best_f1:
+            if (
+                metrics is None
+                or metrics.num_input_responses is None
+                or metrics.num_input_responses <= 0
+                or metrics.num_responses != metrics.num_input_responses
+            ):
+                continue
+            if metrics.f1_score > best_f1:
                 best_f1 = metrics.f1_score
                 best_name = entry.name
 
@@ -574,21 +627,32 @@ class ScorerInitializer(PyRITInitializer):
                 name=best_name,
                 tags=[ScorerInitializerTags.BEST_OBJECTIVE, ScorerInitializerTags.DEFAULT_OBJECTIVE_SCORER],
             )
-            logger.info(f"Tagged {best_name} as {ScorerInitializerTags.BEST_OBJECTIVE} with F1={best_f1:.4f}")
+            logger.info(
+                f"Tagged {best_name} as {ScorerInitializerTags.BEST_OBJECTIVE} "
+                f"with F1={best_f1:.4f} on complete-coverage metrics"
+            )
             return
 
         # Fall back: prefer scale_and_refusal, then first composite
         best_tags: list[str] = [ScorerInitializerTags.BEST_OBJECTIVE, ScorerInitializerTags.DEFAULT_OBJECTIVE_SCORER]
         if scorer_registry.instances.get_entry(self.SCALE_AND_REFUSAL):
-            scorer_registry.instances.add_tags(name=self.SCALE_AND_REFUSAL, tags=best_tags)
-            logger.info(f"Tagged {self.SCALE_AND_REFUSAL} as {ScorerInitializerTags.BEST_OBJECTIVE} (default)")
+            fallback_name = self.SCALE_AND_REFUSAL
         else:
             composites = scorer_registry.instances.get_by_tag(tag=ScorerInitializerTags.OBJECTIVE_COMPOSITE)
-            if composites:
-                scorer_registry.instances.add_tags(name=composites[0].name, tags=best_tags)
-                logger.info(f"Tagged {composites[0].name} as {ScorerInitializerTags.BEST_OBJECTIVE} (fallback)")
-            else:
-                logger.warning("No composite scorers available; skipping best objective tagging.")
+            fallback_name = composites[0].name if composites else None
+        if fallback_name is not None:
+            scorer_registry.instances.add_tags(name=fallback_name, tags=best_tags)
+            logger.warning(
+                "No complete-coverage metrics qualified; tagged %s as %s using the "
+                "configured fallback, not an F1-backed winner.",
+                fallback_name,
+                ScorerInitializerTags.BEST_OBJECTIVE,
+            )
+        else:
+            logger.warning(
+                "No complete-coverage metrics qualified and no composite scorers available; "
+                "skipping best objective tagging."
+            )
 
     # ---------------------------------------------------------------------------
     # Helpers
@@ -703,7 +767,7 @@ class ScorerInitializer(PyRITInitializer):
 
         try:
             scorer = factory()
-            scorer_registry.instances.register(scorer, name=name, tags=list(tags) if tags else None)
+            scorer_registry.instances.register(scorer, name=name, tags=list(tags) if tags else None, replace=True)
             logger.info(f"Registered scorer: {name}")
         except (ValueError, TypeError, KeyError) as e:
             logger.warning(f"Skipping scorer {name}: {e}")

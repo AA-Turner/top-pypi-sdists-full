@@ -504,6 +504,16 @@ class EventStreamingSession:
             self._terminal_lifecycle_emitted = True
             try:
                 error_data = orjson.loads(message_bytes)
+                if _is_record(error_data) and error_data.get("error") == "UserRollback":
+                    return
+                if (
+                    _is_record(error_data)
+                    and error_data.get("error") == "UserInterrupt"
+                ):
+                    await self._emit_namespace_lifecycle(
+                        [], "interrupted", graph_name=self._root_graph_name
+                    )
+                    return
                 error_msg = (
                     error_data.get("message", str(error_data))
                     if _is_record(error_data)

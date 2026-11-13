@@ -179,7 +179,8 @@ def _add_part_report(combined: DrainReport, part: DrainReport) -> None:
     combined.dead_letter_records.extend(part.dead_letter_records)
     combined.progressed_runs |= part.progressed_runs
     combined.busy_runs |= part.busy_runs
-    combined.superseded.merge(part.superseded)
+    for reason, counts in part.set_aside.items():
+        combined.set_aside.setdefault(reason, DiscardCounts()).merge(counts)
     for lane, stall in part.stalled_runs.items():
         combined.stalled_runs.setdefault(lane, stall)
     if part.retry_after is not None:
@@ -419,18 +420,18 @@ class DrainPass(_DrainPassParts):
         self.drain_hold.close()
         oscompat.flock(self.lock_handle.fileno(), oscompat.LOCK_UN)
         self.lock_handle.close()
-        if report.superseded.writes:
-            # Set aside, not lost by us: a newer attempt owns those runs (T24). Every drain
-            # says so (a `finish()`'s, a flush's, the worker's), as a dead letter used to reach
+        if report.set_aside:
+            # Set aside, not lost by us: a newer attempt owns those runs (T24). Every drain says
+            # so (a `finish()`'s, a flush's, the worker's), as a dead letter used to reach
             # `probe outbox status`.
             try:
                 from ..... import analytics as _telemetry
 
-                # A worker's surface in a worker; `sdk` in a script's or a command's own drain.
-                _telemetry.emit_outbox_discarded(
-                    report.superseded, reason=_telemetry.DiscardReason.SUPERSEDED,
-                    surface=_telemetry.get_worker_surface(),
-                )
+                for reason, counts in report.set_aside.items():
+                    # A worker's surface in a worker; `sdk` in a script's or a command's own drain.
+                    _telemetry.emit_outbox_discarded(
+                        counts, reason=reason, surface=_telemetry.get_worker_surface(),
+                    )
             except Exception:  # noqa: BLE001 -- telemetry never stops delivery
                 pass
 
@@ -470,6 +471,7 @@ class DrainPass(_DrainPassParts):
             )
 from probe.sdk.delivery.journal.item_locks import _try_lock  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.journal.journal import Journal  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.journal.failures.discards import DiscardCounts  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.journal.paths import _queue_is_empty  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.journal.status_file import _status_count  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.ops import (  # noqa: E402 -- pieces need each other; the front door loads this one first

@@ -135,9 +135,16 @@ class _StallingRuntime(_TwoTurnRuntime):
             cwd=self.working_directory,
         )
         self.first_turn_started.set()
+        while not self.release_first_turn.is_set():
+            yield AgentMessage(
+                type="assistant",
+                content="Provider is active until the signal has been queued.",
+                resume_handle=handle,
+            )
+            await asyncio.sleep(0)
         yield AgentMessage(
             type="assistant",
-            content="Provider emitted one message before stalling.",
+            content="Signal admission is complete; the provider now stalls.",
             resume_handle=handle,
         )
         await asyncio.Event().wait()
@@ -462,18 +469,10 @@ async def test_stalled_runtime_terminalizes_cross_process_signal(
         reason="Exercise the cross-process stall fence.",
         idempotency_key="stalled_runtime_1",
     )
-    monkeypatch.setattr(
-        "ouroboros.orchestrator.parallel_executor.STALL_TIMEOUT_SECONDS",
-        0.2,
-    )
-    monkeypatch.setattr(
-        "ouroboros.orchestrator.leaf_dispatcher.STALL_TIMEOUT_SECONDS",
-        0.2,
-    )
     execution_task = asyncio.create_task(
         executor._execute_atomic_ac(
             ac_index=0,
-            ac_content="Stall after one provider message",
+            ac_content="Stall after durable signal admission",
             session_id="orch_stalled_runtime",
             execution_id=execution_id,
             tools=[],
@@ -487,6 +486,17 @@ async def test_stalled_runtime_terminalizes_cross_process_signal(
         await asyncio.wait_for(runtime.first_turn_started.wait(), timeout=2)
         await _wait_for_durable_target(mailbox_store, execution_id)
         assert (await mailbox.request(signal)).state is SessionSignalState.QUEUED
+        # Keep the production startup budget through durable admission. The
+        # provider's final message refreshes the real guard to this stall window.
+        monkeypatch.setattr(
+            "ouroboros.orchestrator.parallel_executor.STALL_TIMEOUT_SECONDS",
+            0.2,
+        )
+        monkeypatch.setattr(
+            "ouroboros.orchestrator.leaf_dispatcher.STALL_TIMEOUT_SECONDS",
+            0.2,
+        )
+        runtime.release_first_turn.set()
 
         result = await asyncio.wait_for(execution_task, timeout=2)
         signal_events = await mailbox_store.replay("session_signal", signal.signal_id)

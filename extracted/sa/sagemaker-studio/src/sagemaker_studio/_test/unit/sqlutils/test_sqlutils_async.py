@@ -971,6 +971,9 @@ class AsyncDriverMetadataPropagationTest(unittest.TestCase):
 
         fake_transformer = SimpleNamespace(
             split_query=lambda q: [SimpleNamespace(statement=q, statement_type="SELECT")],
+            # Identity stub, matching the real DatabaseTransformer.apply_row_limits with no
+            # limit: this test drives the real SqlExecutor.execute, which always calls it.
+            apply_row_limits=lambda statements, limit=None: statements,
             get_execution_metadata=lambda cursor: dict(metadata),
         )
         executor = SqlExecutor()
@@ -1002,6 +1005,157 @@ class AsyncDriverMetadataPropagationTest(unittest.TestCase):
         self.assertEqual(md[0]["execution_metadata"], metadata)
         self.assertEqual(md[0]["connection_type"], "ATHENA")
         self.assertEqual(md[0]["connection_id"], "c1")
+
+
+class AsyncRowLimitPropagationTest(unittest.TestCase):
+    """The async materialization path inherits limit_query_results with no async-specific
+    code: the driver forwards the parameter on each of its two routes, and the limit is
+    applied once inside SqlExecutor.execute, so the per-statement executor is handed text
+    that is already limited."""
+
+    def setUp(self):
+        from sagemaker_studio.utils import sqlutils
+
+        self.sqlutils = sqlutils
+
+    def _patch_driver(self, stack, resolved, **extra):
+        """Patch the driver's setup seams so only the execution layer is left real."""
+        patches = dict(
+            _is_spark_connection=mock.Mock(return_value=False),
+            _resolve_connection=mock.Mock(return_value=resolved),
+            _apply_athena_context=mock.Mock(),
+            _ensure_project=mock.Mock(
+                return_value=SimpleNamespace(s3=SimpleNamespace(root="s3://bucket/proj"))
+            ),
+            **extra,
+        )
+        for name, m in patches.items():
+            stack.enter_context(mock.patch.object(self.sqlutils, name, m))
+        stack.enter_context(mock.patch.object(async_mod, "materialize_async_multi"))
+        stack.enter_context(
+            mock.patch.object(
+                async_mod,
+                "spec_from_result",
+                lambda r: SimpleNamespace(kind="result", execution_id="e0"),
+            )
+        )
+
+    def _success(self):
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionStatus
+
+        return SimpleNamespace(
+            status=ExecutionStatus.SUCCESS.value, error=None, execution_metadata={}
+        )
+
+    def test_forwards_limit_to_native_executor(self):
+        captured = {}
+        success = self._success()
+
+        class _Executor:
+            def _get_transformer(self, ct):
+                return SimpleNamespace()
+
+            def execute(self, *a, **k):
+                captured.update(k)
+                yield success
+
+        cached = SimpleNamespace(
+            engine=SimpleNamespace(get_execution_options=lambda: {"connection_type": "REDSHIFT"}),
+            connection=None,
+        )
+        with contextlib.ExitStack() as stack:
+            self._patch_driver(
+                stack,
+                mock.Mock(type="REDSHIFT"),
+                _get_or_create_connection=mock.Mock(return_value=cached),
+                _ensure_sql_executor=mock.Mock(return_value=_Executor()),
+            )
+            handled = self.sqlutils._stream_with_async_materialization(
+                "SELECT 1", "df", connection_id="c1", limit_query_results=100
+            )
+
+        self.assertIs(handled, True)
+        self.assertEqual(captured["limit_query_results"], 100)
+
+    def test_forwards_limit_to_athena_executor(self):
+        from sagemaker_studio.utils import athena_v4
+
+        with contextlib.ExitStack() as stack:
+            self._patch_driver(
+                stack,
+                mock.Mock(type="ATHENA"),
+                _athena_api=mock.Mock(return_value=mock.Mock()),
+                _get_or_create_connection=mock.Mock(
+                    side_effect=AssertionError("no PyAthena engine")
+                ),
+            )
+            execute = stack.enter_context(
+                mock.patch.object(
+                    athena_v4, "execute_query_statements", return_value=iter([self._success()])
+                )
+            )
+            handled = self.sqlutils._stream_with_async_materialization(
+                "SELECT 1", "df", connection_id="c1", limit_query_results=100
+            )
+
+        self.assertIs(handled, True)
+        self.assertEqual(execute.call_args.kwargs["limit_query_results"], 100)
+
+    def test_async_statement_executor_receives_already_limited_text(self):
+        """The real SqlExecutor.execute + the real RedshiftTransformer, so the text the
+        injected per-statement executor submits is what production would submit."""
+        from sagemaker_studio.sql_engine.redshift_transformer import RedshiftTransformer
+        from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
+
+        submitted = []
+
+        class _Cursor:
+            def get_execution_metadata(self):
+                return {"statement_id": "rs-1"}
+
+        class _Result:
+            returns_rows = True
+            rowcount = -1
+            cursor = _Cursor()
+
+        class _Conn:
+            def execute(self, clause, params):
+                submitted.append(clause.text)
+                return _Result()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        class _Engine:
+            def get_execution_options(self):
+                return {"connection_type": "REDSHIFT"}
+
+            def connect(self):
+                return _Conn()
+
+        executor = SqlExecutor()
+        executor._get_transformer = lambda ct: RedshiftTransformer  # type: ignore[assignment]
+        cached = SimpleNamespace(engine=_Engine(), connection=None)
+
+        with contextlib.ExitStack() as stack:
+            self._patch_driver(
+                stack,
+                mock.Mock(type="REDSHIFT"),
+                _get_or_create_connection=mock.Mock(return_value=cached),
+                _ensure_sql_executor=mock.Mock(return_value=executor),
+            )
+            handled = self.sqlutils._stream_with_async_materialization(
+                "SELECT a FROM t", "df", connection_id="c1", limit_query_results=100
+            )
+
+        self.assertIs(handled, True)
+        self.assertEqual(
+            submitted, [RedshiftTransformer.apply_row_limit("SELECT a FROM t", "SELECT", 100)]
+        )
+        self.assertIn("LIMIT 100", submitted[0])
 
 
 class FirstPageRowsConfigTest(unittest.TestCase):

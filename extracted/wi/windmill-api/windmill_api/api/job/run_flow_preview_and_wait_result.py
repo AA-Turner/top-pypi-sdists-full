@@ -14,11 +14,14 @@ def _get_kwargs(
     *,
     json_body: RunFlowPreviewAndWaitResultJsonBody,
     memory_id: Union[Unset, None, str] = UNSET,
+    take_over: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
     params: Dict[str, Any] = {}
     params["memory_id"] = memory_id
+
+    params["take_over"] = take_over
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -60,12 +63,14 @@ def sync_detailed(
     client: Union[AuthenticatedClient, Client],
     json_body: RunFlowPreviewAndWaitResultJsonBody,
     memory_id: Union[Unset, None, str] = UNSET,
+    take_over: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """run flow preview and wait for result
 
     Args:
         workspace (str):
         memory_id (Union[Unset, None, str]):
+        take_over (Union[Unset, None, bool]):
         json_body (RunFlowPreviewAndWaitResultJsonBody):
 
     Raises:
@@ -80,6 +85,7 @@ def sync_detailed(
         workspace=workspace,
         json_body=json_body,
         memory_id=memory_id,
+        take_over=take_over,
     )
 
     response = client.get_httpx_client().request(
@@ -95,12 +101,14 @@ async def asyncio_detailed(
     client: Union[AuthenticatedClient, Client],
     json_body: RunFlowPreviewAndWaitResultJsonBody,
     memory_id: Union[Unset, None, str] = UNSET,
+    take_over: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """run flow preview and wait for result
 
     Args:
         workspace (str):
         memory_id (Union[Unset, None, str]):
+        take_over (Union[Unset, None, bool]):
         json_body (RunFlowPreviewAndWaitResultJsonBody):
 
     Raises:
@@ -115,6 +123,7 @@ async def asyncio_detailed(
         workspace=workspace,
         json_body=json_body,
         memory_id=memory_id,
+        take_over=take_over,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)

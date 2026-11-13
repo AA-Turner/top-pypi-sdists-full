@@ -29,7 +29,7 @@ dependencies = [
     # `reactor.ui` (1.1.0): a tool's display, its model view for the model and
     # its wire for the page (RU-1); 1.1.1 (unreleased): the ui
     # channel's WebSocket, `reactor.ui.ws` (RU-W).
-    "datalayer_reactor>=1.3.0",
+    "datalayer_reactor>=1.3.7",
     # PAP is a runtime protocol capability, not an example-only dependency.
     # 0.3.1 is the first release with matching Python/TypeScript Direct Sign-In
     # orchestration and a root-published TypeScript package.
@@ -47,10 +47,24 @@ dependencies = [
     # 0.31.0: PAP 0.3 as published (upstream 2289293).
     # 0.32.0: PAP draft 0.4 as of 46beb21 (Poppy-Version, Poppy-Extensions, request ids,
     # working/handoff/responder/closed); a 0.4 personal agent uses only 0.4 companies.
-    "personal-agent-protocol[ui]>=0.32.0,<0.33",
+    # 0.33.0: PAP 0.4 as published (upstream 4803900) and Operations version 3: every
+    # approval says `approver`, an operation's `terms` are required and its `summary`
+    # optional, a company may decline an approval, task coverage is asked per Session
+    # (`tasks.endpoint`), a Device Sign-In link is shown only on the issuer's host or the
+    # company's domain. No compatibility with 0.32: both sides move together.
+    # 0.34.0: operations on websites (Poppy-Operation, the operations endpoint) and the
+    # Browser Control extension, version 1; nothing these applications use changed.
+    "personal-agent-protocol[ui]>=0.33.0,<0.36",
     # The first releases of both on mcp 2; an older one pins mcp<2.
     "agent-codemode>=1.1.0",
-    "agent-skills>=1.2.0",
+    # 1.4.0: agent-skills is the framework alone (and its `jokes` example).
+    "agent-skills>=1.4.0",
+    # 0.3.0: the catalogue's skills (accounting, crawl, events, github, image, pdf,
+    # text-summarizer, video — with its zoom), which the skill specs name as
+    # `datalayer_skills.skills.<name>`; the memory skills since 0.2.0. Each skill's own
+    # dependencies are the extras `datalayer-skills[skills-<name>]`, installed where the
+    # skills' scripts run (docker/Dockerfile.agent-runtime installs `[skills]`).
+    "datalayer-skills>=0.4.0",
     # The Appspec and its checks (`loop apps validate`): one validation, the spec's own.
     # The scene spec (A-11): agentspecs.scenes; components in answers (H-02).
     # An Appspec's `samples` (E-06, E-11): an older one refuses the field.
@@ -82,7 +96,9 @@ dependencies = [
     # its week's report (recommendations-report, every Monday) and its email channel.
     # 1.6.27 with agentspecs 0.0.179: Datalayer Steward for AWS (steward-aws, worker-steward-aws, the tag steward).
     # 1.6.28 with agentspecs 0.0.180: the odoo-accounting quarter-close tools, second round, classed.
-    "agentspecs>=0.0.180",  # the company role's website flags (web.unscoped, web.disabled)
+    # 1.6.29 with agentspecs 0.0.181: the skills load from datalayer_skills.skills.<name>; the Steward's application is aws-steward-agent.
+    # 1.6.37 with agentspecs 0.0.182: runtime_engine on every agent (datalayer or kagent) and example-kagent.
+    "agentspecs>=0.0.182",  # the company role's website flags (web.unscoped, web.disabled)
     # The Datalayer orchestration extension`s wire-level constants
     # (`EXECUTION_FIELD`, `ENVELOPE_KEY`, ...), imported by
     # `context/delegation.py` and `guardrails/model_budget.py` rather than
@@ -92,7 +108,9 @@ dependencies = [
     # semver proper (the 0.0.x releases made no compatibility promise across
     # even a patch bump, hence the one-release-wide pin until then); the
     # field-name constants it exports are the ones 0.0.3 made public.
-    "agent-teams>=1.0.0,<2",
+    # 1.1.5: a self-hosted run says which process holds it (`held_by`), which the
+    # local sessions rule reads; resuming an ended team session names its clone command.
+    "agent-teams>=1.1.5,<2",
     # Agent Shield: the Shield's engine —
     # the policy model and `decide`, the ACP channel and proxy, the audit
     # vocabulary, the SaaS client. agent-runtimes hosts it; it never imports
@@ -399,6 +417,7 @@ datalayer-agents = "agent_runtimes.main:main"
 agent-runtimes = "agent_runtimes.main:main"
 loop = "agent_runtimes.main:main"
 l = "agent_runtimes.main:main"
+agent-runtimes-ate = "agent_runtimes.ate.cli:main"
 
 # The Datalayer CLI discovers its extensions through this group: installing
 # agent-runtimes is what makes `datalayer sandboxes` (and the other command

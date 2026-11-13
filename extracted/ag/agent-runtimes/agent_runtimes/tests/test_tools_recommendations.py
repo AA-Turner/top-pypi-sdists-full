@@ -1,9 +1,10 @@
 # Copyright (c) 2025-2026 Datalayer, Inc.
 # Distributed under the terms of the Modified BSD License.
 
-"""record_recommendation: a recommendation kept with its evidence, in the
+"""Tests of record_recommendation: a recommendation kept with its evidence, in the
 session's list and the application's record; one without evidence, without
-its estimate's method or without a reviewable fix refused and never kept."""
+its estimate's method or without a reviewable fix refused and never kept.
+"""
 
 from __future__ import annotations
 
@@ -154,7 +155,8 @@ def test_the_application_record_keeps_it_under_outputs(
 
 def _submission(rec_id: str, decision: str) -> str:
     """The turn the transcript sends when a card's button is pressed
-    (`encodeFormSubmission`)."""
+    (`encodeFormSubmission`).
+    """
     import json
 
     body = {
@@ -336,7 +338,7 @@ async def test_the_record_keeps_the_press_before_the_agent_reads_the_turn(
     session.added.clear()
 
     class Recorder(_Recorder):
-        app = SimpleNamespace(id="steward-aws")
+        app = SimpleNamespace(id="aws-steward-agent")
 
         def start(self, uid: str) -> None:
             pass
@@ -385,7 +387,7 @@ class _AppRecorder(_Recorder):
 
         self.app = AppSpec.model_validate(
             {
-                "id": "steward-aws",
+                "id": "aws-steward-agent",
                 "name": "Datalayer Steward for AWS",
                 "kind": "worker",
                 "agent": "worker-steward-aws:0.0.1",
@@ -520,7 +522,7 @@ async def test_a_press_on_the_card_decides_its_approval_at_ai_agents_which_keeps
         _submission(rec_id, "approved"), "session-1"
     )
 
-    assert decided["state"] == "approved"
+    assert decided is not None and decided["state"] == "approved"
     assert decided_at == [("session-1", rec_id, "approved")]
     # ai-agents keeps the decision in the record: nothing written twice here.
     assert deployed["recorder"].added == []
@@ -887,7 +889,7 @@ async def test_the_weeks_report_is_written_as_a_page_of_the_space_it_may_write(
     assert written["state"] == _example()["document"]
     # Who wrote it: the application, on its own, for nobody — and which report.
     about = written["about"]
-    assert about["saved_by"] == "loop.app" and about["app"]["id"] == "steward-aws"
+    assert about["saved_by"] == "loop.app" and about["app"]["id"] == "aws-steward-agent"
     assert (about["deployment"], about["on_its_own"], about["for"]) == (
         "dep-1",
         True,
@@ -1008,7 +1010,7 @@ def test_writing_the_report_is_what_the_tool_says_it_does_and_its_rule_decides()
 
     assert classes_of("recommendations-report") == ["read", "write"]
     # The Steward's own rule names the tool: done alone, by that rule.
-    steward = get_app("steward-aws")
+    steward = get_app("aws-steward-agent")
     assert steward is not None
     decided = rules_for(steward).decide("recommendations_report", {}).decision
     assert (decided.behaviour, decided.because) == (DO_IT, RULE_ON_TOOL)

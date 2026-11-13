@@ -1,7 +1,9 @@
 """Tests for sagemaker_studio.utils.athena_v4 (Athena engine version 4 without PyAthena)."""
 
+import copy
 import gc
 import io
+import logging
 import os
 import unittest
 import weakref
@@ -10,15 +12,17 @@ from decimal import Decimal
 from unittest import mock
 
 import pyarrow as pa
+import pytest
+import sqlglot
 from botocore.credentials import RefreshableCredentials
 from botocore.exceptions import IncompleteReadError, ResponseStreamingError
 from botocore.response import StreamingBody
 
+from sagemaker_studio.sql_engine.athena_transformer import AthenaTransformer
 from sagemaker_studio.utils import athena_v4
 from sagemaker_studio.utils.athena_v4 import (
     AthenaQueryError,
     AthenaV4Executor,
-    WorkgroupInfo,
     athena_executor,
     dataframe_from_arrow,
     execution_metadata,
@@ -127,6 +131,30 @@ class SplitQueryTest(unittest.TestCase):
         self.assertEqual(statements[0].statement, "BROKEN (")
         self.assertEqual(statements[0].statement_type, "UNKNOWN")
 
+    def test_duckdb_literals_and_dollar_quoted_strings_split_on_real_semicolons(self):
+        # Athena engine version 4 is DuckDB: `$$...$$` strings, `E'...'`, `1_000_000` are valid.
+        query = "SELECT 1_000_000,1e3,.5,$$it's; here$$,E'a\\tb'"
+
+        statements = split_query(f"  {query}; SELECT 2\n", "duckdb")
+
+        self.assertEqual([s.statement for s in statements], [query, "SELECT 2"])
+        self.assertEqual([s.statement_type for s in statements], ["SELECT", "SELECT"])
+
+    def test_untokenizable_query_is_sent_as_one_statement(self):
+        # The Athena grammar cannot tokenize `$$it's$$`; the engine, not the client, should answer.
+        query = "SELECT 1_000_000,1e3,.5,$$it's$$,E'a\\tb'"
+
+        statements = split_query(f"  {query}\n", "athena")
+
+        self.assertEqual([s.statement for s in statements], [query])
+        self.assertEqual(statements[0].statement_type, "UNKNOWN")
+        self.assertEqual(split_query("  \n", "athena"), [])
+
+    def test_v3_workgroup_sends_an_untokenizable_query_to_the_engine(self):
+        query = "SELECT 1_000_000,1e3,.5,$$it's$$,E'a\\tb'"
+
+        self.assertEqual(_submit(query, workgroup_engine_version=3), [query])
+
 
 class StatementParameterScopingTest(unittest.TestCase):
     def test_positional_values_are_distributed_by_statement(self):
@@ -225,8 +253,6 @@ class WorkgroupEngineVersionTest(unittest.TestCase):
         for name in (
             "Athena engine version 4",
             "Athena DuckDB",
-            "KeplerSparkSQL-2.x",
-            "DuckDB-2.x",
         ):
             with self.subTest(name=name):
                 client.get_work_group.return_value = {
@@ -246,19 +272,22 @@ class WorkgroupInfoTest(unittest.TestCase):
     def test_managed_storage_workgroup(self):
         client = mock.Mock()
         client.get_work_group.return_value = _work_group(4, managed=True)
-        self.assertEqual(workgroup_info(client, "wg"), WorkgroupInfo(engine_version=4))
+        info = workgroup_info(client, "wg")
+        self.assertEqual((info.engine_version, info.managed_storage), (4, True))
 
     def test_customer_output_location_workgroup(self):
         client = mock.Mock()
         client.get_work_group.return_value = _work_group(
             4, managed=False, output_location="s3://customer-bucket/results/"
         )
-        self.assertEqual(workgroup_info(client, "wg"), WorkgroupInfo(engine_version=4))
+        info = workgroup_info(client, "wg")
+        self.assertEqual((info.engine_version, info.managed_storage), (4, False))
 
-    def test_absent_configuration_has_no_engine_version(self):
+    def test_absent_configuration_is_not_managed(self):
         client = mock.Mock()
         client.get_work_group.return_value = {"WorkGroup": {"Configuration": {}}}
-        self.assertEqual(workgroup_info(client, "wg"), WorkgroupInfo(engine_version=None))
+        info = workgroup_info(client, "wg")
+        self.assertEqual((info.engine_version, info.managed_storage), (None, False))
 
 
 class AthenaExecutorRoutingTest(unittest.TestCase):
@@ -335,8 +364,7 @@ class AthenaExecutorRoutingTest(unittest.TestCase):
         self.assertEqual(result.result.iloc[0, 0], 7)
         client.get_query_result_stream.assert_not_called()
 
-    def test_v4_customer_output_uses_arrow(self):
-        # V4 serves GetQueryResultStream for customer-managed (S3 output location) results too.
+    def test_v4_customer_output_uses_native_rows(self):
         conn, client = _connection(version=4, managed=False, output_location="s3://results/")
         executor = athena_executor(conn)
         client.start_query_execution.return_value = {"QueryExecutionId": QID}
@@ -347,37 +375,20 @@ class AthenaExecutorRoutingTest(unittest.TestCase):
             "EffectiveEngineVersion": "Athena engine version 4"
         }
         client.get_query_execution.return_value = response
-        client.get_query_result_stream.return_value = _stream_response(
-            _ipc_bytes(pa.table({"n": pa.array([9], pa.int32())}))
-        )
+        client.get_query_results.return_value = {
+            "ResultSet": {
+                "ResultSetMetadata": {"ColumnInfo": [{"Name": "n", "Type": "integer"}]},
+                "Rows": [
+                    {"Data": [{"VarCharValue": "n"}]},
+                    {"Data": [{"VarCharValue": "9"}]},
+                ],
+            }
+        }
 
         result = executor.execute("SELECT 9 AS n")
 
         self.assertEqual(result.result.iloc[0, 0], 9)
-        self.assertEqual(result.execution_metadata["result_reader"], "get_query_result_stream")
-        client.get_query_results.assert_not_called()
-
-    def test_athena_duckdb_query_uses_arrow_when_the_workgroup_is_unreadable(self):
-        # The workgroup read fails, so nothing is known of the workgroup; the finished query's own
-        # engine ("Athena DuckDB") still selects GetQueryResultStream, never GetQueryResults (which
-        # answers "Could not find results" for such a query).
-        conn, client = _connection(version=4)
-        client.get_work_group.side_effect = RuntimeError("AccessDenied")
-        with self.assertLogs(athena_v4.logger, level="WARNING"):
-            executor = athena_executor(conn)
-        client.start_query_execution.return_value = {"QueryExecutionId": QID}
-        response = _execution(statement_type="UTILITY", substatement_type="SHOW_DATABASES")
-        response["QueryExecution"]["EngineVersion"] = {"EffectiveEngineVersion": "Athena DuckDB"}
-        client.get_query_execution.return_value = response
-        client.get_query_result_stream.return_value = _stream_response(
-            _ipc_bytes(pa.table({"database_name": pa.array(["default", "sales"])}))
-        )
-
-        result = executor.execute("SHOW DATABASES")
-
-        self.assertEqual(list(result.result["database_name"]), ["default", "sales"])
-        self.assertEqual(result.execution_metadata["result_reader"], "get_query_result_stream")
-        client.get_query_results.assert_not_called()
+        self.assertEqual(result.execution_metadata["result_reader"], "get_query_results")
 
 
 class AthenaV4ExecutorTest(unittest.TestCase):
@@ -561,8 +572,9 @@ class ReadChunksIncrementalTest(unittest.TestCase):
 
     def setUp(self):
         self.client = mock.Mock()
-        # A V4 workgroup (the default), so read_chunks takes the Arrow branch.
         self.executor = AthenaV4Executor(self.client, "wg")
+        # Mark QID as a V4 managed-storage execution so read_chunks takes the Arrow branch.
+        self.executor.managed_storage = True
         self.executor._executions[QID] = _execution()["QueryExecution"]
         self.schema = pa.schema([("id", pa.int64()), ("s", pa.string())])
         self.batches = [
@@ -687,9 +699,9 @@ class ReadChunksIncrementalTest(unittest.TestCase):
         self.assertEqual([row for chunk in chunks for row in chunk], [[1], [2]])
 
     def test_non_arrow_execution_falls_back_to_get_query_results(self):
-        # A V1-V3 execution must still route to the native GetQueryResults reader, never
-        # GetQueryResultStream.
-        self.executor.workgroup_engine_version = 3
+        # A non-managed-storage execution must still route to the native GetQueryResults reader,
+        # never GetQueryResultStream.
+        self.executor.managed_storage = False
         with mock.patch(
             "sagemaker_studio.utils.sqlutils_async_reader.read_athena_result",
             return_value=(["c"], iter([[[1]]]), 1),
@@ -1119,7 +1131,9 @@ class RegressionTrapParityTest(unittest.TestCase):
 class AthenaNativeMetadataTest(unittest.TestCase):
     def setUp(self):
         self.client = mock.Mock()
-        self.executor = AthenaV4Executor(self.client, "wg", catalog="catalog")
+        self.executor = AthenaV4Executor(
+            self.client, "wg", catalog="catalog", managed_storage=False
+        )
 
     def test_lists_paginated_databases(self):
         self.client.list_databases.side_effect = [
@@ -1218,12 +1232,13 @@ class AthenaExecutorRoutingBranchTest(unittest.TestCase):
         conn.name = None
         self.assertIsNone(athena_executor(conn))
 
-    def test_unreadable_workgroup_warns_and_leaves_the_engine_to_each_query(self):
+    def test_unreadable_workgroup_falls_back_to_native_reader_and_warns(self):
         conn, client = _connection(4)
         client.get_work_group.side_effect = RuntimeError("AccessDenied")
         with self.assertLogs(athena_v4.logger, level="WARNING"):
             executor = athena_executor(conn)
         self.assertIsNotNone(executor)
+        self.assertFalse(executor.managed_storage)
         self.assertIsNone(executor.workgroup_engine_version)
 
     def test_override_read_from_connection_selected_engine_version(self):
@@ -1463,7 +1478,7 @@ class GetResourcesFallthroughTest(unittest.TestCase):
 
     def setUp(self):
         self.client = mock.Mock()
-        self.executor = AthenaV4Executor(self.client, "wg", catalog="cat")
+        self.executor = AthenaV4Executor(self.client, "wg", catalog="cat", managed_storage=False)
 
     def test_value_passing_membership_but_matching_no_branch_raises(self):
         class _MembershipOnlyColumn:
@@ -1529,8 +1544,8 @@ class ExecuteNativeRowsPathTest(unittest.TestCase):
 
     def setUp(self):
         self.client = mock.Mock()
-        # A V3 workgroup: its executions are read with the native Row/Datum reader.
-        self.executor = AthenaV4Executor(self.client, "wg", workgroup_engine_version=3)
+        # managed_storage=False forces the native Row/Datum reader regardless of version.
+        self.executor = AthenaV4Executor(self.client, "wg", managed_storage=False)
         patcher = mock.patch("sagemaker_studio.utils.athena_v4.time.sleep")
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -1560,6 +1575,38 @@ class ExecuteNativeRowsPathTest(unittest.TestCase):
         single = self.executor.execute_without_fetch("INSERT INTO t VALUES (1)")
         self.assertEqual(single.result, 3)
         self.assertEqual(single.execution_metadata["result_reader"], "get_query_results")
+
+
+class DescribeOnEngineV3Test(unittest.TestCase):
+    """DESCRIBE on a v3 workgroup builds a 3-column DataFrame (was: 3 columns passed, data had 1)."""
+
+    def test_describe_returns_a_dataframe(self):
+        client = mock.Mock()
+        client.start_query_execution.return_value = {"QueryExecutionId": QID}
+        client.get_query_execution.return_value = _execution(
+            statement_type="UTILITY", substatement_type="DESCRIBE"
+        )
+        client.get_query_results.return_value = {
+            "ResultSet": {
+                "ResultSetMetadata": {
+                    "ColumnInfo": [
+                        {"Name": "col_name", "Type": "string"},
+                        {"Name": "data_type", "Type": "string"},
+                        {"Name": "comment", "Type": "string"},
+                    ]
+                },
+                "Rows": [
+                    {"Data": [{"VarCharValue": "order_id            \tint                 \t"}]},
+                    {"Data": [{"VarCharValue": "customer            \tstring              \t"}]},
+                ],
+            }
+        }
+        executor = AthenaV4Executor(client, "wg", workgroup_engine_version=3)
+        with mock.patch("sagemaker_studio.utils.athena_v4.time.sleep"):
+            single = executor.execute("DESCRIBE duck_tutorial.test")
+        self.assertEqual(list(single.result.columns), ["col_name", "data_type", "comment"])
+        self.assertEqual(single.result["col_name"].tolist(), ["order_id", "customer"])
+        self.assertEqual(single.result["data_type"].tolist(), ["int", "string"])
 
 
 class ExecutionMetadataOutputLocationTest(unittest.TestCase):
@@ -1709,6 +1756,562 @@ class AthenaParameterLiteralCoverageTest(unittest.TestCase):
     def test_parameter_container_must_be_mapping_or_list(self):
         with self.assertRaisesRegex(ValueError, "mapping or positional list"):
             athena_v4._bind_parameters("SELECT 1", "invalid")
+
+
+# ---------------------------------------------------------------------------------------------
+# Row limiting on the Athena direct-API path.
+# ---------------------------------------------------------------------------------------------
+
+
+class _CapturingAthenaClient:
+    """Captures every submitted QueryString, reporting a finished DDL so no result reader
+    is needed."""
+
+    def __init__(self):
+        self.submitted = []
+
+    def start_query_execution(self, **request):
+        self.submitted.append(request["QueryString"])
+        return {"QueryExecutionId": f"q{len(self.submitted)}"}
+
+    def get_query_execution(self, QueryExecutionId):
+        return {
+            "QueryExecution": {
+                "QueryExecutionId": QueryExecutionId,
+                "StatementType": "DDL",
+                "Status": {"State": "SUCCEEDED"},
+            }
+        }
+
+
+def _submit(query, parameters=None, limit=None, method=None, **executor_kwargs):
+    """The QueryStrings ``execute_query_statements`` submits for ``query``."""
+    client = _CapturingAthenaClient()
+    executor = AthenaV4Executor(client, "wg", execution_parameters=parameters, **executor_kwargs)
+    execute = getattr(executor, method) if method else None
+    list(athena_v4.execute_query_statements(executor, query, "stop_on_error", execute, limit))
+    return client.submitted
+
+
+def _outcome(query, parameters, limit=None):
+    """The parameter set each statement is executed with, or the validation error raised."""
+    client = _CapturingAthenaClient()
+    executor = AthenaV4Executor(client, "wg", execution_parameters=parameters)
+    from sagemaker_studio.sql_engine.sql_executor import SingleStatementResult
+
+    seen = []
+
+    def execute(statement):
+        seen.append(copy.deepcopy(executor.execution_parameters))
+        return SingleStatementResult(result=statement)
+
+    try:
+        list(athena_v4.execute_query_statements(executor, query, "stop_on_error", execute, limit))
+    except ValueError as error:
+        return ("error", str(error))
+    return ("sets", seen)
+
+
+# One case per placeholder form, without and with a limit. The last is unparseable with the
+# placeholder present, so it is limited from a masked parse.
+_PLACEHOLDER_CASES = [
+    pytest.param(
+        "SELECT a FROM t WHERE b = :name",
+        {"name": "x"},
+        "SELECT a FROM t WHERE b = 'x'",
+        "SELECT a FROM t WHERE b = 'x'\nLIMIT 100",
+        id="named",
+    ),
+    pytest.param(
+        "SELECT a FROM t WHERE b = ?",
+        ["x"],
+        "SELECT a FROM t WHERE b = 'x'",
+        "SELECT a FROM t WHERE b = 'x'\nLIMIT 100",
+        id="positional",
+    ),
+    pytest.param(
+        "SELECT a FROM t WHERE b IN (?, ?)",
+        [1, 2],
+        "SELECT a FROM t WHERE b IN (1, 2)",
+        "SELECT a FROM t WHERE b IN (1, 2)\nLIMIT 100",
+        id="in-list",
+    ),
+    pytest.param(
+        "WITH c AS (SELECT a FROM t WHERE a = :name) SELECT * FROM c",
+        {"name": 5},
+        "WITH c AS (SELECT a FROM t WHERE a = 5) SELECT * FROM c",
+        "WITH c AS (SELECT a FROM t WHERE a = 5) SELECT * FROM c\nLIMIT 100",
+        id="cte",
+    ),
+    pytest.param(
+        "SELECT a FROM t WHERE a = :name UNION SELECT b FROM u WHERE b = :name",
+        {"name": "d"},
+        "SELECT a FROM t WHERE a = 'd' UNION SELECT b FROM u WHERE b = 'd'",
+        "SELECT a FROM t WHERE a = 'd' UNION SELECT b FROM u WHERE b = 'd'\nLIMIT 100",
+        id="union-repeated-name",
+    ),
+    pytest.param(
+        "SELECT CAST(? AS VARCHAR) FROM t",
+        ["v"],
+        "SELECT CAST('v' AS VARCHAR) FROM t",
+        "SELECT CAST('v' AS VARCHAR) FROM t\nLIMIT 100",
+        id="cast-positional",
+    ),
+    pytest.param(
+        "SELECT a FROM t WHERE ts > TIMESTAMP :t",
+        {"t": "2024-01-01"},
+        "SELECT a FROM t WHERE ts > TIMESTAMP '2024-01-01'",
+        "SELECT a FROM t WHERE ts > TIMESTAMP '2024-01-01'\nLIMIT 100",
+        id="unparseable-named-timestamp",
+    ),
+]
+
+
+@pytest.mark.parametrize("query,parameters,without_limit,with_limit", _PLACEHOLDER_CASES)
+def test_limited_statement_binds_the_same_values(query, parameters, without_limit, with_limit):
+    """A dropped or reordered placeholder would mis-bind here, so assert the bound text."""
+    assert _submit(query, parameters, 100) == [with_limit]
+
+
+@pytest.mark.parametrize("query,parameters,without_limit,with_limit", _PLACEHOLDER_CASES)
+def test_no_limit_submits_the_author_text(query, parameters, without_limit, with_limit):
+    assert _submit(query, parameters) == [without_limit]
+
+
+def test_unparseable_statement_falls_through_to_the_author_text():
+    # The unclosed parens defeat the parse masked too, so there is no family to gate on.
+    query = "SELECT a FROM t WHERE b = :name AND (("
+    statements = split_query(query)
+
+    assert statements[0].statement_type == "UNKNOWN"
+    assert [item.statement for item in AthenaTransformer.apply_row_limits(statements, 100)] == [
+        query
+    ]
+
+
+def test_an_unclassified_statement_is_limited_from_a_masked_parse():
+    # Same UNKNOWN type, but masked it is a SELECT. The equality pins that the author's
+    # bytes come back and the masked copy never reaches the engine.
+    query = "SELECT a FROM t WHERE ts > TIMESTAMP :t"
+    statements = split_query(query)
+
+    assert statements[0].statement_type == "UNKNOWN"
+    assert [item.statement for item in AthenaTransformer.apply_row_limits(statements, 100)] == [
+        f"{query}\nLIMIT 100"
+    ]
+
+
+# Statements the athena dialect does not reproduce verbatim when re-rendered: `::` becomes
+# CAST(...), a line comment becomes a block comment, keyword case and whitespace are normalised.
+# Athena round-trips its placeholders, so placeholder tests alone would miss a re-render;
+# these assert the whole submitted text.
+_ROUND_TRIP_LOSSY_CASES = [
+    pytest.param(
+        "SELECT a::VARCHAR FROM t WHERE b = :name",
+        {"name": "x"},
+        "SELECT a::VARCHAR FROM t WHERE b = 'x'",
+        id="cast-operator",
+    ),
+    pytest.param(
+        "SELECT a FROM t WHERE b = :name -- keep this note",
+        {"name": "x"},
+        "SELECT a FROM t WHERE b = 'x' -- keep this note",
+        id="trailing-line-comment",
+    ),
+    pytest.param(
+        "SELECT a FROM t WHERE b = ? -- trailing ? here",
+        ["x"],
+        "SELECT a FROM t WHERE b = 'x' -- trailing ? here",
+        id="line-comment-holding-a-question-mark",
+    ),
+    pytest.param(
+        "select a from t where b = :name",
+        {"name": "x"},
+        "select a from t where b = 'x'",
+        id="lowercase-keywords",
+    ),
+    pytest.param(
+        "SELECT a,\n       b\nFROM t WHERE c = :name",
+        {"name": "x"},
+        "SELECT a,\n       b\nFROM t WHERE c = 'x'",
+        id="author-whitespace",
+    ),
+    pytest.param(
+        "SELECT /* :inline */ a FROM t WHERE b = :name",
+        {"name": "x"},
+        "SELECT /* :inline */ a FROM t WHERE b = 'x'",
+        id="leading-block-comment",
+    ),
+]
+
+
+@pytest.mark.parametrize("query,parameters,bound", _ROUND_TRIP_LOSSY_CASES)
+def test_submitted_text_is_the_author_text_plus_exactly_the_clause(query, parameters, bound):
+    """The author's text is always a prefix of the submitted text."""
+    # The reference is a literal, not the no-limit submission, so a mechanism that mangled
+    # both paths alike could not satisfy it.
+    assert _submit(query, parameters) == [bound]
+    assert _submit(query, parameters, 100) == [f"{bound}\nLIMIT 100"]
+
+
+_ELIGIBLE_QUERIES = [
+    pytest.param("SELECT a FROM t", id="select"),
+    pytest.param("WITH c AS (SELECT a FROM t) SELECT * FROM c", id="cte"),
+    pytest.param("SELECT a FROM t UNION SELECT b FROM u", id="union"),
+    pytest.param("SELECT a FROM t WHERE b = :name", id="select-with-placeholder"),
+]
+
+
+@pytest.mark.parametrize("limit", [1, 100, 10**9])
+@pytest.mark.parametrize("query", _ELIGIBLE_QUERIES)
+def test_limit_reaches_the_submitted_query(query, limit):
+    """Athena applies the limit to eligible statements."""
+    submitted = _submit(query, None, limit)
+
+    node = sqlglot.parse_one(submitted[0], read="athena")
+    assert int(node.args["limit"].expression.this) == limit
+
+
+def test_only_eligible_statements_in_a_multi_statement_query_gain_the_limit():
+    submitted = _submit(
+        "SELECT a FROM t; CREATE TABLE z AS SELECT a FROM t; SELECT b FROM u LIMIT 5", None, 100
+    )
+
+    assert submitted == [
+        "SELECT a FROM t\nLIMIT 100",
+        "CREATE TABLE z AS SELECT a FROM t",
+        "SELECT b FROM u LIMIT 5",
+    ]
+
+
+def test_every_eligible_statement_in_a_multi_statement_query_gains_the_limit():
+    # The case above would pass if only the first statement were ever limited; here two
+    # eligible statements follow an ineligible one.
+    submitted = _submit(
+        "CREATE TABLE z AS SELECT b FROM u; SELECT a FROM t; SELECT c FROM v", None, 100
+    )
+
+    assert submitted == [
+        "CREATE TABLE z AS SELECT b FROM u",
+        "SELECT a FROM t\nLIMIT 100",
+        "SELECT c FROM v\nLIMIT 100",
+    ]
+
+
+_PARAMETER_PAYLOADS = [
+    pytest.param(
+        "SELECT a FROM t WHERE a = :p; SELECT b FROM u WHERE b = :q",
+        {"p": 1, "q": 2},
+        id="mapping",
+    ),
+    pytest.param("SELECT ?; SELECT ?, ?", [1, 2, 3], id="positional"),
+    pytest.param(
+        "SELECT a FROM t WHERE a = :p; SELECT b FROM u WHERE b = :q", {"p": 1}, id="mapping-missing"
+    ),
+    pytest.param("SELECT ?; SELECT ?", [1], id="positional-mismatch"),
+]
+
+
+@pytest.mark.parametrize("query,parameters", _PARAMETER_PAYLOADS)
+def test_parameter_sets_are_invariant_under_row_limiting(query, parameters):
+    """The Athena parameter-set partition is invariant under row limiting."""
+    assert _outcome(query, parameters, None) == _outcome(query, parameters, 100)
+
+
+def test_parameter_sets_are_computed_from_the_original_text():
+    query = "SELECT a FROM t WHERE b = :name"
+    original = [(item.statement, item.statement_type) for item in split_query(query)]
+    seen = []
+    real_parameter_sets = athena_v4._statement_parameter_sets
+
+    def spy(statements, parameters, **kwargs):
+        seen.append([(item.statement, item.statement_type) for item in statements])
+        return real_parameter_sets(statements, parameters, **kwargs)
+
+    with mock.patch.object(athena_v4, "_statement_parameter_sets", spy):
+        submitted = _submit(query, {"name": 1}, 100)
+
+    # Validation sees the author's text only if it runs before limiting.
+    assert seen == [original]
+    assert submitted == ["SELECT a FROM t WHERE b = 1\nLIMIT 100"]
+
+
+def test_parse_failure_inside_apply_row_limit_submits_the_original():
+    # Patch parse_one, not apply_row_limit: only the parse is inside the fallback handler.
+    real_parse_one = sqlglot.parse_one
+
+    def parse_one(sql, *args, **kwargs):
+        # apply_row_limit passes dialect=, split_query passes read=; raising only for the
+        # former leaves statement typing intact.
+        if "dialect" in kwargs:
+            raise ValueError("parse refused")
+        return real_parse_one(sql, *args, **kwargs)
+
+    with mock.patch.object(sqlglot, "parse_one", parse_one):
+        submitted = _submit("SELECT a FROM t WHERE b = :name", {"name": 1}, 100)
+
+    assert submitted == ["SELECT a FROM t WHERE b = 1"]
+
+
+def test_async_path_receives_limited_text():
+    submitted = _submit(
+        "SELECT a FROM t WHERE b = :name", {"name": 1}, 100, method="execute_without_fetch"
+    )
+
+    assert submitted == ["SELECT a FROM t WHERE b = 1\nLIMIT 100"]
+
+
+# --- Parameterized forms sqlglot cannot parse -----------------------------------------------
+#
+# A placeholder where a TIMESTAMP or DATE literal belongs makes the statement unparseable, so
+# split_query types it UNKNOWN and eligibility comes from a masked copy instead.
+# The warning remains for a statement that defeats the masked parse too.
+
+_ROW_LIMIT_LOGGER = "sagemaker_studio.sql_engine.database_transformer"
+
+
+def _row_limit_warnings(caplog):
+    return [
+        record
+        for record in caplog.records
+        if record.name == _ROW_LIMIT_LOGGER and record.levelno == logging.WARNING
+    ]
+
+
+_UNPARSEABLE_PARAMETERIZED_CASES = [
+    pytest.param(
+        "SELECT a FROM t WHERE ts > TIMESTAMP :ts",
+        {"ts": "2024-01-01 00:00:00"},
+        "SELECT a FROM t WHERE ts > TIMESTAMP '2024-01-01 00:00:00'",
+        id="named-timestamp",
+    ),
+    pytest.param(
+        "SELECT a FROM t WHERE d = DATE ?",
+        ["2024-01-01"],
+        "SELECT a FROM t WHERE d = DATE '2024-01-01'",
+        id="positional-date",
+    ),
+]
+
+
+@pytest.mark.parametrize("query,parameters,bound", _UNPARSEABLE_PARAMETERIZED_CASES)
+def test_an_unparseable_parameterized_statement_is_limited(query, parameters, bound, caplog):
+    """A placeholder after TIMESTAMP or DATE no longer bypasses the limit."""
+    assert split_query(query)[0].statement_type == "UNKNOWN"
+
+    assert _submit(query, parameters, 100) == [f"{bound}\nLIMIT 100"]
+
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG, logger=_ROW_LIMIT_LOGGER):
+        # Unbound, so the submitted bytes are the author's own: the assertion the masked
+        # copy would fail if it were ever returned rather than merely consulted.
+        assert _submit(query, None, 100) == [f"{query}\nLIMIT 100"]
+
+    assert _row_limit_warnings(caplog) == []
+
+
+@pytest.mark.parametrize("query,parameters,bound", _UNPARSEABLE_PARAMETERIZED_CASES)
+def test_no_limit_still_submits_the_author_text(query, parameters, bound):
+    # The control: with no limit requested these statements are submitted exactly as before.
+    assert _submit(query, parameters) == [bound]
+    assert _submit(query, None) == [query]
+
+
+def test_a_statement_unparseable_even_when_masked_runs_unlimited_and_warns(caplog):
+    # All that is left of the fail-open: no family can be assigned by any means.
+    query = "SELECT a FROM t WHERE b = :name AND (("
+    assert split_query(query)[0].statement_type == "UNKNOWN"
+
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG, logger=_ROW_LIMIT_LOGGER):
+        assert _submit(query, None, 100) == [query]
+
+    warnings = _row_limit_warnings(caplog)
+    assert len(warnings) == 1
+    assert "Row limit not applied" in warnings[0].getMessage()
+    assert "statement_type=UNKNOWN" in warnings[0].getMessage()
+
+
+def test_an_unparseable_write_declines_silently(caplog):
+    # A deliberate exclusion, not a limit that went missing: warning here would fire on
+    # every parameterized write and bury the case above.
+    for query in (
+        "DELETE FROM t WHERE ts > TIMESTAMP :ts",
+        "UPDATE t SET a = 1 WHERE ts > TIMESTAMP :ts",
+    ):
+        assert split_query(query)[0].statement_type == "UNKNOWN"
+
+        caplog.clear()
+        with caplog.at_level(logging.DEBUG, logger=_ROW_LIMIT_LOGGER):
+            assert _submit(query, None, 100) == [query]
+
+        assert _row_limit_warnings(caplog) == [], query
+
+
+def test_an_unparseable_statement_with_an_author_limit_is_never_clamped():
+    # Never-clamp holds through the masked node: the author's LIMIT 5 is found on the copy.
+    query = "SELECT a FROM t WHERE ts > TIMESTAMP :ts LIMIT 5"
+    assert split_query(query)[0].statement_type == "UNKNOWN"
+
+    assert _submit(query, None, 100) == [query]
+
+
+def test_an_unparseable_locking_read_is_left_alone():
+    # LIMIT has no appendable position after FOR UPDATE, masked node or ordinary one.
+    query = "SELECT a FROM t WHERE ts > TIMESTAMP :ts FOR UPDATE"
+    assert split_query(query)[0].statement_type == "UNKNOWN"
+
+    assert _submit(query, None, 100) == [query]
+
+
+_MASKING_IS_NOT_A_TEXT_SCAN = [
+    pytest.param(
+        "SELECT a::VARCHAR FROM t WHERE ts > TIMESTAMP :ts",
+        {"ts": "2024-01-01"},
+        "SELECT a::VARCHAR FROM t WHERE ts > TIMESTAMP '2024-01-01'",
+        id="cast-operator",
+    ),
+    pytest.param(
+        "SELECT 'a:b' FROM t WHERE ts > TIMESTAMP :ts",
+        {"ts": "2024-01-01"},
+        "SELECT 'a:b' FROM t WHERE ts > TIMESTAMP '2024-01-01'",
+        id="colon-in-a-string",
+    ),
+    pytest.param(
+        "SELECT 'what?' FROM t WHERE d = DATE ?",
+        ["2024-01-01"],
+        "SELECT 'what?' FROM t WHERE d = DATE '2024-01-01'",
+        id="question-mark-in-a-string",
+    ),
+]
+
+
+@pytest.mark.parametrize("query,parameters,bound", _MASKING_IS_NOT_A_TEXT_SCAN)
+def test_masking_leaves_casts_and_string_literals_alone(query, parameters, bound):
+    """The `::` cast and a `:` or `?` inside a string literal are not placeholders.
+
+    Masking by text would replace them and the masked copy would not parse, so the clause
+    arriving here is the evidence the tokenizer excluded them.
+    """
+    assert split_query(query)[0].statement_type == "UNKNOWN"
+
+    assert _submit(query, None, 100) == [f"{query}\nLIMIT 100"]
+    assert _submit(query, parameters, 100) == [f"{bound}\nLIMIT 100"]
+
+
+def test_an_interval_placeholder_statement_is_limited_and_left_verbatim():
+    """The other half of the same comment, and the one the append mechanism fixes.
+
+    Re-rendering through the athena dialect turned this statement into
+    ``CURRENT_TIMESTAMP - INTERVAL (:n) DAY``; appending leaves it as the author typed it.
+    """
+    query = "SELECT a FROM t WHERE ts > NOW() - INTERVAL :n DAY"
+    assert split_query(query)[0].statement_type == "SELECT"
+
+    assert _submit(query, None, 100) == [f"{query}\nLIMIT 100"]
+
+    submitted = _submit(query, {"n": "7"}, 100)[0]
+    assert submitted == "SELECT a FROM t WHERE ts > NOW() - INTERVAL '7' DAY\nLIMIT 100"
+    # Named individually: these two are exactly what the re-render rewrote, so they survive
+    # a later loosening of the whole-text assertion above.
+    assert "NOW()" in submitted and "CURRENT_TIMESTAMP" not in submitted
+    assert "INTERVAL '7' DAY" in submitted and "INTERVAL ('7')" not in submitted
+
+
+class RowLimitDuckDBSyntaxTest(unittest.TestCase):
+    """Athena engine version 4 is DuckDB, so DuckDB-only syntax must still get the row limit."""
+
+    def test_duckdb_only_syntax_is_limited(self):
+        for sql in (
+            "SELECT 1_000_000, $$it's$$, E'a\\tb'",
+            "SELECT list_transform([1, 2], lambda x: x + 1)",
+            "SELECT a FROM t QUALIFY row_number() OVER (ORDER BY a) = 1",
+            "SELECT 2 ** 3, 100 // 7",
+        ):
+            with self.subTest(sql=sql):
+                self.assertEqual(_submit(sql, limit=10), [f"{sql}\nLIMIT 10"])
+
+
+_SLACK_QUERY = "SELECT 1_000_000, 1e3, .5, $$it's$$, E'a\\tb'"
+_QUALIFY_QUERY = "SELECT a FROM t QUALIFY row_number() OVER (ORDER BY a) = 1"
+_LAMBDA_QUERY = "SELECT list_transform([1, 2], lambda x: x + 1)"
+_TRINO_ONLY_QUERY = "SELECT X'ab'"
+_UNLOAD_QUERY = "UNLOAD (SELECT 1) TO 's3://bucket/prefix/' WITH (format = 'PARQUET')"
+_MSCK_QUERY = "MSCK REPAIR TABLE t"
+
+
+class EngineVersionGrammarTest(unittest.TestCase):
+    """The client-side split and row limit use the grammar of the engine the query runs on:
+    DuckDB on version 4, the Athena (Trino) grammar on versions 1-3, as before version 4."""
+
+    def assert_limited(self, sql, **executor_kwargs):
+        self.assertEqual(_submit(sql, limit=10, **executor_kwargs), [f"{sql}\nLIMIT 10"])
+
+    def assert_unlimited_without_warning(self, sql, **executor_kwargs):
+        with self.assertNoLogs(_ROW_LIMIT_LOGGER, level=logging.WARNING):
+            self.assertEqual(_submit(sql, limit=10, **executor_kwargs), [sql])
+
+    def test_v4_workgroup_uses_the_duckdb_grammar(self):
+        for sql in (_SLACK_QUERY, _QUALIFY_QUERY, _LAMBDA_QUERY):
+            with self.subTest(sql=sql):
+                self.assert_limited(sql, workgroup_engine_version=4)
+        self.assertEqual(split_query(_SLACK_QUERY, "duckdb")[0].statement_type, "SELECT")
+
+    def test_v4_dollar_quoted_markers_are_not_parameters(self):
+        sql = "SELECT $$a ? :p$$, ?"
+        submitted = _submit(sql, [1], 10, workgroup_engine_version=4)
+        self.assertEqual(submitted, ["SELECT $$a ? :p$$, 1\nLIMIT 10"])
+
+    def test_v3_workgroup_uses_the_athena_grammar(self):
+        self.assert_limited(_TRINO_ONLY_QUERY, workgroup_engine_version=3)
+        for sql in (_UNLOAD_QUERY, _MSCK_QUERY):
+            with self.subTest(sql=sql):
+                self.assert_unlimited_without_warning(sql, workgroup_engine_version=3)
+
+    def test_v3_matches_the_athena_transformer(self):
+        # Before version 4 every Athena query was typed with read="athena" and limited by
+        # AthenaTransformer; the v1-v3 path must keep producing exactly that.
+        for sql in (_TRINO_ONLY_QUERY, _UNLOAD_QUERY, _MSCK_QUERY, "SELECT 1 FROM t"):
+            with self.subTest(sql=sql):
+                (statement,) = split_query(sql, "athena")
+                expected = AthenaTransformer.apply_row_limit(sql, statement.statement_type, 10)
+                self.assertEqual(_submit(sql, limit=10, workgroup_engine_version=3), [expected])
+
+    def test_selected_v4_overrides_a_v3_workgroup(self):
+        kwargs = {
+            "workgroup_engine_version": 3,
+            "selected_engine_version": "Athena engine version 4",
+        }
+        self.assert_limited(_SLACK_QUERY, **kwargs)
+        self.assert_limited(_QUALIFY_QUERY, **kwargs)
+
+    def test_selected_v3_overrides_a_v4_workgroup(self):
+        kwargs = {
+            "workgroup_engine_version": 4,
+            "selected_engine_version": "Athena engine version 3",
+        }
+        self.assert_limited(_TRINO_ONLY_QUERY, **kwargs)
+        self.assert_unlimited_without_warning(_MSCK_QUERY, **kwargs)
+        # QUALIFY is DuckDB-only, so the Athena grammar leaves it unclassified and unlimited.
+        self.assertEqual(_submit(_QUALIFY_QUERY, limit=10, **kwargs), [_QUALIFY_QUERY])
+
+    def test_unrecognized_selected_version_falls_back_to_the_workgroup(self):
+        self.assert_limited(
+            _TRINO_ONLY_QUERY, workgroup_engine_version=3, selected_engine_version="AUTO"
+        )
+
+    def test_unknown_version_uses_the_athena_grammar(self):
+        # No fallback: an unknown version is split, bound and limited exactly as before version 4.
+        unknown = {"workgroup_engine_version": None}
+        for kwargs in (unknown, {**unknown, "selected_engine_version": "AUTO"}):
+            with self.subTest(**kwargs):
+                self.assert_limited(_TRINO_ONLY_QUERY, **kwargs)
+                for sql in (_UNLOAD_QUERY, _MSCK_QUERY):
+                    self.assert_unlimited_without_warning(sql, **kwargs)
+                for sql in (_TRINO_ONLY_QUERY, _UNLOAD_QUERY, "SELECT 1 FROM t"):
+                    (statement,) = split_query(sql, "athena")
+                    expected = AthenaTransformer.apply_row_limit(sql, statement.statement_type, 10)
+                    self.assertEqual(_submit(sql, limit=10, **kwargs), [expected])
 
 
 if __name__ == "__main__":

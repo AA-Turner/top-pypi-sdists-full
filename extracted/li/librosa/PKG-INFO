@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: librosa
-Version: 1.0.0
+Version: 1.0.1
 Summary: Python module for audio and music processing
 Home-page: https://librosa.org
 Author: Brian McFee, librosa development team
@@ -28,41 +28,42 @@ Requires-Dist: numba>=0.61.0
 Requires-Dist: numpy>=2.1.0
 Requires-Dist: scipy>=1.15.0
 Requires-Dist: scikit-learn>=1.6.0
-Requires-Dist: joblib>=1.2
+Requires-Dist: joblib>=1.2.0
 Requires-Dist: decorator>=5.2.1
 Requires-Dist: soundfile>=0.12.1
-Requires-Dist: pooch>=1.7
+Requires-Dist: pooch>=1.7.0
 Requires-Dist: soxr>=1.0.0
 Requires-Dist: lazy_loader>=0.3
 Requires-Dist: msgpack>=1.0.5
-Provides-Extra: docs
-Requires-Dist: numpydoc>=1.8.0; extra == "docs"
-Requires-Dist: sphinx!=1.3.1; extra == "docs"
-Requires-Dist: matplotlib>=3.10.0; extra == "docs"
-Requires-Dist: pydata-sphinx-theme>=0.18.0; extra == "docs"
-Requires-Dist: sphinx-gallery>=0.7; extra == "docs"
-Requires-Dist: sphinx-design>=0.7.0; extra == "docs"
-Requires-Dist: mir_eval>=0.5; extra == "docs"
-Requires-Dist: ipython>=7.0; extra == "docs"
-Requires-Dist: sphinxcontrib-svg2pdfconverter; extra == "docs"
-Requires-Dist: sphinxcontrib-googleanalytics>=0.4; extra == "docs"
-Requires-Dist: presets; extra == "docs"
-Requires-Dist: sphinx-copybutton>=0.5.2; extra == "docs"
-Requires-Dist: myst-parser>=2.0; extra == "docs"
-Requires-Dist: pandas>=2.0; extra == "docs"
-Requires-Dist: umap-learn>=0.5.4; extra == "docs"
-Provides-Extra: tests
-Requires-Dist: matplotlib>=3.10.0; extra == "tests"
-Requires-Dist: packaging>=23.2; extra == "tests"
-Requires-Dist: pytest-mpl; extra == "tests"
-Requires-Dist: pytest-cov; extra == "tests"
-Requires-Dist: pytest; extra == "tests"
-Requires-Dist: samplerate; extra == "tests"
-Requires-Dist: resampy>=0.4.3; extra == "tests"
-Requires-Dist: scipy-stubs; extra == "tests"
-Requires-Dist: types-decorator; extra == "tests"
 Provides-Extra: display
 Requires-Dist: matplotlib>=3.10.0; extra == "display"
+Provides-Extra: tests
+Requires-Dist: librosa[display]; extra == "tests"
+Requires-Dist: packaging>=23.2; extra == "tests"
+Requires-Dist: pytest>=9.0.0; extra == "tests"
+Requires-Dist: pytest-mpl>=0.17.0; extra == "tests"
+Requires-Dist: pytest-cov>=6.0.0; extra == "tests"
+Requires-Dist: coverage>=7.6.0; extra == "tests"
+Requires-Dist: resampy>=0.4.3; extra == "tests"
+Requires-Dist: samplerate>=0.2.4; platform_machine != "ARM64" and extra == "tests"
+Requires-Dist: scipy-stubs; extra == "tests"
+Provides-Extra: docs
+Requires-Dist: librosa[display]; extra == "docs"
+Requires-Dist: numpydoc>=1.8.0; extra == "docs"
+Requires-Dist: sphinx>=8.1.0; extra == "docs"
+Requires-Dist: pydata-sphinx-theme>=0.18.0; extra == "docs"
+Requires-Dist: sphinx-gallery>=0.10.1; extra == "docs"
+Requires-Dist: sphinx-copybutton>=0.5.2; extra == "docs"
+Requires-Dist: sphinx-design>=0.7.0; extra == "docs"
+Requires-Dist: myst-parser>=2.0; extra == "docs"
+Requires-Dist: ipython>=7.0; extra == "docs"
+Requires-Dist: resampy>=0.4.3; extra == "docs"
+Requires-Dist: umap-learn>=0.5.3; extra == "docs"
+Requires-Dist: pandas>=2.0.0; extra == "docs"
+Requires-Dist: presets>=0.1.3; extra == "docs"
+Requires-Dist: mir-eval>=0.6; extra == "docs"
+Requires-Dist: sphinxcontrib-svg2pdfconverter>=1.1.1; extra == "docs"
+Requires-Dist: sphinxcontrib-googleanalytics>=0.4; extra == "docs"
 Dynamic: license-file
 
 [![librosa logo](docs/img/librosa_logo_text.svg)](https://librosa.org/)

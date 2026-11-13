@@ -1,5 +1,6 @@
-"""One sample part made ready to journal: its task lifted out, logs and turns scrubbed, the full log
-and per-token arrays put in bundles, token summaries computed and text over 64 KiB spilled to R2."""
+"""One sample part made ready to journal: its task lifted out, turns fitted to the contract, logs and turns scrubbed,
+the full log and per-token arrays put in bundles, token summaries computed and text over 64 KiB spilled to R2 (the
+one spill helper, `write_spill` + `upload_spill`)."""
 
 from __future__ import annotations
 
@@ -10,9 +11,9 @@ import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from .bundles import BundleKind, Bundles
+from .bundles import TEXT_ARTIFACT_KIND, BundleKind, Bundles
 from .tokens import PerTokenPolicy, pick_token_arrays, summarize_tokens
 from .wire import (
     MAX_INLINE_TEXT_BYTES,
@@ -21,13 +22,18 @@ from .wire import (
     TOKEN_INPUTS,
     cap_error_message,
     cut_tail,
+    fit_turns,
     replace_nul_text,
     get_default_seal_step,
     measure_bytes,
     scrub_part,
     split_log,
+    strip_turn_capture,
     to_plain,
 )
+
+if TYPE_CHECKING:
+    from ..run import Run
 
 
 #: A text spilled to a temp file, waiting to be stored: (path, sha256, size in bytes).
@@ -48,7 +54,9 @@ class PreparedPart:
 
 class PartPreparer:
     """Turns caller samples into parts. ``upload_text(path, sha256, size)`` stores one blob (the
-    run's artifact door); ``scrub`` is the credential scrubber, str -> str."""
+    run's artifact door); ``scrub`` is the credential scrubber, str -> str. ``is_turn_capture_supported()`` is what
+    this process already knows (never a request): when it says no, ``warn_stripped(names)`` is told which fields the
+    send will take off. The part keeps them; the send-time gate decides (`wire.gate_turn_capture`, D7)."""
 
     def __init__(
         self,
@@ -57,11 +65,15 @@ class PartPreparer:
         scrub: Callable[[str], str],
         upload_text: Callable[[Path, str, int], None],
         policy: PerTokenPolicy | None = None,
+        is_turn_capture_supported: Callable[[], bool] = lambda: True,
+        warn_stripped: Callable[[list[str]], None] = lambda names: None,
     ) -> None:
         self._bundles = bundles
         self._scrub = scrub
         self._upload_text = upload_text
         self._policy = policy or PerTokenPolicy.from_env()
+        self._is_turn_capture_supported = is_turn_capture_supported
+        self._warn_stripped = warn_stripped
         self._tasks_sent: set[tuple[str, str]] = set()
 
     def prepare(self, sample: Any, *, role: str, seal_step: int | None) -> PreparedPart:
@@ -102,7 +114,10 @@ class PartPreparer:
         if log_text is not None:
             log_text, is_cut = cut_tail(log_text, MAX_LOG_BYTES)
             part["log_text"] = log_text  # scrubbed below with the tail and the turns
+        if isinstance(part.get("turns"), list):
+            part["turns"] = fit_turns(part["turns"])
         scrub_part(part, self._scrub)
+        self._check_turn_capture(part)
         cap_error_message(part)
         if log_text is not None:
             ref = self._bundles.append(
@@ -116,6 +131,14 @@ class PartPreparer:
         self._store_long_text(part, "response", "response_blob", blobs)
         self._store_long_turns(part, blobs)
         return prepared
+
+    def _check_turn_capture(self, part: dict) -> None:
+        """D7: a server known not to store tool calls, reasoning and `turns_source` is named now, on the caller's
+        thread; the part keeps them (the send takes them off). Unknown is never asked here: `log()` does no I/O."""
+        if not self._is_turn_capture_supported():
+            names = strip_turn_capture(dict(part))
+            if names:
+                self._warn_stripped(names)
 
     def _take_task(self, part: dict, blobs: list[PendingBlob]) -> dict | None:
         """The task's own fields (prompt, label, dataset, full reward) come off the part; the first
@@ -132,7 +155,7 @@ class PartPreparer:
         task = {"task_key": task_key, "scenario": scenario, **fields}
         prompt = task.get("prompt")
         if isinstance(prompt, str) and len(prompt.encode("utf-8")) > MAX_INLINE_TEXT_BYTES:
-            task["prompt_blob"] = self._save_spill(task.pop("prompt"), blobs)
+            task["prompt_blob"] = _add_spill(task.pop("prompt"), blobs)
         return task
 
     def _store_tokens(self, part: dict) -> bool:
@@ -160,29 +183,43 @@ class PartPreparer:
     def _store_long_text(self, part: dict, name: str, blob_name: str, blobs: list[PendingBlob]) -> None:
         value = part.get(name)
         if isinstance(value, str) and len(value.encode("utf-8")) > MAX_INLINE_TEXT_BYTES:
-            part[blob_name] = self._save_spill(part.pop(name), blobs)
+            part[blob_name] = _add_spill(part.pop(name), blobs)
 
     def _store_long_turns(self, part: dict, blobs: list[PendingBlob]) -> None:
         turns = part.get("turns")
         if isinstance(turns, list) and turns and measure_bytes(turns) > MAX_INLINE_TEXT_BYTES:
             part.setdefault("turn_count", len(turns))
-            part["turns_blob"] = self._save_spill(json.dumps(part.pop("turns"), default=str), blobs)
+            part["turns_blob"] = _add_spill(json.dumps(part.pop("turns"), default=str), blobs)
 
-    def _save_spill(self, text: str, blobs: list[PendingBlob]) -> dict:
-        """Text over 64 KiB, whole, to a temp file that `store_blobs` makes its own R2 object: the part keeps
-        `{sha256, size_bytes}`."""
-        raw = text.encode("utf-8")
-        digest = hashlib.sha256(raw).hexdigest()
-        handle, name = tempfile.mkstemp(prefix="probe-sample-text-", suffix=".txt")
-        path = Path(name)
-        try:
-            with os.fdopen(handle, "wb") as out:
-                out.write(raw)
-        except BaseException:
-            _delete_files([(path, digest, len(raw))])
-            raise
-        blobs.append((path, digest, len(raw)))
-        return {"sha256": digest, "size_bytes": len(raw)}
+
+def write_spill(text: str) -> PendingBlob:
+    """Text over 64 KiB, whole, to a temp file that `upload_spill` makes its own R2 object; the caller deletes it."""
+    raw = text.encode("utf-8")
+    digest = hashlib.sha256(raw).hexdigest()
+    handle, name = tempfile.mkstemp(prefix="probe-sample-text-", suffix=".txt")
+    path = Path(name)
+    try:
+        with os.fdopen(handle, "wb") as out:
+            out.write(raw)
+    except BaseException:
+        _delete_files([(path, digest, len(raw))])
+        raise
+    return path, digest, len(raw)
+
+
+def upload_spill(run: Run, blob: PendingBlob, *, should_wait: bool = False) -> Any:
+    """One spilled text through the run's artifact door, named by its sha256 (the part keeps `{sha256, size_bytes}`);
+    what `log_artifact` returned. ``should_wait``: the upload ends before this returns (a rollout's export)."""
+    path, digest, size = blob
+    return run.log_artifact(f"sample-text-{digest[:16]}.txt", path=str(path), kind=TEXT_ARTIFACT_KIND,
+                            content_type="text/plain", meta={"sample_blob": {"sha256": digest, "size_bytes": size}},
+                            strict=False, **({"sync": True} if should_wait else {}))  # fmt: skip
+
+
+def _add_spill(text: str, blobs: list[PendingBlob]) -> dict:
+    blob = write_spill(text)
+    blobs.append(blob)
+    return {"sha256": blob[1], "size_bytes": blob[2]}
 
 
 def _delete_files(blobs: list[PendingBlob]) -> None:

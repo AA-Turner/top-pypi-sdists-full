@@ -11,6 +11,11 @@
 # training script the harness starts walks up its parents to the same process
 # and reads the record. `<start>` is the process's start time, so a recycled pid
 # never reads a dead session's record. Linux reads /proc; macOS asks `ps` once.
+#
+# The same walk names the agent running a process when two agents' variables are
+# set (a Codex started from a Claude Code shell inherits Claude Code's): the
+# agents above it, nearest first (`find_agent_ancestors`,
+# `agent_session.harness_process_env`).
 # ---------------------------------------------------------------------------
 
 HARNESS_PROCESSES_DIRNAME = "harness-processes"
@@ -81,6 +86,58 @@ def _ps_table() -> "dict[int, tuple[int, str, str]]":
     return table
 
 
+_PIDPATH: list = []  # macOS `proc_pidpath`, loaded once (`_get_executable_path`)
+
+
+def _get_executable_path(pid: int) -> "str | None":
+    """The file a process runs, from the macOS kernel (`proc_pidpath`); None
+    elsewhere. The hooks' copy of this module cannot import
+    `probe.foundation.service_api.procid.get_executable_path`, its twin."""
+    import sys  # noqa: PLC0415
+
+    if sys.platform != "darwin":
+        return None
+    try:
+        import ctypes  # noqa: PLC0415
+
+        if not _PIDPATH:
+            for library in ("/usr/lib/libproc.dylib", "/usr/lib/libSystem.B.dylib"):
+                try:
+                    pidpath = ctypes.CDLL(library).proc_pidpath
+                except (OSError, AttributeError):
+                    continue
+                pidpath.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32]
+                pidpath.restype = ctypes.c_int
+                _PIDPATH.append(pidpath)
+                break
+            else:
+                _PIDPATH.append(None)
+        if _PIDPATH[0] is None:
+            return None
+        buffer = ctypes.create_string_buffer(4096)  # PROC_PIDPATHINFO_MAXSIZE
+        if _PIDPATH[0](pid, buffer, 4096) <= 0:
+            return None
+        return buffer.value.decode("utf-8", "replace") or None
+    except Exception:  # noqa: BLE001 -- a Python without ctypes: the `ps` title stands
+        return None
+
+
+def _get_walk_start(pid: "int | None") -> "tuple[int | None, bool]":
+    """(the process a walk from `pid` starts at, whether it is the caller a Probe
+    service child serves): `pid`, else PROBE_CALLER_PID, else the hook host's
+    PROBE_HOOK_PARENT_PID, else (None, False): the caller's own default (`_ancestors`:
+    this process's parent; the namespace check: this process)."""
+    if pid is not None:
+        return pid, False
+    caller = os.environ.get("PROBE_CALLER_PID", "")
+    if caller.isascii() and caller.isdigit() and int(caller) > 1:
+        return int(caller), True
+    hosted = os.environ.get("PROBE_HOOK_PARENT_PID", "")
+    if hosted.isascii() and hosted.isdigit() and int(hosted) > 1:
+        return int(hosted), False
+    return None, False
+
+
 def _ancestors(pid: "int | None" = None) -> "list[tuple[int, str, str]]":
     """(pid, start time, title) for `pid` (default: this process's parent) and
     each process above it, nearest first. Empty where processes can't be read.
@@ -90,23 +147,31 @@ def _ancestors(pid: "int | None" = None) -> "list[tuple[int, str, str]]":
     in PROBE_HOOK_PARENT_PID, and the walk starts there. A `probe` command the
     Probe service runs (`cli.run`) has the service's CLI host for a parent: the
     service names the shim it serves in PROBE_CALLER_PID (`probe.foundation.caller`),
-    and the walk is that shim's parents."""
+    and the walk is that shim's parents. It ends with pid 1 of this process
+    namespace: a sandboxed Codex shell's whole view is itself and pid 1,
+    `codex-linux-sandbox`."""
     if pid is None:
-        caller = os.environ.get("PROBE_CALLER_PID", "")
-        if caller.isdigit() and int(caller) > 1:
-            return _ancestors(int(caller))[1:]
-        hosted = os.environ.get("PROBE_HOOK_PARENT_PID", "")
-        pid = int(hosted) if hosted.isdigit() and int(hosted) > 1 else os.getppid()
+        start, is_caller = _get_walk_start(None)
+        if is_caller:
+            return _ancestors(start)[1:]
+        pid = start if start is not None else os.getppid()
     current = pid
     table = None if os.path.isdir("/proc/self") else _ps_table()
     chain = []
     for _ in range(_ANCESTOR_LIMIT):
-        if current <= 1:
+        if current < 1:
             break
         info = _proc_linux(current) if table is None else table.get(current)
         if info is None:
             break
         parent, start, title = info
+        if table is not None:
+            # `ps` cannot say where a path with a space ends: the Claude app keeps
+            # Claude Code under `~/Library/Application Support/`, read as
+            # `Application`. The kernel's path, when it starts with that word.
+            path = _get_executable_path(current)
+            if path and path.startswith(title + " "):
+                title = path
         chain.append((current, start, title))
         current = parent
     return chain
@@ -114,6 +179,79 @@ def _ancestors(pid: "int | None" = None) -> "list[tuple[int, str, str]]":
 
 def _titled(title: str, wanted: str) -> bool:
     return os.path.basename(title) == wanted or title == wanted
+
+
+#: The machine's own pid namespace: the kernel gives it this fixed inode (PROC_PID_INIT_INO).
+_ROOT_PID_NAMESPACE = "pid:[4026531836]"
+
+
+def _is_in_child_pid_namespace() -> bool:
+    """Whether this process runs in a child pid namespace (a sandbox, a container):
+    its pid 1 is not the machine's, and a pid another agent exported means nothing
+    here. `NSpid` cannot say so where the sandbox mounted its own /proc; the
+    namespace's identity can. Elsewhere (macOS: no /proc), False."""
+    try:
+        return os.readlink("/proc/self/ns/pid") != _ROOT_PID_NAMESPACE
+    except OSError:
+        return False
+
+
+def _get_pid_namespace(pid: int) -> "str | None":
+    """Another process's pid namespace (`pid:[<inode>]`), or None when unreadable."""
+    try:
+        return os.readlink(f"/proc/{pid}/ns/pid")
+    except OSError:
+        return None
+
+
+def _is_walk_in_child_pid_namespace(pid: "int | None") -> bool:
+    """Whether the walk from `pid` (default: this process, the caller a Probe service
+    child serves (PROBE_CALLER_PID), or the hook host's harness pid
+    (PROBE_HOOK_PARENT_PID): `_get_walk_start`) runs in a child pid namespace. The
+    service child sits in the machine's namespace while its caller may be in a
+    sandbox's, where an exported pid is numbered differently; an unreadable start
+    process (another user's) counts as one, unproven."""
+    if _is_in_child_pid_namespace():
+        return True
+    start, _is_caller = _get_walk_start(pid)
+    if start is None or not os.path.isdir("/proc/self"):
+        return False
+    return _get_pid_namespace(start) != _ROOT_PID_NAMESPACE
+
+
+def find_agent_ancestors(
+    names: "dict[str, tuple[str, ...]]", pid: "int | None" = None, pids: "dict[int, str] | None" = None
+) -> "tuple[list[tuple[str, int, bool]], bool]":
+    """([(agent id, pid, sandbox)], complete): each ancestor titled one of `names`
+    ({agent id: the names its process goes by}), else whose pid `pids` names
+    ({pid: agent id}, the pid an agent exports: `CLAUDE_PID`), nearest first, and
+    whether the walk read every process up to the machine's pid 1. `sandbox`: the
+    namespace's pid 1 under a helper's name (`<name>-…`), as a sandboxed Codex
+    shell sees only `codex-linux-sandbox` above it. In a child pid namespace (this
+    process's or the walk's start process's, `_get_walk_start`) no pid is matched and
+    the walk is never complete.
+    ([], False) when unreadable. Never raises."""
+    found = []
+    try:
+        nested = _is_walk_in_child_pid_namespace(pid)
+        pids = {} if nested else (pids or {})
+        chain = _ancestors(pid)
+        for ancestor, _start, title in chain:
+            helper = os.path.basename(title) if ancestor == 1 else ""
+            named = next((agent for agent, wanted in names.items()
+                          if any(_titled(title, name) for name in wanted)), None)
+            if named is not None:
+                found.append((named, ancestor, False))
+            elif ancestor in pids:
+                found.append((pids[ancestor], ancestor, False))
+            else:
+                helper_of = next((agent for agent, wanted in names.items()
+                                  if any(helper.startswith(name + "-") for name in wanted)), None)
+                if helper_of is not None:
+                    found.append((helper_of, ancestor, True))
+        return found, not nested and bool(chain) and chain[-1][0] == 1
+    except Exception:  # noqa: BLE001 -- attribution must never break a command
+        return [], False
 
 
 def _process_record_path(pid: int, start: str) -> Path:

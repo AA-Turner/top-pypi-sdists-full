@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from ...foundation.safe_warn import safe_warn as _diagnostics
+from ...generated.records import RunType
+from .. import agent_session
+from ..values.run_type import to_run_type
 from .context.context import FailureContext, UnitContext
 from probe.sdk.routes import WriteOp, path_for
 
@@ -98,6 +101,26 @@ class MetadataMixin:
         data = self._client.write(
             "PATCH", path_for(WriteOp.RUN_PATCH, self.id), {"foreign_keys": foreign_keys}, strict=strict
         )
+        if data:
+            self._data = data
+        return data
+
+    # -- run type (0495) -----------------------------------------------------
+    @property
+    def run_type(self) -> str:
+        """``rl`` or ``general``; a run nobody declared reads ``general``, as the server reads it."""
+        return self._data.get("run_type") or RunType.GENERAL.value
+
+    def set_run_type(self, run_type: str | RunType, *, is_automatic: bool = False):
+        """Say what the run is: ``rl`` shows its RL tabs and Trials, ``general`` hides them.
+
+        A plain call is a choice and overwrites. ``is_automatic=True`` (sent as ``composed``) is a
+        library's declaration: the server applies it only to a run whose type nobody set, so it never
+        overrides a person's choice. Fail-open like :meth:`link` (the client's own policy decides)."""
+        body = {"run_type": to_run_type(run_type)}
+        if is_automatic:
+            body["authored_by"] = agent_session.AUTHORSHIP_COMPOSED
+        data = self._client.write("PATCH", path_for(WriteOp.RUN_PATCH, self.id), body)
         if data:
             self._data = data
         return data

@@ -7,6 +7,8 @@ from sagemaker_studio.sql_engine.database_transformer import DatabaseTransformer
 
 class BigQueryTransformer(DatabaseTransformer):
 
+    supports_row_limit = True  # BigQuery accepts a trailing "LIMIT n"
+
     @classmethod
     def get_dialect(cls) -> Optional[str]:
         return "bigquery"

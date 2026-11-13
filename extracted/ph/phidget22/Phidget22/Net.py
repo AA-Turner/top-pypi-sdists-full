@@ -76,6 +76,17 @@ class Net:
         self._onServerAdded = None
 
         if sys.platform == "win32":
+            self._ServerChangedFactory = ctypes.WINFUNCTYPE(
+                None, ctypes.c_void_p, ctypes.POINTER(_CPhidgetServer), ctypes.c_void_p
+            )
+        else:
+            self._ServerChangedFactory = ctypes.CFUNCTYPE(
+                None, ctypes.c_void_p, ctypes.POINTER(_CPhidgetServer), ctypes.c_void_p
+            )
+        self._ServerChanged = None
+        self._onServerChanged = None
+
+        if sys.platform == "win32":
             self._ServerRemovedFactory = ctypes.WINFUNCTYPE(
                 None, ctypes.c_void_p, ctypes.POINTER(_CPhidgetServer)
             )
@@ -96,7 +107,9 @@ class Net:
     def setOnServerAddedHandler(self, handler):
         r"""ServerAdded event
 
-        Subscribe to this event if you would like to know when a server has been added.
+        Subscribe to this event if you would like to know when a server has been added. For a
+        discovered server it is raised once per logical server, however many network interfaces the
+        server is seen on, and again only after `ServerRemoved` has been raised for it.
 
         Parameters
         ----------
@@ -106,7 +119,7 @@ class Net:
             The function must accept the following parameters:
             * **ch** : *Net* - The object on which the event occurred.
             * **server** : *PhidgetServer* - The server that has been added.
-            * **kv** : *object* - Opaque structure containing keys related to the server
+            * **kv** : *object* - Opaque structure containing keys related to the server. It is valid only for the duration of the callback, and is null for a server started by this process.
 
         Raises
         ------
@@ -125,6 +138,50 @@ class Net:
                 raise PhidgetException(res)
 
             self._onServerAdded = fptr
+
+    def _localServerChangedEvent(self, userPtr, server, kv):
+        if self._ServerChanged is None:
+            return
+        if server is not None:
+            server = server.contents._to_python()
+        self._ServerChanged(self, server, kv)
+
+    def setOnServerChangedHandler(self, handler):
+        r"""ServerChanged event
+
+        Subscribe to this event if you would like to know when a discovered server's TXT record,
+        host name or port has changed. `ServerAdded` is raised once per logical server,
+        `ServerChanged` zero or more times after it, and `ServerRemoved` at most once; kv carries
+        the full current set of keys (not a delta) and is valid only for the duration of the
+        callback.
+
+        Parameters
+        ----------
+        handler : callable, optional
+            A function to be called when the event occurs. Set to `None` to detach a previously assigned handler.
+
+            The function must accept the following parameters:
+            * **ch** : *Net* - The object on which the event occurred.
+            * **server** : *PhidgetServer* - The server that has changed.
+            * **kv** : *object* - Opaque structure containing keys related to the server. It is valid only for the duration of the callback.
+
+        Raises
+        ------
+        PhidgetError
+            A Phidget error occurred.
+        """
+        self._ServerChanged = handler
+
+        if self._onServerChanged is None:
+            fptr = self._ServerChangedFactory(self._localServerChangedEvent)
+            __func = PhidgetSupport.getDll().PhidgetNet_setOnServerChangedHandler
+            __func.restype = ctypes.c_int32
+            res = __func(fptr, None)
+
+            if res > 0:
+                raise PhidgetException(res)
+
+            self._onServerChanged = fptr
 
     def _localServerRemovedEvent(self, userPtr, server):
         if self._ServerRemoved is None:

@@ -113,14 +113,19 @@ def _step_key(op: dict) -> str | None:
         return None
 
 
+#: The sample routes whose ops merge with their own route's neighbours (the key holds the path, so a
+#: `/samples/points` op never rides in a `/samples/batch` POST: an older server would drop its lists unread).
+_SAMPLE_ROUTES = frozenset({WriteOp.SAMPLES, WriteOp.SAMPLE_POINTS})
+
+
 def _get_samples_key(op: dict) -> str | None:
-    """What a sample op must share with its neighbours to ride in one `/samples/batch` POST: its
-    run, context, writer and every non-list body field (epoch, producer), and its
-    `_delivery_headers`. None when it never merges."""
+    """What a sample op must share with its neighbours to ride in one `/samples/batch` (or
+    `/samples/points`) POST: its run, context, path, writer and every non-list body field (epoch,
+    producer), and its `_delivery_headers`. None when it never merges."""
     if op.get("kind") != "http" or op.get("method") != "POST" or op.get("correlation"):
         return None
     route = routes.classify("POST", op.get("path"))
-    if route.op is not WriteOp.SAMPLES or not route.exact or not _is_uuid(route.run):
+    if route.op not in _SAMPLE_ROUTES or not route.exact or not _is_uuid(route.run):
         return None
     body = op.get("body")
     if not isinstance(body, dict):
@@ -454,13 +459,14 @@ def merge_sample_bodies(bodies: list[dict]) -> dict:
 
 
 def _send_samples(client, items) -> None:
-    """One `POST /v1/runs/{id}/samples/batch` carrying every item of ``items``, in queue order."""
+    """One `POST /v1/runs/{id}/samples/batch` (or `/samples/points`) carrying every item of ``items``,
+    in queue order."""
     for _, op in items:
         for value in op.values():
             unstorable.has_nul(value)
         unstorable.validate_nuls(op.get("body"), path=op.get("path", ""), method="POST")
     head = items[0][1]
-    body = merge_sample_bodies([op["body"] for _, op in items])
+    body = gate_samples_body(client, "POST", head["path"], merge_sample_bodies([op["body"] for _, op in items]))
     client.transport.request("POST", head["path"], json_body=body, **build_async_ack_kwargs(client))
 
 
@@ -481,4 +487,5 @@ from probe.sdk.delivery.ops.classify import classify  # noqa: E402 -- pieces nee
 from probe.sdk.delivery.ops.ingest_queue import build_async_ack_kwargs  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.op_handler import _execute  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.op_handler import _delivery_scope  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.ops.op_handler import gate_samples_body  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.ops import _attempts, _is_uuid, _queued_bucket  # noqa: E402 -- pieces need each other; the front door loads this one first

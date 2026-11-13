@@ -9,7 +9,6 @@ from ._version import (
 from .httpclient import AsyncHttpClient, HttpClient
 from .utils import Logger, RetryConfig, remove_suffix
 from autumn_sdk import models
-from autumn_sdk.models import internal
 from autumn_sdk.types import OptionalNullable, UNSET
 from dataclasses import dataclass
 from pydantic import Field
@@ -30,7 +29,7 @@ class SDKConfiguration:
     async_client: Union[AsyncHttpClient, None]
     async_client_supplied: bool
     debug_logger: Logger
-    globals: internal.Globals
+    globals: models.internal.Globals
     security: Optional[Union[models.Security, Callable[[], models.Security]]] = None
     server_url: Optional[str] = ""
     server_idx: Optional[int] = 0

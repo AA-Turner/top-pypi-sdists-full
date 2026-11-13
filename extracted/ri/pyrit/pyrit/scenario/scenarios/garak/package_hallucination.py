@@ -1,23 +1,35 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
+# Portions Copyright (c) 2023 Leon Derczynski and NVIDIA CORPORATION & AFFILIATES.
+# Garak-derived portions are licensed under Apache-2.0 and modified by Microsoft Corporation.
+# See THIRD_PARTY_NOTICES.txt for attribution and source details.
 
 from __future__ import annotations
 
 import logging
 import random
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar
 
 from pyrit.common import apply_defaults
-from pyrit.executor.attack.core.attack_config import AttackScoringConfig
-from pyrit.executor.attack.single_turn.prompt_sending import PromptSendingAttack
-from pyrit.models import AttackSeedGroup, SeedObjective, SeedPrompt
+from pyrit.executor.attack import AttackScoringConfig, PromptSendingAttack
+from pyrit.models import (
+    AttackSeedGroup,
+    BoundedDatasetSize,
+    DatasetSelectionMode,
+    ScenarioDatasetOptions,
+    ScenarioDatasetSummary,
+    ScenarioRunSizeComponent,
+    ScenarioRunSizeEstimate,
+    SeedObjective,
+    SeedPrompt,
+)
 from pyrit.scenario.core.atomic_attack import AtomicAttack
 from pyrit.scenario.core.attack_technique import AttackTechnique
-from pyrit.scenario.core.dataset_configuration import DatasetAttackConfiguration, DatasetConfiguration
+from pyrit.scenario.core.dataset_configuration import DatasetAttackConfiguration, DatasetSource
 from pyrit.scenario.core.scenario import BaselineAttackPolicy, Scenario
 from pyrit.scenario.core.scenario_technique import ScenarioTechnique
-from pyrit.score.true_false.regex.package_hallucination_scorer import (
+from pyrit.score import (
     PackageEcosystem,
     PackageHallucinationScorer,
 )
@@ -77,20 +89,6 @@ _LANGUAGE_SPECS: dict[str, _LanguageSpec] = {
 }
 
 
-class _PackageHallucinationDatasetConfiguration(DatasetConfiguration):
-    """Dataset configuration that exposes raw values for prompt and registry datasets."""
-
-    async def get_values_by_dataset_async(self) -> dict[str, list[str]]:
-        """
-        Resolve configured datasets, fetching missing datasets from their providers.
-
-        Returns:
-            dict[str, list[str]]: Seed values keyed by dataset name.
-        """
-        seeds_by_dataset = await self._collect_named_seeds_async()
-        return {name: [seed.value for seed in seeds] for name, seeds in seeds_by_dataset.items()}
-
-
 class PackageHallucinationTechnique(ScenarioTechnique):
     """
     Techniques for the PackageHallucination scenario.
@@ -142,6 +140,8 @@ class PackageHallucination(Scenario):
     """
 
     VERSION: int = 3
+    DATASET_OPTIONS = ScenarioDatasetOptions(mode=DatasetSelectionMode.FIXED, per_dataset_limit=False)
+    SUPPORTS_TECHNIQUE_CONVERTERS: ClassVar[bool] = False
 
     # The plain code request is not an adversarial baseline to compare against, so no baseline.
     BASELINE_ATTACK_POLICY: ClassVar[BaselineAttackPolicy] = BaselineAttackPolicy.Forbidden
@@ -182,7 +182,9 @@ class PackageHallucination(Scenario):
             known_packages=set(), ecosystem=default_spec.ecosystem
         )
 
-        self._max_prompts_per_language = max_prompts_per_language or self.DEFAULT_MAX_PROMPTS_PER_LANGUAGE
+        self._max_prompts_per_language = (
+            self.DEFAULT_MAX_PROMPTS_PER_LANGUAGE if max_prompts_per_language is None else max_prompts_per_language
+        )
         self._random_seed = random_seed if random_seed is not None else 42
         self._known_packages_by_technique: dict[str, set[str]] = {}
 
@@ -192,10 +194,63 @@ class PackageHallucination(Scenario):
             # Preload only the Rust registry and prompt corpus. Other registries are fetched
             # on demand when their techniques are selected.
             default_dataset_config=DatasetAttackConfiguration(
-                dataset_names=[_LANGUAGE_SPECS["rust"].dataset_name, *_CORPUS_DATASETS]
+                max_per_dataset="all",
+                sources=[
+                    DatasetSource(name=name) for name in [_LANGUAGE_SPECS["rust"].dataset_name, *_CORPUS_DATASETS]
+                ],
             ),
             objective_scorer=objective_scorer,
             scenario_result_id=scenario_result_id,
+        )
+
+    USES_DATASET_SIZE_LIMIT: ClassVar[bool] = False
+
+    def _resolve_default_dataset_config(self) -> DatasetAttackConfiguration:
+        techniques = self._resolve_scenario_techniques(scenario_techniques=self.params.get("scenario_techniques"))
+        names = [
+            *_CORPUS_DATASETS,
+            *(_LANGUAGE_SPECS[technique.value].dataset_name for technique in techniques),
+        ]
+        by_name = {source.name: source for source in self._default_dataset_config.sources}
+        return self._default_dataset_config.with_overrides(
+            sources=[by_name.get(name, DatasetSource(name=name)) for name in dict.fromkeys(names)]
+        )
+
+    def _validate_runtime_configuration(self) -> None:
+        super()._validate_runtime_configuration()
+        if self._max_prompts_per_language < 1:
+            raise ValueError("max_prompts_per_language must be greater than zero")
+
+    def _get_run_size_budget(self) -> BoundedDatasetSize:
+        """Return the combined generated-prompt cap for the selected languages."""
+        return BoundedDatasetSize(value=self._max_prompts_per_language * len(self._scenario_techniques))
+
+    def _get_required_objective_keys(self) -> list[str]:
+        return [technique.value for technique in self._scenario_techniques]
+
+    async def _estimate_run_size_async(self, *, budget: BoundedDatasetSize) -> ScenarioRunSizeEstimate:
+        """
+        Estimate generated prompts from the per-language cap without loading the corpus.
+
+        Returns:
+            ScenarioRunSizeEstimate: Combined budget for the selected languages.
+        """
+        assert isinstance(budget, BoundedDatasetSize)
+        components = [
+            ScenarioRunSizeComponent(label=technique.value, count=self._max_prompts_per_language)
+            for technique in self._scenario_techniques
+        ]
+        if budget.value < sum(component.count for component in components):
+            components = [ScenarioRunSizeComponent(label="Selected generated objectives", count=budget.value)]
+        return ScenarioRunSizeEstimate(
+            total_attack_count=budget.value,
+            components=components,
+            datasets=[
+                ScenarioDatasetSummary(name=technique.value, kind="synthesized")
+                for technique in self._scenario_techniques
+            ],
+            effective_parameters={"max_prompts_per_language": self._max_prompts_per_language},
+            note="The objective limit caps all selected languages; the per-language generation cap also applies.",
         )
 
     @staticmethod
@@ -287,16 +342,17 @@ class PackageHallucination(Scenario):
 
         Returns:
             dict[str, list[AttackSeedGroup]]: Seed groups keyed by technique value (language).
+
+        Raises:
+            TypeError: If the scenario contains a technique from another catalog.
         """
-        techniques = cast("list[PackageHallucinationTechnique]", self._scenario_techniques)
-        specs_by_technique = {technique.value: _LANGUAGE_SPECS[technique.value] for technique in techniques}
-        dataset_names = [
-            *_CORPUS_DATASETS,
-            *(spec.dataset_name for spec in specs_by_technique.values()),
-        ]
-        dataset_values = await _PackageHallucinationDatasetConfiguration(
-            dataset_names=list(dict.fromkeys(dataset_names))
-        ).get_values_by_dataset_async()
+        specs_by_technique: dict[str, _LanguageSpec] = {}
+        for technique in self._scenario_techniques:
+            if not isinstance(technique, PackageHallucinationTechnique):
+                raise TypeError(f"Unexpected package hallucination technique: {type(technique).__name__}")
+            specs_by_technique[technique.value] = _LANGUAGE_SPECS[technique.value]
+        seeds_by_dataset = await self._dataset_config._collect_named_seeds_async()
+        dataset_values = {name: [seed.value for seed in seeds] for name, seeds in seeds_by_dataset.items()}
 
         rng = random.Random(self._random_seed)
         stubs, tasks = self._load_corpus(dataset_values=dataset_values)
@@ -338,12 +394,16 @@ class PackageHallucination(Scenario):
 
         Returns:
             list[AtomicAttack]: One atomic attack per selected language.
+
+        Raises:
+            TypeError: If the scenario context contains a technique from another catalog.
         """
         atomic_attacks: list[AtomicAttack] = []
-        techniques_by_value = {
-            technique.value: technique
-            for technique in cast("list[PackageHallucinationTechnique]", context.scenario_techniques)
-        }
+        techniques_by_value: dict[str, PackageHallucinationTechnique] = {}
+        for technique in context.scenario_techniques:
+            if not isinstance(technique, PackageHallucinationTechnique):
+                raise TypeError(f"Unexpected package hallucination technique: {type(technique).__name__}")
+            techniques_by_value[technique.value] = technique
         for name, seed_groups in context.seed_groups_by_dataset.items():
             scorer = self._build_scorer_for_technique(technique=techniques_by_value[name])
             attack = PromptSendingAttack(

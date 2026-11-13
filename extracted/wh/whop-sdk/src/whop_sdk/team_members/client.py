@@ -41,11 +41,14 @@ class TeamMembersClient:
         account_id: str,
         status: typing.Optional[ListTeamMembersRequestStatus] = None,
         user_id: typing.Optional[str] = None,
+        user_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         role: typing.Optional[ListTeamMembersRequestRole] = None,
         query: typing.Optional[str] = None,
         reports_to_id: typing.Optional[str] = None,
         direct_reports_min: typing.Optional[int] = None,
         direct_reports_max: typing.Optional[int] = None,
+        team_lead_id: typing.Optional[str] = None,
+        has_referred_businesses: typing.Optional[bool] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
         order: typing.Optional[ListTeamMembersRequestOrder] = None,
@@ -57,7 +60,7 @@ class TeamMembersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[TeamMember, ListTeamMembersResponse]:
         """
-        Lists an account's team members, including pending invites. A user credential with `company:basic:read` may list only its own joined membership by passing its own `user_id` and `status=joined`. Listing `role=workforce` is also allowed with the `bounty:create` scope. Members with the view-only Partner role are listed after all other members.
+        Lists an account's team members, including pending invites. A user credential with `company:basic:read` may list only its own joined membership by passing its own `user_id` and `status=joined`. Listing `role=workforce` is also allowed with the `bounty:create` scope. A signed-in Partner, or a member others report to, without `company:authorized_user:read` lists only their own joined membership and the members who report up to them, never pending invites. Members with the view-only Partner role are listed after all other members.
 
         Parameters
         ----------
@@ -70,6 +73,9 @@ class TeamMembersClient:
         user_id : typing.Optional[str]
             Only return the membership for this user ID, prefixed `user_`.
 
+        user_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Only return the memberships of these users, prefixed `user_`, at most 100. IDs that match no user are ignored. With `account_id=global`, a user can have one in each partner account. Can't be combined with `user_id`.
+
         role : typing.Optional[ListTeamMembersRequestRole]
             Only return members with this role. `custom` matches members on a dashboard-managed custom role.
 
@@ -77,13 +83,19 @@ class TeamMembersClient:
             Only return members whose name or username contains this text, and invites whose email contains it.
 
         reports_to_id : typing.Optional[str]
-            Only return the direct reports of this team member, prefixed `ausr_`. Pass the account ID, prefixed `biz_`, for the members who report to the business directly. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
+            Only return the direct reports of this team member, whose ID may start with `ausr_` or `mber_`. Pass the account ID, prefixed `biz_`, for the members who report to the business directly. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
 
         direct_reports_min : typing.Optional[int]
             Only return members with at least this many direct reports. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
 
         direct_reports_max : typing.Optional[int]
             Only return members with at most this many direct reports; `0` returns the people who manage no one. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
+
+        team_lead_id : typing.Optional[str]
+            Only return this user, prefixed `user_`, and everyone under them in today's org chart: the same team the stats API's `team_lead_id` reads. With `account_id=global`, their line in every partner account where they hold a role. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
+
+        has_referred_businesses : typing.Optional[bool]
+            When true, only members who referred at least one business for their account; when false, only members who referred none. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
 
         created_before : typing.Optional[str]
             Only return members added before this ISO 8601 timestamp.
@@ -122,7 +134,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -139,11 +151,14 @@ class TeamMembersClient:
             account_id=account_id,
             status=status,
             user_id=user_id,
+            user_ids=user_ids,
             role=role,
             query=query,
             reports_to_id=reports_to_id,
             direct_reports_min=direct_reports_min,
             direct_reports_max=direct_reports_max,
+            team_lead_id=team_lead_id,
+            has_referred_businesses=has_referred_businesses,
             created_before=created_before,
             created_after=created_after,
             order=order,
@@ -194,7 +209,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -216,7 +231,7 @@ class TeamMembersClient:
         Parameters
         ----------
         id : str
-            Team member ID — `ausr_` for accepted members, `ausri_` for pending invites.
+            Team member ID. Accepted members have an ID starting with `ausr_` or `mber_`, and pending invites one starting with `ausri_`. Treat it as opaque.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -231,7 +246,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -249,7 +264,7 @@ class TeamMembersClient:
         Parameters
         ----------
         id : str
-            Team member ID — `ausr_` for accepted members, `ausri_` for pending invites.
+            Team member ID. Accepted members have an ID starting with `ausr_` or `mber_`, and pending invites one starting with `ausri_`. Treat it as opaque.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -264,7 +279,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -288,7 +303,7 @@ class TeamMembersClient:
         Parameters
         ----------
         id : str
-            Team member ID — `ausr_` for accepted members, `ausri_` for pending invites.
+            Team member ID. Accepted members have an ID starting with `ausr_` or `mber_`, and pending invites one starting with `ausri_`. Treat it as opaque.
 
         role : typing.Optional[UpdateTeamMembersRequestRole]
             The system role to grant. Custom roles cannot be granted through the API. The Partner role provides view-only access.
@@ -306,7 +321,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -339,11 +354,14 @@ class AsyncTeamMembersClient:
         account_id: str,
         status: typing.Optional[ListTeamMembersRequestStatus] = None,
         user_id: typing.Optional[str] = None,
+        user_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         role: typing.Optional[ListTeamMembersRequestRole] = None,
         query: typing.Optional[str] = None,
         reports_to_id: typing.Optional[str] = None,
         direct_reports_min: typing.Optional[int] = None,
         direct_reports_max: typing.Optional[int] = None,
+        team_lead_id: typing.Optional[str] = None,
+        has_referred_businesses: typing.Optional[bool] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
         order: typing.Optional[ListTeamMembersRequestOrder] = None,
@@ -355,7 +373,7 @@ class AsyncTeamMembersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[TeamMember, ListTeamMembersResponse]:
         """
-        Lists an account's team members, including pending invites. A user credential with `company:basic:read` may list only its own joined membership by passing its own `user_id` and `status=joined`. Listing `role=workforce` is also allowed with the `bounty:create` scope. Members with the view-only Partner role are listed after all other members.
+        Lists an account's team members, including pending invites. A user credential with `company:basic:read` may list only its own joined membership by passing its own `user_id` and `status=joined`. Listing `role=workforce` is also allowed with the `bounty:create` scope. A signed-in Partner, or a member others report to, without `company:authorized_user:read` lists only their own joined membership and the members who report up to them, never pending invites. Members with the view-only Partner role are listed after all other members.
 
         Parameters
         ----------
@@ -368,6 +386,9 @@ class AsyncTeamMembersClient:
         user_id : typing.Optional[str]
             Only return the membership for this user ID, prefixed `user_`.
 
+        user_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Only return the memberships of these users, prefixed `user_`, at most 100. IDs that match no user are ignored. With `account_id=global`, a user can have one in each partner account. Can't be combined with `user_id`.
+
         role : typing.Optional[ListTeamMembersRequestRole]
             Only return members with this role. `custom` matches members on a dashboard-managed custom role.
 
@@ -375,13 +396,19 @@ class AsyncTeamMembersClient:
             Only return members whose name or username contains this text, and invites whose email contains it.
 
         reports_to_id : typing.Optional[str]
-            Only return the direct reports of this team member, prefixed `ausr_`. Pass the account ID, prefixed `biz_`, for the members who report to the business directly. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
+            Only return the direct reports of this team member, whose ID may start with `ausr_` or `mber_`. Pass the account ID, prefixed `biz_`, for the members who report to the business directly. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
 
         direct_reports_min : typing.Optional[int]
             Only return members with at least this many direct reports. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
 
         direct_reports_max : typing.Optional[int]
             Only return members with at most this many direct reports; `0` returns the people who manage no one. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
+
+        team_lead_id : typing.Optional[str]
+            Only return this user, prefixed `user_`, and everyone under them in today's org chart: the same team the stats API's `team_lead_id` reads. With `account_id=global`, their line in every partner account where they hold a role. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
+
+        has_referred_businesses : typing.Optional[bool]
+            When true, only members who referred at least one business for their account; when false, only members who referred none. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
 
         created_before : typing.Optional[str]
             Only return members added before this ISO 8601 timestamp.
@@ -422,7 +449,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -446,11 +473,14 @@ class AsyncTeamMembersClient:
             account_id=account_id,
             status=status,
             user_id=user_id,
+            user_ids=user_ids,
             role=role,
             query=query,
             reports_to_id=reports_to_id,
             direct_reports_min=direct_reports_min,
             direct_reports_max=direct_reports_max,
+            team_lead_id=team_lead_id,
+            has_referred_businesses=has_referred_businesses,
             created_before=created_before,
             created_after=created_after,
             order=order,
@@ -503,7 +533,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -531,7 +561,7 @@ class AsyncTeamMembersClient:
         Parameters
         ----------
         id : str
-            Team member ID — `ausr_` for accepted members, `ausri_` for pending invites.
+            Team member ID. Accepted members have an ID starting with `ausr_` or `mber_`, and pending invites one starting with `ausri_`. Treat it as opaque.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -548,7 +578,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -574,7 +604,7 @@ class AsyncTeamMembersClient:
         Parameters
         ----------
         id : str
-            Team member ID — `ausr_` for accepted members, `ausri_` for pending invites.
+            Team member ID. Accepted members have an ID starting with `ausr_` or `mber_`, and pending invites one starting with `ausri_`. Treat it as opaque.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -591,7 +621,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -621,7 +651,7 @@ class AsyncTeamMembersClient:
         Parameters
         ----------
         id : str
-            Team member ID — `ausr_` for accepted members, `ausri_` for pending invites.
+            Team member ID. Accepted members have an ID starting with `ausr_` or `mber_`, and pending invites one starting with `ausri_`. Treat it as opaque.
 
         role : typing.Optional[UpdateTeamMembersRequestRole]
             The system role to grant. Custom roles cannot be granted through the API. The Partner role provides view-only access.
@@ -641,7 +671,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

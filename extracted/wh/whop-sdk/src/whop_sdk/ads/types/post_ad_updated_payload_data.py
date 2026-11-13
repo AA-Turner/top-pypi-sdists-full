@@ -4,18 +4,13 @@ import typing
 
 import pydantic
 from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ...types.ad_content_review import AdContentReview
 from ...types.ad_creative import AdCreative
 from ...types.ad_entity_reference import AdEntityReference
-from ...types.ad_lead_form import AdLeadForm
-from ...types.ad_messaging_config import AdMessagingConfig
-from ...types.ad_music import AdMusic
 from ...types.ad_platform_issue import AdPlatformIssue
 from ...types.ad_text import AdText
-from ...types.ad_translations import AdTranslations
 from .post_ad_updated_payload_data_call_to_action import PostAdUpdatedPayloadDataCallToAction
 from .post_ad_updated_payload_data_delivery_status import PostAdUpdatedPayloadDataDeliveryStatus
-from .post_ad_updated_payload_data_platform import PostAdUpdatedPayloadDataPlatform
-from .post_ad_updated_payload_data_post_source import PostAdUpdatedPayloadDataPostSource
 from .post_ad_updated_payload_data_status import PostAdUpdatedPayloadDataStatus
 
 
@@ -35,6 +30,11 @@ class PostAdUpdatedPayloadData(UniversalBaseModel):
     The call-to-action button shown on the ad.
     """
 
+    content_review: AdContentReview = pydantic.Field()
+    """
+    Whop's content review of this ad: whether it has finished, which ad networks it is recommended for, and the content rules it breaks.
+    """
+
     created_at: str = pydantic.Field()
     """
     When the ad was created, as an ISO 8601 timestamp.
@@ -47,12 +47,6 @@ class PostAdUpdatedPayloadData(UniversalBaseModel):
     """
 
     descriptions: typing.List[AdText]
-    existing_post_id: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    The post you pointed this ad at, when it promotes one you already published — a Facebook post, Instagram media, or TikTok video ID. `null` when the ad uses uploaded creatives.
-    """
-
-    external_accounts: typing.List[AdEntityReference]
     headlines: typing.List[AdText]
     id: str = pydantic.Field()
     """
@@ -60,51 +54,6 @@ class PostAdUpdatedPayloadData(UniversalBaseModel):
     """
 
     issues: typing.List[AdPlatformIssue]
-    lead_form: typing.Optional[AdLeadForm] = pydantic.Field(default=None)
-    """
-    The instant lead form shown when someone taps this ad. `null` when the ad group's conversion_location is not an instant-form destination.
-    """
-
-    lead_form_id: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    The ad platform's ID for the instant form the ad uses. Set when the ad references an existing form via `lead_form_id`, or once a form built from `lead_form` has been created on the platform.
-    """
-
-    messaging_config: typing.Optional[AdMessagingConfig] = pydantic.Field(default=None)
-    """
-    Welcome message for click-to-message ads, shown when the conversation opens. `null` when the ad has none.
-    """
-
-    multi_advertiser_ads: typing.Optional[bool] = pydantic.Field(default=None)
-    """
-    Whether the ad can appear alongside other advertisers' ads in the same unit. Defaults to true.
-    """
-
-    music: typing.Optional[AdMusic] = pydantic.Field(default=None)
-    """
-    The advertiser-uploaded MP3 a TikTok carousel ad plays. TikTok-only; `null` elsewhere and for non-carousel ads.
-    """
-
-    platform: PostAdUpdatedPayloadDataPlatform = pydantic.Field()
-    """
-    The ad platform this ad runs on.
-    """
-
-    post_id: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    The post the ad network serves for this ad, as `pageID_postID` on Meta — the post Meta created for an uploaded creative, or the post being promoted. Use it to open the live post, or to promote the same post from another ad. `null` until the network has created the post.
-    """
-
-    post_source: typing.Optional[PostAdUpdatedPayloadDataPostSource] = pydantic.Field(default=None)
-    """
-    Identifies the network that owns `existing_post_id`; `null` when the ad uses uploaded creatives.
-    """
-
-    post_thumbnail_url: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    Preview image of the post named by `existing_post_id`. `null` for ads that use uploaded creatives, or until the post's media has been fetched from the network.
-    """
-
     primary_texts: typing.List[AdText]
     status: PostAdUpdatedPayloadDataStatus = pydantic.Field()
     """
@@ -114,11 +63,6 @@ class PostAdUpdatedPayloadData(UniversalBaseModel):
     title: typing.Optional[str] = pydantic.Field(default=None)
     """
     Display title of the ad.
-    """
-
-    translations: typing.Optional[AdTranslations] = pydantic.Field(default=None)
-    """
-    The languages a Meta ad runs in besides its own. Each viewer sees the version for their language, or the ad's own copy. `null` when the ad runs in one language.
     """
 
     updated_at: str = pydantic.Field()
@@ -133,7 +77,7 @@ class PostAdUpdatedPayloadData(UniversalBaseModel):
 
     url_parameters: typing.Dict[str, typing.Any] = pydantic.Field()
     """
-    Every query parameter appended to the URL, keyed by parameter name — including any you sent on `url` itself. Whop adds its own click-attribution parameters on top; those are reserved and rejected if you set them. Which keys are reserved depends on the ad's network — Meta: utm_meta_ad_id, utm_meta_adset_id, utm_meta_campaign_id, utm_source, utm_placement, utm_medium, utm_content, utm_adset, utm_whop, wacid, wasid, waid, tw_source, tw_adid; TikTok: waid, wasid, wacid, ad_id, adset_id, campaign_id, utm_source, utm_medium, utm_placement, utm_whop, tw_source, tw_adid.
+    Query parameters appended to `url`, keyed by name. Whop's click-attribution parameters are reserved.
     """
 
     if IS_PYDANTIC_V2:

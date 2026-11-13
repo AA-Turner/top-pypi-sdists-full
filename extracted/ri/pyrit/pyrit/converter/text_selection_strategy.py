@@ -9,6 +9,7 @@ from re import Pattern
 from typing import Any
 
 from pyrit.common.random_context import get_random_generator
+from pyrit.models import StructuredParameterValue
 
 # Common English function words used by ContentWordSelectionStrategy. This is a
 # dependency-free stand-in for POS filtering (no NLTK / tagger download).
@@ -193,7 +194,7 @@ class TokenSelectionStrategy(TextSelectionStrategy):
         return (0, 0)
 
 
-class WordSelectionStrategy(TextSelectionStrategy):
+class WordSelectionStrategy(TextSelectionStrategy, StructuredParameterValue):
     """
     Base class for word-level selection strategies.
 
@@ -254,6 +255,19 @@ class WordSelectionStrategy(TextSelectionStrategy):
 
         return (start_char, end_char)
 
+    @classmethod
+    def get_registry_input_variants(cls) -> dict[str, type[StructuredParameterValue]]:
+        """Return the safe implementations available to registry input consumers."""
+        return {
+            "all": AllWordsSelectionStrategy,
+            "random": WordProportionSelectionStrategy,
+            "position": WordPositionSelectionStrategy,
+            "indices": WordIndexSelectionStrategy,
+            "keywords": WordKeywordSelectionStrategy,
+            "regex": WordRegexSelectionStrategy,
+            "content": ContentWordSelectionStrategy,
+        }
+
 
 class IndexSelectionStrategy(TextSelectionStrategy):
     """
@@ -270,6 +284,18 @@ class IndexSelectionStrategy(TextSelectionStrategy):
         """
         self._start = start
         self._end = end
+
+    def get_identifier_params(self) -> dict[str, Any]:
+        """
+        Return the start index and the end index when one was provided.
+
+        Returns:
+            dict[str, Any]: Start index, and end index when set.
+        """
+        params: dict[str, Any] = {"start": self._start}
+        if self._end is not None:
+            params["end"] = self._end
+        return params
 
     def select_range(self, *, text: str) -> tuple[int, int]:
         """
@@ -300,6 +326,15 @@ class RegexSelectionStrategy(TextSelectionStrategy):
             pattern (str | Pattern[str]): The regex pattern to match.
         """
         self._pattern = re.compile(pattern) if isinstance(pattern, str) else pattern
+
+    def get_identifier_params(self) -> dict[str, Any]:
+        """
+        Return the regex pattern and flags.
+
+        Returns:
+            dict[str, Any]: Pattern string and compiled flags.
+        """
+        return {"pattern": self._pattern.pattern, "flags": self._pattern.flags}
 
     def select_range(self, *, text: str) -> tuple[int, int]:
         """
@@ -339,11 +374,35 @@ class KeywordSelectionStrategy(TextSelectionStrategy):
             context_before (int): Number of characters to include before the keyword. Defaults to 0.
             context_after (int): Number of characters to include after the keyword. Defaults to 0.
             case_sensitive (bool): Whether the keyword search is case-sensitive. Defaults to True.
+
+        Raises:
+            ValueError: If ``keyword`` is not a non-empty string, or if ``context_before`` or
+                ``context_after`` is not a non-negative integer.
         """
+        if not isinstance(keyword, str) or not keyword:
+            raise ValueError(f"keyword must be a non-empty string, got {keyword!r}")
+        for name, value in (("context_before", context_before), ("context_after", context_after)):
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ValueError(f"{name} must be a non-negative integer, got {value!r}")
+
         self._keyword = keyword
         self._context_before = context_before
         self._context_after = context_after
         self._case_sensitive = case_sensitive
+
+    def get_identifier_params(self) -> dict[str, Any]:
+        """
+        Return the keyword, the context sizes and the case-sensitivity flag.
+
+        Returns:
+            dict[str, Any]: Keyword, context sizes and case-sensitivity flag.
+        """
+        return {
+            "keyword": self._keyword,
+            "context_before": self._context_before,
+            "context_after": self._context_after,
+            "case_sensitive": self._case_sensitive,
+        }
 
     def select_range(self, *, text: str) -> tuple[int, int]:
         """
@@ -356,10 +415,14 @@ class KeywordSelectionStrategy(TextSelectionStrategy):
             tuple[int, int]: A tuple of (start_index, end_index) including context,
                 or (0, 0) if keyword not found.
         """
-        search_text = text if self._case_sensitive else text.lower()
-        search_keyword = self._keyword if self._case_sensitive else self._keyword.lower()
-
-        index = search_text.find(search_keyword)
+        if self._case_sensitive:
+            index = text.find(self._keyword)
+        else:
+            # Match on the original text: lowercasing can change length (for
+            # example a dotted capital I becomes two code points), so an index
+            # found in the lowered string points at the wrong characters here.
+            match = re.search(re.escape(self._keyword), text, re.IGNORECASE)
+            index = match.start() if match else -1
         if index == -1:
             return (0, 0)
 
@@ -395,6 +458,18 @@ class PositionSelectionStrategy(TextSelectionStrategy):
 
         self._start_proportion = start_proportion
         self._end_proportion = end_proportion
+
+    def get_identifier_params(self) -> dict[str, Any]:
+        """
+        Return the start and end proportions.
+
+        Returns:
+            dict[str, Any]: Start and end proportions.
+        """
+        return {
+            "start_proportion": self._start_proportion,
+            "end_proportion": self._end_proportion,
+        }
 
     def select_range(self, *, text: str) -> tuple[int, int]:
         """
@@ -445,6 +520,18 @@ class ProportionSelectionStrategy(TextSelectionStrategy):
         self._proportion = proportion
         self._anchor = anchor
         self._seed = seed
+
+    def get_identifier_params(self) -> dict[str, Any]:
+        """
+        Return the proportion, the anchor and the optional seed.
+
+        Returns:
+            dict[str, Any]: Proportion, anchor, and seed when one was provided.
+        """
+        params: dict[str, Any] = {"proportion": self._proportion, "anchor": self._anchor}
+        if self._seed is not None:
+            params["seed"] = self._seed
+        return params
 
     def select_range(self, *, text: str) -> tuple[int, int]:
         """
@@ -506,6 +593,18 @@ class RangeSelectionStrategy(TextSelectionStrategy):
         self._start_proportion = start_proportion
         self._end_proportion = end_proportion
 
+    def get_identifier_params(self) -> dict[str, Any]:
+        """
+        Return the start and end proportions.
+
+        Returns:
+            dict[str, Any]: Start and end proportions.
+        """
+        return {
+            "start_proportion": self._start_proportion,
+            "end_proportion": self._end_proportion,
+        }
+
     def select_range(self, *, text: str) -> tuple[int, int]:
         """
         Select a range based on proportional positions.
@@ -537,18 +636,23 @@ class WordIndexSelectionStrategy(WordSelectionStrategy):
         Initialize the word index selection strategy.
 
         Args:
-            indices (list[int]): The list of word indices to select.
+            indices (list[int]): The list of word indices in conversion order.
+
+        Raises:
+            ValueError: If an index is negative.
         """
+        if any(index < 0 for index in indices):
+            raise ValueError("indices must be non-negative")
         self._indices = indices
 
     def get_identifier_params(self) -> dict[str, Any]:
         """
-        Return the selected indices in sorted order.
+        Return the selected indices in conversion order.
 
         Returns:
-            dict[str, Any]: The sorted index list.
+            dict[str, Any]: The ordered index list.
         """
-        return {"indices": sorted(self._indices)}
+        return {"indices": list(self._indices)}
 
     def select_words(self, *, words: list[str]) -> list[int]:
         """

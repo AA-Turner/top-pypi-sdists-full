@@ -15,7 +15,7 @@ from .outcome import SampleOutcome, SampleSplit, validate_drop_reason
 from .provenance import Generation, Scorer, Sha256
 from .result import SampleErrorReason, SampleResult
 from .task import MAX_TASK_KEY_CHARS, BlobRef, InlineText, Scenario
-from .turns import SampleEvent, Turn
+from .turns import SampleEvent, Turn, TurnsSource
 
 #: A producer key is unique per attempt within a write epoch (DESIGN.md "Identity").
 MAX_KEY_CHARS = 512
@@ -44,9 +44,18 @@ def check_log_tail(value: str) -> str:
 LogTail = Annotated[str, AfterValidator(check_log_tail)]
 
 
+def measure_turn_text(turns: list[Turn]) -> int:
+    """The bytes of text the turns hold inline: each message's content, reasoning and tool-call arguments."""
+    size = 0
+    for turn in turns:
+        for message in turn.messages:
+            texts = [message.content, message.reasoning or "", *(call.arguments for call in message.tool_calls)]
+            size += sum(len(text.encode("utf-8")) for text in texts)
+    return size
+
+
 def check_turn_text(turns: list[Turn]) -> list[Turn]:
-    size = sum(len(message.content.encode("utf-8")) for turn in turns for message in turn.messages)
-    if size > MAX_TURN_TEXT_BYTES:
+    if measure_turn_text(turns) > MAX_TURN_TEXT_BYTES:
         raise ValueError("turn text is over 64 KiB: send the turns as turns_blob")
     return turns
 
@@ -140,6 +149,9 @@ class TokenStats(BaseModel):
     advantage_mean: float | None = None
     advantage_std: float | None = None
     return_mean: float | None = None
+    #: The tokens the means above were taken over (the loss mask's ones), so they combine token-weighted
+    #: (`wmean:token_stats.<name>`); None on samples written before it, which a weighted mean leaves out.
+    masked_tokens: int | None = Field(default=None, ge=0)
 
 
 def derive_duration_s(duration_s: float | None, timing: Timing | dict | None) -> float | None:
@@ -205,6 +217,8 @@ class Sample(Record):
     response_blob: BlobRef | None = None
     turns: Turns = Field(default_factory=list)
     turns_blob: BlobRef | None = None
+    #: The messages as the framework built them, or text Probe decoded from tokens; None from an older producer.
+    turns_source: TurnsSource | None = None
     turn_count: int | None = Field(default=None, ge=0)
     tool_call_count: int | None = Field(default=None, ge=0)
     finish_reason: FinishReason | None = None

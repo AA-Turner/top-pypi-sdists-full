@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -41,7 +41,7 @@ def _default_model_kwargs() -> dict[str, Any]:
 
 
 def _default_tokenizer_kwargs() -> dict[str, Any]:
-    return {"use_fast": False}
+    return {"use_fast": True}
 
 
 @dataclass
@@ -58,9 +58,8 @@ class GCGModelConfig:
             ``AutoModelForCausalLM.from_pretrained``. Defaults to
             ``{"low_cpu_mem_usage": True, "use_cache": False}``.
         tokenizer_kwargs (dict[str, Any]): Extra keyword arguments forwarded to
-            ``AutoTokenizer.from_pretrained``. Defaults to ``{"use_fast": False}``
-            because several legacy chat tokenizers (Llama-2, Vicuna) ship slow
-            tokenizers only.
+            ``AutoTokenizer.from_pretrained``. Defaults to ``{"use_fast": True}``
+            because GCG needs the character offsets only fast tokenizers provide.
     """
 
     name: str
@@ -126,7 +125,7 @@ class GCGDataConfig:
         return json.dumps(asdict(self), indent=2)
 
     @classmethod
-    def from_json(cls, payload: str) -> GCGDataConfig:
+    def from_json(cls, payload: str) -> Self:
         """
         Deserialize a config previously produced by ``to_json``.
 
@@ -143,7 +142,7 @@ class GCGDataConfig:
         return cls(**data)
 
     @classmethod
-    def from_json_file(cls, path: str | Path) -> GCGDataConfig:
+    def from_json_file(cls, path: str | Path) -> Self:
         """
         Load a config from a JSON file.
 
@@ -185,6 +184,9 @@ class GCGAlgorithmConfig:
             Defaults to False.
         filter_cand (bool): Drop candidates whose token-length changes after
             re-tokenization. Defaults to True.
+        use_prefix_cache (bool): Cache the invariant prompt prefix while
+            scoring candidate suffixes. Defaults to False because reduced-
+            precision cache reuse can introduce small numerical differences.
         random_seed (int): Seed for ``torch``/``numpy``/``random``. Defaults to 42.
         control_init (str): Initial suffix string the optimization starts from.
             Defaults to twenty space-separated ``!`` tokens.
@@ -212,6 +214,7 @@ class GCGAlgorithmConfig:
     learning_rate: float = 0.01
     allow_non_ascii: bool = False
     filter_cand: bool = True
+    use_prefix_cache: bool = False
     random_seed: int = 42
     control_init: str = _DEFAULT_CONTROL_INIT
     sampling: SamplingStrategy | None = None
@@ -315,9 +318,11 @@ class GCGOutputConfig:
 
     Attributes:
         result_prefix (str): Prefix for the per-run JSON log file. The actual
-            filename is ``{result_prefix}_{YYYYMMDD-HHMMSS}.json``. Empty string
-            means write the log into the current working directory with no
-            prefix (``_<timestamp>.json``); that is rarely what you want.
+            filename is ``{result_prefix}_{YYYYMMDD-HHMMSS}_{id}.json`` where
+            ``id`` is a random 8-character hex string that keeps concurrent runs
+            sharing a prefix from writing to the same file. Empty string means
+            write the log into the current working directory with no prefix
+            (``_<timestamp>_<id>.json``); that is rarely what you want.
         logfile (str): Optional pre-resolved log file path. When set this takes
             precedence over ``result_prefix`` for the legacy code paths.
         verbose (bool): Verbose progress logging during the run. Defaults to True.
@@ -386,7 +391,7 @@ class GCGConfig:
         return json.dumps(asdict(self), indent=2)
 
     @classmethod
-    def from_json(cls, payload: str) -> GCGConfig:
+    def from_json(cls, payload: str) -> Self:
         """
         Deserialize a config previously produced by ``to_json``.
 
@@ -408,7 +413,7 @@ class GCGConfig:
         return cls._from_dict(data)
 
     @classmethod
-    def from_json_file(cls, path: str | Path) -> GCGConfig:
+    def from_json_file(cls, path: str | Path) -> Self:
         """
         Load a config from a JSON file produced by ``to_json_file``.
 
@@ -432,7 +437,7 @@ class GCGConfig:
             f.write(self.to_json())
 
     @classmethod
-    def _from_dict(cls, data: dict[str, Any]) -> GCGConfig:
+    def _from_dict(cls, data: dict[str, Any]) -> Self:
         if "models" not in data or not isinstance(data["models"], list):
             raise ValueError("GCGConfig payload must contain a 'models' list.")
         return cls(

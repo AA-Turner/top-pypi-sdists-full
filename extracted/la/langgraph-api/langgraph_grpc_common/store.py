@@ -26,6 +26,10 @@ if TYPE_CHECKING:
 
 T = TypeVar("T")
 
+# Matches the core-server's gRPC limit; gRPC's own 4 MiB receive default
+# rejects ordinary search pages and large items.
+DEFAULT_MAX_MESSAGE_BYTES = 300 * 1024 * 1024
+
 
 class GrpcStore(AsyncBatchedBaseStore):
     """BaseStore client that dispatches ``abatch`` over gRPC.
@@ -48,12 +52,16 @@ class GrpcStore(AsyncBatchedBaseStore):
         index: IndexConfig | None = None,
         ttl: dict[str, Any] | None = None,
         encryption_context_provider: Callable[[], Mapping[str, Any]] | None = None,
+        max_receive_message_bytes: int = DEFAULT_MAX_MESSAGE_BYTES,
+        max_send_message_bytes: int = DEFAULT_MAX_MESSAGE_BYTES,
     ) -> None:
         super().__init__()
         self.ttl_config = ttl
         self._embeddings, self._index_config = normalize_index_config(index)
         self._address = address
         self._encryption_context_provider = encryption_context_provider
+        self._max_receive_message_bytes = max_receive_message_bytes
+        self._max_send_message_bytes = max_send_message_bytes
         self._channel_lock = threading.Lock()
         self._channel: grpc.aio.Channel | None = None
         self._stub: StoreStub | None = None
@@ -62,8 +70,23 @@ class GrpcStore(AsyncBatchedBaseStore):
         if self._stub is None:
             with self._channel_lock:
                 if self._stub is None:
-                    # Internal loopback to core-server; matches langgraph_api.grpc.client.
-                    self._channel = grpc.aio.insecure_channel(self._address)
+                    # Internal loopback to core-server, reconnecting as fast as
+                    # langgraph_api.grpc.client does (which explains the values).
+                    self._channel = grpc.aio.insecure_channel(
+                        self._address,
+                        options=[
+                            ("grpc.initial_reconnect_backoff_ms", 100),
+                            ("grpc.max_reconnect_backoff_ms", 1000),
+                            (
+                                "grpc.max_receive_message_length",
+                                self._max_receive_message_bytes,
+                            ),
+                            (
+                                "grpc.max_send_message_length",
+                                self._max_send_message_bytes,
+                            ),
+                        ],
+                    )
                     self._stub = StoreStub(self._channel)
         return self._stub
 

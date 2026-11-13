@@ -3217,6 +3217,240 @@ class CfnRuleGroup(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroup.ConnectedAccountChainConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"chain": "chain", "prices": "prices"},
+    )
+    class ConnectedAccountChainConfigProperty:
+        def __init__(
+            self,
+            *,
+            chain: builtins.str,
+            prices: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.ConnectedAccountPriceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''Per-chain price configuration for a connected account.
+
+            The deposit address is provisioned by the payments provider and is not specified here.
+
+            :param chain: The blockchain chain to use with a connected account. Connected accounts are mainnet only.
+            :param prices: List of connected-account price configurations. A single price is supported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-connectedaccountchainconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                connected_account_chain_config_property = wafv2.CfnRuleGroup.ConnectedAccountChainConfigProperty(
+                    chain="chain",
+                    prices=[wafv2.CfnRuleGroup.ConnectedAccountPriceProperty(
+                        amount="amount",
+                        currency="currency"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c3a91408ee09d2f125f72c4353bf510e349dc5dd3b1215182887f78da0add78d)
+                check_type(argname="argument chain", value=chain, expected_type=type_hints["chain"])
+                check_type(argname="argument prices", value=prices, expected_type=type_hints["prices"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "chain": chain,
+                "prices": prices,
+            }
+
+        @builtins.property
+        def chain(self) -> builtins.str:
+            '''The blockchain chain to use with a connected account.
+
+            Connected accounts are mainnet only.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-connectedaccountchainconfig.html#cfn-wafv2-rulegroup-connectedaccountchainconfig-chain
+            '''
+            result = self._values.get("chain")
+            assert result is not None, "Required property 'chain' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def prices(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.ConnectedAccountPriceProperty"]]]:
+            '''List of connected-account price configurations.
+
+            A single price is supported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-connectedaccountchainconfig.html#cfn-wafv2-rulegroup-connectedaccountchainconfig-prices
+            '''
+            result = self._values.get("prices")
+            assert result is not None, "Required property 'prices' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.ConnectedAccountPriceProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectedAccountChainConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroup.ConnectedAccountConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "connected_account_arn": "connectedAccountArn",
+            "payment_networks": "paymentNetworks",
+        },
+    )
+    class ConnectedAccountConfigProperty:
+        def __init__(
+            self,
+            *,
+            connected_account_arn: builtins.str,
+            payment_networks: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.ConnectedAccountChainConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''Configuration for a single connected account and the chains it accepts payment on.
+
+            :param connected_account_arn: The ARN of the connected account that provisions deposit addresses for this configuration.
+            :param payment_networks: List of per-chain configurations for a connected account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-connectedaccountconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                connected_account_config_property = wafv2.CfnRuleGroup.ConnectedAccountConfigProperty(
+                    connected_account_arn="connectedAccountArn",
+                    payment_networks=[wafv2.CfnRuleGroup.ConnectedAccountChainConfigProperty(
+                        chain="chain",
+                        prices=[wafv2.CfnRuleGroup.ConnectedAccountPriceProperty(
+                            amount="amount",
+                            currency="currency"
+                        )]
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__75fde48b79c07695781b6743d752df21a483db7108aa2b527b95f677ba8be98d)
+                check_type(argname="argument connected_account_arn", value=connected_account_arn, expected_type=type_hints["connected_account_arn"])
+                check_type(argname="argument payment_networks", value=payment_networks, expected_type=type_hints["payment_networks"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "connected_account_arn": connected_account_arn,
+                "payment_networks": payment_networks,
+            }
+
+        @builtins.property
+        def connected_account_arn(self) -> builtins.str:
+            '''The ARN of the connected account that provisions deposit addresses for this configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-connectedaccountconfig.html#cfn-wafv2-rulegroup-connectedaccountconfig-connectedaccountarn
+            '''
+            result = self._values.get("connected_account_arn")
+            assert result is not None, "Required property 'connected_account_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def payment_networks(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.ConnectedAccountChainConfigProperty"]]]:
+            '''List of per-chain configurations for a connected account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-connectedaccountconfig.html#cfn-wafv2-rulegroup-connectedaccountconfig-paymentnetworks
+            '''
+            result = self._values.get("payment_networks")
+            assert result is not None, "Required property 'payment_networks' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.ConnectedAccountChainConfigProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectedAccountConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroup.ConnectedAccountPriceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"amount": "amount", "currency": "currency"},
+    )
+    class ConnectedAccountPriceProperty:
+        def __init__(self, *, amount: builtins.str, currency: builtins.str) -> None:
+            '''A connected-account price configuration.
+
+            The payment provider rejects amounts below $0.01 and does not support sub-cent amounts.
+
+            :param amount: The price amount for a connected account. Whole cents only, from 0.01 up to the payment provider's maximum of 999999.99.
+            :param currency: The cryptocurrency to use for payment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-connectedaccountprice.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                connected_account_price_property = wafv2.CfnRuleGroup.ConnectedAccountPriceProperty(
+                    amount="amount",
+                    currency="currency"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__87e946ec65715d348893359fa3dc3153b6a69d8ca0fd277eccc9cd943d5e7d72)
+                check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
+                check_type(argname="argument currency", value=currency, expected_type=type_hints["currency"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "amount": amount,
+                "currency": currency,
+            }
+
+        @builtins.property
+        def amount(self) -> builtins.str:
+            '''The price amount for a connected account.
+
+            Whole cents only, from 0.01 up to the payment provider's maximum of 999999.99.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-connectedaccountprice.html#cfn-wafv2-rulegroup-connectedaccountprice-amount
+            '''
+            result = self._values.get("amount")
+            assert result is not None, "Required property 'amount' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def currency(self) -> builtins.str:
+            '''The cryptocurrency to use for payment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-connectedaccountprice.html#cfn-wafv2-rulegroup-connectedaccountprice-currency
+            '''
+            result = self._values.get("currency")
+            assert result is not None, "Required property 'currency' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectedAccountPriceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroup.CookieMatchPatternProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -5575,6 +5809,7 @@ class CfnRuleGroup(
         jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroup.MonetizationConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "connected_account_configs": "connectedAccountConfigs",
             "crypto_config": "cryptoConfig",
             "currency_mode": "currencyMode",
         },
@@ -5583,11 +5818,13 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
+            connected_account_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.ConnectedAccountConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             crypto_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuleGroup.CryptoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             currency_mode: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configures monetization for the web ACL or rule group.
 
+            :param connected_account_configs: List of connected account configurations. A connected account delegates deposit-address provisioning to the payments provider instead of specifying a wallet directly.
             :param crypto_config: Configures cryptocurrency payment settings.
             :param currency_mode: The currency mode for monetization. Use REAL for production payments and TEST for testing with testnet currencies.
 
@@ -5601,6 +5838,16 @@ class CfnRuleGroup(
                 from aws_cdk import aws_wafv2 as wafv2
                 
                 monetization_config_property = wafv2.CfnRuleGroup.MonetizationConfigProperty(
+                    connected_account_configs=[wafv2.CfnRuleGroup.ConnectedAccountConfigProperty(
+                        connected_account_arn="connectedAccountArn",
+                        payment_networks=[wafv2.CfnRuleGroup.ConnectedAccountChainConfigProperty(
+                            chain="chain",
+                            prices=[wafv2.CfnRuleGroup.ConnectedAccountPriceProperty(
+                                amount="amount",
+                                currency="currency"
+                            )]
+                        )]
+                    )],
                     crypto_config=wafv2.CfnRuleGroup.CryptoConfigProperty(
                         payment_networks=[wafv2.CfnRuleGroup.PaymentNetworkProperty(
                             chain="chain",
@@ -5616,13 +5863,29 @@ class CfnRuleGroup(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__ceb78dda46ae1b19d0de4ea9d2b3587e4e9b855dae4193ffeed916904b69546b)
+                check_type(argname="argument connected_account_configs", value=connected_account_configs, expected_type=type_hints["connected_account_configs"])
                 check_type(argname="argument crypto_config", value=crypto_config, expected_type=type_hints["crypto_config"])
                 check_type(argname="argument currency_mode", value=currency_mode, expected_type=type_hints["currency_mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if connected_account_configs is not None:
+                self._values["connected_account_configs"] = connected_account_configs
             if crypto_config is not None:
                 self._values["crypto_config"] = crypto_config
             if currency_mode is not None:
                 self._values["currency_mode"] = currency_mode
+
+        @builtins.property
+        def connected_account_configs(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.ConnectedAccountConfigProperty"]]]]:
+            '''List of connected account configurations.
+
+            A connected account delegates deposit-address provisioning to the payments provider instead of specifying a wallet directly.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-monetizationconfig.html#cfn-wafv2-rulegroup-monetizationconfig-connectedaccountconfigs
+            '''
+            result = self._values.get("connected_account_configs")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuleGroup.ConnectedAccountConfigProperty"]]]], result)
 
         @builtins.property
         def crypto_config(
@@ -11746,6 +12009,240 @@ class CfnWebACL(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.ConnectedAccountChainConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"chain": "chain", "prices": "prices"},
+    )
+    class ConnectedAccountChainConfigProperty:
+        def __init__(
+            self,
+            *,
+            chain: builtins.str,
+            prices: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.ConnectedAccountPriceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''Per-chain price configuration for a connected account.
+
+            The deposit address is provisioned by the payments provider and is not specified here.
+
+            :param chain: The blockchain chain to use with a connected account. Connected accounts are mainnet only.
+            :param prices: List of connected-account price configurations. A single price is supported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-connectedaccountchainconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                connected_account_chain_config_property = wafv2.CfnWebACL.ConnectedAccountChainConfigProperty(
+                    chain="chain",
+                    prices=[wafv2.CfnWebACL.ConnectedAccountPriceProperty(
+                        amount="amount",
+                        currency="currency"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__726926236f16f9d791d8bdf15f743a051f02071e384137acb8384204eec143c5)
+                check_type(argname="argument chain", value=chain, expected_type=type_hints["chain"])
+                check_type(argname="argument prices", value=prices, expected_type=type_hints["prices"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "chain": chain,
+                "prices": prices,
+            }
+
+        @builtins.property
+        def chain(self) -> builtins.str:
+            '''The blockchain chain to use with a connected account.
+
+            Connected accounts are mainnet only.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-connectedaccountchainconfig.html#cfn-wafv2-webacl-connectedaccountchainconfig-chain
+            '''
+            result = self._values.get("chain")
+            assert result is not None, "Required property 'chain' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def prices(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.ConnectedAccountPriceProperty"]]]:
+            '''List of connected-account price configurations.
+
+            A single price is supported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-connectedaccountchainconfig.html#cfn-wafv2-webacl-connectedaccountchainconfig-prices
+            '''
+            result = self._values.get("prices")
+            assert result is not None, "Required property 'prices' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.ConnectedAccountPriceProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectedAccountChainConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.ConnectedAccountConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "connected_account_arn": "connectedAccountArn",
+            "payment_networks": "paymentNetworks",
+        },
+    )
+    class ConnectedAccountConfigProperty:
+        def __init__(
+            self,
+            *,
+            connected_account_arn: builtins.str,
+            payment_networks: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.ConnectedAccountChainConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''Configuration for a single connected account and the chains it accepts payment on.
+
+            :param connected_account_arn: The ARN of the connected account that provisions deposit addresses for this configuration.
+            :param payment_networks: List of per-chain configurations for a connected account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-connectedaccountconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                connected_account_config_property = wafv2.CfnWebACL.ConnectedAccountConfigProperty(
+                    connected_account_arn="connectedAccountArn",
+                    payment_networks=[wafv2.CfnWebACL.ConnectedAccountChainConfigProperty(
+                        chain="chain",
+                        prices=[wafv2.CfnWebACL.ConnectedAccountPriceProperty(
+                            amount="amount",
+                            currency="currency"
+                        )]
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__38e749aa2bc3f117b76674d4eee4235ab25a6eb48e2abe11b21f25d6fe8ee4b7)
+                check_type(argname="argument connected_account_arn", value=connected_account_arn, expected_type=type_hints["connected_account_arn"])
+                check_type(argname="argument payment_networks", value=payment_networks, expected_type=type_hints["payment_networks"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "connected_account_arn": connected_account_arn,
+                "payment_networks": payment_networks,
+            }
+
+        @builtins.property
+        def connected_account_arn(self) -> builtins.str:
+            '''The ARN of the connected account that provisions deposit addresses for this configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-connectedaccountconfig.html#cfn-wafv2-webacl-connectedaccountconfig-connectedaccountarn
+            '''
+            result = self._values.get("connected_account_arn")
+            assert result is not None, "Required property 'connected_account_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def payment_networks(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.ConnectedAccountChainConfigProperty"]]]:
+            '''List of per-chain configurations for a connected account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-connectedaccountconfig.html#cfn-wafv2-webacl-connectedaccountconfig-paymentnetworks
+            '''
+            result = self._values.get("payment_networks")
+            assert result is not None, "Required property 'payment_networks' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.ConnectedAccountChainConfigProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectedAccountConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.ConnectedAccountPriceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"amount": "amount", "currency": "currency"},
+    )
+    class ConnectedAccountPriceProperty:
+        def __init__(self, *, amount: builtins.str, currency: builtins.str) -> None:
+            '''A connected-account price configuration.
+
+            The payment provider rejects amounts below $0.01 and does not support sub-cent amounts.
+
+            :param amount: The price amount for a connected account. Whole cents only, from 0.01 up to the payment provider's maximum of 999999.99.
+            :param currency: The cryptocurrency to use for payment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-connectedaccountprice.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                connected_account_price_property = wafv2.CfnWebACL.ConnectedAccountPriceProperty(
+                    amount="amount",
+                    currency="currency"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2fe8a8472b3163a332824bda50d0b98ab251c004ec21b9c2a7e2e2f0ba8948c7)
+                check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
+                check_type(argname="argument currency", value=currency, expected_type=type_hints["currency"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "amount": amount,
+                "currency": currency,
+            }
+
+        @builtins.property
+        def amount(self) -> builtins.str:
+            '''The price amount for a connected account.
+
+            Whole cents only, from 0.01 up to the payment provider's maximum of 999999.99.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-connectedaccountprice.html#cfn-wafv2-webacl-connectedaccountprice-amount
+            '''
+            result = self._values.get("amount")
+            assert result is not None, "Required property 'amount' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def currency(self) -> builtins.str:
+            '''The cryptocurrency to use for payment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-connectedaccountprice.html#cfn-wafv2-webacl-connectedaccountprice-currency
+            '''
+            result = self._values.get("currency")
+            assert result is not None, "Required property 'currency' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectedAccountPriceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.CookieMatchPatternProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -15030,6 +15527,7 @@ class CfnWebACL(
         jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.MonetizationConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "connected_account_configs": "connectedAccountConfigs",
             "crypto_config": "cryptoConfig",
             "currency_mode": "currencyMode",
         },
@@ -15038,11 +15536,13 @@ class CfnWebACL(
         def __init__(
             self,
             *,
+            connected_account_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.ConnectedAccountConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             crypto_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.CryptoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             currency_mode: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configures monetization for the web ACL or rule group.
 
+            :param connected_account_configs: List of connected account configurations. A connected account delegates deposit-address provisioning to the payments provider instead of specifying a wallet directly.
             :param crypto_config: Configures cryptocurrency payment settings.
             :param currency_mode: The currency mode for monetization. Use REAL for production payments and TEST for testing with testnet currencies.
 
@@ -15056,6 +15556,16 @@ class CfnWebACL(
                 from aws_cdk import aws_wafv2 as wafv2
                 
                 monetization_config_property = wafv2.CfnWebACL.MonetizationConfigProperty(
+                    connected_account_configs=[wafv2.CfnWebACL.ConnectedAccountConfigProperty(
+                        connected_account_arn="connectedAccountArn",
+                        payment_networks=[wafv2.CfnWebACL.ConnectedAccountChainConfigProperty(
+                            chain="chain",
+                            prices=[wafv2.CfnWebACL.ConnectedAccountPriceProperty(
+                                amount="amount",
+                                currency="currency"
+                            )]
+                        )]
+                    )],
                     crypto_config=wafv2.CfnWebACL.CryptoConfigProperty(
                         payment_networks=[wafv2.CfnWebACL.PaymentNetworkProperty(
                             chain="chain",
@@ -15071,13 +15581,29 @@ class CfnWebACL(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__27fb0b62f379bd661e6d54af30b9ca6c33afbffcb2754b2066a55be0d28369a4)
+                check_type(argname="argument connected_account_configs", value=connected_account_configs, expected_type=type_hints["connected_account_configs"])
                 check_type(argname="argument crypto_config", value=crypto_config, expected_type=type_hints["crypto_config"])
                 check_type(argname="argument currency_mode", value=currency_mode, expected_type=type_hints["currency_mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if connected_account_configs is not None:
+                self._values["connected_account_configs"] = connected_account_configs
             if crypto_config is not None:
                 self._values["crypto_config"] = crypto_config
             if currency_mode is not None:
                 self._values["currency_mode"] = currency_mode
+
+        @builtins.property
+        def connected_account_configs(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.ConnectedAccountConfigProperty"]]]]:
+            '''List of connected account configurations.
+
+            A connected account delegates deposit-address provisioning to the payments provider instead of specifying a wallet directly.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-monetizationconfig.html#cfn-wafv2-webacl-monetizationconfig-connectedaccountconfigs
+            '''
+            result = self._values.get("connected_account_configs")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebACL.ConnectedAccountConfigProperty"]]]], result)
 
         @builtins.property
         def crypto_config(
@@ -21234,6 +21760,30 @@ def _typecheckingstub__d906d833235c5ff91003135445d7c19e5b8c861e7c39ccfa0ef7dcfd1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c3a91408ee09d2f125f72c4353bf510e349dc5dd3b1215182887f78da0add78d(
+    *,
+    chain: builtins.str,
+    prices: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.ConnectedAccountPriceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75fde48b79c07695781b6743d752df21a483db7108aa2b527b95f677ba8be98d(
+    *,
+    connected_account_arn: builtins.str,
+    payment_networks: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.ConnectedAccountChainConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87e946ec65715d348893359fa3dc3153b6a69d8ca0fd277eccc9cd943d5e7d72(
+    *,
+    amount: builtins.str,
+    currency: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ba3427cb356d43e73608b1ba33a4b697440f7941676945db2ccd811c8adec13b(
     *,
     all: typing.Any = None,
@@ -21439,6 +21989,7 @@ def _typecheckingstub__4c5532fc362b33574821b7df757d816e9a7fbb8ef8a968abb72e75963
 
 def _typecheckingstub__ceb78dda46ae1b19d0de4ea9d2b3587e4e9b855dae4193ffeed916904b69546b(
     *,
+    connected_account_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.ConnectedAccountConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     crypto_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuleGroup.CryptoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     currency_mode: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -22027,6 +22578,30 @@ def _typecheckingstub__de331114f33ba80cf8bd042358ad9467ab930574012abea7782f175fd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__726926236f16f9d791d8bdf15f743a051f02071e384137acb8384204eec143c5(
+    *,
+    chain: builtins.str,
+    prices: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.ConnectedAccountPriceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38e749aa2bc3f117b76674d4eee4235ab25a6eb48e2abe11b21f25d6fe8ee4b7(
+    *,
+    connected_account_arn: builtins.str,
+    payment_networks: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.ConnectedAccountChainConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2fe8a8472b3163a332824bda50d0b98ab251c004ec21b9c2a7e2e2f0ba8948c7(
+    *,
+    amount: builtins.str,
+    currency: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__11e565e9aad1b474694cbb7c884715be324a3c5b38238a45e13e0d2ed78d816d(
     *,
     all: typing.Any = None,
@@ -22299,6 +22874,7 @@ def _typecheckingstub__f4f6c9025d3a7ae0d9ee82e8e6b386992bc78314180fcac33b95584e8
 
 def _typecheckingstub__27fb0b62f379bd661e6d54af30b9ca6c33afbffcb2754b2066a55be0d28369a4(
     *,
+    connected_account_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.ConnectedAccountConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     crypto_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.CryptoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     currency_mode: typing.Optional[builtins.str] = None,
 ) -> None:

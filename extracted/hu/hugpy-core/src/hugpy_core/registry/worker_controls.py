@@ -63,6 +63,31 @@ def _lan_ip() -> "str | None":
         s.close()
 
 
+def _native_operator_action(w, action, model_key, who):
+    """The native wrapper's equivalents: /v1/load queues a load; everything else
+    is the wrapper's own (it evicts to fit on admission and serves no operator
+    action queue), said honestly instead of 404ing against removed routes."""
+    from hugpy_core.registry import transport
+    name = w.get("name") or w.get("id")
+    if action == "activate-model":
+        if not model_key:
+            return {"ok": False, "error": "model_key is required"}
+        try:
+            receipt = transport.request(w, "/v1/load", {"model": model_key}, timeout=10)
+        except (RuntimeError, OSError, ValueError) as exc:
+            return {"ok": False, "error": f"worker {name} did not accept load: {exc}"}
+        state = receipt.get("state") or "queued"
+        return {"ok": True, "worker": name, "action": action, "model_key": model_key,
+                "state": state, "queue_id": receipt.get("queue_id"),
+                "predicted": receipt.get("predicted"), "pending": state not in ("done", "ready"),
+                "reason": "queued on the wrapper (POST /v1/load); it loads when its turn fits"}
+    return {"ok": False, "error":
+            f"{action} has no backing on {name}'s wrapper build: the native wrapper "
+            "evicts to fit on its own when a load needs memory and serves no operator "
+            "action queue. Load with the Load control (POST /v1/load); cancel a queued "
+            "call with POST /v1/queue/<id>/cancel."}
+
+
 def _operator_action(worker_id, action, model_key, who):
     """Submit to the worker's own queue and return its recorded outcome."""
     import urllib.error
@@ -71,16 +96,27 @@ def _operator_action(worker_id, action, model_key, who):
     w = registry.lookup_worker(worker_id)
     if not w:
         return {"ok": False, "error": f"no such worker: {worker_id}"}
+    from hugpy_core.relay.relay import is_native
+    if is_native(w):
+        return _native_operator_action(w, action, model_key, who)
     base = (w.get("url") or "").rstrip("/")
     if not base.startswith(("http://", "https://")):
         return {"ok": False, "error": f"worker {worker_id!r} has no reachable endpoint"}
     body = json.dumps({"action": action, "model_key": model_key,
                        "requested_by": who}).encode("utf-8")
+    # /v1/operator/ is a Wrapper management route: off the Wrapper's own host it
+    # needs the saved connection's key (the same credentials chat and settings use)
+    from hugpy_core.registry import transport
+    auth = transport.headers(w)
     req = urllib.request.Request(base + "/v1/operator/actions", data=body,
-                                 headers={"Content-Type": "application/json"}, method="POST")
+                                 headers={**auth, "Content-Type": "application/json"}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=5) as response:
             receipt = json.load(response)
+    except urllib.error.HTTPError as exc:
+        hint = (" — the saved connection has no key this legacy Wrapper accepts; "
+                "reconnect it with that box's admin key") if exc.code in (401, 403) else ""
+        return {"ok": False, "error": f"worker {w.get('name')} did not accept {action}: HTTP {exc.code}{hint}"}
     except (urllib.error.URLError, ValueError, OSError) as exc:
         return {"ok": False, "error": f"worker {w.get('name')} did not accept {action}: {exc}"}
     aid = receipt.get("id") if isinstance(receipt, dict) else None
@@ -91,7 +127,8 @@ def _operator_action(worker_id, action, model_key, who):
     deadline = time.monotonic() + OPERATOR_WAIT_S
     while time.monotonic() < deadline:
         try:
-            with urllib.request.urlopen(base + f"/v1/operator/actions/{aid}", timeout=2) as response:
+            poll = urllib.request.Request(base + f"/v1/operator/actions/{aid}", headers=auth)
+            with urllib.request.urlopen(poll, timeout=2) as response:
                 row = json.load(response)
             state = row.get("state") or "requested"
             result = row.get("result") if isinstance(row.get("result"), dict) else {}
@@ -180,6 +217,11 @@ def workers_update(worker_id=None, **_):
     if w is None:
         return {"ok": False, "error": f"no worker {worker_id!r} in the registry"}
     if not w.get("pkg_version"):
+        from hugpy_core.relay.relay import is_native
+        if is_native(w):
+            return {"ok": False, "error":
+                    "the native wrapper updates through its Debian package "
+                    "(apt install hugpy-wrapper); it serves no staged-update route"}
         from . import updates
         if _.get('approved') is not True:
             return {'ok':False,'state':'refused','error':'Explicit operator approval is required'}

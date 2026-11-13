@@ -1249,7 +1249,7 @@ WRITE_GROUPS = frozenset(
         # `status` reads, `keep` and `delete` end it. The agent runs them in every recorder mode.
         "example",
         # Panes (run compare + panes T11): `pane push` records; `data`, `get` and `list` read;
-        # `rm` removes.
+        # `rm` removes. `pane preview` (SUBGROUPS): `show` and `checkout` read; `set` and `clear` record.
         "pane",
         # Chart layouts (team flag chart_layouts): `chart set` and `chart layout` record.
         "chart",
@@ -1263,7 +1263,9 @@ WRITE_GROUPS = frozenset(
 #: so `project code list` reads while `project code attach` writes; read two words
 #: deep, every `project code` command looked like one write. Keys in the tables
 #: below name the three words (`wandb key set`); a bare subgroup key never matches.
-SUBGROUPS = frozenset({"project code", "project reference", "run input", "wandb key", "session home"})
+SUBGROUPS = frozenset(
+    {"project code", "project reference", "run input", "wandb key", "session home", "pane preview"}
+)
 
 #: Commands that only read unless given one of these flags: bare
 #: `project contributors` lists who is credited, `--add`/`--remove` change it.
@@ -1452,8 +1454,8 @@ PLUMBING_GROUP_WRITES = frozenset({"workspace set", "session home set", "session
 #: with: part of the launch (`probe exec --detached-launcher` mints one), and
 #: the run's expiry alert tells the agent to `--extend` it.
 #: `pane push` saves a pane, a visual the coding agent writes over its runs' data
-#: (`write-pane`): the agent's own work, which the daemon never writes (R10 of
-#: run-compare-and-panes; daemon-written panes are a later step). `pane rm` removes
+#: (`write-pane`): the agent's own work (R10 of run-compare-and-panes); the daemon
+#: pushes only a project's preview (`--preview`, `write-preview`). `pane rm` removes
 #: the agent's own pane beside it (agent-friendly R11): the daemon never writes one,
 #: so a removal sent its way (the profile's refusal) had nowhere to go.
 DAEMON_AGENT_WRITES = frozenset(
@@ -1700,7 +1702,7 @@ DAEMON_PROFILE_RUN_READS = frozenset(
      "span list", "span get", "trial list", "trial get", "artifact tree", "artifact versions",
      "snapshot-show", "samples capture", "samples stats", "samples list", "samples show", "samples logs",
      "samples tokens", "samples tasks", "samples task", "samples weights", "samples compare", "checkpoint best",
-     "samples live", "samples tail", "samples commands"}
+     "samples live", "samples tail", "samples commands", "samples points"}
 )
 
 #: Reads of the panes the agent writes (`write-pane`), in the one project or
@@ -1709,7 +1711,9 @@ DAEMON_PROFILE_RUN_READS = frozenset(
 #: list`). A pane cannot be written without them (R10), so they are admitted
 #: though `pane data` reads a scope's runs as the pane will; searches and
 #: listings across the team's work stay the daemon's.
-DAEMON_PROFILE_PANE_READS = frozenset({"pane data", "pane get", "pane list"})
+#: A project's canvas preview too (`pane preview show`): which pane fills its box, read only; the
+#: daemon's writer writes it.
+DAEMON_PROFILE_PANE_READS = frozenset({"pane data", "pane get", "pane list", "pane preview show"})
 
 #: ...but not where a flag writes what it read: `run reproduce --materialize`
 #: restores the run's captured tree, as the kept `snapshot-restore` does, and
@@ -2478,12 +2482,11 @@ ALLOWANCE_SPENT_INLINE = ALLOWANCE_SPENT + " Probe's `on` is inline here: you re
 
 #: The chat's first researcher prompt, at its seeded default (`{state}`).
 AUTO_FIRST_PROMPT_LINE = (
-    "Probe is {state} here (the researcher's default, auto mode). If this is ML work, data included, set `on` "
-    "first."
+    "Probe is {state} here (the researcher's default, auto mode). If this is ML work, set `on` first."
 )
-AUTO_OFF_LINE = "Probe is off here (auto mode). If this request is ML work, data included, run `probe session state on` first."
+AUTO_OFF_LINE = "Probe is off here (auto mode). If this request is ML work, run `probe session state on` first."
 AUTO_READ_LINE = (
-    "Probe is read here (auto mode). To record this request's ML work, data included, run `probe session state on` first."
+    "Probe is read here (auto mode). To record this request's ML work, run `probe session state on` first."
 )
 #: On (the daemon's or the agent's) or inline (`{state}`).
 AUTO_ON_LINE = "Probe is {state} here (auto mode). If the work has clearly left ML, run `probe session state off`."
@@ -2526,7 +2529,7 @@ DENY_REASON_DAEMON = (
     "The Probe daemon is recording this conversation (the `daemon` state), so `{matched}` was "
     "refused before it ran: that write is the daemon's (it files runs in an experiment and "
     "group, and renames or moves projects and runs). Yours are starting runs in a project "
-    "(`probe project create <slug>` if none fits), the run's own data, the panes you write and "
+    "(`probe project create <slug> --kind <kind> --name \"...\"` if none fits), the run's own data, the panes you write and "
     "`probe run end`; `probe session status` lists them.\n\n" + DIRECTED_RETRY
 )
 
@@ -2542,7 +2545,7 @@ DAEMON_CONTEXT = (
     "The Probe daemon is recording this session: you launch and instrument runs, and the daemon "
     "records. Yours: start runs (a run on this machine naming no project goes to this session's "
     "project, which the daemon sets: `probe session home show` prints it; pass `project=` or "
-    "`--project` for another, and before it is set pass one, or `probe project create <slug>` if "
+    "`--project` for another, and before it is set pass one, or `probe project create <slug> --kind <kind> --name \"...\"` if "
     "none fits), "
     "the run's own data (metrics, spans, trials, files the run "
     "itself attaches), the panes you write (`write-pane`) and `probe run end` when a run "
@@ -3769,6 +3772,64 @@ def set_state_by_agent(session_id: str, state: str, *, is_directed: bool) -> "tu
     return (True, is_auto)
 
 
+#: `hand_chat_to_auto`'s outcomes: handed back, already an auto chat, a computer in manual mode, nothing written,
+#: and an agent's undirected call on a chat the researcher set meanwhile (refused, nothing written).
+HAND_BACK_DONE = "handed"
+HAND_BACK_ALREADY = "already"
+HAND_BACK_MANUAL = "manual"
+HAND_BACK_FAILED = "failed"
+HAND_BACK_REFUSED = "refused"
+#: What the person hears for each outcome (`/probe auto`, `probe session state auto`). REFUSED has none: it is
+#: the agent's, answered with the agent's refusal (`switch.AGENT_MOVE_REFUSED`).
+HAND_BACK_LINES = {
+    HAND_BACK_DONE: "Probe: auto mode again for this chat - the agent sets Probe by the work from your next request.",
+    HAND_BACK_ALREADY: "Probe: this chat is already in auto mode.",
+    HAND_BACK_MANUAL: ("Probe: this computer is in manual mode, so this chat has no auto mode to return to. "
+                       "`probe session control auto` turns auto mode on."),
+    HAND_BACK_FAILED: "Probe: this chat could not be handed back to auto mode; nothing changed.",
+}
+
+
+def hand_chat_to_auto(session_id: str, *, is_agent: bool = False, is_directed: bool = False) -> str:
+    """The researcher's `/probe auto`: this chat's switch is the agent's again (`is_auto_chat`), its state
+    unchanged. Written under the chat's lock as the agent's auto stamp for the current state (`save_agent_move`);
+    `.state-source` and the kept-out entry stay. A legacy chat (only `.tracking`/`.off`) gets `.state` first,
+    which the stamp is checked against (`load_agent_move`), and loses it again when the stamp is not written:
+    a failure changes nothing. From the agent's shell (`is_agent`) it runs only when the person asked
+    (`is_directed`), decided again inside the lock as `set_state_by_agent` does, so a `/probe` the researcher
+    typed after the agent's gate is never undone (REFUSED). A handed-back chat's first prompt counts as
+    claimed (`claim_first_prompt`). One of the HAND_BACK_* outcomes."""
+    if not valid_session_id(session_id):
+        return HAND_BACK_FAILED
+    with _StateLock(session_id):
+        if not is_auto_machine():
+            return HAND_BACK_MANUAL
+        if is_auto_chat(session_id):
+            return HAND_BACK_ALREADY
+        if is_agent and not is_directed:
+            return HAND_BACK_REFUSED
+        current = session_state(session_id)
+        if current is None:  # undecided reads as auto above; a vanished state is not handed back
+            return HAND_BACK_FAILED
+        try:
+            has_state_file = state_path(session_id).read_text(encoding="utf-8").strip().lower() in STATES
+        except OSError:
+            has_state_file = False
+        if not has_state_file and not _set_state_unlocked(session_id, current):
+            return HAND_BACK_FAILED
+        stamp = MOVED_TO_INLINE if is_inline(session_id, current) else current
+        if not save_agent_move(session_id, stamp, is_auto=True):
+            if not has_state_file:
+                try:
+                    state_path(session_id).unlink(missing_ok=True)
+                except OSError:
+                    pass
+            return HAND_BACK_FAILED
+    # The chat's first prompt is behind it: the next one gets the state's own line, not the first-prompt line.
+    claim_first_prompt(session_id)
+    return HAND_BACK_DONE
+
+
 def _get_move_stamp(session_id: str, stored: str) -> str:
     """The agent's stamp for a move that stored `stored`: inline where a spent allowance put the daemon's `on`."""
     return MOVED_TO_INLINE if stored == STATE_FULL and is_budget_inline(session_id, STATE_DAEMON) else stored
@@ -3789,15 +3850,19 @@ def _hand_switch_to_researcher(session_id: str) -> None:
     _remove_agent_move(session_id)
 
 
-def mark_agent_move_told(session_id: str) -> None:
-    """The person was told of the agent's move (`load_agent_move`'s `told`). Best effort."""
-    try:
-        stamp = json.loads(get_moved_by_path(session_id).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return
-    if isinstance(stamp, dict):
-        stamp["told"] = True
-        _publish_atomically(get_moved_by_path(session_id), json.dumps(stamp) + "\n")
+def mark_agent_move_told(session_id: str, at: "float | None" = None) -> None:
+    """The person was told of the agent's move (`load_agent_move`'s `told`). Best effort. Read and rewritten under
+    the chat's lock, so a newer stamp written meanwhile (a `/probe auto` hand-back, the agent's next move) is never
+    replaced by the older one this caller showed. `at`: the shown move's (`load_agent_move`'s `at`); a newer move
+    stamped since stays untold, so the person still hears of it. None marks whatever stamp is there."""
+    with _StateLock(session_id):
+        try:
+            stamp = json.loads(get_moved_by_path(session_id).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return
+        if isinstance(stamp, dict) and (at is None or _finite(stamp.get("at")) == at):
+            stamp["told"] = True
+            _publish_atomically(get_moved_by_path(session_id), json.dumps(stamp) + "\n")
 
 
 def get_kept_out_dir(root: "Path | None" = None) -> Path:
@@ -6212,6 +6277,11 @@ def get_lowered_status_word(config: "dict | None" = None) -> str:
 # training script the harness starts walks up its parents to the same process
 # and reads the record. `<start>` is the process's start time, so a recycled pid
 # never reads a dead session's record. Linux reads /proc; macOS asks `ps` once.
+#
+# The same walk names the agent running a process when two agents' variables are
+# set (a Codex started from a Claude Code shell inherits Claude Code's): the
+# agents above it, nearest first (`find_agent_ancestors`,
+# `agent_session.harness_process_env`).
 # ---------------------------------------------------------------------------
 
 HARNESS_PROCESSES_DIRNAME = "harness-processes"
@@ -6282,6 +6352,58 @@ def _ps_table() -> "dict[int, tuple[int, str, str]]":
     return table
 
 
+_PIDPATH: list = []  # macOS `proc_pidpath`, loaded once (`_get_executable_path`)
+
+
+def _get_executable_path(pid: int) -> "str | None":
+    """The file a process runs, from the macOS kernel (`proc_pidpath`); None
+    elsewhere. The hooks' copy of this module cannot import
+    `probe.foundation.service_api.procid.get_executable_path`, its twin."""
+    import sys  # noqa: PLC0415
+
+    if sys.platform != "darwin":
+        return None
+    try:
+        import ctypes  # noqa: PLC0415
+
+        if not _PIDPATH:
+            for library in ("/usr/lib/libproc.dylib", "/usr/lib/libSystem.B.dylib"):
+                try:
+                    pidpath = ctypes.CDLL(library).proc_pidpath
+                except (OSError, AttributeError):
+                    continue
+                pidpath.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32]
+                pidpath.restype = ctypes.c_int
+                _PIDPATH.append(pidpath)
+                break
+            else:
+                _PIDPATH.append(None)
+        if _PIDPATH[0] is None:
+            return None
+        buffer = ctypes.create_string_buffer(4096)  # PROC_PIDPATHINFO_MAXSIZE
+        if _PIDPATH[0](pid, buffer, 4096) <= 0:
+            return None
+        return buffer.value.decode("utf-8", "replace") or None
+    except Exception:  # noqa: BLE001 -- a Python without ctypes: the `ps` title stands
+        return None
+
+
+def _get_walk_start(pid: "int | None") -> "tuple[int | None, bool]":
+    """(the process a walk from `pid` starts at, whether it is the caller a Probe
+    service child serves): `pid`, else PROBE_CALLER_PID, else the hook host's
+    PROBE_HOOK_PARENT_PID, else (None, False): the caller's own default (`_ancestors`:
+    this process's parent; the namespace check: this process)."""
+    if pid is not None:
+        return pid, False
+    caller = os.environ.get("PROBE_CALLER_PID", "")
+    if caller.isascii() and caller.isdigit() and int(caller) > 1:
+        return int(caller), True
+    hosted = os.environ.get("PROBE_HOOK_PARENT_PID", "")
+    if hosted.isascii() and hosted.isdigit() and int(hosted) > 1:
+        return int(hosted), False
+    return None, False
+
+
 def _ancestors(pid: "int | None" = None) -> "list[tuple[int, str, str]]":
     """(pid, start time, title) for `pid` (default: this process's parent) and
     each process above it, nearest first. Empty where processes can't be read.
@@ -6291,23 +6413,31 @@ def _ancestors(pid: "int | None" = None) -> "list[tuple[int, str, str]]":
     in PROBE_HOOK_PARENT_PID, and the walk starts there. A `probe` command the
     Probe service runs (`cli.run`) has the service's CLI host for a parent: the
     service names the shim it serves in PROBE_CALLER_PID (`probe.foundation.caller`),
-    and the walk is that shim's parents."""
+    and the walk is that shim's parents. It ends with pid 1 of this process
+    namespace: a sandboxed Codex shell's whole view is itself and pid 1,
+    `codex-linux-sandbox`."""
     if pid is None:
-        caller = os.environ.get("PROBE_CALLER_PID", "")
-        if caller.isdigit() and int(caller) > 1:
-            return _ancestors(int(caller))[1:]
-        hosted = os.environ.get("PROBE_HOOK_PARENT_PID", "")
-        pid = int(hosted) if hosted.isdigit() and int(hosted) > 1 else os.getppid()
+        start, is_caller = _get_walk_start(None)
+        if is_caller:
+            return _ancestors(start)[1:]
+        pid = start if start is not None else os.getppid()
     current = pid
     table = None if os.path.isdir("/proc/self") else _ps_table()
     chain = []
     for _ in range(_ANCESTOR_LIMIT):
-        if current <= 1:
+        if current < 1:
             break
         info = _proc_linux(current) if table is None else table.get(current)
         if info is None:
             break
         parent, start, title = info
+        if table is not None:
+            # `ps` cannot say where a path with a space ends: the Claude app keeps
+            # Claude Code under `~/Library/Application Support/`, read as
+            # `Application`. The kernel's path, when it starts with that word.
+            path = _get_executable_path(current)
+            if path and path.startswith(title + " "):
+                title = path
         chain.append((current, start, title))
         current = parent
     return chain
@@ -6315,6 +6445,79 @@ def _ancestors(pid: "int | None" = None) -> "list[tuple[int, str, str]]":
 
 def _titled(title: str, wanted: str) -> bool:
     return os.path.basename(title) == wanted or title == wanted
+
+
+#: The machine's own pid namespace: the kernel gives it this fixed inode (PROC_PID_INIT_INO).
+_ROOT_PID_NAMESPACE = "pid:[4026531836]"
+
+
+def _is_in_child_pid_namespace() -> bool:
+    """Whether this process runs in a child pid namespace (a sandbox, a container):
+    its pid 1 is not the machine's, and a pid another agent exported means nothing
+    here. `NSpid` cannot say so where the sandbox mounted its own /proc; the
+    namespace's identity can. Elsewhere (macOS: no /proc), False."""
+    try:
+        return os.readlink("/proc/self/ns/pid") != _ROOT_PID_NAMESPACE
+    except OSError:
+        return False
+
+
+def _get_pid_namespace(pid: int) -> "str | None":
+    """Another process's pid namespace (`pid:[<inode>]`), or None when unreadable."""
+    try:
+        return os.readlink(f"/proc/{pid}/ns/pid")
+    except OSError:
+        return None
+
+
+def _is_walk_in_child_pid_namespace(pid: "int | None") -> bool:
+    """Whether the walk from `pid` (default: this process, the caller a Probe service
+    child serves (PROBE_CALLER_PID), or the hook host's harness pid
+    (PROBE_HOOK_PARENT_PID): `_get_walk_start`) runs in a child pid namespace. The
+    service child sits in the machine's namespace while its caller may be in a
+    sandbox's, where an exported pid is numbered differently; an unreadable start
+    process (another user's) counts as one, unproven."""
+    if _is_in_child_pid_namespace():
+        return True
+    start, _is_caller = _get_walk_start(pid)
+    if start is None or not os.path.isdir("/proc/self"):
+        return False
+    return _get_pid_namespace(start) != _ROOT_PID_NAMESPACE
+
+
+def find_agent_ancestors(
+    names: "dict[str, tuple[str, ...]]", pid: "int | None" = None, pids: "dict[int, str] | None" = None
+) -> "tuple[list[tuple[str, int, bool]], bool]":
+    """([(agent id, pid, sandbox)], complete): each ancestor titled one of `names`
+    ({agent id: the names its process goes by}), else whose pid `pids` names
+    ({pid: agent id}, the pid an agent exports: `CLAUDE_PID`), nearest first, and
+    whether the walk read every process up to the machine's pid 1. `sandbox`: the
+    namespace's pid 1 under a helper's name (`<name>-…`), as a sandboxed Codex
+    shell sees only `codex-linux-sandbox` above it. In a child pid namespace (this
+    process's or the walk's start process's, `_get_walk_start`) no pid is matched and
+    the walk is never complete.
+    ([], False) when unreadable. Never raises."""
+    found = []
+    try:
+        nested = _is_walk_in_child_pid_namespace(pid)
+        pids = {} if nested else (pids or {})
+        chain = _ancestors(pid)
+        for ancestor, _start, title in chain:
+            helper = os.path.basename(title) if ancestor == 1 else ""
+            named = next((agent for agent, wanted in names.items()
+                          if any(_titled(title, name) for name in wanted)), None)
+            if named is not None:
+                found.append((named, ancestor, False))
+            elif ancestor in pids:
+                found.append((pids[ancestor], ancestor, False))
+            else:
+                helper_of = next((agent for agent, wanted in names.items()
+                                  if any(helper.startswith(name + "-") for name in wanted)), None)
+                if helper_of is not None:
+                    found.append((helper_of, ancestor, True))
+        return found, not nested and bool(chain) and chain[-1][0] == 1
+    except Exception:  # noqa: BLE001 -- attribution must never break a command
+        return [], False
 
 
 def _process_record_path(pid: int, start: str) -> Path:

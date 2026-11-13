@@ -46,6 +46,10 @@ ALL_CATEGORIES = {
             "generations": _proxy("/v1/videos/generations"),  # /v1/videos/generations
             "upscale": _proxy("/v1/videos/upscale"),
             "interpolate": _proxy("/v1/videos/interpolate"),
+            "track": _proxy("/v1/videos/track"),
+        },
+        "meshes": {
+            "generations": _proxy("/v1/meshes/generations"),  # /v1/meshes/generations
         },
     },
 }

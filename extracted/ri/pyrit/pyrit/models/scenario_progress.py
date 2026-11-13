@@ -4,19 +4,45 @@
 """Canonical models for durable scenario run plans and incremental progress."""
 
 from datetime import datetime
-from typing import Any, Literal
+from enum import Enum
+from typing import Any, Literal, Self
+from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
-from pyrit.models.catalog.scenario import ScenarioTargetSummary  # noqa: TC001
+from pyrit.models.analytics import OutcomeStatistics
+from pyrit.models.catalog.scenario import (
+    ScenarioOverloadSummary,
+    ScenarioProducerCounts,
+    ScenarioTargetSummary,
+)  # noqa: TC001
 from pyrit.models.identifiers.atomic_attack_identifier import AtomicAttackIdentifier
-from pyrit.models.results.attack_result import AttackOutcome
+from pyrit.models.results.attack_result import AttackOutcome, AttackResultRole
 from pyrit.models.results.scenario_result import ScenarioRunState
 from pyrit.models.retry_event import RetryEvent
 from pyrit.models.score.score import ScoreStatus
 
 SCENARIO_RUN_PLAN_METADATA_KEY = "run_plan"
+SCENARIO_CONVERSATIONS_METADATA_KEY = "scenario_conversations_v1"
+SCENARIO_RUN_STARTED_AT_METADATA_KEY = "started_at"
 SCENARIO_RUN_PLAN_VERSION = 1
+
+
+class ScenarioRunPlanGroupKind(str, Enum):
+    """What a planned atomic group runs, recorded by the code that builds the group."""
+
+    #: An ordinary technique attack.
+    ATTACK = "attack"
+
+    #: The unmodified comparison built by ``build_baseline_atomic_attack``.
+    BASELINE = "baseline"
+
+    #: One Adaptive objective, run as an orchestration parent and its attempts.
+    ADAPTIVE = "adaptive"
+
+    #: Read-side value for groups whose plan does not record a kind, such as plans persisted
+    #: before kinds were recorded. Plans never store it.
+    UNKNOWN = "unknown"
 
 
 class ScenarioRunPlanSeedGroup(BaseModel):
@@ -49,6 +75,9 @@ class ScenarioRunPlanAtomicGroup(BaseModel):
     seed_group_ids: list[str]
     description: str | None = None
     tags: list[str] = Field(default_factory=list)
+    #: None for plans persisted before kinds were recorded, so those plans round-trip unchanged.
+    kind: ScenarioRunPlanGroupKind | None = None
+    selected_technique_eval_hashes: list[str] | None = Field(default=None, min_length=1)
 
 
 class ScenarioRunPlan(BaseModel):
@@ -100,13 +129,23 @@ class ScenarioProgressHeader(BaseModel):
     scenario_version: int
     status: ScenarioRunState
     created_at: datetime
+    started_at: AwareDatetime | None = None
     completed_at: datetime | None = None
+    error: str | None = None
+    error_type: str | None = None
     pyrit_version: str | None = None
     target: "ScenarioTargetSummary | None" = None
     techniques_used: list[str] = Field(default_factory=list)
     datasets_used: list[str] = Field(default_factory=list)
     scenario_parameters: dict[str, Any] = Field(default_factory=dict)
     labels: dict[str, str] = Field(default_factory=dict)
+    operation_id: UUID | None = None
+    operation_name: str | None = None
+    description: str | None = None
+    scenario_identity: "ScenarioComponentIdentity | None" = None
+    queue_position: int | None = Field(None, ge=1)
+    active_scenario_result_id: str | None = None
+    overload_summaries: list["ScenarioOverloadSummary"] = Field(default_factory=list)
 
 
 class ScenarioProgressScore(BaseModel):
@@ -147,10 +186,31 @@ class ScenarioProgressResult(BaseModel):
     error_type: str | None = None
     error_message: str | None = None
     score: ScenarioProgressScore | None = None
+    seed_identifiers: list[ScenarioComponentIdentity] = Field(default_factory=list)
+    #: Recorded by the producing strategy. ``unknown`` when the row predates roles.
+    result_role: AttackResultRole = AttackResultRole.UNKNOWN
+    #: Ordered results this orchestration parent ran, as persisted by ``SequentialAttack``.
+    child_attack_result_ids: list[str] = Field(default_factory=list)
+    #: Related conversation IDs for this attack attempt (e.g. pruned, adversarial, preparation).
+    related_conversation_ids: list[str] = Field(default_factory=list)
+    #: 1-based position of this result among its orchestration parent's children.
+    attempt_index: int | None = Field(default=None, ge=1)
 
 
 class ScenarioProgressCounts(BaseModel):
-    """Canonical progress counts for a set of scenario execution units."""
+    """
+    Canonical progress counts for a set of scenario execution units.
+
+    ``outcomes`` describes only the selected latest attempts and supplies both
+    decided-only and all-outcome success rates. ``errors`` and ``retries`` retain
+    their historical-attempt meaning and must not be used as outcome denominators.
+    None preserves older count-only payloads whose outcome breakdown is unknown.
+    Supplied totals must agree with the outcome breakdown; mutable values are
+    revalidated when they are passed back into analytics. ``producer_counts``
+    uses a separate historical population and never changes these logical totals.
+    """
+
+    model_config = ConfigDict(revalidate_instances="always")
 
     completed: int = Field(..., ge=0)
     planned: int | None = Field(default=None, ge=0)
@@ -158,6 +218,72 @@ class ScenarioProgressCounts(BaseModel):
     success_percentage: int | None = Field(default=None, ge=0, le=100)
     errors: int = Field(..., ge=0)
     retries: int = Field(..., ge=0)
+    producer_counts: ScenarioProducerCounts = Field(default_factory=ScenarioProducerCounts)
+    outcomes: OutcomeStatistics | None = None
+
+    @model_validator(mode="after")
+    def _validate_statistics(self) -> Self:
+        """
+        Reject contradictory progress totals instead of presenting two success rates for different counts.
+
+        Returns:
+            Self: The unchanged consistent counts, including legacy count-only payloads.
+
+        Raises:
+            ValueError: If successes exceed completed units, a supplied percentage is inconsistent,
+                or the nested latest-outcome counts disagree with progress totals.
+        """
+        if self.succeeded > self.completed:
+            raise ValueError("succeeded must not exceed completed.")
+        if self.success_percentage is not None:
+            expected = self.succeeded * 100 // self.completed if self.completed else 0
+            if self.success_percentage != expected:
+                raise ValueError("success_percentage must agree with succeeded and completed.")
+        if self.outcomes is not None:
+            self.outcomes.validate_consistency()
+            if self.completed != self.outcomes.total_results:
+                raise ValueError("completed must equal outcomes.total_results.")
+            if self.succeeded != self.outcomes.successes:
+                raise ValueError("succeeded must equal outcomes.successes.")
+        return self
+
+
+class ScenarioExecutionUnit(BaseModel):
+    """
+    Identity of one scenario execution unit.
+
+    ``atomic_group_id`` identifies the atomic attack together with its technique configuration, so
+    two configurations that share an atomic attack name are separate units. ``seed_group_id``
+    identifies the logical seed group within it.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    atomic_group_id: str
+    seed_group_id: str
+
+
+class ScenarioExecutionStatistics(BaseModel):
+    """
+    Effective execution-unit statistics for one scenario run, calculated by ``pyrit.analytics``.
+
+    Each execution unit counts once, by its latest attempt, so recovered errors do not lower the success
+    percentage. ``attempts`` and the ``errors`` and ``retries`` of each count keep the historical attempt
+    history separately from the effective-unit statistics.
+    """
+
+    #: Counts across every counted execution unit.
+    overall: ScenarioProgressCounts
+    #: Counts keyed by atomic attack name (all technique configurations that share the name).
+    atomic_attacks: dict[str, ScenarioProgressCounts] = Field(default_factory=dict)
+    #: Counts keyed by display group label.
+    display_groups: dict[str, ScenarioProgressCounts] = Field(default_factory=dict)
+    #: Actual execution attempts, including superseded ones but not duplicate orchestration envelopes.
+    attempts: int = Field(default=0, ge=0)
+    #: Actual attempts per recorded atomic attack name, without duplicate orchestration envelopes.
+    atomic_attack_attempts: dict[str, int] = Field(default_factory=dict)
+    #: Attempts excluded from logical-unit counts, but retained in producer counts.
+    unattributed_attempts: int = Field(default=0, ge=0)
 
 
 class ScenarioTechniqueProgress(ScenarioProgressCounts):
@@ -197,6 +323,7 @@ class ScenarioAtomicGroupProgress(ScenarioProgressCounts):
     display_group: str
     status: Literal["RUNNING", "PENDING", "INCOMPLETE", "COMPLETED"]
     technique_details: ScenarioAttackTechniqueDetails | None = None
+    kind: ScenarioRunPlanGroupKind = ScenarioRunPlanGroupKind.UNKNOWN
 
 
 class ScenarioObjectiveScorerMetrics(BaseModel):
@@ -229,9 +356,22 @@ class ScenarioProgressSummary(BaseModel):
     techniques: list[ScenarioTechniqueProgress] = Field(default_factory=list)
     seed_groups: list[ScenarioSeedGroupProgress] = Field(default_factory=list)
     atomic_groups: list[ScenarioAtomicGroupProgress] = Field(default_factory=list)
-    #: Persisted attempts that matched no planned execution unit and are therefore absent
-    #: from every rollup above. Non-zero means the rollups understate what actually ran.
+    #: Persisted attempts excluded from logical-unit rollups. Overall producer counts
+    #: still include them; planned-group producer counts require unambiguous group attribution.
     unattributed_attempts: int = Field(default=0, ge=0)
+
+
+class ScenarioActiveConversation(BaseModel):
+    """A saved objective conversation and the scan execution that produced it."""
+
+    attack_result_id: str
+    conversation_id: str
+    atomic_attack_name: str
+    seed_group_id: str | None = None
+    objective: str
+    started_at: AwareDatetime
+    technique_details: ScenarioAttackTechniqueDetails | None = None
+    seed_identifiers: list[ScenarioComponentIdentity] = Field(default_factory=list)
 
 
 class ScenarioRunProgress(BaseModel):
@@ -244,6 +384,30 @@ class ScenarioRunProgress(BaseModel):
     next_cursor: str | None = None
     has_more: bool = False
     plan_complete: bool
+    active_conversations: list[ScenarioActiveConversation] = Field(default_factory=list)
+    recorded_conversations: list[ScenarioActiveConversation] = Field(default_factory=list)
+
+
+class ScenarioQueueEntry(BaseModel):
+    """One active or queued scenario run in scheduler order."""
+
+    scenario_result_id: str
+    scenario_name: str
+    scenario_registry_name: str
+    created_at: AwareDatetime
+    enqueued_at: AwareDatetime
+    started_at: AwareDatetime | None = None
+    state: ScenarioRunState
+    position: int | None = Field(None, ge=1)
+
+
+class ScenarioQueueSnapshot(BaseModel):
+    """Point-in-time FIFO scheduler state."""
+
+    revision: int = Field(ge=0)
+    snapshot_at: AwareDatetime
+    active: ScenarioQueueEntry | None = None
+    queued: list[ScenarioQueueEntry] = Field(default_factory=list)
 
 
 class ScenarioAttackResultDelta(BaseModel):
@@ -261,7 +425,11 @@ class ScenarioAttackResultDelta(BaseModel):
     total_retries: int = 0
     error_type: str | None = None
     error_message: str | None = None
+    executed_turns: int | None = None
+    outcome_reason: str | None = None
     attribution_data: dict[str, Any] = Field(default_factory=dict)
+    attack_metadata: dict[str, Any] = Field(default_factory=dict)
+    related_conversation_ids: list[str] = Field(default_factory=list)
     score: ScenarioProgressScore | None = None
 
 

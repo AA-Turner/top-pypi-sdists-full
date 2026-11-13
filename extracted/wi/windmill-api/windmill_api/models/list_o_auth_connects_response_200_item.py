@@ -12,7 +12,9 @@ class ListOAuthConnectsResponse200Item:
     Attributes:
         name (str):
         supports_client_credentials (bool):
-        has_shared_credentials (bool):
+        has_shared_credentials (bool): The instance entry holds a client id and secret users can connect with, for sign-
+            in or as a shared service account. Whether client credentials are shared is get_connect's
+            client_credentials_configured.
     """
 
     name: str

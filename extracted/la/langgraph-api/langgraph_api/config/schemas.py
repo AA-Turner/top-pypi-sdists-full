@@ -105,6 +105,8 @@ class HttpConfig(TypedDict, total=False):
     """Disable /mcp routes"""
     disable_a2a: bool
     """Disable /a2a routes"""
+    disable_event_streaming: bool
+    """Disable the v2 event streaming routes"""
     mount_prefix: str
     """Prefix for mounted routes. E.g., "/my-deployment/api"."""
     configurable_headers: ConfigurableHeaders | None
@@ -567,4 +569,16 @@ class EncryptionConfig(TypedDict, total=False):
 
     The module should export an Encrypt instance with registered
     encryption and decryption handlers for blobs and metadata.
+    """
+
+
+class PriorityConfig(TypedDict, total=False):
+    path: Required[str]
+    """Path to the priority module in a Python file.
+
+    Example: "./priority.py:priority"
+
+    The module should export a Priority instance with a registered
+    `@priority.assign` function, which sets a thread's priority settings
+    at its first run.
     """

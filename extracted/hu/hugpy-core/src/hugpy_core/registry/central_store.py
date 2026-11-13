@@ -280,7 +280,77 @@ def seed_if_empty() -> None:
         logger.exception("central seed failed")
 
 
+_DISCOVERED = {"at": 0.0, "rows": []}
+_DISCOVERED_TTL_S = 60.0
+
+
+def _own_rows() -> bool:
+    with _db() as c:
+        return c.execute("SELECT 1 FROM central_models LIMIT 1").fetchone() is not None
+
+
+def discovered() -> list:
+    """Central as discovery publishes it, in this table's row shape. Discovery owns the central
+    drive's inventory; an install that never walked a central folder of its own answers with
+    this. Framework, tasks and hub id come from Core's catalog entry of the same key. A unit
+    whose directory is not there is ``missing``. Held for a minute: the export changes often."""
+    import time
+    if _DISCOVERED["rows"] and time.time() - _DISCOVERED["at"] < _DISCOVERED_TTL_S:
+        return _DISCOVERED["rows"]
+    from hugpy_core import discovery
+    try:
+        units = discovery.central_units()
+    except Exception as exc:  # noqa: BLE001 — no export on this host: there is nothing to add
+        logger.debug("central: no discovery export (%s)", exc)
+        return []
+    catalog = {}
+    try:
+        with _db() as c:
+            for key, framework, primary, metadata in c.execute(
+                    "SELECT model_key, framework, primary_task, metadata FROM models").fetchall():
+                catalog[key] = (framework, primary, metadata or {})
+                # the catalog describes a model by its units (key::variation) too: what a unit
+                # says of framework and task holds for the model's directory
+                head = key.split("::", 1)[0]
+                if head != key and framework and not (catalog.get(head) or (None,))[0]:
+                    catalog[head] = (framework, (catalog.get(head) or (None, primary))[1] or primary,
+                                     (catalog.get(head) or (None, None, {}))[2] or metadata or {})
+    except Exception:  # noqa: BLE001 — the list is still worth having without the catalog's facts
+        logger.debug("central: catalog facts unavailable", exc_info=True)
+    out = []
+    for unit in units:
+        key, directory, base = unit["key"], unit["dir"], (unit["root"] or "").rstrip("/")
+        framework, primary, metadata = catalog.get(key) or (None, None, {})
+        owner, _, repo = key.rpartition("/")
+        tasks = list(dict.fromkeys(t for t in [primary or unit["task"], *(metadata.get("tasks") or [])] if t))
+        out.append({
+            "model_key": key, "owner": owner or None, "repo": repo, "dir": directory,
+            "rel": os.path.relpath(directory, base) if base and directory.startswith(base + "/") else directory,
+            "hub_id": metadata.get("hub_id") or (key if owner else None),
+            "framework": framework or ("gguf" if unit["gguf"] else None),
+            "primary_task": primary or unit["task"], "tasks": tasks, "bytes": int(unit["bytes"] or 0),
+            "hugpy_json": None, "marker_mtime": None, "missing": not os.path.isdir(directory)})
+    _DISCOVERED.update(at=time.time(), rows=out)
+    return out
+
+
+def view_root() -> str:
+    """The root the rows of rows() live under: this install's central home when it keeps its own
+    inventory, else the central root discovery declares."""
+    try:
+        if not _own_rows() and discovered():
+            from hugpy_core import discovery
+            declared = discovery.drive_roots().get("central") or []
+            if declared:
+                return declared[0].rstrip("/")
+    except Exception:  # noqa: BLE001
+        logger.debug("central: view root falls back", exc_info=True)
+    return root()
+
+
 def rows(include_missing: bool = False, *, summary: bool = False) -> list:
+    if not _own_rows():
+        return [row for row in discovered() if include_missing or not row["missing"]]
     columns = list(_COLS)
     if summary:
         # Compact catalog pages need classification, not every file/tensor in

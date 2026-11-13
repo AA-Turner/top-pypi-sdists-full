@@ -41,6 +41,17 @@ def rebase_request(
     )
 
 
+# The reads' paths: an edge from before it served them answers them with a 404 of its own.
+READ_PATHS = ("/v1/customers.get", "/v1/entities.get", "/v1/customers.get_or_create")
+
+
+def is_read_the_edge_refused(request: httpx.Request, response: httpx.Response) -> bool:
+    """A read the edge refused itself, its 404 for a read it doesn't serve yet included: the API may still answer it."""
+    is_read = request.url.path.endswith(READ_PATHS)
+    edge_refused = not response.is_success and FORWARDED_HEADER not in response.headers
+    return is_read and edge_refused
+
+
 def is_edge_down(response: httpx.Response) -> bool:
     """A 5xx the edge answered itself, or fail-open's 503 for no reply: the Autumn API never saw the call."""
     return response.status_code >= 500 and FORWARDED_HEADER not in response.headers
@@ -102,7 +113,8 @@ class EdgeSyncClient:
             if fallback is None:
                 raise
             return self._inner.send(fallback, **kwargs)
-        fallback = legs.fallback() if is_edge_down(reply) else None
+        asks_autumn = is_edge_down(reply) or is_read_the_edge_refused(request, reply)
+        fallback = legs.fallback() if asks_autumn else None
         if fallback is None:
             return reply
         reply.close()
@@ -136,7 +148,8 @@ class EdgeAsyncClient:
             if fallback is None:
                 raise
             return await self._inner.send(fallback, **kwargs)
-        fallback = legs.fallback() if is_edge_down(reply) else None
+        asks_autumn = is_edge_down(reply) or is_read_the_edge_refused(request, reply)
+        fallback = legs.fallback() if asks_autumn else None
         if fallback is None:
             return reply
         await reply.aclose()

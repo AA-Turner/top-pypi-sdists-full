@@ -70,7 +70,8 @@ staff_release_manager_org/org_id: []
 staff_support:
     - staff_member
     - staff_support_org/*
-staff_support_org/org_id: []
+staff_support_org/org_id:
+    - w:staff_break_glass/org_id
 staff_config_manager:
     - staff_member
     - staff_config_manager_org/*

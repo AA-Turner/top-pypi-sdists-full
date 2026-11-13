@@ -17,7 +17,7 @@ from ..core.spectrum import _spectrogram, power_to_db
 from ..util.exceptions import ParameterError
 
 if TYPE_CHECKING:
-    from typing import Any, Collection, Literal
+    from typing import Any, Callable, Collection, Literal
 
     from numpy.typing import DTypeLike
 
@@ -179,7 +179,7 @@ def spectral_centroid(
 
     # Compute the center frequencies of each bin
     if freq is None:
-        freq = fft_frequencies(sr=sr, n_fft=n_fft)
+        freq = fft_frequencies(sr=sr, n_fft=n_fft, dtype=S.dtype)
 
     if freq.ndim == 1:
         # reshape for broadcasting
@@ -337,7 +337,7 @@ def spectral_bandwidth(
 
     # Compute the center frequencies of each bin
     if freq is None:
-        freq = fft_frequencies(sr=sr, n_fft=n_fft)
+        freq = fft_frequencies(sr=sr, n_fft=n_fft, dtype=S.dtype)
 
     if freq.ndim == 1:
         deviation = np.abs(
@@ -369,6 +369,8 @@ def spectral_contrast(
     fmin: float = 200.0,
     n_bands: int = 6,
     quantile: float = 0.02,
+    ref: float | Callable = 1.0,
+    top_db: float | None = 80.0,
     linear: bool = False,
 ) -> np.ndarray:
     """Compute spectral contrast
@@ -429,6 +431,23 @@ def spectral_contrast(
         number of frequency bands
     quantile : float in (0, 1)
         quantile for determining peaks and valleys
+    ref : float or callable
+        Reference value for the dB conversion of each of the peak and valley
+        spectra, as in `power_to_db`.  A scalar leaves each frame independent
+        of the others.  A callable such as `np.max` is evaluated over the
+        frequency and time axes of each leading channel, which makes every
+        frame's output depend on the rest of that channel.
+
+        This has no effect when ``linear=True``, which returns the linear
+        difference of magnitudes and never calls `power_to_db`.
+    top_db : float or None
+        Threshold each of the peak and valley spectra at ``top_db`` below
+        its own peak, as in `power_to_db`.  The peak is computed over the
+        frequency and time axes, independently for each leading channel.
+        Pass ``None`` to disable the threshold.
+
+        This has no effect when ``linear=True``, which returns the linear
+        difference of magnitudes and never calls `power_to_db`.
     linear : bool
         If `True`, return the linear difference of magnitudes:
         ``peaks - valleys``.
@@ -471,7 +490,7 @@ def spectral_contrast(
 
     # Compute the center frequencies of each bin
     if freq is None:
-        freq = fft_frequencies(sr=sr, n_fft=n_fft)
+        freq = fft_frequencies(sr=sr, n_fft=n_fft, dtype=S.dtype)
 
     freq = np.atleast_1d(freq)
 
@@ -499,7 +518,7 @@ def spectral_contrast(
     shape = list(S.shape)
     shape[-2] = n_bands + 1
 
-    valley = np.zeros(shape)
+    valley = np.zeros(shape, dtype=S.dtype)
     peak = np.zeros_like(valley)
 
     for k, (f_low, f_high) in enumerate(itertools.pairwise(octa)):
@@ -531,7 +550,9 @@ def spectral_contrast(
     if linear:
         contrast = peak - valley
     else:
-        contrast = power_to_db(peak) - power_to_db(valley)
+        contrast = power_to_db(peak, ref=ref, top_db=top_db) - power_to_db(
+            valley, ref=ref, top_db=top_db
+        )
     return contrast
 
 
@@ -667,7 +688,7 @@ def spectral_rolloff(
 
     # Compute the center frequencies of each bin
     if freq is None:
-        freq = fft_frequencies(sr=sr, n_fft=n_fft)
+        freq = fft_frequencies(sr=sr, n_fft=n_fft, dtype=S.dtype)
 
     # Make sure that frequency can be broadcast
     if freq.ndim == 1:
@@ -682,7 +703,11 @@ def spectral_rolloff(
     # reshape threshold for broadcasting
     threshold = np.expand_dims(threshold, axis=-2)
 
-    ind = np.where(total_energy < threshold, np.nan, 1)
+    # Allocate the mask at the spectrogram's precision so the following
+    # ``ind * freq`` does not promote a float32 pipeline to float64
+    # (``np.nan`` is a float64 scalar, which ``np.where`` would propagate).
+    ind = np.ones_like(total_energy)
+    ind[total_energy < threshold] = np.nan
 
     rolloff: np.ndarray = np.nanmin(ind * freq, axis=-2, keepdims=True)
     return rolloff
@@ -1042,7 +1067,7 @@ def poly_features(
 
     # Compute the center frequencies of each bin
     if freq is None:
-        freq = fft_frequencies(sr=sr, n_fft=n_fft)
+        freq = fft_frequencies(sr=sr, n_fft=n_fft, dtype=S.dtype)
 
     coefficients: np.ndarray
 
@@ -1064,7 +1089,10 @@ def poly_features(
             -2, -1
         )
 
-    return coefficients
+    # `np.polyfit` always computes (and returns) in float64 for numerical
+    # stability; cast back to the spectrogram dtype so a float32 pipeline is
+    # preserved, consistent with the other spectral features.
+    return coefficients.astype(S.dtype, copy=False)
 
 
 def zero_crossing_rate(
@@ -1859,6 +1887,8 @@ def mfcc(
     norm: _DCTNorm | None = "ortho",
     lifter: float = 0,
     mel_norm: Literal["slaney"] | float | None = "slaney",
+    ref: float | Callable = 1.0,
+    top_db: float | None = 80.0,
     **kwargs: Any,
 ) -> np.ndarray:
     """Mel-frequency cepstral coefficients (MFCCs)
@@ -1888,6 +1918,22 @@ def mfcc(
         As ``lifter`` increases, the coefficient weighting becomes approximately linear.
     mel_norm : float, 'slaney', or None
         `norm` argument to `melspectrogram`
+    ref : float or callable
+        Reference value for the log conversion, as in `power_to_db`.
+        A scalar leaves each frame independent of the others.  A callable
+        such as `np.max` is evaluated over the frequency and time axes of
+        each leading channel, which makes every frame's output depend on
+        every other frame in that channel.
+
+        This applies only when computing from ``y``; if ``S`` is supplied it
+        is assumed to already be in dB.
+    top_db : float or None
+        Threshold the mel spectrogram at ``top_db`` below its peak before
+        the log conversion, as in `power_to_db`.  The peak is computed over
+        the frequency and time axes, independently for each leading channel,
+        so a numeric value makes each frame's output depend on every other
+        frame in the same channel.  Pass ``None`` to disable the threshold
+        and make the result depend only on the frame itself.
     **kwargs
         additional keyword arguments to `melspectrogram` if operating on time series input
     n_fft : int > 0 [scalar]
@@ -2009,7 +2055,11 @@ def mfcc(
     """
     if S is None:
         # multichannel behavior may be different due to relative noise floor differences between channels
-        S = power_to_db(melspectrogram(y=y, sr=sr, norm = mel_norm, **kwargs))
+        S = power_to_db(
+            melspectrogram(y=y, sr=sr, norm=mel_norm, **kwargs),
+            ref=ref,
+            top_db=top_db,
+        )
 
     import scipy.fft
 

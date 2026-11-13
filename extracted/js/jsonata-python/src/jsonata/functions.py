@@ -147,8 +147,22 @@ class Functions:
     class Encoder(json.JSONEncoder):
         def encode(self, arg):
             if not isinstance(arg, bool) and isinstance(arg, (int, float)):
-                d = decimal.Decimal(arg)
-                res = Functions.remove_exponent(d, decimal.Context(prec=15))
+                if abs(arg) <= sys.float_info.max:
+                    f = float(arg)
+                    if not f.is_integer():
+                        # Non-integers are rounded to 15 significant digits, like
+                        # Number(toPrecision(15)) in jsonata-js, which rounds halves up
+                        ctx = decimal.Context(prec=15, rounding=decimal.ROUND_HALF_UP)
+                        f = float(ctx.plus(decimal.Decimal(f)))
+                    # Like JavaScript, write the shortest decimal that reads back as the
+                    # same double, with no exponent for integers below 1e21 (so
+                    # 1.0000000000000001e18 is 1000000000000000100)
+                    d = decimal.Decimal(repr(f))
+                    if f.is_integer() and abs(f) < 1e21:
+                        return str(int(d))
+                    return str(d).lower()
+                # NaN, infinity and integers beyond the range of a double
+                res = Functions.remove_exponent(decimal.Decimal(arg), decimal.Context(prec=15))
                 return str(res).lower()
 
             return super().encode(arg)
@@ -548,8 +562,11 @@ class Functions:
     #     
     @staticmethod
     def contains(string: Optional[str], token: Union[None, str, CompiledPattern]) -> Optional[bool]:
+        if token is utils.Utils.NULL_VALUE:
+            raise jexception.JException("T0410", -1)
+
         # undefined inputs always return undefined
-        if string is None:
+        if string is None or token is None:
             return None
 
         if string is utils.Utils.NULL_VALUE:
@@ -752,11 +769,12 @@ class Functions:
 
     @staticmethod
     def replace(string: Optional[str], pattern: Union[str, CompiledPattern], replacement: Optional[Any], limit: Optional[int]) -> Optional[str]:
-        if string is None:
-            return None
-
-        if string is utils.Utils.NULL_VALUE:
+        if string is utils.Utils.NULL_VALUE or pattern is utils.Utils.NULL_VALUE:
             raise jexception.JException("T0410", -1)
+
+        # undefined inputs always return undefined
+        if string is None or pattern is None:
+            return None
 
         if isinstance(pattern, str):
             if not pattern:
@@ -946,11 +964,12 @@ class Functions:
 
     @staticmethod
     def split(string: Optional[str], pattern: Union[str, Optional[CompiledPattern]], limit: Optional[float]) -> Optional[list[str]]:
-        if string is None:
-            return None
-
-        if string is utils.Utils.NULL_VALUE:
+        if string is utils.Utils.NULL_VALUE or pattern is utils.Utils.NULL_VALUE:
             raise jexception.JException("T0410", -1)
+
+        # undefined inputs always return undefined
+        if string is None or pattern is None:
+            return None
 
         if limit is not None and int(limit) < 0:
             raise jexception.JException("D3020", -1, string)
@@ -1619,7 +1638,11 @@ class Functions:
             res = jsonata.Jsonata.CURRENT.jsonata.apply(func, func_args, None,
                                                         jsonata.Jsonata.CURRENT.jsonata.environment)
         else:
-            res = func.call(None, func_args)
+            # counted once func is known to be callable, so an invalid function argument is
+            # reported as an error of the native's arguments (see Jsonata.apply_native_function)
+            call = func.call
+            jsonata.Jsonata.count_apply()
+            res = call(None, func_args)
         return res
 
     #
@@ -1800,7 +1823,15 @@ class Functions:
         if arg is None:
             return None
 
-        return {k: v for obj in arg for k, v in obj.items()}
+        result = {}
+        for obj in arg:
+            if isinstance(obj, list):
+                # like JS "for (var prop in obj)", an array is merged with its indexes as keys.
+                # This can happen where the signature is not validated, e.g. $merge(?)
+                result.update((str(i), item) for i, item in enumerate(obj))
+            elif isinstance(obj, Mapping):
+                result.update(obj)
+        return result
 
     #
     # Reverses the order of items in an array
@@ -1828,12 +1859,15 @@ class Functions:
     # @returns {Array} - the resultant array
     #     
     @staticmethod
-    def each(obj: Optional[Mapping], func: Any) -> Optional[list]:
+    def each(obj: Union[Mapping, Sequence, None], func: Any) -> Optional[list]:
         if obj is None:
             return None
 
+        # like JS "for (var key in obj)", an array is iterated with its indexes as (string) keys.
+        # This can happen where the signature is not validated, e.g. $each(?, ...)
+        items = ((str(i), item) for i, item in enumerate(obj)) if isinstance(obj, list) else obj.items()
         result = (res for res in (Functions.func_apply(func, Functions.hof_func_args(func, value, key, obj))
-                                  for key, value in obj.items()) if res is not None)
+                                  for key, value in items) if res is not None)
         return utils.Utils.create_sequence_from_iter(result)
 
     #
@@ -2018,9 +2052,17 @@ class Functions:
         if not (isinstance(arg2, list)):
             arg2 = utils.Utils.JList([arg2])
 
-        arg1 = utils.Utils.JList(arg1)  # create a new copy!
-        arg1.extend(arg2)
-        return arg1
+        utils.Utils.check_sequence_length(len(arg1) + len(arg2))
+
+        # create a new copy! It stays bounded by the max sequence length (if
+        # any), since callers such as evaluate_wildcard keep growing the result
+        if utils.Utils.get_max_sequence_length() is not None:
+            result = utils.Utils.BoundedJList()
+            result.extend(arg1)
+        else:
+            result = utils.Utils.JList(arg1)
+        result.extend(arg2)
+        return result
 
     @staticmethod
     def is_lambda(result: Optional[Any]) -> bool:

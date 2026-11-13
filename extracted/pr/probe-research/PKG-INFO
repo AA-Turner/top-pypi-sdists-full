@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.531.0
+Version: 0.546.0
 Summary: Probe: experiment tracking for ML teams and their coding agents (SDK, CLI, read-only MCP).
 Project-URL: Homepage, https://www.useprobe.ai
 Project-URL: Documentation, https://docs.prbe.ai
@@ -20,7 +20,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
 Requires-Dist: anyio>=4.5
 Requires-Dist: httpx>=0.27
-Requires-Dist: mcp<2,>=1.24
+Requires-Dist: mcp<2,>=1.30
 Requires-Dist: nvidia-ml-py>=12.535
 Requires-Dist: pathspec>=1.0
 Requires-Dist: psutil>=5.9
@@ -33,8 +33,8 @@ Requires-Dist: typer<0.29,>=0.12
 Provides-Extra: all
 Requires-Dist: anyio>=4.5; extra == 'all'
 Requires-Dist: cryptography>=3.4; extra == 'all'
-Requires-Dist: mcp<2,>=1.24; extra == 'all'
-Requires-Dist: probe-research-cli==0.531.0; extra == 'all'
+Requires-Dist: mcp<2,>=1.30; extra == 'all'
+Requires-Dist: probe-research-cli==0.546.0; extra == 'all'
 Requires-Dist: questionary<3,>=2.0; extra == 'all'
 Requires-Dist: tiktoken<0.14,>=0.8; extra == 'all'
 Requires-Dist: tomlkit>=0.12; extra == 'all'
@@ -42,16 +42,16 @@ Requires-Dist: typer<0.29,>=0.12; extra == 'all'
 Requires-Dist: zstandard>=0.23; extra == 'all'
 Provides-Extra: cli
 Requires-Dist: cryptography>=3.4; extra == 'cli'
-Requires-Dist: probe-research-cli==0.531.0; extra == 'cli'
+Requires-Dist: probe-research-cli==0.546.0; extra == 'cli'
 Requires-Dist: questionary<3,>=2.0; extra == 'cli'
 Requires-Dist: tomlkit>=0.12; extra == 'cli'
 Requires-Dist: typer<0.29,>=0.12; extra == 'cli'
 Requires-Dist: zstandard>=0.23; extra == 'cli'
 Provides-Extra: daemon
-Requires-Dist: probe-research-cli==0.531.0; extra == 'daemon'
+Requires-Dist: probe-research-cli==0.546.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-harness[skills]==0.36.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-skills==2.0.0; extra == 'daemon'
-Requires-Dist: pydantic-ai-slim[mcp,openai]==2.51.0; extra == 'daemon'
+Requires-Dist: pydantic-ai-slim[mcp,openai]==2.53.0; extra == 'daemon'
 Requires-Dist: watchdog==6.0.0; (sys_platform == 'win32' or (sys_platform == 'darwin' and python_version < '3.14')) and extra == 'daemon'
 Provides-Extra: dev
 Requires-Dist: datamodel-code-generator>=0.25; extra == 'dev'
@@ -67,14 +67,14 @@ Requires-Dist: safetensors>=0.4; extra == 'dev'
 Requires-Dist: zstandard>=0.23; extra == 'dev'
 Provides-Extra: harbor
 Requires-Dist: harbor<0.26,>=0.20; (python_version >= '3.12') and extra == 'harbor'
-Requires-Dist: probe-research-cli==0.531.0; extra == 'harbor'
+Requires-Dist: probe-research-cli==0.546.0; extra == 'harbor'
 Provides-Extra: huggingface
 Requires-Dist: transformers[torch]>=4.46; extra == 'huggingface'
 Provides-Extra: lightning
 Requires-Dist: lightning>=2.0; extra == 'lightning'
 Provides-Extra: mcp
 Requires-Dist: anyio>=4.5; extra == 'mcp'
-Requires-Dist: mcp<2,>=1.24; extra == 'mcp'
+Requires-Dist: mcp<2,>=1.30; extra == 'mcp'
 Requires-Dist: tiktoken<0.14,>=0.8; extra == 'mcp'
 Provides-Extra: mcp-http
 Requires-Dist: uvicorn>=0.30; extra == 'mcp-http'
@@ -797,6 +797,15 @@ the flat modes each read one route and refuse arguments they do not read:
 | `datasets` | named team datasets (`dataset:<name>`, latest version, runs using it, sources) and run-logged dataset files nobody registered (`artifact:<uuid>`) | `query`, `project`, `registered` (`all` / `yes` / `no`) |
 | `checkpoints` | every checkpoint team-wide: step, best, stored or a reference, its run and project; `totals` sums bytes for the filter | `project`, `experiment`, `run`, `best`, `stored` (`stored` / `reference`) |
 | `sources` | external sources (Hub ids, buckets, URLs) with how many runs use each | `query`, `provider`, `kind` |
+| `people` | the team's members with the user ids `owner` takes | — |
+| `sessions` | agent sessions team-wide, newest activity first: title, whose, the agent, when last active, the projects and runs touched; each row is an address `entity` opens | `project` (a slug or a uuid) |
+
+Every mode that lists work (`projects`, `runs`, `notes`, `files`, `datasets`, `checkpoints`,
+`sessions`) also takes `owner` (a user id, an email, a name or `me`), `since` / `until` (an ISO
+date or `24h` / `7d` / `2w`) and `order="recent"` (newest activity first), passed to the server
+as given; the page says who `owner` matched (`owner_matched`) and how many rows had no known
+person (`unowned_count`). `search` takes `owner`, `since`, `until` and `sort="recent"` the same
+way. A server without the `people_filters` / `search_people_filters` feature refuses them.
 
 A flat listing resumes after the last row it sent, in the route's own order (the runs
 and notes lists' keysets, a workspace's `lower(name), id`, a file's name), never by

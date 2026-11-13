@@ -3,7 +3,7 @@
 One computation per group, no bincount, no ufunc trick and no compiled kernel -
 the code is the specification the backends are measured against.  It exists so
 that a test can compare a backend against something it does not share code
-with: comparing ``aggregate_numpy`` against ``aggregate_numpy`` (or against its
+with: comparing ``npg_numpy`` against ``npg_numpy`` (or against its
 own group loop) proves nothing about the paths that differ between them.
 
 What the reference does not do is guess dtypes: a group reduction hands its
@@ -29,7 +29,7 @@ from numpy_groupies.fills import (
     DEFAULT_FILL_VALUE,
     default_fill_value,
 )
-from numpy_groupies.validation import check_fill_value
+from numpy_groupies.validation import check_fill_value, check_topk_k
 
 
 def trapezoid_ref(*args: Any, **kwargs: Any) -> Any:
@@ -183,12 +183,10 @@ def _std_ref(values: npt.NDArray[np.number], pos: npt.NDArray[np.integer], ddof:
 def _nunique_ref(values: npt.NDArray[np.number], pos: npt.NDArray[np.integer]) -> int:
     """the number of distinct values of one group.
 
-    The values that are equal count once - a zero and a minus zero are one
-    value, an integer and the float of the same number are one value.  The
-    nans count once among themselves: a nan in either part of a complex value
-    is a nan, and the nans of a group are one value of their own (pandas
-    counts them that way, and so does polars, which counts the nan as a
-    value).
+    Equal values count once (zero and minus zero are one value, an integer and
+    the float of the same number are one value).  The nans count once among
+    themselves - a nan in either part of a complex value is a nan - as pandas
+    and polars count them.
     """
     if values.dtype.kind in "fc":
         nans = np.isnan(values)
@@ -206,11 +204,13 @@ def _deviations(values: npt.NDArray[np.number]) -> npt.NDArray[np.floating]:
     """the deviations of the values of a group from their mean.
 
     The group is centered on its first value first - the same centering the
-    package does for the variance of integers: the deviations of a group
-    whose values are all the same are then exactly zero, and the spread of
-    such a group is zero - and the mean of those deviations is taken off as
-    well, which is the mean of the group.
+    package does for the variance of integers, so the deviations of a group
+    of equal values are exactly zero - and the mean of those deviations is
+    taken off as well.  The subtraction runs in float64, like numpy's own var
+    and std of integer values do: in the dtype of the values the deviations
+    of an unsigned one would wrap, and the moments are floats anyway.
     """
+    values = values.astype(np.float64, copy=False)
     devs = values - values[0]
     return devs - devs.mean()
 
@@ -479,6 +479,19 @@ def reference_names() -> list[str]:
     return sorted(_REF_FUNCS)
 
 
+def _refuse_a_topk_out_of_a_matrix(name: str | None, ndim_answer: int) -> None:
+    """The topk answers a matrix, and the reference measures no answer of more.
+
+    A call that would place the rows over more than one dimension - labels of
+    more than one dimension, a sequence of sizes, an axis of a value of more
+    than one dimension - asks for an answer of more than the two dimensions
+    (a row per group, k columns) the selection answers with.  The package
+    refuses those, so the reference refuses them too.
+    """
+    if name in _REF_TOPK and ndim_answer > 2:
+        raise NotImplementedError(f"the topk answers a matrix of groups by values, not {ndim_answer} dimensions")
+
+
 def aggregate_ref(
     group_idx: npt.NDArray[np.integer],
     a: npt.NDArray[np.number],
@@ -522,7 +535,36 @@ def aggregate_ref(
     if labels.size and int(labels.max()) >= n_groups:
         raise ValueError("a group index is too large for the requested size")
 
+    # the rows of the topk are the groups of one dimension, and the shape of
+    # the answer adds the column of the k values to them
+    _refuse_a_topk_out_of_a_matrix(name, len(out_shape) + 1)
+
+    # the count of the values is a whole number, and none below zero - the
+    # rule of the package, said the way the package says it, and said before
+    # a single group is computed.  The default of k is written down here on
+    # purpose: the reference measures the package and must not import the
+    # policy it judges
+    if name in _REF_TOPK:
+        k = check_topk_k(kwargs.get("k", 5))
+
     call = _REF_FUNCS[name]
+
+    def _group_values(index: npt.NDArray[np.integer]) -> npt.NDArray[np.number]:
+        """the values of one group, the arithmetic of the integers widened.
+
+        The sums, products and running functions would wrap in the dtype of
+        narrow values, and numpy widens its own the same way: narrow integers
+        are carried in the accumulator of their own sign (int64/uint64).
+        The functions that only compare or hand the values out answer the
+        very same values either way.
+        """
+        values = a[index]
+        if values.dtype.kind == "i" and values.dtype.itemsize < 8:
+            return values.astype(np.int64)
+        if values.dtype.kind == "u" and values.dtype.itemsize < 8:
+            return values.astype(np.uint64)
+        return values
+
     # one stable argsort gathers the groups, each of them in the order its
     # values had in the input - the arg reductions report an input position
     order = np.argsort(labels, kind="stable")
@@ -534,14 +576,14 @@ def aggregate_ref(
         if not pos.size:
             continue
         if name in _REF_TOPK:
-            value = call(a[pos], pos, fill_value=fill_value, **kwargs)
+            value = call(_group_values(pos), pos, fill_value=fill_value, **kwargs)
         elif name in _REF_SEEDED_BY_FILL:
             # the running extreme starts at the fill value - the places before
             # the first value of a group hold it
             fill = default_fill_value(name, a.dtype) if fill_value is DEFAULT_FILL_VALUE else fill_value
-            value = call(a[pos], pos, fill_value=fill, **kwargs)
+            value = call(_group_values(pos), pos, fill_value=fill, **kwargs)
         else:
-            value = call(a[pos], pos, **kwargs)
+            value = call(_group_values(pos), pos, **kwargs)
         if value is None:
             # the function has no answer for this group, which is handled like
             # an empty one: it takes the fill value
@@ -577,9 +619,6 @@ def aggregate_ref(
         else:
             check_fill_value(fill_value, out_dtype, name)
             fill = fill_value
-        # the default of k is written down here on purpose: the reference
-        # measures the package and must not import the policy it judges
-        k = int(kwargs.get("k", 5))
         ret = np.full((n_groups, k), fill, dtype=out_dtype)
         for group, value in results.items():
             ret[group, :] = value
@@ -619,18 +658,19 @@ def aggregate_ref_along_axis(
 ) -> npt.NDArray[np.number]:
     """``aggregate`` along an axis, computed one slice at a time.
 
-    The labels address the entries of the axis; every slice beside the axis
-    is a group of its own, and the values of the slice are grouped by the
-    labels of the axis - so the answer of a slice is the one the group loop
-    gives for the labels of the axis.
-
-    The shape of the answer follows the shape of the input: the dimension of
-    the axis holds the groups, the other ones the slices beside it.  The
-    functions that answer one value per input item keep the dimension of the
-    axis as it is - they have no group to fill.
+    Every slice beside the axis is a group of its own, and the values of the
+    slice are grouped by the labels of the axis.  The shape of the answer
+    follows the shape of the input: the dimension of the axis holds the
+    groups, the other ones the slices beside it.  The functions that answer
+    one value per input item keep the dimension of the axis as it is.  The
+    topk answers a row per group, so it asks for a one-dimensional input.
     """
     labels = np.asarray(group_idx).ravel()
     a = np.asarray(a)
+    name = func if isinstance(func, str) else getattr(func, "__name__", None)
+    # the rows of the topk are the groups of the axis, the columns its values:
+    # the slices beside the axis are the dimensions the answer gains over it
+    _refuse_a_topk_out_of_a_matrix(name, a.ndim + 1)
     axis = axis % a.ndim
     moved = np.moveaxis(a, axis, -1)
     n_groups = int(labels.max()) + 1 if size is None else int(size)
@@ -642,4 +682,8 @@ def aggregate_ref_along_axis(
     ret = np.empty(moved.shape[:-1] + first.shape, dtype=first.dtype)
     for index, values in zip(np.ndindex(*moved.shape[:-1]), results):
         ret[index] = values
+    if a.ndim == 1:
+        # no slice beside the axis: the answer is the one the group loop gives,
+        # and the columns of the topk follow the rows they belong to
+        return ret
     return np.moveaxis(ret, -1, axis)

@@ -51,6 +51,7 @@ class RawBusinessesClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
+        include_total_count: typing.Optional[bool] = None,
         order: typing.Optional[ListBusinessesRequestOrder] = None,
         direction: typing.Optional[ListBusinessesRequestDirection] = None,
         created_before: typing.Optional[str] = None,
@@ -61,6 +62,7 @@ class RawBusinessesClient:
         referred_username: typing.Optional[str] = None,
         tier: typing.Optional[ListBusinessesRequestTier] = None,
         business_prefix_query: typing.Optional[str] = None,
+        earning_partner_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[ListBusinessesResponseDataItem, ListBusinessesResponse]:
         """
@@ -72,7 +74,7 @@ class RawBusinessesClient:
             List the referrals this business's team members made, past members included, instead of the authenticated user's own. Requires company:basic:read on that business, which every team member holds, and cannot be combined with user_id. The owner role reads every referral; anyone else reads only the referrals made by themselves and by the people under them in the org chart.
 
         advance_status : typing.Optional[ListBusinessesRequestAdvanceStatus]
-            Filter the authenticated partner's CPA offers by status. Use offered for every state after qualification.
+            Filter the authenticated partner's CPA offers by status, or with referring_account_id, the CPA terms of the reps the caller manages. Use offered for every state after qualification.
 
         status : typing.Optional[ListBusinessesRequestStatus]
             Filter by referral status.
@@ -91,6 +93,9 @@ class RawBusinessesClient:
 
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
+
+        include_total_count : typing.Optional[bool]
+            Set to `true` to return the number of matching results in `page_info.total_count`. Send `first=0` as well to return the count without any results.
 
         order : typing.Optional[ListBusinessesRequestOrder]
             The field to sort partner businesses by.
@@ -122,6 +127,9 @@ class RawBusinessesClient:
         business_prefix_query : typing.Optional[str]
             Case-insensitive business-name prefix, or an exact `biz_` account ID. Surrounding whitespace is ignored; blank values apply no filter.
 
+        earning_partner_id : typing.Optional[str]
+            Only the referrals this team member made, plus the ones they were added to as a deal participant. User ID, prefixed `user_`. Requires `referring_account_id`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -143,6 +151,7 @@ class RawBusinessesClient:
                 "after": after,
                 "last": last,
                 "before": before,
+                "include_total_count": include_total_count,
                 "order": order,
                 "direction": direction,
                 "created_before": created_before,
@@ -153,6 +162,7 @@ class RawBusinessesClient:
                 "referred_username": referred_username,
                 "tier": tier,
                 "business_prefix_query": business_prefix_query,
+                "earning_partner_id": earning_partner_id,
             },
             request_options=request_options,
         )
@@ -180,6 +190,7 @@ class RawBusinessesClient:
                         after=_parsed_next,
                         last=last,
                         before=before,
+                        include_total_count=include_total_count,
                         order=order,
                         direction=direction,
                         created_before=created_before,
@@ -190,6 +201,7 @@ class RawBusinessesClient:
                         referred_username=referred_username,
                         tier=tier,
                         business_prefix_query=business_prefix_query,
+                        earning_partner_id=earning_partner_id,
                         request_options=request_options,
                     )
                 return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
@@ -555,6 +567,7 @@ class AsyncRawBusinessesClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
+        include_total_count: typing.Optional[bool] = None,
         order: typing.Optional[ListBusinessesRequestOrder] = None,
         direction: typing.Optional[ListBusinessesRequestDirection] = None,
         created_before: typing.Optional[str] = None,
@@ -565,6 +578,7 @@ class AsyncRawBusinessesClient:
         referred_username: typing.Optional[str] = None,
         tier: typing.Optional[ListBusinessesRequestTier] = None,
         business_prefix_query: typing.Optional[str] = None,
+        earning_partner_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[ListBusinessesResponseDataItem, ListBusinessesResponse]:
         """
@@ -576,7 +590,7 @@ class AsyncRawBusinessesClient:
             List the referrals this business's team members made, past members included, instead of the authenticated user's own. Requires company:basic:read on that business, which every team member holds, and cannot be combined with user_id. The owner role reads every referral; anyone else reads only the referrals made by themselves and by the people under them in the org chart.
 
         advance_status : typing.Optional[ListBusinessesRequestAdvanceStatus]
-            Filter the authenticated partner's CPA offers by status. Use offered for every state after qualification.
+            Filter the authenticated partner's CPA offers by status, or with referring_account_id, the CPA terms of the reps the caller manages. Use offered for every state after qualification.
 
         status : typing.Optional[ListBusinessesRequestStatus]
             Filter by referral status.
@@ -595,6 +609,9 @@ class AsyncRawBusinessesClient:
 
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
+
+        include_total_count : typing.Optional[bool]
+            Set to `true` to return the number of matching results in `page_info.total_count`. Send `first=0` as well to return the count without any results.
 
         order : typing.Optional[ListBusinessesRequestOrder]
             The field to sort partner businesses by.
@@ -626,6 +643,9 @@ class AsyncRawBusinessesClient:
         business_prefix_query : typing.Optional[str]
             Case-insensitive business-name prefix, or an exact `biz_` account ID. Surrounding whitespace is ignored; blank values apply no filter.
 
+        earning_partner_id : typing.Optional[str]
+            Only the referrals this team member made, plus the ones they were added to as a deal participant. User ID, prefixed `user_`. Requires `referring_account_id`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -647,6 +667,7 @@ class AsyncRawBusinessesClient:
                 "after": after,
                 "last": last,
                 "before": before,
+                "include_total_count": include_total_count,
                 "order": order,
                 "direction": direction,
                 "created_before": created_before,
@@ -657,6 +678,7 @@ class AsyncRawBusinessesClient:
                 "referred_username": referred_username,
                 "tier": tier,
                 "business_prefix_query": business_prefix_query,
+                "earning_partner_id": earning_partner_id,
             },
             request_options=request_options,
         )
@@ -686,6 +708,7 @@ class AsyncRawBusinessesClient:
                             after=_parsed_next,
                             last=last,
                             before=before,
+                            include_total_count=include_total_count,
                             order=order,
                             direction=direction,
                             created_before=created_before,
@@ -696,6 +719,7 @@ class AsyncRawBusinessesClient:
                             referred_username=referred_username,
                             tier=tier,
                             business_prefix_query=business_prefix_query,
+                            earning_partner_id=earning_partner_id,
                             request_options=request_options,
                         )
 

@@ -1976,6 +1976,15 @@ class CfnTableBucket(
                 kms_key_arn="kmsKeyArn",
                 sse_algorithm="sseAlgorithm"
             ),
+            logging_configuration=s3tables.CfnTableBucket.LoggingConfigurationProperty(
+                target_bucket="targetBucket",
+                target_object_key_format=s3tables.CfnTableBucket.TargetObjectKeyFormatProperty(
+                    partitioned_prefix=s3tables.CfnTableBucket.PartitionedPrefixProperty(
+                        partition_date_source="partitionDateSource"
+                    )
+                ),
+                target_prefix="targetPrefix"
+            ),
             metrics_configuration=s3tables.CfnTableBucket.MetricsConfigurationProperty(
                 status="status"
             ),
@@ -2009,6 +2018,7 @@ class CfnTableBucket(
         *,
         table_bucket_name: builtins.str,
         encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         metrics_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.MetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         replication_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.ReplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         storage_class_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.StorageClassConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2021,6 +2031,7 @@ class CfnTableBucket(
         :param id: Construct identifier for this resource (unique in its scope).
         :param table_bucket_name: The name for the table bucket.
         :param encryption_configuration: Configuration specifying how data should be encrypted. This structure defines the encryption algorithm and optional KMS key to be used for server-side encryption.
+        :param logging_configuration: Describes where logs are stored and the prefix that Amazon S3 assigns to all log object keys for a table bucket.
         :param metrics_configuration: Settings governing the Metric configuration for the table bucket.
         :param replication_configuration: Specifies replication configuration for the table bucket.
         :param storage_class_configuration: The configuration details for the storage class of tables or table buckets. This allows you to optimize storage costs by selecting the appropriate storage class based on your access patterns and performance requirements.
@@ -2034,6 +2045,7 @@ class CfnTableBucket(
         props = CfnTableBucketProps(
             table_bucket_name=table_bucket_name,
             encryption_configuration=encryption_configuration,
+            logging_configuration=logging_configuration,
             metrics_configuration=metrics_configuration,
             replication_configuration=replication_configuration,
             storage_class_configuration=storage_class_configuration,
@@ -2161,6 +2173,24 @@ class CfnTableBucket(
             type_hints = cached_type_hints(_typecheckingstub__61499f569b4e5dc20b99defd26e29c6e9b7761b6630e1adec9c20e97e099dd4a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionConfiguration", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="loggingConfiguration")
+    def logging_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.LoggingConfigurationProperty"]]:
+        '''Describes where logs are stored and the prefix that Amazon S3 assigns to all log object keys for a table bucket.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.LoggingConfigurationProperty"]], jsii.get(self, "loggingConfiguration"))
+
+    @logging_configuration.setter
+    def logging_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.LoggingConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__803d19e4ba3e4702a8f1bfa67b2a48edda6e88b97df71fdeb07be2820a898a67)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "loggingConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="metricsConfiguration")
@@ -2327,6 +2357,106 @@ class CfnTableBucket(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3tables.CfnTableBucket.LoggingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "target_bucket": "targetBucket",
+            "target_object_key_format": "targetObjectKeyFormat",
+            "target_prefix": "targetPrefix",
+        },
+    )
+    class LoggingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            target_bucket: builtins.str,
+            target_object_key_format: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.TargetObjectKeyFormatProperty", typing.Dict[builtins.str, typing.Any]]],
+            target_prefix: builtins.str,
+        ) -> None:
+            '''Describes where logs are stored and the prefix that Amazon S3 assigns to all log object keys for a table bucket.
+
+            :param target_bucket: The name of the general purpose bucket that logs are delivered to. The bucket must be in the same AWS Region and owned by the same AWS account as the table bucket. The bucket can't use SSE-KMS or DSSE-KMS default encryption, can't have S3 Object Lock enabled, and can't have Requester Pays enabled. You can deliver logs from multiple table buckets to the same target bucket. In this case, choose a different TargetPrefix for each table bucket so that you can tell their log objects apart.
+            :param target_object_key_format: The key format of the log objects. Only PartitionedPrefix is supported.
+            :param target_prefix: The prefix for the keys of the log objects that are delivered to the target bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-loggingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3tables as s3tables
+                
+                logging_configuration_property = s3tables.CfnTableBucket.LoggingConfigurationProperty(
+                    target_bucket="targetBucket",
+                    target_object_key_format=s3tables.CfnTableBucket.TargetObjectKeyFormatProperty(
+                        partitioned_prefix=s3tables.CfnTableBucket.PartitionedPrefixProperty(
+                            partition_date_source="partitionDateSource"
+                        )
+                    ),
+                    target_prefix="targetPrefix"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f06f4466fa942a8027d9526b001412aa01b34a1f7e002b99b586f0be6c340aad)
+                check_type(argname="argument target_bucket", value=target_bucket, expected_type=type_hints["target_bucket"])
+                check_type(argname="argument target_object_key_format", value=target_object_key_format, expected_type=type_hints["target_object_key_format"])
+                check_type(argname="argument target_prefix", value=target_prefix, expected_type=type_hints["target_prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "target_bucket": target_bucket,
+                "target_object_key_format": target_object_key_format,
+                "target_prefix": target_prefix,
+            }
+
+        @builtins.property
+        def target_bucket(self) -> builtins.str:
+            '''The name of the general purpose bucket that logs are delivered to.
+
+            The bucket must be in the same AWS Region and owned by the same AWS account as the table bucket. The bucket can't use SSE-KMS or DSSE-KMS default encryption, can't have S3 Object Lock enabled, and can't have Requester Pays enabled. You can deliver logs from multiple table buckets to the same target bucket. In this case, choose a different TargetPrefix for each table bucket so that you can tell their log objects apart.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-loggingconfiguration.html#cfn-s3tables-tablebucket-loggingconfiguration-targetbucket
+            '''
+            result = self._values.get("target_bucket")
+            assert result is not None, "Required property 'target_bucket' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def target_object_key_format(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.TargetObjectKeyFormatProperty"]:
+            '''The key format of the log objects.
+
+            Only PartitionedPrefix is supported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-loggingconfiguration.html#cfn-s3tables-tablebucket-loggingconfiguration-targetobjectkeyformat
+            '''
+            result = self._values.get("target_object_key_format")
+            assert result is not None, "Required property 'target_object_key_format' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.TargetObjectKeyFormatProperty"], result)
+
+        @builtins.property
+        def target_prefix(self) -> builtins.str:
+            '''The prefix for the keys of the log objects that are delivered to the target bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-loggingconfiguration.html#cfn-s3tables-tablebucket-loggingconfiguration-targetprefix
+            '''
+            result = self._values.get("target_prefix")
+            assert result is not None, "Required property 'target_prefix' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LoggingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_s3tables.CfnTableBucket.MetricsConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"status": "status"},
@@ -2376,6 +2506,60 @@ class CfnTableBucket(
 
         def __repr__(self) -> str:
             return "MetricsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3tables.CfnTableBucket.PartitionedPrefixProperty",
+        jsii_struct_bases=[],
+        name_mapping={"partition_date_source": "partitionDateSource"},
+    )
+    class PartitionedPrefixProperty:
+        def __init__(self, *, partition_date_source: builtins.str) -> None:
+            '''Amazon S3 keys for log objects are partitioned in the following format: [TargetPrefix][SourceAccountId]/[SourceRegion]/[SourceTableBucket]/[YYYY]/[MM]/[DD]/[YYYY]-[MM]-[DD]-[hh]-[mm]-[ss]-[UniqueString].
+
+            :param partition_date_source: The date to use for the log object key partitions. Valid values are EventTime, the time that the requests in the log were made, and DeliveryTime, the time that the log was delivered.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-partitionedprefix.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3tables as s3tables
+                
+                partitioned_prefix_property = s3tables.CfnTableBucket.PartitionedPrefixProperty(
+                    partition_date_source="partitionDateSource"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1466375795261b039139f736a94569bfd23a8162a6a201dada2c3559515e6639)
+                check_type(argname="argument partition_date_source", value=partition_date_source, expected_type=type_hints["partition_date_source"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "partition_date_source": partition_date_source,
+            }
+
+        @builtins.property
+        def partition_date_source(self) -> builtins.str:
+            '''The date to use for the log object key partitions.
+
+            Valid values are EventTime, the time that the requests in the log were made, and DeliveryTime, the time that the log was delivered.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-partitionedprefix.html#cfn-s3tables-tablebucket-partitionedprefix-partitiondatesource
+            '''
+            result = self._values.get("partition_date_source")
+            assert result is not None, "Required property 'partition_date_source' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PartitionedPrefixProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2624,6 +2808,68 @@ class CfnTableBucket(
 
         def __repr__(self) -> str:
             return "StorageClassConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3tables.CfnTableBucket.TargetObjectKeyFormatProperty",
+        jsii_struct_bases=[],
+        name_mapping={"partitioned_prefix": "partitionedPrefix"},
+    )
+    class TargetObjectKeyFormatProperty:
+        def __init__(
+            self,
+            *,
+            partitioned_prefix: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.PartitionedPrefixProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The key format of the log objects.
+
+            Only PartitionedPrefix is supported.
+
+            :param partitioned_prefix: Amazon S3 keys for log objects are partitioned in the following format: [TargetPrefix][SourceAccountId]/[SourceRegion]/[SourceTableBucket]/[YYYY]/[MM]/[DD]/[YYYY]-[MM]-[DD]-[hh]-[mm]-[ss]-[UniqueString].
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-targetobjectkeyformat.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3tables as s3tables
+                
+                target_object_key_format_property = s3tables.CfnTableBucket.TargetObjectKeyFormatProperty(
+                    partitioned_prefix=s3tables.CfnTableBucket.PartitionedPrefixProperty(
+                        partition_date_source="partitionDateSource"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6013a71b3e410ec885992b6c66a17765f83924260f8ff7c259adfcc9007b816a)
+                check_type(argname="argument partitioned_prefix", value=partitioned_prefix, expected_type=type_hints["partitioned_prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "partitioned_prefix": partitioned_prefix,
+            }
+
+        @builtins.property
+        def partitioned_prefix(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.PartitionedPrefixProperty"]:
+            '''Amazon S3 keys for log objects are partitioned in the following format: [TargetPrefix][SourceAccountId]/[SourceRegion]/[SourceTableBucket]/[YYYY]/[MM]/[DD]/[YYYY]-[MM]-[DD]-[hh]-[mm]-[ss]-[UniqueString].
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-targetobjectkeyformat.html#cfn-s3tables-tablebucket-targetobjectkeyformat-partitionedprefix
+            '''
+            result = self._values.get("partitioned_prefix")
+            assert result is not None, "Required property 'partitioned_prefix' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.PartitionedPrefixProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TargetObjectKeyFormatProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2952,6 +3198,7 @@ class CfnTableBucketPolicyProps:
     name_mapping={
         "table_bucket_name": "tableBucketName",
         "encryption_configuration": "encryptionConfiguration",
+        "logging_configuration": "loggingConfiguration",
         "metrics_configuration": "metricsConfiguration",
         "replication_configuration": "replicationConfiguration",
         "storage_class_configuration": "storageClassConfiguration",
@@ -2965,6 +3212,7 @@ class CfnTableBucketProps:
         *,
         table_bucket_name: builtins.str,
         encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         metrics_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.MetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         replication_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.ReplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         storage_class_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.StorageClassConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2975,6 +3223,7 @@ class CfnTableBucketProps:
 
         :param table_bucket_name: The name for the table bucket.
         :param encryption_configuration: Configuration specifying how data should be encrypted. This structure defines the encryption algorithm and optional KMS key to be used for server-side encryption.
+        :param logging_configuration: Describes where logs are stored and the prefix that Amazon S3 assigns to all log object keys for a table bucket.
         :param metrics_configuration: Settings governing the Metric configuration for the table bucket.
         :param replication_configuration: Specifies replication configuration for the table bucket.
         :param storage_class_configuration: The configuration details for the storage class of tables or table buckets. This allows you to optimize storage costs by selecting the appropriate storage class based on your access patterns and performance requirements.
@@ -2998,6 +3247,15 @@ class CfnTableBucketProps:
                 encryption_configuration=s3tables.CfnTableBucket.EncryptionConfigurationProperty(
                     kms_key_arn="kmsKeyArn",
                     sse_algorithm="sseAlgorithm"
+                ),
+                logging_configuration=s3tables.CfnTableBucket.LoggingConfigurationProperty(
+                    target_bucket="targetBucket",
+                    target_object_key_format=s3tables.CfnTableBucket.TargetObjectKeyFormatProperty(
+                        partitioned_prefix=s3tables.CfnTableBucket.PartitionedPrefixProperty(
+                            partition_date_source="partitionDateSource"
+                        )
+                    ),
+                    target_prefix="targetPrefix"
                 ),
                 metrics_configuration=s3tables.CfnTableBucket.MetricsConfigurationProperty(
                     status="status"
@@ -3028,6 +3286,7 @@ class CfnTableBucketProps:
             type_hints = cached_type_hints(_typecheckingstub__6fb9342a13c0e9f7b21679814e793d7ccc0964ccfe53bc5e0916676b628d20f3)
             check_type(argname="argument table_bucket_name", value=table_bucket_name, expected_type=type_hints["table_bucket_name"])
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+            check_type(argname="argument logging_configuration", value=logging_configuration, expected_type=type_hints["logging_configuration"])
             check_type(argname="argument metrics_configuration", value=metrics_configuration, expected_type=type_hints["metrics_configuration"])
             check_type(argname="argument replication_configuration", value=replication_configuration, expected_type=type_hints["replication_configuration"])
             check_type(argname="argument storage_class_configuration", value=storage_class_configuration, expected_type=type_hints["storage_class_configuration"])
@@ -3038,6 +3297,8 @@ class CfnTableBucketProps:
         }
         if encryption_configuration is not None:
             self._values["encryption_configuration"] = encryption_configuration
+        if logging_configuration is not None:
+            self._values["logging_configuration"] = logging_configuration
         if metrics_configuration is not None:
             self._values["metrics_configuration"] = metrics_configuration
         if replication_configuration is not None:
@@ -3071,6 +3332,17 @@ class CfnTableBucketProps:
         '''
         result = self._values.get("encryption_configuration")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.EncryptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def logging_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.LoggingConfigurationProperty"]]:
+        '''Describes where logs are stored and the prefix that Amazon S3 assigns to all log object keys for a table bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-tablebucket.html#cfn-s3tables-tablebucket-loggingconfiguration
+        '''
+        result = self._values.get("logging_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.LoggingConfigurationProperty"]], result)
 
     @builtins.property
     def metrics_configuration(
@@ -3951,6 +4223,7 @@ def _typecheckingstub__de433918cd34eecbcaab0e81b6a287f71a48dd308c2f4d42e07a0e19c
     *,
     table_bucket_name: builtins.str,
     encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metrics_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.MetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     replication_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     storage_class_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.StorageClassConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3996,6 +4269,12 @@ def _typecheckingstub__61499f569b4e5dc20b99defd26e29c6e9b7761b6630e1adec9c20e97e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__803d19e4ba3e4702a8f1bfa67b2a48edda6e88b97df71fdeb07be2820a898a67(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTableBucket.LoggingConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__31b7ae51d65703ba2d4aa73c08a7a5a34ad19b1ca27dd0de7d23e3e5bc20d595(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTableBucket.MetricsConfigurationProperty]],
 ) -> None:
@@ -4034,9 +4313,25 @@ def _typecheckingstub__659e946ab1ee4bc0eb13a519adc57d2cb4431347d47a9e6cb4d4086a8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f06f4466fa942a8027d9526b001412aa01b34a1f7e002b99b586f0be6c340aad(
+    *,
+    target_bucket: builtins.str,
+    target_object_key_format: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.TargetObjectKeyFormatProperty, typing.Dict[builtins.str, typing.Any]]],
+    target_prefix: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4a462a1fa51e0d85b1c1c751eb482494c139c2d0cdff10d84286172c932d17d6(
     *,
     status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1466375795261b039139f736a94569bfd23a8162a6a201dada2c3559515e6639(
+    *,
+    partition_date_source: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4066,6 +4361,13 @@ def _typecheckingstub__de4e958b803528aedb746b10caacd5f29c89f93e4c34021e1c1323d93
 def _typecheckingstub__1ccca8ea96b1a2a505f25fdb95f88303626f2373f413d6009bc588849745e54f(
     *,
     storage_class: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6013a71b3e410ec885992b6c66a17765f83924260f8ff7c259adfcc9007b816a(
+    *,
+    partitioned_prefix: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.PartitionedPrefixProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4131,6 +4433,7 @@ def _typecheckingstub__6fb9342a13c0e9f7b21679814e793d7ccc0964ccfe53bc5e0916676b6
     *,
     table_bucket_name: builtins.str,
     encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metrics_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.MetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     replication_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     storage_class_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.StorageClassConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

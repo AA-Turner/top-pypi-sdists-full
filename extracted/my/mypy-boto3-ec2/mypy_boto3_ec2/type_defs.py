@@ -889,6 +889,8 @@ __all__ = (
     "CreateMacSystemIntegrityProtectionModificationTaskResultTypeDef",
     "CreateManagedPrefixListRequestTypeDef",
     "CreateManagedPrefixListResultTypeDef",
+    "CreateMetricCategoryRequestTypeDef",
+    "CreateMetricCategoryResultTypeDef",
     "CreateNatGatewayRequestTypeDef",
     "CreateNatGatewayResultTypeDef",
     "CreateNetworkAclEntryRequestNetworkAclCreateEntryTypeDef",
@@ -1132,6 +1134,8 @@ __all__ = (
     "DeleteLocalGatewayVirtualInterfaceResultTypeDef",
     "DeleteManagedPrefixListRequestTypeDef",
     "DeleteManagedPrefixListResultTypeDef",
+    "DeleteMetricCategoryRequestTypeDef",
+    "DeleteMetricCategoryResultTypeDef",
     "DeleteNatGatewayRequestTypeDef",
     "DeleteNatGatewayResultTypeDef",
     "DeleteNetworkAclEntryRequestNetworkAclDeleteEntryTypeDef",
@@ -1568,6 +1572,9 @@ __all__ = (
     "DescribeManagedPrefixListsRequestPaginateTypeDef",
     "DescribeManagedPrefixListsRequestTypeDef",
     "DescribeManagedPrefixListsResultTypeDef",
+    "DescribeMetricCategoriesRequestPaginateTypeDef",
+    "DescribeMetricCategoriesRequestTypeDef",
+    "DescribeMetricCategoriesResultTypeDef",
     "DescribeMovingAddressesRequestPaginateTypeDef",
     "DescribeMovingAddressesRequestTypeDef",
     "DescribeMovingAddressesResultTypeDef",
@@ -2616,6 +2623,7 @@ __all__ = (
     "MemoryInfoTypeDef",
     "MemoryMiBRequestTypeDef",
     "MemoryMiBTypeDef",
+    "MetricCategoryTypeDef",
     "MetricDataResultTypeDef",
     "MetricPointTypeDef",
     "MetricValueTypeDef",
@@ -2704,6 +2712,8 @@ __all__ = (
     "ModifyManagedPrefixListResultTypeDef",
     "ModifyManagedResourceVisibilityRequestTypeDef",
     "ModifyManagedResourceVisibilityResultTypeDef",
+    "ModifyMetricCategoryRequestTypeDef",
+    "ModifyMetricCategoryResultTypeDef",
     "ModifyNetworkInterfaceAttributeRequestNetworkInterfaceModifyAttributeTypeDef",
     "ModifyNetworkInterfaceAttributeRequestTypeDef",
     "ModifyPrivateDnsNameOptionsRequestTypeDef",
@@ -3085,7 +3095,9 @@ __all__ = (
     "RuleGroupRuleOptionsPairTypeDef",
     "RuleGroupTypePairTypeDef",
     "RuleOptionTypeDef",
+    "RunInstancesMonitoringEnabledOutputTypeDef",
     "RunInstancesMonitoringEnabledTypeDef",
+    "RunInstancesMonitoringEnabledUnionTypeDef",
     "RunInstancesRequestServiceResourceCreateInstancesTypeDef",
     "RunInstancesRequestSubnetCreateInstancesTypeDef",
     "RunInstancesRequestTypeDef",
@@ -3522,6 +3534,8 @@ class AccountVpcEncryptionControlExclusionsTypeDef(TypedDict):
     Lambda: NotRequired[VpcEncryptionControlExclusionStateType]
     VpcLattice: NotRequired[VpcEncryptionControlExclusionStateType]
     ElasticFileSystem: NotRequired[VpcEncryptionControlExclusionStateType]
+    GlobalAccelerator: NotRequired[VpcEncryptionControlExclusionStateType]
+    ApiGatewayV2: NotRequired[VpcEncryptionControlExclusionStateType]
 
 
 class ActiveInstanceTypeDef(TypedDict):
@@ -5112,6 +5126,8 @@ class VpcEncryptionControlConfigurationTypeDef(TypedDict):
     LambdaExclusion: NotRequired[VpcEncryptionControlExclusionStateInputType]
     VpcLatticeExclusion: NotRequired[VpcEncryptionControlExclusionStateInputType]
     ElasticFileSystemExclusion: NotRequired[VpcEncryptionControlExclusionStateInputType]
+    GlobalAcceleratorExclusion: NotRequired[VpcEncryptionControlExclusionStateInputType]
+    ApiGatewayV2Exclusion: NotRequired[VpcEncryptionControlExclusionStateInputType]
 
 
 class CreateVpnConnectionRouteRequestTypeDef(TypedDict):
@@ -5406,6 +5422,11 @@ class DeleteLocalGatewayVirtualInterfaceRequestTypeDef(TypedDict):
 
 class DeleteManagedPrefixListRequestTypeDef(TypedDict):
     PrefixListId: str
+    DryRun: NotRequired[bool]
+
+
+class DeleteMetricCategoryRequestTypeDef(TypedDict):
+    MetricCategoryId: str
     DryRun: NotRequired[bool]
 
 
@@ -7860,6 +7881,7 @@ class InstanceMetadataOptionsResponseTypeDef(TypedDict):
 
 
 class MonitoringTypeDef(TypedDict):
+    MetricCategoryIds: NotRequired[list[str]]
     State: NotRequired[MonitoringStateType]
 
 
@@ -8157,8 +8179,9 @@ class LastErrorTypeDef(TypedDict):
     Code: NotRequired[str]
 
 
-class RunInstancesMonitoringEnabledTypeDef(TypedDict):
+class RunInstancesMonitoringEnabledOutputTypeDef(TypedDict):
     Enabled: bool
+    MetricCategoryIds: NotRequired[list[str]]
 
 
 class SpotPlacementTypeDef(TypedDict):
@@ -8357,10 +8380,12 @@ class LaunchTemplateSpecificationTypeDef(TypedDict):
 
 class LaunchTemplatesMonitoringRequestTypeDef(TypedDict):
     Enabled: NotRequired[bool]
+    MetricCategoryIds: NotRequired[Sequence[str]]
 
 
 class LaunchTemplatesMonitoringTypeDef(TypedDict):
     Enabled: NotRequired[bool]
+    MetricCategoryIds: NotRequired[list[str]]
 
 
 class LicenseConfigurationRequestTypeDef(TypedDict):
@@ -8438,6 +8463,8 @@ class ModifyAccountVpcEncryptionControlRequestTypeDef(TypedDict):
     Lambda: NotRequired[VpcEncryptionControlExclusionStateInputType]
     VpcLattice: NotRequired[VpcEncryptionControlExclusionStateInputType]
     ElasticFileSystem: NotRequired[VpcEncryptionControlExclusionStateInputType]
+    GlobalAccelerator: NotRequired[VpcEncryptionControlExclusionStateInputType]
+    ApiGatewayV2: NotRequired[VpcEncryptionControlExclusionStateInputType]
 
 
 class ModifyAddressAttributeRequestTypeDef(TypedDict):
@@ -8626,6 +8653,12 @@ class RemovePrefixListEntryTypeDef(TypedDict):
 
 class ModifyManagedResourceVisibilityRequestTypeDef(TypedDict):
     DefaultVisibility: ManagedResourceDefaultVisibilityType
+    DryRun: NotRequired[bool]
+
+
+class ModifyMetricCategoryRequestTypeDef(TypedDict):
+    MetricCategoryId: str
+    Metrics: Sequence[str]
     DryRun: NotRequired[bool]
 
 
@@ -8825,6 +8858,8 @@ class ModifyVpcEncryptionControlRequestTypeDef(TypedDict):
     LambdaExclusion: NotRequired[VpcEncryptionControlExclusionStateInputType]
     VpcLatticeExclusion: NotRequired[VpcEncryptionControlExclusionStateInputType]
     ElasticFileSystemExclusion: NotRequired[VpcEncryptionControlExclusionStateInputType]
+    GlobalAcceleratorExclusion: NotRequired[VpcEncryptionControlExclusionStateInputType]
+    ApiGatewayV2Exclusion: NotRequired[VpcEncryptionControlExclusionStateInputType]
 
 
 class ModifyVpcEndpointConnectionNotificationRequestTypeDef(TypedDict):
@@ -8947,11 +8982,13 @@ class Phase2IntegrityAlgorithmsRequestListValueTypeDef(TypedDict):
 
 
 class MonitorInstancesRequestInstanceMonitorTypeDef(TypedDict):
+    MetricCategoryIds: NotRequired[Sequence[str]]
     DryRun: NotRequired[bool]
 
 
 class MonitorInstancesRequestTypeDef(TypedDict):
     InstanceIds: Sequence[str]
+    MetricCategoryIds: NotRequired[Sequence[str]]
     DryRun: NotRequired[bool]
 
 
@@ -9614,6 +9651,11 @@ class RouteTypeDef(TypedDict):
     IpAddress: NotRequired[str]
 
 
+class RunInstancesMonitoringEnabledTypeDef(TypedDict):
+    Enabled: bool
+    MetricCategoryIds: NotRequired[Sequence[str]]
+
+
 class S3StorageOutputTypeDef(TypedDict):
     AWSAccessKeyId: NotRequired[str]
     Bucket: NotRequired[str]
@@ -9952,11 +9994,13 @@ class UnlockSnapshotRequestTypeDef(TypedDict):
 
 
 class UnmonitorInstancesRequestInstanceUnmonitorTypeDef(TypedDict):
+    MetricCategoryIds: NotRequired[Sequence[str]]
     DryRun: NotRequired[bool]
 
 
 class UnmonitorInstancesRequestTypeDef(TypedDict):
     InstanceIds: Sequence[str]
+    MetricCategoryIds: NotRequired[Sequence[str]]
     DryRun: NotRequired[bool]
 
 
@@ -10339,6 +10383,11 @@ class DeleteImageUsageReportResultTypeDef(TypedDict):
 class DeleteKeyPairResultTypeDef(TypedDict):
     Return: bool
     KeyPairId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteMetricCategoryResultTypeDef(TypedDict):
+    MetricCategoryId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -11535,6 +11584,12 @@ class ManagedPrefixListTypeDef(TypedDict):
     OwnerId: NotRequired[str]
     IpamPrefixListResolverTargetId: NotRequired[str]
     IpamPrefixListResolverSyncEnabled: NotRequired[bool]
+
+
+class MetricCategoryTypeDef(TypedDict):
+    MetricCategoryId: NotRequired[str]
+    Metrics: NotRequired[list[str]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class NetworkAclCreateTagsRequestTypeDef(TypedDict):
@@ -14501,6 +14556,21 @@ class DescribeManagedPrefixListsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
     PrefixListIds: NotRequired[Sequence[str]]
+
+
+class DescribeMetricCategoriesRequestPaginateTypeDef(TypedDict):
+    MetricCategoryIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeMetricCategoriesRequestTypeDef(TypedDict):
+    MetricCategoryIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    DryRun: NotRequired[bool]
 
 
 class DescribeMovingAddressesRequestPaginateTypeDef(TypedDict):
@@ -18119,6 +18189,11 @@ class RouteServerRouteTypeDef(TypedDict):
     NextHopIp: NotRequired[str]
 
 
+RunInstancesMonitoringEnabledUnionTypeDef = Union[
+    RunInstancesMonitoringEnabledTypeDef, RunInstancesMonitoringEnabledOutputTypeDef
+]
+
+
 class StorageOutputTypeDef(TypedDict):
     S3: NotRequired[S3StorageOutputTypeDef]
 
@@ -18712,6 +18787,8 @@ class VpcEncryptionControlExclusionsTypeDef(TypedDict):
     Lambda: NotRequired[VpcEncryptionControlExclusionTypeDef]
     VpcLattice: NotRequired[VpcEncryptionControlExclusionTypeDef]
     ElasticFileSystem: NotRequired[VpcEncryptionControlExclusionTypeDef]
+    GlobalAccelerator: NotRequired[VpcEncryptionControlExclusionTypeDef]
+    ApiGatewayV2: NotRequired[VpcEncryptionControlExclusionTypeDef]
 
 
 class VpcPeeringConnectionVpcInfoTypeDef(TypedDict):
@@ -19106,6 +19183,22 @@ class ModifyManagedPrefixListResultTypeDef(TypedDict):
 
 class RestoreManagedPrefixListVersionResultTypeDef(TypedDict):
     PrefixList: ManagedPrefixListTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateMetricCategoryResultTypeDef(TypedDict):
+    MetricCategory: MetricCategoryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeMetricCategoriesResultTypeDef(TypedDict):
+    MetricCategories: list[MetricCategoryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ModifyMetricCategoryResultTypeDef(TypedDict):
+    MetricCategory: MetricCategoryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -22495,6 +22588,13 @@ class CreateManagedPrefixListRequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
 
 
+class CreateMetricCategoryRequestTypeDef(TypedDict):
+    Metrics: Sequence[str]
+    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    ClientToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+
+
 class CreateNatGatewayRequestTypeDef(TypedDict):
     AvailabilityMode: NotRequired[AvailabilityModeType]
     AllocationId: NotRequired[str]
@@ -23691,7 +23791,7 @@ class LaunchSpecificationTypeDef(TypedDict):
     RamdiskId: NotRequired[str]
     SubnetId: NotRequired[str]
     SecurityGroups: NotRequired[list[GroupIdentifierTypeDef]]
-    Monitoring: NotRequired[RunInstancesMonitoringEnabledTypeDef]
+    Monitoring: NotRequired[RunInstancesMonitoringEnabledOutputTypeDef]
 
 
 InstanceNetworkInterfaceSpecificationUnionTypeDef = Union[
@@ -24480,7 +24580,7 @@ class RequestSpotLaunchSpecificationTypeDef(TypedDict):
     InstanceType: NotRequired[InstanceTypeType]
     KernelId: NotRequired[str]
     KeyName: NotRequired[str]
-    Monitoring: NotRequired[RunInstancesMonitoringEnabledTypeDef]
+    Monitoring: NotRequired[RunInstancesMonitoringEnabledUnionTypeDef]
     NetworkInterfaces: NotRequired[Sequence[InstanceNetworkInterfaceSpecificationUnionTypeDef]]
     Placement: NotRequired[SpotPlacementTypeDef]
     RamdiskId: NotRequired[str]
@@ -24498,7 +24598,7 @@ class RunInstancesRequestServiceResourceCreateInstancesTypeDef(TypedDict):
     Ipv6Addresses: NotRequired[Sequence[InstanceIpv6AddressTypeDef]]
     KernelId: NotRequired[str]
     KeyName: NotRequired[str]
-    Monitoring: NotRequired[RunInstancesMonitoringEnabledTypeDef]
+    Monitoring: NotRequired[RunInstancesMonitoringEnabledUnionTypeDef]
     Placement: NotRequired[PlacementTypeDef]
     RamdiskId: NotRequired[str]
     SecurityGroupIds: NotRequired[Sequence[str]]
@@ -24547,7 +24647,7 @@ class RunInstancesRequestSubnetCreateInstancesTypeDef(TypedDict):
     Ipv6Addresses: NotRequired[Sequence[InstanceIpv6AddressTypeDef]]
     KernelId: NotRequired[str]
     KeyName: NotRequired[str]
-    Monitoring: NotRequired[RunInstancesMonitoringEnabledTypeDef]
+    Monitoring: NotRequired[RunInstancesMonitoringEnabledUnionTypeDef]
     Placement: NotRequired[PlacementTypeDef]
     RamdiskId: NotRequired[str]
     SecurityGroupIds: NotRequired[Sequence[str]]
@@ -24595,7 +24695,7 @@ class RunInstancesRequestTypeDef(TypedDict):
     Ipv6Addresses: NotRequired[Sequence[InstanceIpv6AddressTypeDef]]
     KernelId: NotRequired[str]
     KeyName: NotRequired[str]
-    Monitoring: NotRequired[RunInstancesMonitoringEnabledTypeDef]
+    Monitoring: NotRequired[RunInstancesMonitoringEnabledUnionTypeDef]
     Placement: NotRequired[PlacementTypeDef]
     RamdiskId: NotRequired[str]
     SecurityGroupIds: NotRequired[Sequence[str]]

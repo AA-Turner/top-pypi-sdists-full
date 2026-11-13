@@ -2457,12 +2457,12 @@ class CfnCatalog(
 
     @builtins.property
     @jsii.member(jsii_name="attrCreateTime")
-    def attr_create_time(self) -> jsii.Number:
+    def attr_create_time(self) -> builtins.str:
         '''The time at which the catalog was created.
 
         :cloudformationAttribute: CreateTime
         '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrCreateTime"))
+        return typing.cast(builtins.str, jsii.get(self, "attrCreateTime"))
 
     @builtins.property
     @jsii.member(jsii_name="attrResourceArn")
@@ -2475,12 +2475,12 @@ class CfnCatalog(
 
     @builtins.property
     @jsii.member(jsii_name="attrUpdateTime")
-    def attr_update_time(self) -> jsii.Number:
+    def attr_update_time(self) -> builtins.str:
         '''The time at which the catalog was last updated.
 
         :cloudformationAttribute: UpdateTime
         '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrUpdateTime"))
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdateTime"))
 
     @builtins.property
     @jsii.member(jsii_name="catalogRef")

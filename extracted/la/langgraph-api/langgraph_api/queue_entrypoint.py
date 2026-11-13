@@ -20,6 +20,7 @@ from contextlib import suppress
 import structlog
 
 from langgraph_api.asyncio import NoSignalServer, run_main_loop
+from langgraph_api.go_prometheus_metrics import merge_go_prometheus_text
 from langgraph_api.utils.errors import GraphLoadError, HealthServerStartupError
 from langgraph_api.utils.network import format_hostport, normalize_host
 from langgraph_runtime import lifespan
@@ -100,7 +101,10 @@ async def health_and_metrics_server():
             # gauges and its own pool stats — but NOT queue depth
             # (num_pending/num_running), which the collector emits on the API
             # process only. Mirrors the main API /metrics (api/meta.py:meta_metrics).
-            return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+            # In multi-process, Go owns workers + queue depth; merge that registry
+            # via Runs.PrometheusMetrics gRPC so scrapers still only hit this path.
+            body = await merge_go_prometheus_text(generate_latest())
+            return PlainTextResponse(body, media_type=CONTENT_TYPE_LATEST)
 
         # JSON: hand-built snapshot of workers + pool stats.
         worker_metrics = get_metrics()["workers"]
@@ -259,7 +263,19 @@ async def main(entrypoint_name: str = "python-queue"):
 
     # Wait for something to trigger shutdown
     await cancel_event.wait()
-    logger.info("Shutting down queue...", shutdown_reason=shutdown_reason)
+    from langgraph_api.timing.startup import shutdown_log_fields  # noqa: PLC0415
+
+    shutdown_fields = shutdown_log_fields()
+    log_shutdown = (
+        logger.warning
+        if not shutdown_fields.get("startup_complete", True)
+        else logger.info
+    )
+    log_shutdown(
+        "Shutting down queue...",
+        shutdown_reason=shutdown_reason,
+        **shutdown_fields,
+    )
 
     # Wait for the queue entrypoint to finish
     entry_task.cancel()

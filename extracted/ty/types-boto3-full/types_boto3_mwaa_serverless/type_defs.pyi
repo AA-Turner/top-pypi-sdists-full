@@ -36,6 +36,8 @@ else:
 
 __all__ = (
     "CodeTypeDef",
+    "CreateAirflowUiUrlRequestTypeDef",
+    "CreateAirflowUiUrlResponseTypeDef",
     "CreateWorkflowRequestTypeDef",
     "CreateWorkflowResponseTypeDef",
     "DefinitionS3LocationTypeDef",
@@ -94,6 +96,17 @@ class S3LocationTypeDef(TypedDict):
     ObjectKey: str
     VersionId: NotRequired[str]
 
+class CreateAirflowUiUrlRequestTypeDef(TypedDict):
+    ExpiresInSeconds: NotRequired[int]
+    SessionDurationInSeconds: NotRequired[int]
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
 class DefinitionS3LocationTypeDef(TypedDict):
     Bucket: str
     ObjectKey: str
@@ -109,13 +122,6 @@ EncryptionConfigurationTypeDef = TypedDict(
 
 class LoggingConfigurationTypeDef(TypedDict):
     LogGroupName: str
-
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
 
 class DeleteWorkflowRequestTypeDef(TypedDict):
     WorkflowArn: str
@@ -239,6 +245,13 @@ class UntagResourceRequestTypeDef(TypedDict):
 
 class CodeTypeDef(TypedDict):
     S3Location: NotRequired[S3LocationTypeDef]
+
+class CreateAirflowUiUrlResponseTypeDef(TypedDict):
+    AuthorizedUrl: str
+    SessionId: str
+    UrlExpiresAt: datetime
+    SessionExpiresAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateWorkflowResponseTypeDef(TypedDict):
     WorkflowArn: str

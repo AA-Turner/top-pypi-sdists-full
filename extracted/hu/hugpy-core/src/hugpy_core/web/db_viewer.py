@@ -79,11 +79,14 @@ def sources():
                 'dbname=' not in value and not value.startswith(('postgres://', 'postgresql://'))):
             paths.append((Path(value).expanduser(), key))
     for path, package in paths:
-        if not path.is_file():
+        try:
+            if not path.is_file():
+                continue
+            path = path.resolve()
+        except OSError:  # another account's store (0700): core's user cannot see it, so it is not a source
             continue
-        path = path.resolve()
-        if path.name == 'fitevict.sqlite3':
-            # Wrapper stores come from their workers' authenticated read API.
+        if path.name in ('fitevict.sqlite3', 'wrapper.sqlite3', 'kernel-log.sqlite3'):
+            # Wrapper stores come from their workers' read API, never the file.
             continue
         key = 'sqlite-' + hashlib.sha256(str(path).encode()).hexdigest()[:16]
         out.setdefault(key, {'id': key, 'name': path.name, 'package': package,
@@ -249,6 +252,13 @@ def read(rows=False, args=None):
     if not source:
         return _json({'error': 'Unknown database source.'}, 404)
     if source.get('worker'):
+        from hugpy_core.registry import registry
+        from hugpy_core.relay.relay import is_native
+        live = registry.lookup_worker(source['worker'])
+        if live is not None and is_native(live):
+            return _json({'error': 'This wrapper build serves no telemetry browser; its '
+                                   'call_log, load_runs and call_stages are mirrored into '
+                                   'the hugpy-core database source.'}, 501)
         from hugpy_core.web.recovered_surfaces import _proxy_worker
         path = '/v1/telemetry/rows?' + urllib.parse.urlencode({
             key: value for key, value in args.items() if key in

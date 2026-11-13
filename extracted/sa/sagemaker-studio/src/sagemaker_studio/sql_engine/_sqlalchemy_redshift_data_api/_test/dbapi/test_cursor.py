@@ -1283,6 +1283,16 @@ class TestCursorLargeResultSets:
         cursor._executor.get_statement_result = Mock()
         return cursor
 
+    @pytest.fixture
+    def cursor_no_result_metadata(self, cursor_large_results):
+        """Cursor whose execute_statement result has no column metadata, as in production.
+
+        DescribeStatement never returns ColumnMetadata, so execute() installs the 'unknown'
+        placeholder and only the first result page can resolve the real columns.
+        """
+        cursor_large_results._executor.execute_statement.return_value["result_metadata"] = None
+        return cursor_large_results
+
     def test_large_result_set_pagination(self, cursor_large_results):
         """Test handling of large result sets with multiple pages."""
         # Simulate 3 pages of results
@@ -1406,9 +1416,9 @@ class TestCursorLargeResultSets:
         assert row[7] == [{"stringValue": "item1"}]  # super
         assert row[8] == b"binary_data"  # geometry
 
-    def test_empty_result_set(self, cursor_large_results):
+    def test_empty_result_set(self, cursor_no_result_metadata):
         """Test handling of empty result sets."""
-        cursor_large_results._executor.get_statement_result.return_value = {
+        cursor_no_result_metadata._executor.get_statement_result.return_value = {
             "Records": [],
             "ColumnMetadata": [
                 {"name": "id", "typeName": "int8"},
@@ -1416,12 +1426,44 @@ class TestCursorLargeResultSets:
             ],
         }
 
-        cursor_large_results.execute("SELECT id, name FROM users WHERE 1=0")
+        cursor_no_result_metadata.execute("SELECT id, name FROM users WHERE 1=0")
+
+        # An empty result must still expose the query's real columns, not the placeholder.
+        assert [d[0] for d in cursor_no_result_metadata.description] == ["id", "name"]
 
         # All fetch methods should return empty results
-        assert cursor_large_results.fetchone() is None
-        assert cursor_large_results.fetchall() == []
-        assert cursor_large_results.fetchmany(10) == []
+        assert cursor_no_result_metadata.fetchone() is None
+        assert cursor_no_result_metadata.fetchall() == []
+        assert cursor_no_result_metadata.fetchmany(10) == []
+
+    def test_empty_result_set_keeps_column_names(self, cursor_no_result_metadata):
+        """An empty page still carries ColumnMetadata, so description must not stay 'unknown'."""
+        cursor_no_result_metadata._executor.get_statement_result.return_value = {
+            "Records": [],
+            "ColumnMetadata": [
+                {"name": "a", "typeName": "int4"},
+                {"name": "b", "typeName": "int4"},
+            ],
+        }
+
+        cursor_no_result_metadata.execute("SELECT 1 AS a, 2 AS b WHERE false")
+
+        assert cursor_no_result_metadata.description is not None
+        assert len(cursor_no_result_metadata.description) == 2
+        assert [d[0] for d in cursor_no_result_metadata.description] == ["a", "b"]
+        assert cursor_no_result_metadata.fetchall() == []
+
+    def test_empty_page_without_columns_keeps_placeholder(self, cursor_no_result_metadata):
+        """Empty ColumnMetadata must leave the placeholder alone instead of emptying it."""
+        cursor_no_result_metadata._executor.get_statement_result.return_value = {
+            "Records": [],
+            "ColumnMetadata": [],
+        }
+
+        cursor_no_result_metadata.execute("SELECT 1 WHERE false")
+
+        assert cursor_no_result_metadata.description != []
+        assert [d[0] for d in cursor_no_result_metadata.description] == ["unknown"]
 
 
 class TestCursorGetExecutionMetadata:
@@ -2703,14 +2745,18 @@ class TestNoTimeoutOrModeKnobInTheSignatures:
 
 
 # ---------------------------------------------------------------------------
-# Feature: remove-redshift-data-api-query-timeout
+# Feature: remove-redshift-data-api-query-timeout, amended by cancel-statement-on-stop
 #
-# Failures _cancel_statement has to swallow, one row each.
+# Failures _cancel_statement surfaces to its caller, one row each.
 #
-# The method's body is `try: ... except Exception: pass`, so the shapes below are
-# interchangeable to it by design. The table is what makes that a tested claim
-# rather than a reading of the source: botocore's two error types, a driver
-# exception, and a plain one.
+# The method used to be `try: ... except Exception: pass`. cancel-statement-on-stop
+# gave it a caller -- `_poll_statement_completion`'s KeyboardInterrupt handler, which
+# calls it through `run_bounded` -- and `run_bounded` is now the single owner of the
+# best-effort contract: it bounds the call, logs the failure at WARNING with a
+# traceback, and swallows it. Swallowing here as well hid a rejected cancel (an
+# AccessDenied, say) from the only layer that reports one, so the swallow was removed.
+# These shapes are therefore interchangeable in that they all propagate: botocore's
+# two error types, a driver exception, and a plain one.
 # ---------------------------------------------------------------------------
 
 _CANCEL_FAILURES = [
@@ -2744,18 +2790,20 @@ _CANCEL_CONTEXTS = [
 
 class TestCancelStatementIsBestEffort:
     """
-    Feature: remove-redshift-data-api-query-timeout
+    Feature: remove-redshift-data-api-query-timeout, amended by cancel-statement-on-stop
 
-    `_cancel_statement` has no in-driver caller: task 4.1 removed the best-effort cancel
-    from the deleted timeout stanza, and task 4.2 recorded in its docstring that it is
-    retained deliberately as the driver's cancellation entry point -- the natural hook
-    for cancelling on KeyboardInterrupt or superseding an async run. Requirement 4.3
-    keeps it; these cases keep it honestly exercised, so "retained" does not quietly
-    become "retained and broken".
+    `_cancel_statement` was retained with no in-driver caller by requirement 4.3 of
+    remove-redshift-data-api-query-timeout, as the driver's cancellation entry point --
+    the natural hook for cancelling on KeyboardInterrupt. cancel-statement-on-stop is
+    the caller it was retained for: `_poll_statement_completion`'s KeyboardInterrupt
+    handler invokes it through `run_bounded`.
 
-    Its contract has two halves: the request it issues is exactly
-    cancel_statement(Id=statement_id), and a failure to cancel never becomes the
-    caller's problem.
+    That caller moved one half of the contract. The request it issues is still exactly
+    cancel_statement(Id=statement_id). But a failure is no longer swallowed here: it
+    propagates, and `run_bounded` bounds it, logs it at WARNING with a traceback, and
+    swallows it there. The user's interrupt still propagates unchanged either way, which
+    is the property requirement 4.3 was protecting; it is now enforced one layer up,
+    where the failure can also be reported.
     """
 
     @pytest.mark.parametrize(
@@ -2772,6 +2820,8 @@ class TestCancelStatementIsBestEffort:
 
         **Validates: Requirements 4.3**
         """
+        statement_executor.client.cancel_statement.return_value = {"Status": True}
+
         returned = statement_executor._cancel_statement("cancel-stmt", execution_context)
 
         assert returned is None
@@ -2788,20 +2838,23 @@ class TestCancelStatementIsBestEffort:
         "failure",
         [pytest.param(exception, id=label) for label, exception in _CANCEL_FAILURES],
     )
-    def test_a_failing_cancel_is_swallowed(self, statement_executor, failure, execution_context):
+    def test_a_failing_cancel_propagates_to_its_caller(
+        self, statement_executor, failure, execution_context
+    ):
         """
-        Feature: remove-redshift-data-api-query-timeout
+        Feature: cancel-statement-on-stop (amends remove-redshift-data-api-query-timeout)
 
-        The best-effort half: for every failure shape the attempt is still made and
-        nothing propagates, with or without a context. A cancel is always a cleanup
-        action on a statement the caller has already given up on, so raising from here
-        would replace the caller's own problem with this one.
+        For every failure shape the attempt is still made and the failure now reaches the
+        caller, with or without a context. `run_bounded` is what makes the cancel
+        best-effort: it logs the failure and swallows it, so the user's interrupt still
+        propagates unchanged. Swallowing here as well made a rejected cancel invisible --
+        an AccessDenied looked identical to a successful one, including in the log.
 
-        **Validates: Requirements 4.3**
+        **Validates: Requirements 4.3 (contract relocated to run_bounded)**
         """
         statement_executor.client.cancel_statement.side_effect = failure
 
-        returned = statement_executor._cancel_statement("doomed-stmt", execution_context)
+        with pytest.raises(type(failure)):
+            statement_executor._cancel_statement("doomed-stmt", execution_context)
 
-        assert returned is None
         statement_executor.client.cancel_statement.assert_called_once_with(Id="doomed-stmt")

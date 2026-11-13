@@ -14,6 +14,8 @@ class RedshiftTransformer(DatabaseTransformer):
     Redshift clusters with appropriate connection string formatting.
     """
 
+    supports_row_limit = True  # Redshift accepts a trailing "LIMIT n"
+
     @classmethod
     def get_dialect(cls) -> Optional[str]:
         return "redshift"

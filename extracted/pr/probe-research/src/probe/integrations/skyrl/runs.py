@@ -9,11 +9,27 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
+from probe.generated.samples import CaptureField
+
 #: SkyRL's checkpoint folders and its pointer to the newest (`trainer.py:1771`, `:1805`).
 GLOBAL_STEP_FOLDER = re.compile(r"global_step_(\d+)$")
 LATEST_STEP_FILE = "latest_ckpt_global_step.txt"
 #: A credential the job hands the Ray task instead of a minted run token (a project-bound token cannot mint one).
 WORKER_TOKEN_ENV = "PROBE_SKYRL_WORKER_TOKEN"
+#: What SkyRL cannot give a sample, declared as the run opens (`plan(unsupported=)`), and why
+#: (`skyrl_gym_generator.py` at the pin).
+UNSUPPORTED = {
+    CaptureField.MESSAGES: ("the generator's chat history is local to agent_loop and discarded "
+                            "(skyrl_gym_generator.py:394-397); a sample holds token ids, and step-wise rows text Probe "
+                            "decodes from them"),
+    CaptureField.TOOL_CALL_IDS: "the environment parses tool calls from the model's text itself and names none",
+    CaptureField.TOOL_CALL_ARGUMENTS: ("the environment parses tool calls from the model's text itself and keeps no "
+                                       "arguments"),
+    CaptureField.TOOL_RESULT_LINKS: "a tool's result comes back as observation text, linked to no call",
+    CaptureField.REASONING: "the generator keeps token ids only: no engine field holds reasoning apart from the content",
+    CaptureField.ENVIRONMENT_FILES: ("env.step runs in a thread pool that carries no rollout context "
+                                     "(skyrl_gym_generator.py:279-282, :537)"),
+}
 
 
 def get_rewind_step(checkpoint_step: int) -> int:

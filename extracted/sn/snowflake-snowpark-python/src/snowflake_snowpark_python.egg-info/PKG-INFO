@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-snowpark-python
-Version: 1.56.0
+Version: 1.57.0
 Summary: Snowflake Snowpark for Python
 Home-page: https://www.snowflake.com/
 Author: Snowflake, Inc
@@ -46,11 +46,15 @@ Requires-Dist: protobuf<6.34,>=5.29.0; python_version >= "3.14"
 Requires-Dist: python-dateutil
 Requires-Dist: tzlocal
 Provides-Extra: pandas
-Requires-Dist: snowflake-connector-python[pandas]<5.0.0,>=3.17.0; extra == "pandas"
-Requires-Dist: pandas<3.0.0; extra == "pandas"
+Requires-Dist: pandas<3.0.0,>=1.0.0; python_version < "3.13" and extra == "pandas"
+Requires-Dist: pandas<3.0.0,>=2.1.2; python_version >= "3.13" and extra == "pandas"
+Requires-Dist: pyarrow<24,>=14.0.1; python_version >= "3.14" and extra == "pandas"
+Requires-Dist: pyarrow>=14.0.1; python_version < "3.14" and extra == "pandas"
 Provides-Extra: modin
-Requires-Dist: snowflake-connector-python[pandas]<5.0.0,>=3.17.0; extra == "modin"
-Requires-Dist: pandas<3.0.0; extra == "modin"
+Requires-Dist: pandas<3.0.0,>=1.0.0; python_version < "3.13" and extra == "modin"
+Requires-Dist: pandas<3.0.0,>=2.1.2; python_version >= "3.13" and extra == "modin"
+Requires-Dist: pyarrow<24,>=14.0.1; python_version >= "3.14" and extra == "modin"
+Requires-Dist: pyarrow>=14.0.1; python_version < "3.14" and extra == "modin"
 Requires-Dist: modin<0.38.0,>=0.36.0; extra == "modin"
 Requires-Dist: pandas<=2.4; extra == "modin"
 Requires-Dist: tqdm; extra == "modin"
@@ -63,7 +67,7 @@ Requires-Dist: pytest-cov; extra == "development"
 Requires-Dist: wrapt; extra == "development"
 Requires-Dist: coverage; extra == "development"
 Requires-Dist: sphinx==5.0.2; extra == "development"
-Requires-Dist: cachetools; extra == "development"
+Requires-Dist: cachetools<8; extra == "development"
 Requires-Dist: pytest-timeout; extra == "development"
 Requires-Dist: pytest-xdist; extra == "development"
 Requires-Dist: openpyxl; extra == "development"
@@ -81,8 +85,10 @@ Requires-Dist: polars>=1.0; extra == "development"
 Requires-Dist: pdfminer.six; extra == "development"
 Requires-Dist: python-docx; extra == "development"
 Provides-Extra: modin-development
-Requires-Dist: snowflake-connector-python[pandas]<5.0.0,>=3.17.0; extra == "modin-development"
-Requires-Dist: pandas<3.0.0; extra == "modin-development"
+Requires-Dist: pandas<3.0.0,>=1.0.0; python_version < "3.13" and extra == "modin-development"
+Requires-Dist: pandas<3.0.0,>=2.1.2; python_version >= "3.13" and extra == "modin-development"
+Requires-Dist: pyarrow<24,>=14.0.1; python_version >= "3.14" and extra == "modin-development"
+Requires-Dist: pyarrow>=14.0.1; python_version < "3.14" and extra == "modin-development"
 Requires-Dist: modin<0.38.0,>=0.36.0; extra == "modin-development"
 Requires-Dist: pandas<=2.4; extra == "modin-development"
 Requires-Dist: tqdm; extra == "modin-development"
@@ -92,7 +98,7 @@ Requires-Dist: pytest-cov; extra == "modin-development"
 Requires-Dist: wrapt; extra == "modin-development"
 Requires-Dist: coverage; extra == "modin-development"
 Requires-Dist: sphinx==5.0.2; extra == "modin-development"
-Requires-Dist: cachetools; extra == "modin-development"
+Requires-Dist: cachetools<8; extra == "modin-development"
 Requires-Dist: pytest-timeout; extra == "modin-development"
 Requires-Dist: pytest-xdist; extra == "modin-development"
 Requires-Dist: openpyxl; extra == "modin-development"
@@ -123,6 +129,7 @@ Provides-Extra: opentelemetry
 Requires-Dist: opentelemetry-api<2.0.0,>=1.0.0; extra == "opentelemetry"
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.0.0; extra == "opentelemetry"
 Requires-Dist: opentelemetry-exporter-otlp<2.0.0,>=1.0.0; extra == "opentelemetry"
+Requires-Dist: requests; extra == "opentelemetry"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

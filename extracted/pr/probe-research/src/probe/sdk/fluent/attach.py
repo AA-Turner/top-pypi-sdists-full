@@ -10,6 +10,7 @@ from .. import errors
 from ...foundation.process_rank import read_process_ranks
 from ..client.client import Client
 from ..client import FROM_ENV
+from ..values.run_type import to_run_type
 
 if TYPE_CHECKING:
 
@@ -27,6 +28,8 @@ _CHOOSING_KWARGS = ("experiment", "project", "slug")
 _DESCRIBING_KWARGS = ("name", "question", "hypothesis")
 #: Every kwarg that names or describes a run (the integrations drop them under a launcher).
 _IDENTITY_KWARGS = _CHOOSING_KWARGS + _DESCRIBING_KWARGS
+#: Kwargs an attach applies to the joined run (rank 0), so never named as ignored.
+_APPLIED_KWARGS = ("config", "run_type")
 
 
 #: The PROBE_RUN_ID this process exported from a per-run token, so a later
@@ -114,9 +117,10 @@ def _attach_from_env(client: Client, kw: dict) -> "Run | None":
     # Everything else a caller passed is DROPPED -- attach_run has no use for
     # it. Silence there is its own failure: `probe.init(hw=True)` would stop
     # collecting hardware metrics with no sign, and tags/description would
-    # simply not arrive. Name them. `config` is the exception (plan (c)): it
-    # merges into the joined run below, from global rank 0 only.
+    # simply not arrive. Name them. `config` (plan (c)) and `run_type` are the
+    # exceptions: they reach the joined run below, from global rank 0 only.
     config = kw.get("config")
+    run_type = to_run_type(kw["run_type"]) if kw.get("run_type") is not None else None
     agreed = set(choosing) - set(unchecked)
     name = kw.get("name")
     if name is not None and data is None:
@@ -127,7 +131,7 @@ def _attach_from_env(client: Client, kw: dict) -> "Run | None":
     names_run = name is not None and not same_name and data is not None and not data.get("name_customized")
     dropped = sorted(
         k for k, v in kw.items()
-        if v is not None and k != "config" and k not in agreed and not (k == "name" and (same_name or names_run))
+        if v is not None and k not in _APPLIED_KWARGS and k not in agreed and not (k == "name" and (same_name or names_run))
         and not (k == "authored_by" and names_run)
     )
     if unchecked:
@@ -188,6 +192,11 @@ def _attach_from_env(client: Client, kw: dict) -> "Run | None":
         # config, so this is the only place it can arrive. One rank is enough:
         # every rank of a job passes the same config.
         run.update_config(config)
+    if run_type is not None and _nonzero_global_rank() is None:
+        # The launcher opened the run without the script's type: a choice, applied once per job. Sent even when
+        # the run already reads it: an undeclared run reads `general`, and only a stored choice keeps a later
+        # sample batch from declaring it `rl`.
+        run.set_run_type(run_type)
     return run
 
 def _read_run_quietly(client: Client, run_id: str) -> dict | None:

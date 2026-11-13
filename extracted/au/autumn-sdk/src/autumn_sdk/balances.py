@@ -264,7 +264,9 @@ class Balances(BaseSDK):
         start_cursor: Optional[str] = "",
         statuses: Optional[List[models.ListBalancesStatusRequestBody]] = None,
         plan_id: OptionalNullable[str] = UNSET,
-        feature_id: Optional[str] = None,
+        feature_id: Optional[
+            Union[models.ListBalancesFeatureID, models.ListBalancesFeatureIDTypedDict]
+        ] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -278,7 +280,7 @@ class Balances(BaseSDK):
         :param start_cursor: Opaque pagination cursor. Empty string (default) requests the first page; use next_cursor from a prior response for subsequent pages.
         :param statuses: Statuses to include. Defaults to active. A balance is expired when its plan expired, or when a standalone balance passed its expires_at.
         :param plan_id: Only return balances from this plan. Pass null for standalone balances only (top-ups, balances.create, rollovers).
-        :param feature_id: Only return balances for this feature.
+        :param feature_id: Only return balances for this feature, or for any of these features.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -372,7 +374,9 @@ class Balances(BaseSDK):
         start_cursor: Optional[str] = "",
         statuses: Optional[List[models.ListBalancesStatusRequestBody]] = None,
         plan_id: OptionalNullable[str] = UNSET,
-        feature_id: Optional[str] = None,
+        feature_id: Optional[
+            Union[models.ListBalancesFeatureID, models.ListBalancesFeatureIDTypedDict]
+        ] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -386,7 +390,7 @@ class Balances(BaseSDK):
         :param start_cursor: Opaque pagination cursor. Empty string (default) requests the first page; use next_cursor from a prior response for subsequent pages.
         :param statuses: Statuses to include. Defaults to active. A balance is expired when its plan expired, or when a standalone balance passed its expires_at.
         :param plan_id: Only return balances from this plan. Pass null for standalone balances only (top-ups, balances.create, rollovers).
-        :param feature_id: Only return balances for this feature.
+        :param feature_id: Only return balances for this feature, or for any of these features.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -458,6 +462,496 @@ class Balances(BaseSDK):
 
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(models.ListBalancesResponse, http_res)
+        if utils.match_response(http_res, "4XX", "*"):
+            http_res_text = await utils.stream_to_text_async(http_res)
+            raise errors.AutumnDefaultError(
+                "API error occurred", http_res, http_res_text
+            )
+        if utils.match_response(http_res, "5XX", "*"):
+            http_res_text = await utils.stream_to_text_async(http_res)
+            raise errors.AutumnDefaultError(
+                "API error occurred", http_res, http_res_text
+            )
+
+        raise errors.AutumnDefaultError("Unexpected response received", http_res)
+
+    def list_ledger(
+        self,
+        *,
+        customer_id: str,
+        feature_id: str,
+        entity_id: Optional[str] = None,
+        limit: Optional[int] = 50,
+        start_cursor: Optional[str] = "",
+        custom_range: Optional[
+            Union[
+                models.ListBalanceLedgerCustomRange,
+                models.ListBalanceLedgerCustomRangeTypedDict,
+            ]
+        ] = None,
+        recorded_range: Optional[
+            Union[
+                models.ListBalanceLedgerRecordedRange,
+                models.ListBalanceLedgerRecordedRangeTypedDict,
+            ]
+        ] = None,
+        track_group_id: Optional[str] = None,
+        split_by_feature: Optional[bool] = None,
+        types: Optional[List[models.ListBalanceLedgerTypeRequestBody]] = None,
+        tracks: Optional[models.Tracks] = "grouped",
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: Optional[str] = None,
+        timeout_ms: Optional[int] = None,
+        http_headers: Optional[Mapping[str, str]] = None,
+    ) -> models.ListBalanceLedgerResponse:
+        r"""Lists what changed one customer's balance of a feature, newest first: plan changes, resets, updates, and tracks grouped per UTC day. Each entry says why, who made it, and the balance before and after. coverage says whether history is being recorded for the customer and since when.
+
+        :param customer_id: The customer whose balance history to list.
+        :param feature_id: The feature whose balance to list. Tracks that this feature's balance paid for are included, whatever feature they named.
+        :param entity_id: List this entity's own balance of the feature. For an entity with no balance of its own, the customer's balance is listed, limited to changes for this entity.
+        :param limit: Number of items to return. Default 50, hard ceiling 200.
+        :param start_cursor: Opaque pagination cursor. Empty string (default) requests the first page; use next_cursor from a prior response for subsequent pages.
+        :param custom_range: Only entries that happened in this range.
+        :param recorded_range: Only entries Autumn recorded in this range.
+        :param track_group_id: The id of a track_group entry: lists exactly that group's tracks, one by one. tracks and recorded_range are then ignored.
+        :param split_by_feature: With track_group_id: list the group as one track_group per feature its tracks named, most used first, up to 100. Pass one of their ids as track_group_id to list just that feature's tracks.
+        :param types: Only list entries of these types, across every page. missing_history and history_started entries are listed whatever the types. Without usage, only recorded changes are listed: an adjustment Autumn works out from a balance that moved with no record is listed only when usage is too. A page can hold fewer than limit entries, or none, while has_more is true, and next_cursor continues only the same types.
+        :param tracks: grouped folds the tracks between two other entries into one track_group per UTC day; individual lists each track and needs a custom_range or recorded_range with both start and end, or a track_group_id.
+        :param retries: Override the default retry configuration for this method
+        :param server_url: Override the default server URL for this method
+        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
+        :param http_headers: Additional headers to set or replace on requests.
+        """
+        base_url = None
+        url_variables = None
+        if timeout_ms is None:
+            timeout_ms = self.sdk_configuration.timeout_ms
+
+        if server_url is not None:
+            base_url = server_url
+        else:
+            base_url = self._get_url(base_url, url_variables)
+
+        request = models.ListBalanceLedgerParams(
+            customer_id=customer_id,
+            entity_id=entity_id,
+            limit=limit,
+            start_cursor=start_cursor,
+            feature_id=feature_id,
+            custom_range=utils.get_pydantic_model(
+                custom_range, Optional[models.ListBalanceLedgerCustomRange]
+            ),
+            recorded_range=utils.get_pydantic_model(
+                recorded_range, Optional[models.ListBalanceLedgerRecordedRange]
+            ),
+            track_group_id=track_group_id,
+            split_by_feature=split_by_feature,
+            types=types,
+            tracks=tracks,
+        )
+
+        req = self._build_request(
+            method="POST",
+            path="/v1/balances.list_ledger",
+            base_url=base_url,
+            url_variables=url_variables,
+            request=request,
+            request_body_required=True,
+            request_has_path_params=False,
+            request_has_query_params=True,
+            user_agent_header="user-agent",
+            accept_header_value="application/json",
+            http_headers=http_headers,
+            _globals=models.ListBalanceLedgerGlobals(
+                x_api_version=self.sdk_configuration.globals.x_api_version,
+            ),
+            security=self.sdk_configuration.security,
+            get_serialized_body=lambda: utils.serialize_request_body(
+                request, False, False, "json", models.ListBalanceLedgerParams
+            ),
+            allow_empty_value=None,
+            timeout_ms=timeout_ms,
+        )
+
+        if retries == UNSET:
+            if self.sdk_configuration.retry_config is not UNSET:
+                retries = self.sdk_configuration.retry_config
+
+        retry_config = None
+        if isinstance(retries, utils.RetryConfig):
+            retry_config = (retries, ["429", "500", "502", "503", "504"])
+
+        http_res = self.do_request(
+            hook_ctx=HookContext(
+                config=self.sdk_configuration,
+                base_url=base_url or "",
+                operation_id="listBalanceLedger",
+                oauth2_scopes=None,
+                security_source=self.sdk_configuration.security,
+            ),
+            request=req,
+            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
+            retry_config=retry_config,
+        )
+
+        if utils.match_response(http_res, "200", "application/json"):
+            return unmarshal_json_response(models.ListBalanceLedgerResponse, http_res)
+        if utils.match_response(http_res, "4XX", "*"):
+            http_res_text = utils.stream_to_text(http_res)
+            raise errors.AutumnDefaultError(
+                "API error occurred", http_res, http_res_text
+            )
+        if utils.match_response(http_res, "5XX", "*"):
+            http_res_text = utils.stream_to_text(http_res)
+            raise errors.AutumnDefaultError(
+                "API error occurred", http_res, http_res_text
+            )
+
+        raise errors.AutumnDefaultError("Unexpected response received", http_res)
+
+    async def list_ledger_async(
+        self,
+        *,
+        customer_id: str,
+        feature_id: str,
+        entity_id: Optional[str] = None,
+        limit: Optional[int] = 50,
+        start_cursor: Optional[str] = "",
+        custom_range: Optional[
+            Union[
+                models.ListBalanceLedgerCustomRange,
+                models.ListBalanceLedgerCustomRangeTypedDict,
+            ]
+        ] = None,
+        recorded_range: Optional[
+            Union[
+                models.ListBalanceLedgerRecordedRange,
+                models.ListBalanceLedgerRecordedRangeTypedDict,
+            ]
+        ] = None,
+        track_group_id: Optional[str] = None,
+        split_by_feature: Optional[bool] = None,
+        types: Optional[List[models.ListBalanceLedgerTypeRequestBody]] = None,
+        tracks: Optional[models.Tracks] = "grouped",
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: Optional[str] = None,
+        timeout_ms: Optional[int] = None,
+        http_headers: Optional[Mapping[str, str]] = None,
+    ) -> models.ListBalanceLedgerResponse:
+        r"""Lists what changed one customer's balance of a feature, newest first: plan changes, resets, updates, and tracks grouped per UTC day. Each entry says why, who made it, and the balance before and after. coverage says whether history is being recorded for the customer and since when.
+
+        :param customer_id: The customer whose balance history to list.
+        :param feature_id: The feature whose balance to list. Tracks that this feature's balance paid for are included, whatever feature they named.
+        :param entity_id: List this entity's own balance of the feature. For an entity with no balance of its own, the customer's balance is listed, limited to changes for this entity.
+        :param limit: Number of items to return. Default 50, hard ceiling 200.
+        :param start_cursor: Opaque pagination cursor. Empty string (default) requests the first page; use next_cursor from a prior response for subsequent pages.
+        :param custom_range: Only entries that happened in this range.
+        :param recorded_range: Only entries Autumn recorded in this range.
+        :param track_group_id: The id of a track_group entry: lists exactly that group's tracks, one by one. tracks and recorded_range are then ignored.
+        :param split_by_feature: With track_group_id: list the group as one track_group per feature its tracks named, most used first, up to 100. Pass one of their ids as track_group_id to list just that feature's tracks.
+        :param types: Only list entries of these types, across every page. missing_history and history_started entries are listed whatever the types. Without usage, only recorded changes are listed: an adjustment Autumn works out from a balance that moved with no record is listed only when usage is too. A page can hold fewer than limit entries, or none, while has_more is true, and next_cursor continues only the same types.
+        :param tracks: grouped folds the tracks between two other entries into one track_group per UTC day; individual lists each track and needs a custom_range or recorded_range with both start and end, or a track_group_id.
+        :param retries: Override the default retry configuration for this method
+        :param server_url: Override the default server URL for this method
+        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
+        :param http_headers: Additional headers to set or replace on requests.
+        """
+        base_url = None
+        url_variables = None
+        if timeout_ms is None:
+            timeout_ms = self.sdk_configuration.timeout_ms
+
+        if server_url is not None:
+            base_url = server_url
+        else:
+            base_url = self._get_url(base_url, url_variables)
+
+        request = models.ListBalanceLedgerParams(
+            customer_id=customer_id,
+            entity_id=entity_id,
+            limit=limit,
+            start_cursor=start_cursor,
+            feature_id=feature_id,
+            custom_range=utils.get_pydantic_model(
+                custom_range, Optional[models.ListBalanceLedgerCustomRange]
+            ),
+            recorded_range=utils.get_pydantic_model(
+                recorded_range, Optional[models.ListBalanceLedgerRecordedRange]
+            ),
+            track_group_id=track_group_id,
+            split_by_feature=split_by_feature,
+            types=types,
+            tracks=tracks,
+        )
+
+        req = self._build_request_async(
+            method="POST",
+            path="/v1/balances.list_ledger",
+            base_url=base_url,
+            url_variables=url_variables,
+            request=request,
+            request_body_required=True,
+            request_has_path_params=False,
+            request_has_query_params=True,
+            user_agent_header="user-agent",
+            accept_header_value="application/json",
+            http_headers=http_headers,
+            _globals=models.ListBalanceLedgerGlobals(
+                x_api_version=self.sdk_configuration.globals.x_api_version,
+            ),
+            security=self.sdk_configuration.security,
+            get_serialized_body=lambda: utils.serialize_request_body(
+                request, False, False, "json", models.ListBalanceLedgerParams
+            ),
+            allow_empty_value=None,
+            timeout_ms=timeout_ms,
+        )
+
+        if retries == UNSET:
+            if self.sdk_configuration.retry_config is not UNSET:
+                retries = self.sdk_configuration.retry_config
+
+        retry_config = None
+        if isinstance(retries, utils.RetryConfig):
+            retry_config = (retries, ["429", "500", "502", "503", "504"])
+
+        http_res = await self.do_request_async(
+            hook_ctx=HookContext(
+                config=self.sdk_configuration,
+                base_url=base_url or "",
+                operation_id="listBalanceLedger",
+                oauth2_scopes=None,
+                security_source=self.sdk_configuration.security,
+            ),
+            request=req,
+            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
+            retry_config=retry_config,
+        )
+
+        if utils.match_response(http_res, "200", "application/json"):
+            return unmarshal_json_response(models.ListBalanceLedgerResponse, http_res)
+        if utils.match_response(http_res, "4XX", "*"):
+            http_res_text = await utils.stream_to_text_async(http_res)
+            raise errors.AutumnDefaultError(
+                "API error occurred", http_res, http_res_text
+            )
+        if utils.match_response(http_res, "5XX", "*"):
+            http_res_text = await utils.stream_to_text_async(http_res)
+            raise errors.AutumnDefaultError(
+                "API error occurred", http_res, http_res_text
+            )
+
+        raise errors.AutumnDefaultError("Unexpected response received", http_res)
+
+    def aggregate_ledger(
+        self,
+        *,
+        customer_id: str,
+        feature_id: str,
+        entity_id: Optional[str] = None,
+        custom_range: Optional[
+            Union[
+                models.AggregateBalanceLedgerCustomRange,
+                models.AggregateBalanceLedgerCustomRangeTypedDict,
+            ]
+        ] = None,
+        bin_size: Optional[models.AggregateBalanceLedgerBinSizeRequest] = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: Optional[str] = None,
+        timeout_ms: Optional[int] = None,
+        http_headers: Optional[Mapping[str, str]] = None,
+    ) -> models.AggregateBalanceLedgerResponse:
+        r"""Returns a customer's balance of a feature at each UTC hour or day of a range, and at each change other than a track, for charting it over time.
+
+        :param customer_id: The customer whose balance to chart.
+        :param feature_id: The feature whose balance to chart.
+        :param entity_id: Chart this entity's own balance of the feature. For an entity with no balance of its own, the customer's balance is charted.
+        :param custom_range: The range to chart: at most 400 days, and at most 14 days with bin_size hour.
+        :param bin_size: A point per UTC hour or per UTC day. Defaults to hour for ranges up to seven days and day above.
+        :param retries: Override the default retry configuration for this method
+        :param server_url: Override the default server URL for this method
+        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
+        :param http_headers: Additional headers to set or replace on requests.
+        """
+        base_url = None
+        url_variables = None
+        if timeout_ms is None:
+            timeout_ms = self.sdk_configuration.timeout_ms
+
+        if server_url is not None:
+            base_url = server_url
+        else:
+            base_url = self._get_url(base_url, url_variables)
+
+        request = models.AggregateBalanceLedgerParams(
+            customer_id=customer_id,
+            feature_id=feature_id,
+            entity_id=entity_id,
+            custom_range=utils.get_pydantic_model(
+                custom_range, Optional[models.AggregateBalanceLedgerCustomRange]
+            ),
+            bin_size=bin_size,
+        )
+
+        req = self._build_request(
+            method="POST",
+            path="/v1/balances.aggregate_ledger",
+            base_url=base_url,
+            url_variables=url_variables,
+            request=request,
+            request_body_required=True,
+            request_has_path_params=False,
+            request_has_query_params=True,
+            user_agent_header="user-agent",
+            accept_header_value="application/json",
+            http_headers=http_headers,
+            _globals=models.AggregateBalanceLedgerGlobals(
+                x_api_version=self.sdk_configuration.globals.x_api_version,
+            ),
+            security=self.sdk_configuration.security,
+            get_serialized_body=lambda: utils.serialize_request_body(
+                request, False, False, "json", models.AggregateBalanceLedgerParams
+            ),
+            allow_empty_value=None,
+            timeout_ms=timeout_ms,
+        )
+
+        if retries == UNSET:
+            if self.sdk_configuration.retry_config is not UNSET:
+                retries = self.sdk_configuration.retry_config
+
+        retry_config = None
+        if isinstance(retries, utils.RetryConfig):
+            retry_config = (retries, ["429", "500", "502", "503", "504"])
+
+        http_res = self.do_request(
+            hook_ctx=HookContext(
+                config=self.sdk_configuration,
+                base_url=base_url or "",
+                operation_id="aggregateBalanceLedger",
+                oauth2_scopes=None,
+                security_source=self.sdk_configuration.security,
+            ),
+            request=req,
+            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
+            retry_config=retry_config,
+        )
+
+        if utils.match_response(http_res, "200", "application/json"):
+            return unmarshal_json_response(
+                models.AggregateBalanceLedgerResponse, http_res
+            )
+        if utils.match_response(http_res, "4XX", "*"):
+            http_res_text = utils.stream_to_text(http_res)
+            raise errors.AutumnDefaultError(
+                "API error occurred", http_res, http_res_text
+            )
+        if utils.match_response(http_res, "5XX", "*"):
+            http_res_text = utils.stream_to_text(http_res)
+            raise errors.AutumnDefaultError(
+                "API error occurred", http_res, http_res_text
+            )
+
+        raise errors.AutumnDefaultError("Unexpected response received", http_res)
+
+    async def aggregate_ledger_async(
+        self,
+        *,
+        customer_id: str,
+        feature_id: str,
+        entity_id: Optional[str] = None,
+        custom_range: Optional[
+            Union[
+                models.AggregateBalanceLedgerCustomRange,
+                models.AggregateBalanceLedgerCustomRangeTypedDict,
+            ]
+        ] = None,
+        bin_size: Optional[models.AggregateBalanceLedgerBinSizeRequest] = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: Optional[str] = None,
+        timeout_ms: Optional[int] = None,
+        http_headers: Optional[Mapping[str, str]] = None,
+    ) -> models.AggregateBalanceLedgerResponse:
+        r"""Returns a customer's balance of a feature at each UTC hour or day of a range, and at each change other than a track, for charting it over time.
+
+        :param customer_id: The customer whose balance to chart.
+        :param feature_id: The feature whose balance to chart.
+        :param entity_id: Chart this entity's own balance of the feature. For an entity with no balance of its own, the customer's balance is charted.
+        :param custom_range: The range to chart: at most 400 days, and at most 14 days with bin_size hour.
+        :param bin_size: A point per UTC hour or per UTC day. Defaults to hour for ranges up to seven days and day above.
+        :param retries: Override the default retry configuration for this method
+        :param server_url: Override the default server URL for this method
+        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
+        :param http_headers: Additional headers to set or replace on requests.
+        """
+        base_url = None
+        url_variables = None
+        if timeout_ms is None:
+            timeout_ms = self.sdk_configuration.timeout_ms
+
+        if server_url is not None:
+            base_url = server_url
+        else:
+            base_url = self._get_url(base_url, url_variables)
+
+        request = models.AggregateBalanceLedgerParams(
+            customer_id=customer_id,
+            feature_id=feature_id,
+            entity_id=entity_id,
+            custom_range=utils.get_pydantic_model(
+                custom_range, Optional[models.AggregateBalanceLedgerCustomRange]
+            ),
+            bin_size=bin_size,
+        )
+
+        req = self._build_request_async(
+            method="POST",
+            path="/v1/balances.aggregate_ledger",
+            base_url=base_url,
+            url_variables=url_variables,
+            request=request,
+            request_body_required=True,
+            request_has_path_params=False,
+            request_has_query_params=True,
+            user_agent_header="user-agent",
+            accept_header_value="application/json",
+            http_headers=http_headers,
+            _globals=models.AggregateBalanceLedgerGlobals(
+                x_api_version=self.sdk_configuration.globals.x_api_version,
+            ),
+            security=self.sdk_configuration.security,
+            get_serialized_body=lambda: utils.serialize_request_body(
+                request, False, False, "json", models.AggregateBalanceLedgerParams
+            ),
+            allow_empty_value=None,
+            timeout_ms=timeout_ms,
+        )
+
+        if retries == UNSET:
+            if self.sdk_configuration.retry_config is not UNSET:
+                retries = self.sdk_configuration.retry_config
+
+        retry_config = None
+        if isinstance(retries, utils.RetryConfig):
+            retry_config = (retries, ["429", "500", "502", "503", "504"])
+
+        http_res = await self.do_request_async(
+            hook_ctx=HookContext(
+                config=self.sdk_configuration,
+                base_url=base_url or "",
+                operation_id="aggregateBalanceLedger",
+                oauth2_scopes=None,
+                security_source=self.sdk_configuration.security,
+            ),
+            request=req,
+            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
+            retry_config=retry_config,
+        )
+
+        if utils.match_response(http_res, "200", "application/json"):
+            return unmarshal_json_response(
+                models.AggregateBalanceLedgerResponse, http_res
+            )
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
             raise errors.AutumnDefaultError(
@@ -926,6 +1420,7 @@ class Balances(BaseSDK):
         *,
         lock_id: str,
         action: models.FinalizeLockAction,
+        customer_id: str,
         override_value: Optional[float] = None,
         properties: Optional[Dict[str, Any]] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
@@ -937,6 +1432,7 @@ class Balances(BaseSDK):
 
         :param lock_id: The lock ID that was passed into the previous check call.
         :param action: Use 'confirm' to commit the deduction, or 'release' to return the held balance.
+        :param customer_id: The customer the lock belongs to. A lock of any other customer is not found.
         :param override_value: Additional properties to attach to this finalize lock event.
         :param properties: Additional properties to attach to this finalize lock event.
         :param retries: Override the default retry configuration for this method
@@ -959,6 +1455,7 @@ class Balances(BaseSDK):
             action=action,
             override_value=override_value,
             properties=properties,
+            customer_id=customer_id,
         )
 
         req = self._build_request(
@@ -1027,6 +1524,7 @@ class Balances(BaseSDK):
         *,
         lock_id: str,
         action: models.FinalizeLockAction,
+        customer_id: str,
         override_value: Optional[float] = None,
         properties: Optional[Dict[str, Any]] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
@@ -1038,6 +1536,7 @@ class Balances(BaseSDK):
 
         :param lock_id: The lock ID that was passed into the previous check call.
         :param action: Use 'confirm' to commit the deduction, or 'release' to return the held balance.
+        :param customer_id: The customer the lock belongs to. A lock of any other customer is not found.
         :param override_value: Additional properties to attach to this finalize lock event.
         :param properties: Additional properties to attach to this finalize lock event.
         :param retries: Override the default retry configuration for this method
@@ -1060,6 +1559,7 @@ class Balances(BaseSDK):
             action=action,
             override_value=override_value,
             properties=properties,
+            customer_id=customer_id,
         )
 
         req = self._build_request_async(

@@ -226,6 +226,7 @@ async def astream_state_v2(
     # langgraph >=1.2.0a6. ``stream_mode`` was already popped by the
     # caller.
     kwargs.pop("subgraphs", None)
+    kwargs.setdefault("output_keys", graph.output_channels)
     # ``version="v3"`` and the awaitable return are alpha-only;
     # ``capabilities.py`` gates the v3 path at runtime so older
     # langgraph never reaches this call.

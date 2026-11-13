@@ -90,6 +90,10 @@ class Session:
     # A deployment session: its deployment's keep-warm (off, 10m … always); None from a
     # control plane that doesn't say. Kept warm, the policy skips its idle release.
     deployment_keep_warm: str | None = None
+    # Praxis-1 (experimental): the engine the session asked for, echoed when it asked
+    # ("standard" or "lightning"), and why standard serves it when it does ("unavailable").
+    engine: str | None = None
+    engine_reason: str | None = None
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> Session:
@@ -117,6 +121,8 @@ class Session:
             region_notice=bool(data.get("region_notice", False)),
             region_mode=data.get("region_mode"),
             region_fallback=data.get("region_fallback"),
+            engine=data.get("engine"),
+            engine_reason=data.get("engine_reason"),
             region_probe_status=data.get("region_probe_status"),
             region_probe_confident_winner=data.get(
                 "region_probe_confident_winner"
@@ -326,10 +332,13 @@ class ControlPlaneClient:
         optimization_config: OptimizationConfig | dict[str, Any] | None = None,
         speed: str | None = None,
         checkpoint: str | None = None,
+        engine: str | None = None,
     ) -> Session:
         fast = speed == "fast"
         if speed not in (None, "standard", "fast"):
             raise ValueError('speed must be "standard" or "fast"')
+        if engine not in (None, "standard", "lightning"):
+            raise ValueError('engine must be "standard" or "lightning"')
         if fast and (model, "speed:fast") not in self._provider_capabilities:
             # Older servers ignore unknown fields; never let one bill or route a
             # fast request as standard without acknowledging it first.
@@ -359,6 +368,8 @@ class ControlPlaneClient:
             body["provider"] = provider
         if fast:
             body["speed"] = "fast"
+        if engine is not None:
+            body["engine"] = engine
         if preferred_region:
             body["preferred_region"] = preferred_region
         if region_pin:
@@ -438,6 +449,11 @@ class ControlPlaneClient:
         if fast and session.speed != "fast":
             await self.delete_session(session.session_id)
             raise RuntimeError('control plane did not apply speed="fast"')
+        if engine == "lightning" and session.engine is None:
+            # Older control planes ignore `engine`: never run a lightning request on standard
+            # without the server saying so.
+            await self.delete_session(session.session_id)
+            raise errors.catalog("engine_unavailable")
         return session
 
     async def probe_candidates(

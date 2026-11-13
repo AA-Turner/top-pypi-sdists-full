@@ -29,6 +29,8 @@
 import ctypes
 from Phidget22.IRCodeEncoding import IRCodeEncoding
 from Phidget22.IRCodeLength import IRCodeLength
+from Phidget22.ErrorCode import ErrorCode
+from Phidget22.PhidgetException import PhidgetException
 
 
 class CodeInfo:
@@ -74,10 +76,10 @@ class CodeInfo:
         length=IRCodeLength.IR_LENGTH_UNKNOWN,
         gap=0,
         trail=0,
-        header=[0] * 2,
-        one=[0] * 2,
-        zero=[0] * 2,
-        repeat=[0] * 26,
+        header=None,
+        one=None,
+        zero=None,
+        repeat=None,
         minRepeat=0,
         dutyCycle=0,
         carrierFrequency=0,
@@ -88,10 +90,10 @@ class CodeInfo:
         self.length = length
         self.gap = gap
         self.trail = trail
-        self.header = header
-        self.one = one
-        self.zero = zero
-        self.repeat = repeat
+        self.header = header if header is not None else [0] * 2
+        self.one = one if one is not None else [0] * 2
+        self.zero = zero if zero is not None else [0] * 2
+        self.repeat = repeat if repeat is not None else [0] * 26
         self.minRepeat = minRepeat
         self.dutyCycle = dutyCycle
         self.carrierFrequency = carrierFrequency
@@ -148,7 +150,13 @@ class _CCodeInfo(ctypes.Structure):
         c_struct._minRepeat = obj.minRepeat
         c_struct._dutyCycle = obj.dutyCycle
         c_struct._carrierFrequency = obj.carrierFrequency
-        c_struct._toggleMask = obj.toggleMask.encode("utf-8")
+        _toggleMask = obj.toggleMask.encode("utf-8")
+        if len(_toggleMask) > 32:
+            raise PhidgetException(
+                ErrorCode.EPHIDGET_INVALIDARG,
+                "CodeInfo.toggleMask must be at most 32 bytes when UTF-8 encoded",
+            )
+        c_struct._toggleMask = _toggleMask
         return c_struct
 
     def _to_python(self):

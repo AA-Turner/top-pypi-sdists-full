@@ -67,6 +67,7 @@ START_TARGET ?= start-license-oss
 TEST_TARGET ?= test-license-oss
 SERVER_HEALTH_URL ?= http://127.0.0.1:9123/ok
 SERVER_START_TIMEOUT_SECS ?= 30
+SERVER_STOP_TIMEOUT_SECS ?= 10
 
 ifeq ($(LANGGRAPH_HTTP),fastapi)
 	HTTP_CONFIG := {"app": "./tests/graphs/my_router.py:app", "disable_mcp": false, "disable_a2a": false, "mount_prefix": "/my-cool/api"}
@@ -107,9 +108,11 @@ endif
 
 REVISION ?= $(shell git rev-parse --short HEAD)
 LANGGRAPH_ENCRYPTION ?=
+# The servers' priority callback, off by default; tests/graphs/custom_priority.py to test it.
+LANGGRAPH_PRIORITY ?=
 
 test-license-oss:
-	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_WEBHOOKS='$(LANGGRAPH_WEBHOOKS)' LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_STORE='$(STORE_CONFIG)' LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(PYTEST_ROOT_ARGS) $(XDIST_ARGS) $(TEST)
+	LANGGRAPH_PRIORITY='$(LANGGRAPH_PRIORITY)' LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_WEBHOOKS='$(LANGGRAPH_WEBHOOKS)' LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_STORE='$(STORE_CONFIG)' LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(PYTEST_ROOT_ARGS) $(XDIST_ARGS) $(TEST)
 
 test-watch-oss:
 	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_WEBHOOKS='$(LANGGRAPH_WEBHOOKS)' LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run --no-sync ptw . -- -x -vv --ff --capture=no $(TEST)
@@ -126,16 +129,25 @@ test-auth:
 	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_AUTH='{"path": "./tests/graphs/fastapi_jwt_auth.py:auth"}' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(PYTEST_ROOT_ARGS) $(XDIST_ARGS) $(AUTH_TEST)
 
 test-with-server:
-	@bash -euo pipefail -c '$(MAKE) $(START_TARGET) LANGGRAPH_HTTP='\''$(LANGGRAPH_HTTP)'\'' & \
-	pid=$$!; \
+	@bash -euo pipefail -c 'set -m; \
+	$(MAKE) $(START_TARGET) LANGGRAPH_HTTP='\''$(LANGGRAPH_HTTP)'\'' & \
+	server_pgid=$$!; \
+	set +m; \
 	cleanup() { \
-		if [ -r /proc/$$pid/winpid ]; then \
-			taskkill //F //T //PID "$$(cat /proc/$$pid/winpid)" >/dev/null 2>&1 || true; \
-		else \
-			kill $$pid >/dev/null 2>&1 || true; \
+		if [ -r /proc/$$server_pgid/winpid ]; then \
+			taskkill //F //T //PID "$$(cat /proc/$$server_pgid/winpid)" >/dev/null 2>&1 || true; \
+			return 0; \
 		fi; \
+		kill -- -$$server_pgid 2>/dev/null || return 0; \
+		for i in $$(seq 1 $(SERVER_STOP_TIMEOUT_SECS)); do \
+			kill -0 -- -$$server_pgid 2>/dev/null || return 0; \
+			sleep 1; \
+		done; \
+		kill -KILL -- -$$server_pgid 2>/dev/null || true; \
 	}; \
 	trap cleanup EXIT; \
+	trap "exit 130" INT; \
+	trap "exit 143" TERM; \
 	for i in $$(seq 1 $(SERVER_START_TIMEOUT_SECS)); do \
 		if curl -sf "$(SERVER_HEALTH_URL)" >/dev/null; then \
 			break; \
@@ -190,6 +202,7 @@ LANGSMITH_TRACING ?= false
 start:
 	LANGGRAPH_DISABLE_FILE_PERSISTENCE=$(LANGGRAPH_DISABLE_FILE_PERSISTENCE) \
 	LANGGRAPH_WEBHOOKS='$(LANGGRAPH_WEBHOOKS)' \
+	LANGGRAPH_PRIORITY='$(LANGGRAPH_PRIORITY)' \
 	LANGGRAPH_HTTP='$(HTTP_CONFIG)' \
 	LANGGRAPH_RUNTIME_EDITION=inmem \
 	LANGGRAPH_AES_KEY='$(LANGGRAPH_AES_KEY)' \
@@ -373,26 +386,22 @@ start-test-a2a-tck-watch:
 		"$(MAKE) start" \
 		"sleep $(TCK_STARTUP_DELAY) && npx nodemon --watch langgraph_api/api/a2a.py --ext py --exec '$(MAKE) test-a2a-tck-must'"
 
-# MCP Conformance Test targets
-# Uses the official MCP conformance test suite (https://github.com/modelcontextprotocol/conformance)
-# Requires a running server: make start (in another terminal)
-
+MCP_CONFORMANCE := npx @modelcontextprotocol/conformance@0.2.0-alpha.12
 MCP_CONFORMANCE_URL ?= http://localhost:9123/mcp
-MCP_CONFORMANCE_SUITE ?= active
-MCP_CONFORMANCE_BASELINE ?= ../mcp-conformance-baseline.yml
-MCP_STARTUP_DELAY ?= 10
+MCP_CONFORMANCE_REVISIONS := 2025-11-25 2026-07-28
 
 test-mcp-conformance:
-	npx @modelcontextprotocol/conformance@0.1.13 server \
+	$(MAKE) -k $(addprefix test-mcp-conformance-,$(MCP_CONFORMANCE_REVISIONS))
+
+test-mcp-conformance-%:
+	$(MCP_CONFORMANCE) server \
 		--url $(MCP_CONFORMANCE_URL) \
-		--suite $(MCP_CONFORMANCE_SUITE) \
-		--expected-failures $(MCP_CONFORMANCE_BASELINE) \
+		--requirements $* \
+		--expected-failures ../mcp-conformance-baseline-$*.yml \
 		--verbose
 
 start-test-mcp-conformance:
-	npx concurrently -k -s first \
-		"$(MAKE) start" \
-		"sleep $(MCP_STARTUP_DELAY) && $(MAKE) test-mcp-conformance"
+	$(MAKE) test-with-server TEST_TARGET=test-mcp-conformance
 
 list-mcp-scenarios:
-	npx @modelcontextprotocol/conformance list --server
+	$(MCP_CONFORMANCE) list --server

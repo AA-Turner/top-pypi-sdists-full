@@ -10,9 +10,10 @@ Extends SeedGroup to enforce exactly one objective is present.
 from __future__ import annotations
 
 import copy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pyrit.models.identifiers import SeedIdentifier, compute_seed_group_hash
+from pyrit.models.seeds.adversarial_prompts import AdversarialPrompts
 from pyrit.models.seeds.seed_group import SeedGroup
 from pyrit.models.seeds.seed_objective import SeedObjective
 from pyrit.models.seeds.seed_prompt import SeedPrompt
@@ -36,6 +37,8 @@ class AttackSeedGroup(SeedGroup):
     next_message, etc.) is inherited from SeedGroup.
     """
 
+    adversarial_prompts: AdversarialPrompts | None = None
+
     def _check_invariants(self) -> None:
         """
         Validate the seed attack group state.
@@ -48,6 +51,25 @@ class AttackSeedGroup(SeedGroup):
         """
         super()._check_invariants()
         self._enforce_exactly_one_objective()
+        self._bind_adversarial_prompts()
+
+    def _bind_adversarial_prompts(self) -> None:
+        """
+        Anchor group-level prompts on the objective for flat seed storage.
+
+        Raises:
+            ValueError: If the explicit prompts conflict with the stored association.
+        """
+        saved = AdversarialPrompts.from_metadata(self.objective.metadata)
+        if self.adversarial_prompts is None:
+            self.adversarial_prompts = saved
+        elif saved is not None and saved.identity != self.adversarial_prompts.identity:
+            raise ValueError("Group adversarial prompts conflict with the objective's saved association.")
+        if self.adversarial_prompts is not None:
+            self.objective.metadata = {
+                **(self.objective.metadata or {}),
+                **self.adversarial_prompts.to_metadata(),
+            }
 
     def _enforce_exactly_one_objective(self) -> None:
         """
@@ -147,6 +169,8 @@ class AttackSeedGroup(SeedGroup):
 
         The original group is not mutated. Technique seeds are inserted at
         ``technique.insertion_index`` (or appended at the end when ``None``).
+        When requested, the objective is appended as a separate final user prompt
+        after merged static prompts and reserved simulated-conversation sequences.
 
         Args:
             technique: A validated AttackTechniqueSeedGroup whose seeds will be merged.
@@ -191,13 +215,29 @@ class AttackSeedGroup(SeedGroup):
             prepend_technique=technique.prompt_placement == "prepend",
         )
 
+        if technique.append_objective_prompt:
+            next_seq = (
+                max(
+                    (
+                        seed.sequence_range.stop - 1 if isinstance(seed, SeedSimulatedConversation) else seed.sequence
+                        for seed in merged_seeds
+                        if isinstance(seed, (SeedPrompt, SeedSimulatedConversation))
+                    ),
+                    default=-1,
+                )
+                + 1
+            )
+            merged_seeds.append(
+                SeedPrompt(value=self.objective.value, data_type="text", role="user", sequence=next_seq)
+            )
+
         return AttackSeedGroup(seeds=merged_seeds)
 
     @staticmethod
     def _normalize_prompt_sequences(
         *,
-        base_seeds: Sequence[Seed],
-        technique_seeds: Sequence[Seed],
+        base_seeds: Sequence[Seed[Any]],
+        technique_seeds: Sequence[Seed[Any]],
         prepend_technique: bool,
     ) -> None:
         """Normalize merged prompt sequences while preserving source-relative order."""

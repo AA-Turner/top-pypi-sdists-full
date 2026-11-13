@@ -28,6 +28,7 @@ import fcntl
 import functools
 import os
 import signal
+import stat
 import struct
 import subprocess
 import sys
@@ -37,6 +38,7 @@ import typing
 from subprocess import PIPE, Popen
 
 from urwid import signals
+from urwid._selectors import read_selector
 
 from . import _raw_display_base, escape
 from .common import INPUT_DESCRIPTORS_CHANGED, InputClosedError
@@ -84,11 +86,18 @@ _GPM_MOD_ALTGR = 2
 _GPM_MOD_CTRL = 4
 _GPM_MOD_ALT = 8
 
-# most bytes of terminal input read per wake-up
-_INPUT_READ_LIMIT = 65536
-
 # seconds the gpm helper is given to exit on SIGINT before it is killed
 _GPM_STOP_TIMEOUT = 1.0
+
+# Linux virtual consoles /dev/tty1 to /dev/tty63: TTY_MAJOR and MAX_NR_CONSOLES in the kernel's tty headers.
+# Minor 0 is /dev/tty0, the console in the foreground, and minors from 64 on are serial ports.
+_VT_MAJOR = 4
+_VT_MAX_MINOR = 63
+# TTYAUX_MAJOR: /dev/tty and /dev/console, which stand for another terminal.
+_TTY_ALIAS_MAJOR = 5
+# TIOCGDEV, _IOR('T', 0x32, unsigned int): the device behind an alias, in the kernel's 32-bit dev_t encoding.
+# These architectures encode the read direction of an ioctl request in bit 30 instead of bit 31.
+_TIOCGDEV = 0x40045432 if os.uname().machine.startswith(("alpha", "mips", "parisc", "ppc", "sparc")) else 0x80045432
 
 
 class Screen(_raw_display_base.Screen):
@@ -101,6 +110,8 @@ class Screen(_raw_display_base.Screen):
         bracketed_paste_mode: bool | None = None,
         focus_reporting: bool | None = None,
         extended_keys: bool = False,
+        *,
+        in_band_resize: bool | None = None,
     ) -> None:
         """Initialize a screen that directly prints escape codes to an output terminal.
 
@@ -115,6 +126,11 @@ class Screen(_raw_display_base.Screen):
         :param extended_keys: report the keys the legacy encodings cannot tell apart, such as ``'ctrl enter'``
             and ``'ctrl i'`` apart from ``'tab'``, through the keyboard protocol the terminal supports.
             Ctrl+C and Ctrl+Z then arrive as keys instead of signals; see :ref:`extended-keys`.
+        :param in_band_resize: take the terminal size from the resize notifications the terminal sends in the input
+            (DEC private mode 2048), as well as from ``SIGWINCH``; see :ref:`in-band-resize`.
+            None (default) auto-detects via DECRQM and enables it once confirmed supported,
+            except on the iTerm2 releases that send the notifications without their final byte;
+            pass True/False to force it without probing.
 
         .. note::
             on terminal-generated signals: putting the terminal into cbreak mode (see `start()`)
@@ -140,12 +156,15 @@ class Screen(_raw_display_base.Screen):
             and without ``IEXTEN`` no Ctrl+O can turn it off.
             `stop()` restores both flags.
         """
+        if in_band_resize is None and _raw_display_base.sends_incomplete_window_size_reports(os.environ):
+            in_band_resize = False
         super().__init__(
             input,
             output,
             bracketed_paste_mode=bracketed_paste_mode,
             focus_reporting=focus_reporting,
             extended_keys=extended_keys,
+            in_band_resize=in_band_resize,
         )
         self.gpm_mev: Popen[str] | None = None
         self.gpm_event_pending: bool = False
@@ -163,7 +182,8 @@ class Screen(_raw_display_base.Screen):
             f"input={self._term_input_file}, "
             f"output={self._term_output_file}, "
             f"bracketed_paste_mode={self.modes.bracketed_paste}, "
-            f"focus_reporting={self.modes.focus_reporting})>"
+            f"focus_reporting={self.modes.focus_reporting}, "
+            f"in_band_resize={self.modes.in_band_resize})>"
         )
 
     def _sigwinch_handler(self, signum: int = signal.SIGWINCH, frame: FrameType | None = None) -> None:
@@ -214,17 +234,42 @@ class Screen(_raw_display_base.Screen):
 
     def _start_gpm_tracking(self) -> None:
         """
-        Start the gpm helper that reports mouse events on the Linux console.
+        Start the gpm helper that reports mouse events on the Linux console the screen reads from.
 
+        The helper starts only when :attr:`term` names the Linux console and the input is a virtual console.
+        Input opened through :file:`/dev/tty` or :file:`/dev/console` counts as the terminal behind it.
+        The helper is attached to that console by number.
+        The gpm daemon gives a client that names no console of its own,
+        such as one on a pseudo-terminal, the events of every console without a client.
+
+        :raises OSError: the input descriptor cannot be examined, for example because it was closed.
         :raises RuntimeError: the gpm helper process provides no standard output.
         """
         if not os.path.isfile("/usr/bin/mev"):
             return
         if not _raw_display_base._is_linux_console(self.term):  # pylint: disable=protected-access  # same package
             return
+        fd = self._input_fileno()
+        if fd is None:
+            return
+        # The device number tells both whether the input is a virtual console and which one,
+        # whatever the names under /dev are.
+        input_stat = os.fstat(fd)
+        if not stat.S_ISCHR(input_stat.st_mode):
+            return
+        device = input_stat.st_rdev
+        if os.major(device) == _TTY_ALIAS_MAJOR:
+            try:
+                (device,) = struct.unpack("I", fcntl.ioctl(fd, _TIOCGDEV, bytes(4)))
+            except OSError:  # a kernel without TIOCGDEV, or an alias with no terminal behind it
+                return
+        console = os.minor(device)
+        if os.major(device) != _VT_MAJOR or not 1 <= console <= _VT_MAX_MINOR:
+            return
 
-        m = Popen(
-            ["/usr/bin/mev", "-e", "158"],
+        m = Popen(  # noqa: S603  # fixed program path; the only variable argument is the kernel's console number
+            # mev reads the console number with scanf("%x")
+            ["/usr/bin/mev", "-e", "158", "-C", f"{console:x}"],
             stdin=PIPE,
             stdout=PIPE,
             close_fds=True,
@@ -304,6 +349,9 @@ class Screen(_raw_display_base.Screen):
         if self.modes.focus_reporting:
             self.write(escape.PrivateMode.FOCUS_REPORTING.enable_seq)
 
+        if self.modes.in_band_resize:
+            self._set_in_band_resize(True)
+
         self._enable_keyboard_protocol()
         self._show_title()
 
@@ -323,6 +371,8 @@ class Screen(_raw_display_base.Screen):
         """Restore the screen."""
         self.clear()
         self.signal_restore()
+        # the terminal may be resized while stopped, and SIGWINCH is what reports that then
+        self._reported_cols_rows = None
 
         try:
             try:
@@ -331,6 +381,9 @@ class Screen(_raw_display_base.Screen):
 
                 if self.modes.focus_reporting:
                     self.write(escape.PrivateMode.FOCUS_REPORTING.disable_seq)
+
+                if self._in_band_resize:
+                    self._set_in_band_resize(False)
 
                 # before the alternate screen is left: the kitty keyboard flags are kept per screen
                 self._disable_keyboard_protocol()
@@ -431,7 +484,10 @@ class Screen(_raw_display_base.Screen):
             self.stop()  # restores the previous SIGTSTP disposition, which the kill below runs
             os.kill(os.getpid(), signal.SIGTSTP)
             self.start()
+            # This resize is the redraw after the resume and is set after this pass's read,
+            # so no input typed before it can still be waiting, and it is not held back.
             self._resized = True
+            self._hold_resize = False
         return codes
 
     def _get_input_codes(self) -> list[int]:
@@ -454,8 +510,13 @@ class Screen(_raw_display_base.Screen):
         """
         Read at most `_INPUT_READ_LIMIT` bytes of the raw input available, waiting at most *timeout* seconds.
 
+        `_hold_resize` is set when a resize can have input typed before it still waiting:
+        the resize was not pending when the read started, or input is still readable after it.
+
         :raises InputClosedError: the input file has been closed.
         """
+        resize_pending = self._resized
+        self._hold_resize = not resize_pending
         ready = self._wait_for_input_ready(timeout)
         gpm_stdout = self.gpm_mev.stdout if self.gpm_mev is not None else None
         if gpm_stdout is not None and gpm_stdout.fileno() in ready:
@@ -467,10 +528,14 @@ class Screen(_raw_display_base.Screen):
             return chars
 
         # `fd` was just reported ready, so this read does not block. Input beyond the limit is read on the next pass.
-        chunk = os.read(fd, _INPUT_READ_LIMIT)
+        chunk = os.read(fd, _raw_display_base._INPUT_READ_LIMIT)  # pylint: disable=protected-access  # same package
         if not chunk:
             raise InputClosedError("stdin has been closed")
         chars.extend(chunk)
+        # A terminal returns at most its line discipline buffer per read (about 4 KiB on Linux), below the limit,
+        # so whether input is left is asked of the descriptor rather than read off the size of the chunk.
+        with read_selector([(fd, None)]) as selector:
+            self._hold_resize = not resize_pending or bool(selector.select(0))
         return chars
 
     def _encode_gpm_event(self) -> list[int]:
@@ -554,7 +619,15 @@ class Screen(_raw_display_base.Screen):
         return result
 
     def get_cols_rows(self) -> tuple[int, int]:
-        """Return the terminal dimensions (num columns, num rows)."""
+        """Return the terminal dimensions (num columns, num rows).
+
+        The size the terminal last reported in the input is returned while it is newer than the last ``SIGWINCH``,
+        see :ref:`in-band-resize`; otherwise the size is read from the terminal device.
+        """
+        if self._reported_cols_rows is not None:
+            x, y = self._last_cols_rows = self._reported_cols_rows
+            self.maxrow = y
+            return x, y
         x, y = super().get_cols_rows()
         with contextlib.suppress(OSError):  # Term size could not be determined
             if isinstance(self._term_output_file, _raw_display_base.SupportsFileno):
@@ -566,6 +639,7 @@ class Screen(_raw_display_base.Screen):
         if (x <= 0 or y <= 0) and self.term in {"ansi", "vt100"}:
             y, x = 24, 80
         self.maxrow = y
+        self._last_cols_rows = x, y
         return x, y
 
 

@@ -29,12 +29,12 @@ from numpy_groupies.tests.test_purepy import _BLOCKER
 PACKAGE = package_dir()
 
 
-def test_the_cache_directory_is_the_one_of_the_environment(monkeypatch, tmp_path):
+def test_cache_directory_from_environment(monkeypatch, tmp_path):
     monkeypatch.setenv("NUMBA_CACHE_DIR", str(tmp_path))
     assert numba_cache_dir() == tmp_path / "numpy_groupies"
 
 
-def test_the_cache_directory_is_the_user_wide_one_without_the_environment(monkeypatch):
+def test_cache_directory_is_user_wide_without_environment(monkeypatch):
     monkeypatch.delenv("NUMBA_CACHE_DIR", raising=False)
     path = numba_cache_dir()
     # the directory of the package under the cache directory of the user
@@ -42,7 +42,7 @@ def test_the_cache_directory_is_the_user_wide_one_without_the_environment(monkey
     assert path.is_absolute()
 
 
-def test_purge_cache_removes_the_cache_and_the_leftovers_in_the_source_tree(monkeypatch, tmp_path):
+def test_purge_cache_removes_cache_and_leftovers_in_source_tree(monkeypatch, tmp_path):
     # both parts in one test: they touch the same files, and two tests
     # that do so get in each other's way under xdist
     monkeypatch.setenv("NUMBA_CACHE_DIR", str(tmp_path))
@@ -64,7 +64,7 @@ def test_purge_cache_removes_the_cache_and_the_leftovers_in_the_source_tree(monk
     bytecode.write_bytes(b"\x00")
     # and one in a subpackage: the leftovers are in the whole tree, not
     # only next to the modules of the top level
-    sub = PACKAGE / "aggregate_numpy" / "__pycache__"
+    sub = PACKAGE / "npg_numpy" / "__pycache__"
     assert sub.is_dir(), "the subpackage of the backends is not imported"
     (sub / "old.nbi").write_text("index")
     try:
@@ -83,11 +83,11 @@ def test_purge_cache_removes_the_cache_and_the_leftovers_in_the_source_tree(monk
         (sub / "old.nbi").unlink(missing_ok=True)
 
 
-def test_the_package_hands_out_the_purge_cache():
+def test_package_hands_out_purge_cache():
     assert numpy_groupies.purge_cache is purge_cache
 
 
-def test_the_sweep_also_answers_where_the_backend_is_gone(tmp_path):
+def test_sweep_answers_where_backend_is_gone(tmp_path):
     """The sweep works without the backend whose files it sweeps.
 
     A caller may just have uninstalled numba - its cache and the leftovers of
@@ -102,7 +102,7 @@ def test_the_sweep_also_answers_where_the_backend_is_gone(tmp_path):
     (cache / "a.nbi").write_text("index")
     script = (
         "import numpy_groupies as npg\n"
-        "assert npg.aggregate_numba is None, 'the backend should not be there'\n"
+        "assert npg.npg_numba is None, 'the backend should not be there'\n"
         "assert npg.purge_cache() == 1\n"
     )
     result = subprocess.run(
@@ -117,7 +117,7 @@ def test_the_sweep_also_answers_where_the_backend_is_gone(tmp_path):
     assert not cache.exists(), "the cache is not removed"
 
 
-def test_every_dispatcher_caches_in_the_directory_of_the_package():
+def test_every_dispatcher_caches_in_directory_of_package():
     """The kernel of every operation caches in the directory of the package.
 
     The cache of numba lives next to the source of the kernel - in the
@@ -137,11 +137,11 @@ def test_every_dispatcher_caches_in_the_directory_of_the_package():
     assert checked > 0
 
 
-def test_the_cache_of_a_kernel_lands_in_the_directory_and_is_used(tmp_path):
+def test_cache_of_kernel_lands_in_directory_and_is_used(tmp_path):
     """A kernel compiles into the directory, and the next process finds it there."""
     script = (
         "import numpy as np\n"
-        "from numpy_groupies.aggregate_numba import aggregate\n"
+        "from numpy_groupies.npg_numba import aggregate\n"
         "aggregate(np.arange(1000), np.random.random(1000), func='sum')\n"
     )
     env = {**os.environ, "NUMBA_CACHE_DIR": str(tmp_path)}

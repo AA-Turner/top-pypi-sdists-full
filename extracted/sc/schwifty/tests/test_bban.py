@@ -12,6 +12,7 @@ from schwifty.bban import BBAN
 from schwifty.domain import Bank
 from schwifty.domain import BankStatus
 from schwifty.domain import lookup_rank
+from schwifty.domain import SEPAScheme
 from schwifty.exceptions import GenerateRandomOverflowError
 from schwifty.exceptions import InvalidAccountCode
 from schwifty.exceptions import InvalidBBANChecksum
@@ -119,6 +120,16 @@ def test_merged_bank_resolves_to_its_successor_under_a_new_bank_code() -> None:
     assert bban.bic == "UNCRITMM"
 
 
+def bban_of(country_code: str, bank_code: str) -> BBAN:
+    """Return a valid BBAN with ``bank_code``, whose account code doesn't matter."""
+    try:
+        return BBAN.from_components(country_code, bank_code=bank_code)
+    except InvalidAccountCode:
+        # With some bank codes, e.g. the Norwegian 0538, an account code of zeros has no valid
+        # check digit.
+        return BBAN.random(country_code, random=Random(0), bank_code=bank_code)  # noqa: S311
+
+
 def test_bank_and_bic_describe_the_same_record_for_every_registered_bank_code() -> None:
     # ``BBAN.bank`` and ``BBAN.bic`` used to pick their record differently, by file order and
     # by the alphabet, so that e.g. the name of Revolut Bank UK came with the BIC of Revolut Ltd.
@@ -129,7 +140,7 @@ def test_bank_and_bic_describe_the_same_record_for_every_registered_bank_code() 
         ):
             if not bank_code:
                 continue
-            bban = BBAN.from_components(country_code, bank_code=bank_code)
+            bban = bban_of(country_code, bank_code)
             if (
                 bban.bank is not None
                 and bban.bank.bic
@@ -151,7 +162,7 @@ def test_bank_prefers_the_best_ranked_record_of_every_registered_bank_code() -> 
             entries = registry.get_banks_by_code(country_code, bank_code)
             if not bank_code:
                 continue
-            bban = BBAN.from_components(country_code, bank_code=bank_code)
+            bban = bban_of(country_code, bank_code)
             best = max(map(lookup_rank, entries))
             if bban.bank is not None and lookup_rank(bban.bank) != best:
                 not_best.append((country_code, bank_code, bban.bank.bic))
@@ -375,5 +386,16 @@ def test_from_components_unsupported_country() -> None:
     # Without component positions a BBAN cannot be assembled from components.
     # This raises the explicit "not supported" error rather than the misleading
     # "Bank code exceeds maximum size 0".
-    with pytest.raises(SchwiftyException, match="BBAN generation for AO not supported"):
-        BBAN.from_components("AO", bank_code="1234", account_code="12345678901234567")
+    with pytest.raises(SchwiftyException, match="BBAN generation for GW not supported"):
+        BBAN.from_components("GW", bank_code="GW123", account_code="1234567890123456")
+
+
+def test_sepa_schemes() -> None:
+    bban = BBAN("NO", "86011117947")
+    assert bban.bic == "DABANO22"
+    assert bban.sepa_schemes == {
+        SEPAScheme.CREDIT_TRANSFER,
+        SEPAScheme.CORE_DIRECT_DEBIT,
+        SEPAScheme.B2B_DIRECT_DEBIT,
+    }
+    assert BBAN("DE", "123456780000000001").sepa_schemes == frozenset()

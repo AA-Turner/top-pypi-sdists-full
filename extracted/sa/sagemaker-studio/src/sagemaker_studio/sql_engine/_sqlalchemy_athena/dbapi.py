@@ -86,13 +86,14 @@ def _executor_from_config(config: Dict[str, Any]) -> AthenaV4Executor:
     try:
         info = workgroup_info(client, work_group)
     except Exception:
-        info = WorkgroupInfo(engine_version=None)
+        info = WorkgroupInfo(engine_version=None, managed_storage=False)
 
     return AthenaV4Executor(
         client,
         work_group,
         catalog=config.get("catalog_name"),
         schema=config.get("schema_name"),
+        managed_storage=info.managed_storage,
         workgroup_engine_version=info.engine_version,
         selected_engine_version=config.get("selected_engine_version")
         or config.get("engine_version"),

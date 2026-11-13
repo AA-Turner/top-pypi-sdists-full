@@ -21,7 +21,7 @@ class PreviewSyncWebhooksGlobals(BaseModel):
         Optional[str],
         pydantic.Field(alias="x-api-version"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
-    ] = "2.5.0"
+    ] = "2.6.0"
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -276,7 +276,7 @@ class Change4(BaseModel):
     ] = "unmanaged"
 
 
-class Before2TypedDict(TypedDict):
+class PreviewSyncWebhooksBefore2TypedDict(TypedDict):
     id: str
     r"""The webhook's ID. Webhooks made in the dashboard show their `ep_…` ID."""
     url: str
@@ -293,7 +293,7 @@ class Before2TypedDict(TypedDict):
     r"""When the webhook was last changed, ms since epoch."""
 
 
-class Before2(BaseModel):
+class PreviewSyncWebhooksBefore2(BaseModel):
     id: str
     r"""The webhook's ID. Webhooks made in the dashboard show their `ep_…` ID."""
 
@@ -330,7 +330,7 @@ class Before2(BaseModel):
         return m
 
 
-class After2TypedDict(TypedDict):
+class PreviewSyncWebhooksAfter2TypedDict(TypedDict):
     id: str
     r"""The webhook's ID. Webhooks made in the dashboard show their `ep_…` ID."""
     url: str
@@ -347,7 +347,7 @@ class After2TypedDict(TypedDict):
     r"""When the webhook was last changed, ms since epoch."""
 
 
-class After2(BaseModel):
+class PreviewSyncWebhooksAfter2(BaseModel):
     id: str
     r"""The webhook's ID. Webhooks made in the dashboard show their `ep_…` ID."""
 
@@ -386,17 +386,17 @@ class After2(BaseModel):
 
 class Change3TypedDict(TypedDict):
     id: str
-    before: Before2TypedDict
-    after: After2TypedDict
+    before: PreviewSyncWebhooksBefore2TypedDict
+    after: PreviewSyncWebhooksAfter2TypedDict
     action: Literal["adopt"]
 
 
 class Change3(BaseModel):
     id: str
 
-    before: Before2
+    before: PreviewSyncWebhooksBefore2
 
-    after: After2
+    after: PreviewSyncWebhooksAfter2
 
     action: Annotated[
         Annotated[Literal["adopt"], AfterValidator(validate_const("adopt"))],
@@ -404,7 +404,7 @@ class Change3(BaseModel):
     ] = "adopt"
 
 
-class Before1TypedDict(TypedDict):
+class PreviewSyncWebhooksBefore1TypedDict(TypedDict):
     id: str
     r"""The webhook's ID. Webhooks made in the dashboard show their `ep_…` ID."""
     url: str
@@ -421,7 +421,7 @@ class Before1TypedDict(TypedDict):
     r"""When the webhook was last changed, ms since epoch."""
 
 
-class Before1(BaseModel):
+class PreviewSyncWebhooksBefore1(BaseModel):
     id: str
     r"""The webhook's ID. Webhooks made in the dashboard show their `ep_…` ID."""
 
@@ -458,7 +458,7 @@ class Before1(BaseModel):
         return m
 
 
-class After1TypedDict(TypedDict):
+class PreviewSyncWebhooksAfter1TypedDict(TypedDict):
     id: str
     r"""The webhook's ID. Webhooks made in the dashboard show their `ep_…` ID."""
     url: str
@@ -475,7 +475,7 @@ class After1TypedDict(TypedDict):
     r"""When the webhook was last changed, ms since epoch."""
 
 
-class After1(BaseModel):
+class PreviewSyncWebhooksAfter1(BaseModel):
     id: str
     r"""The webhook's ID. Webhooks made in the dashboard show their `ep_…` ID."""
 
@@ -514,17 +514,17 @@ class After1(BaseModel):
 
 class Change2TypedDict(TypedDict):
     id: str
-    before: Before1TypedDict
-    after: After1TypedDict
+    before: PreviewSyncWebhooksBefore1TypedDict
+    after: PreviewSyncWebhooksAfter1TypedDict
     action: Literal["update"]
 
 
 class Change2(BaseModel):
     id: str
 
-    before: Before1
+    before: PreviewSyncWebhooksBefore1
 
-    after: After1
+    after: PreviewSyncWebhooksAfter1
 
     action: Annotated[
         Annotated[Literal["update"], AfterValidator(validate_const("update"))],

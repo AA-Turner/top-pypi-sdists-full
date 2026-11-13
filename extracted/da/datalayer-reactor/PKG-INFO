@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: datalayer_reactor
-Version: 1.3.5
+Version: 1.3.7
 Summary: FastAPI + pluggy extension reactor for modular SaaS applications
 License: BSD-3-Clause
 License-File: LICENSE

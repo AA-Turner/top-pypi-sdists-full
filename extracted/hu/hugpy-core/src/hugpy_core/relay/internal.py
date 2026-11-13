@@ -59,6 +59,24 @@ def chat(payload, *, caller='internal'):
             raise
 
 
+def _with_images(messages, images):
+    """The messages with `images` (data or http URLs, or bare base64) attached to the
+    latest user turn as OpenAI content parts."""
+    urls = [url if url.startswith(('data:', 'http://', 'https://')) else 'data:image/png;base64,' + url
+            for url in images if isinstance(url, str) and url]
+    parts = [{'type': 'image_url', 'image_url': {'url': url}} for url in urls]
+    if not parts:
+        return messages
+    out = [dict(m) if isinstance(m, dict) else m for m in messages]
+    for message in reversed(out):
+        if isinstance(message, dict) and message.get('role', 'user') == 'user':
+            content = message.get('content')
+            text = content if isinstance(content, list) else [{'type': 'text', 'text': content or ''}]
+            message['content'] = [*text, *parts]
+            return out
+    return [*out, {'role': 'user', 'content': parts}]
+
+
 def execute_prompt(*, caller='internal', **kwargs):
     """Adapt hosted prompt kwargs to Core's chat or task relay."""
     from hugpy_engine.task_endpoints import TASK_ROUTES, build_endpoint_request
@@ -82,6 +100,11 @@ def execute_prompt(*, caller='internal', **kwargs):
         body['model'] = body.pop('model_key', model.strip())
         body['task'] = task
         body['stream'] = False
+        # The chat relay carries messages only: an image a hosted arm passes beside its
+        # prompt travels as content parts of that turn, or the model never sees it.
+        images = body.pop('images', None)
+        if images:
+            body['messages'] = _with_images(body.get('messages') or [], images)
         if 'max_new_tokens' in body:
             body['max_tokens'] = body.pop('max_new_tokens')
         for name in ('metadata', 'alloc', 'knobs', 'pool', 'max_chunks', 'chat_template_kwargs'):

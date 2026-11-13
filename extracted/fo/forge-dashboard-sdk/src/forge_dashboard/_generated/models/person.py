@@ -24,7 +24,8 @@ class Person:
 
         Attributes:
             login (str):
-            avatar_url (str): The forge's own avatar URL, passed through unchanged and never proxied.
+            avatar_url (str): The forge's own avatar URL, passed through unchanged. The page loads it through GET
+                /api/v1/images.
             url (str): The person's profile page on the forge, built by the server from the web address of an item the board
                 already holds for that forge. Empty when the board holds none yet, so a client shows the name alone.
      """

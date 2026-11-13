@@ -138,6 +138,7 @@ export function loadCapacityHistory(dir) {
       if (summary.error) continue;
       (history[cellKey(config)] ??= []).push({
         executor: config.k6Executor ?? "constant-vus",
+        serverCpus: summary.serverCpus ?? null,
         capacityVUs: summary.capacity?.targetVUs ?? 0,
         runsPerSec:
           summary.capacity?.successfulRunsPerSec ??
@@ -147,6 +148,69 @@ export function loadCapacityHistory(dir) {
     }
   }
   return history;
+}
+
+// The CPUs staging's E2 machines come with, keyed `vendor family/model` as cpu-probe.js records them.
+const CPU_NAMES = {
+  "GenuineIntel 6/63": "intel haswell",
+  "GenuineIntel 6/79": "intel broadwell",
+  "GenuineIntel 6/85": "intel skylake or cascade lake",
+  "AuthenticAMD 23/49": "amd rome",
+  "AuthenticAMD 25/1": "amd milan",
+};
+
+/** gVisor prints an AMD family as `(extended << 4) | 0xF`, 143 where Linux says 23. */
+function cpuName(key) {
+  const match = /^(\S+) (\d+)\/(\d+)$/.exec(key);
+  if (!match) return key;
+  const [, vendor, familyText, model] = match;
+  const raw = Number(familyText);
+  const family = raw > 0xf && (raw & 0xf) === 0xf ? 0xf + (raw >> 4) : raw;
+  const normalized = `${vendor} ${family}/${model}`;
+  return CPU_NAMES[normalized] ?? normalized;
+}
+
+/** `[name, workers]` per kind of CPU, most workers first. */
+function cpuCounts(serverCpus) {
+  const counts = {};
+  for (const [key, workers] of Object.entries(serverCpus ?? {})) {
+    const name = cpuName(key);
+    counts[name] = (counts[name] ?? 0) + (isNumber(workers) ? workers : 0);
+  }
+  return Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+/**
+ * The key the reports compare nights by, null when unknown: "amd rome" when
+ * every worker ran on it, "mostly amd rome" when at least three in four did,
+ * every CPU seen otherwise. The share of slow workers moves a night's p95 and
+ * capacity, so one slow worker in ten and nine in ten are different machines;
+ * the wide middle keeps near-even mixes, the usual case on staging, on one baseline.
+ */
+export function cpuSignature(serverCpus) {
+  const entries = cpuCounts(serverCpus);
+  if (entries.length < 2) return entries[0]?.[0] ?? null;
+  const workers = entries.reduce((sum, [, n]) => sum + n, 0);
+  const [top, most] = entries[0];
+  return most * 4 >= workers * 3 ? `mostly ${top}` : entries.map(([name]) => name).sort().join(" + ");
+}
+
+/** "amd rome" for one worker, "6 amd rome, 4 intel broadwell" for several. */
+export function describeCpus(serverCpus) {
+  const entries = cpuCounts(serverCpus);
+  if (entries.length === 0) return null;
+  const workers = entries.reduce((sum, [, n]) => sum + n, 0);
+  return workers === 1 ? entries[0][0] : entries.map(([name, n]) => `${n} ${name}`).join(", ");
+}
+
+/**
+ * The nights with tonight's CPU label. A night without the probe only
+ * matches a night without it, so reports keep their history until the probe
+ * starts answering.
+ */
+export function sameCpu(nights, serverCpus) {
+  const tonight = cpuSignature(serverCpus);
+  return nights.filter((night) => cpuSignature(night?.serverCpus) === tonight);
 }
 
 function median(values) {

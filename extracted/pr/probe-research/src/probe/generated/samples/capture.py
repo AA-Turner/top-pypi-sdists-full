@@ -15,6 +15,7 @@ from probe.foundation.compat.compat import StrEnum
 from probe.generated.records import CommandKind
 from .record import Record
 from .outcome import validate_drop_reason
+from .points.training import TrainingPlan
 from .provenance import Sha256
 from .result import DEFAULT_REWARD_MAX
 
@@ -44,6 +45,18 @@ DropCounts = Annotated[dict[str, int], AfterValidator(validate_drop_counts)]
 MAX_REFUSAL_CHARS = 1024
 #: Why a producer refuses a command kind, in its framework's words (`SPIKE-W30.md`'s refusal texts).
 Refusal = Annotated[str, Field(min_length=1, max_length=MAX_REFUSAL_CHARS)]
+
+
+class CaptureField(StrEnum):
+    """What a sample's capture can hold that a framework may not give: a producer declares the ones it cannot, with
+    why (`Plan.unsupported`), so a reader sees "unsupported, because ..." instead of an empty field."""
+
+    MESSAGES = "messages"  # the messages as the framework built them (else decoded text, or none)
+    TOOL_CALL_IDS = "tool_call_ids"  # each call's id as the framework named it
+    TOOL_CALL_ARGUMENTS = "tool_call_arguments"
+    TOOL_RESULT_LINKS = "tool_result_links"  # each tool message's `tool_call_id`
+    REASONING = "reasoning"  # the model's reasoning apart from its content
+    ENVIRONMENT_FILES = "environment_files"  # files and a span the rollout's own code attached
 
 
 class RewindPoint(BaseModel):
@@ -76,6 +89,11 @@ class Plan(Record):
     #: Producers whose adapter saw training but recorded no batch (its hooks never ran, or every record failed):
     #: capture answers "no" and says so.
     adapter_hooks_missing: list[Producer] = Field(default_factory=list, max_length=MAX_PRODUCERS)
+    #: What each producer says about its per-sample metrics (`TrainingPlan`): its newest declaration replaces its own.
+    training: dict[Producer, TrainingPlan] = Field(default_factory=dict)
+    #: What each producer's framework cannot give a sample, and why (`{producer: {field: why}}`). Its own answer,
+    #: never a capture reason: a support gap is not missing data.
+    unsupported: dict[Producer, dict[CaptureField, Refusal]] = Field(default_factory=dict)
     #: read: written by `POST /v1/runs/{id}/reopen` with `rewind_to_step`, never by a producer.
     rewinds: list[RewindPoint] = Field(default_factory=list)
     #: read: the cap counter (distinct generator samples admitted).
@@ -157,3 +175,6 @@ class Capture(BaseModel):
     #: The first reasons, in step order.
     reasons: list[CaptureReason] = Field(default_factory=list)
     is_truncated: bool = False
+    #: What each producer declared its framework cannot give a sample, with why (`Plan.unsupported`): beside the
+    #: answer, never one of its reasons.
+    unsupported: dict[Producer, dict[CaptureField, Refusal]] = Field(default_factory=dict)

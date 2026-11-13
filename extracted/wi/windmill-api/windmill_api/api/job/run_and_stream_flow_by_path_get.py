@@ -18,6 +18,7 @@ def _get_kwargs(
     job_id: Union[Unset, None, str] = UNSET,
     skip_preprocessor: Union[Unset, None, bool] = UNSET,
     memory_id: Union[Unset, None, str] = UNSET,
+    take_over: Union[Unset, None, bool] = UNSET,
     poll_delay_ms: Union[Unset, None, int] = UNSET,
 ) -> Dict[str, Any]:
     pass
@@ -34,6 +35,8 @@ def _get_kwargs(
     params["skip_preprocessor"] = skip_preprocessor
 
     params["memory_id"] = memory_id
+
+    params["take_over"] = take_over
 
     params["poll_delay_ms"] = poll_delay_ms
 
@@ -78,6 +81,7 @@ def sync_detailed(
     job_id: Union[Unset, None, str] = UNSET,
     skip_preprocessor: Union[Unset, None, bool] = UNSET,
     memory_id: Union[Unset, None, str] = UNSET,
+    take_over: Union[Unset, None, bool] = UNSET,
     poll_delay_ms: Union[Unset, None, int] = UNSET,
 ) -> Response[Any]:
     """run flow by path with GET and stream updates via SSE
@@ -91,6 +95,7 @@ def sync_detailed(
         job_id (Union[Unset, None, str]):
         skip_preprocessor (Union[Unset, None, bool]):
         memory_id (Union[Unset, None, str]):
+        take_over (Union[Unset, None, bool]):
         poll_delay_ms (Union[Unset, None, int]):
 
     Raises:
@@ -110,6 +115,7 @@ def sync_detailed(
         job_id=job_id,
         skip_preprocessor=skip_preprocessor,
         memory_id=memory_id,
+        take_over=take_over,
         poll_delay_ms=poll_delay_ms,
     )
 
@@ -131,6 +137,7 @@ async def asyncio_detailed(
     job_id: Union[Unset, None, str] = UNSET,
     skip_preprocessor: Union[Unset, None, bool] = UNSET,
     memory_id: Union[Unset, None, str] = UNSET,
+    take_over: Union[Unset, None, bool] = UNSET,
     poll_delay_ms: Union[Unset, None, int] = UNSET,
 ) -> Response[Any]:
     """run flow by path with GET and stream updates via SSE
@@ -144,6 +151,7 @@ async def asyncio_detailed(
         job_id (Union[Unset, None, str]):
         skip_preprocessor (Union[Unset, None, bool]):
         memory_id (Union[Unset, None, str]):
+        take_over (Union[Unset, None, bool]):
         poll_delay_ms (Union[Unset, None, int]):
 
     Raises:
@@ -163,6 +171,7 @@ async def asyncio_detailed(
         job_id=job_id,
         skip_preprocessor=skip_preprocessor,
         memory_id=memory_id,
+        take_over=take_over,
         poll_delay_ms=poll_delay_ms,
     )
 

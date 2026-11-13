@@ -359,3 +359,6 @@ access_request:
   org_id: wildcard
 access_request_decision:
   org_id: wildcard
+# write: approve your own access request while on shift
+staff_break_glass:
+  org_id: wildcard

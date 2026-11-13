@@ -216,7 +216,7 @@ namespace pdflib
 
     void init_differences();
 
-    void init_charprocs();
+    void validate_charprocs();
     void init_space_index();
 
     // The embedded program's builtin encoding as the source of reading text
@@ -224,6 +224,12 @@ namespace pdflib
     bool uses_builtin_encoding() const;
     bool resolve_builtin_encoding(uint32_t c, std::string& text);
     void init_builtin_encoding();
+
+    // Whether a base font whose AFM says /FontSpecific is in fact a Latin text
+    // font laid out in WinAnsi order (Arial, Times New Roman, Georgia, ...),
+    // as opposed to a genuine symbol, dingbat or TeX font. See the use in
+    // get_correct_character().
+    bool font_specific_follows_winansi(pdflib::base_font& fm);
 
     void print_tables();
 
@@ -308,8 +314,6 @@ namespace pdflib
     int widths_all_zero_state = 0;
     std::unordered_map<std::string, double> name_to_widths;
 
-    std::unordered_map<std::string, char_description> name_to_descr;
-
     bool cmap_initialized;
     bool diff_initialized;
 
@@ -329,6 +333,9 @@ namespace pdflib
 
     bool builtin_encoding_initialized = false;
     std::unordered_map<uint32_t, std::string> builtin_numb_to_char;
+
+    // cache for font_specific_follows_winansi(): 0 = unknown, 1 = no, 2 = yes
+    int font_specific_winansi_state = 0;
   };
 
   font_glyphs    pdf_resource<PAGE_FONT>::glyphs = font_glyphs();
@@ -883,10 +890,20 @@ namespace pdflib
 
         auto& fm = *(matched_base_font().font);
 
-        // A known legacy symbol font may falsely declare WinAnsi while using
-        // font-specific character codes. Its curated map is authoritative
-        // after /ToUnicode and /Differences.
-        if(fm.is_font_specific() and fm.has(c))
+        // Prefer the declared encoding when its glyph exists in the font,
+        // matching the renderer's glyph-name lookup. For example, Symbol
+        // declared as WinAnsi uses /multiply at 0xD7, not its own /dotmath.
+        // Otherwise retain the curated mapping for legacy symbol fonts.
+        // Preserve the MacRoman exception for nonsymbolic TrueType Latin fonts.
+        const bool declared_non_winansi_base =
+          subtype == TRUE_TYPE and
+          not is_symbolic and
+          has_explicit_encoding and
+          encoding == MACROMAN;
+
+        if(fm.is_font_specific() and fm.has(c) and
+           not (declared_non_winansi_base and font_specific_follows_winansi(fm)) and
+           not fm.has_glyph_name(get_glyph_name(c)))
           {
             return fm.to_utf8(c);
           }
@@ -998,6 +1015,40 @@ namespace pdflib
       }
 
     return get_character_from_encoding(c);
+  }
+
+  bool pdf_resource<PAGE_FONT>::font_specific_follows_winansi(pdflib::base_font& fm)
+  {
+    if(font_specific_winansi_state == 0)
+      {
+        // Compare the upper half (0xA0-0xFF), where Latin-1 accents live and
+        // where the legacy encodings disagree. A font that carries a WinAnsi
+        // layout agrees with the WinAnsi table on (nearly) all codes it has; a
+        // symbol, dingbat or TeX font does not.
+        auto& winansi = encodings.get(WINANSI).get_numb_to_utf8();
+
+        int matches=0, mismatches=0;
+        for(uint32_t c=0xA0; c<=0xFF; c++)
+          {
+            auto itr = winansi.find(c);
+            if(itr==winansi.end() or not fm.has(c))
+              {
+                continue;
+              }
+
+            if(fm.to_utf8(c)==itr->second) { matches += 1;    }
+            else                           { mismatches += 1; }
+          }
+
+        const bool follows = (matches>=32 and mismatches*8<=matches);
+        font_specific_winansi_state = follows? 2:1;
+
+        LOG_S(INFO) << "font-specific base font '" << matched_base_font().name << "': "
+                    << matches << " WinAnsi matches, " << mismatches
+                    << " mismatches => follows WinAnsi: " << follows;
+      }
+
+    return font_specific_winansi_state==2;
   }
 
   bool pdf_resource<PAGE_FONT>::uses_builtin_encoding() const
@@ -1173,7 +1224,7 @@ namespace pdflib
     {
       utils::timer font_timer;
       
-      init_charprocs();
+      validate_charprocs();
       
       init_differences();
       
@@ -3082,7 +3133,7 @@ namespace pdflib
 			diff_numb_to_name[numb] = name.substr(1);
 		      }
 
-		    LOG_S(INFO) << name << ", in cmap: " << cmap_numb_to_char.count(numb) << ", #-names: " << name_to_descr.size() << ", type: " << subtype;
+		    LOG_S(INFO) << name << ", in cmap: " << cmap_numb_to_char.count(numb) << ", type: " << subtype;
 		    
                     // Resolution order following PDF 32000-1 section 9.10.2:
                     // the /ToUnicode cmap first, then glyph-name based methods
@@ -3747,72 +3798,35 @@ namespace pdflib
     return glyph;
   }
 
-  void pdf_resource<PAGE_FONT>::init_charprocs()
+  void pdf_resource<PAGE_FONT>::validate_charprocs()
   {
     LOG_S(INFO) << __FUNCTION__;
 
-    QPDFObjectHandle qpdf_char_procs = qpdf_object::get_path(qpdf_font, {"/CharProcs"});
-
-    if(not qpdf_char_procs.isNull())
+    QPDFObjectHandle procs = qpdf_object::get_path(qpdf_font, {"/CharProcs"});
+    if(procs.isNull()) { return; }
+    if(not procs.isDictionary())
       {
-        //assert(subtype==TYPE_3);
+        LOG_S(WARNING) << "/CharProcs is not a dictionary";
+        return;
+      }
 
-        LOG_S(WARNING) << "found CharProcs: " << qpdf_char_procs.getTypeName();        
-
-        if(not qpdf_char_procs.isDictionary())
+    // Validation can repair a damaged stream before lazy glyph analysis reads
+    // it. Keep that ordering, but no unused description needs a token vector.
+    const auto discard_instruction = [](void*, qpdf_stream_instruction&) {};
+    for(const auto& key : procs.getKeys())
+      {
+        QPDFObjectHandle proc = procs.getKey(key);
+        if(not proc.isStream())
           {
-            LOG_S(WARNING) << "/CharProcs is not a dictionary";
-            return;
+            LOG_S(ERROR) << "not qpdf_obj.isStream()";
+            throw std::logic_error("not qpdf_obj.isStream()");
           }
 
-        for(auto& key : qpdf_char_procs.getKeys())
-          {
-            if(qpdf_char_procs.hasKey(key))
-              {
-                QPDFObjectHandle qpdf_char_proc = qpdf_char_procs.getKey(key);
-                //LOG_S(INFO) << "decoding: " << key << " -> " << qpdf_char_proc.getTypeName();
-
-                //assert(qpdf_char_proc.isStream());
-		if(not qpdf_char_proc.isStream())
-		  {
-		    std::string message = "not qpdf_obj.isStream()";
-		    LOG_S(ERROR) << message;
-		    throw std::logic_error(message);
-		  }
-		
-                std::vector<qpdf_stream_instruction> stream={};
-
-                // decode the stream
-                {
-                  qpdf_stream_decoder decoder(stream);
-                  decoder.decode(qpdf_char_proc);                  
-                  decoder.print();
-                }
-
-		LOG_S(INFO) << "key: " << key << " => #-streams: " << stream.size();
-		
-                // interprete the stream
-                {
-                  char_processor parser;
-                  parser.parse(stream);
-
-                  name_to_descr[key] = parser.parse(stream);
-		  //LOG_S(INFO) << key << ": " << name_to_descr.at(key);
-
-                  //parser.print();          
-                  //cmap_numb_to_char = parser.get();
-
-                  // FIXME: place-holder for now
-                  //char_description desc;
-                  //name_to_descr[key] = desc; 
-                }
-              }
-            else
-              {
-                LOG_S(WARNING) << "could not find key: " << key;
-              }            
-          }
-      }    
+        qpdf_stream_decoder decoder(discard_instruction, nullptr);
+        decoder.decode(proc);
+        LOG_S(INFO) << "CharProc " << key << ": "
+                    << decoder.get_objects_delivered() << " objects validated";
+      }
   }
 
   void pdf_resource<PAGE_FONT>::init_space_index()

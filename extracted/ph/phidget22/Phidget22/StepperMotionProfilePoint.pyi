@@ -32,6 +32,7 @@ class StepperMotionProfilePoint:
     targetPosition: float
     velocityLimit: float
     acceleration: float
+    deceleration: float
     time: float
 
     def __init__(
@@ -39,6 +40,7 @@ class StepperMotionProfilePoint:
         targetPosition: float = 0,
         velocityLimit: float = 0,
         acceleration: float = 0,
+        deceleration: float = 0,
         time: float = 0,
     ) -> None: ...
 

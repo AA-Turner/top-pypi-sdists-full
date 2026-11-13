@@ -84,7 +84,7 @@ class OauthGrantsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -173,14 +173,14 @@ class OauthGrantsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
         client.users.oauth_grants.create(
             client_id="app_xxxxxxxxxxxxxx",
             redirect_uri="https://Booking.Shinetime.example:8443/oauth/Callback/",
-            requested_scopes=["profile"],
+            requested_scopes=["openid"],
         )
         """
         _response = self._raw_client.create(
@@ -268,7 +268,7 @@ class AsyncOauthGrantsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -366,7 +366,7 @@ class AsyncOauthGrantsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -376,7 +376,7 @@ class AsyncOauthGrantsClient:
             await client.users.oauth_grants.create(
                 client_id="app_xxxxxxxxxxxxxx",
                 redirect_uri="https://Booking.Shinetime.example:8443/oauth/Callback/",
-                requested_scopes=["profile"],
+                requested_scopes=["openid"],
             )
 
 

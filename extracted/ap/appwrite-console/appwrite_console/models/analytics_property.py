@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional, Union, cast
 from pydantic import Field, PrivateAttr, model_validator
 
 from .base_model import AppwriteModel
+from ..enums.analytics_property_type import AnalyticsPropertyType
 
 
 class AnalyticsProperty(AppwriteModel):
@@ -19,11 +20,15 @@ class AnalyticsProperty(AppwriteModel):
     name : str
         Human-readable name of the tracked website or application.
     domain : str
-        Primary domain being tracked (e.g. example.com). May be empty for native apps.
+        Primary domain being tracked (e.g. example.com). May be empty for mobile and agent properties.
     enabled : bool
         Whether tracking is currently active.
     allowedorigins : List[Any]
         List of origins allowed to send tracking events. Use [&quot;*&quot;] to allow all.
+    type : AnalyticsPropertyType
+        Kind of product this property tracks. Decides which dashboard panels apply.
+    identifyusers : bool
+        Whether events sent from a signed-in client session record that user&#039;s ID.
     accessedat : str
         Most recent event date in ISO 8601 format. This attribute is only updated again after 24 hours.
     firstaccessedat : str
@@ -37,6 +42,8 @@ class AnalyticsProperty(AppwriteModel):
     domain: str = Field(..., alias='domain')
     enabled: bool = Field(..., alias='enabled')
     allowedorigins: List[Any] = Field(..., alias='allowedOrigins')
+    type: AnalyticsPropertyType = Field(..., alias='type')
+    identifyusers: bool = Field(..., alias='identifyUsers')
     accessedat: str = Field(..., alias='accessedAt')
     firstaccessedat: str = Field(..., alias='firstAccessedAt')
 
@@ -61,6 +68,10 @@ class AnalyticsProperty(AppwriteModel):
             data['enabled'] = True
         if 'allowedOrigins' not in data and 'allowedorigins' not in data:
             data['allowedOrigins'] = ['*']
+        if 'type' not in data:
+            data['type'] = 'web'
+        if 'identifyUsers' not in data and 'identifyusers' not in data:
+            data['identifyUsers'] = False
         if 'accessedAt' not in data and 'accessedat' not in data:
             data['accessedAt'] = ''
         if 'firstAccessedAt' not in data and 'firstaccessedat' not in data:

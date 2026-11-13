@@ -26,6 +26,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import ctypes
+from typing import Optional
 from Phidget22.IRCodeEncoding import IRCodeEncoding
 from Phidget22.IRCodeLength import IRCodeLength
 
@@ -52,10 +53,10 @@ class CodeInfo:
         length: IRCodeLength = IRCodeLength.IR_LENGTH_UNKNOWN,
         gap: int = 0,
         trail: int = 0,
-        header: list[int] = [0] * 2,
-        one: list[int] = [0] * 2,
-        zero: list[int] = [0] * 2,
-        repeat: list[int] = [0] * 26,
+        header: Optional[list[int]] = None,
+        one: Optional[list[int]] = None,
+        zero: Optional[list[int]] = None,
+        repeat: Optional[list[int]] = None,
         minRepeat: int = 0,
         dutyCycle: float = 0,
         carrierFrequency: int = 0,

@@ -1436,6 +1436,7 @@ def main() -> None:
         service_name=MTX_MCP_SERVICE_NAME,
         description="mtx (metric-transforms) MCP hosted server",
         public_url=MTX_MCP_PUBLIC_URL,
+        min_instances=MIN_INSTANCES,
         extra_envs=[
             _env("MTX_PROJECT", MTX_MCP_PROJECT),
             _env("MTX_ENV", "bigquery_prod"),

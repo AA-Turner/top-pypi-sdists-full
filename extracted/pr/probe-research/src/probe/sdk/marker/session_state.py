@@ -558,6 +558,64 @@ def set_state_by_agent(session_id: str, state: str, *, is_directed: bool) -> "tu
     return (True, is_auto)
 
 
+#: `hand_chat_to_auto`'s outcomes: handed back, already an auto chat, a computer in manual mode, nothing written,
+#: and an agent's undirected call on a chat the researcher set meanwhile (refused, nothing written).
+HAND_BACK_DONE = "handed"
+HAND_BACK_ALREADY = "already"
+HAND_BACK_MANUAL = "manual"
+HAND_BACK_FAILED = "failed"
+HAND_BACK_REFUSED = "refused"
+#: What the person hears for each outcome (`/probe auto`, `probe session state auto`). REFUSED has none: it is
+#: the agent's, answered with the agent's refusal (`switch.AGENT_MOVE_REFUSED`).
+HAND_BACK_LINES = {
+    HAND_BACK_DONE: "Probe: auto mode again for this chat - the agent sets Probe by the work from your next request.",
+    HAND_BACK_ALREADY: "Probe: this chat is already in auto mode.",
+    HAND_BACK_MANUAL: ("Probe: this computer is in manual mode, so this chat has no auto mode to return to. "
+                       "`probe session control auto` turns auto mode on."),
+    HAND_BACK_FAILED: "Probe: this chat could not be handed back to auto mode; nothing changed.",
+}
+
+
+def hand_chat_to_auto(session_id: str, *, is_agent: bool = False, is_directed: bool = False) -> str:
+    """The researcher's `/probe auto`: this chat's switch is the agent's again (`is_auto_chat`), its state
+    unchanged. Written under the chat's lock as the agent's auto stamp for the current state (`save_agent_move`);
+    `.state-source` and the kept-out entry stay. A legacy chat (only `.tracking`/`.off`) gets `.state` first,
+    which the stamp is checked against (`load_agent_move`), and loses it again when the stamp is not written:
+    a failure changes nothing. From the agent's shell (`is_agent`) it runs only when the person asked
+    (`is_directed`), decided again inside the lock as `set_state_by_agent` does, so a `/probe` the researcher
+    typed after the agent's gate is never undone (REFUSED). A handed-back chat's first prompt counts as
+    claimed (`claim_first_prompt`). One of the HAND_BACK_* outcomes."""
+    if not valid_session_id(session_id):
+        return HAND_BACK_FAILED
+    with _StateLock(session_id):
+        if not is_auto_machine():
+            return HAND_BACK_MANUAL
+        if is_auto_chat(session_id):
+            return HAND_BACK_ALREADY
+        if is_agent and not is_directed:
+            return HAND_BACK_REFUSED
+        current = session_state(session_id)
+        if current is None:  # undecided reads as auto above; a vanished state is not handed back
+            return HAND_BACK_FAILED
+        try:
+            has_state_file = state_path(session_id).read_text(encoding="utf-8").strip().lower() in STATES
+        except OSError:
+            has_state_file = False
+        if not has_state_file and not _set_state_unlocked(session_id, current):
+            return HAND_BACK_FAILED
+        stamp = MOVED_TO_INLINE if is_inline(session_id, current) else current
+        if not save_agent_move(session_id, stamp, is_auto=True):
+            if not has_state_file:
+                try:
+                    state_path(session_id).unlink(missing_ok=True)
+                except OSError:
+                    pass
+            return HAND_BACK_FAILED
+    # The chat's first prompt is behind it: the next one gets the state's own line, not the first-prompt line.
+    claim_first_prompt(session_id)
+    return HAND_BACK_DONE
+
+
 def _get_move_stamp(session_id: str, stored: str) -> str:
     """The agent's stamp for a move that stored `stored`: inline where a spent allowance put the daemon's `on`."""
     return MOVED_TO_INLINE if stored == STATE_FULL and is_budget_inline(session_id, STATE_DAEMON) else stored
@@ -578,15 +636,19 @@ def _hand_switch_to_researcher(session_id: str) -> None:
     _remove_agent_move(session_id)
 
 
-def mark_agent_move_told(session_id: str) -> None:
-    """The person was told of the agent's move (`load_agent_move`'s `told`). Best effort."""
-    try:
-        stamp = json.loads(get_moved_by_path(session_id).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return
-    if isinstance(stamp, dict):
-        stamp["told"] = True
-        _publish_atomically(get_moved_by_path(session_id), json.dumps(stamp) + "\n")
+def mark_agent_move_told(session_id: str, at: "float | None" = None) -> None:
+    """The person was told of the agent's move (`load_agent_move`'s `told`). Best effort. Read and rewritten under
+    the chat's lock, so a newer stamp written meanwhile (a `/probe auto` hand-back, the agent's next move) is never
+    replaced by the older one this caller showed. `at`: the shown move's (`load_agent_move`'s `at`); a newer move
+    stamped since stays untold, so the person still hears of it. None marks whatever stamp is there."""
+    with _StateLock(session_id):
+        try:
+            stamp = json.loads(get_moved_by_path(session_id).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return
+        if isinstance(stamp, dict) and (at is None or _finite(stamp.get("at")) == at):
+            stamp["told"] = True
+            _publish_atomically(get_moved_by_path(session_id), json.dumps(stamp) + "\n")
 
 
 def get_kept_out_dir(root: "Path | None" = None) -> Path:

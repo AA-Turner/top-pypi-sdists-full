@@ -102,13 +102,13 @@ TRIPO_TIMEOUT = (10, 60)
 # World Labs Marble: whole worlds as Gaussian splats, which Blender imports
 # from 5.3 on. Sidebar model id -> label; the id is what the request sends.
 WORLDLABS_API_BASE = "https://api.worldlabs.ai/marble/v1"
-WORLDLABS_DEFAULT_MODEL = "marble-1.1"
-WORLDLABS_DRAFT_MODEL = "marble-1.0-draft"
+WORLDLABS_DEFAULT_MODEL = "marble-1.1-plus"
 WORLDLABS_MODELS = {
-    "marble-1.1": "Marble 1.1",
     "marble-1.1-plus": "Marble 1.1 Plus",
-    WORLDLABS_DRAFT_MODEL: "Marble Draft",
+    "marble-1.1": "Marble 1.1",
 }
+# Premium's model; the Premium server decides, this only names it in replies.
+WORLDLABS_PREMIUM_MODEL = "marble-1.1"
 WORLDLABS_KEY_URL = "https://platform.worldlabs.ai/api-keys"
 WORLDLABS_MIN_BLENDER = (5, 3, 0)
 WORLDLABS_IMAGE_MAX_BYTES = 10 * 1024 * 1024  # World Labs' limit for inline images
@@ -1394,18 +1394,11 @@ class BlenderMCPServer:
             "BLENDERMCP_WORLDLABS_API_KEY",
         )
 
-    def _resolve_worldlabs_model(self, quality=None):
-        """The sidebar's model, unless quality asks otherwise: standard is the
-        draft model, high anything but draft."""
-        model = (getattr(bpy.context.scene, "blendermcp_worldlabs_model", WORLDLABS_DEFAULT_MODEL)
-                 or WORLDLABS_DEFAULT_MODEL)
-        if model not in WORLDLABS_MODELS:
-            return None, {"error": f"Unknown World Labs model. Choose one of: {', '.join(WORLDLABS_MODELS)}"}
-        if quality == "standard":
-            return WORLDLABS_DRAFT_MODEL, None
-        if quality == "high" and model == WORLDLABS_DRAFT_MODEL:
-            return WORLDLABS_DEFAULT_MODEL, None
-        return model, None
+    def _resolve_worldlabs_model(self):
+        """The sidebar's model. One no longer offered (the draft model, saved
+        in an older file) falls back to the default."""
+        model = getattr(bpy.context.scene, "blendermcp_worldlabs_model", WORLDLABS_DEFAULT_MODEL)
+        return (model if model in WORLDLABS_MODELS else WORLDLABS_DEFAULT_MODEL), None
 
     def _get_tripo_api_key(self):
         return self._get_config_value(
@@ -5690,8 +5683,8 @@ class BlenderMCPServer:
             "enabled": True,
             "model": model,
             "message": (
-                f"World Labs integration is enabled and ready to use. Model: {WORLDLABS_MODELS[model]}; "
-                f"quality='standard' uses Marble Draft. Sidebar choices: {choices}."
+                f"World Labs integration is enabled and ready to use. Model: {WORLDLABS_MODELS[model]}. "
+                f"Sidebar choices: {choices}."
             ),
         }
 
@@ -5726,17 +5719,16 @@ class BlenderMCPServer:
         detail = payload.get("detail") if isinstance(payload, dict) else None
         return None, {"error": detail if isinstance(detail, str) and detail else fallback}
 
-    def create_worldlabs_job(self, text_prompt=None, image=None, quality=None, name=None):
-        """Start a World Labs world from text, an image or a folder of images."""
+    def create_worldlabs_job(self, text_prompt=None, image=None, name=None, **_unused):
+        """Start a World Labs world from text, an image or a folder of images,
+        with the sidebar's model."""
         if not worldlabs_supported():
             return {"error": worldlabs_needs_blender()}
         text_prompt = (text_prompt or "").strip()
         image = (image or "").strip()
         if bool(text_prompt) == bool(image):
             return {"error": "Provide either a text prompt or an image, not both"}
-        model, error = self._resolve_worldlabs_model(quality)
-        if error:
-            return error
+        model, _error = self._resolve_worldlabs_model()
         try:
             world_prompt = worldlabs_world_prompt(text_prompt, image)
         except (OSError, ValueError) as e:
@@ -5785,11 +5777,14 @@ class BlenderMCPServer:
             return {"succeed": False, "error": "World Labs returned no splat file for this world"}
         if not urls.get(resolution):
             resolution = next(res for res, u in urls.items() if u == url)
-        return import_world_assets(
+        result = import_world_assets(
             name, url, resolution, splats.get("semantics_metadata"),
             (assets.get("mesh") or {}).get("collider_mesh_url"),
             (assets.get("imagery") or {}).get("pano_url"),
         )
+        if result.get("succeed") and world.get("model"):
+            result["model"] = WORLDLABS_MODELS.get(world["model"], world["model"])
+        return result
     #endregion
 
 #region Premium
@@ -6360,8 +6355,8 @@ def premium_integration_status(integration, enabled):
         "tripo": "Mode: PREMIUM. From an image, Tripo is high-quality only. " + quality,
         "meshy": ("Mode: PREMIUM. Meshy uses its latest model and every generation counts as standard "
                   "quality. Models arrive at real-world size with their origin at the bottom."),
-        "worldlabs": ("Mode: PREMIUM. Standard quality is a quick Marble draft world; high is full Marble 1.1 "
-                      "and uses a high-quality generation. One image or a text prompt per world. " + quality),
+        "worldlabs": ("Mode: PREMIUM. Every world is Marble 1.1 and uses a high-quality generation (Pro and "
+                      "up). One image or a text prompt per world."),
     }[integration]
     return {"enabled": True, "mode": "PREMIUM", "message": f"{summary}. {flow}"}
 
@@ -6599,14 +6594,16 @@ def premium_meshy_handlers():
 _PREMIUM_WORLD_STATUS = {"succeeded": "SUCCEEDED", "failed": "FAILED"}
 
 
-def premium_create_worldlabs_job(text_prompt=None, image=None, quality=None, name=None):
+def premium_create_worldlabs_job(text_prompt=None, image=None, name=None, **_unused):
     if not worldlabs_supported():
         return {"error": worldlabs_needs_blender()}
+    if _premium_high_locked():
+        return premium_error("NOT_IN_PLAN", "Gaussian worlds use high-quality generations, which are included in "
+                                            "Premium Pro and up. Upgrade, or use your own World Labs API key.")
     if image and osp.isdir(str(image)):
         return {"error": "Through Premium, World Labs takes one image, not a folder. Pass one image, or use "
                          "your own World Labs API key for several views."}
-    quality = _premium_quality("worldlabs", quality, bool(image))
-    result = premium_create_job("worldlabs", quality, text_prompt=text_prompt, image=image)
+    result = premium_create_job("worldlabs", "high", text_prompt=text_prompt, image=image)
     if not result.get("job_id"):
         return result
     return {"job_id": result["job_id"], "kind": "prm", "message": premium_summary()}
@@ -6646,8 +6643,11 @@ def premium_import_worldlabs(name, job_id=None, kind=None, resolution="500k"):
         return {"succeed": False, "error": "The Premium server returned no splat file for this world"}
     collider = next((f.get("url") for f in files if isinstance(f, dict) and f.get("role") == "collider"), None)
     pano = next((f.get("url") for f in files if isinstance(f, dict) and f.get("role") == "panorama"), None)
-    return import_world_assets(name, chosen["url"], chosen.get("resolution") or resolution,
-                               chosen.get("metadata"), collider, pano)
+    result = import_world_assets(name, chosen["url"], chosen.get("resolution") or resolution,
+                                 chosen.get("metadata"), collider, pano)
+    if result.get("succeed"):
+        result["model"] = WORLDLABS_MODELS[WORLDLABS_PREMIUM_MODEL]
+    return result
 
 
 def premium_worldlabs_handlers():

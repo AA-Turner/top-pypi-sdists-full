@@ -7,6 +7,7 @@ from typing import Any
 
 from ....foundation.safe_warn import safe_warn as _diagnostics
 from ... import errors
+from ...delivery.outbox.waiter.outcome import SET_ASIDE_WHY
 from probe.sdk.routes import WriteOp, path_for
 
 
@@ -269,10 +270,17 @@ class TerminalMixin:
             # and why a dead exporter is not cleared.
             self._client.hand_off_delivery()
         if terminal is not None and terminal[0] == "failed":
-            message = (
-                f"run {self.id} not closed: the terminal status was rejected and "
-                "dead-lettered — see `probe outbox status`, then `probe outbox retry`"
-            )
+            if _is_final_letter_at(terminal[1]):
+                # Refused for good (the run in the trash, a newer attempt owning it): no retry sends it.
+                message = (
+                    f"run {self.id} not closed: the terminal status was rejected: the server refuses "
+                    f"it for good ({SET_ASIDE_WHY}); there is nothing to retry (`probe outbox status`)"
+                )
+            else:
+                message = (
+                    f"run {self.id} not closed: the terminal status was rejected and "
+                    "dead-lettered — see `probe outbox status`, then `probe outbox retry`"
+                )
             if strict:
                 raise errors.RosError(message)
             _diagnostics.warn(f"probe: {message}. The server will close the run when it goes quiet.")
@@ -298,6 +306,21 @@ class TerminalMixin:
             and not report.get("close_unrecorded")
             and not report.get("close_rejected")
         )
+
+
+def _is_final_letter_at(path: Any) -> bool:
+    """Whether the dead letter at ``path`` is refused for good (`discards.is_final_letter`: the run
+    in the trash, a newer attempt owning it), so no `probe outbox retry` sends it. False when it
+    cannot be read (retried or swept meanwhile)."""
+    import json
+
+    from ...delivery.journal.failures.discards import is_final_letter
+
+    try:
+        op = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return False
+    return isinstance(op, dict) and is_final_letter(op, str(op.get("last_error") or ""))
 from probe.sdk.run.closing.status import _TERMINAL_STATUSES  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.metrics.values import _now  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.summary import _summary_wire, _with_finish_accounting  # noqa: E402 -- pieces need each other; the front door loads this one first

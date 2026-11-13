@@ -40,6 +40,7 @@ from sqlbuild.adapter.contract.classes.historical_timestamp_snapshot_sql import 
     HistoricalTimestampSnapshotSql,
 )
 from sqlbuild.adapter.contract.classes.microbatch import MicrobatchMixin
+from sqlbuild.adapter.contract.classes.observations import ObservationsMixin
 from sqlbuild.adapter.contract.classes.snapshot_sql import SnapshotSql
 from sqlbuild.adapter.contract.classes.statement_recorder import StatementRecorder
 from sqlbuild.adapter.contract.classes.unkeyed_diff import UnkeyedDiffMixin
@@ -197,7 +198,9 @@ _RELATION_LISTING_COLUMNS: str = (
 _BULK_COLUMN_RELATION_CHUNK_SIZE: int = 2_000
 
 
-class SnowflakeAdapter(MicrobatchMixin, ConsumptionMixin, UnkeyedDiffMixin, BaseAdapter):
+class SnowflakeAdapter(
+    MicrobatchMixin, ConsumptionMixin, ObservationsMixin, UnkeyedDiffMixin, BaseAdapter
+):
     """Snowflake adapter backed by snowflake-connector-python."""
 
     adapter_name: ClassVar[str] = BuiltinAdapter.SNOWFLAKE.value
@@ -654,6 +657,15 @@ class SnowflakeAdapter(MicrobatchMixin, ConsumptionMixin, UnkeyedDiffMixin, Base
     def render_create_consumption_table_sql(self, *, database: str | None, schema: str) -> str:
         return self._with_state_table_retention(
             create_sql=super().render_create_consumption_table_sql(
+                database=database, schema=schema
+            ),
+            database=database,
+            schema=schema,
+        )
+
+    def render_create_observations_table_sql(self, *, database: str | None, schema: str) -> str:
+        return self._with_state_table_retention(
+            create_sql=super().render_create_observations_table_sql(
                 database=database, schema=schema
             ),
             database=database,
@@ -2198,6 +2210,22 @@ class SnowflakeAdapter(MicrobatchMixin, ConsumptionMixin, UnkeyedDiffMixin, Base
             last_altered_at=relation_age_timestamp_utc(row[5]),
             retention_days=None if row[6] is None else int(row[6]),
         )
+
+    def read_relation_change_token(
+        self, *, connection: _SnowflakeConnection, database: str | None, schema: str, name: str
+    ) -> str | None:
+        """The last commit time, which cloud services answer without resuming a warehouse."""
+
+        qualified: str | None = self.render_qualified_name(
+            database=database, schema=schema, name=name
+        )
+        if qualified is None:
+            return None
+        literal: str = self._quote_sql_string(qualified)
+        token_sql: str = f"SELECT SYSTEM$LAST_CHANGE_COMMIT_TIME({literal})"
+        result: QueryResult = self.query(connection=connection, sql=token_sql, limit=1)
+        token: object = result.rows[0][0] if result.rows else None
+        return None if token is None else str(token)
 
     def read_schema_relation_listing(
         self, *, connection: _SnowflakeConnection, database: str | None, schema: str

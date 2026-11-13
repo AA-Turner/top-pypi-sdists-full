@@ -41,6 +41,14 @@ def _drive_roots() -> list[str]:
     if roots is None:
         from hugpy_core.registry.drive_display import declared_drives
         roots = [d["path"] for d in declared_drives()]
+        # Discovery owns the local drive declarations now (api_drives_v1);
+        # include its roots so copies on them resolve to a drive.
+        try:
+            from hugpy_core import discovery
+            for declared in discovery.drive_roots().values():
+                roots.extend(r for r in declared if r not in roots)
+        except Exception:  # noqa: BLE001 — no discovery export on this host
+            pass
         roots.append(os.environ.get("HUGPY_CENTRAL_MODELS_HOME", ""))
     return roots
 

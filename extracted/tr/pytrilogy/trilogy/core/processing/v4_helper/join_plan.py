@@ -8,7 +8,7 @@ joins to satisfy it instead of re-deriving it from whatever the built parents
 happen to project. See `docs/join_axis_audit_2026_10.md`.
 """
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from functools import partial
@@ -26,7 +26,7 @@ from trilogy.core.models.build_environment import BuildEnvironment
 from .concept_graph import _scope_and_phase, _statement_scoped_relation_members
 from .constants import FINAL_NODE_ID, GROUPING_DERIVATIONS
 from .functional_dependency import build_fd_closure, build_fd_determines_all
-from .models import GroupAttrs, InputChannel
+from .models import GroupAttrs, InputChannel, pairing_keys
 
 
 class PairingKind(Enum):
@@ -70,6 +70,8 @@ class JoinPlan:
     coalescing: frozenset[str] = frozenset()
     # the contributors supplying outputs; the rest join to pair or filter them
     suppliers: frozenset[str] = frozenset()
+    # bridges elected to key a pairing, not to join islands
+    keying: frozenset[str] = frozenset()
 
     @property
     def merge_grain(self) -> frozenset[str]:
@@ -269,16 +271,25 @@ def merge_axes(
     attrs: dict[str, GroupAttrs],
     mandatory_list: Sequence[BuildConcept],
     authored: frozenset[str],
+    row_columns: Callable[[str], frozenset[str]] | None = None,
 ) -> frozenset[str]:
     """Every key some contributor's rows are identified by: a candidate join
     axis. A BASIC over aggregates (`customer_status <- case ... min(x) by
     user`) sits at user grain and emits that key; a region domain's rows are
     keyed by its spans. A grouping or rowset output's grain is the result's
     row grain (a rowset's `keys` are not: they are the FK path that determines
-    it). Authored relations hosted on both sides are axes by declaration."""
+    it). Authored relations hosted on both sides are axes by declaration.
+    `row_columns` reads a group's columns off a statement in place of its
+    attrs."""
     axes: set[str] = set()
     for gid in cover:
-        axes |= attrs[gid].emitted_grain | attrs[gid].extent_spans
+        group = attrs[gid]
+        emitted = (
+            group.grain_emitted_over(row_columns(gid))
+            if row_columns
+            else group.emitted_grain
+        )
+        axes |= emitted | group.extent_spans
     for concept in mandatory_list:
         if (
             concept.derivation in GROUPING_DERIVATIONS
@@ -485,8 +496,9 @@ def _over_own_rows(group: GroupAttrs) -> frozenset[str]:
     """The other row arguments of an atom `group` hosts that reads its own
     outputs (`date = max_date` on the `max(date)` group): it is decided after
     the value exists, against rows that still hold those arguments. An atom
-    over inputs alone (`id > 2`) filters before and leaves nothing behind."""
-    outputs = set(group.output_concepts)
+    over inputs alone (`id > 2`, `city = 'B' or ...` on a group by city) filters
+    before and leaves nothing behind."""
+    outputs = set(group.output_concepts) - set(group.grain_components)
     held: set[str] = set()
     for atom in group.condition_atoms:
         args = {c.address for c in atom.row_arguments}
@@ -603,6 +615,20 @@ def _joined_on(group: GroupAttrs) -> frozenset[str]:
 
 
 def carries(
+    group: GroupAttrs,
+    identity: frozenset[str],
+    sibling_keys: frozenset[str],
+    environment: BuildEnvironment,
+    domain_spans: frozenset[str] | None = None,
+) -> frozenset[str]:
+    """`_held_columns`, less the all-rows marker: any row can emit it, and no
+    side is paired on it (`pairing_keys`)."""
+    return pairing_keys(
+        _held_columns(group, identity, sibling_keys, environment, domain_spans)
+    )
+
+
+def _held_columns(
     group: GroupAttrs,
     identity: frozenset[str],
     sibling_keys: frozenset[str],
@@ -971,8 +997,9 @@ def elect_bridges(
     )
     bridges: list[str] = []
     current = plan(extras=bridges)
-    while len(current.islands()) > 1:
+    while len(current.islands()) > 1 or _underkeyed_blends(current, attrs, environment):
         islands = len(current.islands())
+        blends = _underkeyed_blends(current, attrs, environment)
         # a bridge every pairing of which is keyed: shared columns that
         # identify neither side multiply both, so none is elected and the
         # keyless-join guard names the gap
@@ -982,7 +1009,11 @@ def elect_bridges(
                 for gid in candidates
                 if gid not in cover
                 and gid not in bridges
-                and len((trial := plan(extras=[*bridges, gid])).islands()) < islands
+                and (
+                    len((trial := plan(extras=[*bridges, gid])).islands()),
+                    _underkeyed_blends(trial, attrs, environment),
+                )
+                < (islands, blends)
                 and all(
                     p.kind != PairingKind.BLEND
                     for p in trial.pairings
@@ -993,6 +1024,51 @@ def elect_bridges(
         )
         if elected is None:
             return current
-        gid, current = elected
+        gid, trial = elected
+        keying = current.keying | (
+            {gid} if len(trial.islands()) == islands else frozenset()
+        )
+        current = replace(trial, keying=frozenset(keying))
         bridges.append(gid)
     return current
+
+
+def _underkeyed_blends(
+    plan: JoinPlan, attrs: dict[str, GroupAttrs], environment: BuildEnvironment
+) -> int:
+    """Pairings of two grouped suppliers on fewer keys than one's grain
+    determines of the other's (`count(id)` by city, species beside `max(x) by
+    city, tree_form`, paired on city alone): the merge needs a side holding
+    the determined key too (`SelectGrain.by_property_without_its_key_misjoins`)."""
+    count = 0
+    for p in plan.pairings:
+        if p.kind != PairingKind.BLEND or not {p.left, p.right} <= plan.suppliers:
+            continue
+        if not all(
+            attrs[g].derivation in GROUPING_DERIVATIONS for g in (p.left, p.right)
+        ):
+            continue
+        left, right = plan.identity[p.left], plan.identity[p.right]
+        if not any(
+            not b <= p.keys and b <= _determined(a, environment)
+            for a, b in ((left, right), (right, left))
+        ):
+            continue
+        if not any(
+            _bridges_on_identity(plan, extra, side)
+            and _bridges_on_identity(plan, extra, other)
+            for extra in plan.contributors
+            if extra not in plan.suppliers
+            for side, other in ((p.left, p.right),)
+        ):
+            count += 1
+    return count
+
+
+def _bridges_on_identity(plan: JoinPlan, bridge: str, side: str) -> bool:
+    return any(
+        {q.left, q.right} == {bridge, side}
+        and q.kind != PairingKind.BLEND
+        and plan.identity[side] <= q.keys | q.implied
+        for q in plan.pairings
+    )

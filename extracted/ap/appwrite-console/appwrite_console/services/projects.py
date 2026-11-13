@@ -1,6 +1,6 @@
 from ..service import Service
 from urllib.parse import quote
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Type, TypeVar
 from ..exception import AppwriteException
 from appwrite_console.utils.deprecated import deprecated
 from ..models.addon_list import AddonList
@@ -13,6 +13,8 @@ from ..models.stage_list import StageList
 from ..models.stage import Stage
 from ..enums.status import Status
 from ..models.project import Project
+
+T = TypeVar('T')
 
 
 class Projects(Service):
@@ -640,7 +642,8 @@ class Projects(Service):
         self,
         project_id: str,
         team_id: str,
-    ) -> Project:
+        model_type: Type[T] = dict,
+    ) -> Project[T]:
         """
         Update the team ID of a project allowing for it to be transferred to another team.
 
@@ -650,9 +653,12 @@ class Projects(Service):
             Project unique ID.
         team_id : str
             Team ID of the team to transfer project to.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        Project
+        Project[T]
             API response as a typed Pydantic model
 
         Raises
@@ -681,4 +687,4 @@ class Projects(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=Project)
+        return Project.with_data(response, model_type)

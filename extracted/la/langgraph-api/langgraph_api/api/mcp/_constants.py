@@ -1,19 +1,25 @@
-# Workaround assistant name not exposed in the Assistants.search API
 MAX_ASSISTANTS = 1000
 DEFAULT_PAGE_SIZE = 100
+MAX_PAGE_OFFSET = 2**63 - 1
+MAX_CURSOR_LENGTH = len(str(MAX_PAGE_OFFSET))
 
-# JSON-RPC error codes: https://www.jsonrpc.org/specification#error_object
-ERROR_CODE_INVALID_PARAMS = -32602
-ERROR_CODE_METHOD_NOT_FOUND = -32601
-
-# Supported MCP protocol versions
-# https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle
-SUPPORTED_PROTOCOL_VERSIONS = frozenset(
-    (
-        "2024-11-05",
-        "2025-03-26",
-        "2025-06-18",
-        "2025-11-25",
-    )
+PAUSED_TOOL_MESSAGE = (
+    "This tool paused to ask for human input, and this client can't answer it."
 )
-LATEST_PROTOCOL_VERSION = "2025-11-25"
+RUN_FAILED_MESSAGE = "The tool's run failed."
+INVALID_CURSOR_MESSAGE = "Invalid cursor"
+INTERNAL_ERROR_MESSAGE = "Internal server error"
+UNRESUMABLE_PAUSE_MESSAGE = (
+    "This tool paused to ask for human input, and this call can't be resumed."
+)
+ELICITATION_REQUIRED_MESSAGE = (
+    "This tool asks for human input and needs {modes} elicitation."
+)
+INVALID_REQUEST_STATE = "Invalid or expired requestState"
+UNASKABLE_INPUT_MESSAGE = "This tool needs input that can't be asked over MCP"
+BREAKPOINT_MESSAGE = (
+    "This tool stopped at a breakpoint (interrupt_before or interrupt_after), "
+    "which can't be resumed over MCP."
+)
+PAUSED_CALL_TTL_MINUTES = 24 * 60
+FINISHED_CALL_TTL_MINUTES = 10

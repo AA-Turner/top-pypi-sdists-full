@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dreamscale
-Version: 0.1.0a317
+Version: 0.1.0a322
 Summary: Cloud robot policy inference — one function call.
 Project-URL: Homepage, https://app.dreamscalelabs.com
 Project-URL: Documentation, https://docs.dreamscalelabs.com
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.11
 Requires-Dist: click<8.5,>=8.1.7
-Requires-Dist: dreamscale-transport==0.1.1a135
+Requires-Dist: dreamscale-transport==0.1.1a140
 Requires-Dist: httpx<1,>=0.27
 Requires-Dist: jsonschema<5,>=4.23
 Requires-Dist: numpy<3,>=1.26
@@ -88,7 +88,7 @@ Cloud robot policy inference — one function call.
 Add Dreamscale to a Python 3.11–3.14 project:
 
 ```bash
-uv add "dreamscale==0.1.0a317"
+uv add "dreamscale==0.1.0a322"
 ```
 
 Install the CLI as a standalone tool:
@@ -117,11 +117,11 @@ or 3.13 when a stack needs it.
 To add a stack to your own project for use from Python:
 
 ```bash
-uv add "dreamscale[so101]==0.1.0a317"
-uv add "dreamscale[sim]==0.1.0a317"
-uv add "dreamscale[dreamzero]==0.1.0a317"
-uv add "dreamscale[yam,cameras,realsense]==0.1.0a317"
-uv add "dreamscale[hud]==0.1.0a317"
+uv add "dreamscale[so101]==0.1.0a322"
+uv add "dreamscale[sim]==0.1.0a322"
+uv add "dreamscale[dreamzero]==0.1.0a322"
+uv add "dreamscale[yam,cameras,realsense]==0.1.0a322"
+uv add "dreamscale[hud]==0.1.0a322"
 ```
 
 The `dreamzero` extra installs the pinned H.264 codec used automatically by
@@ -145,6 +145,13 @@ dreamscale sim libero --model gr00t-n17-3b-libero --task-suite libero_object --t
 dreamscale sim robocasa365 --model xiaomi-robotics-1-robocasa365 --task-suite atomic --task-id CloseFridge --task-seed 7 --max-steps 1800
 dreamscale sim robocasa365 --model rldx-1-ft-rc365 --task-suite atomic --task-id CloseFridge
 dreamscale sim robocasa365 --model dreamzero-droid --task-suite atomic --task-id CloseElectricKettleLid --max-duration 90
+```
+
+`--list` shows what a benchmark offers, offline and without a model:
+
+```bash
+dreamscale sim robocasa365 --list                         # its task suites
+dreamscale sim robocasa365 --task-suite atomic --list     # that suite's --task-id values
 ```
 
 Simulation and robot CLI runs share `--keep-warm`: the default reserves loaded

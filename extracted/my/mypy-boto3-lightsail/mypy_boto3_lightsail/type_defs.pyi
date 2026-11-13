@@ -19,7 +19,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Union
+from typing import Any, Union
 
 from .literals import (
     AccessDirectionType,
@@ -64,6 +64,7 @@ from .literals import (
     InstancePlatformType,
     InstanceSnapshotStateType,
     IpAddressTypeType,
+    LightsailDistributionSubdomainStateEnumType,
     LoadBalancerAttributeNameType,
     LoadBalancerMetricNameType,
     LoadBalancerProtocolType,
@@ -100,6 +101,8 @@ from .literals import (
     SetupStatusType,
     StatusType,
     StatusTypeType,
+    SubdomainAssociationActionType,
+    SubdomainStateType,
     TierNameType,
     TreatMissingDataType,
     ViewerMinimumTlsProtocolVersionEnumType,
@@ -154,6 +157,8 @@ __all__ = (
     "CacheSettingsUnionTypeDef",
     "CertificateSummaryTypeDef",
     "CertificateTypeDef",
+    "CheckSubdomainAvailabilityRequestTypeDef",
+    "CheckSubdomainAvailabilityResultTypeDef",
     "CloseInstancePublicPortsRequestTypeDef",
     "CloseInstancePublicPortsResultTypeDef",
     "CloudFormationStackRecordSourceInfoTypeDef",
@@ -227,6 +232,8 @@ __all__ = (
     "CreateRelationalDatabaseResultTypeDef",
     "CreateRelationalDatabaseSnapshotRequestTypeDef",
     "CreateRelationalDatabaseSnapshotResultTypeDef",
+    "CreateSubdomainRequestTypeDef",
+    "CreateSubdomainResultTypeDef",
     "DeleteAlarmRequestTypeDef",
     "DeleteAlarmResultTypeDef",
     "DeleteAutoSnapshotRequestTypeDef",
@@ -267,6 +274,8 @@ __all__ = (
     "DeleteRelationalDatabaseResultTypeDef",
     "DeleteRelationalDatabaseSnapshotRequestTypeDef",
     "DeleteRelationalDatabaseSnapshotResultTypeDef",
+    "DeleteSubdomainRequestTypeDef",
+    "DeleteSubdomainResultTypeDef",
     "DestinationInfoTypeDef",
     "DetachCertificateFromDistributionRequestTypeDef",
     "DetachCertificateFromDistributionResultTypeDef",
@@ -447,6 +456,8 @@ __all__ = (
     "GetStaticIpsRequestPaginateTypeDef",
     "GetStaticIpsRequestTypeDef",
     "GetStaticIpsResultTypeDef",
+    "GetSubdomainsRequestTypeDef",
+    "GetSubdomainsResultTypeDef",
     "HeaderObjectOutputTypeDef",
     "HeaderObjectTypeDef",
     "HostKeyAttributesTypeDef",
@@ -470,6 +481,7 @@ __all__ = (
     "InstanceTypeDef",
     "IsVpcPeeredResultTypeDef",
     "KeyPairTypeDef",
+    "LightsailDistributionSubdomainTypeDef",
     "LightsailDistributionTypeDef",
     "LoadBalancerTlsCertificateDnsRecordCreationStateTypeDef",
     "LoadBalancerTlsCertificateDomainValidationOptionTypeDef",
@@ -557,6 +569,8 @@ __all__ = (
     "StopInstanceResultTypeDef",
     "StopRelationalDatabaseRequestTypeDef",
     "StopRelationalDatabaseResultTypeDef",
+    "SubdomainAttachableResourceTypeDef",
+    "SubdomainTypeDef",
     "TagResourceRequestTypeDef",
     "TagResourceResultTypeDef",
     "TagTypeDef",
@@ -587,6 +601,8 @@ __all__ = (
     "UpdateRelationalDatabaseParametersResultTypeDef",
     "UpdateRelationalDatabaseRequestTypeDef",
     "UpdateRelationalDatabaseResultTypeDef",
+    "UpdateSubdomainAssociationRequestTypeDef",
+    "UpdateSubdomainAssociationResultTypeDef",
     "WafAcfpConfigOutputTypeDef",
     "WafAcfpConfigTypeDef",
     "WafAcfpConfigUnionTypeDef",
@@ -795,6 +811,10 @@ class QueryStringObjectTypeDef(TypedDict):
     option: NotRequired[bool]
     queryStringsAllowList: NotRequired[Sequence[str]]
 
+class CheckSubdomainAvailabilityRequestTypeDef(TypedDict):
+    subdomainName: str
+    reserve: NotRequired[bool]
+
 class PortInfoTypeDef(TypedDict):
     fromPort: NotRequired[int]
     toPort: NotRequired[int]
@@ -985,6 +1005,9 @@ class DeleteRelationalDatabaseRequestTypeDef(TypedDict):
 
 class DeleteRelationalDatabaseSnapshotRequestTypeDef(TypedDict):
     relationalDatabaseSnapshotName: str
+
+class DeleteSubdomainRequestTypeDef(TypedDict):
+    subdomainName: str
 
 class DetachCertificateFromDistributionRequestTypeDef(TypedDict):
     distributionName: str
@@ -1327,6 +1350,10 @@ class GetStaticIpRequestTypeDef(TypedDict):
 class GetStaticIpsRequestTypeDef(TypedDict):
     pageToken: NotRequired[str]
 
+class GetSubdomainsRequestTypeDef(TypedDict):
+    subdomainName: NotRequired[str]
+    pageToken: NotRequired[str]
+
 class HostKeyAttributesTypeDef(TypedDict):
     algorithm: NotRequired[str]
     publicKey: NotRequired[str]
@@ -1378,6 +1405,12 @@ class InstancePortInfoTypeDef(TypedDict):
 
 class MonthlyTransferTypeDef(TypedDict):
     gbPerMonthAllocated: NotRequired[int]
+
+class LightsailDistributionSubdomainTypeDef(TypedDict):
+    name: str
+    state: LightsailDistributionSubdomainStateEnumType
+    errorCode: NotRequired[str]
+    errorDetails: NotRequired[str]
 
 class OriginTypeDef(TypedDict):
     name: NotRequired[str]
@@ -1495,6 +1528,11 @@ class StopRelationalDatabaseRequestTypeDef(TypedDict):
     relationalDatabaseName: str
     relationalDatabaseSnapshotName: NotRequired[str]
 
+class SubdomainAttachableResourceTypeDef(TypedDict):
+    arn: NotRequired[str]
+    name: NotRequired[str]
+    attachedAt: NotRequired[datetime]
+
 class TestAlarmRequestTypeDef(TypedDict):
     alarmName: str
     state: AlarmStateType
@@ -1536,6 +1574,11 @@ class UpdateRelationalDatabaseRequestTypeDef(TypedDict):
     applyImmediately: NotRequired[bool]
     caCertificateIdentifier: NotRequired[str]
     relationalDatabaseBlueprintId: NotRequired[str]
+
+class UpdateSubdomainAssociationRequestTypeDef(TypedDict):
+    subdomainName: str
+    action: SubdomainAssociationActionType
+    targetResourceArn: NotRequired[str]
 
 class WafResponseInspectionOutputTypeDef(TypedDict):
     successCodes: NotRequired[list[int]]
@@ -1703,6 +1746,10 @@ class CreateRelationalDatabaseSnapshotRequestTypeDef(TypedDict):
     relationalDatabaseSnapshotName: str
     tags: NotRequired[Sequence[TagTypeDef]]
 
+class CreateSubdomainRequestTypeDef(TypedDict):
+    subdomainName: str
+    tags: NotRequired[Sequence[TagTypeDef]]
+
 class DiskSnapshotTypeDef(TypedDict):
     name: NotRequired[str]
     arn: NotRequired[str]
@@ -1785,6 +1832,12 @@ class TagResourceRequestTypeDef(TypedDict):
     resourceName: str
     tags: Sequence[TagTypeDef]
     resourceArn: NotRequired[str]
+
+class CheckSubdomainAvailabilityResultTypeDef(TypedDict):
+    available: bool
+    reservationExpiresAt: datetime
+    subdomainName: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DownloadDefaultKeyPairResultTypeDef(TypedDict):
     publicKeyBase64: str
@@ -2299,6 +2352,20 @@ class RelationalDatabaseTypeDef(TypedDict):
     masterEndpoint: NotRequired[RelationalDatabaseEndpointTypeDef]
     pendingMaintenanceActions: NotRequired[list[PendingMaintenanceActionTypeDef]]
     caCertificateIdentifier: NotRequired[str]
+
+class SubdomainTypeDef(TypedDict):
+    subdomainName: NotRequired[str]
+    arn: NotRequired[str]
+    fqdn: NotRequired[str]
+    depth: NotRequired[int]
+    state: NotRequired[SubdomainStateType]
+    attachedResource: NotRequired[SubdomainAttachableResourceTypeDef]
+    attachingResource: NotRequired[SubdomainAttachableResourceTypeDef]
+    location: NotRequired[ResourceLocationTypeDef]
+    createdAt: NotRequired[datetime]
+    parentFqdn: NotRequired[str]
+    children: NotRequired[list[dict[str, Any]]]
+    tags: NotRequired[list[TagTypeDef]]
 
 class WafAcfpConfigOutputTypeDef(TypedDict):
     payloadType: NotRequired[WafPayloadTypeEnumType]
@@ -2958,6 +3025,26 @@ class GetRelationalDatabasesResultTypeDef(TypedDict):
     nextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateSubdomainResultTypeDef(TypedDict):
+    subdomain: SubdomainTypeDef
+    operation: OperationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteSubdomainResultTypeDef(TypedDict):
+    subdomain: SubdomainTypeDef
+    operation: OperationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetSubdomainsResultTypeDef(TypedDict):
+    subdomains: list[SubdomainTypeDef]
+    nextPageToken: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateSubdomainAssociationResultTypeDef(TypedDict):
+    subdomain: SubdomainTypeDef
+    operation: OperationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class WafRuleOutputTypeDef(TypedDict):
     name: str
     atpConfig: NotRequired[WafAtpConfigOutputTypeDef]
@@ -3201,6 +3288,7 @@ class LightsailDistributionTypeDef(TypedDict):
     defaultRootObject: NotRequired[str]
     customErrorResponses: NotRequired[list[DistributionCustomErrorResponseTypeDef]]
     waf: NotRequired[WafConfigTypeDef]
+    subdomain: NotRequired[LightsailDistributionSubdomainTypeDef]
 
 class WafRuleTypeDef(TypedDict):
     name: str
@@ -3246,6 +3334,7 @@ class CreateDistributionRequestTypeDef(TypedDict):
     customErrorResponses: NotRequired[Sequence[DistributionCustomErrorResponseTypeDef]]
     enableWaf: NotRequired[bool]
     wafRules: NotRequired[Sequence[WafRuleUnionTypeDef]]
+    subdomainName: NotRequired[str]
 
 class UpdateDistributionRequestTypeDef(TypedDict):
     distributionName: str

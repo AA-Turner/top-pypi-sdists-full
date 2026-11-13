@@ -1,4 +1,5 @@
-use super::types::{AnalysisOptions, RefactorRule, RuleSet};
+use super::types::{AnalysisOptions, RefactorRule, RuleCategory, RuleMetadata, RuleSet};
+use crate::bindings::FunctionBindings;
 use crate::classes::{CodeSuggestion, RefactorPlan};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::fix::{splice_plan, splice_window};
@@ -18,7 +19,8 @@ pub struct FunctionSpan {
 }
 
 /// Everything a rule needs about the function or module being planned.
-/// `function` is `None` for the module-level plans of `--check-script`, and
+/// `function` is `None` for the module-level plans of `--check-script`,
+/// `bindings` is `None` when no C005 helper insertion point is known, and
 /// `newline` is the file's line break.
 pub struct PlanContext<'a> {
     pub source: &'a str,
@@ -28,6 +30,7 @@ pub struct PlanContext<'a> {
     pub is_module: bool,
     pub active: &'a RuleSet,
     pub function: Option<FunctionSpan>,
+    pub bindings: Option<&'a FunctionBindings>,
     pub newline: &'a str,
 }
 
@@ -63,6 +66,23 @@ impl RuleRegistry {
             .iter()
             .map(|rule| rule.metadata().id.clone())
             .collect()
+    }
+
+    pub fn registered_rules(&self) -> Vec<(String, RuleCategory)> {
+        self.rules
+            .iter()
+            .map(|rule| (rule.metadata().id.clone(), rule.metadata().category.clone()))
+            .collect()
+    }
+
+    /// The metadata of the registered rule whose id equals `rule_id`,
+    /// compared like `--select`: trimmed and case-insensitive.
+    pub fn metadata(&self, rule_id: &str) -> Option<&'static RuleMetadata> {
+        let rule_id = rule_id.trim();
+        self.rules
+            .iter()
+            .map(|rule| rule.metadata())
+            .find(|meta| meta.id.eq_ignore_ascii_case(rule_id))
     }
 
     /// Build a `rule_id -> effectiveness` lookup from the currently registered
@@ -146,6 +166,7 @@ impl RuleRegistry {
                     ctx.source,
                     ctx.index,
                     ctx.def_names,
+                    ctx.bindings,
                     ctx.function_complexity,
                 ) {
                     plans.push(plan);

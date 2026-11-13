@@ -70,6 +70,24 @@ def _athena_coerce(value: Optional[str], type_name: str) -> Any:
     return convert_athena_value(value, type_name)
 
 
+def _row_values(data: List[dict], width: int) -> List[Optional[str]]:
+    """A row's cell strings, one per result column.
+
+    Athena engine v3 answers ``DESCRIBE`` with ``width`` columns in its metadata (``col_name``,
+    ``data_type``, ``comment``) but one cell per row holding the fields tab-separated, e.g.
+    ``"order_id            \tint                 \t"``: that cell is split on tabs into at most
+    ``width`` fields, each stripped (an empty one is None). A row shorter than ``width`` (the blank
+    line between ``DESCRIBE``'s sections, ``# Partition Information``) is padded with None. Any other
+    row is returned as is.
+    """
+    values: List[Optional[str]] = [cell.get("VarCharValue") for cell in data]
+    if width > 1 and len(values) == 1 and isinstance(values[0], str) and "\t" in values[0]:
+        values = [field.strip() or None for field in values[0].split("\t", width - 1)]
+    if len(values) < width:
+        values.extend([None] * (width - len(values)))
+    return values
+
+
 def read_athena_result(
     client: Any,
     query_execution_id: str,
@@ -100,13 +118,11 @@ def read_athena_result(
             rows = rows[1:]  # drop the SELECT/CTAS column-label echo (caller-confirmed type)
         out: List[List[Any]] = []
         for row in rows:
-            data = row.get("Data", [])
+            values = _row_values(row.get("Data", []), len(columns))
             out.append(
                 [
-                    _athena_coerce(
-                        cell.get("VarCharValue"), types[i] if i < len(types) else "varchar"
-                    )
-                    for i, cell in enumerate(data)
+                    _athena_coerce(value, types[i] if i < len(types) else "varchar")
+                    for i, value in enumerate(values)
                 ]
             )
         return out

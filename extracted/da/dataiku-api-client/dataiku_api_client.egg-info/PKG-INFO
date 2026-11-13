@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: dataiku-api-client
-Version: 15.2.1
+Version: 15.2.2
 Summary: Python API client for Dataiku APIs
 Home-page: https://www.dataiku.com
-Download-URL: https://github.com/dataiku/dataiku-api-client-python/tarball/15.2.1
+Download-URL: https://github.com/dataiku/dataiku-api-client-python/tarball/15.2.2
 Author: Dataiku
 Author-email: support@dataiku.com
 License: Apache Software License
@@ -36,6 +36,11 @@ Changelog
 ==========
 
 
+15.2.2 (2026-11-13)
+-------------------
+
+* Initial release for DSS 15.2.2
+
 15.2.1 (2026-11-02)
 -------------------
 
@@ -66,6 +71,15 @@ Changelog
 
 * Initial release for DSS 15.0.0
 
+14.7.7 (2026-11-12)
+-------------------
+
+* Initial release for DSS 14.7.7
+
+14.7.6 (2026-11-02)
+-------------------
+
+* Initial release for DSS 14.7.6
 
 14.7.5 (2026-09-29)
 -------------------

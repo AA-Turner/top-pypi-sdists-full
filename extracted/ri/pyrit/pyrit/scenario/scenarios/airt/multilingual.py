@@ -9,11 +9,20 @@ from functools import cache
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from pyrit.common import apply_defaults
+from pyrit.common.async_compatibility import run_legacy_sync_async
 from pyrit.common.path import DATASETS_PATH
 from pyrit.converter import RandomTranslationConverter, TranslationConverter
 from pyrit.executor.attack import PromptSendingAttack
-from pyrit.models import Parameter, SeedDataset
-from pyrit.registry.components.attack_technique_registry import AttackTechniqueRegistry
+from pyrit.models import (
+    BoundedDatasetSize,
+    Parameter,
+    ScenarioRunSizeComponent,
+    ScenarioRunSizeEstimate,
+    ScenarioRunSizeEstimateStatus,
+    ScenarioRunSizeFactor,
+    SeedDataset,
+)
+from pyrit.registry import AttackTechniqueRegistry
 from pyrit.scenario.core import (
     AtomicAttack,
     AttackTechniqueFactory,
@@ -23,6 +32,7 @@ from pyrit.scenario.core import (
     ScenarioTechnique,
     get_default_adversarial_target,
 )
+from pyrit.scenario.core.dataset_configuration import DatasetSource
 from pyrit.scenario.core.matrix_atomic_attack_builder import (
     MatrixAtomicAttackBuilder,
     build_baseline_atomic_attack,
@@ -31,7 +41,6 @@ from pyrit.scenario.core.matrix_atomic_attack_builder import (
 
 if TYPE_CHECKING:
     from pyrit.prompt_target import PromptTarget
-    from pyrit.scenario.core import ScenarioTechnique
     from pyrit.scenario.core.scenario_context import ScenarioContext
     from pyrit.score import TrueFalseScorer
 
@@ -107,21 +116,26 @@ def _extra_default_factories() -> dict[str, AttackTechniqueFactory]:
     return {_PROMPT_SENDING: _prompt_sending_factory()}
 
 
-@cache
+@AttackTechniqueRegistry.cache_scenario_technique_class
 def _build_multilingual_technique() -> type[ScenarioTechnique]:
     """
     Build the Multilingual technique class from text-compatible registered factories.
+
+    Scenario-local factories override registered factories before compatibility
+    filtering, as they do during execution.
 
     Returns:
         type[ScenarioTechnique]: The dynamically generated technique enum class.
     """
     registry = AttackTechniqueRegistry.get_registry_singleton()
+    pool = registry.get_factories_or_raise()
+    pool.update(_extra_default_factories())
     factories = [
         factory
-        for factory in list(registry.get_factories_or_raise().values()) + list(_extra_default_factories().values())
+        for factory in pool.values()
         if factory.can_append_request_converter(converter_type=TranslationConverter)
     ]
-    return AttackTechniqueRegistry.build_technique_class_from_factories(  # type: ignore[ty:invalid-return-type]
+    return AttackTechniqueRegistry.build_technique_class_from_factories(
         class_name="MultilingualTechnique",
         factories=factories,
         default_names={_PROMPT_SENDING},
@@ -218,8 +232,11 @@ class Multilingual(Scenario):
 
         super().__init__(
             version=self.VERSION,
+            uses_default_adversarial_target=adversarial_chat is None,
             technique_class=technique_class,
-            default_dataset_config=DatasetAttackConfiguration(dataset_names=["harmbench"], max_dataset_size=5),
+            default_dataset_config=DatasetAttackConfiguration(
+                sources=[DatasetSource(name=name) for name in ["harmbench"]], max_per_dataset="all", max_total=5
+            ),
             objective_scorer=self._objective_scorer,
             scenario_result_id=scenario_result_id,
         )
@@ -235,7 +252,7 @@ class Multilingual(Scenario):
         dataset = SeedDataset.from_yaml_file(cls._DEFAULT_LANGUAGES_SEED_PROMPT_PATH)
         return [str(seed.value) for seed in dataset.seeds]
 
-    def _resolve_languages(self) -> list[str]:
+    async def _resolve_languages_async(self) -> list[str]:
         """
         Resolve the languages for this run, replaying the persisted set on resume.
 
@@ -252,12 +269,28 @@ class Multilingual(Scenario):
             or if ``num_languages`` is out of bounds.
         """
         if self._scenario_result_id is not None:
-            stored = self._memory.get_scenario_results(scenario_result_ids=[self._scenario_result_id])
+            stored = await self._memory.get_scenario_results_async(scenario_result_ids=[self._scenario_result_id])
             if stored:
                 persisted = (stored[0].metadata or {}).get(_LANGUAGES_METADATA_KEY)
                 if persisted:
                     return _normalize_languages(list(persisted))
 
+        selection = self._get_language_selection()
+        if isinstance(selection, list):
+            return selection
+        return _normalize_languages(random.sample(self._default_languages, selection))
+
+    def _get_language_selection(self) -> list[str] | int:
+        """
+        Read the language parameters for a fresh run.
+
+        Returns:
+            list[str] | int: The explicit normalized languages, or how many to draw at random.
+
+        Raises:
+            ValueError: If both ``num_languages`` and ``languages`` are provided,
+            or if ``num_languages`` is out of bounds.
+        """
         num_languages = self.params.get("num_languages")
         languages = self.params.get("languages")
 
@@ -274,7 +307,65 @@ class Multilingual(Scenario):
         count = int(num_languages) if num_languages is not None else _DEFAULT_NUM_LANGUAGES
         if count < 1 or count > len(self._default_languages):
             raise ValueError(f"num_languages must be between 1 and {len(self._default_languages)}.")
-        return _normalize_languages(random.sample(self._default_languages, count))
+        return count
+
+    async def _estimate_run_size_async(self, *, budget: BoundedDatasetSize) -> ScenarioRunSizeEstimate:
+        """
+        Estimate the technique sweep across the language and translation-strategy axes.
+
+        Args:
+            budget: Resolved logical-group size contract before technique expansion.
+
+        Returns:
+            ScenarioRunSizeEstimate: Baseline plus one slice per selected language and strategy.
+        """
+        seed_group_count, datasets = await self._get_dataset_size_for_estimate_async(budget=budget)
+        selection = self._get_language_selection()
+        language_count = len(selection) if isinstance(selection, list) else selection
+        strategies = set(self.params.get("translation_strategies") or [_TRANSLATION, _RANDOM_TRANSLATION])
+        technique_count = len(self._scenario_techniques)
+        sweep_factors = [
+            ScenarioRunSizeFactor(label="selected seed-group estimate", count=seed_group_count),
+            ScenarioRunSizeFactor(label="selected concrete techniques", count=technique_count),
+        ]
+
+        components: list[ScenarioRunSizeComponent] = []
+        if self._include_baseline:
+            components.append(
+                ScenarioRunSizeComponent(
+                    label="Baseline",
+                    count=seed_group_count,
+                    factors=[ScenarioRunSizeFactor(label="selected logical seed groups", count=seed_group_count)],
+                    is_baseline=True,
+                    note="One unmodified prompt-sending unit per selected seed group.",
+                )
+            )
+        if _TRANSLATION in strategies:
+            components.append(
+                ScenarioRunSizeComponent(
+                    label="Translation",
+                    count=seed_group_count * technique_count * language_count,
+                    factors=[*sweep_factors, ScenarioRunSizeFactor(label="languages", count=language_count)],
+                    note="Each objective is translated into every selected language.",
+                )
+            )
+        if _RANDOM_TRANSLATION in strategies:
+            components.append(
+                ScenarioRunSizeComponent(
+                    label="Random translation",
+                    count=seed_group_count * technique_count,
+                    factors=sweep_factors,
+                    note="One slice that mixes words from the selected languages.",
+                )
+            )
+
+        return ScenarioRunSizeEstimate(
+            status=ScenarioRunSizeEstimateStatus.Approximate,
+            total_attack_count=sum(component.count for component in components),
+            components=components,
+            datasets=datasets,
+            note="Counts planned outer execution units; retries and internal attack turns are excluded.",
+        )
 
     def _build_initial_scenario_metadata(self) -> dict[str, Any]:
         """
@@ -300,12 +391,16 @@ class Multilingual(Scenario):
         Raises:
             ValueError: If the scenario is not properly initialized.
         """
-        if self._objective_target is None:
-            raise ValueError(
-                "Scenario not properly initialized. Call await scenario.initialize_async() before running."
-            )
+        self._resolved_languages = await self._resolve_languages_async()
+        return await run_legacy_sync_async(self._build_atomic_attacks, context=context)
 
-        self._resolved_languages = self._resolve_languages()
+    def _build_atomic_attacks(self, *, context: ScenarioContext) -> list[AtomicAttack]:
+        """
+        Build the synchronous attack and converter matrix off-loop.
+
+        Returns:
+            list[AtomicAttack]: The attacks for the selected languages and translation methods.
+        """
         adversarial_chat = self._adversarial_chat or get_default_adversarial_target()
         strategies = set(self.params.get("translation_strategies") or [_TRANSLATION, _RANDOM_TRANSLATION])
         technique_factories = resolve_technique_factories(
@@ -316,6 +411,7 @@ class Multilingual(Scenario):
             objective_target=context.objective_target,
             objective_scorer=self._objective_scorer,
             memory_labels=context.memory_labels,
+            incompatible_technique_policy=context.incompatible_technique_policy,
         )
 
         atomic_attacks: list[AtomicAttack] = []

@@ -78,6 +78,11 @@ def __match_intervals(
     # and ends
     end_sorted = intervals_to[end_index, 1]
 
+    # Sorting non-overlapping targets by start also orders their end values.
+    non_overlapping = np.all(
+        intervals_to[start_index[:-1], 1] <= start_sorted[1:]
+    )
+
     search_ends = np.searchsorted(start_sorted, intervals_from[:, 1], side="right")
     search_starts = np.searchsorted(end_sorted, intervals_from[:, 0], side="left")
 
@@ -89,6 +94,24 @@ def __match_intervals(
         after_query = search_ends[i]
         # And the intervals that end after our query begins
         before_query = search_starts[i]
+
+        if non_overlapping and before_query < after_query:
+            best_score = -1.0
+            best_idx = -1
+            tied = False
+            for position in range(before_query, after_query):
+                idx = start_index[position]
+                score = __jaccard(query, intervals_to[idx])
+                if score > best_score:
+                    best_score = score
+                    best_idx = idx
+                    tied = False
+                elif score == best_score:
+                    tied = True
+            # Ties keep the original set-iteration order.
+            if not tied:
+                output[i] = best_idx
+                continue
 
         # Candidates for overlapping have to (end after we start) and (begin before we end)
         candidates = set(start_index[:after_query]) & set(end_index[before_query:])
@@ -165,10 +188,6 @@ def match_intervals(
         For each interval in ``intervals_from``, the
         corresponding interval in ``intervals_to``.
 
-    See Also
-    --------
-    match_events
-
     Raises
     ------
     ParameterError
@@ -176,6 +195,10 @@ def match_intervals(
 
         If ``strict=True`` and some element of ``intervals_from`` is disjoint from
         every element of ``intervals_to``.
+
+    See Also
+    --------
+    match_events
 
     Examples
     --------
@@ -225,27 +248,6 @@ def match_events(
 
     .. note:: A target event may be matched to multiple source events.
 
-    Examples
-    --------
-    >>> # Sources are multiples of 7
-    >>> s_from = np.arange(0, 100, 7)
-    >>> s_from
-    array([ 0,  7, 14, 21, 28, 35, 42, 49, 56, 63, 70, 77, 84, 91,
-           98])
-    >>> # Targets are multiples of 10
-    >>> s_to = np.arange(0, 100, 10)
-    >>> s_to
-    array([ 0, 10, 20, 30, 40, 50, 60, 70, 80, 90])
-    >>> # Find the matching
-    >>> idx = librosa.util.match_events(s_from, s_to)
-    >>> idx
-    array([0, 1, 1, 2, 3, 3, 4, 5, 6, 6, 7, 8, 8, 9, 9])
-    >>> # Print each source value to its matching target
-    >>> zip(s_from, s_to[idx])
-    [(0, 0), (7, 10), (14, 10), (21, 20), (28, 30), (35, 30),
-     (42, 40), (49, 50), (56, 60), (63, 60), (70, 70), (77, 80),
-     (84, 80), (91, 90), (98, 90)]
-
     Parameters
     ----------
     events_from : ndarray [shape=(n,)]
@@ -267,14 +269,35 @@ def match_events(
 
             event_mapping[i] == arg min |events_from[i] - events_to[:]|
 
-    See Also
-    --------
-    match_intervals
-
     Raises
     ------
     ParameterError
         If either array of input events is not the correct shape
+
+    See Also
+    --------
+    match_intervals
+
+    Examples
+    --------
+    >>> # Sources are multiples of 7
+    >>> s_from = np.arange(0, 100, 7)
+    >>> s_from
+    array([ 0,  7, 14, 21, 28, 35, 42, 49, 56, 63, 70, 77, 84, 91,
+           98])
+    >>> # Targets are multiples of 10
+    >>> s_to = np.arange(0, 100, 10)
+    >>> s_to
+    array([ 0, 10, 20, 30, 40, 50, 60, 70, 80, 90])
+    >>> # Find the matching
+    >>> idx = librosa.util.match_events(s_from, s_to)
+    >>> idx
+    array([0, 1, 1, 2, 3, 3, 4, 5, 6, 6, 7, 8, 8, 9, 9])
+    >>> # Print each source value to its matching target
+    >>> zip(s_from, s_to[idx])
+    [(0, 0), (7, 10), (14, 10), (21, 20), (28, 30), (35, 30),
+     (42, 40), (49, 50), (56, 60), (63, 60), (70, 70), (77, 80),
+     (84, 80), (91, 90), (98, 90)]
     """
     if len(events_from) == 0 or len(events_to) == 0:
         raise ParameterError("Attempting to match empty event list")

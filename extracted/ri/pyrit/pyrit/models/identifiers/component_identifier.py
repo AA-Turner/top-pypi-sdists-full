@@ -22,7 +22,7 @@ import hashlib
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, ClassVar, get_args, get_origin
+from typing import TYPE_CHECKING, Any, ClassVar, Self, get_args, get_origin
 
 from pydantic import (
     BaseModel,
@@ -34,11 +34,13 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
-from typing_extensions import Self, TypeAliasType
+from typing_extensions import TypeAliasType
 
 import pyrit
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from pyrit.models.parameter import ComponentType
 
 #: The set of value types allowed inside ``ComponentIdentifier.params``. Params
@@ -144,8 +146,8 @@ def _build_hash_dict(
         for name, child in sorted(children.items()):
             if isinstance(child, ComponentIdentifier):
                 children_hashes[name] = child.hash
-            elif isinstance(child, list):
-                children_hashes[name] = [c.hash for c in child if isinstance(c, ComponentIdentifier)]
+            else:
+                children_hashes[name] = [c.hash for c in child]
         if children_hashes:
             hash_dict[ComponentIdentifier.KEY_CHILDREN] = children_hashes
 
@@ -411,6 +413,47 @@ class ComponentIdentifier(BaseModel):
         return references
 
     @classmethod
+    def get_sensitive_parameter_names(cls) -> frozenset[str]:
+        """
+        Get constructor parameter names whose values must be obscured in user interfaces.
+
+        Returns:
+            frozenset[str]: Sensitive constructor parameter names.
+        """
+        return frozenset(
+            {
+                "api_key",
+                "auth_token",
+                "azure_speech_key",
+                "cookie",
+                "github_token",
+                "hf_access_token",
+                "sas_token",
+                "session_id",
+            }
+        )
+
+    @classmethod
+    def get_multiline_parameter_names(cls) -> frozenset[str]:
+        """
+        Get constructor parameter names whose values require multiline controls.
+
+        Returns:
+            frozenset[str]: Multiline constructor parameter names.
+        """
+        return frozenset[str]()
+
+    @classmethod
+    def get_identity_conflicting_parameter_names(cls) -> frozenset[str]:
+        """
+        Get constructor parameter names that override identity-based authentication.
+
+        Returns:
+            frozenset[str]: Identity-conflicting constructor parameter names.
+        """
+        return frozenset[str]()
+
+    @classmethod
     def get_class_attribute_values(cls, target_cls: type) -> dict[str, Any]:
         """
         Read each ``Param.ClassAttr``-marked field's value off a target class.
@@ -653,7 +696,7 @@ class ComponentIdentifier(BaseModel):
             for name, child in self.children.items():
                 if isinstance(child, ComponentIdentifier):
                     serialized_children[name] = child.model_dump(mode=mode)
-                elif isinstance(child, list):
+                else:
                     serialized_children[name] = [c.model_dump(mode=mode) for c in child]
             result[self.KEY_CHILDREN] = serialized_children
 
@@ -772,7 +815,7 @@ class ComponentIdentifier(BaseModel):
         obj: object,
         *,
         params: dict[str, Any] | None = None,
-        children: dict[str, ComponentIdentifier | list[ComponentIdentifier]] | None = None,
+        children: Mapping[str, ComponentIdentifier | list[ComponentIdentifier] | None] | None = None,
         attributes: dict[str, Any] | None = None,
         **promoted: Any,
     ) -> Self:
@@ -787,7 +830,7 @@ class ComponentIdentifier(BaseModel):
             obj: The live object whose class metadata will populate the
                 identifier.
             params: Optional behavioral params.
-            children: Optional child identifiers.
+            children: Optional child identifiers; None-valued entries are omitted.
             attributes: Optional identity-bearing state (hashed, but excluded from
                 the eval hash and not a constructor input). ``None`` values dropped.
             **promoted: Optional promoted typed fields (for subclasses). Passed

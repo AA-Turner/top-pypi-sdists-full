@@ -20,14 +20,16 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListSecretsPaginator
+from .paginator import ListResourcePoliciesPaginator, ListSecretsPaginator
 from .type_defs import (
+    AssociateCrossAccountReplicaRequestTypeDef,
+    AssociateCrossAccountReplicaResponseTypeDef,
     BatchGetSecretValueRequestTypeDef,
     BatchGetSecretValueResponseTypeDef,
     CancelRotateSecretRequestTypeDef,
@@ -40,6 +42,8 @@ from .type_defs import (
     DeleteSecretResponseTypeDef,
     DescribeSecretRequestTypeDef,
     DescribeSecretResponseTypeDef,
+    DisassociateCrossAccountReplicaRequestTypeDef,
+    DisassociateCrossAccountReplicaResponseTypeDef,
     EmptyResponseMetadataTypeDef,
     GetRandomPasswordRequestTypeDef,
     GetRandomPasswordResponseTypeDef,
@@ -47,6 +51,8 @@ from .type_defs import (
     GetResourcePolicyResponseTypeDef,
     GetSecretValueRequestTypeDef,
     GetSecretValueResponseTypeDef,
+    ListResourcePoliciesRequestTypeDef,
+    ListResourcePoliciesResponseTypeDef,
     ListSecretsRequestTypeDef,
     ListSecretsResponseTypeDef,
     ListSecretVersionIdsRequestTypeDef,
@@ -132,6 +138,17 @@ class SecretsManagerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_secretsmanager/client/#generate_presigned_url)
         """
 
+    def associate_cross_account_replica(
+        self, **kwargs: Unpack[AssociateCrossAccountReplicaRequestTypeDef]
+    ) -> AssociateCrossAccountReplicaResponseTypeDef:
+        """
+        Links a primary secret in your account to a replica secret in a different
+        Amazon Web Services account and starts replication to this replica.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/secretsmanager/client/associate_cross_account_replica.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_secretsmanager/client/#associate_cross_account_replica)
+        """
+
     def batch_get_secret_value(
         self, **kwargs: Unpack[BatchGetSecretValueRequestTypeDef]
     ) -> BatchGetSecretValueResponseTypeDef:
@@ -194,6 +211,17 @@ class SecretsManagerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_secretsmanager/client/#describe_secret)
         """
 
+    def disassociate_cross_account_replica(
+        self, **kwargs: Unpack[DisassociateCrossAccountReplicaRequestTypeDef]
+    ) -> DisassociateCrossAccountReplicaResponseTypeDef:
+        """
+        Removes the link between a primary secret in your account and a cross-account
+        replica secret, and stops replication to the replica secret.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/secretsmanager/client/disassociate_cross_account_replica.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_secretsmanager/client/#disassociate_cross_account_replica)
+        """
+
     def get_random_password(
         self, **kwargs: Unpack[GetRandomPasswordRequestTypeDef]
     ) -> GetRandomPasswordResponseTypeDef:
@@ -225,6 +253,16 @@ class SecretsManagerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/secretsmanager/client/get_secret_value.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_secretsmanager/client/#get_secret_value)
+        """
+
+    def list_resource_policies(
+        self, **kwargs: Unpack[ListResourcePoliciesRequestTypeDef]
+    ) -> ListResourcePoliciesResponseTypeDef:
+        """
+        Lists the resource-based policies attached to a secret.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/secretsmanager/client/list_resource_policies.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_secretsmanager/client/#list_resource_policies)
         """
 
     def list_secret_version_ids(
@@ -315,8 +353,8 @@ class SecretsManagerClient(BaseClient):
         self, **kwargs: Unpack[StopReplicationToReplicaRequestTypeDef]
     ) -> StopReplicationToReplicaResponseTypeDef:
         """
-        Removes the link between the replica secret and the primary secret and promotes
-        the replica to a primary secret in the replica Region.
+        Removes the link between a replica secret and its primary secret, and stops
+        replication to the replica.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/secretsmanager/client/stop_replication_to_replica.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_secretsmanager/client/#stop_replication_to_replica)
@@ -373,6 +411,18 @@ class SecretsManagerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_secretsmanager/client/#validate_resource_policy)
         """
 
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_resource_policies"]
+    ) -> ListResourcePoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/secretsmanager/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_secretsmanager/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_secrets"]
     ) -> ListSecretsPaginator:

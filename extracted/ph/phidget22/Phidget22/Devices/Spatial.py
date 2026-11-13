@@ -293,6 +293,60 @@ class Spatial(Phidget):
 
         return list(_MaxAcceleration)
 
+    def getAHRSParameters(self):
+        r"""
+        Get the parameters used to calibrate your device for the environment it will be used in.
+
+        *   These parameters allow you to tune the AHRS algorithm on the device to your specific
+        application.
+
+        Returns
+        -------
+        tuple (float, float, float, float, float, float)
+            A tuple containing:
+                - angularVelocityThreshold: The maximum angular velocity reading where the device is assumed to be "at rest"
+                - angularVelocityDeltaThreshold: The acceptable amount of change in angular velocity between measurements before movement is assumed.
+                - accelerationThreshold: The maximum acceleration applied to the device (minus gravity) where it is assumed to be "at rest". This is also the maximum acceleration allowable before the device stops correcting to the acceleration vector.
+                - magTime: The time it will take to correct the heading 95% of the way to aligning with the compass (in seconds),up to 15 degrees of error. Beyond 15 degrees, this is the time it will take for the bearing to move 45 degrees towards the compass reading. Remember you can zero the algorithm at any time to instantly realign the spatial with acceleration and magnetic field vectors regardless of magnitude.
+                - accelTime: The time it will take to correct the pitch and roll 95% of the way to aligning with the accelerometer (in seconds).
+                - biasTime: The time it will take to have the gyro biases settle to within 95% of the measured steady state (in seconds).
+
+        Raises
+        ------
+        PhidgetError
+            A Phidget error occurred.
+        """
+        _angularVelocityThreshold = ctypes.c_double()
+        _angularVelocityDeltaThreshold = ctypes.c_double()
+        _accelerationThreshold = ctypes.c_double()
+        _magTime = ctypes.c_double()
+        _accelTime = ctypes.c_double()
+        _biasTime = ctypes.c_double()
+
+        __func = PhidgetSupport.getDll().PhidgetSpatial_getAHRSParameters
+        __func.restype = ctypes.c_int32
+        result = __func(
+            self._handle,
+            ctypes.byref(_angularVelocityThreshold),
+            ctypes.byref(_angularVelocityDeltaThreshold),
+            ctypes.byref(_accelerationThreshold),
+            ctypes.byref(_magTime),
+            ctypes.byref(_accelTime),
+            ctypes.byref(_biasTime),
+        )
+
+        if result > 0:
+            raise PhidgetException(result)
+
+        return (
+            _angularVelocityThreshold.value,
+            _angularVelocityDeltaThreshold.value,
+            _accelerationThreshold.value,
+            _magTime.value,
+            _accelTime.value,
+            _biasTime.value,
+        )
+
     def setAHRSParameters(
         self,
         angularVelocityThreshold,

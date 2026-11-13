@@ -123,6 +123,15 @@ def _mode_option():
     )
 
 
+def _engine_option():
+    return typer.Option(
+        None, "--engine",
+        click_type=click.Choice(["standard", "lightning"]),
+        help="Praxis-1's engine (experimental): standard (default) or lightning, the same "
+        "actions faster.",
+    )
+
+
 def _max_actions_option():
     return typer.Option(
         None,
@@ -251,7 +260,7 @@ _POLICY_OPTIONS = (
     "mode", "max_actions", "keep_warm", "region", "provider", "rtc", "checkpoint", "context",
     "action_smoothing", "smoothing_new_weight", "smoothing_correction_steps",
     "smoothing_reference_speed", "trace_dir", "trace_images", "hud", "hud_job",
-    "steady_send", "steady_send_ms",
+    "steady_send", "steady_send_ms", "engine",
 )
 
 
@@ -567,6 +576,26 @@ def doctor(
     _run(run_doctor, mode=mode)
 
 
+def _sim_list(benchmark: str | None, task_suite: str | None, *, json_output: bool) -> None:
+    """`dreamscale sim [<benchmark>] [--task-suite <suite>] --list`: offline, no --model."""
+    from dreamscale.sim.benchmarks import BENCHMARK_MODELS
+    from dreamscale.sim.task_list import run_list
+
+    if benchmark is None and task_suite is not None:
+        raise typer.BadParameter("--task-suite needs a benchmark: dreamscale sim <benchmark> "
+                                 "--task-suite <suite> --list", param_hint="--task-suite")
+    if benchmark is not None and benchmark not in BENCHMARK_MODELS:
+        raise typer.BadParameter(
+            "choose a benchmark: dreamscale sim libero, robocasa365, molmospaces, roboeval "
+            "or abc",
+            param_hint="benchmark",
+        )
+    try:
+        run_list(benchmark, task_suite, json_output=json_output, print_fn=typer.echo)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--task-suite") from exc
+
+
 @app.command(cls=SteadySendCommand)
 def sim(
     ctx: typer.Context,
@@ -617,7 +646,7 @@ def sim(
     non_interactive: bool = typer.Option(
         False,
         "--non-interactive",
-        help="No viewer; print a JSON summary at the end.",
+        help="No viewer; print a JSON summary at the end (with --list: the list as JSON).",
     ),
     transport: Annotated[
         SimTransport,
@@ -641,8 +670,17 @@ def sim(
     ] = None,
     steady_send: bool = _steady_send_options()[0],
     steady_send_ms: str | None = _steady_send_options()[1],
+    list_tasks: bool = typer.Option(
+        False,
+        "--list",
+        help="List the benchmarks, a benchmark's suites, or with --task-suite its tasks, "
+        "instead of running one.",
+    ),
 ) -> None:
     """Run a task on a simulated benchmark."""
+    if list_tasks:
+        _sim_list(benchmark, task_suite, json_output=non_interactive)
+        return
     if (
         benchmark is None
         and task_suite is None
@@ -665,6 +703,7 @@ def sim(
     from dreamscale.sim.benchmarks import (
         BENCHMARK_LABELS,
         BENCHMARK_MODELS,
+        DEFAULT_SUITES,
         default_task_horizon,
         validate_selection,
     )
@@ -679,8 +718,7 @@ def sim(
             param_hint="benchmark",
         )
     if benchmark == "libero":
-        # The browser try-it's first task too: π0.5 LIBERO completes it reliably.
-        task_suite = task_suite or "libero_spatial"
+        task_suite = task_suite or DEFAULT_SUITES[benchmark]
         task_id = task_id or "0"
     if model is None:
         from dreamscale import errors
@@ -691,16 +729,8 @@ def sim(
             param_type="option",
         )
     keep_warm = _keep_warm(model, keep_warm)
-    if benchmark == "molmospaces":
-        task_suite = task_suite or "all"
-        task_id = task_id or "0"
-    elif benchmark == "roboeval":
-        task_suite = task_suite or "lift_pot"
-        task_id = task_id or "0"
-    elif benchmark == "abc":
-        from dreamscale.sim.abc_catalog import DEFAULT_TASK
-
-        task_suite = task_suite or DEFAULT_TASK
+    if benchmark in ("molmospaces", "roboeval", "abc"):
+        task_suite = task_suite or DEFAULT_SUITES[benchmark]
         task_id = task_id or "0"
     if task_suite is None or task_id is None:
         missing = [
@@ -2202,6 +2232,7 @@ def _robot_run_command(embodiment):
             f"Required: your deployment for {embodiment.label}, as <account>/<slug>.",
         )),
         ("mode", str, _mode_option()),
+        ("engine", str | None, _engine_option()),
         *([("config", Annotated[Path | None, typer.Option("--config", help="Rig config path.")],
             None)] if embodiment.rig_config else []),
         ("max_actions", int | None, _max_actions_option()),
@@ -2323,14 +2354,19 @@ def _run_robot(embodiment, *, ctx, model, instruction, effort, max_cost, config=
     from dreamscale.model_names import resolve_llm_model
 
     region_fallback = options.pop("region_fallback", None)
+    engine = options.pop("engine", None)
+    session_options = {
+        **({"region_fallback": region_fallback} if region_fallback is not None else {}),
+        **({"engine": engine} if engine is not None else {}),
+    }
     connect_options = {}
-    if region_fallback is not None:
+    if session_options:
         from dreamscale.policy.remote import aconnect
 
-        async def regional_connect(*args, **kwargs):
-            return await aconnect(*args, region_fallback=region_fallback, **kwargs)
+        async def session_connect(*args, **kwargs):
+            return await aconnect(*args, **session_options, **kwargs)
 
-        connect_options["connect"] = regional_connect
+        connect_options["connect"] = session_connect
     model, options["checkpoint"] = _model_or_deployment(model, options.get("checkpoint"))
     model = _deployment_model(embodiment, model, options.get("checkpoint"))
     if model is None:

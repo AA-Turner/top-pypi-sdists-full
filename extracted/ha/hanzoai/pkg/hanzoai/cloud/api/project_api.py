@@ -31,6 +31,7 @@ from hanzoai.cloud.models.project_projects_domain import ProjectProjectsDomain
 from hanzoai.cloud.models.project_projects_domains import ProjectProjectsDomains
 from hanzoai.cloud.models.project_projects_domains_bind import ProjectProjectsDomainsBind
 from hanzoai.cloud.models.project_projects_fork import ProjectProjectsFork
+from hanzoai.cloud.models.project_projects_objects import ProjectProjectsObjects
 from hanzoai.cloud.models.project_projects_project import ProjectProjectsProject
 from hanzoai.cloud.models.project_projects_publish import ProjectProjectsPublish
 from hanzoai.cloud.models.project_projects_release import ProjectProjectsRelease
@@ -1907,6 +1908,283 @@ class ProjectApi:
 
 
     @validate_call
+    def get_project_by_slug_deployments_by_id_objects(
+        self,
+        slug: Annotated[StrictStr, Field(description="Slug is the project the deployment belongs to, from the path.")],
+        id: Annotated[StrictStr, Field(description="ID is the deployment id, from the path. A deployment of another project — or of another tenant's project — is not found.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ProjectProjectsObjects:
+        """Returns every object under a deployment's prefix as the object store itself records it: each key relative to the prefix, its size in bytes and its ETag.
+
+        Returns every object under a deployment's prefix as the object store itself records it: each key relative to the prefix, its size in bytes and its ETag.  It is what lets a publisher upload only what changed. The publisher diffs its export against this listing — the store's own record, never a manifest kept from an earlier run — and uploads the files that differ or are absent; an object written in one part carries the MD5 of its bytes as its ETag, so a local digest is the whole comparison. A file the diff wrongly skips is still caught: the completion refuses a release while any key of its manifest is absent.  The listing is whole or refused. A store that is unconfigured or fails while listing answers 503 naming the cause, never a partial list.  Scope: a validated principal is required (401 without one). Both the project and the deployment are resolved within that principal's org, so a deployment of another project — or of another tenant — is a 404.
+
+        :param slug: Slug is the project the deployment belongs to, from the path. (required)
+        :type slug: str
+        :param id: ID is the deployment id, from the path. A deployment of another project — or of another tenant's project — is not found. (required)
+        :type id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_project_by_slug_deployments_by_id_objects_serialize(
+            slug=slug,
+            id=id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ProjectProjectsObjects",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_project_by_slug_deployments_by_id_objects_with_http_info(
+        self,
+        slug: Annotated[StrictStr, Field(description="Slug is the project the deployment belongs to, from the path.")],
+        id: Annotated[StrictStr, Field(description="ID is the deployment id, from the path. A deployment of another project — or of another tenant's project — is not found.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[ProjectProjectsObjects]:
+        """Returns every object under a deployment's prefix as the object store itself records it: each key relative to the prefix, its size in bytes and its ETag.
+
+        Returns every object under a deployment's prefix as the object store itself records it: each key relative to the prefix, its size in bytes and its ETag.  It is what lets a publisher upload only what changed. The publisher diffs its export against this listing — the store's own record, never a manifest kept from an earlier run — and uploads the files that differ or are absent; an object written in one part carries the MD5 of its bytes as its ETag, so a local digest is the whole comparison. A file the diff wrongly skips is still caught: the completion refuses a release while any key of its manifest is absent.  The listing is whole or refused. A store that is unconfigured or fails while listing answers 503 naming the cause, never a partial list.  Scope: a validated principal is required (401 without one). Both the project and the deployment are resolved within that principal's org, so a deployment of another project — or of another tenant — is a 404.
+
+        :param slug: Slug is the project the deployment belongs to, from the path. (required)
+        :type slug: str
+        :param id: ID is the deployment id, from the path. A deployment of another project — or of another tenant's project — is not found. (required)
+        :type id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_project_by_slug_deployments_by_id_objects_serialize(
+            slug=slug,
+            id=id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ProjectProjectsObjects",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_project_by_slug_deployments_by_id_objects_without_preload_content(
+        self,
+        slug: Annotated[StrictStr, Field(description="Slug is the project the deployment belongs to, from the path.")],
+        id: Annotated[StrictStr, Field(description="ID is the deployment id, from the path. A deployment of another project — or of another tenant's project — is not found.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Returns every object under a deployment's prefix as the object store itself records it: each key relative to the prefix, its size in bytes and its ETag.
+
+        Returns every object under a deployment's prefix as the object store itself records it: each key relative to the prefix, its size in bytes and its ETag.  It is what lets a publisher upload only what changed. The publisher diffs its export against this listing — the store's own record, never a manifest kept from an earlier run — and uploads the files that differ or are absent; an object written in one part carries the MD5 of its bytes as its ETag, so a local digest is the whole comparison. A file the diff wrongly skips is still caught: the completion refuses a release while any key of its manifest is absent.  The listing is whole or refused. A store that is unconfigured or fails while listing answers 503 naming the cause, never a partial list.  Scope: a validated principal is required (401 without one). Both the project and the deployment are resolved within that principal's org, so a deployment of another project — or of another tenant — is a 404.
+
+        :param slug: Slug is the project the deployment belongs to, from the path. (required)
+        :type slug: str
+        :param id: ID is the deployment id, from the path. A deployment of another project — or of another tenant's project — is not found. (required)
+        :type id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_project_by_slug_deployments_by_id_objects_serialize(
+            slug=slug,
+            id=id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ProjectProjectsObjects",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_project_by_slug_deployments_by_id_objects_serialize(
+        self,
+        slug,
+        id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if slug is not None:
+            _path_params['slug'] = slug
+        if id is not None:
+            _path_params['id'] = id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json', 
+                    'application/problem+json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'bearer'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/v1/project/{slug}/deployments/{id}/objects',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def get_project_by_slug_domains(
         self,
         slug: Annotated[StrictStr, Field(description="Slug is the project to act on, from the path. It is unique within the caller's org and nowhere else, so another tenant's slug is a 404.")],
@@ -3458,7 +3736,7 @@ class ProjectApi:
     ) -> TagConfig:
         """The site's browser tag set for the hosted tag — which pixels to inject, by publishable key
 
-        Returns the client-side pixels the SITE has connected (GA4, Google Ads, LinkedIn, Meta, Pinterest, Reddit, TikTok, X) with their NON-SECRET ids, so the hosted tag injects them first-party and stamps each browser event with the same event_id the server-side Conversions API uses — deduping the two. Resolved per site: by the publishable key on ?key= when it names a project, else by the request host, so hanzo.ai and hanzo.chat carry different tags under one org. WITHOUT a resolvable site it answers an empty set at 200 — a page never breaks on its tag config. `audience` says who is asking — `bot` (automation, a crawler, or a cloud provider's published address), `internal` (a member of the site's org, by the IAM bearer the page sends, or an address in the project's internal networks) or `person` — and the set answers for it: nothing for a bot, Google Analytics alone for the team. A site that reports to several Meta pixels names each (comma separated on the project's `meta`), and each is a tag of its own. `consent` is the visitor's rule for the third-party tags: opt-in wherever they are, none before a choice, and `refused` when the request carried Global Privacy Control or Do Not Track. The site's own first-party stream is not governed by it.
+        Returns the client-side pixels the SITE has connected (GA4, Google Ads, LinkedIn, Meta, Pinterest, Reddit, TikTok, X) with their NON-SECRET ids, so the hosted tag injects them first-party and stamps each browser event with the same event_id the server-side Conversions API uses — deduping the two. Resolved per site: by the publishable key on ?key= when it names a project, else by the request host, so hanzo.ai and hanzo.chat carry different tags under one org. WITHOUT a resolvable site it answers an empty set at 200 — a page never breaks on its tag config. `audience` says who is asking — `bot` (automation, a crawler, or a cloud provider's published address), `internal` (a member of the site's org, by the IAM bearer the page sends, or an address in the project's internal networks) or `person` — and the set answers for it: nothing for a bot, Google Analytics alone for the team. A site that reports to several Meta pixels names each (comma separated on the project's `meta`), and each is a tag of its own. `consent` is the visitor's rule for the third-party tags, decided per request from the country and US state Cloudflare attests: `eu` (the EU, the EEA, the UK and Switzerland, and any visitor no edge placed: before a choice Google Analytics runs cookieless under Consent Mode denied, Meta is held revoked, nothing else loads), `us_privacy` (a US state with a privacy law, or a US visitor with no attested state: everything runs, the visitor opts out of sale or sharing) or `global` (everywhere else: everything runs, with a notice); `defaults` is the categories granted before a choice, `refused` says the request carried Global Privacy Control or Do Not Track (no third party loads, in any region), and a choice's grants count when stored under a version from `floor` to `version`. The tag set is the same under every rule; the page gates it. The answer is per visitor and never cached by a shared cache. The site's own first-party stream is not governed by it.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3521,7 +3799,7 @@ class ProjectApi:
     ) -> ApiResponse[TagConfig]:
         """The site's browser tag set for the hosted tag — which pixels to inject, by publishable key
 
-        Returns the client-side pixels the SITE has connected (GA4, Google Ads, LinkedIn, Meta, Pinterest, Reddit, TikTok, X) with their NON-SECRET ids, so the hosted tag injects them first-party and stamps each browser event with the same event_id the server-side Conversions API uses — deduping the two. Resolved per site: by the publishable key on ?key= when it names a project, else by the request host, so hanzo.ai and hanzo.chat carry different tags under one org. WITHOUT a resolvable site it answers an empty set at 200 — a page never breaks on its tag config. `audience` says who is asking — `bot` (automation, a crawler, or a cloud provider's published address), `internal` (a member of the site's org, by the IAM bearer the page sends, or an address in the project's internal networks) or `person` — and the set answers for it: nothing for a bot, Google Analytics alone for the team. A site that reports to several Meta pixels names each (comma separated on the project's `meta`), and each is a tag of its own. `consent` is the visitor's rule for the third-party tags: opt-in wherever they are, none before a choice, and `refused` when the request carried Global Privacy Control or Do Not Track. The site's own first-party stream is not governed by it.
+        Returns the client-side pixels the SITE has connected (GA4, Google Ads, LinkedIn, Meta, Pinterest, Reddit, TikTok, X) with their NON-SECRET ids, so the hosted tag injects them first-party and stamps each browser event with the same event_id the server-side Conversions API uses — deduping the two. Resolved per site: by the publishable key on ?key= when it names a project, else by the request host, so hanzo.ai and hanzo.chat carry different tags under one org. WITHOUT a resolvable site it answers an empty set at 200 — a page never breaks on its tag config. `audience` says who is asking — `bot` (automation, a crawler, or a cloud provider's published address), `internal` (a member of the site's org, by the IAM bearer the page sends, or an address in the project's internal networks) or `person` — and the set answers for it: nothing for a bot, Google Analytics alone for the team. A site that reports to several Meta pixels names each (comma separated on the project's `meta`), and each is a tag of its own. `consent` is the visitor's rule for the third-party tags, decided per request from the country and US state Cloudflare attests: `eu` (the EU, the EEA, the UK and Switzerland, and any visitor no edge placed: before a choice Google Analytics runs cookieless under Consent Mode denied, Meta is held revoked, nothing else loads), `us_privacy` (a US state with a privacy law, or a US visitor with no attested state: everything runs, the visitor opts out of sale or sharing) or `global` (everywhere else: everything runs, with a notice); `defaults` is the categories granted before a choice, `refused` says the request carried Global Privacy Control or Do Not Track (no third party loads, in any region), and a choice's grants count when stored under a version from `floor` to `version`. The tag set is the same under every rule; the page gates it. The answer is per visitor and never cached by a shared cache. The site's own first-party stream is not governed by it.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3584,7 +3862,7 @@ class ProjectApi:
     ) -> RESTResponseType:
         """The site's browser tag set for the hosted tag — which pixels to inject, by publishable key
 
-        Returns the client-side pixels the SITE has connected (GA4, Google Ads, LinkedIn, Meta, Pinterest, Reddit, TikTok, X) with their NON-SECRET ids, so the hosted tag injects them first-party and stamps each browser event with the same event_id the server-side Conversions API uses — deduping the two. Resolved per site: by the publishable key on ?key= when it names a project, else by the request host, so hanzo.ai and hanzo.chat carry different tags under one org. WITHOUT a resolvable site it answers an empty set at 200 — a page never breaks on its tag config. `audience` says who is asking — `bot` (automation, a crawler, or a cloud provider's published address), `internal` (a member of the site's org, by the IAM bearer the page sends, or an address in the project's internal networks) or `person` — and the set answers for it: nothing for a bot, Google Analytics alone for the team. A site that reports to several Meta pixels names each (comma separated on the project's `meta`), and each is a tag of its own. `consent` is the visitor's rule for the third-party tags: opt-in wherever they are, none before a choice, and `refused` when the request carried Global Privacy Control or Do Not Track. The site's own first-party stream is not governed by it.
+        Returns the client-side pixels the SITE has connected (GA4, Google Ads, LinkedIn, Meta, Pinterest, Reddit, TikTok, X) with their NON-SECRET ids, so the hosted tag injects them first-party and stamps each browser event with the same event_id the server-side Conversions API uses — deduping the two. Resolved per site: by the publishable key on ?key= when it names a project, else by the request host, so hanzo.ai and hanzo.chat carry different tags under one org. WITHOUT a resolvable site it answers an empty set at 200 — a page never breaks on its tag config. `audience` says who is asking — `bot` (automation, a crawler, or a cloud provider's published address), `internal` (a member of the site's org, by the IAM bearer the page sends, or an address in the project's internal networks) or `person` — and the set answers for it: nothing for a bot, Google Analytics alone for the team. A site that reports to several Meta pixels names each (comma separated on the project's `meta`), and each is a tag of its own. `consent` is the visitor's rule for the third-party tags, decided per request from the country and US state Cloudflare attests: `eu` (the EU, the EEA, the UK and Switzerland, and any visitor no edge placed: before a choice Google Analytics runs cookieless under Consent Mode denied, Meta is held revoked, nothing else loads), `us_privacy` (a US state with a privacy law, or a US visitor with no attested state: everything runs, the visitor opts out of sale or sharing) or `global` (everywhere else: everything runs, with a notice); `defaults` is the categories granted before a choice, `refused` says the request carried Global Privacy Control or Do Not Track (no third party loads, in any region), and a choice's grants count when stored under a version from `floor` to `version`. The tag set is the same under every rule; the page gates it. The answer is per visitor and never cached by a shared cache. The site's own first-party stream is not governed by it.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4859,7 +5137,7 @@ class ProjectApi:
     ) -> ProjectProjectsDeployment:
         """CompleteDeployment is the CI completion hook that flips a queued git deployment to live (or error) once CI has synced the built site to S3.
 
-        CompleteDeployment is the CI completion hook that flips a queued git deployment to live (or error) once CI has synced the built site to S3.  `status` must be `live` or `error`. On a LIVE completion the public host is claimed FIRST, so the deployment reports the URL it actually OWNS — a CI-supplied `liveUrl` is a hint that can refine that URL but can never assert a subdomain another tenant holds. `keys` is the manifest CI just uploaded, relative to the deployment prefix: cloud reconciles the prefix against it so a page deleted from the build actually stops serving. Omit `keys` and nothing is deleted — the prefix only grows. Reconciliation runs only on a live completion (pruning against a failed build's manifest would delete the site the last good build is still serving) and is best-effort, so a stale leftover never turns a successful deploy into a 500. No completion is charged: the site is billed for the storage it holds, and a live completion re-measures its org.  Scope: a validated principal is required (401 without one). CI authenticates with an org-scoped token through the gateway, so the deployment is resolved within that principal's org and another tenant's slug or deployment id is a 404.
+        CompleteDeployment is the CI completion hook that flips a queued git deployment to live (or error) once CI has synced the built site to S3.  `status` must be `live` or `error`. On a LIVE completion the public host is claimed FIRST, so the deployment reports the URL it actually OWNS — a CI-supplied `liveUrl` is a hint that can refine that URL but can never assert a subdomain another tenant holds. `keys` is the whole release, relative to the deployment prefix: cloud reconciles the prefix against it so a page deleted from the build actually stops serving. A fingerprinted asset the release drops stays up to 36 hours, so a tab opened on the previous release can still load its chunks. Omit `keys` and nothing is deleted — the prefix only grows. Reconciliation runs only on a live completion (pruning against a failed build's manifest would delete the site the last good build is still serving) and is best-effort, so a stale leftover never turns a successful deploy into a 500. No completion is charged: the site is billed for the storage it holds, and a live completion re-measures its org.  A live completion that names `keys` is not taken on trust. The objects `copy` names are first copied from the `copyFrom` site's prefix, then the prefix is listed, and while any key of the manifest is absent the answer is 409 naming how many and the first of them. A store that cannot be listed is a 503, and a copy that fails is a 502 naming the key. Each of those leaves the deployment queued — a release that cannot be proven whole is never marked live — so the publisher uploads what is missing and completes again.  Scope: a validated principal is required (401 without one). CI authenticates with an org-scoped token through the gateway, so the deployment is resolved within that principal's org and another tenant's slug or deployment id is a 404.
 
         :param slug: Slug is the project the deployment belongs to, from the path. (required)
         :type slug: str
@@ -4934,7 +5212,7 @@ class ProjectApi:
     ) -> ApiResponse[ProjectProjectsDeployment]:
         """CompleteDeployment is the CI completion hook that flips a queued git deployment to live (or error) once CI has synced the built site to S3.
 
-        CompleteDeployment is the CI completion hook that flips a queued git deployment to live (or error) once CI has synced the built site to S3.  `status` must be `live` or `error`. On a LIVE completion the public host is claimed FIRST, so the deployment reports the URL it actually OWNS — a CI-supplied `liveUrl` is a hint that can refine that URL but can never assert a subdomain another tenant holds. `keys` is the manifest CI just uploaded, relative to the deployment prefix: cloud reconciles the prefix against it so a page deleted from the build actually stops serving. Omit `keys` and nothing is deleted — the prefix only grows. Reconciliation runs only on a live completion (pruning against a failed build's manifest would delete the site the last good build is still serving) and is best-effort, so a stale leftover never turns a successful deploy into a 500. No completion is charged: the site is billed for the storage it holds, and a live completion re-measures its org.  Scope: a validated principal is required (401 without one). CI authenticates with an org-scoped token through the gateway, so the deployment is resolved within that principal's org and another tenant's slug or deployment id is a 404.
+        CompleteDeployment is the CI completion hook that flips a queued git deployment to live (or error) once CI has synced the built site to S3.  `status` must be `live` or `error`. On a LIVE completion the public host is claimed FIRST, so the deployment reports the URL it actually OWNS — a CI-supplied `liveUrl` is a hint that can refine that URL but can never assert a subdomain another tenant holds. `keys` is the whole release, relative to the deployment prefix: cloud reconciles the prefix against it so a page deleted from the build actually stops serving. A fingerprinted asset the release drops stays up to 36 hours, so a tab opened on the previous release can still load its chunks. Omit `keys` and nothing is deleted — the prefix only grows. Reconciliation runs only on a live completion (pruning against a failed build's manifest would delete the site the last good build is still serving) and is best-effort, so a stale leftover never turns a successful deploy into a 500. No completion is charged: the site is billed for the storage it holds, and a live completion re-measures its org.  A live completion that names `keys` is not taken on trust. The objects `copy` names are first copied from the `copyFrom` site's prefix, then the prefix is listed, and while any key of the manifest is absent the answer is 409 naming how many and the first of them. A store that cannot be listed is a 503, and a copy that fails is a 502 naming the key. Each of those leaves the deployment queued — a release that cannot be proven whole is never marked live — so the publisher uploads what is missing and completes again.  Scope: a validated principal is required (401 without one). CI authenticates with an org-scoped token through the gateway, so the deployment is resolved within that principal's org and another tenant's slug or deployment id is a 404.
 
         :param slug: Slug is the project the deployment belongs to, from the path. (required)
         :type slug: str
@@ -5009,7 +5287,7 @@ class ProjectApi:
     ) -> RESTResponseType:
         """CompleteDeployment is the CI completion hook that flips a queued git deployment to live (or error) once CI has synced the built site to S3.
 
-        CompleteDeployment is the CI completion hook that flips a queued git deployment to live (or error) once CI has synced the built site to S3.  `status` must be `live` or `error`. On a LIVE completion the public host is claimed FIRST, so the deployment reports the URL it actually OWNS — a CI-supplied `liveUrl` is a hint that can refine that URL but can never assert a subdomain another tenant holds. `keys` is the manifest CI just uploaded, relative to the deployment prefix: cloud reconciles the prefix against it so a page deleted from the build actually stops serving. Omit `keys` and nothing is deleted — the prefix only grows. Reconciliation runs only on a live completion (pruning against a failed build's manifest would delete the site the last good build is still serving) and is best-effort, so a stale leftover never turns a successful deploy into a 500. No completion is charged: the site is billed for the storage it holds, and a live completion re-measures its org.  Scope: a validated principal is required (401 without one). CI authenticates with an org-scoped token through the gateway, so the deployment is resolved within that principal's org and another tenant's slug or deployment id is a 404.
+        CompleteDeployment is the CI completion hook that flips a queued git deployment to live (or error) once CI has synced the built site to S3.  `status` must be `live` or `error`. On a LIVE completion the public host is claimed FIRST, so the deployment reports the URL it actually OWNS — a CI-supplied `liveUrl` is a hint that can refine that URL but can never assert a subdomain another tenant holds. `keys` is the whole release, relative to the deployment prefix: cloud reconciles the prefix against it so a page deleted from the build actually stops serving. A fingerprinted asset the release drops stays up to 36 hours, so a tab opened on the previous release can still load its chunks. Omit `keys` and nothing is deleted — the prefix only grows. Reconciliation runs only on a live completion (pruning against a failed build's manifest would delete the site the last good build is still serving) and is best-effort, so a stale leftover never turns a successful deploy into a 500. No completion is charged: the site is billed for the storage it holds, and a live completion re-measures its org.  A live completion that names `keys` is not taken on trust. The objects `copy` names are first copied from the `copyFrom` site's prefix, then the prefix is listed, and while any key of the manifest is absent the answer is 409 naming how many and the first of them. A store that cannot be listed is a 503, and a copy that fails is a 502 naming the key. Each of those leaves the deployment queued — a release that cannot be proven whole is never marked live — so the publisher uploads what is missing and completes again.  Scope: a validated principal is required (401 without one). CI authenticates with an org-scoped token through the gateway, so the deployment is resolved within that principal's org and another tenant's slug or deployment id is a 404.
 
         :param slug: Slug is the project the deployment belongs to, from the path. (required)
         :type slug: str

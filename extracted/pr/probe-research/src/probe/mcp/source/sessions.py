@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 import re
+from typing import Any
 
 from ...sdk import errors
+from probe.mcp.source.people import PeopleFilters
 from ..delivery.context import current_delivery, source_changed
 
 # The agents whose sessions the capture pipeline records, in the order a bare
@@ -44,6 +46,23 @@ class SessionReadsMixin:
         return self.client.transport.get(
             f"/v1/artifacts/{artifact_id}/sessions", params={"limit": limit}
         )
+
+    def fetch_sessions(
+        self,
+        *,
+        filters: PeopleFilters,
+        project_id: str | None = None,
+        cursor: str | None = None,
+        limit: int,
+    ) -> dict:
+        """``GET /v1/sessions``: one page of the team's agent sessions, newest activity first:
+        `{sessions, next_cursor, owner_matched?, unowned_count?}` (people and time filters B1)."""
+        parameters: dict[str, Any] = {"limit": limit, **filters.to_query()}
+        if project_id:
+            parameters["project_id"] = project_id
+        if cursor:
+            parameters["cursor"] = cursor
+        return self.client.transport.get("/v1/sessions", params=parameters) or {}
 
     # -- an entity's sessions, one page at a time ------------------------------
 

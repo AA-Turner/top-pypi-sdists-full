@@ -133,9 +133,16 @@ class TestTransientError:
         assert "Attempt: 2/5" in str(err)
 
     def test_with_execution_context(self):
-        ctx = {"query": "SELECT 1"}
+        ctx = {"host": "h", "port": 9200}
         err = TransientError("timeout", execution_context=ctx)
-        assert "query: SELECT 1" in str(err)
+        assert "host: h" in str(err)
+        assert "port: 9200" in str(err)
+
+    def test_execution_context_omits_sql(self):
+        ctx = {"query": "SELECT secret_col", "sql": "SELECT secret_col", "host": "h"}
+        err = TransientError("timeout", execution_context=ctx)
+        assert "SELECT" not in str(err)
+        assert "host: h" in str(err)
 
 
 class TestQueryExecutionError:
@@ -148,14 +155,9 @@ class TestQueryExecutionError:
     def test_with_query_and_error_type(self):
         err = QueryExecutionError("failed", query="SELECT *", error_type="parsing_exception")
         result = str(err)
-        assert "Query: SELECT *" in result
+        assert "SELECT" not in result
         assert "Error type: parsing_exception" in result
-
-    def test_long_query_truncated(self):
-        long_query = "SELECT " + "a, " * 100
-        err = QueryExecutionError("failed", query=long_query)
-        result = str(err)
-        assert "..." in result
+        assert err.query == "SELECT *"
 
 
 class TestMapOpensearchException:

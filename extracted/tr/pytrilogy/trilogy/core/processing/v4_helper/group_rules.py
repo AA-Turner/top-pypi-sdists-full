@@ -16,6 +16,7 @@ from collections.abc import Callable, Collection, Iterable, Sequence
 from functools import partial
 
 from trilogy.core import graph as nx
+from trilogy.core.constants import ALL_ROWS_ADDRESS
 from trilogy.core.enums import (
     AggregateGroupingMode,
     Derivation,
@@ -813,6 +814,28 @@ def _cosource_component_groups(
                 node_j, data_j = main_items[j]
                 if data_i.datasource_bindings & data_j.datasource_bindings:
                     undirected.add_edge(node_i, node_j)
+        # A WHERE row argument filters every scan of the select's rows: a root
+        # bound beside it is read under it, aggregate or not. Without a shared
+        # consumer (a summary serving one aggregate, the trees another) the
+        # split would read the other scan unfiltered
+        # (`Rollup.where_filters_every_scan`). A dimension's column filters
+        # every scan binding its key (`tree_form` the trees, through `species`).
+        for i in range(n):
+            node_i, data_i = main_items[i]
+            if not data_i.where_row_arg or not data_i.datasource_bindings:
+                continue
+            determinants = data_i.keys | data_i.determining_key_roots
+            bindings = data_i.datasource_bindings.union(
+                *(
+                    data_k.datasource_bindings
+                    for _, data_k in main_items
+                    if data_k.address in determinants
+                )
+            )
+            for j in range(n):
+                node_j, data_j = main_items[j]
+                if i != j and bindings & data_j.datasource_bindings:
+                    undirected.add_edge(node_i, node_j)
         comp_of: dict[str, int] = {}
         for ci, comp in enumerate(nx.connected_components(undirected)):
             for node in comp:
@@ -856,6 +879,69 @@ def _cosource_component_groups(
         [main_items[i] for i in member_indices]
         for member_indices in _components(n, related)
     ]
+
+
+def _feeds_only_global_aggregates(
+    node: str,
+    concept_graph: nx.DiGraph,
+    concept_edges: EdgeMap,
+    concept_attrs: dict[str, ConceptAttrs],
+    output_addresses: frozenset[str],
+) -> bool:
+    """Every path from `node` ends at a `by *` aggregate, through row-level
+    BASIC/FILTER steps only: its rows exist only to be collapsed into a
+    constant of the query, which the aggregate sources on its own."""
+    visited = {node}
+    stack = [node]
+    while stack:
+        cur = stack.pop()
+        succs = list(concept_graph.successors(cur))
+        if not succs or concept_attrs[cur].address in output_addresses:
+            return False
+        for nxt in succs:
+            if edge_kind(concept_edges, cur, nxt) != EdgeKind.LINEAGE:
+                return False
+            data = concept_attrs[nxt]
+            if data.derivation == Derivation.AGGREGATE:
+                if not set(data.grain_components) <= {ALL_ROWS_ADDRESS}:
+                    return False
+                continue
+            if data.derivation not in (Derivation.BASIC, Derivation.FILTER):
+                return False
+            if nxt not in visited:
+                visited.add(nxt)
+                stack.append(nxt)
+    return True
+
+
+def _global_aggregate_inputs(
+    main_items: list[NodeItem],
+    concept_graph: nx.DiGraph,
+    concept_edges: EdgeMap,
+    concept_attrs: dict[str, ConceptAttrs],
+    output_addresses: frozenset[str],
+) -> list[NodeItem]:
+    """Roots read only by `by *` aggregates, on no table the other roots read.
+    Left in the row stream they cross-join their whole table onto its rows
+    (#953); the aggregate's one-row result is all the rows need. A WHERE
+    filters every scan of the statement's rows, so none is peeled under one."""
+    if any(d.where_row_arg for d in concept_attrs.values()):
+        return []
+    peeled = [
+        (n, d)
+        for n, d in main_items
+        if not (d.scan_filtered or d.relation_only)
+        and d.datasource_bindings
+        and _feeds_only_global_aggregates(
+            n, concept_graph, concept_edges, concept_attrs, output_addresses
+        )
+    ]
+    peeled_nodes = {n for n, _ in peeled}
+    rest = [(n, d) for n, d in main_items if n not in peeled_nodes]
+    rest_bindings = {b for _, d in rest for b in d.datasource_bindings}
+    if not rest or any(d.datasource_bindings & rest_bindings for _, d in peeled):
+        return []
+    return peeled
 
 
 def partition_roots(
@@ -926,6 +1012,12 @@ def partition_roots(
             if d.granularity != Granularity.SINGLE_ROW or d.scan_filtered
         ]
 
+        global_inputs = _global_aggregate_inputs(
+            main_items, concept_graph, concept_edges, concept_attrs, output_addresses
+        )
+        peeled_nodes = {n for n, _ in global_inputs}
+        main_items = [(n, d) for n, d in main_items if n not in peeled_nodes]
+
         component_groups: list[list[NodeItem]] = []
         for side_items in _relation_side_partitions(
             main_items, concept_graph, concept_edges
@@ -953,6 +1045,22 @@ def partition_roots(
                 sig_repr = "|".join(sorted(addr_of[node] for node, _ in members))
                 bucket.discriminator = f"split:{_sig_digest(sig_repr)}"
                 bucket.reason = RootReason.COMPONENT
+            for node, data in members:
+                _add_member(bucket, node, data)
+            buckets.append(bucket)
+
+        for members in _cosource_component_groups(
+            global_inputs, concept_graph, concept_edges, concept_attrs, output_addresses
+        ):
+            sig_repr = "|".join(sorted(addr_of[node] for node, _ in members))
+            bucket = _bucket_for(
+                depth_label=DepthLabel.ROOT,
+                derivation=Derivation.ROOT,
+                grain=frozenset(),
+                label=label_value,
+            )
+            bucket.discriminator = f"global_input:{_sig_digest(sig_repr)}"
+            bucket.reason = RootReason.COMPONENT
             for node, data in members:
                 _add_member(bucket, node, data)
             buckets.append(bucket)

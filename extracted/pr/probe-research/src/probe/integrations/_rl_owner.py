@@ -14,6 +14,7 @@ import weakref
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from probe.generated.records import RunType
 from probe.sdk import errors
 from probe.foundation.safe_warn import safe_warn as _diagnostics
 from probe.sdk.agent_session import ComposedName
@@ -133,6 +134,9 @@ def open_run(
         kwargs["project"] = probe.FROM_ENV
     if active is not None:
         kwargs.setdefault("reinit", "create_new")  # another adapter's open run stays open and bound
+    # Only a run this adapter creates is born `rl`; an adopted or joined one is someone's choice to keep
+    # (the server marks it `rl` on its first sample batch when nobody declared a type).
+    kwargs.setdefault("run_type", RunType.RL.value)
     run = probe.init(**{key: value for key, value in kwargs.items() if value is not None})
     OPENED_RUNS.add(str(run.id))
     if is_minted:

@@ -70,6 +70,7 @@ _DEFAULT_FIRST_MODEL_BACKENDS = frozenset(
         "zcode",
         "gemini",
         "goose",
+        "megacode",
         "host",
     }
 )
@@ -395,6 +396,7 @@ _CLI_PATH_GETTERS: dict[str, str] = {
     # Without this entry, ``detect_backend_cli("zcode")`` ignored the
     # configured path and Zcode was invisible to ``installed_backends()``.
     "zcode": "get_zcode_cli_path",
+    "megacode": "resolve_megacode_cli_path",
     "dsh": "get_dsh_cli_path",
 }
 
@@ -418,6 +420,10 @@ def detect_backend_cli(backend: str) -> str | None:
         from ouroboros.config import loader as config_loader
 
         configured = getattr(config_loader, getter_name)()
+        if capability.name == "megacode":
+            # The shared resolver already validated this path. Do not fall
+            # back to catalog PATH lookup, which accepts relative entries.
+            return configured
         if configured:
             configured_path = _resolve_executable_candidate(configured)
             if configured_path is not None:
@@ -464,7 +470,7 @@ def configured_default_model(backend: str) -> str | None:
             config_path = Path.home() / ".hermes" / "config.yaml"
             if not config_path.exists():
                 return None
-            data = yaml.safe_load(config_path.read_text()) or {}
+            data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
             model = data.get("model")
             if isinstance(model, dict):
                 value = model.get("default")
@@ -476,7 +482,7 @@ def configured_default_model(backend: str) -> str | None:
             config_path = resolve_codex_home() / "config.toml"
             if not config_path.exists():
                 return None
-            data = tomllib.loads(config_path.read_text())
+            data = tomllib.loads(config_path.read_text(encoding="utf-8"))
             value = data.get("model")
             return str(value) if value else None
     except Exception:  # noqa: BLE001 - a hint must never break the caller

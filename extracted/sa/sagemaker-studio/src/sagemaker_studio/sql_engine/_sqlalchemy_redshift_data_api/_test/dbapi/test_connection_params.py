@@ -140,9 +140,21 @@ class TestConnectionParams:
 
     def test_database_too_long(self):
         """Test validation fails for database name that's too long."""
-        long_name = "a" * 65  # 65 characters, max is 64
+        long_name = "a" * 128  # 128 characters, max is 127
         with pytest.raises(InterfaceError, match="database_name must start with"):
             ConnectionParams(cluster_identifier="my-cluster", database_name=long_name)
+
+    def test_database_at_max_length(self):
+        """Test validation accepts a database name at the 127-character limit."""
+        max_name = "a" * 127  # 127 characters, the maximum allowed
+        params = ConnectionParams(cluster_identifier="my-cluster", database_name=max_name)
+        assert params.database_name == max_name
+
+    def test_federated_s3_tables_database_name_is_accepted(self):
+        """A long <table-bucket>@s3tablescatalog name is valid (Express auto-mounts these)."""
+        database_name = "bb-l9b-database-name-length-check-s3tables-bucket01@s3tablescatalog"
+        params = ConnectionParams(workgroup_name="express-default", database_name=database_name)
+        assert params.database_name == database_name
 
     def test_invalid_db_user_format(self):
         """Test validation allows any characters in db_user (only length validation)."""

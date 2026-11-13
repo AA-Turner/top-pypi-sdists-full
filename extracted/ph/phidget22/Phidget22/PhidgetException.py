@@ -36,6 +36,9 @@ class PhidgetException(Exception):
     ----------
     code : ErrorCode | int
         The error code associated with the exception
+    details : str, optional
+        Details about the error. When omitted, the details are taken from the
+        last error reported by the Phidget22 library, if it matches code.
 
     Attributes
     ----------
@@ -47,39 +50,41 @@ class PhidgetException(Exception):
         The description of the exception
     """
 
-    def __init__(self, code):
+    def __init__(self, code, details=None):
 
         _code = ctypes.c_int()
         _desc = ctypes.c_char_p()
         _detailLen = ctypes.c_size_t()
 
-        self.details = ""
+        self.details = "" if details is None else details
         self.description = ""
         self.code = code
 
-        result = PhidgetSupport.getDll().Phidget_getLastError(
-            ctypes.byref(_code), ctypes.byref(_desc), None, ctypes.byref(_detailLen)
-        )
-        if result == 0 and _code.value == code:
-            _detail = ctypes.create_string_buffer(_detailLen.value)
+        # Errors raised by the Python library itself (details given) must not pick up the
+        # details of an unrelated earlier library error that happens to share the same code.
+        if details is None:
             result = PhidgetSupport.getDll().Phidget_getLastError(
-                ctypes.byref(_code),
-                ctypes.byref(_desc),
-                _detail,
-                ctypes.byref(_detailLen),
+                ctypes.byref(_code), ctypes.byref(_desc), None, ctypes.byref(_detailLen)
             )
-            if result == 0:
-                self.code = _code.value
-                self.details = _detail.value.decode("utf-8")
-                if _desc.value is not None:
-                    self.description = _desc.value.decode("utf-8")
-                return
+            if result == 0 and _code.value == code:
+                _detail = ctypes.create_string_buffer(_detailLen.value)
+                result = PhidgetSupport.getDll().Phidget_getLastError(
+                    ctypes.byref(_code),
+                    ctypes.byref(_desc),
+                    _detail,
+                    ctypes.byref(_detailLen),
+                )
+                if result == 0:
+                    self.code = _code.value
+                    self.details = _detail.value.decode("utf-8")
+                    if _desc.value is not None:
+                        self.description = _desc.value.decode("utf-8")
+                    return
 
         result = PhidgetSupport.getDll().Phidget_getErrorDescription(code, ctypes.byref(_desc))
 
         if result == 0:
             self.code = code
-            self.details = ""
             if _desc.value is not None:
                 self.description = _desc.value.decode("utf-8")
             return

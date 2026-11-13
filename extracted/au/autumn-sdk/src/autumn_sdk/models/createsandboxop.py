@@ -18,7 +18,7 @@ class CreateSandboxGlobals(BaseModel):
         Optional[str],
         pydantic.Field(alias="x-api-version"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
-    ] = "2.5.0"
+    ] = "2.6.0"
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -48,6 +48,109 @@ ColorRequest = Literal[
 r"""Colour the dashboard uses to label the sandbox. Defaults to `gray`."""
 
 
+class SandboxHeadOfficeTypedDict(TypedDict):
+    r"""Head office address for the sandbox's Stripe account. Stripe needs one before it calculates tax, so pass it when your organization has automatic tax on."""
+
+    line1: str
+    r"""Street address."""
+    city: str
+    r"""City or town."""
+    postal_code: str
+    r"""Postal or ZIP code."""
+    country: str
+    r"""Two-letter ISO country code, like `US` or `NZ`."""
+    line2: NotRequired[str]
+    r"""Apartment, suite or building."""
+    state: NotRequired[str]
+    r"""State, county, province or region."""
+
+
+class SandboxHeadOffice(BaseModel):
+    r"""Head office address for the sandbox's Stripe account. Stripe needs one before it calculates tax, so pass it when your organization has automatic tax on."""
+
+    line1: str
+    r"""Street address."""
+
+    city: str
+    r"""City or town."""
+
+    postal_code: str
+    r"""Postal or ZIP code."""
+
+    country: str
+    r"""Two-letter ISO country code, like `US` or `NZ`."""
+
+    line2: Optional[str] = None
+    r"""Apartment, suite or building."""
+
+    state: Optional[str] = None
+    r"""State, county, province or region."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["line2", "state"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k, serialized.get(n))
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
+
+TaxBehavior = Literal[
+    "exclusive",
+    "inclusive",
+    "inferred_by_currency",
+]
+r"""Whether Stripe adds tax on top of your prices (`exclusive`), treats it as already included (`inclusive`), or decides by currency (`inferred_by_currency`). Defaults to `exclusive`."""
+
+
+class CreateSandboxStripeTypedDict(TypedDict):
+    r"""Tax settings for the Stripe test account Autumn creates for the sandbox. Omit to leave that account as Stripe creates it."""
+
+    head_office: SandboxHeadOfficeTypedDict
+    r"""Head office address for the sandbox's Stripe account. Stripe needs one before it calculates tax, so pass it when your organization has automatic tax on."""
+    tax_behavior: NotRequired[TaxBehavior]
+    r"""Whether Stripe adds tax on top of your prices (`exclusive`), treats it as already included (`inclusive`), or decides by currency (`inferred_by_currency`). Defaults to `exclusive`."""
+    tax_code: NotRequired[str]
+    r"""Default Stripe tax code for the sandbox's prices, like `txcd_10000000` (electronically supplied services). Defaults to `txcd_10000000`."""
+
+
+class CreateSandboxStripe(BaseModel):
+    r"""Tax settings for the Stripe test account Autumn creates for the sandbox. Omit to leave that account as Stripe creates it."""
+
+    head_office: SandboxHeadOffice
+    r"""Head office address for the sandbox's Stripe account. Stripe needs one before it calculates tax, so pass it when your organization has automatic tax on."""
+
+    tax_behavior: Optional[TaxBehavior] = "exclusive"
+    r"""Whether Stripe adds tax on top of your prices (`exclusive`), treats it as already included (`inclusive`), or decides by currency (`inferred_by_currency`). Defaults to `exclusive`."""
+
+    tax_code: Optional[str] = "txcd_10000000"
+    r"""Default Stripe tax code for the sandbox's prices, like `txcd_10000000` (electronically supplied services). Defaults to `txcd_10000000`."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["tax_behavior", "tax_code"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k, serialized.get(n))
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
+
 class CreateSandboxParamsTypedDict(TypedDict):
     name: str
     r"""A name for the sandbox, unique within your organization. No spaces, and it can't be `live` or `sandbox`."""
@@ -55,6 +158,8 @@ class CreateSandboxParamsTypedDict(TypedDict):
     r"""Colour the dashboard uses to label the sandbox. Defaults to `gray`."""
     icon: NotRequired[str]
     r"""Icon the dashboard uses to label the sandbox. Defaults to `Flask`."""
+    stripe: NotRequired[CreateSandboxStripeTypedDict]
+    r"""Tax settings for the Stripe test account Autumn creates for the sandbox. Omit to leave that account as Stripe creates it."""
 
 
 class CreateSandboxParams(BaseModel):
@@ -67,9 +172,12 @@ class CreateSandboxParams(BaseModel):
     icon: Optional[str] = None
     r"""Icon the dashboard uses to label the sandbox. Defaults to `Flask`."""
 
+    stripe: Optional[CreateSandboxStripe] = None
+    r"""Tax settings for the Stripe test account Autumn creates for the sandbox. Omit to leave that account as Stripe creates it."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["color", "icon"])
+        optional_fields = set(["color", "icon", "stripe"])
         serialized = handler(self)
         m = {}
 

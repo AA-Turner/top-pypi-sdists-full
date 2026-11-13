@@ -4,20 +4,24 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .ad_campaign_bid_type import AdCampaignBidType
 from .ad_campaign_budget_optimization import AdCampaignBudgetOptimization
 from .ad_campaign_budget_type import AdCampaignBudgetType
 from .ad_campaign_campaign_type import AdCampaignCampaignType
 from .ad_campaign_delivery_status import AdCampaignDeliveryStatus
 from .ad_campaign_objective import AdCampaignObjective
-from .ad_campaign_platform import AdCampaignPlatform
 from .ad_campaign_result_event import AdCampaignResultEvent
 from .ad_campaign_special_ad_categories_item import AdCampaignSpecialAdCategoriesItem
 from .ad_campaign_status import AdCampaignStatus
 from .ad_platform_issue import AdPlatformIssue
+from .storefront_account import StorefrontAccount
 
 
 class AdCampaign(UniversalBaseModel):
+    account: typing.Optional[StorefrontAccount] = pydantic.Field(default=None)
+    """
+    The business running this campaign, with the name and logo its ads show.
+    """
+
     added_to_cart_value: float = pydantic.Field()
     """
     USD value attributed to add-to-cart events. Sums the value sent with each event, normalized to USD; events without a value contribute 0.
@@ -26,11 +30,6 @@ class AdCampaign(UniversalBaseModel):
     added_to_carts: float = pydantic.Field()
     """
     Whop pixel-attributed add-to-cart events, last-click.
-    """
-
-    bid_type: typing.Optional[AdCampaignBidType] = pydantic.Field(default=None)
-    """
-    How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, and `maximum_target` never bids above a cap.
     """
 
     budget_amount: typing.Optional[float] = pydantic.Field(default=None)
@@ -60,7 +59,7 @@ class AdCampaign(UniversalBaseModel):
 
     campaign_type: AdCampaignCampaignType = pydantic.Field()
     """
-    The kind of campaign, fixed at creation. `standard` is the ad network's standard campaign; `search` shows text ads on search results for the ad groups' keywords.
+    The kind of campaign, fixed at creation. `standard` runs image and video ads; `search` shows text ads on search results for the ad groups' keywords.
     """
 
     click_through_rate: float = pydantic.Field()
@@ -185,12 +184,12 @@ class AdCampaign(UniversalBaseModel):
 
     ends_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Google only: when the campaign stops delivering, as an ISO 8601 timestamp. `null` runs it until paused.
+    When the campaign stops delivering, as an ISO 8601 timestamp. `null` when it runs until paused, or when its ad groups set their own schedule.
     """
 
     frequency: typing.Optional[float] = pydantic.Field(default=None)
     """
-    Platform-reported impressions divided by reach.
+    Impressions divided by reach.
     """
 
     id: str = pydantic.Field()
@@ -221,17 +220,7 @@ class AdCampaign(UniversalBaseModel):
 
     objective: typing.Optional[AdCampaignObjective] = pydantic.Field(default=None)
     """
-    The goal the campaign optimizes toward.
-    """
-
-    optimization_goal: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    The event the campaign optimizes for when a single goal is set campaign-wide. `null` when each ad group sets its own optimization_goal.
-    """
-
-    platform: AdCampaignPlatform = pydantic.Field()
-    """
-    The ad network the campaign runs on.
+    The goal the campaign optimizes toward. `awareness` appears only on campaigns created before it was retired; those campaigns can't launch.
     """
 
     purchase_value: float = pydantic.Field()
@@ -292,7 +281,7 @@ class AdCampaign(UniversalBaseModel):
 
     starts_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Google only: when the campaign starts delivering, as an ISO 8601 timestamp. `null` starts it as soon as it launches.
+    When the campaign starts delivering, as an ISO 8601 timestamp. `null` when it starts as soon as it launches, or when its ad groups set their own schedule.
     """
 
     status: AdCampaignStatus = pydantic.Field()
@@ -308,6 +297,16 @@ class AdCampaign(UniversalBaseModel):
     submitted_applications: float = pydantic.Field()
     """
     Whop pixel-attributed submit-application events, last-click.
+    """
+
+    target_cost_per_result: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    The desired cost per result for `target_result_event`, in USD. `null` when none is set.
+    """
+
+    target_result_event: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The event `target_cost_per_result` is priced per, such as `purchase` or `lead`. `null` when the campaign has no single goal.
     """
 
     title: str = pydantic.Field()

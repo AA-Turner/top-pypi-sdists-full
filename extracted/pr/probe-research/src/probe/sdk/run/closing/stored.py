@@ -12,6 +12,18 @@ POLL_SECONDS = 1.0
 PROGRESS_EVERY_SECONDS = 5.0
 
 
+class RunGone(Exception):
+    """A run read the server refuses for good: the run is in the trash (410 `in_trash`) or not found
+    (404 "run not found"). Its store would never be seen, so nothing waits for it."""
+
+
+def is_run_gone(exc: BaseException) -> bool:
+    """Whether a failed run read says the run is in the trash or does not exist (not a blip)."""
+    from probe.sdk import errors
+
+    return (isinstance(exc, errors.RosError) and exc.in_trash) or errors.names_no_such_run(exc)
+
+
 def wait_for_stored_data(
     read_row: Callable[[], Any],
     row: Any,
@@ -24,7 +36,8 @@ def wait_for_stored_data(
     clock: Callable[[], float] = time.monotonic,
 ) -> Any:
     """``row``: the run as just read (`GET /v1/runs/{id}`), None when that read failed; ``read_row``
-    reads it again (None on a failed read, asked again). A server without the ingest queue, or a team
+    reads it again (None on a failed read, asked again; `RunGone` when the server says the run is in
+    the trash or not found: the wait ends with the last row it has). A server without the ingest queue, or a team
     off it, serves no `ingest`: the row comes back as is. Otherwise waits until the applied watermark
     reaches what was accepted when the wait began (another writer still logging never holds it), a
     line every ~5 s, with no time cap (the user's decision) unless the caller set one: ``deadline``
@@ -58,6 +71,10 @@ def wait_for_stored_data(
             fresh = read_row()
             if _get_ingest(fresh) is not None:
                 row, ingest = fresh, _get_ingest(fresh)
+    except RunGone:
+        say(f"probe: run {run_ref}: the server no longer serves this run (it is in the trash, or not found); "
+            "not waiting for its data to be stored")
+        return row
     except KeyboardInterrupt:
         return row
     refusals = [r for r in ingest.get("refusals") or () if _is_this_attempt(r, write_epoch)]

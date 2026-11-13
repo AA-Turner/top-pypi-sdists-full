@@ -4,19 +4,20 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use complexipy_lsp::server::{
-    CONFIG_WARNING_MESSAGE, DID_CHANGE, DID_CHANGE_CONFIGURATION, DID_CHANGE_WATCHED_FILES,
-    DID_CHANGE_WORKSPACE_FOLDERS, DID_CLOSE, DID_OPEN, EXIT, EXIT_CODE_CLEAN, EXIT_CODE_FAILURE,
-    HOVER, INLAY_HINT, LINE_COMPLEXITIES, REGISTER_CAPABILITY, SERVER_NAME, SHOW_MESSAGE, SHUTDOWN,
-    serve,
+    CODE_ACTION, CONFIG_WARNING_MESSAGE, DID_CHANGE, DID_CHANGE_CONFIGURATION,
+    DID_CHANGE_WATCHED_FILES, DID_CHANGE_WORKSPACE_FOLDERS, DID_CLOSE, DID_OPEN, EXIT,
+    EXIT_CODE_CLEAN, EXIT_CODE_FAILURE, HOVER, INLAY_HINT, LINE_COMPLEXITIES, REGISTER_CAPABILITY,
+    SERVER_NAME, SHOW_MESSAGE, SHUTDOWN, serve,
 };
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId};
 use lsp_types::{
-    ClientCapabilities, Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams,
-    DidChangeWatchedFilesClientCapabilities, DidChangeWatchedFilesParams,
-    DidChangeWatchedFilesRegistrationOptions, DidChangeWorkspaceFoldersParams,
-    DidCloseTextDocumentParams, DidOpenTextDocumentParams, FileChangeType, FileEvent, Hover,
-    HoverContents, HoverParams, InitializeParams, InitializedParams, InlayHint, InlayHintParams,
-    MessageType, Position, PublishDiagnosticsParams, Range, RegistrationParams, ShowMessageParams,
+    ClientCapabilities, CodeAction, CodeActionContext, CodeActionParams, Diagnostic,
+    DiagnosticSeverity, DidChangeTextDocumentParams, DidChangeWatchedFilesClientCapabilities,
+    DidChangeWatchedFilesParams, DidChangeWatchedFilesRegistrationOptions,
+    DidChangeWorkspaceFoldersParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
+    FileChangeType, FileEvent, Hover, HoverContents, HoverParams, InitializeParams,
+    InitializedParams, InlayHint, InlayHintParams, MessageType, PartialResultParams, Position,
+    PublishDiagnosticsParams, Range, RegistrationParams, ShowMessageParams,
     TextDocumentContentChangeEvent, TextDocumentIdentifier, TextDocumentItem, Uri,
     VersionedTextDocumentIdentifier, WorkDoneProgressParams, WorkspaceClientCapabilities,
     WorkspaceFolder, WorkspaceFoldersChangeEvent,
@@ -331,6 +332,21 @@ impl Session {
         serde_json::from_value(result).unwrap()
     }
 
+    fn code_actions(&mut self, uri: &Uri) -> Vec<CodeAction> {
+        let result = self.request(
+            CODE_ACTION,
+            CodeActionParams {
+                text_document: TextDocumentIdentifier { uri: uri.clone() },
+                range: Range::new(Position::new(0, 0), Position::new(u32::MAX, u32::MAX)),
+                context: CodeActionContext::default(),
+                work_done_progress_params: WorkDoneProgressParams::default(),
+                partial_result_params: PartialResultParams::default(),
+            },
+        );
+
+        serde_json::from_value(result).unwrap()
+    }
+
     fn line_complexities(&mut self, uri: &Uri) -> serde_json::Value {
         self.request(
             LINE_COMPLEXITIES,
@@ -382,7 +398,10 @@ fn advertises_full_sync_inlay_hints_and_hover() {
         capabilities["workspace"]["workspaceFolders"],
         serde_json::json!({"supported": true, "changeNotifications": true})
     );
-    assert!(capabilities.get("codeActionProvider").is_none());
+    assert_eq!(
+        capabilities["codeActionProvider"],
+        serde_json::json!({"codeActionKinds": ["quickfix", "refactor"]})
+    );
     assert_eq!(result["serverInfo"]["name"], serde_json::json!(SERVER_NAME));
 
     assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
@@ -533,6 +552,60 @@ fn hover_reports_the_function_total() {
 }
 
 #[test]
+fn a_quick_fix_edit_lowers_the_function_total() {
+    let mut session = start();
+    session.write_config(STRICT);
+    session.initialize();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+
+    let actions = session.code_actions(&uri);
+    let edit = &actions[0]
+        .edit
+        .as_ref()
+        .expect("expected an edit")
+        .changes
+        .as_ref()
+        .unwrap()[&uri][0];
+    assert_eq!(actions[0].title, "C007: Merge nested if statements (-1)");
+    assert_eq!(
+        edit.range,
+        Range::new(Position::new(5, 0), Position::new(8, 0))
+    );
+
+    let lines: Vec<&str> = SAMPLE.split_inclusive('\n').collect();
+    let edited = format!(
+        "{}{}{}",
+        lines[..5].concat(),
+        edit.new_text,
+        lines[8..].concat()
+    );
+    session.change(&uri, 2, &edited);
+
+    assert_eq!(
+        session.line_complexities(&uri)["functions"][1]["complexity"],
+        2
+    );
+    assert!(session.code_actions(&uri).is_empty());
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn a_document_that_does_not_parse_offers_no_actions() {
+    let mut session = start();
+    session.write_config(STRICT);
+    session.initialize();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+    assert!(!session.code_actions(&uri).is_empty());
+
+    session.change(&uri, 2, "def broken(:\n");
+
+    assert!(session.code_actions(&uri).is_empty());
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
 fn line_complexities_report_every_function_and_line() {
     let mut session = start();
     session.initialize();
@@ -606,7 +679,7 @@ fn unknown_requests_get_an_error_response() {
     let mut session = start();
     session.initialize();
     let id = session.next_id();
-    session.publish(id.clone(), "textDocument/codeAction", serde_json::json!({}));
+    session.publish(id.clone(), "textDocument/codeLens", serde_json::json!({}));
 
     assert!(session.response(id).is_err());
     assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
@@ -876,7 +949,8 @@ fn registers_the_config_watch_when_the_client_supports_it() {
         vec![
             "**/complexipy.toml",
             "**/.complexipy.toml",
-            "**/pyproject.toml"
+            "**/pyproject.toml",
+            "**/*.py"
         ]
     );
 
@@ -964,6 +1038,70 @@ fn a_link_in_the_config_never_reaches_the_editor() {
             .iter()
             .all(|message| message.message == CONFIG_WARNING_MESSAGE)
     );
+
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+const SCANNING: &str = "max-complexity-allowed = 2\n\n[lsp]\nworkspace-diagnostics = true\n";
+
+#[test]
+fn workspace_diagnostics_follow_the_disk_for_unopened_files() {
+    let mut session = start();
+    session.write_config(SCANNING);
+    let path = session.root.path().join("heavy.py");
+    std::fs::write(&path, SAMPLE).unwrap();
+    session.initialize_watching();
+    let uri = session.document_uri("heavy.py");
+
+    let scanned = session.diagnostics(&uri);
+    assert_eq!(scanned.len(), 1);
+
+    session.open(&uri, SAMPLE);
+    assert_eq!(session.diagnostics(&uri), scanned);
+    session.change(&uri, 2, CLEAN);
+    assert!(session.diagnostics(&uri).is_empty());
+    session.close(&uri);
+    assert_eq!(session.diagnostics(&uri), scanned);
+
+    std::fs::write(&path, CLEAN).unwrap();
+    session.files_changed(&["heavy.py"]);
+    assert!(session.diagnostics(&uri).is_empty());
+    std::fs::write(&path, SAMPLE).unwrap();
+    session.files_changed(&["heavy.py"]);
+    assert_eq!(session.diagnostics(&uri), scanned);
+
+    std::fs::remove_file(&path).unwrap();
+    session.notify(
+        DID_CHANGE_WATCHED_FILES,
+        DidChangeWatchedFilesParams {
+            changes: vec![FileEvent::new(uri.clone(), FileChangeType::DELETED)],
+        },
+    );
+    assert!(session.diagnostics(&uri).is_empty());
+
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn unopened_files_stay_silent_by_default() {
+    let mut session = start();
+    session.write_config(STRICT);
+    std::fs::write(session.root.path().join("heavy.py"), SAMPLE).unwrap();
+    session.initialize();
+    let uri = session.document_uri("clean.py");
+    session.open(&uri, CLEAN);
+
+    let mut published: Vec<Uri> = Vec::new();
+    while published.last() != Some(&uri) {
+        if let Message::Notification(notification) = session.receive()
+            && notification.method == "textDocument/publishDiagnostics"
+        {
+            let params: PublishDiagnosticsParams =
+                serde_json::from_value(notification.params).unwrap();
+            published.push(params.uri);
+        }
+    }
+    assert_eq!(published, vec![uri]);
 
     assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
 }

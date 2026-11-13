@@ -118,6 +118,22 @@ def test_pitch_shift_multi(y_multi):
     assert not np.allclose(Call[0], Call[1])
 
 
+@pytest.mark.parametrize("pad_mode", ["constant", "reflect"])
+def test_time_stretch_pitch_shift_pad_mode(ysr, pad_mode):
+    # pad_mode must go to stft only; istft does not accept it
+    y, sr = ysr
+
+    ys = librosa.effects.time_stretch(y, rate=1.5, pad_mode=pad_mode)
+    yp = librosa.effects.pitch_shift(y, sr=sr, n_steps=2, pad_mode=pad_mode)
+
+    assert np.all(np.isfinite(ys))
+    assert yp.shape == y.shape
+
+    if pad_mode != "constant":
+        ys_const = librosa.effects.time_stretch(y, rate=1.5, pad_mode="constant")
+        assert not np.allclose(ys, ys_const)
+
+
 @pytest.mark.parametrize("align_zeros", [False, True])
 def test_remix_mono(align_zeros):
 
@@ -140,6 +156,17 @@ def test_remix_stereo(align_zeros):
     y_t = np.vstack([y_t, y_t])
 
     intervals = np.asarray([[2, 4], [6, 8], [0, 2], [8, 10], [4, 6]])
+
+    y_out = librosa.effects.remix(y, intervals, align_zeros=align_zeros)
+    assert np.allclose(y_out, y_t)
+
+
+@pytest.mark.parametrize("align_zeros", [False, True])
+def test_remix_tuples(align_zeros):
+    # intervals given as a list of (start, end) tuples
+    y = np.asarray([1, 1, -1, -1, 2, 2, -1, -1, 1, 1], dtype=float)
+    y_t = np.asarray([-1, -1, -1, -1, 1, 1, 1, 1, 2, 2], dtype=float)
+    intervals = [(2, 4), (6, 8), (0, 2), (8, 10), (4, 6)]
 
     y_out = librosa.effects.remix(y, intervals, align_zeros=align_zeros)
     assert np.allclose(y_out, y_t)
@@ -179,26 +206,60 @@ def test_hpss_multi(y_multi):
     assert not np.allclose(CPall[0], CPall[1])
 
 
-def test_percussive(ysr):
+@pytest.mark.parametrize("window", ["hann", "hamming", "blackman"])
+def test_percussive(ysr, window):
 
     y, sr = ysr
 
-    yh1, yp1 = librosa.effects.hpss(y)
+    yh1, yp1 = librosa.effects.hpss(y, window=window)
 
-    yp2 = librosa.effects.percussive(y)
+    yp2 = librosa.effects.percussive(y, window=window)
 
     assert np.allclose(yp1, yp2)
 
 
-def test_harmonic(ysr):
+@pytest.mark.parametrize("window", ["hann", "hamming", "blackman"])
+def test_harmonic(ysr, window):
 
     y, sr = ysr
 
-    yh1, yp1 = librosa.effects.hpss(y)
+    yh1, yp1 = librosa.effects.hpss(y, window=window)
 
-    yh2 = librosa.effects.harmonic(y)
+    yh2 = librosa.effects.harmonic(y, window=window)
 
     assert np.allclose(yh1, yh2)
+
+
+@pytest.mark.parametrize(
+    "effect_fn",
+    [librosa.effects.hpss, librosa.effects.harmonic, librosa.effects.percussive],
+)
+def test_effects_window(ysr, effect_fn):
+    # The window must reach the STFT.  Asserting only that the outputs differ
+    # would also pass if it reached stft but not istft, so the reconstruction
+    # check below and component equivalence tests above pin synthesis as well.
+    y, sr = ysr
+
+    def first(result):
+        return result[0] if isinstance(result, tuple) else result
+
+    y_hann = first(effect_fn(y=y, window="hann"))
+    y_hamming = first(effect_fn(y=y, window="hamming"))
+    y_blackman = first(effect_fn(y=y, window="blackman"))
+
+    assert not np.allclose(y_hann, y_hamming)
+    assert not np.allclose(y_hann, y_blackman)
+
+
+@pytest.mark.parametrize("window", ["hann", "hamming", "blackman"])
+def test_hpss_window_reconstruction(ysr, window):
+    # Analysis and synthesis must use the same window, otherwise the harmonic
+    # and percussive parts no longer sum back to the input.
+    y, sr = ysr
+
+    y_harm, y_perc = librosa.effects.hpss(y=y, window=window)
+
+    assert np.allclose(y_harm + y_perc, y, atol=1e-6)
 
 
 @pytest.fixture(scope="module", params=[False, True], ids=["mono", "stereo"])

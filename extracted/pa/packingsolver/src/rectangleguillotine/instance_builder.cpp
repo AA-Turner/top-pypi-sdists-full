@@ -372,6 +372,38 @@ ResourceId InstanceBuilder::add_bin_type_resource(
     return resource_id;
 }
 
+void InstanceBuilder::set_bin_type_resource_tolerance(
+        BinTypeId bin_type_id,
+        ResourceId resource_id,
+        double tolerance)
+{
+    if (bin_type_id < 0 || bin_type_id >= (BinTypeId)instance_.bin_types_.size()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "invalid 'bin_type_id'; "
+                "bin_type_id: " + std::to_string(bin_type_id) + "; "
+                "instance_.bin_types_.size(): " + std::to_string(instance_.bin_types_.size()) + ".");
+    }
+
+    BinType& bin_type = instance_.bin_types_[bin_type_id];
+    if (resource_id < 0 || resource_id >= (ResourceId)bin_type.resources.size()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "invalid 'resource_id'; "
+                "resource_id: " + std::to_string(resource_id) + "; "
+                "bin_type.resources.size(): " + std::to_string(bin_type.resources.size()) + ".");
+    }
+
+    if (tolerance < 0) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "invalid 'tolerance'; "
+                "tolerance: " + std::to_string(tolerance) + ".");
+    }
+
+    bin_type.resources[resource_id].tolerance = tolerance;
+}
+
 void InstanceBuilder::add_resource_consumption(
         BinTypeId bin_type_id,
         ResourceId resource_id,
@@ -450,11 +482,15 @@ BinTypeId InstanceBuilder::add_bin_type_from_original_instance(
             resource_id < bin_type.number_of_resources();
             ++resource_id) {
         const Resource& resource = bin_type.resource(resource_id);
-        add_bin_type_resource(
+        ResourceId new_resource_id = add_bin_type_resource(
                 bin_type_id,
                 resource.capacity,
                 resource.penalize,
                 resource.penalty);
+        set_bin_type_resource_tolerance(
+                bin_type_id,
+                new_resource_id,
+                resource.tolerance);
     }
     return bin_type_id;
 }
@@ -1317,6 +1353,8 @@ void InstanceBuilder::read(
                 bool penalize = json_resource.value("penalize", false);
                 double penalty = json_resource.value("penalty", 0.0);
                 ResourceId resource_id = add_bin_type_resource(bin_type_id, capacity, penalize, penalty);
+                if (json_resource.contains("tolerance"))
+                    set_bin_type_resource_tolerance(bin_type_id, resource_id, json_resource["tolerance"]);
                 if (json_resource.contains("consumptions")) {
                     for (const auto& json_consumption: json_resource["consumptions"]) {
                         ItemTypeId item_type_id = json_consumption["item_type_id"];
@@ -1499,6 +1537,13 @@ void InstanceBuilder::resolve_item_types_unlimited_copies()
 
 Instance InstanceBuilder::build()
 {
+    // Compute the tolerances of the resources which haven't been set (see
+    // 'Resource::tolerance').
+    for (BinType& bin_type: instance_.bin_types_)
+        for (Resource& resource: bin_type.resources)
+            if (resource.tolerance < 0)
+                resource.tolerance = compute_resource_tolerance(resource.capacity);
+
     // Unlimited copies of the item types.
     resolve_item_types_unlimited_copies();
 
@@ -1835,9 +1880,9 @@ void InstanceBuilder::copy_cache_from_original_instance()
                     std::sort(block.item_copies.begin(), block.item_copies.end());
                     // The resources of the bin types may differ from the
                     // original ones.
-                    block.resource_consumption = compute_block_resource_consumption(
+                    block.resource_consumption = compute_resource_consumption(
                             instance_, bin_type_id, block.item_copies);
-                    if (!block_resource_feasible(instance_, bin_type_id, block))
+                    if (!resource_feasible(instance_, bin_type_id, {}, block.resource_consumption))
                         continue;
                     if (block.is_simple) {
                         block.item_type_id = block.item_copies.front().first;

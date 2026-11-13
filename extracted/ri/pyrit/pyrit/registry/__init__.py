@@ -10,6 +10,7 @@ from pyrit.common.lazy_imports import get_lazy_dir, resolve_lazy_export
 
 if TYPE_CHECKING:
     from pyrit.registry.components import (
+        AttackRegistry,
         AttackTechniqueMetadata,
         AttackTechniqueRegistry,
         ConverterMetadata,
@@ -17,7 +18,13 @@ if TYPE_CHECKING:
         InitializerMetadata,
         InitializerRegistry,
         ScenarioMetadata,
+        ScenarioPresetMetadata,
+        ScenarioPresetNameRegisteredError,
+        ScenarioPresetRegistry,
         ScenarioRegistry,
+        ScenarioSuiteMetadata,
+        ScenarioSuiteNameRegisteredError,
+        ScenarioSuiteRegistry,
         ScorerMetadata,
         ScorerRegistry,
         TargetMetadata,
@@ -30,17 +37,30 @@ if TYPE_CHECKING:
         RegistryEntry,
         SupportsInstances,
     )
-    from pyrit.registry.registry import ParamBagRegistry, Registry
+    from pyrit.registry.registry import InstanceHoldingRegistry, ParamBagRegistry, Registry
     from pyrit.registry.registry_metadata import RegistryMetadata
+    from pyrit.registry.scenario_preset_storage import ScenarioPresetConflictError, ScenarioPresetStorage
+    from pyrit.registry.scenario_suite_resolver import (
+        ResolvedScenarioSuiteEntry,
+        ResolvedScenarioSuiteLaunch,
+        ScenarioSuiteExecutionNotFoundError,
+        ScenarioSuiteLaunchConflictError,
+        ScenarioSuiteLaunchResolver,
+        ScenarioSuiteNotRunnableError,
+        resolve_scenario_preset_run_request,
+    )
+    from pyrit.registry.scenario_suite_storage import ScenarioSuiteConflictError, ScenarioSuiteStorage
     from pyrit.registry.tag_query import TagQuery
 
 _LAZY_EXPORTS: dict[str, str | tuple[str, str | None]] = {
+    "AttackRegistry": "pyrit.registry.components",
     "AttackTechniqueRegistry": "pyrit.registry.components",
     "AttackTechniqueMetadata": "pyrit.registry.components",
     "ConverterRegistry": "pyrit.registry.components",
     "ConverterMetadata": "pyrit.registry.components",
     "DefaultInstanceRegistry": "pyrit.registry.instance_registry",
     "InstanceRegistry": "pyrit.registry.instance_registry",
+    "InstanceHoldingRegistry": "pyrit.registry.registry",
     "ParamBagRegistry": "pyrit.registry.registry",
     "Registry": "pyrit.registry.registry",
     "RegistryMetadata": "pyrit.registry.registry_metadata",
@@ -50,6 +70,23 @@ _LAZY_EXPORTS: dict[str, str | tuple[str, str | None]] = {
     "InitializerRegistry": "pyrit.registry.components",
     "RegistryEntry": "pyrit.registry.instance_registry",
     "ScenarioMetadata": "pyrit.registry.components",
+    "ScenarioPresetConflictError": "pyrit.registry.scenario_preset_storage",
+    "ScenarioPresetMetadata": "pyrit.registry.components",
+    "ScenarioPresetNameRegisteredError": "pyrit.registry.components",
+    "ScenarioPresetRegistry": "pyrit.registry.components",
+    "ScenarioPresetStorage": "pyrit.registry.scenario_preset_storage",
+    "ScenarioSuiteConflictError": "pyrit.registry.scenario_suite_storage",
+    "ResolvedScenarioSuiteEntry": "pyrit.registry.scenario_suite_resolver",
+    "ResolvedScenarioSuiteLaunch": "pyrit.registry.scenario_suite_resolver",
+    "ScenarioSuiteExecutionNotFoundError": "pyrit.registry.scenario_suite_resolver",
+    "ScenarioSuiteLaunchConflictError": "pyrit.registry.scenario_suite_resolver",
+    "ScenarioSuiteLaunchResolver": "pyrit.registry.scenario_suite_resolver",
+    "ScenarioSuiteNotRunnableError": "pyrit.registry.scenario_suite_resolver",
+    "resolve_scenario_preset_run_request": "pyrit.registry.scenario_suite_resolver",
+    "ScenarioSuiteMetadata": "pyrit.registry.components",
+    "ScenarioSuiteNameRegisteredError": "pyrit.registry.components",
+    "ScenarioSuiteRegistry": "pyrit.registry.components",
+    "ScenarioSuiteStorage": "pyrit.registry.scenario_suite_storage",
     "ScenarioRegistry": "pyrit.registry.components",
     "ScorerRegistry": "pyrit.registry.components",
     "ScorerMetadata": "pyrit.registry.components",

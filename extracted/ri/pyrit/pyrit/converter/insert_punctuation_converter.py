@@ -68,7 +68,8 @@ class InsertPunctuationConverter(Converter):
     def _is_valid_punctuation(self, punctuation_list: list[str]) -> bool:
         """
         Check if all items in the list are valid punctuation characters in string.punctuation.
-        Space, letters, numbers, double punctuations are all invalid.
+        Space, letters, numbers, double punctuations and empty strings are all invalid,
+        and so is an empty list.
 
         Args:
             punctuation_list (list[str]): List of punctuations to validate.
@@ -76,7 +77,10 @@ class InsertPunctuationConverter(Converter):
         Returns:
             bool: valid list and valid punctuations
         """
-        return all(char in string.punctuation for char in punctuation_list)
+        # A bare ``in string.punctuation`` is a substring test, which accepts "", "()" and "<=>".
+        return bool(punctuation_list) and all(
+            isinstance(char, str) and len(char) == 1 and char in string.punctuation for char in punctuation_list
+        )
 
     async def convert_async(
         self, *, prompt: str, input_type: PromptDataType = "text", punctuation_list: list[str] | None = None
@@ -93,7 +97,8 @@ class InsertPunctuationConverter(Converter):
             ConverterResult: The result containing an iteration of modified prompts.
 
         Raises:
-            ValueError: If the input type is not supported.
+            ValueError: If the input type is not supported, or if ``punctuation_list`` is empty or
+                contains anything other than single characters from ``string.punctuation``.
         """
         if not self.input_supported(input_type):
             raise ValueError("Input type not supported")
@@ -182,11 +187,10 @@ class InsertPunctuationConverter(Converter):
         # List of chars in the prompt string
         prompt_list = list(prompt)
         rng = self._get_random_generator(stream="punctuation")
-        # Store random indices of prompt_list into insert_indices
-        # If the prompt has only 0 or 1 chars, insert at the end of the prompt
-        insert_indices = (
-            [1] if len(prompt_list) <= num_insertions else rng.sample(range(len(prompt_list) - 1), num_insertions)
-        )
+        # Store random indices of prompt_list into insert_indices. A list of n
+        # characters has n + 1 insertion points (before the first character
+        # through after the last), so every position stays reachable.
+        insert_indices = rng.sample(range(len(prompt_list) + 1), num_insertions)
 
         for index in insert_indices:
             # Insert into prompt_list at the insert_indices with random punctuation from the punctuation_list

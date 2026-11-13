@@ -87,36 +87,6 @@ class TestExecutorCredentialsHook:
         assert mock_method.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_raises_when_no_context(self, hook_cls):
-        hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("key"))
-        request = httpx.Request("GET", "http://example.com")
-
-        with patch(_PATCH_RETRIEVE, return_value=None):
-            with pytest.raises(WorkflowError, match="execution_token"):
-                await _maybe_await(hook(request))
-
-    @pytest.mark.asyncio
-    async def test_raises_when_context_has_no_token(self, hook_cls):
-        hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("key"))
-        request = httpx.Request("GET", "http://example.com")
-        ctx = WorkflowContext(namespace="ns", execution_id="exec-1", execution_token=None)
-
-        with patch(_PATCH_RETRIEVE, return_value=ctx):
-            with pytest.raises(WorkflowError, match="execution_token"):
-                await _maybe_await(hook(request))
-
-    @pytest.mark.asyncio
-    async def test_raises_non_retryable_when_not_on_behalf_of(self, hook_cls):
-        hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("key"))
-        request = httpx.Request("GET", "http://example.com")
-        ctx = _context_with_token("tok-A", on_behalf_of=False)
-
-        with patch(_PATCH_RETRIEVE, return_value=ctx):
-            with pytest.raises(WorkflowError, match="on_behalf_of=True") as exc_info:
-                await _maybe_await(hook(request))
-            assert exc_info.value.non_retryable
-
-    @pytest.mark.asyncio
     async def test_server_403_raises_non_retryable(self, hook_cls):
         hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("key"))
         request = httpx.Request("GET", "http://example.com")

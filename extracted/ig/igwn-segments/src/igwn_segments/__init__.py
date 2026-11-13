@@ -44,14 +44,14 @@ import copyreg
 
 from ._segments_c import NegInfinity, PosInfinity, infinity, segment, segmentlist
 from ._segments_py import segmentlistdict
-from ._version import __version__
+from ._version import version as __version__
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 
 __all__ = [
-    "infinity",
-    "PosInfinity",
     "NegInfinity",
+    "PosInfinity",
+    "infinity",
     "segment",
     "segmentlist",
     "segmentlistdict",

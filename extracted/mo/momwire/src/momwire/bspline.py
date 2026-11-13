@@ -90,6 +90,7 @@ from . import _exact_kernel
 from . import _exact_kernel_base
 from . import _exact_kernel_seam
 from . import _feed_snap
+from . import _kcl_nullspace
 from . import _ground_mirror
 from . import _ground_refl
 from . import _near_interface
@@ -2050,6 +2051,7 @@ class BSplineSolver(
         height_sheet_recal=None,
         crossing_table=None,
         crossing_above_rule=None,
+        kcl_nullspace=None,
         cancel=None,
     ):
         # momwire#1042: a wire listed twice is solved once. Dropped here,
@@ -2141,6 +2143,14 @@ class BSplineSolver(
         self._crossing_above_rule = _features.enabled(
             "crossing_above_rule", crossing_above_rule
         )
+        # momwire#1898: the junction constraints eliminated before the factor
+        # (`_kcl_nullspace`) where the Schur solve back-substitutes them. None
+        # defers to MOMWIRE_X_KCL_NULLSPACE (`_features`, reach 1, python);
+        # off is the Schur route, bit for bit. `kcl_nullspace_route` records
+        # what the last constrained solve took: None (off, or no rows),
+        # "reduced", or "schur: <why the rows were not reducible>".
+        self._kcl_nullspace = _features.enabled("kcl_nullspace", kcl_nullspace)
+        self.kcl_nullspace_route = None
         if degree < 1:
             raise ValueError(f"degree must be >= 1, got {degree}")
         if degree > _BSPLINE_MAX_DEGREE:
@@ -7527,10 +7537,43 @@ class BSplineSolver(
     # KCL solve (Schur complement)
     # ------------------------------------------------------------------
 
+    def _kcl_plan(self, kcl_A):
+        """The `_kcl_nullspace.Plan` for `kcl_A` when the feature is on and
+        the rows are reducible, else None (the Schur route). Records the
+        route taken on `kcl_nullspace_route` and in `_kcl_nullspace.COUNTS`."""
+        if not getattr(self, "_kcl_nullspace", False) or kcl_A.shape[0] == 0:
+            return None
+        plan = _kcl_nullspace.plan(kcl_A)
+        if isinstance(plan, str):
+            route = f"schur: {plan}"
+            plan = None
+        else:
+            route = "reduced"
+        self.kcl_nullspace_route = route
+        _kcl_nullspace.COUNTS[route] += 1
+        return plan
+
+    def _solve_reduced(self, Z, V, plan, overwrite):
+        """(Qᵀ Z Q) y = Qᵀ V, returned as x = Q y (momwire#1898). `V` is
+        (n,) or (n, r); `overwrite` lets Z's own buffer hold the reduction."""
+        Zr = _kcl_nullspace.reduce_matrix(Z, plan, overwrite=overwrite)
+        Vr = np.asfortranarray(_kcl_nullspace.reduce_rhs(V, plan))
+        y = _lu_solve(Zr, Vr, overwrite_a=True, overwrite_b=True)
+        return _kcl_nullspace.expand(y, plan)
+
+    def _solve_reduced_stacked(self, Z, V, plan):
+        """`_solve_reduced` per k over a (n_k, n, n) stack; `V` (n,) or
+        (n, r) is shared across k. Each Z[k] is reduced in a copy."""
+        return np.stack(
+            [self._solve_reduced(Z[i], V, plan, False) for i in range(Z.shape[0])]
+        )
+
     def _solve_with_kcl(self, Z, v, kcl_A, overwrite=False):
         """Constrained solve [Z A^T; A 0] [I; λ] = [v; 0] via Schur.
 
-        If kcl_A is empty (no junctions), do a plain solve.
+        If kcl_A is empty (no junctions), do a plain solve. With
+        `kcl_nullspace` on and reducible rows, the constraints are
+        eliminated before the factor instead (`_solve_reduced`).
 
         `overwrite=True` lets LAPACK factor Z in place instead of copying
         it — a full n_basis²-complex saving (2.5 GB at whip-benchmark
@@ -7543,6 +7586,9 @@ class BSplineSolver(
             Z = _fortran_in_place(Z)
         if kcl_A.shape[0] == 0:
             return _lu_solve(Z, v, overwrite_a=overwrite)
+        plan = self._kcl_plan(kcl_A)
+        if plan is not None:
+            return self._solve_reduced(Z, v, plan, overwrite)
         n_b = Z.shape[0]
         n_c = kcl_A.shape[0]
         rhs = np.empty((n_b, 1 + n_c), dtype=np.complex128, order="F")
@@ -7565,6 +7611,9 @@ class BSplineSolver(
             Z = _fortran_in_place(Z)
         if kcl_A.shape[0] == 0:
             return _lu_solve(Z, V, overwrite_a=overwrite)
+        plan = self._kcl_plan(kcl_A)
+        if plan is not None:
+            return self._solve_reduced(Z, V, plan, overwrite)
         n_b, n_p = V.shape
         n_c = kcl_A.shape[0]
         rhs = np.empty((n_b, n_p + n_c), dtype=np.complex128, order="F")
@@ -7590,6 +7639,9 @@ class BSplineSolver(
         if kcl_A.shape[0] == 0:
             rhs = np.broadcast_to(v[None, :, None], (n_k, n_b, 1))
             return _lapack.solve_stacked(Z, rhs)[:, :, 0]
+        plan = self._kcl_plan(kcl_A)
+        if plan is not None:
+            return self._solve_reduced_stacked(Z, v, plan)
         n_c = kcl_A.shape[0]
         rhs = np.empty((n_k, n_b, 1 + n_c), dtype=np.complex128)
         rhs[:, :, 0] = v[None, :]
@@ -7617,6 +7669,9 @@ class BSplineSolver(
         if kcl_A.shape[0] == 0:
             rhs = np.broadcast_to(V[None, :, :], (n_k, n_b, n_p))
             return _lapack.solve_stacked(Z, rhs)
+        plan = self._kcl_plan(kcl_A)
+        if plan is not None:
+            return self._solve_reduced_stacked(Z, V, plan)
         n_c = kcl_A.shape[0]
         rhs = np.empty((n_k, n_b, n_p + n_c), dtype=np.complex128)
         rhs[:, :, :n_p] = V[None, :, :]
@@ -10352,6 +10407,19 @@ class BSplineSolver(
         """
         if self._rotational_map is not None:
             return self._compute_port_solution_rotational()
+        return self._port_solution_dense(same_edge_prep)
+
+    def _port_solution_dense(self, same_edge_prep=None, extra_columns=None):
+        """`compute_port_solution`'s dense route, with optional extra columns.
+
+        `extra_columns(geom, wire_knots, wire_basis_global, n_basis_total)`
+        returns an `(n_basis_total, n_extra)` block appended to the port
+        columns before the solve, so each extra column is driven, constrained
+        (KCL Schur / null-space reduction), enriched-padded and read out by
+        exactly the algebra a gap feed's column gets: `y` then spans
+        [ports…, extra…]. None appends nothing and evaluates the same
+        expressions as before the hook existed (`port_sites`, momwire#1915).
+        """
         geom = self._build_geometry()
         supp_seg, polys, kcl_A, wire_knots, wire_basis_global = (
             self._build_basis_polynomials(geom)
@@ -10369,6 +10437,10 @@ class BSplineSolver(
         B, kcl_con = self._port_columns(
             geom, wire_knots, wire_basis_global, n_basis_total, kcl_A
         )
+        if extra_columns is not None:
+            B = np.hstack(
+                [B, extra_columns(geom, wire_knots, wire_basis_global, n_basis_total)]
+            )
         n_ports = B.shape[1]
 
         def _solution(Y, X):
@@ -10451,6 +10523,120 @@ class BSplineSolver(
         X = self._solve_with_kcl_ports(Z, B, kcl_con, overwrite=True)
         # Y[i, j] = v_i^T · solve(Z, v_j)
         return _solution(_lapack.matmul(B.T, X), X)
+
+    def port_sites(self, wire, span=None):
+        """Movable point ports on one wire, from ONE fill and factorisation
+        (momwire#1915).
+
+        Solves, beside the configured ports, one shorted port per B-spline
+        basis on `wire` whose support meets `span` (a closed arclength window
+        in metres from the wire's start, a feed's own convention; None is
+        the whole wire). The returned :class:`~momwire.PortSites` then gives
+        Y over [the configured ports…, a point port at each x…] and ∂Y/∂x at
+        any x in the window by combining d+1 cached columns per position;
+        the derivation, and the smoothness in x (C0 with a derivative jump
+        at a knot for d = 1, C1 for d = 2), are in `momwire._port_sites`.
+
+        The site columns go through `_port_solution_dense` beside the port
+        columns, so the junction KCL constraints, the ported-junction split,
+        node gaps, singular enrichment and the ground ride exactly as for a
+        gap feed: `y([x])` is `compute_y_matrix()` of this solver with a
+        point feed added at x, to rounding.
+
+        Refused, by name: a non-point feed model or a smoothed feed (the
+        site ports are delta gaps, so the configured feeds would differ in
+        kind from the moving one), the sector route, `enrichment_variant=
+        "auto"` (its pass-1 picks the enriched junctions from the port
+        drives, so the operator would depend on x), and a deck whose
+        duplicated wire was dropped (the caller's wire numbering would not
+        be the solve's). Single frequency only.
+        """
+        from ._port_sites import PortSites
+
+        if self.feed_model != "point" or self.feed_smoothing_factor is not None:
+            raise ValueError(
+                "port_sites: supported only with feed_model='point' and no "
+                f"feed_smoothing_factor (got feed_model={self.feed_model!r}, "
+                f"feed_smoothing_factor={self.feed_smoothing_factor!r})"
+            )
+        if self._rotational_map is not None:
+            raise ValueError(
+                "port_sites: not supported on the rotational_symmetry sector "
+                "route; build the solver with rotational_symmetry=False"
+            )
+        if self.use_singular_enrichment and self.enrichment_variant == "auto":
+            raise ValueError(
+                "port_sites: enrichment_variant='auto' chooses its enriched "
+                "junctions from the port drives, so the operator would move "
+                "with the port position; use 'raw' or 'tikhonov'"
+            )
+        if self._wire_dedup is not None:
+            raise ValueError(
+                "port_sites: this deck lists a wire twice and the copy was "
+                "dropped before the solve (momwire#1042); remove the duplicate"
+            )
+        wire = int(wire)
+        n_w = len(self.wires_polylines)
+        if not 0 <= wire < n_w:
+            raise ValueError(f"port_sites: wire {wire} out of range [0, {n_w})")
+        d = self.degree
+        geom = self._build_geometry()
+        _supp, _polys, _kcl, wire_knots, wire_basis_global = (
+            self._build_basis_polynomials(geom)
+        )
+        knots = np.asarray(wire_knots[wire], dtype=np.float64)
+        s_lo, s_hi = float(knots[d]), float(knots[-d - 1])
+        slack = 1e-9 * max(s_hi - s_lo, 1.0)
+
+        def clip(s):
+            # `_build_source_vector`'s end clip, so a position means here
+            # what the same arclength means as a feed.
+            if s_lo - slack <= s < s_lo:
+                return s_lo
+            if s_hi < s <= s_hi + slack:
+                return s_hi
+            return s
+
+        if span is None:
+            lo, hi = s_lo, s_hi
+        else:
+            lo, hi = clip(float(span[0])), clip(float(span[1]))
+            if not (s_lo <= lo <= hi <= s_hi):
+                raise ValueError(
+                    f"port_sites: span {tuple(span)!r} is not an ordered window "
+                    f"inside wire {wire}'s arclength [{s_lo!r}, {s_hi!r}]"
+                )
+        kept, local_to_global = wire_basis_global[wire]
+        n_local = knots.shape[0] - d - 1
+        site_of_local = np.full(n_local, -1, dtype=np.int64)
+        site_global = []
+        for kept_idx, (j, _kind, _junc_idx, _end_pos) in enumerate(kept):
+            if knots[j] <= hi and knots[j + d + 1] >= lo:
+                site_of_local[j] = len(site_global)
+                site_global.append(int(local_to_global[kept_idx]))
+        if len(set(site_global)) != len(site_global):
+            raise AssertionError(f"wire {wire}: two kept bases share a dof")
+
+        def extra_columns(_geom, _wk, _wbg, n_basis_total):
+            E = np.zeros((n_basis_total, len(site_global)), dtype=np.complex128)
+            E[site_global, np.arange(len(site_global))] = 1.0
+            return E
+
+        sol = self._port_solution_dense(extra_columns=extra_columns)
+        n_ports = sol.y.shape[0] - len(site_global)
+        return PortSites(
+            wire=wire,
+            span=(lo, hi),
+            degree=d,
+            knots=knots,
+            site_of_local=site_of_local,
+            n_ports=n_ports,
+            m=sol.y,
+            columns=sol.coeffs,
+            n_poly=sol.basis.n_poly,
+            clip=clip,
+            basis_rows=_bspline_basis_rows,
+        )
 
     def _port_solutions_swept(self, k_array):
         """Per-k `PortSolution` generator behind `compute_y_matrix_swept` and

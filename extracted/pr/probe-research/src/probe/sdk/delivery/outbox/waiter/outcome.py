@@ -7,6 +7,10 @@ from dataclasses import dataclass, field
 from probe.foundation.compat.compat import StrEnum
 
 
+#: Why writes are set aside (`SET_ASIDE`), as a person reads it: no retry sends them.
+SET_ASIDE_WHY = "the run is in the trash, or a newer attempt owns it"
+
+
 class WaitOutcome(StrEnum):
     """How waiting for one run's writes ended."""
 
@@ -14,6 +18,10 @@ class WaitOutcome(StrEnum):
     DELIVERED = "delivered"
     #: The rest landed; the server refused some for good (they are in failed/).
     REFUSED = "refused"
+    #: The rest landed; the server refuses some for good because the run is in the trash or a
+    #: newer attempt owns it: dead letters (until the rescuer moves them) or set aside in
+    #: discarded/, nothing to retry.
+    SET_ASIDE = "set_aside"
     #: The server refused the credential, or the outbox is paused: nothing moves until a person acts.
     LOGIN_REFUSED = "login_refused"
     PAUSED = "paused"
@@ -60,6 +68,8 @@ class WaitResult:
     held: int = 0
     failed: int = 0
     discarded: int = 0
+    #: Of ``discarded``, the run's writes the server refused for good (`SET_ASIDE`).
+    set_aside: int = 0
     #: Writes of the run the workers delivered while this wait lasted.
     delivered: int = 0
     first_error: str | None = None

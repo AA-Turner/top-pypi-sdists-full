@@ -6,6 +6,7 @@ from functools import lru_cache
 import orjson
 
 from langgraph_api import config
+from langgraph_api.api.mcp import MCP_SERVED
 from langgraph_api.graph import GRAPHS
 from langgraph_api.metadata import USER_API_URL
 from langgraph_api.validation import openapi
@@ -107,10 +108,8 @@ def get_openapi_spec() -> bytes:
     elif config.MOUNT_PREFIX:
         final["servers"] = [{"url": config.MOUNT_PREFIX}]
 
-    if not config.MCP_ENABLED:
-        # Remove the MCP paths from the OpenAPI spec
+    if not MCP_SERVED:
         final["paths"].pop("/mcp/", None)
-        # Remove the MCP tag definition
         final["tags"] = [t for t in final.get("tags", []) if t.get("name") != "MCP"]
 
     if not config.A2A_ENABLED:

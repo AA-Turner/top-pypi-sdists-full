@@ -13,7 +13,7 @@ from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
 from pyrit.models import SeedDataset, SeedObjective
 
 if TYPE_CHECKING:
-    from pyrit.models.seeds.seed_group import SeedUnion
+    from pyrit.models import SeedUnion
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +131,7 @@ class _CoCoNotBaseDataset(_RemoteDatasetLoader):
         return self.SPLITS
 
     @override
-    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
+    async def _fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch the CoCoNot subset and return it as a SeedDataset.
 

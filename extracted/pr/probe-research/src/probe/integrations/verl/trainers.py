@@ -24,10 +24,14 @@ from .readers import (
     read_dataproto_rows,
     read_final_sessions,
     read_generated,
+    read_generated_rollouts,
     read_prompt_facts,
+    read_row_keys,
     read_versions,
 )
 from .rows import CRITIC_WARMUP_DROP, RowMapper, VerlRow
+from .training import has_entropy_rows, stamp_update_batch
+from .training.driver import build_entropy_points, get_reduction, read_entropy_rows
 
 #: Marks a verl method Probe already wrapped (installs are idempotent).
 WRAPPED_MARK = "__probe_verl_wrapped__"
@@ -35,6 +39,7 @@ WRAPPED_MARK = "__probe_verl_wrapped__"
 WRAPPERS = {
     "_update_actor": "_wrap_update",
     "_update_critic": "_wrap_critic_update",
+    "_compute_old_log_prob": "_wrap_old_log_prob",
     "_save_checkpoint": "_wrap_checkpoint",
     "_validate": "_wrap_validation",
     "_maybe_log_val_generations": "_wrap_validation_texts",
@@ -126,7 +131,7 @@ class DataProtoFamily(TrainerFamily):
     module = "verl.trainer.ppo.ray_trainer"
     class_name = "RayPPOTrainer"
     methods = ("_update_actor", "_update_critic", "_save_checkpoint", "_validate", "_maybe_log_val_generations",
-               "_val_metrics_update", "_get_gen_batch")
+               "_val_metrics_update", "_get_gen_batch", "_compute_old_log_prob")
 
     def read_train_rows(self, trainer: Any, batch: Any) -> list[VerlRow]:
         return read_dataproto_rows(batch)
@@ -309,6 +314,7 @@ class ValidationCapture:
         keys, reasons = read_generated(batch, self._rows)
         self.validation.live_keys += keys
         self.validation.stop_reasons += reasons
+        self.validation.rollouts += read_generated_rollouts(batch, self._rows)
         self._rows = None
 
     def keep_sampled(self, keys: Any) -> None:
@@ -373,6 +379,8 @@ class TrainerWraps:
         self._get_session = get_session
         self._local = threading.local()
         self._validations: dict[int, ValidationCapture] = {}
+        #: By trainer: each row's (entropy sum, tokens) from its last old-log-prob pass, sent with the step's keys.
+        self._entropy: dict[int, list[tuple[float, float]] | None] = {}
 
     def install(self) -> list[str]:
         """Wrap each imported family class's methods, each Ray actor class's copies of them, and the V1 replay
@@ -467,9 +475,22 @@ class TrainerWraps:
             session, family = self._get_recording(trainer, "_update_actor")
             if session is None:
                 return original(trainer, batch, *args, **kwargs)
-            step = session.guard.call("a training batch", self._record_batch, session, family, trainer, batch)
-            with self._mark_inside("_update_actor"):
-                result = original(trainer, batch, *args, **kwargs)
+            recorded = session.guard.call("a training batch", self._record_batch, session, family, trainer, batch)
+            step, keys = recorded if recorded is not None else (None, None)
+            clear = None
+            entropy = self._entropy.pop(id(trainer), None)
+            if keys is not None and type(family) is DataProtoFamily:  # the legacy path S0 proved (T3)
+                clear = session.training_guard.call("per-sample training metrics", stamp_update_batch, trainer, batch,
+                                                    step, keys)  # fmt: skip
+                if entropy is not None:
+                    session.training_guard.call("per-sample entropy", self._send_entropy, session, trainer, step, keys,
+                                                entropy)  # fmt: skip
+            try:
+                with self._mark_inside("_update_actor"):
+                    result = original(trainer, batch, *args, **kwargs)
+            finally:
+                if clear is not None:
+                    session.training_guard.call("per-sample training metrics", clear)
             if isinstance(step, int):
                 session.guard.call("a commit", self._commit, session, family, trainer, step)
             return result
@@ -482,13 +503,53 @@ class TrainerWraps:
             session, family = self._get_recording(trainer, "_update_critic")
             if session is None:
                 return original(trainer, batch, *args, **kwargs)
-            with self._mark_inside("_update_critic"):
-                result = original(trainer, batch, *args, **kwargs)
-            if session.guard.call("the critic warmup", family.is_critic_warmup, trainer):
+            clear = None
+            is_warmup = session.guard.call("the critic warmup", family.is_critic_warmup, trainer)
+            if type(family) is DataProtoFamily and not is_warmup:  # the critic's rows, beside the actor's (D4)
+                clear = session.training_guard.call("per-sample training metrics", self._stamp_critic, family, trainer,
+                                                    batch)  # fmt: skip
+            try:
+                with self._mark_inside("_update_critic"):
+                    result = original(trainer, batch, *args, **kwargs)
+            finally:
+                if clear is not None:
+                    session.training_guard.call("per-sample training metrics", clear)
+            if is_warmup:
                 session.guard.call("a critic warmup batch", self._record_warmup, session, family, trainer, batch)
             return result
 
         return call_update_critic
+
+    def _wrap_old_log_prob(self, original: Callable) -> Callable:
+        @functools.wraps(original)
+        def call_compute_old_log_prob(trainer: Any, batch: Any, *args: Any, **kwargs: Any) -> Any:
+            result = original(trainer, batch, *args, **kwargs)
+            session, family = self._get_recording(trainer, "_compute_old_log_prob")
+            if session is not None and type(family) is DataProtoFamily:  # the fully async trainer's own pass: not run
+                rows = session.training_guard.call("per-sample entropy", self._read_entropy, trainer, batch, result)
+                # Always replace: a warmup step leaves its rows unsent, and a failed read must never resend them
+                # under the next step's keys.
+                self._entropy[id(trainer)] = rows
+            return result
+
+        return call_compute_old_log_prob
+
+    @staticmethod
+    def _read_entropy(trainer: Any, batch: Any, result: Any) -> list[tuple[float, float]] | None:
+        """Each row's entropy from the pass, when the run's `actor/entropy` folds as its rows rebuild it."""
+        return read_entropy_rows(batch, result) if has_entropy_rows(trainer.config) else None
+
+    @staticmethod
+    def _stamp_critic(family: TrainerFamily, trainer: Any, batch: Any) -> Callable[[], None] | None:
+        """The critic's batch stamped with the keys the actor's update records next (its `uid` column alone)."""
+        step = family.get_train_step(trainer)
+        return stamp_update_batch(trainer, batch, step, read_row_keys(batch, step), role="critic")
+
+    @staticmethod
+    def _send_entropy(session: Any, trainer: Any, step: int, keys: list[str], rows: list[tuple[float, float]]) -> None:
+        points = build_entropy_points(step, keys, rows, get_reduction(trainer.config))
+        if points:
+            session.samples.log_metrics_many(points)
 
     def _wrap_checkpoint(self, original: Callable) -> Callable:
         @functools.wraps(original)
@@ -574,8 +635,9 @@ class TrainerWraps:
         session.guard.call("the trainer", session.setup_trainer, trainer, family)
         return session, family
 
-    def _record_batch(self, session: Any, family: TrainerFamily, trainer: Any, batch: Any) -> int:
-        """The batch's rows, consumed by its step; a step whose batch could not be read is never sealed."""
+    def _record_batch(self, session: Any, family: TrainerFamily, trainer: Any, batch: Any) -> tuple[int, list[str]]:
+        """The batch's rows, consumed by its step, and each row's sample key in batch order; a step whose batch could
+        not be read is never sealed."""
         step = family.get_train_step(trainer)
         try:
             session.recorder.add_stale_drops(step, family.get_stale_count(batch))
@@ -583,8 +645,7 @@ class TrainerWraps:
         except Exception:
             session.recorder.mark_failed(step)
             raise
-        session.recorder.record_train(step, rows)
-        return step
+        return step, session.recorder.record_train(step, rows)
 
     @staticmethod
     def _record_warmup(session: Any, family: TrainerFamily, trainer: Any, batch: Any) -> None:
@@ -618,6 +679,8 @@ class TrainerWraps:
             raise
         if rows:
             session.recorder.record_eval(step, rows)
+            session.training_guard.call("per-sample eval metrics", session.eval_points.log, step, rows,
+                               capture.validation.reward_extras)
 
     def _get_inside(self) -> set[str]:
         inside = getattr(self._local, "names", None)

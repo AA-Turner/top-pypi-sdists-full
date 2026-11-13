@@ -124,7 +124,8 @@ def robot_show(name: str, *, out: str | None = None, base_url: str | None = None
     record = "off"
     if robot.get("record"):
         days = robot.get("record_retention_days")
-        record = f"on, kept {days if days is not None else RECORD_DAYS} days"
+        n = days if days is not None else RECORD_DAYS
+        record = f"on, kept {n} day{'' if n == 1 else 's'}"
     _say(echo, f"{robot.get('name') or name} · {', '.join(policies) if policies else 'no policy'} · record {record}")
     live = [c for c in detail.get("live") or [] if isinstance(c, dict)]
 

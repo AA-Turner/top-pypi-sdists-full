@@ -10,7 +10,8 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from .rows import INFERENCE_ARRAYS, LIVE_KEY_FIELD, STOP_REASON_FIELD, TRAINER_ARRAYS, VerlRow
+from .rows import INFERENCE_ARRAYS, LIVE_KEY_FIELD, STOP_REASON_FIELD, TRAINER_ARRAYS, Split, VerlRow, make_sample_key
+from .tool_loop import ROLLOUT_EVAL_FIELD, ROLLOUT_FIELD, read_stamp
 
 #: Per-token arrays a training batch may carry, by verl's names.
 ARRAY_FIELDS = (*INFERENCE_ARRAYS, *TRAINER_ARRAYS)
@@ -49,6 +50,8 @@ class ValidationPass:
     live_keys: list[str] = field(default_factory=list)
     stop_reasons: list[str] = field(default_factory=list)
     sessions: list[tuple[str, str]] = field(default_factory=list)
+    #: Legacy, scored in the trainer: each generated row's capture stamp (`tool_loop.ROLLOUT_EVAL_FIELD`), as above.
+    rollouts: list[str] = field(default_factory=list)
 
 
 def read_dataproto_rows(batch: Any) -> list[VerlRow]:
@@ -91,9 +94,26 @@ def read_dataproto_rows(batch: Any) -> list[VerlRow]:
             agent_name=_as_text(_pick(_get_column(columns, "agent_name"), row)),
             position=_as_int(_pick(_get_column(columns, "priority"), row)),
             stop_reason=_as_text(_pick(_get_column(columns, STOP_REASON_FIELD), row)) or None,
+            rollout=read_stamp(_pick(_get_column(columns, ROLLOUT_FIELD), row)),
         ))
         seen[uid] += 1
     return rows
+
+
+def read_row_keys(batch: Any, step: int) -> list[str]:
+    """Each row's train sample key on a legacy `DataProto`, as `read_dataproto_rows` and the recorder name it
+    (`rows.make_sample_key`: the uid, then the row's place among its uid's rows), from the `uid` column alone: the
+    critic trains on the step's batch before the actor's update records it, and needs only its keys."""
+    size = getattr(getattr(batch, "batch", None), "batch_size", None)
+    uids = _get_column(getattr(batch, "non_tensor_batch", None), "uid")
+    count = int(size[0]) if size else len(uids)
+    seen: Counter = Counter()
+    keys = []
+    for row in range(count):
+        uid = str(_pick(uids, row, row))
+        keys.append(make_sample_key(Split.TRAIN, step, VerlRow(uid=uid, index=str(seen[uid]))))
+        seen[uid] += 1
+    return keys
 
 
 def fetch_transfer_queue_rows(batch: Any, kv_batch_get: Callable[..., Any]) -> list[VerlRow]:
@@ -159,6 +179,7 @@ def read_transfer_queue_rows(keys: Sequence[str], tags: Sequence[Mapping[str, An
             agent_name=_as_text(_pick(columns["agent_name"], row)),
             session=session,
             stop_reason=_as_text(extra_fields.get(STOP_REASON_FIELD)) or None,
+            rollout=read_stamp(extra_fields.get(ROLLOUT_FIELD)),
         ))
     return rows
 
@@ -183,6 +204,15 @@ def read_generated(batch: Any, count: int | None = None) -> tuple[list[str], lis
     size = len(keys or reasons) if count is None else count
     return ([_as_text(_pick(keys, row)) or "" for row in range(size)],
             [_as_text(_pick(reasons, row)) or "" for row in range(size)])
+
+
+def read_generated_rollouts(batch: Any, count: int | None = None) -> list[str]:
+    """A generated validation `DataProto`'s first ``count`` rows' capture stamps, `""` when a row carried none (the
+    rows past ``count`` are padding, as `read_generated`)."""
+    columns = getattr(batch, "non_tensor_batch", None) or {}
+    stamps = _get_column(columns, ROLLOUT_EVAL_FIELD)
+    size = len(stamps) if count is None else count
+    return [_as_text(_pick(stamps, row)) or "" for row in range(size)]
 
 
 def read_final_sessions(keys: Sequence[str]) -> list[tuple[str, str]]:
@@ -218,6 +248,9 @@ def build_validation_rows(validation: ValidationPass, prompts: Mapping[str, Prom
     if len(reasons) != count:
         reasons = validation.stop_reasons if len(validation.stop_reasons) == count else []
     sessions = validation.sessions if len(validation.sessions) == count else []
+    rollouts = list(reward_extras.pop(ROLLOUT_EVAL_FIELD, None) or ())
+    if len(rollouts) != count:
+        rollouts = validation.rollouts if len(validation.rollouts) == count else []
     extras = {name: list(values) for name, values in reward_extras.items()
               if name != "reward" and len(values) == count}
     turns = _flatten(validation.turns)
@@ -241,6 +274,7 @@ def build_validation_rows(validation: ValidationPass, prompts: Mapping[str, Prom
             attempt_key=carried[row] or None if carried else None,
             session=sessions[row][1] if sessions and sessions[row][0] == uid else None,
             stop_reason=reasons[row] or None if reasons else None,
+            rollout=read_stamp(rollouts[row]) if rollouts else None,
         ))
         seen[uid] += 1
     return rows

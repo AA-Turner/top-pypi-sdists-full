@@ -730,6 +730,32 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
 
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get WeChat server config",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def account_settings_get_wechat_server_config(account_id: str) -> str:
+        """Get WeChat server config
+
+        Returns the Server URL, Token and EncodingAESKey of a connected WeChat Official Account: the same values the connect response carries, for pasting into Server Configuration in the Official Accounts Platform (Safe mode). The AppSecret is never returned.
+
+        Needs write access from a session or an API key: read-only team members, read-only API keys and OAuth access tokens get 403.
+
+        Args:
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.account_settings.get_wechat_server_config(
+                account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
     # ACCOUNTS
 
     @mcp.tool(
@@ -20419,7 +20445,17 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List events in a window
 
-        Recurring series are expanded into their occurrences inside the window by default (`expandRecurring=false` lists the masters instead, including series that started before `from` and still recur in the window). Events that overlap the window edges are included. `title` and `location` are substring matches applied to the fetched page.
+        Recurring series are expanded into their occurrences inside the window by default. `expandRecurring=false` lists the masters instead, including series that started before `from` and still recur in the window.
+
+        Events that overlap the window edges are included. `title` and `location` are substring matches applied to the fetched page.
+
+        When the provider does not answer, the last list read for the same account and query within the past six hours is returned with `stale: true`, `asOf` and an `X-Zernio-Stale-As-Of` header instead of a 502.
+
+        When there is no such list and the window is wider than 31 days, Zernio reads once more with the window cut to one day back and two weeks ahead of now (inside `from` and `to`). It returns that with `partial: true`, `coveredFrom`, `coveredTo` and a `pagination.nextCursor` for the rest.
+
+        Send the same request with that `cursor` until `nextCursor` is null. Each call returns a slice of up to 90 days, future first, then the past.
+
+        Slices are not sorted ...
 
         Args:
             account_id: The connected Google, Microsoft or IMAP account. (required)
@@ -20502,6 +20538,13 @@ def register_generated_tools(mcp, _get_client):
 
         `recurrence` takes one RRULE line with FREQ, INTERVAL, COUNT, UNTIL, BYDAY and BYSETPOS. Other parts are rejected with 400 (`param: recurrence`).
 
+        ### Reminders
+
+        Each `reminders.overrides` entry is `{ method, minutes }`, with `method` `popup` (default) or `email`.
+
+        - Google takes up to 5 overrides of either method.
+        - Outlook keeps one popup reminder, the first override. An `email` override answers 400 `reminder_method_unsupported`.
+
         Args:
             account_id: (required)
             calendar_id: Defaults to the primary calendar.
@@ -20514,7 +20557,7 @@ def register_generated_tools(mcp, _get_client):
             timezone: IANA zone the event is scheduled in. Defaults to the calendar's zone on Google and the mailbox's working-hours zone on Microsoft (UTC when Outlook has none, as on personal accounts). A PATCH that moves an event without a zone keeps the zone the event already has.
             participants: Each item is an object with keys: email (string, required); name (string or null)
             recurrence: RRULE lines, e.g. `RRULE:FREQ=WEEKLY;BYDAY=MO,WE;COUNT=10`. Microsoft takes one RRULE plus EXDATE lines; Zernio removes the EXDATE occurrences after saving the series.
-            reminders: Object with keys: useDefault (boolean); overrides (list of objects with keys minutes)
+            reminders: Object with keys: useDefault (boolean) - Use the calendar's default reminders. Ignored when `overrides` has entries.; overrides (list of objects with keys method, minutes) - Google takes up to 5 overrides, `popup` or `email`. Outlook keeps one popup reminder (the first override), and an `email` override answers 400 ...
             conferencing
             busy
             visibility
@@ -20621,7 +20664,7 @@ def register_generated_tools(mcp, _get_client):
             timezone: IANA zone the event is scheduled in. Defaults to the calendar's zone on Google and the mailbox's working-hours zone on Microsoft (UTC when Outlook has none, as on personal accounts). A PATCH that moves an event without a zone keeps the zone the event already has.
             participants: Each item is an object with keys: email (string, required); name (string or null)
             recurrence: RRULE lines, e.g. `RRULE:FREQ=WEEKLY;BYDAY=MO,WE;COUNT=10`. Microsoft takes one RRULE plus EXDATE lines; Zernio removes the EXDATE occurrences after saving the series.
-            reminders: Object with keys: useDefault (boolean); overrides (list of objects with keys minutes)
+            reminders: Object with keys: useDefault (boolean) - Use the calendar's default reminders. Ignored when `overrides` has entries.; overrides (list of objects with keys method, minutes) - Google takes up to 5 overrides, `popup` or `email`. Outlook keeps one popup reminder (the first override), and an `email` override answers 400 ...
             conferencing
             busy
             visibility
@@ -25233,6 +25276,8 @@ def register_generated_tools(mcp, _get_client):
 
             Initiate an OAuth connection flow. Returns an authUrl to redirect the user to.
 
+            **X on prepaid-balance billing:** connecting is free, but every X post is paid from the balance ($0.015, or $0.20 with a link). At a $0 balance, POST /v1/posts to X returns 402 `insufficient_balance` (or waits for funds when scheduled), so fund the balance before the first post.
+
             ### Modes
 
             - Standard flow: Zernio hosts the selection UI, then redirects to your redirect_url.
@@ -25244,13 +25289,7 @@ def register_generated_tools(mcp, _get_client):
 
             Ads connections stay one per profile.
 
-            On a legacy plan limited to N profiles, a new account is refused with 403 `platform_account_limit` once N accounts of its platform are connected.
-
-            ### TikTok
-
-            Every connection now goes through the TikTok for Business app.
-
-            An authorization that leaves out a permission the connected account needs changes nothing at all and comes back as `missing_tiktok_permissions`. Connect again and accept every ...
+            On a legacy plan limited to N profiles, a new account is refused with 403 `platform_account_limit` once N accounts of ...
 
             Args:
                 platform: Social media platform to connect. `snapchat` is a closed beta with no public release date: it returns 403 `PLATFORM_BETA_RESTRICTED` until the account is approved. (required)
@@ -25308,6 +25347,7 @@ def register_generated_tools(mcp, _get_client):
         **Success params** are appended with the URL API, so an existing query string is preserved:
 
         - Standard mode: connected={platform}&profileId=X&accountId=Y&username=Z.
+        - X on prepaid-balance billing at a $0 balance: `billingNotice=x_balance_required` is added. The account is connected, but X posts wait or are refused (402 `insufficient_balance`) until the balance is funded.
         - Headless mode: OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
 
         **Failure params:** the browser goes to the same redirect_url with `error` and `platform` appended (always present). `error_message`, `is_user_fixable`, `reason`, `dashboard_url`, `missing_scopes`, `error_reason` and the `platform_error*` params are conditional: treat them as optional.
@@ -26046,7 +26086,7 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get Stripe connect URL
 
-        Initiates Stripe Connect OAuth for the customer's own Stripe account, with read-only access. Stripe is a connect-only sales source: each paid charge becomes a `Purchase` event in `GET /v1/events` (source `stripe`), and refunds lower or retract it.
+        Initiates Stripe Connect OAuth for the customer's own Stripe account. Zernio only reads its payments. Stripe is a connect-only sales source: each paid charge becomes a `Purchase` event in `GET /v1/events` (source `stripe`), and refunds lower or retract it.
 
         One Stripe account can be connected per profile. Connecting a different account to a profile that already has one redirects with `error=stripe_profile_has_account`.
 
@@ -26058,7 +26098,7 @@ def register_generated_tools(mcp, _get_client):
 
         On success the redirect carries `connected=stripe`, `profileId`, `accountId` and `username` (the Stripe account name). On failure it carries `error`, `platform=stripe` and `error_message`.
 
-        To match a payment to the ad campaign behind it, set `zrn`, `gclid`, `fbclid` or `utm_*` keys (and optionally `landing_url`) in the metadata of the Checkout Session, PaymentIntent or subscription.
+        To match a payment to the ad campaign behind it, set `zrn`, `gclid`, `fbclid` or `utm_*` keys (and optionally `landing_url`) in the metadata of the Checkout Session, PaymentIntent or ...
 
         Args:
             profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
@@ -35649,6 +35689,8 @@ def register_generated_tools(mcp, _get_client):
 
         On Google, folders are Gmail labels (system labels carry `wellKnown`; `unreadCount` and `totalCount` are present only where Gmail reports them). There is no archive folder on Google; archived mail is listed with `folder=archive`.
 
+        When the provider does not answer, the last list read for the same account within the past 24 hours is returned with `stale: true`, `asOf` and an `X-Zernio-Stale-As-Of` header instead of a 502.
+
         Args:
             account_id: The connected Google, Microsoft or IMAP account. (required)"""
         client = _get_client()
@@ -43052,7 +43094,7 @@ def register_generated_tools(mcp, _get_client):
         - Each platform: `platform`, `status`, `accountId` (the id), `username`, `scheduledFor`, `publishedAt`, `platformPostId`, `platformPostUrl`, `errorMessage`, `errorCategory`.
         - Left out: the author (`userId`), `mediaItems`, `metadata`, `recycling`, and each platform's custom content, custom media and `platformSpecificData`. Null values are left out too.
 
-        Works with both sources. Send either `fields` or `view=summary`: both together return 400. Defaults to summary here; pass full for everything.
+        Works with both sources. Send either `fields` or `view=summary`: both together return 400. Defaults to summary here; pass full for everything. Not sent when fields is set.
                 updated_since: Only posts whose `updatedAt` is at or after this ISO 8601 timestamp (an offset or `Z` required).
 
         `updatedAt` moves when the post or any of its platforms changes (an edit, a status change, a platform publishing or failing). To keep a copy in sync, send the time of your previous sync instead of reading every page again.
@@ -43079,8 +43121,8 @@ def register_generated_tools(mcp, _get_client):
                 limit=max(1, min(limit, 40)),
                 offset=offset,
                 cursor=cursor,
-                fields=fields,
-                view=view,
+                fields=fields or None,
+                view=None if fields else view,
                 updated_since=updated_since,
                 source=source,
                 status=status,
@@ -43136,6 +43178,8 @@ def register_generated_tools(mcp, _get_client):
 
             Create a post, and optionally publish it in the same request. A post published immediately (`publishNow: true`) comes back with `platformPostUrl` in the response.
 
+            On prepaid-balance billing, X posts are paid from the balance ($0.015 per post, $0.20 with a link). At a $0 balance, publishing to X now returns 402 `insufficient_balance` with `funding_url`, and a post saved for later waits for funds (202).
+
             ## Optional content
 
             `content` is optional in four cases:
@@ -43155,13 +43199,7 @@ def register_generated_tools(mcp, _get_client):
             - `publishNow: true`: publish synchronously, inside this request
             - `queuedFromProfile`: publish in the profile's next queue slot
 
-            With none of them and `isDraft` unset, the post is saved as a draft. `platforms` is required unless the post is a draft.
-
-            Precedence:
-
-            - `isDraft: true` wins over `publishNow` and `scheduledFor` (the post is saved, never published).
-            - `publishNow: true` wins over `scheduledFor`.
-            - A ...
+            With none of them and `isDraft` unset, ...
 
             Args:
                 title: Stored on the post for reference/display only. This field is NOT used as the video title when publishing. To set a YouTube video title, use platformSpecificData.title on the youtube platform target (falls back to the first line of content when omitted).
@@ -50149,7 +50187,7 @@ def register_generated_tools(mcp, _get_client):
     def webhooks_get_webhook_settings() -> str:
         """List webhooks
 
-        Retrieve all configured webhooks for the authenticated user. Supports up to 50 webhooks per user."""
+        Retrieve all configured webhooks for the authenticated user. Supports up to 50 webhooks per user. A profile-scoped API key, or a team member limited to specific profiles, gets 403."""
         client = _get_client()
         try:
             response = client.webhooks.get_webhook_settings()
@@ -50230,6 +50268,7 @@ def register_generated_tools(mcp, _get_client):
                 "ad.delivery_issue",
                 "campaign.budget.depleted",
                 "ad_account.status_changed",
+                "campaign.status_changed",
                 "ad.video.processed",
                 "ad_rule.triggered",
                 "automation.check.completed",
@@ -50469,6 +50508,7 @@ def register_generated_tools(mcp, _get_client):
                 "ad.delivery_issue",
                 "campaign.budget.depleted",
                 "ad_account.status_changed",
+                "campaign.status_changed",
                 "ad.video.processed",
                 "ad_rule.triggered",
                 "automation.check.completed",
@@ -50697,6 +50737,8 @@ def register_generated_tools(mcp, _get_client):
 
         Retrieve recorded webhook delivery attempts for the authenticated user, most recent first.
 
+        A profile-scoped API key, or a team member limited to specific profiles, gets 403.
+
         Logs are retained for 30 days. Supports filtering by status, event type, webhook ID, and event ID, plus offset-based pagination.
 
         ### Restricted keys
@@ -50757,6 +50799,8 @@ def register_generated_tools(mcp, _get_client):
         the payload is gone and the request fails with a 422. Replays run the same
         resource-group checks as live delivery, against both the key's groups and the
         subscription's `disabledResourceGroups`.
+
+        A profile-scoped API key, or a team member limited to specific profiles, gets 403.
 
         Args:
             webhook_id: ID of the webhook subscription that delivered the event (required)
@@ -50891,6 +50935,7 @@ def register_generated_tools(mcp, _get_client):
             "ad.delivery_issue",
             "campaign.budget.depleted",
             "ad_account.status_changed",
+            "campaign.status_changed",
             "ad.video.processed",
             "ad_rule.triggered",
             "automation.check.completed",
@@ -50945,6 +50990,8 @@ def register_generated_tools(mcp, _get_client):
 
         Send a test webhook to verify your endpoint is configured correctly. The test payload includes event: \"webhook.test\" to distinguish it from real events.
 
+        A profile-scoped API key, or a team member limited to specific profiles, gets 403.
+
         ### Sample payload for a specific event
 
         Pass `event` to receive a sample payload of that event instead. This exercises the handler for an event that only fires on a real outage or lifecycle change (e.g. `account.ads.sync_failed`).
@@ -50954,11 +51001,7 @@ def register_generated_tools(mcp, _get_client):
         - It carries a top-level `test: true` and placeholder ids, never your data.
         - The delivery shows up in the webhook logs with `test: true`.
 
-        The webhook does not have to be subscribed to the event. But a webhook that lists the event's resource group in its `disabledResourceGroups` answers 403, as does an API key with that group disabled.
-
-        ### Resource group checks
-
-        `webhook.test` belongs to the `webhooks` ...
+        The webhook does not have to be subscribed to the event. But a webhook that lists the event's resource group in its `disabledResourceGroups` answers 403, as does an API key with that ...
 
         Args:
             webhook_id: ID of the webhook to test (required)

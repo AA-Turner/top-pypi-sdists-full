@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agent-framework-foundry-hosting
-Version: 1.0.0b261106
+Version: 1.0.0b261112
 Summary: Foundry Hosting integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.11
@@ -23,7 +23,7 @@ Requires-Dist: azure-ai-agentserver-invocations>=1.1.0,<2
 Requires-Dist: httpx>=0.28,<1
 Requires-Dist: httpx2>=2.0.0,<3
 Requires-Dist: mcp>=2.2.0,<3
-Requires-Dist: tenacity>=9.1.4,<9.2.0
+Requires-Dist: tenacity>=9.1.4,<10
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true

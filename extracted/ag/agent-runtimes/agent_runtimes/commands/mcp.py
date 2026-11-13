@@ -44,6 +44,7 @@ from agent_runtimes.mcp.hosted_client import (
     list_toolsets,
     result_text,
 )
+from agent_runtimes.utils.logs import QUIET_LOGGERS, quiet_loggers
 
 app = typer.Typer(
     name="mcp",
@@ -55,21 +56,9 @@ app = typer.Typer(
     pretty_exceptions_show_locals=False,
 )
 
-#: Loggers that talk on every request or at import; WARNING unless `-v`.
-QUIET_LOGGERS = (
-    "httpx",
-    "httpx2",
-    "httpcore",
-    "mcp",
-    "botocore",
-    "boto3",
-    "urllib3",
-    "fastmcp",
-)
-
 
 def configure_logging(verbose: bool) -> None:
-    """Logs to stderr only; library loggers at WARNING unless `verbose`."""
+    """Log to stderr only; library loggers at WARNING unless `verbose`."""
     level = logging.INFO if verbose else logging.WARNING
     loggers = [logging.getLogger()] + [
         candidate
@@ -84,8 +73,7 @@ def configure_logging(verbose: bool) -> None:
             ):
                 handler.setStream(sys.stderr)
     logging.getLogger().setLevel(level)
-    for name in QUIET_LOGGERS:
-        logging.getLogger(name).setLevel(level)
+    quiet_loggers(QUIET_LOGGERS, level)
 
 
 VerboseOption = Annotated[
@@ -633,7 +621,7 @@ def call_command(
 def load_main(path: Path) -> Any:
     """The `async def main(client)` (or `main(client, argv)`) a script file defines."""
     namespace: dict[str, Any] = {"__name__": "__mcp_run__", "__file__": str(path)}
-    exec(compile(path.read_text(), str(path), "exec"), namespace)  # noqa: S102
+    exec(compile(path.read_text(), str(path), "exec"), namespace)  # noqa: S102  # nosec B102 - the script the person names, run as `python` would
     main = namespace.get("main")
     if main is None or not inspect.iscoroutinefunction(main):
         raise typer.BadParameter(f"{path} must define `async def main(client)`.")

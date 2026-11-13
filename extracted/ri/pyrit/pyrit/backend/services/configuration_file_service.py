@@ -8,7 +8,7 @@ import hashlib
 import os
 import tempfile
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import ExitStack, asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -17,7 +17,8 @@ import yaml
 from azure.core.exceptions import ResourceNotFoundError
 
 from pyrit.common.azure_storage import has_sas_signature, is_azure_blob_uri, redact_url_credentials
-from pyrit.setup.configuration_loader import ConfigurationLoader
+from pyrit.common.yaml_helper import safe_load_yaml
+from pyrit.setup import ConfigurationLoader
 
 
 class ConfigurationFileConflictError(Exception):
@@ -90,7 +91,7 @@ def _write_temporary_config_file(*, content: bytes, suffix: str) -> Path:
 def _validate_configuration_content(content: str) -> None:
     """Validate YAML configuration content without executing initializers."""
     try:
-        yaml_data = yaml.safe_load(content)
+        yaml_data = safe_load_yaml(content)
     except yaml.YAMLError as exc:
         raise ValueError(f"Invalid YAML configuration: {exc}") from exc
     if not isinstance(yaml_data, dict):
@@ -103,9 +104,8 @@ def _validate_configuration_content(content: str) -> None:
 
 def _replace_local_config_file(*, path: Path, content: str) -> None:
     """Atomically replace a local configuration file."""
-    temporary_path: Path | None = None
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with ExitStack() as cleanup:
         with tempfile.NamedTemporaryFile(
             mode="w",
             encoding="utf-8",
@@ -114,12 +114,10 @@ def _replace_local_config_file(*, path: Path, content: str) -> None:
             suffix=".tmp",
             delete=False,
         ) as temporary_file:
-            temporary_file.write(content)
             temporary_path = Path(temporary_file.name)
+            cleanup.callback(temporary_path.unlink, missing_ok=True)
+            temporary_file.write(content)
         os.replace(temporary_path, path)
-    finally:
-        if temporary_path is not None:
-            temporary_path.unlink(missing_ok=True)
 
 
 class ConfigurationFileService:

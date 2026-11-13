@@ -153,6 +153,11 @@ def create_test(test_case):
                     await client.aconnect()
                 if num_seeds is not None:
                     self.assertEqual(len(client._topology_settings.seeds), num_seeds)
+                # For sharded clusters, wake every monitor now to ensure
+                # failed heartbeats retry quickly
+                # instead of waiting for the full 10-second heartbeat interval.
+                if async_client_context.is_mongos:
+                    await client._topology.request_check_all()
                 if hosts is not None:
                     await async_wait_until(
                         lambda: hosts == client.nodes, "match test hosts to client nodes"
@@ -381,7 +386,7 @@ class TestInitialDnsSeedlistDiscovery(AsyncPyMongoTestCase):
         self.assertEqual(["cluster.mongodb.com"], [node[0] for node in res["nodelist"]])
 
     async def test_11_throw_when_srv_host_validator_is_not_callable(self):
-        with self.assertRaisesRegex(ValueError, "must be a callable"):
+        with self.assertRaisesRegex(TypeError, "must be a callable"):
             self.simple_client("mongodb+srv://blogs.mongodb.com", srv_host_validator="notacallable")
 
     async def test_12_accept_a_reserved_single_label_as_srv_allowed_hosts_suffix(self):
@@ -415,17 +420,6 @@ class TestInitialDnsSeedlistDiscovery(AsyncPyMongoTestCase):
             srv_allowed_hosts_suffix=".my_domain.net",
         )
         self.assertEqual(["cluster.my_domain.net"], [node[0] for node in res["nodelist"]])
-
-    async def test_srv_hostname_with_three_or_more_parts_may_equal_the_returned_hostname(
-        self,
-    ):
-        test_cases = [
-            {
-                "query": "_mongodb._tcp.blogs.mongodb.com",
-                "mock_target": "blogs.mongodb.com",
-            },
-        ]
-        await self.run_initial_dns_seedlist_discovery_prose_tests(test_cases)
 
 
 class TestPublicSuffixListParsing(unittest.TestCase):

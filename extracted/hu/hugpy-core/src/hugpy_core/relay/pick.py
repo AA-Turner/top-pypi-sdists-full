@@ -237,6 +237,29 @@ def pick(model_key: str, pool: str = "", pin: Optional[str] = None,
     return remember(w)
 
 
+def served_name(model_key: str, worker: Dict[str, Any]) -> str:
+    """The name ``worker`` serves ``model_key`` under: what to put in the request sent to it.
+
+    pick() credits a worker with a model by loose forms (a bare tail, case, the -GGUF
+    equivalence), which is how a legacy short name or the engine's default finds its worker.
+    The worker itself resolves only a unit (``repo::file``), a repo name or a variation, so the
+    request must carry one of those. A name the worker advertises, or the repo of units it
+    advertises, goes as it is (for a repo the worker chooses the unit). Anything else becomes
+    the repo it stands for; among several, one with a unit loaded, then by name."""
+    names = [name for field in ("loaded_models", "models", "models_local")
+             for name in (worker.get(field) or []) if isinstance(name, str)]
+    if not model_key or model_key in names:
+        return model_key
+    heads = {name.split("::", 1)[0] for name in names}
+    if model_key in heads:
+        return model_key
+    wanted = model_key_forms(model_key)
+    loaded = {name.split("::", 1)[0] for name in (worker.get("loaded_models") or []) if isinstance(name, str)}
+    stands_for = sorted((head for head in heads if serveable_match(model_key, wanted, [head])),
+                        key=lambda head: (head not in loaded, head))
+    return stands_for[0] if stands_for else model_key
+
+
 def confirm_routed_allocation(model_key: str, worker: Dict[str, Any], source: str = "routing") -> bool:
     """Record a cold/wildcard route only after its worker call succeeds."""
     from hugpy_core.models.modeldb import record_routed_allocation

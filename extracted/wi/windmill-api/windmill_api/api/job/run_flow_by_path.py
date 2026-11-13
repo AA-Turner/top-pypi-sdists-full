@@ -24,6 +24,7 @@ def _get_kwargs(
     include_header: Union[Unset, None, str] = UNSET,
     invisible_to_owner: Union[Unset, None, bool] = UNSET,
     memory_id: Union[Unset, None, str] = UNSET,
+    take_over: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -49,6 +50,8 @@ def _get_kwargs(
     params["invisible_to_owner"] = invisible_to_owner
 
     params["memory_id"] = memory_id
+
+    params["take_over"] = take_over
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -98,6 +101,7 @@ def sync_detailed(
     include_header: Union[Unset, None, str] = UNSET,
     invisible_to_owner: Union[Unset, None, bool] = UNSET,
     memory_id: Union[Unset, None, str] = UNSET,
+    take_over: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """run flow by path
 
@@ -113,6 +117,7 @@ def sync_detailed(
         include_header (Union[Unset, None, str]):
         invisible_to_owner (Union[Unset, None, bool]):
         memory_id (Union[Unset, None, str]):
+        take_over (Union[Unset, None, bool]):
         json_body (RunFlowByPathJsonBody): The arguments to pass to the script or flow
 
     Raises:
@@ -136,6 +141,7 @@ def sync_detailed(
         include_header=include_header,
         invisible_to_owner=invisible_to_owner,
         memory_id=memory_id,
+        take_over=take_over,
     )
 
     response = client.get_httpx_client().request(
@@ -160,6 +166,7 @@ async def asyncio_detailed(
     include_header: Union[Unset, None, str] = UNSET,
     invisible_to_owner: Union[Unset, None, bool] = UNSET,
     memory_id: Union[Unset, None, str] = UNSET,
+    take_over: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """run flow by path
 
@@ -175,6 +182,7 @@ async def asyncio_detailed(
         include_header (Union[Unset, None, str]):
         invisible_to_owner (Union[Unset, None, bool]):
         memory_id (Union[Unset, None, str]):
+        take_over (Union[Unset, None, bool]):
         json_body (RunFlowByPathJsonBody): The arguments to pass to the script or flow
 
     Raises:
@@ -198,6 +206,7 @@ async def asyncio_detailed(
         include_header=include_header,
         invisible_to_owner=invisible_to_owner,
         memory_id=memory_id,
+        take_over=take_over,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)

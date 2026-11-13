@@ -497,18 +497,15 @@ class LigolwSegments(set):
         # construct empty LigolwSegmentList objects, one for each
         # entry in the segment_definer table, indexed by
         # segment_definer id
-        segment_lists = dict(
-            (
-                row.segment_def_id,
-                LigolwSegmentList(
-                    instruments=row.instruments,
-                    name=row.name,
-                    version=row.version,
-                    comment=row.comment,
-                ),
+        segment_lists = {
+            row.segment_def_id: LigolwSegmentList(
+                instruments=row.instruments,
+                name=row.name,
+                version=row.version,
+                comment=row.comment,
             )
             for row in self.segment_def_table
-        )
+        }
         if len(segment_lists) != len(self.segment_def_table):
             raise ValueError("duplicate segment_def_id in segment_definer table")
         del self.segment_def_table[:]
@@ -520,14 +517,14 @@ class LigolwSegments(set):
                 segment_lists[row.segment_def_id].valid.append(row.segment)
             except KeyError as e:
                 raise ValueError(
-                    "invalid segment_def_id in segment_summary table: %s" % e
+                    f"invalid segment_def_id in segment_summary table: {e}"
                 )
         del self.segment_sum_table[:]
         for row in self.segment_table:
             try:
                 segment_lists[row.segment_def_id].active.append(row.segment)
             except KeyError as e:
-                raise ValueError("invalid segment_def_id in segment table: %s" % e)
+                raise ValueError(f"invalid segment_def_id in segment table: {e}")
         del self.segment_table[:]
 
         #
@@ -560,7 +557,7 @@ class LigolwSegments(set):
         """
         The names of the segment lists contained in the set.
         """
-        return set(seglist.name for seglist in self)
+        return {seglist.name for seglist in self}
 
     @property
     def instruments(self):
@@ -568,7 +565,7 @@ class LigolwSegments(set):
         The instruments for which the set contains at least one
         segment list.
         """
-        return set(instrument for seglist in self for instrument in seglist.instruments)
+        return {instrument for seglist in self for instrument in seglist.instruments}
 
     def insert_from_segwizard(
         self, fileobj, instruments, name, version=None, comment=None
@@ -626,7 +623,7 @@ class LigolwSegments(set):
                 LigolwSegmentList(
                     active=active,
                     valid=segments.segmentlist([seglists.extent_all()]),
-                    instruments=set([instrument]),
+                    instruments={instrument},
                     name=name,
                     version=version,
                     comment=comment,
@@ -742,8 +739,7 @@ class LigolwSegments(set):
             for instrument in seglist.instruments:
                 if instrument in result:
                     raise ValueError(
-                        "multiple '%s' segmentlists for instrument '%s'"
-                        % (name, instrument)
+                        f"multiple '{name}' segmentlists for instrument '{instrument}'"
                     )
                 # make copy so that instruments do not
                 # share a single list, so that subsequent
@@ -751,7 +747,7 @@ class LigolwSegments(set):
                 # wrong instrument's segments
                 result[instrument] = segments.segmentlist(segs)
         if not result:
-            raise KeyError("no segmentlists named '%s'" % name)
+            raise KeyError(f"no segmentlists named '{name}'")
         return result
 
     def finalize(self, process_row=None):
@@ -941,20 +937,20 @@ def segmenttable_get_by_name(xmldoc, name):
     # segment_definer entries bearing the requested name
     #
 
-    instrument_index = dict(
-        (row.segment_def_id, row.instruments) for row in def_table if row.name == name
-    )
+    instrument_index = {
+        row.segment_def_id: row.instruments for row in def_table if row.name == name
+    }
 
     #
     # populate result segmentlistdict object from segment_def_map table
     # and index
     #
 
-    instruments = set(
+    instruments = {
         instrument
         for instruments in instrument_index.values()
         for instrument in instruments
-    )
+    }
     result = segments.segmentlistdict(
         (instrument, segments.segmentlist()) for instrument in instruments
     )

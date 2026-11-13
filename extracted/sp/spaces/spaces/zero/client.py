@@ -6,13 +6,12 @@ import warnings
 from datetime import timedelta
 from typing import Any
 
-import gradio as gr
 import httpx
-from packaging import version
 from typing_extensions import assert_never
 
 from ..config import Config
 from . import config
+from . import context
 from . import default_gpu_size
 from . import utils
 from .api import APIClient
@@ -20,13 +19,16 @@ from .api import GPUSize
 from .api import AuthLevel
 from .api import QuotaInfos
 from .api import ScheduleResponse
-from .gradio import info
-from .gradio import error
-from .gradio import get_event
-from .gradio import supports_auth
+from .context import ZeroGPUContext
+from .errors import ZeroGPUClientError
+from .errors import ZeroGPUIllegalDuration
+from .errors import ZeroGPUPendingCreditsExceeded
+from .errors import ZeroGPUQueueTimeout
+from .errors import ZeroGPUQuotaExceeded
 
 
 TOKEN_HEADER = 'X-IP-Token'
+GRADIO_UI_HEADER = ('x-gradio-user', "app")
 DEFAULT_SCHEDULE_DURATION = 60
 PRO_QUOTA_MINUTES = 40  # TODO: Dynamic value from Spaces API
 
@@ -60,28 +62,17 @@ def startup_report():
         raise RuntimeError("Error while initializing ZeroGPU: Unknown")
 
 
-def html_string(html_contents: str, text_contents: str): # pragma: no cover
-    class HTMLString(str):
-        def __str__(self):
-            return text_contents
-    return HTMLString(html_contents)
-
-
-def _is_api_call(request: gr.Request | None) -> bool: # pragma: no cover
-    headers = _get_headers(request)
-    return headers.get('x-gradio-user') != 'app'
+def _is_api_call(ctx: ZeroGPUContext) -> bool: # pragma: no cover
+    name, value = GRADIO_UI_HEADER
+    return ctx.headers.get(name) != value
 
 
 def _toast_action(
     auth: AuthLevel | None,
-    supports_html: bool,
-    pro_message: str,
     unlogged_desc: str,
     logged_desc: str,
     ending: str,
-) -> tuple[str, str]: # pragma: no cover
-    if not supports_auth() or auth == 'pro':
-        return pro_message, pro_message
+) -> str: # pragma: no cover
     html = ""
     link = SIGNUP_ON_HF_URL if auth is None else SUBSCRIBE_TO_PRO_URL
     text = SIGNUP_ON_HF_TXT if auth is None else SUBSCRIBE_TO_PRO_TXT
@@ -92,14 +83,11 @@ def _toast_action(
         "text-underline-offset: 2px",
         "color: var(--body-text-color)",
     ])
-    if supports_html:
-        html += f'<a style="{style}" href="{link}">'
+    html += f'<a style="{style}" href="{link}">'
     html += text
-    if supports_html:
-        html += '</a>'
+    html += '</a>'
     html += f" {desc}"
-    markdown = f'[{text}]({link}) {desc}'
-    return html, markdown
+    return html
 
 
 def get_duration_seconds(
@@ -116,23 +104,19 @@ def get_duration_seconds(
 
 def schedule(
     task_id: int,
-    request: gr.Request | None = None,
     duration: timedelta | None = None,
     gpu_size: GPUSize | None = None,
     _first_attempt: bool = True,
 ) -> ScheduleResponse:
 
-    if not (gradio_version := version.parse(gr.__version__)).major >= 4: # pragma: no cover
-        raise RuntimeError("ZeroGPU is only compatible with Gradio 4+")
-
-    GRADIO_HTML_TOASTS = gradio_version >= version.Version('4.39')
-    GRADIO_HANDSHAKE = gradio_version >= version.Version('5.16.1')
-
-    headers = _get_headers(request)
-    token, payload = _get_token_and_payload(headers)
+    ctx = context.get()
+    token, payload = _get_token_and_payload(ctx.headers)
     if token is not None and (token_error := payload.get('error')):
         message = f"Falling back to IP-based quotas ({token_error})"
-        info("ZeroGPU client warning", message, level='warning')
+        ctx.warning(
+            title="ZeroGPU client warning",
+            message=message,
+        )
 
     duration_seconds = get_duration_seconds(duration, gpu_size)
 
@@ -140,7 +124,7 @@ def schedule(
         cgroup_path=utils.self_cgroup_device_path(),
         task_id=task_id,
         token=token,
-        token_version=2 if GRADIO_HANDSHAKE else 1,
+        token_version=2,
         duration_seconds=round(duration_seconds),
         gpu_size=gpu_size,
     )
@@ -151,72 +135,75 @@ def schedule(
         return res
 
     if isinstance(res, QuotaInfos): # pragma: no cover
+        requested = round(duration_seconds)
+        requested *= 2 if gpu_size == 'xlarge' else 1
         if meta.approve_result == 'pending-overquota-exceeded':
-            message = (
+            raise ZeroGPUPendingCreditsExceeded(
                 "You have too many ZeroGPU credits allocated to running tasks. "
                 "Try again once some of those tasks have completed."
             )
-            raise error("ZeroGPU pending credits exceeded", message)
-        requested = round(duration_seconds)
-        requested *= 2 if gpu_size == 'xlarge' else 1
         if res.wait < timedelta(0):
             message = (
                 f"The requested GPU duration ({requested}s) "
                 f"is larger than the maximum allowed"
             )
-            if _is_api_call(request):
+            if _is_api_call(ctx):
                 if auth is None or auth == 'regular':
+                    message += ". "
                     message += (
                         f"Subscribe to Hugging Face PRO to allow GPU tasks up to {PRO_QUOTA_MINUTES} min - "
                         f"{SUBSCRIBE_TO_PRO_URL}"
                     )
-            raise error("ZeroGPU illegal duration", message)
-        elif token is None:
-            message = (
+            raise ZeroGPUIllegalDuration(message)
+        if token is None:
+            raise ZeroGPUQuotaExceeded(
                 f"Space app has reached its GPU limit. "
                 f"{EXAMPLES_RETRY_MESSAGE}"
             )
-            raise error("ZeroGPU quota exceeded", message)
         else:
             if res.wait == timedelta(0):
-                message = "You have exceeded your ZeroGPU runs limit. "
+                message = "You have exceeded your ZeroGPU runs limit"
             else:
                 gpu = "Pro ZeroGPU" if auth == 'pro' else ("free ZeroGPU" if auth == 'regular' else "ZeroGPU")
                 message = (
                     f"You have exceeded your {gpu} quota "
                     f"({requested}s requested vs. {res.left}s left). "
-                    f"Try again in {res.wait}. "
+                    f"Try again in {res.wait}"
                 )
-            if _is_api_call(request):
-                if auth is None:
-                    message += (
-                        f"Authenticate with a Hugging Face token for more quota - "
-                        f"{TOKENS_SETTINGS_URL}"
-                    )
-                elif auth == 'regular':
-                    message += (
-                        f"Subscribe to Hugging Face PRO to get {PRO_QUOTA_MINUTES} min of ZeroGPU quota a day - "
-                        f"{SUBSCRIBE_TO_PRO_URL}"
-                    )
-                elif auth == 'pro':
-                    message += (
-                        f"Add credits to keep using ZeroGPU. "
-                        f"$1 for 10 minutes of ZeroGPU inference - "
-                        f"{ADD_CREDITS_URL}"
-                    )
-            raise error("ZeroGPU quota exceeded", message)
+            if _is_api_call(ctx):
+                message += ". "
+                match auth:
+                    case None:
+                        message += (
+                            f"Authenticate with a Hugging Face token for more quota - "
+                            f"{TOKENS_SETTINGS_URL}"
+                        )
+                    case 'regular':
+                        message += (
+                            f"Subscribe to Hugging Face PRO to get {PRO_QUOTA_MINUTES} min of ZeroGPU quota a day - "
+                            f"{SUBSCRIBE_TO_PRO_URL}"
+                        )
+                    case 'pro':
+                        message += (
+                            f"Add credits to keep using ZeroGPU. "
+                            f"$1 for 10 minutes of ZeroGPU inference - "
+                            f"{ADD_CREDITS_URL}"
+                        )
+            raise ZeroGPUQuotaExceeded(message)
 
     if not isinstance(res, httpx.codes): # pragma: no cover
         if meta.queuing_reason in ('node', None):
-            info("ZeroGPU queue", "Waiting for a GPU to become available")
+            ctx.info(
+                title="ZeroGPU queue",
+                message="Waiting for a GPU to become available",
+            )
         elif meta.queuing_reason == 'concurrency':
-            info("ZeroGPU queue", "Waiting for a GPU slot on this Space")
+            ctx.info(
+                title="ZeroGPU queue",
+                message="Waiting for a GPU slot on this Space",
+            )
         else:
             assert_never(meta.queuing_reason)
-        # TODO: Sign-up message if not authenticated (after some time ?)
-        connection_event = get_event()
-        if connection_event is None and request is not None:
-            warnings.warn("ZeroGPU: Cannot get Gradio app Queue instance")
         while True:
             try:
                 event = next(res)
@@ -225,44 +212,57 @@ def schedule(
             except httpx.RemoteProtocolError:
                 if not _first_attempt:
                     raise RuntimeError("Error while re-trying after queue disconnect")
-                return schedule(task_id, request, duration, _first_attempt=False)
+                return schedule(task_id, duration, _first_attempt=False)
             if event.event == 'ping':
-                if connection_event is not None and not connection_event.alive:
+                if ctx.disconnected():
                     res.close()
                     raise RuntimeError("Connection closed by visitor while queueing")
                 continue
             if event.event == 'failed':
                 if token is None:
                     message = f"{NO_GPU_MESSAGE_INQUEUE}. {EXAMPLES_RETRY_MESSAGE}"
-                    raise error("ZeroGPU quota exceeded", message)
-                details_html, details_markdown = _toast_action(
-                    auth=auth,
-                    supports_html=GRADIO_HTML_TOASTS,
-                    pro_message="Retry later",
-                    unlogged_desc="to get a higher",
-                    logged_desc="to get the highest",
-                    ending="priority in ZeroGPU queues",
-                )
-                message_html = f"{NO_GPU_MESSAGE_INQUEUE}. {details_html}"
-                message_text = f"{NO_GPU_MESSAGE_INQUEUE} {details_markdown}"
-                message = html_string(message_html, message_text)
-                raise error("ZeroGPU queue timeout", message, html=True)
+                else:
+                    match (_is_api_call(ctx), auth):
+                        case (True, None):
+                            details = (
+                                "Authenticate with a Hugging Face token to get a higher priority in ZeroGPU queues - "
+                                f"{TOKENS_SETTINGS_URL}"
+                            )
+                        case (True, 'regular'):
+                            details = (
+                                "Subscribe to Hugging Face PRO to get the highest priority in ZeroGPU queues - "
+                                f"{SUBSCRIBE_TO_PRO_URL}"
+                            )
+                        case (False, None | 'regular'):
+                            details = _toast_action(
+                                auth=auth,
+                                unlogged_desc="to get a higher",
+                                logged_desc="to get the highest",
+                                ending="priority in ZeroGPU queues",
+                            )
+                        case (_, 'pro'):
+                            details = "Retry later"
+                    message = f"{NO_GPU_MESSAGE_INQUEUE}. {details}"
+                raise ZeroGPUQueueTimeout(message)
             if event.event == 'succeeded':
                 assert event.data is not None
-                if connection_event is not None and not connection_event.alive:
+                if ctx.disconnected():
                     release(event.data.allowToken)
                     raise RuntimeError("Connection closed by visitor on queue success")
-                info("ZeroGPU queue", "Successfully acquired a GPU", level='success')
+                ctx.success(
+                    title="ZeroGPU queue",
+                    message="Successfully acquired a GPU",
+                )
                 return event.data
 
     if res is httpx.codes.SERVICE_UNAVAILABLE:
-        raise error("ZeroGPU client error", NO_GPU_MESSAGE_REGULAR)
+        message = NO_GPU_MESSAGE_REGULAR
+    elif res is httpx.codes.UNAUTHORIZED: # pragma: no cover
+        message = "Expired ZeroGPU proxy token"
+    else: # pragma: no cover
+        raise RuntimeError(f"ZeroGPU API /schedule error: {res} ({httpx.codes.get_reason_phrase(res)})")
 
-    if res is httpx.codes.UNAUTHORIZED: # pragma: no cover
-        raise error("ZeroGPU client error", "Expired ZeroGPU proxy token")
-
-    # TODO: Find a way to log 'detail' response field
-    raise RuntimeError(f"ZeroGPU API /schedule error: {res} ({httpx.codes.get_reason_phrase(res)})") # pragma: no cover
+    raise ZeroGPUClientError(message)
 
 
 def allow(allow_token: str) -> None:
@@ -277,6 +277,7 @@ def release(
     allow_404: bool = False,
 ) -> None:
 
+    ctx = context.get()
     res = api_client().release(
         allow_token=allow_token,
         fail=fail,
@@ -284,7 +285,10 @@ def release(
 
     if res is httpx.codes.NO_CONTENT: # pragma: no cover
         try:
-            info("ZeroGPU client warning", UNUSED_MESSAGE, level='warning')
+            ctx.warning(
+                title="ZeroGPU client warning",
+                message=UNUSED_MESSAGE,
+            )
         except AttributeError:
             pass
         warnings.warn(UNUSED_MESSAGE, RuntimeWarning)
@@ -298,25 +302,7 @@ def release(
     if httpx.codes.is_success(res):
         return None
 
-    # TODO: Find a way to log 'detail' response field
-    # TODO: Only raise in dev environment. Simply warn in production ?
     raise RuntimeError(f"ZeroGPU API /release error: {res} ({httpx.codes.get_reason_phrase(res)})") # pragma: no cover
-
-
-def _get_headers(request: gr.Request | None) -> dict[str, str]:
-
-    if request is None:
-        return {}
-
-    headers = getattr(request, 'headers', None)
-    if headers is None or not hasattr(headers, '__dict__'):
-        raise error("ZeroGPU client error", "Internal Gradio error")
-
-    # Compatibility trick
-    if not hasattr(headers, 'get'):
-        headers = headers.__dict__ # pragma: no cover
-
-    return headers
 
 
 def _get_token_and_payload(headers: dict[str, str]) -> tuple[str | None, dict[str, Any]]:
@@ -331,8 +317,7 @@ def _get_token_and_payload(headers: dict[str, str]) -> tuple[str | None, dict[st
 
 
 def duration_warning():
-    info(
+    context.get().warning(
         title="ZeroGPU duration",
         message="GPU task is exceeding its requested duration and might be aborted",
-        level='warning',
     )

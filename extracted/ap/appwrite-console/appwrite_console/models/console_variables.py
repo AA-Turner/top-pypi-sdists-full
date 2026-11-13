@@ -36,6 +36,8 @@ class ConsoleVariables(AppwriteModel):
         List of configured VCS providers that can host public repositories.
     app_domain_enabled : bool
         Defines if main domain is configured. If so, custom domains can be created.
+    app_reviews_enabled : bool
+        Defines if code review is enabled.
     app_domain_sites : str
         A comma separated list of domains to use for site URLs.
     app_domain_functions : str
@@ -77,7 +79,7 @@ class ConsoleVariables(AppwriteModel):
     app_console_email_verification : str
         Whether email verification for console users is required. Can be &quot;true&quot; or &quot;false&quot;.
     app_domain_email : str
-        Appwrite-owned zone for function testing email addresses, delivered to {functionId}@{projectId}.{zone}. Empty when inbound email is not configured.
+        Appwrite-owned zone for function testing email addresses, delivered to {anything}@{functionId}-{projectId}.{zone}. Empty when inbound email is not configured.
     app_domain_target_smtp : str
         MX target a custom inbound email (SMTP) domain must point at. Empty when inbound email is not configured.
     """
@@ -101,6 +103,7 @@ class ConsoleVariables(AppwriteModel):
         alias='_APP_VCS_PROVIDERS_WITH_PUBLIC_REPOSITORIES',
     )
     app_domain_enabled: bool = Field(..., alias='_APP_DOMAIN_ENABLED')
+    app_reviews_enabled: bool = Field(..., alias='_APP_REVIEWS_ENABLED')
     app_domain_sites: str = Field(..., alias='_APP_DOMAIN_SITES')
     app_domain_functions: str = Field(..., alias='_APP_DOMAIN_FUNCTIONS')
     app_options_force_https: str = Field(..., alias='_APP_OPTIONS_FORCE_HTTPS')
@@ -145,12 +148,20 @@ class ConsoleVariables(AppwriteModel):
             data['_APP_VCS_ENABLED'] = False
         if '_APP_VCS_PROVIDERS' not in data and 'app_vcs_providers' not in data:
             data['_APP_VCS_PROVIDERS'] = []
-        if '_APP_VCS_PROVIDERS_WITH_REPOSITORY_CREATION' not in data and 'app_vcs_providers_with_repository_creation' not in data:
+        if (
+            '_APP_VCS_PROVIDERS_WITH_REPOSITORY_CREATION' not in data
+            and 'app_vcs_providers_with_repository_creation' not in data
+        ):
             data['_APP_VCS_PROVIDERS_WITH_REPOSITORY_CREATION'] = []
-        if '_APP_VCS_PROVIDERS_WITH_PUBLIC_REPOSITORIES' not in data and 'app_vcs_providers_with_public_repositories' not in data:
+        if (
+            '_APP_VCS_PROVIDERS_WITH_PUBLIC_REPOSITORIES' not in data
+            and 'app_vcs_providers_with_public_repositories' not in data
+        ):
             data['_APP_VCS_PROVIDERS_WITH_PUBLIC_REPOSITORIES'] = []
         if '_APP_DOMAIN_ENABLED' not in data and 'app_domain_enabled' not in data:
             data['_APP_DOMAIN_ENABLED'] = False
+        if '_APP_REVIEWS_ENABLED' not in data and 'app_reviews_enabled' not in data:
+            data['_APP_REVIEWS_ENABLED'] = False
         if '_APP_DOMAIN_SITES' not in data and 'app_domain_sites' not in data:
             data['_APP_DOMAIN_SITES'] = ''
         if '_APP_DOMAIN_FUNCTIONS' not in data and 'app_domain_functions' not in data:

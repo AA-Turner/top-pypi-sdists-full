@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional, Union, cast
 from pydantic import Field, PrivateAttr, model_validator
 
 from .base_model import AppwriteModel
+from .invoice_item import InvoiceItem
 from .usage_resources import UsageResources
 
 
@@ -25,6 +26,8 @@ class Invoice(AppwriteModel):
         Aggregation ID
     plan : str
         Billing plan selected. Can be one of `tier-0`, `tier-1` or `tier-2`.
+    items : List[InvoiceItem]
+        Recorded invoice charges and adjustments. Amounts are integer currency minor units. Empty for invoices without a saved breakdown; never reconstructed from current prices.
     usage : List[UsageResources]
         Usage breakdown per resource
     amount : float
@@ -66,6 +69,7 @@ class Invoice(AppwriteModel):
     teamid: str = Field(..., alias='teamId')
     aggregationid: str = Field(..., alias='aggregationId')
     plan: str = Field(..., alias='plan')
+    items: List[InvoiceItem] = Field(..., alias='items')
     usage: List[UsageResources] = Field(..., alias='usage')
     amount: float = Field(..., alias='amount')
     tax: float = Field(..., alias='tax')
@@ -75,7 +79,7 @@ class Invoice(AppwriteModel):
     grossamount: float = Field(..., alias='grossAmount')
     creditsused: float = Field(..., alias='creditsUsed')
     currency: str = Field(..., alias='currency')
-    clientsecret: Optional[str] = Field(default=None, alias='clientSecret')
+    clientsecret: Optional[str] = Field(default=None, alias='clientSecret', json_schema_extra={'format': 'password'})
     status: str = Field(..., alias='status')
     type: str = Field(..., alias='type')
     lasterror: Optional[str] = Field(default=None, alias='lastError')
@@ -104,6 +108,8 @@ class Invoice(AppwriteModel):
             data['aggregationId'] = ''
         if 'plan' not in data:
             data['plan'] = 'tier-0'
+        if 'items' not in data:
+            data['items'] = []
         if 'usage' not in data:
             data['usage'] = []
         if 'amount' not in data:

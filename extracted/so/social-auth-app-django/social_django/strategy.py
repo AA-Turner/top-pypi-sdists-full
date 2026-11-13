@@ -66,6 +66,7 @@ def create_session(session_key: str | None = None) -> SessionBase:
 
 class DjangoStrategy(BaseStrategy[HttpResponse]):
     DEFAULT_TEMPLATE_STRATEGY = DjangoTemplateStrategy
+    EXPIRE_PARTIAL_PIPELINES_ON_LOAD = True
     _session: SessionBase
 
     def __init__(self, storage, request: HttpRequest | None = None, tpl=None):

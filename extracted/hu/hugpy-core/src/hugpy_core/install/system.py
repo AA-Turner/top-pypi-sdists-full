@@ -188,6 +188,27 @@ def _toolserver(lay, executable: str, current: dict, account) -> None:
     raise RuntimeError(f"Orbit toolserver did not become ready; check journalctl -u {TS_UNIT}")
 
 
+def _service_directories(lay, executable: str, env: dict) -> list[str]:
+    """Directories the service writes outside its own state, as its account resolves them, created
+    by that account: the platform storage root (hugpy_platform's DEFAULT_ROOT; arms served
+    in-process keep uploads and job state there) and the key store's home (API keys and the key
+    requirement). On a host whose Core state is not the account's whole home, the unit's sandbox
+    would otherwise refuse both."""
+    found = []
+    for probe in ("from hugpy_platform.constants import DEFAULT_ROOT as path",
+                  "from hugpy_core.router.observability.store import home; path = home()"):
+        result = subprocess.run(
+            ["runuser", "-u", lay.account, "--", executable, "-c",
+             probe + "; import os; os.makedirs(path, exist_ok=True); print(path)"],
+            env={"PATH": os.environ.get("PATH", "/usr/sbin:/usr/bin:/sbin:/bin"), **env,
+                 "HOME": str(lay.account_home)},
+            text=True, capture_output=True, cwd="/")
+        lines = (result.stdout or "").strip().splitlines() if result.returncode == 0 else []
+        if lines and lines[-1].startswith("/") and Path(lines[-1]).is_dir():
+            found.append(lines[-1])
+    return found
+
+
 def install(args) -> int:
     if os.geteuid() != 0:
         raise RuntimeError("--system requires root")
@@ -280,6 +301,7 @@ def install(args) -> int:
     # service's workspace (hugpy-agent on this box), so the TUI, the brain and the
     # registry share one journal. Optional path: absent when the agent isn't here.
     paths.append("-" + str(Path(lay.roots["data"]) / "agent" / "sessions"))
+    paths.extend(_service_directories(lay, executable, current))
     paths = list(dict.fromkeys(paths))
     write_file(lay.unit_dir / CORE_UNIT, _unit(lay, executable, host, port, intake=False, paths=paths), mode=0o644)
     write_file(lay.unit_dir / INTAKE_UNIT, _unit(lay, executable, host, port, intake=True, paths=[str(lay.state)]), mode=0o644)
@@ -312,6 +334,54 @@ def install(args) -> int:
     raise RuntimeError("Core did not become healthy. Check journalctl -u hugpy-core.service")
 
 
+def uninstall(lay) -> int:
+    """Remove what `install --system` laid down: stop and disable Core's units and delete their unit files,
+    have the database's own installer take its unit away (its data stays), delete the endpoint file. Never
+    removed: the configuration (core.env, toolserver.env), the state directory with the PostgreSQL cluster,
+    the account, and any drop-ins an operator added beside the units. A later `install --system` finds the
+    same account, configuration and state again (system_layout.recorded_install)."""
+    if os.geteuid() != 0:
+        raise RuntimeError("--system requires root")
+
+    def say(action, what, detail=""):
+        print(f"  {action:<10} {what}" + (f"  ({detail})" if detail else ""), flush=True)
+
+    print(f"hugpy-core system uninstall ({__version__})", flush=True)
+    for name in (CORE_UNIT, INTAKE_UNIT, DOWNLOAD_UNIT, CATALOG_UNIT, TS_UNIT):
+        path = lay.unit_dir / name
+        if not path.exists():
+            continue
+        subprocess.run(["systemctl", "disable", "--now", name], capture_output=True, text=True)
+        path.unlink()
+        say("remove", str(path), "stopped, disabled")
+        if (lay.unit_dir / (name + ".d")).is_dir():
+            say("keep", str(lay.unit_dir / (name + ".d")), "operator drop-ins")
+    # The cluster belongs to `abstract-toolserver db`: its uninstall stops and removes the unit and keeps the data.
+    toolserver = Path(sys.executable).absolute().with_name("abstract-toolserver")
+    pg_unit = lay.unit_dir / PG_UNIT
+    done = None
+    if toolserver.exists() and lay.toolserver_config.exists():
+        done = subprocess.run([str(toolserver), "db", "uninstall", "--env-file", str(lay.toolserver_config),
+                               "--keep-data", "--json"], capture_output=True, text=True)
+    if done is not None and done.returncode == 0 and not pg_unit.exists():
+        say("remove", str(pg_unit), "abstract-toolserver db uninstall --keep-data")
+    elif pg_unit.exists():      # no database installer to ask (or it left the unit): the same by hand
+        subprocess.run(["systemctl", "disable", "--now", PG_UNIT], capture_output=True, text=True)
+        pg_unit.unlink()
+        say("remove", str(pg_unit), "stopped, disabled" + (f"; db uninstall said: {(done.stderr or done.stdout).strip()[-200:]}"
+                                                           if done is not None and done.returncode else ""))
+    if lay.endpoint.exists():
+        lay.endpoint.unlink()
+        say("remove", str(lay.endpoint))
+    subprocess.run(["systemctl", "daemon-reload"], capture_output=True, text=True)
+    subprocess.run(["systemctl", "reset-failed", CORE_UNIT, INTAKE_UNIT, DOWNLOAD_UNIT, CATALOG_UNIT, TS_UNIT, PG_UNIT],
+                   capture_output=True, text=True)
+    say("keep", f"{lay.config}, {lay.toolserver_config}", "configuration")
+    say("keep", str(lay.state), "state, with the PostgreSQL cluster and its databases")
+    say("keep", f"account {lay.account}")
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog=SERVICE)
     sub = parser.add_subparsers(dest="verb", required=True)
@@ -342,9 +412,19 @@ def main(argv=None) -> int:
         if args.verb == "install":
             return install(args)
         name, units, existing = system_layout.select_identity()
-        account = pwd.getpwnam(name)
+        try:
+            account = pwd.getpwnam(name)
+        except KeyError:
+            if not existing:      # no unit, no recorded install, no such account: nothing to report on or remove
+                print(f"hugpy-core {args.verb}: no system install found")
+                return 0
+            raise
         lay = system_layout.resolve(account, units, existing)
-        lay = system_layout.resolve(account, units, existing, read_env(lay.config))
+        try:
+            lay = system_layout.resolve(account, units, existing, read_env(lay.config))
+        except PermissionError:
+            if args.verb != "status":
+                raise
         if args.verb == "status":
             print(json.dumps({"core": subprocess.run(["systemctl", "is-active", CORE_UNIT],
                                                      capture_output=True, text=True).stdout.strip(),
@@ -354,12 +434,7 @@ def main(argv=None) -> int:
                                                            capture_output=True, text=True).stdout.strip(),
                               "endpoint": json.loads(lay.endpoint.read_text()) if lay.endpoint.exists() else None}))
             return 0
-        if os.geteuid() != 0:
-            raise RuntimeError("--system requires root")
-        run("systemctl", "disable", "--now", CORE_UNIT, INTAKE_UNIT, DOWNLOAD_UNIT, CATALOG_UNIT)
-        if (lay.unit_dir / TS_UNIT).exists():
-            run("systemctl", "disable", "--now", TS_UNIT)
-        return 0
+        return uninstall(lay)
     except (RuntimeError, ValueError, OSError, KeyError) as exc:
         print(f"hugpy-core {args.verb}: {exc}", file=sys.stderr)
         return 2

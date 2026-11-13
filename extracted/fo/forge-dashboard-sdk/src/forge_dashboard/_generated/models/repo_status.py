@@ -80,7 +80,7 @@ class RepoStatus:
                 repository's own avatar. Absent otherwise, and never the
                 generated social card GitHub shows for a repository with none,
                 nor the owner's avatar. Always an https URL, passed through
-                unchanged and never proxied: on GitHub exactly
+                unchanged; the page loads it through GET /api/v1/images. On GitHub exactly
                 repository-images.githubusercontent.com, on Forgejo the
                 instance's own host. A GitHub custom image is a wide banner,
                 not a square logo.

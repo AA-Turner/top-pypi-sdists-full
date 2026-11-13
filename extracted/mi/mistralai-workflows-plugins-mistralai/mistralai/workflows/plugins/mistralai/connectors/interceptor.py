@@ -461,7 +461,7 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
         return [
             ConnectorSlot(
                 defn.connector_name,
-                run_as=defn.run_as.value,
+                run_as=defn.run_as,
                 auto_auth=defn.auto_auth,
                 credentials_name=defn.credentials_name,
                 allow_mcp_ui=defn.allow_mcp_ui,

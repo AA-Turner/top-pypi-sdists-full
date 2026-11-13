@@ -18,6 +18,7 @@ from langgraph_api.grpc.ops import (
     grpc_error_guard,
     map_if_exists,
 )
+from langgraph_api.grpc.ops.runs import forget_all_threads
 from langgraph_api.schema import (
     Assistant,
     AssistantSelectField,
@@ -312,6 +313,8 @@ class Assistants(Authenticated):
 
         client = await get_shared_client()
         await client.assistants.Delete(request)
+        if delete_threads:
+            forget_all_threads()
 
         # Return the deleted ID
         async def generate_result():

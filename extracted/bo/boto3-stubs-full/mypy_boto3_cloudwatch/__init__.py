@@ -22,6 +22,7 @@ Usage::
         GetMetricDataPaginator,
         ListAlarmMuteRulesPaginator,
         ListDashboardsPaginator,
+        ListMetricDataQueryDefinitionsPaginator,
         ListMetricsPaginator,
         LogAlarmExistsWaiter,
         ServiceResource,
@@ -43,6 +44,7 @@ Usage::
     get_metric_data_paginator: GetMetricDataPaginator = client.get_paginator("get_metric_data")
     list_alarm_mute_rules_paginator: ListAlarmMuteRulesPaginator = client.get_paginator("list_alarm_mute_rules")
     list_dashboards_paginator: ListDashboardsPaginator = client.get_paginator("list_dashboards")
+    list_metric_data_query_definitions_paginator: ListMetricDataQueryDefinitionsPaginator = client.get_paginator("list_metric_data_query_definitions")
     list_metrics_paginator: ListMetricsPaginator = client.get_paginator("list_metrics")
     ```
 """
@@ -55,6 +57,7 @@ from .paginator import (
     GetMetricDataPaginator,
     ListAlarmMuteRulesPaginator,
     ListDashboardsPaginator,
+    ListMetricDataQueryDefinitionsPaginator,
     ListMetricsPaginator,
 )
 from .waiter import (
@@ -89,6 +92,7 @@ __all__ = (
     "GetMetricDataPaginator",
     "ListAlarmMuteRulesPaginator",
     "ListDashboardsPaginator",
+    "ListMetricDataQueryDefinitionsPaginator",
     "ListMetricsPaginator",
     "LogAlarmExistsWaiter",
     "ServiceResource",

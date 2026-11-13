@@ -15,6 +15,7 @@ from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
 from ..types.retrieve_stats_request_steps import RetrieveStatsRequestSteps
 from .types.list_stats_response import ListStatsResponse
+from .types.retrieve_stats_request_activity import RetrieveStatsRequestActivity
 from .types.retrieve_stats_request_event_type import RetrieveStatsRequestEventType
 from .types.retrieve_stats_request_interval import RetrieveStatsRequestInterval
 from .types.retrieve_stats_request_snapshot_window import RetrieveStatsRequestSnapshotWindow
@@ -108,6 +109,7 @@ class RawStatsClient:
         product_category: typing.Optional[str] = None,
         account_country: typing.Optional[str] = None,
         issuer: typing.Optional[str] = None,
+        webhook_id: typing.Optional[str] = None,
         conversion_window: typing.Optional[str] = None,
         mature_only: typing.Optional[bool] = None,
         steps: typing.Optional[RetrieveStatsRequestSteps] = None,
@@ -141,6 +143,9 @@ class RawStatsClient:
         event_count_lt: typing.Optional[float] = None,
         event_count_lte: typing.Optional[float] = None,
         referring_account_id: typing.Optional[str] = None,
+        team_lead_id: typing.Optional[str] = None,
+        activity: typing.Optional[RetrieveStatsRequestActivity] = None,
+        breakdown_limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[RetrieveStatsResponse]:
         """
@@ -268,6 +273,9 @@ class RawStatsClient:
         issuer : typing.Optional[str]
             Filter to one card-issuing bank, named as the processor reports it, for example JPMORGAN CHASE BANK N A, or unknown for payments with no reported bank. Available on metrics that list issuer.
 
+        webhook_id : typing.Optional[str]
+            The webhook to count deliveries for, for example hook_AbC123. Required by webhook_deliveries, and must belong to account_id or one of its apps.
+
         conversion_window : typing.Optional[str]
             Funnel only. Time allowed from the first event to the final event: integer minutes, hours, or days, up to 30d.
 
@@ -281,7 +289,7 @@ class RawStatsClient:
             Funnel only. The breakdown value to use as baseline for whole-window final conversion. Requires breakdown_by and mature_only=true; defaults confidence_level to 0.95.
 
         confidence_level : typing.Optional[float]
-            Funnel only. Confidence level for whole-window final conversion intervals, for example 0.95. Requires mature_only=true. Exposure steps must each filter one user-randomized experiment.
+            Funnel only. Confidence level for whole-window final conversion intervals, for example 0.95. Requires mature_only=true. Exposure steps must each filter one user- or visitor-randomized experiment.
 
         contactable : typing.Optional[bool]
             People metric only: contactable equals this value. Applies to the current person profile for every time bucket. LTV and AOV are in USD. Not accepted by the Events metric.
@@ -367,6 +375,15 @@ class RawStatsClient:
         referring_account_id : typing.Optional[str]
             Read a referral metric for a business instead of the caller: the referrals its team members made, past members included, for example biz_AbC123. Requires company:basic:read on that business and cannot be combined with user_id. Available on metrics that list referring_account_id.
 
+        team_lead_id : typing.Optional[str]
+            Read a partner metric for one team lead and everyone under them in today's org chart, for example user_AbC123. Needs referring_account_id or a global query. As breakdown_by=team_lead_id, figures sit under the highest lead above the partner who earned them, so each group matches that lead's team_lead_id filter and the groups add up to the total. With team_lead_id set, or for a caller who reads only their own team, the groups are the leads under that person, who keeps the rest. Anyone with no lead is in a null group. Available on metrics that list team_lead_id.
+
+        activity : typing.Optional[RetrieveStatsRequestActivity]
+            On partner_reps, all counts the period's roster, earning counts those who earned in the period, and not_earning counts the roster minus them. On the other partner metrics, earning keeps the figures of the people partner_reps counts as earning over the whole range and not_earning keeps the figures of everyone else; those need referring_account_id or a global query. Defaults to all. Available on metrics that list activity.
+
+        breakdown_limit : typing.Optional[int]
+            With a single breakdown_by, keep the groups with the highest whole-range values, up to this many, and fold every other group into one entry named other. A rate or an average ranks its groups by the deals it divides by. The other entry is measured from the underlying rows, so a distinct count or a rate stays exact rather than being added up from groups. Available on partner metrics only.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -419,6 +436,7 @@ class RawStatsClient:
                 "product_category": product_category,
                 "account_country": account_country,
                 "issuer": issuer,
+                "webhook_id": webhook_id,
                 "conversion_window": conversion_window,
                 "mature_only": mature_only,
                 "steps": convert_and_respect_annotation_metadata(
@@ -454,6 +472,9 @@ class RawStatsClient:
                 "event_count_lt": event_count_lt,
                 "event_count_lte": event_count_lte,
                 "referring_account_id": referring_account_id,
+                "team_lead_id": team_lead_id,
+                "activity": activity,
+                "breakdown_limit": breakdown_limit,
             },
             request_options=request_options,
         )
@@ -565,6 +586,7 @@ class AsyncRawStatsClient:
         product_category: typing.Optional[str] = None,
         account_country: typing.Optional[str] = None,
         issuer: typing.Optional[str] = None,
+        webhook_id: typing.Optional[str] = None,
         conversion_window: typing.Optional[str] = None,
         mature_only: typing.Optional[bool] = None,
         steps: typing.Optional[RetrieveStatsRequestSteps] = None,
@@ -598,6 +620,9 @@ class AsyncRawStatsClient:
         event_count_lt: typing.Optional[float] = None,
         event_count_lte: typing.Optional[float] = None,
         referring_account_id: typing.Optional[str] = None,
+        team_lead_id: typing.Optional[str] = None,
+        activity: typing.Optional[RetrieveStatsRequestActivity] = None,
+        breakdown_limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[RetrieveStatsResponse]:
         """
@@ -725,6 +750,9 @@ class AsyncRawStatsClient:
         issuer : typing.Optional[str]
             Filter to one card-issuing bank, named as the processor reports it, for example JPMORGAN CHASE BANK N A, or unknown for payments with no reported bank. Available on metrics that list issuer.
 
+        webhook_id : typing.Optional[str]
+            The webhook to count deliveries for, for example hook_AbC123. Required by webhook_deliveries, and must belong to account_id or one of its apps.
+
         conversion_window : typing.Optional[str]
             Funnel only. Time allowed from the first event to the final event: integer minutes, hours, or days, up to 30d.
 
@@ -738,7 +766,7 @@ class AsyncRawStatsClient:
             Funnel only. The breakdown value to use as baseline for whole-window final conversion. Requires breakdown_by and mature_only=true; defaults confidence_level to 0.95.
 
         confidence_level : typing.Optional[float]
-            Funnel only. Confidence level for whole-window final conversion intervals, for example 0.95. Requires mature_only=true. Exposure steps must each filter one user-randomized experiment.
+            Funnel only. Confidence level for whole-window final conversion intervals, for example 0.95. Requires mature_only=true. Exposure steps must each filter one user- or visitor-randomized experiment.
 
         contactable : typing.Optional[bool]
             People metric only: contactable equals this value. Applies to the current person profile for every time bucket. LTV and AOV are in USD. Not accepted by the Events metric.
@@ -824,6 +852,15 @@ class AsyncRawStatsClient:
         referring_account_id : typing.Optional[str]
             Read a referral metric for a business instead of the caller: the referrals its team members made, past members included, for example biz_AbC123. Requires company:basic:read on that business and cannot be combined with user_id. Available on metrics that list referring_account_id.
 
+        team_lead_id : typing.Optional[str]
+            Read a partner metric for one team lead and everyone under them in today's org chart, for example user_AbC123. Needs referring_account_id or a global query. As breakdown_by=team_lead_id, figures sit under the highest lead above the partner who earned them, so each group matches that lead's team_lead_id filter and the groups add up to the total. With team_lead_id set, or for a caller who reads only their own team, the groups are the leads under that person, who keeps the rest. Anyone with no lead is in a null group. Available on metrics that list team_lead_id.
+
+        activity : typing.Optional[RetrieveStatsRequestActivity]
+            On partner_reps, all counts the period's roster, earning counts those who earned in the period, and not_earning counts the roster minus them. On the other partner metrics, earning keeps the figures of the people partner_reps counts as earning over the whole range and not_earning keeps the figures of everyone else; those need referring_account_id or a global query. Defaults to all. Available on metrics that list activity.
+
+        breakdown_limit : typing.Optional[int]
+            With a single breakdown_by, keep the groups with the highest whole-range values, up to this many, and fold every other group into one entry named other. A rate or an average ranks its groups by the deals it divides by. The other entry is measured from the underlying rows, so a distinct count or a rate stays exact rather than being added up from groups. Available on partner metrics only.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -876,6 +913,7 @@ class AsyncRawStatsClient:
                 "product_category": product_category,
                 "account_country": account_country,
                 "issuer": issuer,
+                "webhook_id": webhook_id,
                 "conversion_window": conversion_window,
                 "mature_only": mature_only,
                 "steps": convert_and_respect_annotation_metadata(
@@ -911,6 +949,9 @@ class AsyncRawStatsClient:
                 "event_count_lt": event_count_lt,
                 "event_count_lte": event_count_lte,
                 "referring_account_id": referring_account_id,
+                "team_lead_id": team_lead_id,
+                "activity": activity,
+                "breakdown_limit": breakdown_limit,
             },
             request_options=request_options,
         )

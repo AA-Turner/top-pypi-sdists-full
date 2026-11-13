@@ -24,25 +24,19 @@ from typing import Generator
 from typing import Generic
 from typing_extensions import assert_never
 
-import gradio as gr
-
 from ..config import Config
-from ..reloading import reload_server_ports
 from ..utils import debug
 from ..utils import drop_params
-from ..utils import gradio_request_var
 from ..utils import SimpleQueue as Queue
 from . import client
+from . import context
 from . import torch
 from .api import AllowToken
 from .api import GPUSize
 from .api import NvidiaIndex
 from .api import NvidiaUUID
-from .gradio import GradioPartialContext
-from .gradio import error
-from .gradio import get_server_port
-from .gradio import patch_gradio_queue
-from .gradio import try_process_queue_event
+from .errors import ZeroGPUTaskAborted
+from .errors import ZeroGPUTaskException
 from .tqdm import remove_tqdm_multiprocessing_lock
 from .tqdm import tqdm
 from .utils import apply_cleanups
@@ -63,14 +57,14 @@ forked = False
 
 class Worker(Generic[Res]):
     process: ForkProcess
-    arg_queue: Queue[tuple[Params, GradioPartialContext]]
+    arg_queue: Queue[tuple[Params, Callable[[], None]]]
     res_queue: Queue[Res | None]
     _sentinel: Thread
 
     def __init__(
         self,
         target: Callable[[
-            Queue[tuple[Params, GradioPartialContext]],
+            Queue[tuple[Params, Callable[[], None]]],
             Queue[Res | None],
             Event,
             AllowToken,
@@ -79,6 +73,7 @@ class Worker(Generic[Res]):
         ], None],
         allow_token: str,
         nvidia_uuid: str,
+        server_ports: set[int],
     ):
         self._sentinel = Thread(target=self._close_on_exit, daemon=True)
         self.arg_queue = Queue()
@@ -86,10 +81,6 @@ class Worker(Generic[Res]):
         self.stop_event = Event(ctx=multiprocessing_ctx)
         debug(f"{self.arg_queue._writer.fileno()=}") # pyright: ignore [reportAttributeAccessIssue]
         debug(f"{self.res_queue._writer.fileno()=}") # pyright: ignore [reportAttributeAccessIssue]
-        server_ports: set[int] = set()
-        if (gradio_server_port := get_server_port()) is not None:
-            server_ports |= {gradio_server_port}
-        server_ports |= reload_server_ports
         fds = [conn.fd for conn in get_process_connections() if conn.port in server_ports]
         args = self.arg_queue, self.res_queue, self.stop_event, allow_token, nvidia_uuid, fds
         if TYPE_CHECKING:
@@ -112,7 +103,6 @@ class Worker(Generic[Res]):
 
 
 def worker_init(
-    res_queue: Queue[RegularResQueueResult | None] | Queue[GeneratorResQueueResult | None],
     allow_token: str,
     nvidia_uuid: str,
     fds: list[int],
@@ -134,7 +124,6 @@ def worker_init(
     if tqdm is not None and Config.zero_gpu_v2:
         progress = tqdm(total=100, desc="ZeroGPU init", file=open(os.devnull, 'w'))
     try: # Unrecoverable init part
-        patch_gradio_queue(res_queue)
         with progress as progress:
             current_progress = 0 # Gradio does not support float progress updates
             def update(n: float):
@@ -174,22 +163,19 @@ def regular_function_wrapper(
     gpu_size: GPUSize | None,
 ) -> Callable[Param, Res]:
 
-    import gradio as gr
-
-    request_var = gradio_request_var()
-    workers: dict[NvidiaIndex, Worker[RegularResQueueResult[Res, gr.Error] | None]] = {}
+    workers: dict[NvidiaIndex, Worker[RegularResQueueResult[Res] | None]] = {}
     task_id = id(task)
 
     @wraps(task)
-    def gradio_handler(*args: Param.args, **kwargs: Param.kwargs) -> Res:
+    def gpu_executor(*args: Param.args, **kwargs: Param.kwargs) -> Res:
 
         if forked:
             return task(*args, **kwargs)
 
-        request = request_var.get(None)
+        ctx = context.get()
         duration_ = static_duration(duration, *args, **kwargs)
         duration_ = process_duration(duration_)
-        schedule_response = client.schedule(task_id=task_id, request=request, duration=duration_, gpu_size=gpu_size)
+        schedule_response = client.schedule(task_id=task_id, duration=duration_, gpu_size=gpu_size)
         allow_token = schedule_response.allowToken
         nvidia_index = schedule_response.nvidiaIndex
         nvidia_uuid = schedule_response.nvidiaUUID
@@ -204,10 +190,12 @@ def regular_function_wrapper(
             assert worker.arg_queue.empty()
             assert worker.res_queue.empty()
         else:
-            worker = Worker(thread_wrapper, allow_token, nvidia_uuid)
+            worker = Worker(worker_loop, allow_token, nvidia_uuid, ctx.get_server_ports())
+
+        worker_context_setup = ctx.worker_contextualizer()
 
         try:
-            worker.arg_queue.put(((args, kwargs), GradioPartialContext.get()))
+            worker.arg_queue.put(((args, kwargs), worker_context_setup))
         except PicklingError: # TODO: detailed serialization diagnostic
             release(fail=True)
             raise
@@ -221,36 +209,30 @@ def regular_function_wrapper(
         with ThreadPoolExecutor(1) as executor:
             executor.submit(copy_context().run, warn_duration)
             try:
-                while True:
-                    res = worker.res_queue.get()
-                    if res is None:
-                        release(fail=True, allow_404=True)
-                        raise error("ZeroGPU worker error", "GPU task aborted")
-                    if isinstance(res, ExceptionResult):
-                        release(fail=True)
-                        if res.gradio_error is not None:
-                            if res.gradio_error.print_exception:
-                                print(res.traceback)
-                                res.gradio_error.print_exception = False
-                            raise res.gradio_error
-                        else:
-                            print(res.traceback)
-                            raise error("ZeroGPU worker error", res.error_cls)
-                    if isinstance(res, OkResult):
-                        workers[nvidia_index] = worker
-                        release()
-                        return res.value
-                    if isinstance(res, GradioQueueEvent):
-                        try_process_queue_event(res.method_name, *res.args, **res.kwargs)
-                        continue
-                    assert_never(res)
+                res = worker.res_queue.get()
+                if res is None:
+                    release(fail=True, allow_404=True)
+                    raise ZeroGPUTaskAborted("GPU task aborted")
+                if isinstance(res, ExceptionResult):
+                    release(fail=True)
+                    print(res.traceback)
+                    raise ZeroGPUTaskException(
+                        message=res.error_cls,
+                        exception=res.exception,
+                        traceback=res.traceback,
+                    )
+                if isinstance(res, OkResult):
+                    workers[nvidia_index] = worker
+                    release()
+                    return res.value
+                assert_never(res)
             finally:
                 res_event.set()
 
 
-    def thread_wrapper(
-        arg_queue: Queue[tuple[Params, GradioPartialContext]],
-        res_queue: Queue[RegularResQueueResult[Res, gr.Error] | None],
+    def worker_loop(
+        arg_queue: Queue[tuple[Params, Callable[[], None]]],
+        res_queue: Queue[RegularResQueueResult[Res] | None],
         _stop_event: Event,
         allow_token: str,
         nvidia_uuid: str,
@@ -262,12 +244,11 @@ def regular_function_wrapper(
         initialized = False
         while True:
             try:
-                (args, kwargs), gradio_context = arg_queue.get()
+                (args, kwargs), worker_context_setup = arg_queue.get()
             except OSError:
                 break
             if not initialized:
                 if (res := worker_init(
-                    res_queue=res_queue,
                     allow_token=allow_token,
                     nvidia_uuid=nvidia_uuid,
                     fds=fds,
@@ -286,17 +267,17 @@ def regular_function_wrapper(
                     res_queue.put(res)
                 except PicklingError as e:
                     res_queue.put(exception_result(e))
-            GradioPartialContext.apply(gradio_context)
+            worker_context_setup()
             context = copy_context()
-            with ThreadPoolExecutor() as executor:
-                future = executor.submit(context.run, run_task)
+            with ThreadPoolExecutor() as gpu_executor:
+                future = gpu_executor.submit(context.run, run_task)
             future.result()
 
     # https://github.com/python/cpython/issues/91002
     if not hasattr(task, '__annotations__'):
-        gradio_handler.__annotations__ = {}
+        gpu_executor.__annotations__ = {}
 
-    return gradio_handler
+    return gpu_executor
 
 
 def generator_function_wrapper(
@@ -305,23 +286,20 @@ def generator_function_wrapper(
     gpu_size: GPUSize | None,
 ) -> Callable[Param, Generator[Res, None, None]]:
 
-    import gradio as gr
-
-    request_var = gradio_request_var()
-    workers: dict[NvidiaIndex, Worker[GeneratorResQueueResult[Res, gr.Error] | None]] = {}
+    workers: dict[NvidiaIndex, Worker[GeneratorResQueueResult[Res] | None]] = {}
     task_id = id(task)
 
     @wraps(task)
-    def gradio_handler(*args: Param.args, **kwargs: Param.kwargs) -> Generator[Res, None, None]:
+    def gpu_executor(*args: Param.args, **kwargs: Param.kwargs) -> Generator[Res, None, None]:
 
         if forked:
             yield from task(*args, **kwargs)
             return
 
-        request = request_var.get(None)
+        ctx = context.get()
         duration_ = static_duration(duration, *args, **kwargs)
         duration_ = process_duration(duration_)
-        schedule_response = client.schedule(task_id=task_id, request=request, duration=duration_, gpu_size=gpu_size)
+        schedule_response = client.schedule(task_id=task_id, duration=duration_, gpu_size=gpu_size)
         allow_token = schedule_response.allowToken
         nvidia_index = schedule_response.nvidiaIndex
         nvidia_uuid = schedule_response.nvidiaUUID
@@ -336,10 +314,12 @@ def generator_function_wrapper(
             assert worker.arg_queue.empty()
             assert worker.res_queue.empty()
         else:
-            worker = Worker(thread_wrapper, allow_token, nvidia_uuid)
+            worker = Worker(worker_loop, allow_token, nvidia_uuid, ctx.get_server_ports())
+
+        worker_context_setup = ctx.worker_contextualizer()
 
         try:
-            worker.arg_queue.put(((args, kwargs), GradioPartialContext.get()))
+            worker.arg_queue.put(((args, kwargs), worker_context_setup))
         except PicklingError: # TODO: detailed serialization diagnostic
             release(fail=True)
             raise
@@ -350,8 +330,8 @@ def generator_function_wrapper(
             if not res_event.wait(duration_seconds):
                 client.duration_warning()
 
-        yield_queue: ThreadQueue[YieldQueueResult[Res, gr.Error]] = ThreadQueue()
-        def fill_yield_queue(worker: Worker[GeneratorResQueueResult[Res, gr.Error] | None]):
+        yield_queue: ThreadQueue[YieldQueueResult[Res]] = ThreadQueue()
+        def fill_yield_queue(worker: Worker[GeneratorResQueueResult[Res] | None]):
             torch.enter_mode() # TorchModes are thread-local and unpickling can trigger CUDA code
             while True:
                 res = worker.res_queue.get()
@@ -371,10 +351,6 @@ def generator_function_wrapper(
                 if isinstance(res, OkResult):
                     yield_queue.put(OkResult(res.value))
                     continue
-                if isinstance(res, GradioQueueEvent): # pragma: no cover (not working properly on Gradio side)
-                    try_process_queue_event(res.method_name, *res.args, **res.kwargs)
-                    continue
-                debug(f"fill_yield_queue: assert_never({res=})")
                 assert_never(res)
         with ThreadPoolExecutor(2) as e:
             _ = e.submit(copy_context().run, warn_duration)
@@ -388,16 +364,14 @@ def generator_function_wrapper(
                     debug(f"yield_queue TIMEOUT ({GENERATOR_GLOBAL_TIMEOUT=})")
                     raise
                 if isinstance(res, AbortedResult):
-                    raise error("ZeroGPU worker error", "GPU task aborted")
+                    raise ZeroGPUTaskAborted("GPU task aborted")
                 if isinstance(res, ExceptionResult):
-                    if res.gradio_error is not None:
-                        if res.gradio_error.print_exception:
-                            print(res.traceback)
-                            res.gradio_error.print_exception = False
-                        raise res.gradio_error
-                    else:
-                        print(res.traceback)
-                        raise error("ZeroGPU worker error", res.error_cls)
+                    print(res.traceback)
+                    raise ZeroGPUTaskException(
+                        message=res.error_cls,
+                        exception=res.exception,
+                        traceback=res.traceback,
+                    )
                 if isinstance(res, EndResult):
                     break
                 if isinstance(res, OkResult):
@@ -407,13 +381,13 @@ def generator_function_wrapper(
                         worker.stop_event.set()
                         raise
                     continue
-                debug(f"gradio_handler: assert_never({res=})")
+                debug(f"gpu_executor: assert_never({res=})")
                 assert_never(res)
 
 
-    def thread_wrapper(
-        arg_queue: Queue[tuple[Params, GradioPartialContext]],
-        res_queue: Queue[GeneratorResQueueResult[Res, gr.Error] | None],
+    def worker_loop(
+        arg_queue: Queue[tuple[Params, Callable[[], None]]],
+        res_queue: Queue[GeneratorResQueueResult[Res] | None],
         stop_event: Event,
         allow_token: str,
         nvidia_uuid: str,
@@ -425,13 +399,12 @@ def generator_function_wrapper(
         initialized = False
         while True:
             try:
-                (args, kwargs), gradio_context = arg_queue.get()
+                (args, kwargs), worker_context_setup = arg_queue.get()
             except OSError:
                 break
             stop_event.clear()
             if not initialized:
                 if (res := worker_init(
-                    res_queue=res_queue,
                     allow_token=allow_token,
                     nvidia_uuid=nvidia_uuid,
                     fds=fds,
@@ -459,26 +432,22 @@ def generator_function_wrapper(
                         break
                     else:
                         continue
-            GradioPartialContext.apply(gradio_context)
-            with ThreadPoolExecutor() as executor:
-                executor.submit(copy_context().run, iterate)
+            worker_context_setup()
+            with ThreadPoolExecutor() as gpu_executor:
+                gpu_executor.submit(copy_context().run, iterate)
             res_queue.put(EndResult())
 
     # https://github.com/python/cpython/issues/91002
     if not hasattr(task, '__annotations__'):
-        gradio_handler.__annotations__ = {}
+        gpu_executor.__annotations__ = {}
 
-    return gradio_handler
+    return gpu_executor
 
 
 def exception_result(exc: Exception) -> ExceptionResult:
     formatted = traceback.format_exception(type(exc), exc, exc.__traceback__)
-    gradio_error = None
-    if isinstance(exc, gr.Error):
-        gradio_error = exc
-        gradio_error.print_exception = getattr(gradio_error, 'print_exception', True) # Gradio < 5
     return ExceptionResult(
         traceback=''.join(formatted),
         error_cls=exc.__class__.__name__,
-        gradio_error=gradio_error,
+        exception=exc,
     )

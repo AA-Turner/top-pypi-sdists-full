@@ -132,16 +132,129 @@ def _iter_multipart_body(
 
 
 def _sandboxd_files_endpoint(path: str) -> str:
-    """Return the sandboxd REST path for a sandbox-relative file path."""
-    encoded = []
-    for segment in path.split("/"):
-        if segment == ".":
-            encoded.append("%2E")
-        elif segment == "..":
-            encoded.append("%2E%2E")
-        else:
-            encoded.append(urllib.parse.quote(segment, safe=""))
-    return f"v1/files/{'%2F'.join(encoded)}"
+    """Return the sandboxd REST path for a sandbox file path.
+
+    Separators stay literal "/". A leading "/" is encoded as "%2F", so
+    "/workspace/a.txt" stays absolute and sandboxd can strip its own root.
+    Stripping the slash here would join that path under the root a second
+    time. A ".." segment is rejected before normalization, so
+    "dir/../a.txt" is an error instead of a rewrite to "a.txt". "." and
+    empty segments, including a trailing slash, are dropped.
+    """
+    if any(part == ".." for part in path.split("/")):
+        raise ValueError(f"path {path!r} escapes the sandbox root")
+    normalized = posixpath.normpath(path)
+    if normalized in ("", ".", "/"):
+        return "v1/files/"
+    absolute = normalized.startswith("/")
+    body = normalized[1:] if absolute else normalized
+    encoded = "/".join(
+        urllib.parse.quote(part, safe="") for part in body.split("/")
+    )
+    if absolute:
+        return "v1/files/%2F" + encoded
+    return "v1/files/" + encoded
+
+
+def _sandboxd_read_endpoint(path: str) -> str:
+    """Return the sandboxd GET path for a file read.
+
+    The sandbox root is a directory. Reject it before the request, as the Go
+    and TypeScript clients do, instead of downloading the directory listing.
+    """
+    endpoint = _sandboxd_files_endpoint(path)
+    if endpoint == "v1/files/":
+        raise ValueError(f"read: path {path!r} names the sandbox root")
+    return endpoint
+
+
+class _RuntimeProbe(Protocol):
+    """The part of a sync or async connector that the endpoint helpers use."""
+
+    def is_sandboxd(self) -> bool: ...
+
+
+def _sandboxd_op_endpoint(
+    connector: _RuntimeProbe,
+    op: str,
+    path: str,
+    action: str = "",
+    query: Mapping[str, str] | None = None,
+) -> str:
+    """Return the endpoint for a sandboxd-only file operation.
+
+    Raises NotImplementedError on the legacy runtime, which has none of these
+    endpoints, and ValueError for an empty path.
+    """
+    if not connector.is_sandboxd():
+        raise NotImplementedError(
+            f"{op}() is only supported by the sandboxd runtime; the legacy "
+            f"python-runtime has no {op} endpoint"
+        )
+    if path == "":
+        raise ValueError(f"{op}: path must not be empty")
+    endpoint = _sandboxd_files_endpoint(path)
+    if endpoint == "v1/files/":
+        raise ValueError(f"{op}: path {path!r} names the sandbox root")
+    endpoint += action
+    if query:
+        endpoint += "?" + urllib.parse.urlencode(query)
+    return endpoint
+
+
+def _sandboxd_write_request(
+    path: str, append: bool, create_only: bool,
+) -> tuple[str, dict[str, str], bool]:
+    """Return the endpoint, headers and retry-safety of a sandboxd PUT.
+
+    Append and create-only writes are not idempotent, so a retry could
+    duplicate content or fail with 412 after the first attempt succeeded.
+    """
+    endpoint = _sandboxd_files_endpoint(path)
+    if append:
+        endpoint += "?append=true"
+    headers = {"Content-Type": "application/octet-stream"}
+    if create_only:
+        headers["If-None-Match"] = "*"
+    return endpoint, headers, not (append or create_only)
+
+
+def _check_write_options(
+    connector: _RuntimeProbe, append: bool, create_only: bool,
+) -> None:
+    """Reject write options that are contradictory or unsupported."""
+    if append and create_only:
+        raise ValueError("append and create_only cannot be combined")
+    if (append or create_only) and not connector.is_sandboxd():
+        raise NotImplementedError(
+            "append and create_only are only supported by the sandboxd runtime"
+        )
+
+
+def _mkdir_endpoint(connector: _RuntimeProbe, path: str, parents: bool) -> str:
+    """Return the endpoint for a sandboxd directory creation."""
+    query = {"type": "directory"}
+    if parents:
+        query["parents"] = "true"
+    return _sandboxd_op_endpoint(connector, "mkdir", path, query=query)
+
+
+def _transfer_endpoint(
+    connector: _RuntimeProbe,
+    op: str,
+    source: str,
+    destination: str,
+    overwrite: bool,
+) -> str:
+    """Return the endpoint for a sandboxd move or copy."""
+    if destination == "":
+        raise ValueError(f"{op}: destination must not be empty")
+    query = {"destination": destination}
+    if overwrite:
+        query["overwrite"] = "true"
+    # The encoded path has no literal colon, so sandboxd splits the action
+    # off at the last one.
+    return _sandboxd_op_endpoint(connector, op, source, f":{op}", query)
 
 
 class Filesystem:
@@ -168,13 +281,22 @@ class Filesystem:
         content: bytes | str | BinaryIO,
         timeout: int = 60,
         allow_unsafe_paths: bool = False,
+        append: bool = False,
+        create_only: bool = False,
     ) -> None:
         """Upload content to a sandbox-relative path.
 
         Binary file objects are read in chunks from their current position and
         sent once without retries. The caller must close the file object; its
         position may advance if the upload fails.
+
+        On the sandboxd runtime, ``append=True`` adds to the end of the file
+        and ``create_only=True`` fails with a 412 ``SandboxRequestError`` if
+        the path exists. Neither is retried, and they cannot be combined
+        (``ValueError``). The legacy runtime raises
+        ``NotImplementedError``.
         """
+        _check_write_options(self.connector, append, create_only)
         if isinstance(content, str):
             content = content.encode("utf-8")
         elif isinstance(content, (bytearray, memoryview)):
@@ -196,24 +318,29 @@ class Filesystem:
         # Sanitize here to guarantee the filename is a normalized
         # relative path with no upward traversal.
         if not allow_unsafe_paths:
-            path = self._safe_upload_path(path)
+            path = self._safe_upload_path(
+                path, preserve_absolute=self.connector.is_sandboxd()
+            )
 
         if self.connector.is_sandboxd():
-            # sandboxd write is an idempotent PUT of the raw bytes; parent
-            # directories are created server-side (temp-file + rename).
+            # A plain write is an atomic, idempotent PUT. Append is not
+            # atomic, and neither append nor create_only is idempotent, so
+            # they disable retries. Parent directories are created
+            # server-side.
+            endpoint, headers, retry_safe = _sandboxd_write_request(
+                path, append, create_only)
             data: bytes | Iterator[bytes]
             if isinstance(content, bytes):
                 data = content
-                disable_retries = False
             else:
                 data = _iter_binary_chunks(content)
-                disable_retries = True
+                retry_safe = False
             self.connector.send_request(
-                "PUT", _sandboxd_files_endpoint(path),
+                "PUT", endpoint,
                 data=data,
-                headers={"Content-Type": "application/octet-stream"},
+                headers=headers,
                 timeout=timeout,
-                _disable_retries=disable_retries,
+                _disable_retries=not retry_safe,
             )
         elif not isinstance(content, bytes):
             prefix, suffix, content_type = _multipart_framing(path)
@@ -234,8 +361,8 @@ class Filesystem:
         logger.info(f"File '{path}' uploaded successfully.")
 
     @staticmethod
-    def _safe_upload_path(path: str) -> str:
-        """Return a relative, ``..``-free filename safe to send as multipart filename.
+    def _safe_upload_path(path: str, *, preserve_absolute: bool = False) -> str:
+        """Return a ``..``-free path safe to send to the runtime.
 
         Rejects NUL bytes and ASCII control characters before normalisation:
         ``os.path.normpath`` preserves embedded NULs, and a NUL in the
@@ -243,7 +370,13 @@ class Filesystem:
         check ``foo\\x00../etc/passwd`` would survive the ``..`` split (no
         part equals ``".."`` because the NUL-prefixed segment doesn't
         match) yet resolve to ``foo`` on the filesystem — or worse,
-        something server-dependent.``.
+        something server-dependent.
+
+        A leading "/" is kept when ``preserve_absolute`` is set. sandboxd
+        needs that slash so "/workspace/a.txt" is not joined under the
+        workspace root a second time. The legacy multipart filename leaves
+        it unset and strips the slash, because that field is a relative
+        path and an absolute filename would escape the runtime directory.
         """
         if any(ord(c) < 0x20 or ord(c) == 0x7F for c in path):
             raise ValueError(
@@ -251,15 +384,18 @@ class Filesystem:
             )
         if not path.strip():
             raise ValueError("Upload path cannot be empty.")
-
-        normalized = posixpath.normpath(path).lstrip("/")
-        if not normalized or normalized == ".":
-            raise ValueError(f"Upload path '{path}' does not name a file.")
-        parts = normalized.split("/")
-        if any(part == ".." for part in parts):
+        # Reject ".." before normpath. Otherwise "dir/../a.txt" is rewritten
+        # to "a.txt" and the caller never sees that the path moved.
+        if any(part == ".." for part in path.split("/")):
             raise ValueError(
                 f"Upload path '{path}' escapes the sandbox root."
             )
+
+        normalized = posixpath.normpath(path)
+        if not preserve_absolute:
+            normalized = normalized.lstrip("/")
+        if normalized in ("", ".", "/"):
+            raise ValueError(f"Upload path '{path}' does not name a file.")
         return normalized
 
     @trace_span("read")
@@ -286,10 +422,12 @@ class Filesystem:
             span.set_attribute("sandbox.file.path", path)
 
         if not allow_unsafe_paths:
-            path = self._safe_upload_path(path)
+            path = self._safe_upload_path(
+                path, preserve_absolute=self.connector.is_sandboxd()
+            )
 
         if self.connector.is_sandboxd():
-            endpoint = _sandboxd_files_endpoint(path)
+            endpoint = _sandboxd_read_endpoint(path)
         else:
             endpoint = f"download/{urllib.parse.quote(path, safe='')}"
         response = self.connector.send_request("GET", endpoint, timeout=timeout)
@@ -333,10 +471,12 @@ class Filesystem:
             span.set_attribute("sandbox.file.path", path)
 
         if not allow_unsafe_paths:
-            path = self._safe_upload_path(path)
+            path = self._safe_upload_path(
+                path, preserve_absolute=self.connector.is_sandboxd()
+            )
 
         if self.connector.is_sandboxd():
-            endpoint = _sandboxd_files_endpoint(path)
+            endpoint = _sandboxd_read_endpoint(path)
         else:
             endpoint = f"download/{urllib.parse.quote(path, safe='')}"
 
@@ -470,15 +610,55 @@ class Filesystem:
         span = trace.get_current_span()
         if span.is_recording():
             span.set_attribute("sandbox.file.path", path)
-        if not self.connector.is_sandboxd():
-            raise NotImplementedError(
-                "delete() is only supported by the sandboxd runtime; the legacy "
-                "python-runtime has no delete endpoint"
-            )
-        if path == "":
-            raise ValueError("delete: path must not be empty")
-        endpoint = _sandboxd_files_endpoint(path)
-        if recursive:
-            endpoint += "?recursive=true"
+        endpoint = _sandboxd_op_endpoint(
+            self.connector, "delete", path,
+            query={"recursive": "true"} if recursive else None)
         self.connector.send_request("DELETE", endpoint, timeout=timeout)
         logger.info(f"Path '{path}' deleted successfully.")
+
+    @trace_span("mkdir")
+    def mkdir(self, path: str, parents: bool = False, timeout: int = 60) -> None:
+        """Create a directory. sandboxd runtime only.
+
+        Succeeds if the directory already exists. With ``parents=False`` a
+        missing parent fails with a 404. The legacy python-runtime raises
+        NotImplementedError.
+        """
+        span = trace.get_current_span()
+        if span.is_recording():
+            span.set_attribute("sandbox.file.path", path)
+        endpoint = _mkdir_endpoint(self.connector, path, parents)
+        self.connector.send_request("PUT", endpoint, timeout=timeout)
+        logger.info(f"Directory '{path}' created successfully.")
+
+    @trace_span("move")
+    def move(
+        self, source: str, destination: str, overwrite: bool = False, timeout: int = 60
+    ) -> None:
+        """Rename a file or directory. sandboxd runtime only.
+
+        Missing parents of ``destination`` are created. An existing destination
+        fails with a 409 unless ``overwrite=True``, which replaces a file but
+        never a directory. The legacy python-runtime raises
+        NotImplementedError.
+        """
+        span = trace.get_current_span()
+        if span.is_recording():
+            span.set_attribute("sandbox.file.path", source)
+        endpoint = _transfer_endpoint(
+            self.connector, "move", source, destination, overwrite)
+        self.connector.send_request("POST", endpoint, timeout=timeout)
+        logger.info(f"Path '{source}' moved to '{destination}'.")
+
+    @trace_span("copy")
+    def copy(
+        self, source: str, destination: str, overwrite: bool = False, timeout: int = 60
+    ) -> None:
+        """Copy a file or directory with the same rules as ``move()``."""
+        span = trace.get_current_span()
+        if span.is_recording():
+            span.set_attribute("sandbox.file.path", source)
+        endpoint = _transfer_endpoint(
+            self.connector, "copy", source, destination, overwrite)
+        self.connector.send_request("POST", endpoint, timeout=timeout)
+        logger.info(f"Path '{source}' copied to '{destination}'.")

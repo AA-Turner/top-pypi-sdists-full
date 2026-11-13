@@ -5,12 +5,15 @@
   - "3.12"
   - "3.13"
   - "3.14"
+  - "3.14t"
+  - "3.15"
+  - "3.15t"
 
 include:
   # -- wheels ------------------------
 
   # Linux x86_64 (manylinux)
-  - component: git.ligo.org/computing/gitlab/components/python/wheel@2
+  - component: git.ligo.org/computing/gitlab/components/python/wheel@4
     inputs:
       stage: build
       job_name: wheel_manylinux_x86_64
@@ -18,7 +21,7 @@ include:
       python_versions: *python_versions
 
   # Linux aarch64 (manylinux)
-  - component: git.ligo.org/computing/gitlab/components/python/wheel@2
+  - component: git.ligo.org/computing/gitlab/components/python/wheel@4
     inputs:
       stage: build
       runner_tags: [aarch64]
@@ -28,7 +31,7 @@ include:
       python_versions: *python_versions
 
   # Linux x86_64 (musllinux)
-  - component: git.ligo.org/computing/gitlab/components/python/wheel@2
+  - component: git.ligo.org/computing/gitlab/components/python/wheel@4
     inputs:
       stage: build
       job_name: wheel_musllinux_x86_64
@@ -37,7 +40,7 @@ include:
       python_versions: *python_versions
 
   # Linux aarch64 (musllinux)
-  - component: git.ligo.org/computing/gitlab/components/python/wheel@2
+  - component: git.ligo.org/computing/gitlab/components/python/wheel@4
     inputs:
       stage: build
       runner_tags: [aarch64]
@@ -47,7 +50,7 @@ include:
       python_versions: *python_versions
 
   # macOS x86_64
-  - component: git.ligo.org/computing/gitlab/components/python/wheel@2
+  - component: git.ligo.org/computing/gitlab/components/python/wheel@4
     inputs:
       stage: build
       runner_tags: [macos_x86_64]
@@ -56,7 +59,7 @@ include:
       python_versions: *python_versions
 
   # macOS ARM64
-  - component: git.ligo.org/computing/gitlab/components/python/wheel@2
+  - component: git.ligo.org/computing/gitlab/components/python/wheel@4
     inputs:
       stage: build
       runner_tags: [macos_arm64]

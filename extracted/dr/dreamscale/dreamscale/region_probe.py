@@ -82,12 +82,15 @@ async def create_session_with_rtt_region_order(
     optimization_config: OptimizationConfig | dict[str, Any] | None = None,
     speed: str | None = None,
     checkpoint: str | None = None,
+    engine: str | None = None,
 ) -> Any:
     validate_provider_selection(model, provider, region)
     region = validate_speed_selection(model, speed, provider, region)
     resolved_region = _validate_region_preference(region)
     if region_fallback is not None and type(region_fallback) is not bool:
         raise ValueError("region_fallback must be a boolean")
+    if engine not in (None, "standard", "lightning"):
+        raise ValueError('engine must be "standard" or "lightning"')
     if resolved_region not in _REGION_MODES:
         return await _create_session(
             control,
@@ -96,6 +99,7 @@ async def create_session_with_rtt_region_order(
             speed=speed,
             region_mode="custom",
             region_fallback=region_fallback,
+            engine=engine,
             preferred_region=_WIRE_NAMES.get(resolved_region, resolved_region),
             region_pin=True,
             idle_timeout=idle_timeout,
@@ -127,6 +131,7 @@ async def create_session_with_rtt_region_order(
             speed=speed,
             region_mode="nearest",
             region_fallback=region_fallback,
+            engine=engine,
             preferred_region=preferred_region,
             region_pin=True,
             idle_timeout=idle_timeout,
@@ -142,6 +147,7 @@ async def create_session_with_rtt_region_order(
         speed=speed,
         region_mode="available",
         region_fallback=region_fallback,
+        engine=engine,
         preferred_region=None,
         region_pin=False,
         idle_timeout=idle_timeout,
@@ -385,6 +391,7 @@ async def _create_session(
     optimization_config: OptimizationConfig | dict[str, Any] | None = None,
     probe_result: RegionProbeResult | None = None,
     checkpoint: str | None = None,
+    engine: str | None = None,
 ) -> Any:
     kwargs: dict[str, Any] = {
         "region_mode": region_mode,
@@ -396,6 +403,8 @@ async def _create_session(
         kwargs["provider"] = provider
     if region_fallback is not None:
         kwargs["region_fallback"] = region_fallback
+    if engine is not None:
+        kwargs["engine"] = engine
     if speed == "fast":
         kwargs["speed"] = speed
     if keep_warm:
@@ -417,6 +426,8 @@ async def _create_session(
     accepted = _accepted_kwargs(control.create_session, kwargs)
     if region_fallback is not None and "region_fallback" not in accepted:
         raise RuntimeError("control-plane client does not support region fallback selection")
+    if engine is not None and "engine" not in accepted:
+        raise RuntimeError("control-plane client does not support engine selection")
     if provider is not None and "provider" not in accepted:
         raise RuntimeError("control-plane client does not support provider selection")
     if speed == "fast" and "speed" not in accepted:

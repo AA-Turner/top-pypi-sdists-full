@@ -5,6 +5,7 @@ run, with no W&B (RL plan §6.2). It wraps the instance's methods only, never a 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import functools
 import math
 import os
@@ -22,6 +23,7 @@ from probe.sdk import errors
 from .. import _rl_owner
 from .._live import refuse_commands
 from . import checkpoints as _checkpoints
+from . import losses as _losses
 from .live import COMMAND_REFUSAL, ArtLive, TaskKeySpec
 from .trajectories import ScenarioSpec, TrajectoryMapper
 
@@ -152,6 +154,8 @@ class ArtTracker:
         self._installed: list[tuple[Any, str, Any]] = []
         self._backends: set[int] = set()
         self._trainers: set[int] = set()
+        #: Why per-trajectory loss is not read (`losses.py`), as of the last backend watched; None: it is.
+        self._loss_reason: str | None = _losses.REASON_NOT_LOCAL
         self.queue_depth: Any = None
         #: Decorated rollouts as live samples (`live.py`, `record_rollout`).
         self.live = ArtLive(self)
@@ -174,11 +178,18 @@ class ArtTracker:
             groups = list(trajectory_groups)
             started = datetime.now(timezone.utc)
             planned = await self.guard.call_async("backend.train", self._record_consumption, groups)
-            result = await original(model, groups, *args, **kwargs)
-            await self.guard.call_async("backend.train", self._record_trained_step, result, planned, started)
+            capture = self.guard.call("trajectory losses", self._start_losses, backend)
+            token = _losses.CURRENT.set(capture) if capture is not None else None
+            try:
+                result = await original(model, groups, *args, **kwargs)
+            finally:
+                if token is not None:
+                    _losses.CURRENT.reset(token)
+            await self.guard.call_async("backend.train", self._record_trained_step, result, planned, started, capture)
             return result
 
         self.install(backend, "train", call_train)
+        self.guard.call("trajectory losses", self._watch_losses, backend)
 
     def watch_trainer(self, trainer: Any) -> None:
         """Wrap a `PipelineTrainer`'s stale and zero-variance drops, checkpoint rows and queue depth."""
@@ -359,7 +370,7 @@ class ArtTracker:
             engine=_get_engine(model),
         )
         self.live.open(self._samples, self._reward_max)
-        plan: dict[str, Any] = {"producers": [PRODUCER]}
+        plan: dict[str, Any] = {"producers": [PRODUCER], "training": _losses.make_training_plan(self._loss_reason)}
         if self._reward_max is not None:
             plan["reward_max"] = self._reward_max
         if self._max_staleness is not None:
@@ -441,12 +452,16 @@ class ArtTracker:
         self._send(parts, rows, step, should_seal=False)
         return step
 
-    async def _record_trained_step(self, result: Any, planned: int | None, started: datetime) -> None:
+    async def _record_trained_step(
+        self, result: Any, planned: int | None, started: datetime, capture: _losses.RowLosses | None = None
+    ) -> None:
         if self._samples is None:
             return
         step = int(result.step)
         if planned is not None and step != planned:
             self.guard.record_failure("train step", ValueError(f"ART trained step {step}, not {planned}"))
+        elif capture is not None:
+            self.guard.call("trajectory losses", self._send_losses, capture, step)
         self._step = step
         self._samples.commit(step, consumed_at=started)
         await self._record_weights(
@@ -481,6 +496,50 @@ class ArtTracker:
         await self._record_weights(step, path if path and os.path.isdir(path) else None, None)
         self._send_seal(step)
 
+    # -- per-trajectory loss (losses.py) -----------------------------------------------------------------
+    def _watch_losses(self, backend: Any) -> None:
+        """Wrap LocalBackend's `_train_model` (each per-row result, passed on untouched) and ART's packing, and
+        declare whether per-trajectory loss is read through this backend."""
+        reason = _losses.get_unsupported_reason(self._model, backend)
+        if reason is None:
+            import importlib
+
+            if not _losses.wrap_packing(importlib.import_module(_losses.BACKEND_MODULE)):
+                reason = _losses.REASON_NOT_LOCAL
+            else:
+                self._wrap_train_model(backend)
+        if reason != self._loss_reason:
+            self._loss_reason = reason
+            if self._samples is not None:
+                self._samples.plan(training=_losses.make_training_plan(reason))
+
+    def _wrap_train_model(self, backend: Any) -> None:
+        original = getattr(backend, "_train_model")
+
+        @functools.wraps(original)
+        async def call_train_model(*args: Any, **kwargs: Any) -> Any:
+            capture = _losses.CURRENT.get()
+            async with contextlib.aclosing(original(*args, **kwargs)) as stream:
+                async for metrics in stream:
+                    if capture is not None and capture.owner is self and not self.is_finished:
+                        self.guard.call("trajectory losses", capture.add_yield, metrics)
+                    yield metrics
+
+        self.install(backend, "_train_model", call_train_model)
+
+    def _start_losses(self, backend: Any) -> _losses.RowLosses | None:
+        if self._loss_reason is not None or _losses.get_unsupported_reason(self._model, backend) is not None:
+            return None
+        return _losses.RowLosses(owner=self)
+
+    def _send_losses(self, capture: _losses.RowLosses, step: int) -> None:
+        """Each packed row's loss on its trajectory (row r is update r of the step), before the step commits."""
+        if capture.is_skipped:
+            return  # ART trained nothing (no tokenized result, or no logprobs): no rows, and nothing is wrong
+        rows = capture.build_rows(lambda trajectory: getattr(self._seen.get(trajectory), "key", None), step=step)
+        if rows:
+            self._samples.log_metrics_many(rows)
+
     # -- inside --------------------------------------------------------------------------------------------
     def _map_groups(
         self, groups: list, *, split: str, step: int, version: int | None, consumed: tuple[int, int] | None
@@ -505,7 +564,7 @@ class ArtTracker:
                     )
                     if part is None:
                         continue  # counted and warned; the rest of the batch still goes
-                    fresh.append(part)
+                    fresh.append(self.guard.call("a rollout's files", self.live.apply_files, part) or part)
                     seen.has_generator = True
                 if consumed is not None and not seen.has_trainer:
                     consumptions.append({"key": seen.key, "role": "trainer", "consumed_step": consumed[0],

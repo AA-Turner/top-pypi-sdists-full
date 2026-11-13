@@ -18,7 +18,7 @@ from pyrit.models import SeedDataset, SeedObjective, SeedPrompt
 from pyrit.models.harm_category import HarmCategory
 
 if TYPE_CHECKING:
-    from pyrit.models.seeds.seed_group import SeedUnion
+    from pyrit.models import SeedUnion
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +161,7 @@ class _SIUODataset(_RemoteDatasetLoader):
         return "siuo"
 
     @override
-    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
+    async def _fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch the SIUO dataset and return it as a SeedDataset.
 

@@ -16,6 +16,8 @@ class AthenaTransformer(DatabaseTransformer):
     SQLAlchemy dialect used by get_engine().
     """
 
+    supports_row_limit = True  # Athena accepts a trailing "LIMIT n"
+
     @classmethod
     def get_dialect(cls) -> Optional[str]:
         # sqlglot's dedicated Athena dialect treats DDL as HiveQL (keeps `string`,

@@ -163,6 +163,9 @@ __all__ = (
     "HlsPlaylistSettingsOutputTypeDef",
     "HlsPlaylistSettingsTypeDef",
     "HlsPlaylistSettingsUnionTypeDef",
+    "HlsTagProcessorConfigurationOutputTypeDef",
+    "HlsTagProcessorConfigurationTypeDef",
+    "HlsTagProcessorConfigurationUnionTypeDef",
     "HttpConfigurationTypeDef",
     "HttpPackageConfigurationTypeDef",
     "HttpRequestCacheConfigurationTypeDef",
@@ -551,6 +554,13 @@ class DescribeVodSourceRequestTypeDef(TypedDict):
     VodSourceName: str
 
 
+class HlsTagProcessorConfigurationOutputTypeDef(TypedDict):
+    Runtime: Literal["JSONATA"]
+    TagFilter: list[Literal["EXT-X-DATERANGE"]]
+    Output: NotRequired[dict[str, str]]
+    RunCondition: NotRequired[str]
+
+
 class GetChannelPolicyRequestTypeDef(TypedDict):
     ChannelName: str
 
@@ -602,6 +612,13 @@ class HlsPlaylistSettingsOutputTypeDef(TypedDict):
 class HlsPlaylistSettingsTypeDef(TypedDict):
     ManifestWindowSeconds: NotRequired[int]
     AdMarkupType: NotRequired[Sequence[AdMarkupTypeType]]
+
+
+class HlsTagProcessorConfigurationTypeDef(TypedDict):
+    Runtime: Literal["JSONATA"]
+    TagFilter: Sequence[Literal["EXT-X-DATERANGE"]]
+    Output: NotRequired[Mapping[str, str]]
+    RunCondition: NotRequired[str]
 
 
 class ListAlertsRequestTypeDef(TypedDict):
@@ -1112,6 +1129,9 @@ class ResponseOutputItemTypeDef(TypedDict):
 HlsPlaylistSettingsUnionTypeDef = Union[
     HlsPlaylistSettingsTypeDef, HlsPlaylistSettingsOutputTypeDef
 ]
+HlsTagProcessorConfigurationUnionTypeDef = Union[
+    HlsTagProcessorConfigurationTypeDef, HlsTagProcessorConfigurationOutputTypeDef
+]
 ManifestServiceInteractionLogUnionTypeDef = Union[
     ManifestServiceInteractionLogTypeDef, ManifestServiceInteractionLogOutputTypeDef
 ]
@@ -1291,6 +1311,7 @@ class FunctionTypeDef(TypedDict):
     ConcurrentExecutorConfiguration: NotRequired[ConcurrentExecutorConfigurationOutputTypeDef]
     SequentialExecutorConfiguration: NotRequired[SequentialExecutorConfigurationOutputTypeDef]
     VastRequestConfiguration: NotRequired[VastRequestConfigurationOutputTypeDef]
+    HlsTagProcessorConfiguration: NotRequired[HlsTagProcessorConfigurationOutputTypeDef]
     Tags: NotRequired[dict[str, str]]
     Arn: NotRequired[str]
 
@@ -1305,6 +1326,7 @@ class GetFunctionResponseTypeDef(TypedDict):
     ConcurrentExecutorConfiguration: ConcurrentExecutorConfigurationOutputTypeDef
     SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
     VastRequestConfiguration: VastRequestConfigurationOutputTypeDef
+    HlsTagProcessorConfiguration: HlsTagProcessorConfigurationOutputTypeDef
     Tags: dict[str, str]
     Arn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1320,6 +1342,7 @@ class PutFunctionResponseTypeDef(TypedDict):
     ConcurrentExecutorConfiguration: ConcurrentExecutorConfigurationOutputTypeDef
     SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
     VastRequestConfiguration: VastRequestConfigurationOutputTypeDef
+    HlsTagProcessorConfiguration: HlsTagProcessorConfigurationOutputTypeDef
     Tags: dict[str, str]
     Arn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1487,6 +1510,7 @@ class PutFunctionRequestTypeDef(TypedDict):
     ConcurrentExecutorConfiguration: NotRequired[ConcurrentExecutorConfigurationUnionTypeDef]
     SequentialExecutorConfiguration: NotRequired[SequentialExecutorConfigurationUnionTypeDef]
     VastRequestConfiguration: NotRequired[VastRequestConfigurationUnionTypeDef]
+    HlsTagProcessorConfiguration: NotRequired[HlsTagProcessorConfigurationUnionTypeDef]
     Tags: NotRequired[Mapping[str, str]]
 
 

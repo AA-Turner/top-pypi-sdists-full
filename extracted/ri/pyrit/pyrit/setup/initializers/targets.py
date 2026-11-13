@@ -20,10 +20,11 @@ from enum import Enum
 from typing import Any
 
 from pyrit.auth import get_azure_openai_auth, get_azure_token_provider
-from pyrit.models.identifiers import TARGET_EVAL_PARAM_FALLBACKS, TARGET_EVAL_PARAMS
-from pyrit.models.parameter import Parameter
+from pyrit.common.async_compatibility import run_legacy_sync_async
+from pyrit.models import TARGET_EVAL_PARAM_FALLBACKS, TARGET_EVAL_PARAMS, Parameter
 from pyrit.prompt_target import (
     AzureMLChatTarget,
+    LiteLLMDecisionTarget,
     OpenAIChatTarget,
     OpenAICompletionTarget,
     OpenAIImageTarget,
@@ -65,6 +66,7 @@ class TargetConfig:
         temperature: Optional temperature override for the target.
         tags: Tags for filtering which targets to register.
         default_objective_target: If True, tags this target as DEFAULT_OBJECTIVE_TARGET in the registry.
+        default_endpoint: Public service endpoint to use when endpoint_var is absent.
     """
 
     registry_name: str
@@ -77,6 +79,7 @@ class TargetConfig:
     extra_kwargs: dict[str, Any] = field(default_factory=dict)
     tags: list[TargetInitializerTags] = field(default_factory=lambda: [TargetInitializerTags.DEFAULT])
     default_objective_target: bool = False
+    default_endpoint: str | None = None
 
 
 # Define all supported target configurations.
@@ -283,6 +286,14 @@ ENV_TARGET_CONFIGS: list[TargetConfig] = [
         endpoint_var="OPEN_ROUTER_ENDPOINT",
         key_var="OPEN_ROUTER_KEY",
         model_var="OPEN_ROUTER_CLAUDE_MODEL",
+    ),
+    TargetConfig(
+        registry_name="microsoft_decision",
+        target_class=LiteLLMDecisionTarget,
+        endpoint_var="MICROSOFT_DECISION_ENDPOINT",
+        key_var="MICROSOFT_DECISION_KEY",
+        default_endpoint="https://openrouter.ai/api",
+        extra_kwargs={"model_name": "openrouter/microsoft/microsoft-decision-1"},
     ),
     TargetConfig(
         registry_name="ollama",
@@ -553,7 +564,7 @@ class TargetInitializer(PyRITInitializer):
         await initializer.initialize_async()
 
         # Register scorer temperature variants too
-        initializer.params = {"tags": ["default", "scorer"]}
+        initializer.set_params_from_args(args={"tags": ["default", "scorer"]})
         await initializer.initialize_async()
     """
 
@@ -571,9 +582,14 @@ class TargetInitializer(PyRITInitializer):
         # that other code may have registered directly into the registry.
         self._registered_names: list[str] = []
 
-    @property
-    def supported_parameters(self) -> list[Parameter]:
-        """The list of parameters this initializer accepts."""
+    @classmethod
+    def supported_parameters(cls) -> list[Parameter]:
+        """
+        Declare the initializer parameters.
+
+        Returns:
+            list[Parameter]: Supported inputs and defaults.
+        """
         return [
             Parameter(
                 name="tags",
@@ -612,15 +628,15 @@ class TargetInitializer(PyRITInitializer):
         and target class are automatically grouped into ``RoundRobinTarget``
         instances for rate-limit distribution and fault tolerance.
         """
+        await run_legacy_sync_async(self._register_targets)
+
+    def _register_targets(self) -> None:
+        """Construct and register targets without blocking the caller's event loop."""
         tags = self.params.get("tags", ["default"])
         if TargetInitializerTags.ALL in tags:
             tags = [tag for tag in TargetInitializerTags if tag != TargetInitializerTags.ALL]
 
         auto_group = self.params.get("auto_group", True)
-        # Normalize: params arrive as bool (direct), str, or list[str] (YAML).
-        if not isinstance(auto_group, bool):
-            value = auto_group[0] if isinstance(auto_group, list) else auto_group
-            auto_group = str(value).lower() not in ("false", "0", "no")
 
         self._registered_names: list[str] = []
 
@@ -640,7 +656,7 @@ class TargetInitializer(PyRITInitializer):
         Args:
             config: The target configuration specifying env vars and target class.
         """
-        endpoint = os.getenv(config.endpoint_var)
+        endpoint = os.getenv(config.endpoint_var) or config.default_endpoint
         if not endpoint:
             return
 
@@ -703,7 +719,7 @@ class TargetInitializer(PyRITInitializer):
 
         target = config.target_class(**kwargs)
         registry = TargetRegistry.get_registry_singleton()
-        registry.instances.register(target, name=config.registry_name)
+        registry.instances.register(target, name=config.registry_name, replace=True)
         if config.tags:
             registry.instances.add_tags(name=config.registry_name, tags=list(config.tags))
         if config.default_objective_target:
@@ -743,12 +759,14 @@ class TargetInitializer(PyRITInitializer):
                     primary,
                     name="adversarial_chat_primary",
                     tags=[TargetInitializerTags.DEFAULT],
+                    replace=True,
                 )
 
         registry.instances.register(
             canonical_target,
             name="adversarial_chat",
             tags=[TargetInitializerTags.DEFAULT],
+            replace=True,
         )
 
     def _auto_group_targets(self) -> None:

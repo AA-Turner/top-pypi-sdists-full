@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+
+from pyrit.common import print_deprecation_message
 
 # Runtime-required by Pydantic field / computed-field annotations.
 from pyrit.models.identifiers.scenario_identifier import ScenarioIdentifier  # noqa: TC001
@@ -46,6 +48,7 @@ class ScenarioRunState(str, Enum):
     """
 
     CREATED = "CREATED"
+    QUEUED = "QUEUED"
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
@@ -79,10 +82,11 @@ class ScenarioResult(BaseModel):
     scenario_run_state: ScenarioRunState = ScenarioRunState.CREATED
     #: Optional labels.
     labels: dict[str, str] = Field(default_factory=dict)
+    operation_id: uuid.UUID | None = None
     #: When the scenario result was created.
-    creation_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    creation_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
     #: Optional completion timestamp.
-    completion_time: datetime | None = Field(default_factory=lambda: datetime.now(timezone.utc))
+    completion_time: datetime | None = Field(default_factory=lambda: datetime.now(UTC))
     #: Number of run attempts.
     number_tries: int = 0
     #: Mapping of ``atomic_attack_name`` -> display group label. Used by the console
@@ -215,7 +219,7 @@ class ScenarioResult(BaseModel):
         for results in techniques_to_process:
             objectives.extend(result.objective for result in results)
 
-        return list(set(objectives))
+        return list(dict.fromkeys(objectives))
 
     def objective_achieved_rate(self, *, atomic_attack_name: str | None = None) -> int:
         """
@@ -228,7 +232,16 @@ class ScenarioResult(BaseModel):
         Returns:
             int: Success rate as a percentage (0-100).
 
+        .. deprecated:: 1.2.0
+            Counts every persisted attempt, including ERROR attempts that were later retried or resumed.
+            Use ``pyrit.analytics.compute_scenario_statistics(result)``, which counts each execution unit
+            once and is shared with the GUI backend and the reports. Removed in 1.4.0.
         """
+        print_deprecation_message(
+            old_item="ScenarioResult.objective_achieved_rate",
+            new_item="pyrit.analytics.compute_scenario_statistics",
+            removed_in="1.4.0",
+        )
         if not atomic_attack_name:
             # Calculate rate across all atomic attacks
             all_results = []
@@ -246,7 +259,7 @@ class ScenarioResult(BaseModel):
             return 0
 
         successful_results = sum(1 for result in all_results if result.outcome == AttackOutcome.SUCCESS)
-        return int((successful_results / total_results) * 100)
+        return successful_results * 100 // total_results
 
     @staticmethod
     def normalize_scenario_name(scenario_name: str) -> str:
@@ -254,13 +267,16 @@ class ScenarioResult(BaseModel):
         Normalize a scenario name to match the stored class name format.
 
         Converts CLI-style snake_case names (e.g., "foundry" or "content_harms") to
-        PascalCase class names (e.g., "Foundry" or "ContentHarms") for database queries.
+        PascalCase class names (e.g., "ContentHarms") for callers resolving an alias.
         If the input is already in PascalCase or doesn't match the snake_case pattern,
         it is returned unchanged.
 
         This is the inverse of the snake_case registry-name conversion
         (``class_name_to_snake_case``) applied to scenario class names during
         discovery.
+
+        Memory text searches never call this helper implicitly; literal underscores
+        and LIKE pattern syntax must not be rewritten inside a search.
 
         Args:
             scenario_name (str): The scenario name to normalize.

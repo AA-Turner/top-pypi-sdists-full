@@ -33,6 +33,8 @@ from .paginator import (
     ListWorkflowVersionsPaginator,
 )
 from .type_defs import (
+    CreateAirflowUiUrlRequestTypeDef,
+    CreateAirflowUiUrlResponseTypeDef,
     CreateWorkflowRequestTypeDef,
     CreateWorkflowResponseTypeDef,
     DeleteWorkflowRequestTypeDef,
@@ -114,6 +116,17 @@ class MWAAServerlessClient(BaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mwaa-serverless/client/generate_presigned_url.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mwaa_serverless/client/#generate_presigned_url)
+        """
+
+    def create_airflow_ui_url(
+        self, **kwargs: Unpack[CreateAirflowUiUrlRequestTypeDef]
+    ) -> CreateAirflowUiUrlResponseTypeDef:
+        """
+        Creates a launch URL that opens the Apache Airflow UI for your workflows in
+        Amazon Managed Workflows for Apache Airflow Serverless.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mwaa-serverless/client/create_airflow_ui_url.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mwaa_serverless/client/#create_airflow_ui_url)
         """
 
     def create_workflow(

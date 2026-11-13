@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agentenv-framework
-Version: 0.9.1514
+Version: 0.9.1521
 Summary: SDK and CLI for building, deploying and running agent environments and the tasks that grade agents in them.
 Project-URL: Homepage, https://www.agentenvframework.com
 Project-URL: Documentation, https://www.agentenvframework.com/docs
@@ -29,7 +29,7 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Typing :: Typed
 Requires-Python: >=3.11.4
 Requires-Dist: a2a-sdk==0.3.26
-Requires-Dist: agentenv-framework-protocol[computer]==0.1.529
+Requires-Dist: agentenv-framework-protocol[computer]==0.1.536
 Requires-Dist: certifi>=2024.2.2
 Requires-Dist: click>=8.0.0
 Requires-Dist: cryptography>=42
@@ -69,6 +69,7 @@ Requires-Dist: boat-sdk~=1.13.0; extra == 'dev'
 Requires-Dist: boto3>=1.35.0; extra == 'dev'
 Requires-Dist: botocore>=1.35.0; extra == 'dev'
 Requires-Dist: boxd~=0.2.17; extra == 'dev'
+Requires-Dist: brotli>=1.2; extra == 'dev'
 Requires-Dist: cwsandbox<2,>=1.19.6; extra == 'dev'
 Requires-Dist: datasets>=3; extra == 'dev'
 Requires-Dist: daytona~=0.224.0; extra == 'dev'
@@ -104,6 +105,7 @@ Requires-Dist: transformers>=5.2; extra == 'dev'
 Requires-Dist: urllib3<3,>=2.1.0; extra == 'dev'
 Requires-Dist: vercel-sandbox<0.8,>=0.7.0; extra == 'dev'
 Requires-Dist: websockets>=15; extra == 'dev'
+Requires-Dist: zstandard>=0.23; extra == 'dev'
 Provides-Extra: gcp
 Requires-Dist: google-api-core>=2.24; extra == 'gcp'
 Requires-Dist: google-auth>=2.40; extra == 'gcp'

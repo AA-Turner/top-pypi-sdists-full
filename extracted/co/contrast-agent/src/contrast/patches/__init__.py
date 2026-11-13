@@ -41,13 +41,17 @@ from .middleware.common import AppInterfaceType, CommonMiddlewarePatch
 
 logger = logging.getLogger("contrast")
 
-COMMON_PATCH_MODULES = (
-    pathlib_patch,
+DATABASE_PATCH_MODULES = (
     sqlalchemy_patch,
     sqlite3_patch,
     mysql_connector_patch,
     pymysql_patch,
     psycopg2_patch,
+)
+
+COMMON_PATCH_MODULES = (
+    pathlib_patch,
+    *DATABASE_PATCH_MODULES,
     concurrent_futures_thread_patch,
 )
 
@@ -132,6 +136,11 @@ def _register_module_patches(module, patch_group):
 def register_common_monkeypatches():
     for module in COMMON_PATCH_MODULES:
         _register_module_patches(module, "common")
+
+
+def register_database_monkeypatches():
+    for module in DATABASE_PATCH_MODULES:
+        _register_module_patches(module, "database")
 
 
 def register_assess_monkeypatches():

@@ -10,7 +10,7 @@ import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
 import { ERROR_ATTENTION, MIN_SUCCESS_RATE, describeThreshold, errorParts, findLatestSummary, isHealthy, readApiVersion, readSummary } from './daily-report.js';
-import { MIN_HISTORY_NIGHTS, flaggedChange, formatMove, sparkline } from './history.js';
+import { MIN_HISTORY_NIGHTS, cpuSignature, describeCpus, flaggedChange, formatMove, sameCpu, sparkline } from './history.js';
 import { dotFor, footer, postReport } from './slack.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -173,7 +173,16 @@ export async function collectRun(resultsDir) {
   };
 }
 
-/** Newest night first. */
+/** What a night saves as `delta_report.json` for the trend and flags of the nights after it. */
+export function nightRecord(run) {
+  return {
+    design: DESIGN,
+    serverCpus: run.summary?.metrics?.serverCpus ?? null,
+    cells: Object.fromEntries(run.cells.map((c) => [c.cell, { buckets: c.buckets }])),
+  };
+}
+
+/** Newest night first, each as `nightRecord` saved it. */
 export function loadDeltaHistory(dir) {
   let runs;
   try {
@@ -194,7 +203,7 @@ export function loadDeltaHistory(dir) {
     }
     const file = files.find((name) => path.basename(name) === 'delta_report.json');
     const report = file ? readSummary(path.join(dir, run, file)) : null;
-    if (report?.design === DESIGN && report.cells) nights.push(report.cells);
+    if (report?.design === DESIGN && report.cells) nights.push(report);
   }
   return nights;
 }
@@ -242,7 +251,7 @@ export function cellChanges(cell, depth, history) {
   const tonight = cell.buckets?.[depth];
   const changes = [];
   for (const [key, label, format, unit] of METRICS) {
-    const past = history.map((night) => night[cell.cell]?.buckets?.[depth]?.[key]).filter(isNumber);
+    const past = history.map((night) => night.cells[cell.cell]?.buckets?.[depth]?.[key]).filter(isNumber);
     const flagged = flaggedChange(tonight?.[key], past, { higherIsBetter: false });
     if (!flagged) continue;
     changes.push({ key, better: flagged.better, text: `${cell.label} ${label} ${formatMove(format(flagged.median), format(tonight[key]), flagged.deltaPct, unit)}` });
@@ -265,7 +274,7 @@ function mainTable(cells, depth, history) {
   const lines = ['```', `${''.padEnd(6)}${'base'.padStart(5)} delta last ${NIGHTS}`];
   for (const [key, label, format] of METRICS) {
     if (key === 'bytes' && !anyBytes(base)) continue;
-    const past = history.slice(0, NIGHTS - 1).reverse().map((night) => night[delta.cell]?.buckets?.[depth]?.[key]);
+    const past = history.slice(0, NIGHTS - 1).reverse().map((night) => night.cells[delta.cell]?.buckets?.[depth]?.[key]);
     const trend = sparkline([...past, delta.buckets[depth]?.[key]]);
     lines.push(`${label.padEnd(6)}${format(base.buckets[depth]?.[key]).padStart(5)}${format(delta.buckets[depth]?.[key]).padStart(5)} ${trend}`);
   }
@@ -305,7 +314,9 @@ export function buildReport(run, context = {}) {
   const depth = deepestComplete(run.cells, Number(run.load?.loadSize) || null);
   const target = Number(run.load?.turns) || null;
   const stoppedAt = target && (!depth || bucketEnd(depth) < target) ? (depth ? bucketEnd(depth) : 0) : null;
-  const changes = depth ? run.cells.flatMap((cell) => cellChanges(cell, depth, history)) : [];
+  // The trend draws every night; the flags compare only nights on tonight's CPU.
+  const comparable = sameCpu(history, metrics?.serverCpus).slice(0, NIGHTS - 1);
+  const changes = depth ? run.cells.flatMap((cell) => cellChanges(cell, depth, comparable)) : [];
   const regressed = changes.filter((c) => !c.better);
   const improved = changes.filter((c) => c.better);
 
@@ -321,7 +332,8 @@ export function buildReport(run, context = {}) {
 
   const dot = dotFor({ failed, attention: guard > 0 || httpCount >= ERROR_ATTENTION || stoppedAt !== null || regressed.length > 0 });
   const date = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  const lines = [`${dot} *Delta Channel · ${date}*${manual ? ' · manual run' : ''}${apiVersion ? ` · API ${apiVersion}` : ''} · ${clauses.join(' · ')}`];
+  const cpu = cpuSignature(metrics?.serverCpus);
+  const lines = [`${dot} *Delta Channel · ${date}*${manual ? ' · manual run' : ''}${apiVersion ? ` · API ${apiVersion}` : ''}${cpu ? ` · ${cpu}` : ''} · ${clauses.join(' · ')}`];
   if (failed) lines.push(`*Failed:* ${failureReason(run)}`);
   if (guard > 0 || httpParts.length > 0) {
     lines.push(`*Errors:* ${[...httpParts, guard > 0 ? `correctness check failed × ${count(guard)}` : null].filter(Boolean).join(', ')}`);
@@ -335,7 +347,7 @@ export function buildReport(run, context = {}) {
   if (depth && !anyBytes(run.cells[0])) {
     lines.push('_No data row: the deployment runs an API without `GET /threads/{id}/storage` yet._');
   }
-  if (history.length < MIN_HISTORY_NIGHTS) lines.push(`_${history.length} of ${MIN_HISTORY_NIGHTS} nights of history, no change flags yet_`);
+  if (comparable.length < MIN_HISTORY_NIGHTS) lines.push(`_${comparable.length} of ${MIN_HISTORY_NIGHTS} nights of history${cpu ? ' on this cpu' : ''}, no change flags yet_`);
   lines.push(footer('delta-channel', artifactUrl));
 
   return { text: lines.join('\n'), thread: [threadText(run, metrics, guard, improved)] };
@@ -345,8 +357,9 @@ function threadText(run, metrics, guard, improved) {
   const users = Number(run.load?.loadSize) || null;
   const turns = Number(run.load?.turns) || null;
   const shape = users && turns ? `${count(users)} users × ${count(turns)} turns × ${run.cells.length} setups · ` : '';
+  const cpus = describeCpus(metrics?.serverCpus);
   const health = metrics
-    ? `${count(metrics.failedRuns)} failed of ${count(metrics.totalRuns)} turns · ${guard > 0 ? `correctness check failed × ${count(guard)}` : 'no correctness failures'}`
+    ? `${count(metrics.failedRuns)} failed of ${count(metrics.totalRuns)} turns · ${guard > 0 ? `correctness check failed × ${count(guard)}` : 'no correctness failures'}${cpus ? ` · ${cpus}` : ''}`
     : 'no results';
   return [
     '*As the thread grows*',
@@ -374,11 +387,7 @@ async function main() {
   const run = await collectRun(process.env.RESULTS_DIR || path.join(HERE, 'results'));
   const outDir = process.env.OUT_DIR || path.join(HERE, 'delta-report');
   mkdirSync(outDir, { recursive: true });
-  // Tonight's aggregate, for the trend and flags of the nights to come.
-  writeFileSync(
-    path.join(outDir, 'delta_report.json'),
-    JSON.stringify({ design: DESIGN, cells: Object.fromEntries(run.cells.map((c) => [c.cell, { buckets: c.buckets }])) }, null, 2)
-  );
+  writeFileSync(path.join(outDir, 'delta_report.json'), JSON.stringify(nightRecord(run), null, 2));
   const report = safeBuildReport(run, {
     apiVersion: process.env.API_VERSION || readApiVersion(),
     artifactUrl: process.env.ARTIFACT_URL,

@@ -29,7 +29,7 @@ dependencies = [
     # `agents serve` refuses to start without payload compression. Compatible with both 2.x and 3.x.
     "mistralai[workflow-payload-compression]>=2.8.0,<4",
     "mistralai-otel-observability>=0.5.0",
-    "mistralai-vibe-harness[workflows,observability]==0.1.21",
+    "mistralai-vibe-harness[workflows,observability]==0.1.22",
     "mistralai-vibe-sdk>=0.14.0,<0.15",
     # 3.16.0 ships the public OTLP exporter factory.
     "mistralai-workflows>=3.16.0,<4",
@@ -56,7 +56,7 @@ bashkit = [
 ]
 sessions-client = [
     "httpx>=0.28.1",
-    "mistralai-vibe-harness==0.1.21",
+    "mistralai-vibe-harness==0.1.22",
 ]
 koyeb = [
     "koyeb-sdk>=1.5.5,<2"

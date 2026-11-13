@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: sqlalchemy-spanner
-Version: 1.20.1
+Version: 1.21.0
 Summary: SQLAlchemy dialect integrated into Cloud Spanner database
-Home-page: https://github.com/cloudspannerecosystem/python-spanner-sqlalchemy
+Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/sqlalchemy-spanner
 Author: Google LLC
 Author-email: googleapis-packages@google.com
 License: Apache 2.0
@@ -13,11 +13,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.10
 License-File: LICENSE
-Requires-Dist: sqlalchemy>=1.1.13
+Requires-Dist: sqlalchemy<3.0.0,>=1.1.13
 Requires-Dist: google-cloud-spanner>=3.55.0
-Requires-Dist: alembic
+Requires-Dist: alembic<2.0.0,>=1.0.0
 Provides-Extra: tracing
 Requires-Dist: opentelemetry-api>=1.1.0; extra == "tracing"
 Requires-Dist: opentelemetry-sdk>=1.1.0; extra == "tracing"

@@ -8,9 +8,16 @@ from importlib import import_module
 if typing.TYPE_CHECKING:
     from .types import (
         CreateMessagesRequestAttachmentsItem,
+        CreateMessagesRequestGifsItem,
+        CreateMessagesRequestLinkPreviewsItem,
         CreateMessagesRequestPoll,
         CreateMessagesRequestPollOptionsItem,
+        ListMessagesRequestDirection,
+        ListMessagesRequestOrder,
         ListMessagesResponse,
+        ListMessagesResponsePageInfo,
+        ListReactionsMessagesResponse,
+        ListReactionsMessagesResponsePageInfo,
         PostChatMessageCreatedPayload,
         PostChatMessageCreatedPayloadApiVersion,
         PostChatMessageCreatedPayloadData,
@@ -20,12 +27,21 @@ if typing.TYPE_CHECKING:
         PostChatMessageCreatedPayloadDataChannelType,
         PostChatMessageCreatedPayloadType,
         UpdateMessagesRequestAttachmentsItem,
+        UpdateMessagesRequestGifsItem,
+        UpdateMessagesRequestLinkPreviewsItem,
     )
 _dynamic_imports: typing.Dict[str, str] = {
     "CreateMessagesRequestAttachmentsItem": ".types",
+    "CreateMessagesRequestGifsItem": ".types",
+    "CreateMessagesRequestLinkPreviewsItem": ".types",
     "CreateMessagesRequestPoll": ".types",
     "CreateMessagesRequestPollOptionsItem": ".types",
+    "ListMessagesRequestDirection": ".types",
+    "ListMessagesRequestOrder": ".types",
     "ListMessagesResponse": ".types",
+    "ListMessagesResponsePageInfo": ".types",
+    "ListReactionsMessagesResponse": ".types",
+    "ListReactionsMessagesResponsePageInfo": ".types",
     "PostChatMessageCreatedPayload": ".types",
     "PostChatMessageCreatedPayloadApiVersion": ".types",
     "PostChatMessageCreatedPayloadData": ".types",
@@ -35,6 +51,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PostChatMessageCreatedPayloadDataChannelType": ".types",
     "PostChatMessageCreatedPayloadType": ".types",
     "UpdateMessagesRequestAttachmentsItem": ".types",
+    "UpdateMessagesRequestGifsItem": ".types",
+    "UpdateMessagesRequestLinkPreviewsItem": ".types",
 }
 
 
@@ -61,9 +79,16 @@ def __dir__():
 
 __all__ = [
     "CreateMessagesRequestAttachmentsItem",
+    "CreateMessagesRequestGifsItem",
+    "CreateMessagesRequestLinkPreviewsItem",
     "CreateMessagesRequestPoll",
     "CreateMessagesRequestPollOptionsItem",
+    "ListMessagesRequestDirection",
+    "ListMessagesRequestOrder",
     "ListMessagesResponse",
+    "ListMessagesResponsePageInfo",
+    "ListReactionsMessagesResponse",
+    "ListReactionsMessagesResponsePageInfo",
     "PostChatMessageCreatedPayload",
     "PostChatMessageCreatedPayloadApiVersion",
     "PostChatMessageCreatedPayloadData",
@@ -73,4 +98,6 @@ __all__ = [
     "PostChatMessageCreatedPayloadDataChannelType",
     "PostChatMessageCreatedPayloadType",
     "UpdateMessagesRequestAttachmentsItem",
+    "UpdateMessagesRequestGifsItem",
+    "UpdateMessagesRequestLinkPreviewsItem",
 ]

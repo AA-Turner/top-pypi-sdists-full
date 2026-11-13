@@ -5,10 +5,25 @@ This module handles the creation and management of OpenSearch Python clients,
 including authentication and connection validation.
 """
 
+import logging
 from typing import Any, Dict
 
 from .connection_params import ConnectionParams
 from .exceptions import Error, InterfaceError, OperationalError
+
+# At DEBUG, opensearch-py logs every request and response body ("opensearch"),
+# and its tracer ("opensearchpy.trace", "opensearch.trace" in older releases)
+# logs response bodies. Those bodies hold the user's SQL and result rows. Keep
+# these loggers at INFO or higher whatever the root level is.
+_OPENSEARCH_LOGGERS = ("opensearch", "opensearch.trace", "opensearchpy", "opensearchpy.trace")
+
+
+def _pin_opensearch_loggers() -> None:
+    for name in _OPENSEARCH_LOGGERS:
+        lib_logger = logging.getLogger(name)
+        # Set an explicit level even when the inherited one is already INFO or
+        # higher: a NOTSET logger would follow the root back down to DEBUG later.
+        lib_logger.setLevel(max(lib_logger.getEffectiveLevel(), logging.INFO))
 
 
 class OpenSearchClient:
@@ -62,6 +77,8 @@ class OpenSearchClient:
             raise InterfaceError(
                 f"OpenSearch Python client not available. Please install opensearch-py: {e}"
             )
+
+        _pin_opensearch_loggers()
 
         try:
             # Build client configuration
@@ -118,10 +135,11 @@ class OpenSearchClient:
         """
         params = self.connection_params
 
+        # Name the method only: usernames and key IDs end up in exception text and logs.
         if params.username:
-            return f"basic auth (user: {params.username})"
+            return "basic auth"
         elif params.api_key:
-            return f"API key (id: {params.api_key_id})"
+            return "API key"
         else:
             return "no authentication"
 
@@ -257,7 +275,6 @@ class OpenSearchClient:
             from .exceptions import map_opensearch_exception
 
             execution_context = {
-                "query": query[:200] + "..." if len(query) > 200 else query,
                 "host": self.connection_params.host,
                 "port": self.connection_params.port,
             }

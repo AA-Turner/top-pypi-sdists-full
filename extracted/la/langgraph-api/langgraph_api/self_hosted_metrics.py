@@ -132,10 +132,48 @@ def initialize_self_hosted_metrics():
 
         meter.create_observable_gauge(
             name="lg_api_pending_unblocked_runs_wait_time_max",
-            description="The maximum time a run has been pending excluding runs blocked by another run on the same thread, in seconds",
+            description=(
+                "The maximum time a run has been pending excluding runs blocked "
+                "by another run on the same thread, in seconds"
+            ),
             unit="s",
             callbacks=[_get_pending_unblocked_runs_wait_time_max_callback],
         )
+
+        # One series per priority level, over the runs that can start: each thread's
+        # oldest pending run that is due, on threads with nothing running
+        # (lg_api_num_pending_runs also counts delayed and blocked runs), only on a
+        # deployment with a priority callback.
+        if config.PRIORITY_CALLBACK_CONFIGURED:
+            meter.create_observable_gauge(
+                name="lg_api_num_startable_runs",
+                description="The number of runs that can start now, by priority level",
+                unit="1",
+                callbacks=[_get_startable_runs_callback],
+            )
+
+            meter.create_observable_gauge(
+                name="lg_api_startable_runs_wait_time_max",
+                description="The longest wait of a run that can start, since it was due, by priority level, in seconds",
+                unit="s",
+                callbacks=[_get_startable_runs_wait_time_max_callback],
+            )
+
+            meter.create_observable_gauge(
+                name="lg_api_startable_runs_wait_time_med",
+                description="The median wait of runs that can start, since they were due, by priority level, in seconds",
+                unit="s",
+                callbacks=[_get_startable_runs_wait_time_med_callback],
+            )
+
+            # A separate name from lg_api_num_running_runs, whose readers take max()
+            # across series and would get one level instead of the total.
+            meter.create_observable_gauge(
+                name="lg_api_num_running_runs_by_priority",
+                description="The number of runs currently running, by priority level",
+                unit="1",
+                callbacks=[_get_running_runs_by_priority_callback],
+            )
 
         if config.N_JOBS_PER_WORKER > 0:
             meter.create_observable_gauge(
@@ -159,7 +197,7 @@ def initialize_self_hosted_metrics():
                 callbacks=[_get_workers_available_callback],
             )
 
-        if not config.IS_QUEUE_ENTRYPOINT and not config.IS_EXECUTOR_ENTRYPOINT:
+        if not config.IS_QUEUE_ENTRYPOINT:
             _http_request_counter = meter.create_counter(
                 name="lg_api_http_requests_total",
                 description="Total number of HTTP requests",
@@ -351,6 +389,53 @@ def _get_pending_unblocked_runs_wait_time_max_callback(options: CallbackOptions)
         return [Observation(0, attributes=_customer_attributes)]
 
 
+def _by_priority_observations(key: str) -> list[Observation]:
+    """One observation of a per-level stat for each level in the queue stats; a level
+    with nothing waiting reports 0."""
+    stats = _get_queue_stats()
+    return [
+        Observation(
+            level.get(key) or 0,
+            attributes={**_customer_attributes, "priority": str(level["priority"])},
+        )
+        for level in stats.get("by_priority", ())
+    ]
+
+
+def _get_startable_runs_callback(options: CallbackOptions):
+    try:
+        return _by_priority_observations("n_startable")
+    except Exception as e:
+        logger.warning("Failed to get startable runs by priority", exc_info=e)
+        return []
+
+
+def _get_startable_runs_wait_time_max_callback(options: CallbackOptions):
+    try:
+        return _by_priority_observations("startable_runs_wait_time_max_secs")
+    except Exception as e:
+        logger.warning("Failed to get max startable wait time by priority", exc_info=e)
+        return []
+
+
+def _get_startable_runs_wait_time_med_callback(options: CallbackOptions):
+    try:
+        return _by_priority_observations("startable_runs_wait_time_med_secs")
+    except Exception as e:
+        logger.warning(
+            "Failed to get median startable wait time by priority", exc_info=e
+        )
+        return []
+
+
+def _get_running_runs_by_priority_callback(options: CallbackOptions):
+    try:
+        return _by_priority_observations("n_running")
+    except Exception as e:
+        logger.warning("Failed to get running runs by priority", exc_info=e)
+        return []
+
+
 def _get_workers_max_callback(options: CallbackOptions):
     try:
         metrics_data = get_metrics()
@@ -424,8 +509,11 @@ def _get_pg_pool_available_callback(options: CallbackOptions):
 def _get_redis_pool_max_callback(options: CallbackOptions):
     try:
         stats = _get_pool_stats()
-        redis_max = stats.get("redis", {}).get("max_connections", 0)
-        return [Observation(redis_max, attributes=_customer_attributes)]
+        redis = stats.get("redis") or {}
+        # Cluster may omit max — do not invent 0 (looks like a full pool).
+        if "max_connections" not in redis:
+            return []
+        return [Observation(redis["max_connections"], attributes=_customer_attributes)]
     except Exception as e:
         logger.warning("Failed to get Redis pool max", exc_info=e)
         return [Observation(0, attributes=_customer_attributes)]

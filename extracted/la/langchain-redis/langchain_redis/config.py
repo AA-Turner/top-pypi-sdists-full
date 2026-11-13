@@ -1,10 +1,16 @@
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type, Union
 
 from pydantic import BaseModel, ConfigDict, Field, SkipValidation, model_validator
 from redis import Redis
-from redisvl.schema import IndexSchema, StorageType  # type: ignore[import]
+from redisvl.schema import IndexSchema  # type: ignore[import]
 from redisvl.utils.utils import create_ulid  # type: ignore[import]
 from typing_extensions import Annotated, Self
+
+# Vector field attributes derived from dedicated RedisConfig fields; they may
+# not be overridden through `vector_attrs`.
+_CONFIG_OWNED_VECTOR_ATTRS = frozenset(
+    {"dims", "distance_metric", "algorithm", "datatype"}
+)
 
 
 class RedisConfig(BaseModel):
@@ -20,9 +26,18 @@ class RedisConfig(BaseModel):
         from_existing (bool): Whether to use an existing index.
 
             Defaults to `False`.
-        key_prefix (Optional[str]): Prefix for Redis keys.
+        key_prefix (Optional[Union[str, List[str]]]): Prefix for Redis keys.
+
+            A list makes the index span several key namespaces: searches
+            cover all of them, while new documents are written under the
+            first prefix (`primary_prefix`).
 
             Defaults to `index_name` if not set.
+        key_separator (str): Separator between the key prefix and document ID.
+
+            Defaults to `":"`. When reopening an index created with a custom
+            separator, the same value must be supplied because Redis does not
+            persist this client-side setting.
         redis_url (str): URL of the Redis instance.
 
             Defaults to `'redis://localhost:6379'`.
@@ -33,10 +48,26 @@ class RedisConfig(BaseModel):
             Defaults to `'COSINE'`.
         indexing_algorithm (str): Algorithm used for indexing.
 
-            Defaults to `'FLAT'`.
+            One of `'FLAT'`, `'HNSW'` or `'SVS-VAMANA'`. Defaults to `'FLAT'`.
         vector_datatype (str): Data type of the vector.
 
             Defaults to `'FLOAT32'`.
+        vector_attrs (Optional[Dict[str, Any]]): Additional algorithm-specific
+            attributes for the vector field, merged into the generated schema.
+
+            For example `m`, `ef_construction` and `ef_runtime` for HNSW, or
+            `graph_max_degree`, `search_window_size`, `compression` and
+            `reduce` for SVS-VAMANA. Values are validated by RedisVL. Cannot
+            override `dims`, `distance_metric`, `algorithm` or `datatype`
+            (use the matching config fields), and cannot be combined with
+            `index_schema` or `schema_path`.
+        stopwords (Optional[List[str]]): Index-level stopwords configuration.
+
+            `None` (default) keeps the Redis default stopwords, an empty
+            list disables stopwords entirely (`STOPWORDS 0`), and a
+            non-empty list replaces the defaults with custom stopwords.
+            Useful for non-English content or exact-phrase domains where
+            words like "the" are meaningful.
         storage_type (str): Storage type in Redis.
 
             Defaults to `'hash'`.
@@ -60,6 +91,11 @@ class RedisConfig(BaseModel):
             Defaults to `False`.
         custom_keys (Optional[List[str]]): Custom keys for documents.
         embedding_dimensions (Optional[int]): Dimensionality of embedding vectors.
+        legacy_key_format (bool): Whether to keep the historical double-colon key
+            format (`prefix::doc_id`) for backward compatibility.
+
+            Only applies with the default `":"` separator. Set to `False` for
+            `prefix:doc_id`. Defaults to `True`.
 
     Example:
         ```python
@@ -88,13 +124,16 @@ class RedisConfig(BaseModel):
 
     index_name: str = Field(default_factory=lambda: create_ulid())
     from_existing: bool = False
-    key_prefix: Optional[str] = None
+    key_prefix: Optional[Union[str, List[str]]] = None
+    key_separator: str = ":"
     redis_url: str = "redis://localhost:6379"
     redis_client: Optional[Redis] = Field(default=None)
     connection_args: Optional[Dict[str, Any]] = Field(default={})
     distance_metric: str = "COSINE"
     indexing_algorithm: str = "FLAT"
     vector_datatype: str = "FLOAT32"
+    vector_attrs: Optional[Dict[str, Any]] = None
+    stopwords: Optional[List[str]] = None
     storage_type: str = "hash"
     id_field: str = "id"
     content_field: str = "text"
@@ -118,8 +157,11 @@ class RedisConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def check_schema_options(cls, values: Dict) -> Dict:
+        schema = values.get("schema")
+        if schema is None:
+            schema = values.get("index_schema")
         options = [
-            values.get("index_schema"),
+            schema,
             values.get("schema_path"),
             values.get("metadata_schema"),
         ]
@@ -134,13 +176,50 @@ class RedisConfig(BaseModel):
             values["key_prefix"] = schema.index.prefix
             values["storage_type"] = schema.index.storage_type.value
             values["index_schema"] = schema
+        if schema is not None:
+            values["key_separator"] = schema.index.key_separator
 
         return values
 
     @model_validator(mode="after")
     def set_key_prefix(self) -> Self:
-        if self.key_prefix is None:
+        if self.key_prefix is None or self.key_prefix == []:
             self.key_prefix = self.index_name
+        return self
+
+    @property
+    def primary_prefix(self) -> Optional[str]:
+        """The prefix used when constructing new keys.
+
+        For a multi-prefix index this is the first prefix; searches still
+        span all configured prefixes.
+        """
+        if isinstance(self.key_prefix, list):
+            return self.key_prefix[0]
+        return self.key_prefix
+
+    @model_validator(mode="after")
+    def check_vector_attrs(self) -> Self:
+        if not self.vector_attrs:
+            return self
+        if (
+            self.index_schema is not None
+            or self.schema_path is not None
+            or self.from_existing
+        ):
+            raise ValueError(
+                "'vector_attrs' only applies when creating a generated schema "
+                "and cannot be combined with 'index_schema', 'schema_path', "
+                "or 'from_existing=True'."
+            )
+        overlap = set(self.vector_attrs) & _CONFIG_OWNED_VECTOR_ATTRS
+        if overlap:
+            raise ValueError(
+                f"'vector_attrs' cannot override {sorted(overlap)}; use the "
+                "matching RedisConfig fields (embedding_dimensions, "
+                "distance_metric, indexing_algorithm, vector_datatype) "
+                "instead."
+            )
         return self
 
     @classmethod
@@ -201,18 +280,21 @@ class RedisConfig(BaseModel):
         Args:
             schema (IndexSchema): An `IndexSchema` object defining the structure of
                 the Redis index.
-            **kwargs: Additional keyword arguments to override or supplement the
-                schema-derived settings.
+            **kwargs: Additional `RedisConfig` settings, such as connection
+                options.
 
                 Common kwargs include:
 
                 - `redis_url` (str): URL of the Redis instance.
-                - `distance_metric` (str): Distance metric for vector similarity.
-                - `embedding_dimensions` (int): Dimensionality of embedding vectors.
+                - `redis_client` (Redis): Pre-existing Redis client instance.
 
         Returns:
             RedisConfig: A new instance of `RedisConfig` configured based on the
                 provided schema and kwargs.
+
+        Raises:
+            ValueError: If `metadata_schema` (even an empty list) or `schema_path`
+                is also passed. The schema is the only schema source.
 
         Example:
             ```python
@@ -243,23 +325,20 @@ class RedisConfig(BaseModel):
         Note:
             - The method extracts index name, key prefix, and storage type from the
                 schema.
-            - If the schema specifies a vector field, its attributes (like dimensions
-                and distance metric) are used.
-            - Additional kwargs can override settings derived from the schema.
+            - The schema, including its vector field definition, is used as-is to
+                build the index.
+            - `index_name`, `key_prefix`, and `storage_type` always come from the
+                schema and cannot be passed as kwargs.
             - This method is useful when you have a pre-defined index structure and want
                 to create a matching config.
             - The resulting config can be used to ensure that a `RedisVectorStore`
                 matches an existing index structure.
         """
-        if schema.index.storage_type == StorageType.HASH:
-            storage_type = "hash"
-        else:
-            storage_type = "json"
         return cls(
             schema=schema,
             index_name=schema.index.name,
             key_prefix=schema.index.prefix,
-            storage_type=storage_type,
+            storage_type=schema.index.storage_type.value,
             **kwargs,
         )
 
@@ -273,14 +352,13 @@ class RedisConfig(BaseModel):
         Args:
             schema_path (str): Path to the YAML file containing the index schema
                 definition.
-            **kwargs: Additional keyword arguments to override or supplement the
-                schema-derived settings.
+            **kwargs: Additional `RedisConfig` settings, such as connection
+                options.
 
                 Common kwargs include:
 
                 - `redis_url` (str): URL of the Redis instance.
-                - `distance_metric` (str): Distance metric for vector similarity.
-                - `embedding_dimensions` (int): Dimensionality of embedding vectors.
+                - `redis_client` (Redis): Pre-existing Redis client instance.
 
         Returns:
             RedisConfig: A new instance of `RedisConfig` configured based on the YAML
@@ -296,28 +374,21 @@ class RedisConfig(BaseModel):
                 redis_url="redis://localhost:6379"
             )
 
-            print(config.index_name)  # Output: Name defined in YAML
-            print(config.storage_type)  # Output: Storage type defined in YAML
+            # The YAML file is read when the schema is built
+            schema = config.to_index_schema()
+            print(schema.index.name)  # Output: Name defined in YAML
+            print(schema.index.storage_type)  # Output: Storage type defined in YAML
             ```
 
         Note:
             - The YAML file should contain a valid index schema definition
                 compatible with RedisVL.
-            - This method internally uses `IndexSchema.from_yaml()` to parse
-                the YAML file.
-            - Settings derived from the YAML schema can be overridden by
-                additional kwargs.
+            - The YAML file is loaded by `to_index_schema()` and used as-is to
+                build the index.
             - This method is particularly useful when index structures are defined
                 externally in YAML files.
             - Ensure that the YAML file is correctly formatted and accessible at
                 the given path.
-            - Any errors in reading or parsing the YAML file will be propagated
-                as exceptions.
-
-        Raises:
-            FileNotFoundError: If the specified YAML file does not exist.
-            YAMLError: If there are issues parsing the YAML file.
-            ValueError: If the YAML content is not a valid index schema.
         """
         return cls(schema_path=schema_path, **kwargs)
 
@@ -386,8 +457,7 @@ class RedisConfig(BaseModel):
                 should be provided via kwargs.
 
         Raises:
-            ValueError: If the `metadata_schema` is not a list of dictionaries or
-                if required keys are missing.
+            ValueError: If the `metadata_schema` is not a list of dictionaries.
         """
         return cls(metadata_schema=metadata_schema, **kwargs)
 
@@ -418,7 +488,7 @@ class RedisConfig(BaseModel):
 
             config = RedisConfig.from_existing_index(
                 index_name="my_existing_index",
-                redis_client=redis_client
+                redis=redis_client
             )
 
             print(config.index_name)  # Output: my_existing_index
@@ -439,13 +509,8 @@ class RedisConfig(BaseModel):
                 access the specified index.
             - If the index doesn't exist, this method will still create a config, but
                 operations using this config may fail until the index is created.
-
-        Raises:
-            ValueError: If the `index_name` is empty or `None`.
-            ConnectionError: If there's an issue connecting to Redis using the
-                provided client.
         """
-        return cls(index_name=index_name)
+        return cls(index_name=index_name, from_existing=True, redis_client=redis)
 
     def to_index_schema(self) -> IndexSchema:
         """Convert the `RedisConfig` to an `IndexSchema`.
@@ -475,7 +540,7 @@ class RedisConfig(BaseModel):
             print(schema.index.name)
             # Output: my_index
             print(len(schema.fields))
-            # Output: 4 (id, content, embedding, author, year)
+            # Output: 5 (id, text, embedding, author, year)
             ```
 
         Note:
@@ -483,8 +548,8 @@ class RedisConfig(BaseModel):
             - If a `schema_path` is set, the schema will be loaded from the YAML file.
             - Otherwise, a new `IndexSchema` is created based on the current
                 configuration.
-            - The resulting schema includes fields for id, content, and embedding
-                vector, as well as any additional fields specified in `metadata_schema`.
+            - The resulting schema includes content, embedding, ownership and
+                metadata fields, as well as fields specified in `metadata_schema`.
             - The embedding field is configured with the specified dimensions,
                 distance metric, and other relevant attributes.
             - This method is particularly useful when you need to create a new index or
@@ -493,22 +558,26 @@ class RedisConfig(BaseModel):
                 an `IndexSchema`.
 
         Raises:
-            ValueError: If essential configuration elements (like
-                `embedding_dimensions`) are missing.
+            ValueError: If required settings (like `embedding_dimensions`) are
+                missing, or the `schema_path` file is not a valid index schema.
+            FileNotFoundError: If the `schema_path` file does not exist.
+            YAMLError: If the `schema_path` file cannot be parsed.
         """
         if self.index_schema:
             return self.index_schema
         elif self.schema_path:
             return IndexSchema.from_yaml(self.schema_path)
         else:
-            index_info = {
+            index_info: Dict[str, Any] = {
                 "name": self.index_name,
-                "prefix": self.key_prefix,
+                "prefix": self._schema_key_prefix(),
+                "key_separator": self.key_separator,
                 "storage_type": self.storage_type,
             }
+            if self.stopwords is not None:
+                index_info["stopwords"] = self.stopwords
 
             fields = [
-                {"name": self.id_field, "type": "tag"},
                 {"name": self.content_field, "type": "text"},
                 {
                     "name": self.embedding_field,
@@ -518,14 +587,40 @@ class RedisConfig(BaseModel):
                         "distance_metric": self.distance_metric.lower(),
                         "algorithm": self.indexing_algorithm.lower(),
                         "datatype": self.vector_datatype.lower(),
+                        **(self.vector_attrs or {}),
                     },
                 },
+                {
+                    "name": "_index_name",
+                    "type": "tag",
+                    "attrs": {"case_sensitive": True},
+                },
+                {"name": "_metadata_json", "type": "text"},
             ]
 
             if self.metadata_schema:
-                fields.extend(self.metadata_schema)
+                for field in self.metadata_schema:
+                    field = dict(field)
+                    if field["type"] == "tag":
+                        field["attrs"] = dict(field.get("attrs", {}))
+                        field["attrs"].setdefault(
+                            "separator", self.default_tag_separator
+                        )
+                    fields.append(field)
 
             return IndexSchema.from_dict({"index": index_info, "fields": fields})
+
+    def _schema_key_prefix(self) -> Union[str, List[str]]:
+        """Return the prefix used by generated RedisVL schemas."""
+        key_prefix = self.key_prefix or self.index_name
+        suffix = self._legacy_prefix_suffix()
+        if isinstance(key_prefix, list):
+            return [f"{prefix}{suffix}" for prefix in key_prefix]
+        return f"{key_prefix}{suffix}"
+
+    def _legacy_prefix_suffix(self) -> str:
+        """Return the suffix used by the historical colon key format."""
+        return ":" if self.legacy_key_format and self.key_separator == ":" else ""
 
     def is_sentinel_url(self) -> bool:
         """Check if the `redis_url` is a Sentinel URL.
@@ -554,9 +649,6 @@ class RedisConfig(BaseModel):
                 )
             else:
                 # For standard URLs, use Redis.from_url
-                if self.connection_args is not None:
-                    return Redis.from_url(self.redis_url, **self.connection_args)
-                else:
-                    return Redis.from_url(self.redis_url)
+                return Redis.from_url(self.redis_url, **(self.connection_args or {}))
         else:
             raise ValueError("Either redis_client or redis_url must be provided")

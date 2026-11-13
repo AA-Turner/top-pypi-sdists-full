@@ -65,7 +65,9 @@ from seq.human import ask_human, planner
 
 from seq.settings_cli import policy_set, policy_settings
 from seq.robot_cli import robot_add, robot_create, robot_key, robot_list, robot_revoke, robot_rm, robot_set
-from seq.gpu_cli import gpu_add, gpu_list, gpu_places, gpu_remove, gpu_ssh
+
+from seq.gpu_cli import (gpu_add, gpu_allow, gpu_history, gpu_list, gpu_places, gpu_remove, gpu_save, gpu_saved,
+                         gpu_saved_remove, gpu_ssh)
 from seq.login_cli import login_list, login_revoke
 from seq.key_cli import key_add, key_list, key_revoke, key_set
 
@@ -176,8 +178,13 @@ __all__ = [
     "gpu_add",
     "gpu_list",
     "gpu_places",
+    "gpu_history",
     "gpu_remove",
     "gpu_ssh",
+    "gpu_allow",
+    "gpu_save",
+    "gpu_saved",
+    "gpu_saved_remove",
     "login_list",
     "login_revoke",
     "key_list",

@@ -7,7 +7,7 @@ import re
 CHAT_MODELS = (
     "Qwen3.5-0.8B",
     "flux2-klein-9b-uncensored-text-encoder",
-    "Qwen3-Coder-Next-Q4_K_M",
+    "Qwen3-Coder-Next-GGUF",
 )
 TASK_DEFAULTS = {
     "text-generation": CHAT_MODELS[0],

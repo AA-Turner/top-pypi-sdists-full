@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
@@ -51,6 +52,7 @@ class UsersClient:
     def list(
         self,
         *,
+        context_channel_id: typing.Optional[str] = None,
         query: typing.Optional[str] = None,
         first: typing.Optional[int] = None,
         after: typing.Optional[str] = None,
@@ -63,6 +65,9 @@ class UsersClient:
 
         Parameters
         ----------
+        context_channel_id : typing.Optional[str]
+            Prioritize people relevant to this channel for mentions. Results remain global; channel access is required.
+
         query : typing.Optional[str]
             A search term to filter users by name or username.
 
@@ -91,7 +96,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -103,7 +108,13 @@ class UsersClient:
             yield page
         """
         return self._raw_client.list(
-            query=query, first=first, after=after, last=last, before=before, request_options=request_options
+            context_channel_id=context_channel_id,
+            query=query,
+            first=first,
+            after=after,
+            last=last,
+            before=before,
+            request_options=request_options,
         )
 
     def me(
@@ -125,7 +136,7 @@ class UsersClient:
         Parameters
         ----------
         include_trading : typing.Optional[bool]
-            Also return the trading account under `trading`: its address and its Hyperliquid WebSocket subscriptions. Only honored on the self view (me) with crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet.
+            Also return the trading account under `trading`: its address, a snapshot of its margin and open positions, and its Hyperliquid WebSocket subscriptions. Only honored on the self view (me) with crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet.
 
         account_id : typing.Optional[str]
             When set, returns your account-specific profile overrides for this account.
@@ -161,7 +172,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -186,6 +197,7 @@ class UsersClient:
         account_id: typing.Optional[str] = None,
         banner: typing.Optional[UpdateMeUsersRequestBanner] = OMIT,
         bio: typing.Optional[str] = OMIT,
+        date_of_birth: typing.Optional[dt.date] = OMIT,
         name: typing.Optional[str] = OMIT,
         profile_picture: typing.Optional[UpdateMeUsersRequestProfilePicture] = OMIT,
         username: typing.Optional[str] = OMIT,
@@ -202,6 +214,9 @@ class UsersClient:
         banner : typing.Optional[UpdateMeUsersRequestBanner]
 
         bio : typing.Optional[str]
+
+        date_of_birth : typing.Optional[dt.date]
+            The user's date of birth as an ISO 8601 date, like `1998-04-23`. The user must be at least 13. Global profile only; refused with `account_id`.
 
         name : typing.Optional[str]
 
@@ -222,7 +237,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -232,6 +247,7 @@ class UsersClient:
             account_id=account_id,
             banner=banner,
             bio=bio,
+            date_of_birth=date_of_birth,
             name=name,
             profile_picture=profile_picture,
             username=username,
@@ -262,7 +278,7 @@ class UsersClient:
             User ID (prefixed `user_`), username, or `me` for the authenticated user.
 
         include_trading : typing.Optional[bool]
-            Also return the trading account under `trading`: its address and its Hyperliquid WebSocket subscriptions. Only honored on the self view (me) with crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet.
+            Also return the trading account under `trading`: its address, a snapshot of its margin and open positions, and its Hyperliquid WebSocket subscriptions. Only honored on the self view (me) with crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet.
 
         account_id : typing.Optional[str]
             When set, returns the user's account-specific profile overrides for this account.
@@ -298,7 +314,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -327,6 +343,7 @@ class UsersClient:
         account_id: typing.Optional[str] = None,
         banner: typing.Optional[UpdateUsersRequestBanner] = OMIT,
         bio: typing.Optional[str] = OMIT,
+        date_of_birth: typing.Optional[dt.date] = OMIT,
         name: typing.Optional[str] = OMIT,
         profile_picture: typing.Optional[UpdateUsersRequestProfilePicture] = OMIT,
         username: typing.Optional[str] = OMIT,
@@ -347,6 +364,9 @@ class UsersClient:
 
         bio : typing.Optional[str]
 
+        date_of_birth : typing.Optional[dt.date]
+            The user's date of birth as an ISO 8601 date, like `1998-04-23`. The user must be at least 13. Global profile only; refused with `account_id`.
+
         name : typing.Optional[str]
 
         profile_picture : typing.Optional[UpdateUsersRequestProfilePicture]
@@ -366,7 +386,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -379,6 +399,7 @@ class UsersClient:
             account_id=account_id,
             banner=banner,
             bio=bio,
+            date_of_birth=date_of_birth,
             name=name,
             profile_picture=profile_picture,
             username=username,
@@ -413,7 +434,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -429,7 +450,7 @@ class UsersClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> RecommendActionsUsersResponse:
         """
-        Lists the recommended actions computed for the authenticated user: personal suggestions, such as starting a business or becoming an affiliate, pooled with the highest-impact actions across the accounts the user owns. You can only list your own recommended actions.
+        Lists the recommended actions computed for the authenticated user, such as starting a business. You can only list your own recommended actions.
 
         Parameters
         ----------
@@ -449,7 +470,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -516,6 +537,7 @@ class AsyncUsersClient:
     async def list(
         self,
         *,
+        context_channel_id: typing.Optional[str] = None,
         query: typing.Optional[str] = None,
         first: typing.Optional[int] = None,
         after: typing.Optional[str] = None,
@@ -528,6 +550,9 @@ class AsyncUsersClient:
 
         Parameters
         ----------
+        context_channel_id : typing.Optional[str]
+            Prioritize people relevant to this channel for mentions. Results remain global; channel access is required.
+
         query : typing.Optional[str]
             A search term to filter users by name or username.
 
@@ -558,7 +583,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -577,7 +602,13 @@ class AsyncUsersClient:
         asyncio.run(main())
         """
         return await self._raw_client.list(
-            query=query, first=first, after=after, last=last, before=before, request_options=request_options
+            context_channel_id=context_channel_id,
+            query=query,
+            first=first,
+            after=after,
+            last=last,
+            before=before,
+            request_options=request_options,
         )
 
     async def me(
@@ -599,7 +630,7 @@ class AsyncUsersClient:
         Parameters
         ----------
         include_trading : typing.Optional[bool]
-            Also return the trading account under `trading`: its address and its Hyperliquid WebSocket subscriptions. Only honored on the self view (me) with crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet.
+            Also return the trading account under `trading`: its address, a snapshot of its margin and open positions, and its Hyperliquid WebSocket subscriptions. Only honored on the self view (me) with crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet.
 
         account_id : typing.Optional[str]
             When set, returns your account-specific profile overrides for this account.
@@ -637,7 +668,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -668,6 +699,7 @@ class AsyncUsersClient:
         account_id: typing.Optional[str] = None,
         banner: typing.Optional[UpdateMeUsersRequestBanner] = OMIT,
         bio: typing.Optional[str] = OMIT,
+        date_of_birth: typing.Optional[dt.date] = OMIT,
         name: typing.Optional[str] = OMIT,
         profile_picture: typing.Optional[UpdateMeUsersRequestProfilePicture] = OMIT,
         username: typing.Optional[str] = OMIT,
@@ -684,6 +716,9 @@ class AsyncUsersClient:
         banner : typing.Optional[UpdateMeUsersRequestBanner]
 
         bio : typing.Optional[str]
+
+        date_of_birth : typing.Optional[dt.date]
+            The user's date of birth as an ISO 8601 date, like `1998-04-23`. The user must be at least 13. Global profile only; refused with `account_id`.
 
         name : typing.Optional[str]
 
@@ -706,7 +741,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -722,6 +757,7 @@ class AsyncUsersClient:
             account_id=account_id,
             banner=banner,
             bio=bio,
+            date_of_birth=date_of_birth,
             name=name,
             profile_picture=profile_picture,
             username=username,
@@ -752,7 +788,7 @@ class AsyncUsersClient:
             User ID (prefixed `user_`), username, or `me` for the authenticated user.
 
         include_trading : typing.Optional[bool]
-            Also return the trading account under `trading`: its address and its Hyperliquid WebSocket subscriptions. Only honored on the self view (me) with crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet.
+            Also return the trading account under `trading`: its address, a snapshot of its margin and open positions, and its Hyperliquid WebSocket subscriptions. Only honored on the self view (me) with crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet.
 
         account_id : typing.Optional[str]
             When set, returns the user's account-specific profile overrides for this account.
@@ -790,7 +826,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -825,6 +861,7 @@ class AsyncUsersClient:
         account_id: typing.Optional[str] = None,
         banner: typing.Optional[UpdateUsersRequestBanner] = OMIT,
         bio: typing.Optional[str] = OMIT,
+        date_of_birth: typing.Optional[dt.date] = OMIT,
         name: typing.Optional[str] = OMIT,
         profile_picture: typing.Optional[UpdateUsersRequestProfilePicture] = OMIT,
         username: typing.Optional[str] = OMIT,
@@ -844,6 +881,9 @@ class AsyncUsersClient:
         banner : typing.Optional[UpdateUsersRequestBanner]
 
         bio : typing.Optional[str]
+
+        date_of_birth : typing.Optional[dt.date]
+            The user's date of birth as an ISO 8601 date, like `1998-04-23`. The user must be at least 13. Global profile only; refused with `account_id`.
 
         name : typing.Optional[str]
 
@@ -866,7 +906,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -885,6 +925,7 @@ class AsyncUsersClient:
             account_id=account_id,
             banner=banner,
             bio=bio,
+            date_of_birth=date_of_birth,
             name=name,
             profile_picture=profile_picture,
             username=username,
@@ -921,7 +962,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -943,7 +984,7 @@ class AsyncUsersClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> RecommendActionsUsersResponse:
         """
-        Lists the recommended actions computed for the authenticated user: personal suggestions, such as starting a business or becoming an affiliate, pooled with the highest-impact actions across the accounts the user owns. You can only list your own recommended actions.
+        Lists the recommended actions computed for the authenticated user, such as starting a business. You can only list your own recommended actions.
 
         Parameters
         ----------
@@ -965,7 +1006,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

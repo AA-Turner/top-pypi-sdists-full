@@ -22,6 +22,8 @@ from aistore.sdk.const import (
     HEADER_CONTENT_LENGTH,
 )
 
+from aistore.sdk.client_state import ClientState
+from aistore.sdk.errors import ClientClosedError
 from aistore.sdk.request_executor import RequestExecutor
 from aistore.sdk.response_handler import ResponseHandler, AISResponseHandler
 from aistore.sdk.retry_manager import RetryManager
@@ -47,6 +49,8 @@ class RequestClient:
         token (str, optional): Authorization token.
         response_handler (ResponseHandler): Handler for processing HTTP responses. Defaults to AISResponseHandler.
         retry_config (RetryConfig, optional): Retry settings. None uses RetryConfig.default().
+        client_state (ClientState, optional): Shared client lifecycle state.
+            Defaults to a new state for independently constructed request clients.
     """
 
     # pylint: disable=too-many-arguments,too-many-positional-arguments
@@ -58,12 +62,15 @@ class RequestClient:
         token: str = "",
         response_handler: ResponseHandler = AISResponseHandler(),
         retry_config: Optional[RetryConfig] = None,
+        client_state: Optional[ClientState] = None,
     ):
+        self._client_state = client_state if client_state is not None else ClientState()
         self._executor = RequestExecutor(
             base_url=urljoin(endpoint, "v1"),
             session_manager=session_manager,
             token=token,
             timeout=timeout,
+            client_state=self._client_state,
         )
         self._response_handler = response_handler
         # smap is used to calculate the target node for a given object
@@ -96,10 +103,6 @@ class RequestClient:
         Return the SessionManager used to create sessions for this client.
         """
         return self._executor.session_manager
-
-    @session_manager.setter
-    def session_manager(self, session_manager):
-        self._executor.session_manager = session_manager
 
     @property
     def token(self) -> str:
@@ -135,7 +138,7 @@ class RequestClient:
         response_handler: Optional[ResponseHandler] = None,
     ) -> "RequestClient":
         """
-        Create a copy of the current RequestClient instance with an optional new base URL.
+        Create a copy with an optional new base URL and a shared closed lifecycle.
 
         Args:
             base_url (Optional[str]): New base URL for the cloned client. Defaults to the existing base URL.
@@ -145,7 +148,6 @@ class RequestClient:
         Returns:
             RequestClient: A new instance with the same settings but an optional different base URL.
         """
-
         # Default to the existing base URL if none is provided
         base_url = base_url or self.base_url
 
@@ -163,6 +165,7 @@ class RequestClient:
                 else self._response_handler
             ),
             retry_config=self._retry_manager.retry_config,
+            client_state=self._client_state,
         )
 
     def request_deserialize(
@@ -215,13 +218,32 @@ class RequestClient:
             The HTTP response from the server.
 
         Raises:
+            ClientClosedError: The client has been closed.
             requests.exceptions.UnrewindableBodyError: An SDK network retry cannot
                 rewind the request body to its initial position.
+        """
+        return self._request(method, path, endpoint, headers, **kwargs)
+
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def _request(
+        self,
+        method: str,
+        path: str,
+        endpoint: Optional[str],
+        headers: Optional[Dict[str, Any]],
+        response_callback: Optional[Callable[[Response], T]] = None,
+        **kwargs,
+    ) -> Union[Response, T]:
+        """
+        Send a request with retries, as described in `request()`.
+
+        `response_callback`, if given, is called inside each retry attempt with the
+        validated response, and its return value is returned instead of the response.
         """
         base = urljoin(endpoint, "v1") if endpoint else self.base_url
         url = f"{base}/{path.lstrip('/')}"
 
-        def request_op():
+        def request_op() -> Union[Response, T]:
             if url.startswith(HTTPS) and "data" in kwargs:
                 response = self._request_with_manual_redirect(
                     method=method, url=url, headers=headers, **kwargs
@@ -230,7 +252,8 @@ class RequestClient:
                 response = self._executor.request_absolute(
                     method=method, url=url, headers=headers, **kwargs
                 )
-            return self._response_handler.handle_response(response)
+            response = self._response_handler.handle_response(response)
+            return response_callback(response) if response_callback else response
 
         data = kwargs.get("data")
         if data is not None and (
@@ -245,9 +268,50 @@ class RequestClient:
             return self._request_with_stream_retry(request_op, data)
         return self._retry_manager.with_retry(request_op)
 
-    def _request_with_stream_retry(
-        self, request_op: Callable[[], Response], body: Any
-    ) -> Response:
+    def request_content(
+        self,
+        method: str,
+        path: str,
+        params: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, Any]] = None,
+    ) -> bytes:
+        """
+        Make a request like `request()` and return the complete response body.
+
+        Each retry attempt sends the request and reads the whole body, so a connection
+        lost mid-body is retried. A body of known length is read in one call, avoiding
+        the small-chunk reads and joining copy of `Response.content`.
+
+        Args:
+            method (str): HTTP method (e.g. POST, GET, PUT, DELETE).
+            path (str): URL path to call.
+            params (Dict[str, Any], optional): Query parameters for the request.
+            headers (Dict[str, Any], optional): Extra headers to be passed with the request.
+                Content-Type and User-Agent will be overridden by the executor.
+
+        Returns:
+            The decoded response body.
+
+        Raises:
+            ClientClosedError: The client has been closed.
+        """
+
+        def read(response: Response) -> bytes:
+            # Closes the response if the read fails, so a broken connection is not reused
+            with response:
+                return b"".join(response.iter_content(chunk_size=None))
+
+        return self._request(
+            method,
+            path,
+            endpoint=None,
+            headers=headers,
+            response_callback=read,
+            params=params,
+            stream=True,
+        )
+
+    def _request_with_stream_retry(self, request_op: Callable[[], T], body: Any) -> T:
         """Restore a streamed body before each SDK retry; reject unsafe replay."""
         body_position = None
         try:
@@ -412,6 +476,7 @@ class RequestClient:
             Response: The HTTP response from the final target server
 
         Raises:
+            ClientClosedError: The client has been closed.
             ValueError: If the proxy does not return a redirect or the redirect URL is missing
             TypeError: If data type is not supported
             IOError: If file operations fail during content length calculation
@@ -433,6 +498,8 @@ class RequestClient:
             proxy_response = self._executor.request_absolute(
                 method, url, **proxy_request_kwargs
             )
+        except ClientClosedError:
+            raise
         except Exception as e:
             logger.error("Proxy request failed for %s %s: %s", method, url, str(e))
             raise
@@ -473,6 +540,8 @@ class RequestClient:
             target_response = self._executor.request_absolute(
                 method=method, url=target_url, headers=headers, **kwargs
             )
+        except ClientClosedError:
+            raise
         except Exception as e:
             logger.error(
                 "Target request failed for %s %s: %s", method, target_url, str(e)

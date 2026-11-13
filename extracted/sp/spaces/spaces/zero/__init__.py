@@ -1,41 +1,64 @@
 """
 """
 
+from importlib import metadata
+
+from packaging.version import Version
+
 from ..config import Config
+from .context import ZeroGPULog
+from .errors import ZeroGPUClientError
+from .errors import ZeroGPUError
+from .errors import ZeroGPUException
+from .errors import ZeroGPUIllegalDuration
+from .errors import ZeroGPUPendingCreditsExceeded
+from .errors import ZeroGPUQueueTimeout
+from .errors import ZeroGPUQuotaExceeded
+from .errors import ZeroGPUTaskAborted
+from .errors import ZeroGPUTaskException
+from .errors import ZeroGPUWorkerError
+from .middleware import ZeroGPUMiddleware
+from .lifecycle import default_gpu_size
+from .lifecycle import zerogpu_mode_enable
+from .lifecycle import zerogpu_mode_enabled
+from .lifecycle import zerogpu_startup
 
 
-_default_gpu_size: 'api.GPUSize | None' = None
-
-
-def default_gpu_size():
-    return _default_gpu_size
+def _maybe_enable_gradio_compat():
+    try:
+        gradio_version = metadata.version('gradio')
+    except metadata.PackageNotFoundError: # pragma: no cover
+        pass
+    else:
+        if Version(gradio_version) < Version('7.0.0.dev0'):
+            from . import gradio
+            gradio.patch()
 
 
 if Config.zero_gpu:
+    zerogpu_mode_enable()
+    _maybe_enable_gradio_compat()
 
-    from . import api
-    from . import client
-    from . import config
-    from . import decorator
-    from . import gradio
-    from . import torch
 
-    if torch.is_in_bad_fork():
-        raise RuntimeError(
-            "CUDA has been initialized before importing the `spaces` package. "
-            "Try importing `spaces` before any other CUDA-related package."
-        )
+# Compat
+startup = zerogpu_startup
 
-    def startup():
-        global _default_gpu_size
-        zerogpu_config = config.get_config()
-        total_size = torch.pack()
-        threshold = zerogpu_config['xlarge_threshold']
-        if threshold is not None and total_size > threshold:
-            _default_gpu_size = 'xlarge' # pragma: no cover
-        if len(decorator.decorated_cache) == 0:
-            return # pragma: no cover
-        client.startup_report()
 
-    torch.patch()
-    gradio.one_launch(startup)
+__all__ = [
+    'ZeroGPUError',
+    'ZeroGPUException',
+    'ZeroGPUClientError',
+    'ZeroGPUIllegalDuration',
+    'ZeroGPUPendingCreditsExceeded',
+    'ZeroGPUQueueTimeout',
+    'ZeroGPUQuotaExceeded',
+    'ZeroGPUTaskAborted',
+    'ZeroGPUTaskException',
+    'ZeroGPUWorkerError',
+    'ZeroGPULog',
+    'ZeroGPUMiddleware',
+    'default_gpu_size',
+    'zerogpu_mode_enable',
+    'zerogpu_mode_enabled',
+    'zerogpu_startup',
+]

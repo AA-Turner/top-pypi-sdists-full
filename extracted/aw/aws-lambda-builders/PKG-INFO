@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aws_lambda_builders
-Version: 1.68.0
+Version: 1.69.0
 Summary: Python library to compile, build & package AWS Lambda functions for several runtimes & frameworks.
 Home-page: https://github.com/awslabs/aws-lambda-builders
 Author: Amazon Web Services
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Utilities

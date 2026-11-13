@@ -34,6 +34,8 @@ logger = logging.getLogger(__name__)
 logger.info("Importing sqlutils")
 
 _project = None
+# The exception from the last failed Project() in _ensure_project, None once one succeeds.
+_project_init_error: Optional[Exception] = None
 _sql_executor = None
 
 # Kernel-lifetime cache of the project S3 root (async materialization write destination).
@@ -142,6 +144,8 @@ def sql(
     connection_name: Optional[str] = None,
     connection: Optional[ConnectionConfig] = None,
     persist_session: bool = True,
+    *,
+    limit_query_results: Optional[int] = None,
     **kwargs,
 ):
     """
@@ -159,6 +163,9 @@ def sql(
         persist_session: Cache and reuse connection (default True). Ignored on an AWS Notebook
             local kernel, where every statement builds its engine with credentials fetched
             from the app at that moment.
+        limit_query_results: Optional row limit applied to eligible read-only statements.
+            Ignored on this synchronous entry point by the Spark, IRC-Glue and
+            DuckDB routes, which run the query whole rather than split into statements.
         catalog_name, schema_name (keyword arguments): For Athena, the query's execution context.
             For a DuckDB query with no connection, the attached catalog (see
             :func:`attach_local_catalogs`) and schema put first on DuckDB's ``search_path`` while it
@@ -195,7 +202,13 @@ def sql(
 
         athena_api = _athena_api(route.connection, kwargs, parameters, required=True)
         result = next(
-            execute_query_statements(athena_api, query, ErrorStrategy.STOP_ON_ERROR), None
+            execute_query_statements(
+                athena_api,
+                query,
+                ErrorStrategy.STOP_ON_ERROR,
+                limit_query_results=limit_query_results,
+            ),
+            None,
         )
         if result is None:
             return None
@@ -215,6 +228,7 @@ def sql(
             query,
             connection=cached.connection,  # May be None for non-persisted
             parameters=parameters,
+            limit_query_results=limit_query_results,
         )
     )
     return result.result
@@ -228,6 +242,8 @@ def sql_stream(
     connection: Optional[ConnectionConfig] = None,
     error_strategy: str = ErrorStrategy.STOP_ON_ERROR,
     persist_session: bool = True,
+    *,
+    limit_query_results: Optional[int] = None,
     **kwargs,
 ):
     """
@@ -246,6 +262,8 @@ def sql_stream(
         persist_session: Cache and reuse connection (default True). Ignored on an AWS Notebook
             local kernel, where every statement builds its engine with credentials fetched
             from the app at that moment.
+        limit_query_results: Optional row limit applied to eligible read-only statements.
+            Applied on every route.
         catalog_name, schema_name (keyword arguments): For Athena, the query's execution context.
             For DuckDB statements with no connection, the attached catalog (see
             :func:`attach_local_catalogs`) and schema put first on DuckDB's ``search_path`` until
@@ -271,6 +289,7 @@ def sql_stream(
 
         spark = _ensure_spark()
         statements = SparkTransformer.split_query(query)
+        statements = SparkTransformer.apply_row_limits(statements, limit_query_results)
 
         # Force schema resolution to catch errors eagerly (e.g., TABLE_OR_VIEW_NOT_FOUND).
         # Without this, spark.sql() is lazy and returns successfully even for invalid tables
@@ -293,6 +312,7 @@ def sql_stream(
         from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
 
         statements = SparkTransformer.split_query(query)
+        statements = SparkTransformer.apply_row_limits(statements, limit_query_results)
 
         def execute_stmt(stmt):
             return _execute_irc_connection_query(stmt, route.connection)
@@ -307,6 +327,7 @@ def sql_stream(
         from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
 
         statements = DuckDBTransformer.split_query(query)
+        statements = DuckDBTransformer.apply_row_limits(statements, limit_query_results)
 
         def _run_statements(duck):
             # ``duck`` is the cell's engine: every statement of the stream runs on it.
@@ -328,7 +349,9 @@ def sql_stream(
         _apply_athena_context(query, kwargs)
         athena_api = _athena_api(route.connection, kwargs, parameters, required=True)
         return _stream_and_capture_metadata(
-            execute_query_statements(athena_api, query, error_strategy),
+            execute_query_statements(
+                athena_api, query, error_strategy, limit_query_results=limit_query_results
+            ),
             connection_id=connection_id,
             connection_type="ATHENA",
         )
@@ -350,6 +373,7 @@ def sql_stream(
             connection=cached.connection,  # May be None for non-persisted
             parameters=parameters,
             error_strategy=error_strategy,
+            limit_query_results=limit_query_results,
         ),
         connection_id=connection_id,
         connection_type=conn_type,
@@ -392,6 +416,8 @@ def sql_stream_with_display(
     connection: Optional[ConnectionConfig] = None,
     error_strategy: str = ErrorStrategy.STOP_ON_ERROR,
     materialize: str = "sync",
+    *,
+    limit_query_results: Optional[int] = None,
     **kwargs,
 ):
     """
@@ -411,6 +437,8 @@ def sql_stream_with_display(
         connection_name (Optional[str]): The name of the DataZone connection to use for the query.
         connection (Optional[ConnectionConfig]): Connection details including type (e.g., {"type": "spark"}).
         error_strategy (str): Error handling strategy - STOP_ON_ERROR (default) or CONTINUE_ON_ERROR.
+        limit_query_results: Optional row limit applied to eligible read-only statements.
+            Applied on every route.
 
     Raises:
         Exception: If any statement fails, after saving partial results for debugging.
@@ -435,6 +463,7 @@ def sql_stream_with_display(
             connection_name=connection_name,
             connection=connection,
             error_strategy=error_strategy,
+            limit_query_results=limit_query_results,
             **async_kwargs,
         ):
             return
@@ -446,6 +475,7 @@ def sql_stream_with_display(
         connection_name=connection_name,
         connection=connection,
         error_strategy=error_strategy,
+        limit_query_results=limit_query_results,
         **kwargs,
     )
     _materialise_stream(stream, dataframe_name)
@@ -496,6 +526,8 @@ def _stream_with_async_materialization(
     connection_name: Optional[str] = None,
     connection: Optional[ConnectionConfig] = None,
     error_strategy: str = ErrorStrategy.STOP_ON_ERROR,
+    *,
+    limit_query_results: Optional[int] = None,
     **kwargs,
 ) -> bool:
     """Attempt the async materialization path.
@@ -504,6 +536,8 @@ def _stream_with_async_materialization(
     background thread(s) spawned); False to signal the caller to fall back to the
     synchronous path. Scope: Athena/Redshift result-bearing statements (single- or
     multi-statement cells).
+
+    ``limit_query_results`` is an optional row limit applied to eligible read-only statements.
     """
     from sqlalchemy import text
 
@@ -643,7 +677,11 @@ def _stream_with_async_materialization(
         from sagemaker_studio.utils.athena_v4 import execute_query_statements
 
         statement_results = execute_query_statements(
-            athena_api, query, error_strategy, athena_api.execute_without_fetch
+            athena_api,
+            query,
+            error_strategy,
+            athena_api.execute_without_fetch,
+            limit_query_results=limit_query_results,
         )
     else:
         statement_results = executor.execute(
@@ -653,6 +691,7 @@ def _stream_with_async_materialization(
             parameters=parameters,
             error_strategy=error_strategy,
             statement_executor=_async_statement_executor,
+            limit_query_results=limit_query_results,
         )
     _result_stream = _stream_and_capture_metadata(
         statement_results,
@@ -919,7 +958,7 @@ def _resolve_connection(connection_id: str, connection_name: str):
         return None
     project = _ensure_project()
     if not project:
-        raise RuntimeError("Project is not initialized.")
+        raise _project_not_initialized_error()
     if connection_name:
         return project.connection(connection_name)
     return project.connection(id=connection_id)
@@ -1105,14 +1144,35 @@ def close_all_connections() -> int:
 
 
 def _ensure_project():
-    """Initialize Project on demand"""
-    global _project
+    """Initialize Project on demand.
+
+    A failed ``Project()`` (e.g. DataZone briefly unreachable) is not cached: the next call
+    tries again. The error is kept in ``_project_init_error`` for
+    :func:`_project_not_initialized_error`.
+    """
+    global _project, _project_init_error
     if _project is None:
         try:
             _project = Project()
-        except Exception:
-            _project = False
+            _project_init_error = None
+        except Exception as e:
+            if _project_init_error is None:
+                logger.warning("Could not initialize the project: %s: %s", type(e).__name__, e)
+            _project_init_error = e
+            return False
     return _project
+
+
+def _project_not_initialized_error() -> RuntimeError:
+    """The error for a SQL call that needs the project when it could not be initialized."""
+    err = _project_init_error
+    if err is None:
+        return RuntimeError("Project is not initialized.")
+    return RuntimeError(
+        f"Project is not initialized ({type(err).__name__}: {err}). The kernel could not load "
+        "the project from DataZone; run the cell again, and check the compute's network access "
+        "to DataZone if it keeps failing."
+    )
 
 
 def _ensure_project_s3_root():
@@ -1301,7 +1361,7 @@ def _create_glue_spark(config=None, spark_conf=None):
 
     project = _ensure_project()
     if not project:
-        raise RuntimeError("Project is not initialized.")
+        raise _project_not_initialized_error()
 
     glue_connection = next(
         (

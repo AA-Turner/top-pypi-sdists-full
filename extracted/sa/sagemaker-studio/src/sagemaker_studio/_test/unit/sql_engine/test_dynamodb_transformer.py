@@ -26,3 +26,12 @@ def test_to_sqlalchemy_config_raises_if_missing_region():
     ):
         with pytest.raises(ValueError):
             DynamoDBTransformer.to_sqlalchemy_config({})
+
+
+def test_supports_row_limit_is_false():
+    assert DynamoDBTransformer.supports_row_limit is False
+
+
+def test_row_limit_leaves_statement_unchanged():
+    statement = "SELECT a FROM t"
+    assert DynamoDBTransformer.apply_row_limit(statement, "SELECT", 100) == statement

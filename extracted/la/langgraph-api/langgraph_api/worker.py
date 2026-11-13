@@ -175,9 +175,8 @@ async def worker(
 
                 error_message = (
                     f"Run {run['run_id']} exceeded max attempts ({BG_JOB_MAX_RETRIES}).\n\n"
-                    "This usually means the pod processing the run became unhealthy and the run was re-queued repeatedly. "
-                    "Check for OOM kills, pod restarts, liveness/readiness probe failures, or other signs of pod instability "
-                    "in your deployment's logs and metrics."
+                    "This usually means the agent server processing the run became unhealthy and the run was re-queued repeatedly. "
+                    "Check the run logs for any errors."
                     + (
                         " For temporary (threadless) runs, drains count as "
                         "attempts too.\n\n"
@@ -198,9 +197,8 @@ async def worker(
                 raise RuntimeError(
                     f"Run {run['run_id']} was drained {claim.drains} times without finishing, "
                     f"more than BG_JOB_MAX_DRAINS ({BG_JOB_MAX_DRAINS}) allows. "
-                    "This means the graph keeps requesting drains instead of completing; "
-                    "check what is calling request_drain() in the graph or how often pods "
-                    "are being stopped mid-run."
+                    "This can be caused by many revisions of the agent server being deployed in quick succession. "
+                    "Consider deploying less frequently to reduce the risk of this happening."
                 )
             # Whether this claim continues an earlier one of the same run is
             # read from Postgres, not from the counters: Redis holds only
@@ -298,6 +296,15 @@ async def worker(
                     "Background run timed out. To increase the timeout, set the BG_JOB_TIMEOUT_SECS environment variable (integer, defaults to 86400).",
                     **log_info,
                 )
+                # Without it, every stream shows a timed-out run as a success.
+                with suppress(Exception):
+                    await Runs.Stream.publish(
+                        run_id,
+                        "error",
+                        json_dumpb(exception),
+                        thread_id=run["thread_id"],
+                        resumable=resumable,
+                    )
                 if not temporary:
                     await Threads.set_joint_status(
                         conn,
@@ -311,6 +318,14 @@ async def worker(
                         exception=exception,
                     )
             elif isinstance(exception, UserRollback):
+                with suppress(Exception):
+                    await Runs.Stream.publish(
+                        run_id,
+                        "error",
+                        json_dumpb(exception),
+                        thread_id=run["thread_id"],
+                        resumable=resumable,
+                    )
                 status = "rollback"
                 reporter.inc_counter(
                     COUNTER_RUN_CANCELED_BY_REQUEST,
@@ -356,6 +371,14 @@ async def worker(
                     reason=str(exception),
                     **log_info,
                 )
+                with suppress(Exception):
+                    await Runs.Stream.publish(
+                        run_id,
+                        "error",
+                        json_dumpb(exception),
+                        thread_id=run["thread_id"],
+                        resumable=resumable,
+                    )
                 if not temporary:
                     await Threads.set_joint_status(
                         conn,

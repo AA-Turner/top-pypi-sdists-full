@@ -580,6 +580,7 @@ class AutoHandler:
         # plugin-skipped based on the resolved EVALUATE stage, not the default
         # runtime, so explicit non-plugin stage overrides remain consumable.
         seed_qa_handler = QAHandler(
+            event_store=runtime_event_store,
             llm_backend=self.llm_backend,
             agent_runtime_backend=runtime_plan.interview.runtime_backend,
             opencode_mode=authoring_opencode_mode,
@@ -985,7 +986,8 @@ class StartAutoHandler:
             f"auto_session_id: {auto_session_id}\n"
             f"Runtime Backend: {start_briefing['runtime_backend']}\n"
             f"LLM Backend: {start_briefing['llm_backend']}\n"
-            f"Efficiency Mode: {start_briefing['efficiency_mode']}{policy_notice(arguments)}\n"
+            f"Efficiency Mode: {start_briefing['efficiency_mode']}"
+            f"{policy_notice(arguments, resolved_efficiency_mode=start_briefing['efficiency_mode'])}\n"
             f"Frugality Assurance: {start_briefing['frugality_assurance']}\n"
             f"{dashboard_line}\n"
             "The exact active model and first parallel level will be reported "

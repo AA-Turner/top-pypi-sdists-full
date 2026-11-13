@@ -4279,6 +4279,98 @@ class CfnChannel(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.Av1FilterSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "auto_filter_settings": "autoFilterSettings",
+            "none_filter_settings": "noneFilterSettings",
+            "perceptual_filter_settings": "perceptualFilterSettings",
+        },
+    )
+    class Av1FilterSettingsProperty:
+        def __init__(
+            self,
+            *,
+            auto_filter_settings: typing.Any = None,
+            none_filter_settings: typing.Any = None,
+            perceptual_filter_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.PerceptualFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param auto_filter_settings: 
+            :param none_filter_settings: 
+            :param perceptual_filter_settings: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1filtersettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                # auto_filter_settings: Any
+                # none_filter_settings: Any
+                
+                av1_filter_settings_property = medialive.CfnChannel.Av1FilterSettingsProperty(
+                    auto_filter_settings=auto_filter_settings,
+                    none_filter_settings=none_filter_settings,
+                    perceptual_filter_settings=medialive.CfnChannel.PerceptualFilterSettingsProperty(
+                        strength="strength"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8d26c255f5bf4046ff19768de5c808217c369138bd45bfb5399acc2937b8c569)
+                check_type(argname="argument auto_filter_settings", value=auto_filter_settings, expected_type=type_hints["auto_filter_settings"])
+                check_type(argname="argument none_filter_settings", value=none_filter_settings, expected_type=type_hints["none_filter_settings"])
+                check_type(argname="argument perceptual_filter_settings", value=perceptual_filter_settings, expected_type=type_hints["perceptual_filter_settings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if auto_filter_settings is not None:
+                self._values["auto_filter_settings"] = auto_filter_settings
+            if none_filter_settings is not None:
+                self._values["none_filter_settings"] = none_filter_settings
+            if perceptual_filter_settings is not None:
+                self._values["perceptual_filter_settings"] = perceptual_filter_settings
+
+        @builtins.property
+        def auto_filter_settings(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1filtersettings.html#cfn-medialive-channel-av1filtersettings-autofiltersettings
+            '''
+            result = self._values.get("auto_filter_settings")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def none_filter_settings(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1filtersettings.html#cfn-medialive-channel-av1filtersettings-nonefiltersettings
+            '''
+            result = self._values.get("none_filter_settings")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def perceptual_filter_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.PerceptualFilterSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1filtersettings.html#cfn-medialive-channel-av1filtersettings-perceptualfiltersettings
+            '''
+            result = self._values.get("perceptual_filter_settings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.PerceptualFilterSettingsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "Av1FilterSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.Av1SettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -4287,6 +4379,7 @@ class CfnChannel(
             "bitrate": "bitrate",
             "buf_size": "bufSize",
             "color_space_settings": "colorSpaceSettings",
+            "filter_settings": "filterSettings",
             "fixed_afd": "fixedAfd",
             "framerate_denominator": "framerateDenominator",
             "framerate_numerator": "framerateNumerator",
@@ -4317,6 +4410,7 @@ class CfnChannel(
             bitrate: typing.Optional[jsii.Number] = None,
             buf_size: typing.Optional[jsii.Number] = None,
             color_space_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.Av1ColorSpaceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            filter_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.Av1FilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             fixed_afd: typing.Optional[builtins.str] = None,
             framerate_denominator: typing.Optional[jsii.Number] = None,
             framerate_numerator: typing.Optional[jsii.Number] = None,
@@ -4343,6 +4437,7 @@ class CfnChannel(
             :param bitrate: 
             :param buf_size: 
             :param color_space_settings: 
+            :param filter_settings: 
             :param fixed_afd: 
             :param framerate_denominator: 
             :param framerate_numerator: 
@@ -4372,8 +4467,10 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
+                # auto_filter_settings: Any
                 # color_space_passthrough_settings: Any
                 # hlg2020_settings: Any
+                # none_filter_settings: Any
                 # rec601_settings: Any
                 # rec709_settings: Any
                 
@@ -4391,6 +4488,13 @@ class CfnChannel(
                         hlg2020_settings=hlg2020_settings,
                         rec601_settings=rec601_settings,
                         rec709_settings=rec709_settings
+                    ),
+                    filter_settings=medialive.CfnChannel.Av1FilterSettingsProperty(
+                        auto_filter_settings=auto_filter_settings,
+                        none_filter_settings=none_filter_settings,
+                        perceptual_filter_settings=medialive.CfnChannel.PerceptualFilterSettingsProperty(
+                            strength="strength"
+                        )
                     ),
                     fixed_afd="fixedAfd",
                     framerate_denominator=123,
@@ -4424,6 +4528,7 @@ class CfnChannel(
                 check_type(argname="argument bitrate", value=bitrate, expected_type=type_hints["bitrate"])
                 check_type(argname="argument buf_size", value=buf_size, expected_type=type_hints["buf_size"])
                 check_type(argname="argument color_space_settings", value=color_space_settings, expected_type=type_hints["color_space_settings"])
+                check_type(argname="argument filter_settings", value=filter_settings, expected_type=type_hints["filter_settings"])
                 check_type(argname="argument fixed_afd", value=fixed_afd, expected_type=type_hints["fixed_afd"])
                 check_type(argname="argument framerate_denominator", value=framerate_denominator, expected_type=type_hints["framerate_denominator"])
                 check_type(argname="argument framerate_numerator", value=framerate_numerator, expected_type=type_hints["framerate_numerator"])
@@ -4454,6 +4559,8 @@ class CfnChannel(
                 self._values["buf_size"] = buf_size
             if color_space_settings is not None:
                 self._values["color_space_settings"] = color_space_settings
+            if filter_settings is not None:
+                self._values["filter_settings"] = filter_settings
             if fixed_afd is not None:
                 self._values["fixed_afd"] = fixed_afd
             if framerate_denominator is not None:
@@ -4534,6 +4641,16 @@ class CfnChannel(
             '''
             result = self._values.get("color_space_settings")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.Av1ColorSpaceSettingsProperty"]], result)
+
+        @builtins.property
+        def filter_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.Av1FilterSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1settings.html#cfn-medialive-channel-av1settings-filtersettings
+            '''
+            result = self._values.get("filter_settings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.Av1FilterSettingsProperty"]], result)
 
         @builtins.property
         def fixed_afd(self) -> typing.Optional[builtins.str]:
@@ -11128,7 +11245,10 @@ class CfnChannel(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.H264FilterSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "auto_filter_settings": "autoFilterSettings",
             "bandwidth_reduction_filter_settings": "bandwidthReductionFilterSettings",
+            "none_filter_settings": "noneFilterSettings",
+            "perceptual_filter_settings": "perceptualFilterSettings",
             "temporal_filter_settings": "temporalFilterSettings",
         },
     )
@@ -11136,14 +11256,20 @@ class CfnChannel(
         def __init__(
             self,
             *,
+            auto_filter_settings: typing.Any = None,
             bandwidth_reduction_filter_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.BandwidthReductionFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            none_filter_settings: typing.Any = None,
+            perceptual_filter_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.PerceptualFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             temporal_filter_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.TemporalFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings to configure video filters that apply to the H264 codec.
 
             The parent of this entity is H264Settings.
 
+            :param auto_filter_settings: 
             :param bandwidth_reduction_filter_settings: 
+            :param none_filter_settings: 
+            :param perceptual_filter_settings: 
             :param temporal_filter_settings: Settings for applying the temporal filter to the video.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264filtersettings.html
@@ -11155,9 +11281,17 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
+                # auto_filter_settings: Any
+                # none_filter_settings: Any
+                
                 h264_filter_settings_property = medialive.CfnChannel.H264FilterSettingsProperty(
+                    auto_filter_settings=auto_filter_settings,
                     bandwidth_reduction_filter_settings=medialive.CfnChannel.BandwidthReductionFilterSettingsProperty(
                         post_filter_sharpening="postFilterSharpening",
+                        strength="strength"
+                    ),
+                    none_filter_settings=none_filter_settings,
+                    perceptual_filter_settings=medialive.CfnChannel.PerceptualFilterSettingsProperty(
                         strength="strength"
                     ),
                     temporal_filter_settings=medialive.CfnChannel.TemporalFilterSettingsProperty(
@@ -11168,13 +11302,30 @@ class CfnChannel(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__3cb4c4dca99a161d3102f1d8f1c337fcb22715a5dcf9f2603a771d9b285530a9)
+                check_type(argname="argument auto_filter_settings", value=auto_filter_settings, expected_type=type_hints["auto_filter_settings"])
                 check_type(argname="argument bandwidth_reduction_filter_settings", value=bandwidth_reduction_filter_settings, expected_type=type_hints["bandwidth_reduction_filter_settings"])
+                check_type(argname="argument none_filter_settings", value=none_filter_settings, expected_type=type_hints["none_filter_settings"])
+                check_type(argname="argument perceptual_filter_settings", value=perceptual_filter_settings, expected_type=type_hints["perceptual_filter_settings"])
                 check_type(argname="argument temporal_filter_settings", value=temporal_filter_settings, expected_type=type_hints["temporal_filter_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if auto_filter_settings is not None:
+                self._values["auto_filter_settings"] = auto_filter_settings
             if bandwidth_reduction_filter_settings is not None:
                 self._values["bandwidth_reduction_filter_settings"] = bandwidth_reduction_filter_settings
+            if none_filter_settings is not None:
+                self._values["none_filter_settings"] = none_filter_settings
+            if perceptual_filter_settings is not None:
+                self._values["perceptual_filter_settings"] = perceptual_filter_settings
             if temporal_filter_settings is not None:
                 self._values["temporal_filter_settings"] = temporal_filter_settings
+
+        @builtins.property
+        def auto_filter_settings(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264filtersettings.html#cfn-medialive-channel-h264filtersettings-autofiltersettings
+            '''
+            result = self._values.get("auto_filter_settings")
+            return typing.cast(typing.Any, result)
 
         @builtins.property
         def bandwidth_reduction_filter_settings(
@@ -11185,6 +11336,24 @@ class CfnChannel(
             '''
             result = self._values.get("bandwidth_reduction_filter_settings")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.BandwidthReductionFilterSettingsProperty"]], result)
+
+        @builtins.property
+        def none_filter_settings(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264filtersettings.html#cfn-medialive-channel-h264filtersettings-nonefiltersettings
+            '''
+            result = self._values.get("none_filter_settings")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def perceptual_filter_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.PerceptualFilterSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264filtersettings.html#cfn-medialive-channel-h264filtersettings-perceptualfiltersettings
+            '''
+            result = self._values.get("perceptual_filter_settings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.PerceptualFilterSettingsProperty"]], result)
 
         @builtins.property
         def temporal_filter_settings(
@@ -11214,6 +11383,7 @@ class CfnChannel(
         name_mapping={
             "adaptive_quantization": "adaptiveQuantization",
             "afd_signaling": "afdSignaling",
+            "allow_explicit_weighted_prediction": "allowExplicitWeightedPrediction",
             "bitrate": "bitrate",
             "buf_fill_pct": "bufFillPct",
             "buf_size": "bufSize",
@@ -11264,6 +11434,7 @@ class CfnChannel(
             *,
             adaptive_quantization: typing.Optional[builtins.str] = None,
             afd_signaling: typing.Optional[builtins.str] = None,
+            allow_explicit_weighted_prediction: typing.Optional[builtins.str] = None,
             bitrate: typing.Optional[jsii.Number] = None,
             buf_fill_pct: typing.Optional[jsii.Number] = None,
             buf_size: typing.Optional[jsii.Number] = None,
@@ -11313,6 +11484,7 @@ class CfnChannel(
 
             :param adaptive_quantization: The adaptive quantization. This allows intra-frame quantizers to vary to improve visual quality.
             :param afd_signaling: Indicates that AFD values will be written into the output stream. If afdSignaling is auto, the system tries to preserve the input AFD value (in cases where multiple AFD values are valid). If set to fixed, the AFD value is the value configured in the fixedAfd parameter.
+            :param allow_explicit_weighted_prediction: 
             :param bitrate: The average bitrate in bits/second. This is required when the rate control mode is VBR or CBR. It isn't used for QVBR. In a Microsoft Smooth output group, each output must have a unique value when its bitrate is rounded down to the nearest multiple of 1000.
             :param buf_fill_pct: The percentage of the buffer that should initially be filled (HRD buffer model).
             :param buf_size: The size of the buffer (HRD buffer model) in bits/second.
@@ -11365,9 +11537,13 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
+                # auto_filter_settings: Any
+                # none_filter_settings: Any
+                
                 h264_settings_property = medialive.CfnChannel.H264SettingsProperty(
                     adaptive_quantization="adaptiveQuantization",
                     afd_signaling="afdSignaling",
+                    allow_explicit_weighted_prediction="allowExplicitWeightedPrediction",
                     bitrate=123,
                     buf_fill_pct=123,
                     buf_size=123,
@@ -11379,8 +11555,13 @@ class CfnChannel(
                     ),
                     entropy_encoding="entropyEncoding",
                     filter_settings=medialive.CfnChannel.H264FilterSettingsProperty(
+                        auto_filter_settings=auto_filter_settings,
                         bandwidth_reduction_filter_settings=medialive.CfnChannel.BandwidthReductionFilterSettingsProperty(
                             post_filter_sharpening="postFilterSharpening",
+                            strength="strength"
+                        ),
+                        none_filter_settings=none_filter_settings,
+                        perceptual_filter_settings=medialive.CfnChannel.PerceptualFilterSettingsProperty(
                             strength="strength"
                         ),
                         temporal_filter_settings=medialive.CfnChannel.TemporalFilterSettingsProperty(
@@ -11433,6 +11614,7 @@ class CfnChannel(
                 type_hints = cached_type_hints(_typecheckingstub__b5cab7f49556648d7d963fdbb4cfd87845bc6a70172808b1847d7a21857a62c5)
                 check_type(argname="argument adaptive_quantization", value=adaptive_quantization, expected_type=type_hints["adaptive_quantization"])
                 check_type(argname="argument afd_signaling", value=afd_signaling, expected_type=type_hints["afd_signaling"])
+                check_type(argname="argument allow_explicit_weighted_prediction", value=allow_explicit_weighted_prediction, expected_type=type_hints["allow_explicit_weighted_prediction"])
                 check_type(argname="argument bitrate", value=bitrate, expected_type=type_hints["bitrate"])
                 check_type(argname="argument buf_fill_pct", value=buf_fill_pct, expected_type=type_hints["buf_fill_pct"])
                 check_type(argname="argument buf_size", value=buf_size, expected_type=type_hints["buf_size"])
@@ -11480,6 +11662,8 @@ class CfnChannel(
                 self._values["adaptive_quantization"] = adaptive_quantization
             if afd_signaling is not None:
                 self._values["afd_signaling"] = afd_signaling
+            if allow_explicit_weighted_prediction is not None:
+                self._values["allow_explicit_weighted_prediction"] = allow_explicit_weighted_prediction
             if bitrate is not None:
                 self._values["bitrate"] = bitrate
             if buf_fill_pct is not None:
@@ -11585,6 +11769,14 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264settings.html#cfn-medialive-channel-h264settings-afdsignaling
             '''
             result = self._values.get("afd_signaling")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def allow_explicit_weighted_prediction(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264settings.html#cfn-medialive-channel-h264settings-allowexplicitweightedprediction
+            '''
+            result = self._values.get("allow_explicit_weighted_prediction")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -12178,7 +12370,10 @@ class CfnChannel(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.H265FilterSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "auto_filter_settings": "autoFilterSettings",
             "bandwidth_reduction_filter_settings": "bandwidthReductionFilterSettings",
+            "none_filter_settings": "noneFilterSettings",
+            "perceptual_filter_settings": "perceptualFilterSettings",
             "temporal_filter_settings": "temporalFilterSettings",
         },
     )
@@ -12186,14 +12381,20 @@ class CfnChannel(
         def __init__(
             self,
             *,
+            auto_filter_settings: typing.Any = None,
             bandwidth_reduction_filter_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.BandwidthReductionFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            none_filter_settings: typing.Any = None,
+            perceptual_filter_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.PerceptualFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             temporal_filter_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.TemporalFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings to configure video filters that apply to the H265 codec.
 
             The parent of this entity is H265Settings.
 
+            :param auto_filter_settings: 
             :param bandwidth_reduction_filter_settings: 
+            :param none_filter_settings: 
+            :param perceptual_filter_settings: 
             :param temporal_filter_settings: Settings for applying the temporal filter to the video.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265filtersettings.html
@@ -12205,9 +12406,17 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
+                # auto_filter_settings: Any
+                # none_filter_settings: Any
+                
                 h265_filter_settings_property = medialive.CfnChannel.H265FilterSettingsProperty(
+                    auto_filter_settings=auto_filter_settings,
                     bandwidth_reduction_filter_settings=medialive.CfnChannel.BandwidthReductionFilterSettingsProperty(
                         post_filter_sharpening="postFilterSharpening",
+                        strength="strength"
+                    ),
+                    none_filter_settings=none_filter_settings,
+                    perceptual_filter_settings=medialive.CfnChannel.PerceptualFilterSettingsProperty(
                         strength="strength"
                     ),
                     temporal_filter_settings=medialive.CfnChannel.TemporalFilterSettingsProperty(
@@ -12218,13 +12427,30 @@ class CfnChannel(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__7f4aab61301008c3afe08531765fce8b3533bbb0bd6c3f8e6455c9b09692d8d5)
+                check_type(argname="argument auto_filter_settings", value=auto_filter_settings, expected_type=type_hints["auto_filter_settings"])
                 check_type(argname="argument bandwidth_reduction_filter_settings", value=bandwidth_reduction_filter_settings, expected_type=type_hints["bandwidth_reduction_filter_settings"])
+                check_type(argname="argument none_filter_settings", value=none_filter_settings, expected_type=type_hints["none_filter_settings"])
+                check_type(argname="argument perceptual_filter_settings", value=perceptual_filter_settings, expected_type=type_hints["perceptual_filter_settings"])
                 check_type(argname="argument temporal_filter_settings", value=temporal_filter_settings, expected_type=type_hints["temporal_filter_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if auto_filter_settings is not None:
+                self._values["auto_filter_settings"] = auto_filter_settings
             if bandwidth_reduction_filter_settings is not None:
                 self._values["bandwidth_reduction_filter_settings"] = bandwidth_reduction_filter_settings
+            if none_filter_settings is not None:
+                self._values["none_filter_settings"] = none_filter_settings
+            if perceptual_filter_settings is not None:
+                self._values["perceptual_filter_settings"] = perceptual_filter_settings
             if temporal_filter_settings is not None:
                 self._values["temporal_filter_settings"] = temporal_filter_settings
+
+        @builtins.property
+        def auto_filter_settings(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265filtersettings.html#cfn-medialive-channel-h265filtersettings-autofiltersettings
+            '''
+            result = self._values.get("auto_filter_settings")
+            return typing.cast(typing.Any, result)
 
         @builtins.property
         def bandwidth_reduction_filter_settings(
@@ -12235,6 +12461,24 @@ class CfnChannel(
             '''
             result = self._values.get("bandwidth_reduction_filter_settings")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.BandwidthReductionFilterSettingsProperty"]], result)
+
+        @builtins.property
+        def none_filter_settings(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265filtersettings.html#cfn-medialive-channel-h265filtersettings-nonefiltersettings
+            '''
+            result = self._values.get("none_filter_settings")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def perceptual_filter_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.PerceptualFilterSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265filtersettings.html#cfn-medialive-channel-h265filtersettings-perceptualfiltersettings
+            '''
+            result = self._values.get("perceptual_filter_settings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.PerceptualFilterSettingsProperty"]], result)
 
         @builtins.property
         def temporal_filter_settings(
@@ -12409,7 +12653,9 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
+                # auto_filter_settings: Any
                 # hlg2020_settings: Any
+                # none_filter_settings: Any
                 
                 h265_settings_property = medialive.CfnChannel.H265SettingsProperty(
                     adaptive_quantization="adaptiveQuantization",
@@ -12431,8 +12677,13 @@ class CfnChannel(
                     ),
                     deblocking="deblocking",
                     filter_settings=medialive.CfnChannel.H265FilterSettingsProperty(
+                        auto_filter_settings=auto_filter_settings,
                         bandwidth_reduction_filter_settings=medialive.CfnChannel.BandwidthReductionFilterSettingsProperty(
                             post_filter_sharpening="postFilterSharpening",
+                            strength="strength"
+                        ),
+                        none_filter_settings=none_filter_settings,
+                        perceptual_filter_settings=medialive.CfnChannel.PerceptualFilterSettingsProperty(
                             strength="strength"
                         ),
                         temporal_filter_settings=medialive.CfnChannel.TemporalFilterSettingsProperty(
@@ -23470,6 +23721,55 @@ class CfnChannel(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.PerceptualFilterSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"strength": "strength"},
+    )
+    class PerceptualFilterSettingsProperty:
+        def __init__(self, *, strength: typing.Optional[builtins.str] = None) -> None:
+            '''
+            :param strength: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-perceptualfiltersettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                perceptual_filter_settings_property = medialive.CfnChannel.PerceptualFilterSettingsProperty(
+                    strength="strength"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__684ebbfc47ad56cf23d951840b0c0f3cbd81a5651edaff56534c5723cf767e91)
+                check_type(argname="argument strength", value=strength, expected_type=type_hints["strength"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if strength is not None:
+                self._values["strength"] = strength
+
+        @builtins.property
+        def strength(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-perceptualfiltersettings.html#cfn-medialive-channel-perceptualfiltersettings-strength
+            '''
+            result = self._values.get("strength")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PerceptualFilterSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.PipelineLockingSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -26310,8 +26610,10 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
+                # auto_filter_settings: Any
                 # color_space_passthrough_settings: Any
                 # hlg2020_settings: Any
+                # none_filter_settings: Any
                 # rec601_settings: Any
                 # rec709_settings: Any
                 
@@ -26330,6 +26632,13 @@ class CfnChannel(
                             hlg2020_settings=hlg2020_settings,
                             rec601_settings=rec601_settings,
                             rec709_settings=rec709_settings
+                        ),
+                        filter_settings=medialive.CfnChannel.Av1FilterSettingsProperty(
+                            auto_filter_settings=auto_filter_settings,
+                            none_filter_settings=none_filter_settings,
+                            perceptual_filter_settings=medialive.CfnChannel.PerceptualFilterSettingsProperty(
+                                strength="strength"
+                            )
                         ),
                         fixed_afd="fixedAfd",
                         framerate_denominator=123,
@@ -26367,6 +26676,7 @@ class CfnChannel(
                     h264_settings=medialive.CfnChannel.H264SettingsProperty(
                         adaptive_quantization="adaptiveQuantization",
                         afd_signaling="afdSignaling",
+                        allow_explicit_weighted_prediction="allowExplicitWeightedPrediction",
                         bitrate=123,
                         buf_fill_pct=123,
                         buf_size=123,
@@ -26378,8 +26688,13 @@ class CfnChannel(
                         ),
                         entropy_encoding="entropyEncoding",
                         filter_settings=medialive.CfnChannel.H264FilterSettingsProperty(
+                            auto_filter_settings=auto_filter_settings,
                             bandwidth_reduction_filter_settings=medialive.CfnChannel.BandwidthReductionFilterSettingsProperty(
                                 post_filter_sharpening="postFilterSharpening",
+                                strength="strength"
+                            ),
+                            none_filter_settings=none_filter_settings,
+                            perceptual_filter_settings=medialive.CfnChannel.PerceptualFilterSettingsProperty(
                                 strength="strength"
                             ),
                             temporal_filter_settings=medialive.CfnChannel.TemporalFilterSettingsProperty(
@@ -26447,8 +26762,13 @@ class CfnChannel(
                         ),
                         deblocking="deblocking",
                         filter_settings=medialive.CfnChannel.H265FilterSettingsProperty(
+                            auto_filter_settings=auto_filter_settings,
                             bandwidth_reduction_filter_settings=medialive.CfnChannel.BandwidthReductionFilterSettingsProperty(
                                 post_filter_sharpening="postFilterSharpening",
+                                strength="strength"
+                            ),
+                            none_filter_settings=none_filter_settings,
+                            perceptual_filter_settings=medialive.CfnChannel.PerceptualFilterSettingsProperty(
                                 strength="strength"
                             ),
                             temporal_filter_settings=medialive.CfnChannel.TemporalFilterSettingsProperty(
@@ -26663,8 +26983,10 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
+                # auto_filter_settings: Any
                 # color_space_passthrough_settings: Any
                 # hlg2020_settings: Any
+                # none_filter_settings: Any
                 # rec601_settings: Any
                 # rec709_settings: Any
                 
@@ -26685,6 +27007,13 @@ class CfnChannel(
                                 hlg2020_settings=hlg2020_settings,
                                 rec601_settings=rec601_settings,
                                 rec709_settings=rec709_settings
+                            ),
+                            filter_settings=medialive.CfnChannel.Av1FilterSettingsProperty(
+                                auto_filter_settings=auto_filter_settings,
+                                none_filter_settings=none_filter_settings,
+                                perceptual_filter_settings=medialive.CfnChannel.PerceptualFilterSettingsProperty(
+                                    strength="strength"
+                                )
                             ),
                             fixed_afd="fixedAfd",
                             framerate_denominator=123,
@@ -26722,6 +27051,7 @@ class CfnChannel(
                         h264_settings=medialive.CfnChannel.H264SettingsProperty(
                             adaptive_quantization="adaptiveQuantization",
                             afd_signaling="afdSignaling",
+                            allow_explicit_weighted_prediction="allowExplicitWeightedPrediction",
                             bitrate=123,
                             buf_fill_pct=123,
                             buf_size=123,
@@ -26733,8 +27063,13 @@ class CfnChannel(
                             ),
                             entropy_encoding="entropyEncoding",
                             filter_settings=medialive.CfnChannel.H264FilterSettingsProperty(
+                                auto_filter_settings=auto_filter_settings,
                                 bandwidth_reduction_filter_settings=medialive.CfnChannel.BandwidthReductionFilterSettingsProperty(
                                     post_filter_sharpening="postFilterSharpening",
+                                    strength="strength"
+                                ),
+                                none_filter_settings=none_filter_settings,
+                                perceptual_filter_settings=medialive.CfnChannel.PerceptualFilterSettingsProperty(
                                     strength="strength"
                                 ),
                                 temporal_filter_settings=medialive.CfnChannel.TemporalFilterSettingsProperty(
@@ -26802,8 +27137,13 @@ class CfnChannel(
                             ),
                             deblocking="deblocking",
                             filter_settings=medialive.CfnChannel.H265FilterSettingsProperty(
+                                auto_filter_settings=auto_filter_settings,
                                 bandwidth_reduction_filter_settings=medialive.CfnChannel.BandwidthReductionFilterSettingsProperty(
                                     post_filter_sharpening="postFilterSharpening",
+                                    strength="strength"
+                                ),
+                                none_filter_settings=none_filter_settings,
+                                perceptual_filter_settings=medialive.CfnChannel.PerceptualFilterSettingsProperty(
                                     strength="strength"
                                 ),
                                 temporal_filter_settings=medialive.CfnChannel.TemporalFilterSettingsProperty(
@@ -39801,6 +40141,15 @@ def _typecheckingstub__fc0689af3b0f6f7131d0da1e3e64aeee57f565115f0a26ac370f2cf08
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8d26c255f5bf4046ff19768de5c808217c369138bd45bfb5399acc2937b8c569(
+    *,
+    auto_filter_settings: typing.Any = None,
+    none_filter_settings: typing.Any = None,
+    perceptual_filter_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.PerceptualFilterSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1911156090a37730cd16cc0d13076f448f8b192dca9427883cf77e884bbd03df(
     *,
     afd_signaling: typing.Optional[builtins.str] = None,
@@ -39808,6 +40157,7 @@ def _typecheckingstub__1911156090a37730cd16cc0d13076f448f8b192dca9427883cf77e884
     bitrate: typing.Optional[jsii.Number] = None,
     buf_size: typing.Optional[jsii.Number] = None,
     color_space_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.Av1ColorSpaceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    filter_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.Av1FilterSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     fixed_afd: typing.Optional[builtins.str] = None,
     framerate_denominator: typing.Optional[jsii.Number] = None,
     framerate_numerator: typing.Optional[jsii.Number] = None,
@@ -40357,7 +40707,10 @@ def _typecheckingstub__0e32bc47e7ddcd61047642a385041b1f9668d31b165231f430f01e2b9
 
 def _typecheckingstub__3cb4c4dca99a161d3102f1d8f1c337fcb22715a5dcf9f2603a771d9b285530a9(
     *,
+    auto_filter_settings: typing.Any = None,
     bandwidth_reduction_filter_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.BandwidthReductionFilterSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    none_filter_settings: typing.Any = None,
+    perceptual_filter_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.PerceptualFilterSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     temporal_filter_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.TemporalFilterSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -40367,6 +40720,7 @@ def _typecheckingstub__b5cab7f49556648d7d963fdbb4cfd87845bc6a70172808b1847d7a218
     *,
     adaptive_quantization: typing.Optional[builtins.str] = None,
     afd_signaling: typing.Optional[builtins.str] = None,
+    allow_explicit_weighted_prediction: typing.Optional[builtins.str] = None,
     bitrate: typing.Optional[jsii.Number] = None,
     buf_fill_pct: typing.Optional[jsii.Number] = None,
     buf_size: typing.Optional[jsii.Number] = None,
@@ -40427,7 +40781,10 @@ def _typecheckingstub__32abe461f10992cf69e1043984b274ff5499daba5fe0817221cfab579
 
 def _typecheckingstub__7f4aab61301008c3afe08531765fce8b3533bbb0bd6c3f8e6455c9b09692d8d5(
     *,
+    auto_filter_settings: typing.Any = None,
     bandwidth_reduction_filter_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.BandwidthReductionFilterSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    none_filter_settings: typing.Any = None,
+    perceptual_filter_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.PerceptualFilterSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     temporal_filter_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.TemporalFilterSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -41199,6 +41556,13 @@ def _typecheckingstub__f51710b013df89803afb3f2517730a72a64c710d2e8f52fa7b934290b
     rtmp_output_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.RtmpOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     srt_output_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.SrtOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     udp_output_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.UdpOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__684ebbfc47ad56cf23d951840b0c0f3cbd81a5651edaff56534c5723cf767e91(
+    *,
+    strength: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

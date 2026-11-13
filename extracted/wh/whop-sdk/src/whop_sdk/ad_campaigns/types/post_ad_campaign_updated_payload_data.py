@@ -5,7 +5,7 @@ import typing
 import pydantic
 from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ...types.ad_platform_issue import AdPlatformIssue
-from .post_ad_campaign_updated_payload_data_bid_type import PostAdCampaignUpdatedPayloadDataBidType
+from ...types.storefront_account import StorefrontAccount
 from .post_ad_campaign_updated_payload_data_budget_optimization import (
     PostAdCampaignUpdatedPayloadDataBudgetOptimization,
 )
@@ -13,7 +13,6 @@ from .post_ad_campaign_updated_payload_data_budget_type import PostAdCampaignUpd
 from .post_ad_campaign_updated_payload_data_campaign_type import PostAdCampaignUpdatedPayloadDataCampaignType
 from .post_ad_campaign_updated_payload_data_delivery_status import PostAdCampaignUpdatedPayloadDataDeliveryStatus
 from .post_ad_campaign_updated_payload_data_objective import PostAdCampaignUpdatedPayloadDataObjective
-from .post_ad_campaign_updated_payload_data_platform import PostAdCampaignUpdatedPayloadDataPlatform
 from .post_ad_campaign_updated_payload_data_special_ad_categories_item import (
     PostAdCampaignUpdatedPayloadDataSpecialAdCategoriesItem,
 )
@@ -21,9 +20,9 @@ from .post_ad_campaign_updated_payload_data_status import PostAdCampaignUpdatedP
 
 
 class PostAdCampaignUpdatedPayloadData(UniversalBaseModel):
-    bid_type: typing.Optional[PostAdCampaignUpdatedPayloadDataBidType] = pydantic.Field(default=None)
+    account: typing.Optional[StorefrontAccount] = pydantic.Field(default=None)
     """
-    How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, and `maximum_target` never bids above a cap.
+    The business running this campaign, with the name and logo its ads show.
     """
 
     budget_amount: typing.Optional[float] = pydantic.Field(default=None)
@@ -55,7 +54,7 @@ class PostAdCampaignUpdatedPayloadData(UniversalBaseModel):
 
     campaign_type: PostAdCampaignUpdatedPayloadDataCampaignType = pydantic.Field()
     """
-    The kind of campaign, fixed at creation. `standard` is the ad network's standard campaign; `search` shows text ads on search results for the ad groups' keywords.
+    The kind of campaign, fixed at creation. `standard` runs image and video ads; `search` shows text ads on search results for the ad groups' keywords.
     """
 
     created_at: str = pydantic.Field()
@@ -75,7 +74,7 @@ class PostAdCampaignUpdatedPayloadData(UniversalBaseModel):
 
     ends_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Google only: when the campaign stops delivering, as an ISO 8601 timestamp. `null` runs it until paused.
+    When the campaign stops delivering, as an ISO 8601 timestamp. `null` when it runs until paused, or when its ad groups set their own schedule.
     """
 
     id: str = pydantic.Field()
@@ -86,28 +85,28 @@ class PostAdCampaignUpdatedPayloadData(UniversalBaseModel):
     issues: typing.List[AdPlatformIssue]
     objective: typing.Optional[PostAdCampaignUpdatedPayloadDataObjective] = pydantic.Field(default=None)
     """
-    The goal the campaign optimizes toward.
-    """
-
-    optimization_goal: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    The event the campaign optimizes for when a single goal is set campaign-wide. `null` when each ad group sets its own optimization_goal.
-    """
-
-    platform: PostAdCampaignUpdatedPayloadDataPlatform = pydantic.Field()
-    """
-    The ad network the campaign runs on.
+    The goal the campaign optimizes toward. `awareness` appears only on campaigns created before it was retired; those campaigns can't launch.
     """
 
     special_ad_categories: typing.List[PostAdCampaignUpdatedPayloadDataSpecialAdCategoriesItem]
     starts_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Google only: when the campaign starts delivering, as an ISO 8601 timestamp. `null` starts it as soon as it launches.
+    When the campaign starts delivering, as an ISO 8601 timestamp. `null` when it starts as soon as it launches, or when its ad groups set their own schedule.
     """
 
     status: PostAdCampaignUpdatedPayloadDataStatus = pydantic.Field()
     """
     The configured lifecycle status of the ad campaign. Billing failures preserve active or paused here and set delivery_status to payment_failed.
+    """
+
+    target_cost_per_result: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    The desired cost per result for `target_result_event`, in USD. `null` when none is set.
+    """
+
+    target_result_event: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The event `target_cost_per_result` is priced per, such as `purchase` or `lead`. `null` when the campaign has no single goal.
     """
 
     title: str = pydantic.Field()

@@ -86,7 +86,17 @@ namespace pdflib
 
     void n(std::vector<qpdf_stream_instruction>& instructions);
 
+    // The clip paths for a render instruction. Without shapes the paths are
+    // tracked for the box of text cells only (keep_clips) and the render
+    // instructions get the same empty clip state as before, so this is empty
+    // unless shapes are kept.
     clip_state_instruction get_clip_state() const;
+
+    // Axis-aligned box, in page space, of the region the clip in force
+    // admits; false when nothing clips. Maintained per W/W* capture (see
+    // `clip_bbox`), so a glyph reads four doubles instead of copying and
+    // scanning the clip paths.
+    bool get_clip_bbox(std::array<double, 4>& bbox) const;
     bool get_current_path_bbox(std::array<double, 4>& bbox) const;
 
     // The tile the next painting operator fills its path with, set by the
@@ -109,10 +119,22 @@ namespace pdflib
     void register_paths(shape_paint_mode paint_mode, shape_fill_rule fill_rule);
 
     // Consumes a pending W/W* clip by capturing the current path into
-    // `clippings`. Called from n() (shapes still in user space) and from
+    // shared history. Called from n() (shapes still in user space) and from
     // register_paths() (shapes already transformed to page space) — the
     // flag prevents double application of the CTM on the `W f`/`W S` path.
     void capture_pending_clip(bool already_transformed);
+
+    // Narrows `clip_bbox` to the box of one more capture.
+    void intersect_clip_bbox(const std::array<double, 4>& box);
+
+    // Path construction and W/W* run whenever shapes are kept or text cells
+    // need their clip box (keep_clips); a painting operator then registers
+    // the path only when shapes are kept.
+    bool track_paths() const;
+
+    // Painting operator with shapes not kept: a pending W/W* clip still takes
+    // effect after it (8.5.4), and the path is consumed.
+    void discard_paths();
 
     // Average CTM scale factor, used to map the user-space line width into
     // page space (the path coordinates are transformed; the width must be
@@ -145,10 +167,18 @@ namespace pdflib
     pdf_render_instructions& instructions;
     
     page_item<PAGE_SHAPES> curr_shapes;
-    page_item<PAGE_SHAPES> clippings;
-    // group id of each entry in `clippings`: one W/W* capture = one group
-    std::vector<int> clipping_groups;
+    clip_state_instruction clipping_state;
     int next_clip_group = 0;
+
+    // Box of the region the clip in force admits. Every W/W* capture (a clip
+    // group) bounds later painting to the union of its subpaths, and
+    // successive captures intersect (ISO 32000-1, 8.5.4), so the box of that
+    // intersection is the intersection of the group boxes. A non-rectangular
+    // clip is over-approximated by it. An empty intersection still clips
+    // everything and is kept as a zero-size box, so a glyph under it reads
+    // as hidden.
+    bool has_clip_bbox = false;
+    std::array<double, 4> clip_bbox = {0.0, 0.0, 0.0, 0.0};
 
     std::shared_ptr<const tiling_paint> pending_tiling_paint_;
 
@@ -170,7 +200,7 @@ namespace pdflib
     instructions(instructions_),
     
     curr_shapes(),
-    clippings(),
+    clipping_state(),
 
     clipping_path_mode(NO_CLIPPING_PATH_RULE),
     clipping_path_pending(false)
@@ -203,9 +233,10 @@ namespace pdflib
   pdf_state<SHAPE>& pdf_state<SHAPE>::operator=(const pdf_state<SHAPE>& other)
   {
     this->curr_shapes = other.curr_shapes;
-    this->clippings  = other.clippings;
-    this->clipping_groups = other.clipping_groups;
+    this->clipping_state = other.clipping_state;
     this->next_clip_group = other.next_clip_group;
+    this->has_clip_bbox = other.has_clip_bbox;
+    this->clip_bbox = other.clip_bbox;
     this->pending_tiling_paint_ = other.pending_tiling_paint_;
     this->clipping_path_mode = other.clipping_path_mode;
     this->clipping_path_pending = other.clipping_path_pending;
@@ -215,7 +246,7 @@ namespace pdflib
 
   void pdf_state<SHAPE>::m(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not track_paths()) { return; }
 
     if(not verify(instructions, 2, __FUNCTION__) ) { return; }
 
@@ -227,7 +258,7 @@ namespace pdflib
 
   void pdf_state<SHAPE>::l(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not track_paths()) { return; }
 
     if(not verify(instructions, 2, __FUNCTION__) ) { return; }
 
@@ -239,7 +270,7 @@ namespace pdflib
 
   void pdf_state<SHAPE>::c(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not track_paths()) { return; }
 
     if(not verify(instructions, 6, __FUNCTION__) ) { return; }
 
@@ -268,7 +299,7 @@ namespace pdflib
 
   void pdf_state<SHAPE>::v(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not track_paths()) { return; }
 
     if(not verify(instructions, 4, __FUNCTION__) ) { return; }
 
@@ -296,7 +327,7 @@ namespace pdflib
 
   void pdf_state<SHAPE>::y(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not track_paths()) { return; }
 
     if(not verify(instructions, 4, __FUNCTION__) ) { return; }
 
@@ -324,7 +355,7 @@ namespace pdflib
 
   void pdf_state<SHAPE>::h(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not track_paths()) { return; }
 
     if(not verify(instructions, 0, __FUNCTION__) ) { return; }
 
@@ -333,7 +364,7 @@ namespace pdflib
 
   void pdf_state<SHAPE>::re(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not track_paths()) { return; }
 
     if(not verify(instructions, 4, __FUNCTION__) ) { return; }
 
@@ -352,7 +383,7 @@ namespace pdflib
 
   void pdf_state<SHAPE>::s(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not config.keep_shapes) { discard_paths(); return; }
 
     close_last_path();
 
@@ -361,14 +392,14 @@ namespace pdflib
 
   void pdf_state<SHAPE>::S(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not config.keep_shapes) { discard_paths(); return; }
 
     register_paths(SHAPE_PAINT_STROKE, SHAPE_FILL_NONZERO);
   }
 
   void pdf_state<SHAPE>::f(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not config.keep_shapes) { discard_paths(); return; }
 
     close_last_path();
 
@@ -377,14 +408,14 @@ namespace pdflib
 
   void pdf_state<SHAPE>::F(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not config.keep_shapes) { discard_paths(); return; }
 
     this->f(instructions);
   }
 
   void pdf_state<SHAPE>::fStar(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not config.keep_shapes) { discard_paths(); return; }
 
     close_last_path();
 
@@ -393,21 +424,21 @@ namespace pdflib
 
   void pdf_state<SHAPE>::B(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not config.keep_shapes) { discard_paths(); return; }
 
     register_paths(SHAPE_PAINT_FILL_STROKE, SHAPE_FILL_NONZERO);
   }
 
   void pdf_state<SHAPE>::BStar(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not config.keep_shapes) { discard_paths(); return; }
 
     register_paths(SHAPE_PAINT_FILL_STROKE, SHAPE_FILL_EVEN_ODD);
   }
 
   void pdf_state<SHAPE>::b(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not config.keep_shapes) { discard_paths(); return; }
 
     close_last_path();
 
@@ -416,7 +447,7 @@ namespace pdflib
 
   void pdf_state<SHAPE>::bStar(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not config.keep_shapes) { discard_paths(); return; }
 
     close_last_path();
 
@@ -425,7 +456,7 @@ namespace pdflib
 
   void pdf_state<SHAPE>::W(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not track_paths()) { return; }
 
     clipping_path_mode = NONZERO_WINDING_NUMBER_RULE;
     clipping_path_pending = true;
@@ -433,7 +464,7 @@ namespace pdflib
 
   void pdf_state<SHAPE>::WStar(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not track_paths()) { return; }
 
     clipping_path_mode = EVEN_ODD_RULE;
     clipping_path_pending = true;
@@ -441,7 +472,12 @@ namespace pdflib
 
   clip_state_instruction pdf_state<SHAPE>::get_clip_state() const
   {
-    if(clipping_path_mode == NO_CLIPPING_PATH_RULE or clippings.size() == 0)
+    if(not config.keep_shapes)
+      {
+        return clip_state_instruction();
+      }
+
+    if(clipping_path_mode == NO_CLIPPING_PATH_RULE or clipping_state.get_paths().empty())
       {
         return clip_state_instruction();
       }
@@ -456,19 +492,18 @@ namespace pdflib
         rule = CLIP_RULE_EVEN_ODD;
       }
 
-    std::vector<clip_path_instruction> paths;
-    for(int l = 0; l < clippings.size(); l++)
+    return clipping_state.with_rule(rule);
+  }
+
+  bool pdf_state<SHAPE>::get_clip_bbox(std::array<double, 4>& bbox) const
+  {
+    if(not has_clip_bbox)
       {
-        const auto& shape = clippings[l];
-        paths.emplace_back(shape.get_x(),
-                           shape.get_y(),
-                           shape.get_closing_type(),
-                           shape.get_shape_type(),
-                           l < static_cast<int>(clipping_groups.size())
-                             ? clipping_groups[l] : 0);
+        return false;
       }
 
-    return clip_state_instruction(rule, std::move(paths));
+    bbox = clip_bbox;
+    return true;
   }
 
   bool pdf_state<SHAPE>::get_current_path_bbox(std::array<double, 4>& bbox) const
@@ -518,7 +553,7 @@ namespace pdflib
 
   void pdf_state<SHAPE>::n(std::vector<qpdf_stream_instruction>& instructions)
   {
-    if(not config.keep_shapes) { return; }
+    if(not track_paths()) { return; }
 
     capture_pending_clip(false);
 
@@ -534,6 +569,12 @@ namespace pdflib
 
     // Every subpath of this capture belongs to one clip operation.
     const int group_id = next_clip_group++;
+    std::vector<clip_path_instruction> capture;
+
+    // The capture admits the union of its subpaths: one box over all their
+    // points.
+    bool has_group_box = false;
+    std::array<double, 4> group_box = {0.0, 0.0, 0.0, 0.0};
 
     // Per spec the new clip is the *intersection* of the old and new clip
     // regions; appending approximates that, since the renderer ANDs the
@@ -555,14 +596,82 @@ namespace pdflib
         // clip path legitimately clips everything away.
         if(shape.size() >= 2)
           {
-            clippings.push_back(shape);
-            clipping_groups.push_back(group_id);
+            const auto& xs = shape.get_x();
+            const auto& ys = shape.get_y();
+            for(std::size_t i = 0; i < xs.size(); i++)
+              {
+                if(not has_group_box)
+                  {
+                    group_box = {xs[i], ys[i], xs[i], ys[i]};
+                    has_group_box = true;
+                    continue;
+                  }
+                group_box[0] = std::min(group_box[0], xs[i]);
+                group_box[1] = std::min(group_box[1], ys[i]);
+                group_box[2] = std::max(group_box[2], xs[i]);
+                group_box[3] = std::max(group_box[3], ys[i]);
+              }
+
+            capture.emplace_back(shape.get_x(), shape.get_y(),
+                                 shape.get_closing_type(), shape.get_shape_type(), group_id);
           }
         // 0/1-point subpaths are the expected continuation left behind by
         // the `h` operator and are dropped silently
       }
 
+    if(not capture.empty())
+      {
+        const clip_rule rule = clipping_path_mode == EVEN_ODD_RULE
+          ? CLIP_RULE_EVEN_ODD : CLIP_RULE_NONZERO;
+        clipping_state = clipping_state.appended(rule, std::move(capture));
+      }
+
+    if(has_group_box)
+      {
+        intersect_clip_bbox(group_box);
+      }
+
     clipping_path_pending = false;
+  }
+
+  void pdf_state<SHAPE>::intersect_clip_bbox(const std::array<double, 4>& box)
+  {
+    if(not has_clip_bbox)
+      {
+        clip_bbox = box;
+        has_clip_bbox = true;
+        return;
+      }
+
+    clip_bbox[0] = std::max(clip_bbox[0], box[0]);
+    clip_bbox[1] = std::max(clip_bbox[1], box[1]);
+    clip_bbox[2] = std::min(clip_bbox[2], box[2]);
+    clip_bbox[3] = std::min(clip_bbox[3], box[3]);
+
+    // an empty intersection clips everything: keep a zero-size box
+    if(clip_bbox[2] < clip_bbox[0])
+      {
+        clip_bbox[2] = clip_bbox[0];
+      }
+    if(clip_bbox[3] < clip_bbox[1])
+      {
+        clip_bbox[3] = clip_bbox[1];
+      }
+  }
+
+  bool pdf_state<SHAPE>::track_paths() const
+  {
+    return config.keep_shapes or config.keep_clips;
+  }
+
+  void pdf_state<SHAPE>::discard_paths()
+  {
+    capture_pending_clip(false);
+
+    curr_shapes.clear();
+
+    page_item<PAGE_SHAPE> shape;
+    curr_shapes.push_back(shape);
   }
 
   /**************************************
@@ -681,7 +790,7 @@ namespace pdflib
   void pdf_state<SHAPE>::register_paths(shape_paint_mode paint_mode,
                                         shape_fill_rule fill_rule)
   {
-    // NOTE: the clip paths in `clippings` are already in page space (they
+    // NOTE: the captured clip paths are already in page space (they
     // are transformed once when captured); only the current path gets the
     // CTM applied here.
 
@@ -830,7 +939,7 @@ namespace pdflib
 
   void pdf_state<SHAPE>::m(double x, double y)
   {
-    if(not config.keep_shapes) { return; }
+    if(not track_paths()) { return; }
 
     page_item<PAGE_SHAPE> shape;
     shape.set_closing_type(OPEN);
@@ -842,7 +951,7 @@ namespace pdflib
 
   void pdf_state<SHAPE>::l(double x, double y)
   {
-    if(not config.keep_shapes) { return; }
+    if(not track_paths()) { return; }
 
     if(curr_shapes.size()==0)
       {
@@ -859,7 +968,7 @@ namespace pdflib
 
   void pdf_state<SHAPE>::h()
   {
-    if(not config.keep_shapes) { return; }
+    if(not track_paths()) { return; }
 
     if(curr_shapes.size()==0)
       {
@@ -891,7 +1000,7 @@ namespace pdflib
   void pdf_state<SHAPE>::re(double x, double y,
                             double w, double h)
   {
-    if(not config.keep_shapes) { return; }
+    if(not track_paths()) { return; }
 
     this->m(x, y);
     curr_shapes.back().set_shape_type(RECTANGLE);

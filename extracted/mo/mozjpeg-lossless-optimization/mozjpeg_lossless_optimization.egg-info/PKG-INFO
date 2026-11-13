@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mozjpeg-lossless-optimization
-Version: 1.3.2
+Version: 1.3.3
 Summary: Optimize JPEGs losslessly using MozJPEG
 Home-page: https://github.com/wanadev/mozjpeg-lossless-optimization
 Author: Wanadev
@@ -223,6 +223,12 @@ Changelog
 * **[NEXT]** (changes on master but not released yet):
 
   * Nothing yet ;)
+
+* **v1.3.3:**
+
+  * misc: Added Python 3.15 support (@flozz)
+  * misc!: Removed Python 3.10 support (@flozz)
+  * misc!: Dropped Linux i686 support (@flozz)
 
 * **v1.3.2:**
 

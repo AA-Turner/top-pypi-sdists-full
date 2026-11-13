@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunk_hugpy_ui=self.webpackChunk_hugpy_ui||[]).push([[1884],{1884(e,u,s){s.d(u,{createEventModelingServices:()=>c.g});var c=s(2807);s(5329)}}]);

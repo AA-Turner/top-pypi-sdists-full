@@ -35,6 +35,7 @@ if typing.TYPE_CHECKING:
     from .create_payments_request_payment_method_card_present_platform import (
         CreatePaymentsRequestPaymentMethodCardPresentPlatform,
     )
+    from .create_payments_request_payment_method_paypal import CreatePaymentsRequestPaymentMethodPaypal
     from .create_payments_request_payment_method_type import CreatePaymentsRequestPaymentMethodType
     from .create_payments_request_setup_future_usage import CreatePaymentsRequestSetupFutureUsage
     from .create_payments_request_shipping_address import CreatePaymentsRequestShippingAddress
@@ -74,6 +75,11 @@ if typing.TYPE_CHECKING:
     from .post_payment_succeeded_payload import PostPaymentSucceededPayload
     from .post_payment_succeeded_payload_api_version import PostPaymentSucceededPayloadApiVersion
     from .post_payment_succeeded_payload_type import PostPaymentSucceededPayloadType
+    from .post_shipping_address_changed_payload import PostShippingAddressChangedPayload
+    from .post_shipping_address_changed_payload_api_version import PostShippingAddressChangedPayloadApiVersion
+    from .post_shipping_address_changed_payload_type import PostShippingAddressChangedPayloadType
+    from .post_shipping_address_changed_response import PostShippingAddressChangedResponse
+    from .post_shipping_address_changed_response_decline import PostShippingAddressChangedResponseDecline
     from .summary_payments_request_billing_reasons_item import SummaryPaymentsRequestBillingReasonsItem
     from .summary_payments_request_groups_item import SummaryPaymentsRequestGroupsItem
     from .summary_payments_request_payment_methods_item import SummaryPaymentsRequestPaymentMethodsItem
@@ -98,6 +104,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreatePaymentsRequestPaymentMethod": ".create_payments_request_payment_method",
     "CreatePaymentsRequestPaymentMethodCardPresent": ".create_payments_request_payment_method_card_present",
     "CreatePaymentsRequestPaymentMethodCardPresentPlatform": ".create_payments_request_payment_method_card_present_platform",
+    "CreatePaymentsRequestPaymentMethodPaypal": ".create_payments_request_payment_method_paypal",
     "CreatePaymentsRequestPaymentMethodType": ".create_payments_request_payment_method_type",
     "CreatePaymentsRequestSetupFutureUsage": ".create_payments_request_setup_future_usage",
     "CreatePaymentsRequestShippingAddress": ".create_payments_request_shipping_address",
@@ -137,6 +144,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PostPaymentSucceededPayload": ".post_payment_succeeded_payload",
     "PostPaymentSucceededPayloadApiVersion": ".post_payment_succeeded_payload_api_version",
     "PostPaymentSucceededPayloadType": ".post_payment_succeeded_payload_type",
+    "PostShippingAddressChangedPayload": ".post_shipping_address_changed_payload",
+    "PostShippingAddressChangedPayloadApiVersion": ".post_shipping_address_changed_payload_api_version",
+    "PostShippingAddressChangedPayloadType": ".post_shipping_address_changed_payload_type",
+    "PostShippingAddressChangedResponse": ".post_shipping_address_changed_response",
+    "PostShippingAddressChangedResponseDecline": ".post_shipping_address_changed_response_decline",
     "SummaryPaymentsRequestBillingReasonsItem": ".summary_payments_request_billing_reasons_item",
     "SummaryPaymentsRequestGroupsItem": ".summary_payments_request_groups_item",
     "SummaryPaymentsRequestPaymentMethodsItem": ".summary_payments_request_payment_methods_item",
@@ -185,6 +197,7 @@ __all__ = [
     "CreatePaymentsRequestPaymentMethod",
     "CreatePaymentsRequestPaymentMethodCardPresent",
     "CreatePaymentsRequestPaymentMethodCardPresentPlatform",
+    "CreatePaymentsRequestPaymentMethodPaypal",
     "CreatePaymentsRequestPaymentMethodType",
     "CreatePaymentsRequestSetupFutureUsage",
     "CreatePaymentsRequestShippingAddress",
@@ -224,6 +237,11 @@ __all__ = [
     "PostPaymentSucceededPayload",
     "PostPaymentSucceededPayloadApiVersion",
     "PostPaymentSucceededPayloadType",
+    "PostShippingAddressChangedPayload",
+    "PostShippingAddressChangedPayloadApiVersion",
+    "PostShippingAddressChangedPayloadType",
+    "PostShippingAddressChangedResponse",
+    "PostShippingAddressChangedResponseDecline",
     "SummaryPaymentsRequestBillingReasonsItem",
     "SummaryPaymentsRequestGroupsItem",
     "SummaryPaymentsRequestPaymentMethodsItem",

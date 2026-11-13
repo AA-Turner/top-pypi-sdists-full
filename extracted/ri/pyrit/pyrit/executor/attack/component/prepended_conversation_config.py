@@ -13,14 +13,14 @@ from pyrit.message_normalizer import (
     MessageStringNormalizer,
 )
 from pyrit.models import ChatMessageRole  # noqa: TC001 - public annotation must resolve at runtime
-from pyrit.prompt_target.common.target_capabilities import CapabilityName
+from pyrit.prompt_target import CapabilityName
 
 if TYPE_CHECKING:
     from pyrit.executor.attack.component.prepended_history_send_context import (
         PrependedHistorySendContext,
     )
     from pyrit.models import Message
-    from pyrit.prompt_target.common.prompt_target import PromptTarget
+    from pyrit.prompt_target import PromptTarget
 
 
 @dataclass
@@ -51,9 +51,10 @@ class PrependedConversationConfig:
     message_normalizer: MessageStringNormalizer | None = None
 
     def __post_init__(self) -> None:
-        """Normalize simulated assistant opt-in to its API-compatible role."""
+        """Normalize simulated role opt-ins to their API-compatible roles."""
         self.apply_converters_to_roles = [
-            "assistant" if role == "simulated_assistant" else role for role in self.apply_converters_to_roles
+            "assistant" if role == "simulated_assistant" else "tool" if role == "simulated_tool" else role
+            for role in self.apply_converters_to_roles
         ]
 
     def get_message_normalizer(self) -> MessageStringNormalizer:

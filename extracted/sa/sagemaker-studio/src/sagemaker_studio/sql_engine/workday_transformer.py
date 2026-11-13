@@ -8,6 +8,8 @@ from .resource_fetching_definition import ResourceFetchingDefinition
 
 class WorkdayTransformer(DatabaseTransformer):
 
+    supports_row_limit = True  # Workday LDQ is Trino, which accepts a trailing "LIMIT n"
+
     @classmethod
     def get_dialect(cls) -> Optional[str]:
         return "trino"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_evals
-Version: 0.28.0
+Version: 0.29.0
 Summary: Collection of large language model evaluations
 Author: UK AI Security Institute
 License-Expression: MIT
@@ -56,6 +56,7 @@ Requires-Dist: deepdiff; extra == "agentdojo"
 Provides-Extra: bfcl
 Requires-Dist: mpmath; extra == "bfcl"
 Provides-Extra: bfcl-v4
+Requires-Dist: urllib3>=2.2.0; extra == "bfcl-v4"
 Requires-Dist: html2text>=2024.2.26; extra == "bfcl-v4"
 Requires-Dist: google-search-results>=2.4.2; extra == "bfcl-v4"
 Requires-Dist: beautifulsoup4>=4.12.0; extra == "bfcl-v4"

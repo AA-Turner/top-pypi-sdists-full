@@ -548,7 +548,8 @@ class MediaLiveClient(BaseClient):
         self, **kwargs: Unpack[DeleteReservationRequestTypeDef]
     ) -> DeleteReservationResponseTypeDef:
         """
-        Delete an expired reservation.
+        Delete an expired reservation, or cancel an active reservation during the
+        calendar month (UTC) in which you purchased it.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/medialive/client/delete_reservation.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medialive/client/#delete_reservation)

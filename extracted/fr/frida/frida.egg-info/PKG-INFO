@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: frida
-Version: 17.26.2
+Version: 17.26.3
 Summary: Dynamic instrumentation toolkit for developers, reverse-engineers, and security researchers
 Home-page: https://frida.re
 Author: Frida Developers
@@ -30,6 +30,19 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: COPYING
+Requires-Dist: typing_extensions; python_version < "3.11"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # frida-python
 

@@ -43,6 +43,7 @@ from .literals import (
     EndpointLifecycleType,
     EntitlementStatusType,
     FabricLatencyModeType,
+    FabricSwitchingModeType,
     FailoverInputSourcePriorityModeType,
     FailoverModeType,
     FlowSizeType,
@@ -79,12 +80,14 @@ from .literals import (
     RouterOutputTierType,
     RouterOutputTypeType,
     RoutingScopeType,
+    RtmpPushNamingTypeType,
     ScanModeType,
     SourceEndpointConnectionStateType,
     SourceEndpointNetworkingTypeType,
     SourceEndpointProtocolType,
     SourceEndpointRegistrationStateType,
     SourceEndpointTypeType,
+    SourceMediaStreamTypeType,
     SourceTypeType,
     StateType,
     StatusType,
@@ -124,6 +127,7 @@ __all__ = (
     "AddMediaStreamRequestTypeDef",
     "AddOutputRequestTypeDef",
     "AudioMonitoringSettingTypeDef",
+    "AutoPidMapConfigurationTypeDef",
     "BatchGetDestinationEndpointErrorTypeDef",
     "BatchGetDestinationEndpointRequestTypeDef",
     "BatchGetDestinationEndpointResponseTypeDef",
@@ -226,11 +230,16 @@ __all__ = (
     "EndpointEncryptionConfigurationTypeDef",
     "EndpointEncryptionSecretConfigurationTypeDef",
     "EntitlementTypeDef",
+    "FabricConfigurationOutputTypeDef",
     "FabricConfigurationTypeDef",
+    "FabricConfigurationUnionTypeDef",
+    "FabricSwitchingConfigurationOutputTypeDef",
+    "FabricSwitchingConfigurationTypeDef",
     "FailoverConfigTypeDef",
     "FailoverRouterInputConfigurationOutputTypeDef",
     "FailoverRouterInputConfigurationTypeDef",
     "FailoverRouterInputIndexedStreamDetailsTypeDef",
+    "FailoverRouterInputProtocolConfigurationOutputTypeDef",
     "FailoverRouterInputProtocolConfigurationTypeDef",
     "FailoverRouterInputStreamDetailsTypeDef",
     "FlowTransitEncryptionKeyConfigurationOutputTypeDef",
@@ -289,6 +298,7 @@ __all__ = (
     "InputConfigurationTypeDef",
     "InterfaceRequestTypeDef",
     "InterfaceTypeDef",
+    "KeyFrameFabricSwitchingConfigurationTypeDef",
     "ListBridgesRequestPaginateTypeDef",
     "ListBridgesRequestTypeDef",
     "ListBridgesResponseTypeDef",
@@ -344,6 +354,7 @@ __all__ = (
     "MaintenanceConfigurationUnionTypeDef",
     "MaintenanceScheduleTypeDef",
     "MaintenanceTypeDef",
+    "ManualRtmpPushNamingConfigurationTypeDef",
     "MediaConnectFlowRouterInputConfigurationOutputTypeDef",
     "MediaConnectFlowRouterInputConfigurationTypeDef",
     "MediaConnectFlowRouterOutputConfigurationOutputTypeDef",
@@ -387,7 +398,14 @@ __all__ = (
     "OutputTypeDef",
     "OwnedResourceShareDetailsTypeDef",
     "PaginatorConfigTypeDef",
+    "PidMapRuleTypeDef",
     "PreferredDayTimeMaintenanceConfigurationTypeDef",
+    "ProgramClockReferencePidConfigurationOutputTypeDef",
+    "ProgramClockReferencePidConfigurationTypeDef",
+    "ProgramMapTablePidConfigurationOutputTypeDef",
+    "ProgramMapTablePidConfigurationTypeDef",
+    "ProgramNumberConfigurationOutputTypeDef",
+    "ProgramNumberConfigurationTypeDef",
     "PublicDestinationEndpointNetworkingConfigurationAllowRuleTypeDef",
     "PublicDestinationEndpointNetworkingConfigurationOutputTypeDef",
     "PublicDestinationEndpointNetworkingConfigurationTypeDef",
@@ -439,6 +457,7 @@ __all__ = (
     "RouterInputFilterTypeDef",
     "RouterInputMessageTypeDef",
     "RouterInputMetadataTypeDef",
+    "RouterInputProtocolConfigurationOutputTypeDef",
     "RouterInputProtocolConfigurationTypeDef",
     "RouterInputSourceMetadataDetailsTypeDef",
     "RouterInputStreamDetailsTypeDef",
@@ -459,6 +478,9 @@ __all__ = (
     "RouterOutputConfigurationUnionTypeDef",
     "RouterOutputFilterTypeDef",
     "RouterOutputMessageTypeDef",
+    "RouterOutputProcessorsOutputTypeDef",
+    "RouterOutputProcessorsTypeDef",
+    "RouterOutputProcessorsUnionTypeDef",
     "RouterOutputProtocolConfigurationOutputTypeDef",
     "RouterOutputProtocolConfigurationTypeDef",
     "RouterOutputSourceEndpointAssociatedResourceDetailsTypeDef",
@@ -466,8 +488,21 @@ __all__ = (
     "RouterOutputSourceEndpointConnectionDetailsTypeDef",
     "RouterOutputStreamDetailsTypeDef",
     "RouterOutputTypeDef",
+    "RtmpMediaInfoTypeDef",
+    "RtmpMediaStreamInfoTypeDef",
+    "RtmpPushNamingConfigurationOutputTypeDef",
+    "RtmpPushNamingConfigurationTypeDef",
+    "RtmpPushNamingConfigurationUnionTypeDef",
+    "RtmpPushOutputSettingsOutputTypeDef",
+    "RtmpPushOutputSettingsTypeDef",
+    "RtmpPushOutputSettingsUnionTypeDef",
+    "RtmpPushRouterInputConfigurationOutputTypeDef",
+    "RtmpPushRouterInputConfigurationTypeDef",
     "RtmpPushRouterOutputConfigurationOutputTypeDef",
     "RtmpPushRouterOutputConfigurationTypeDef",
+    "RtmpPushSourceSettingsTypeDef",
+    "RtmpPushStreamDetailsTypeDef",
+    "RtmpSourceMetadataInfoTypeDef",
     "RtpRouterInputConfigurationTypeDef",
     "RtpRouterOutputConfigurationTypeDef",
     "RtpStandardDestinationEndpointConfigurationTypeDef",
@@ -475,9 +510,12 @@ __all__ = (
     "SecretsManagerEncryptionKeyConfigurationTypeDef",
     "SecretsManagerEndpointEncryptionConfigurationTypeDef",
     "SetGatewayBridgeSourceRequestTypeDef",
+    "SetRtmpPushSourceSettingsTypeDef",
     "SetSourceRequestTypeDef",
     "SilentAudioConfigurationTypeDef",
     "SilentAudioTypeDef",
+    "SingleProgramTransportStreamPidMapConfigurationOutputTypeDef",
+    "SingleProgramTransportStreamPidMapConfigurationTypeDef",
     "SourceEndpointAssociatedResourceDetailsTypeDef",
     "SourceEndpointConfigurationOutputTypeDef",
     "SourceEndpointConfigurationTypeDef",
@@ -506,6 +544,7 @@ __all__ = (
     "StandardDestinationEndpointNetworkingConfigurationOutputTypeDef",
     "StandardDestinationEndpointNetworkingConfigurationTypeDef",
     "StandardDestinationEndpointProtocolConfigurationTypeDef",
+    "StandardRouterInputConfigurationOutputTypeDef",
     "StandardRouterInputConfigurationTypeDef",
     "StandardRouterInputStreamDetailsTypeDef",
     "StandardRouterOutputConfigurationOutputTypeDef",
@@ -536,9 +575,13 @@ __all__ = (
     "ThumbnailDetailsTypeDef",
     "TlsEncryptionConfigurationOutputTypeDef",
     "TlsEncryptionConfigurationTypeDef",
+    "TlsEncryptionConfigurationUnionTypeDef",
     "TlsEncryptionOutputTypeDef",
     "TlsEncryptionTypeDef",
+    "TlsEncryptionUnionTypeDef",
     "TransportMediaInfoTypeDef",
+    "TransportStreamIdConfigurationOutputTypeDef",
+    "TransportStreamIdConfigurationTypeDef",
     "TransportStreamProgramTypeDef",
     "TransportStreamTypeDef",
     "TransportTypeDef",
@@ -664,6 +707,10 @@ class SilentAudioTypeDef(TypedDict):
     State: NotRequired[StateType]
     ThresholdSeconds: NotRequired[int]
 
+class AutoPidMapConfigurationTypeDef(TypedDict):
+    StartPid: int
+    PidsPerProgram: int
+
 class BatchGetDestinationEndpointErrorTypeDef(TypedDict):
     Arn: str
     Code: str
@@ -771,9 +818,6 @@ class GatewayNetworkTypeDef(TypedDict):
     CidrBlock: str
     Name: str
 
-class FabricConfigurationTypeDef(TypedDict):
-    RecoveryLatencyMode: FabricLatencyModeType
-
 class DeleteBridgeRequestTypeDef(TypedDict):
     BridgeArn: str
 
@@ -866,12 +910,15 @@ class EncodingParametersTypeDef(TypedDict):
 class EndpointEncryptionSecretConfigurationTypeDef(TypedDict):
     SecretArn: str
 
+class KeyFrameFabricSwitchingConfigurationTypeDef(TypedDict):
+    KeyFrameWaitMilliseconds: NotRequired[int]
+
 class SourcePriorityTypeDef(TypedDict):
     PrimarySource: NotRequired[str]
 
-class FailoverRouterInputIndexedStreamDetailsTypeDef(TypedDict):
-    SourceIndex: int
-    SourceIpAddress: NotRequired[str]
+class RtmpPushStreamDetailsTypeDef(TypedDict):
+    ApplicationName: str
+    StreamName: str
 
 class RistRouterInputConfigurationTypeDef(TypedDict):
     Port: int
@@ -1100,6 +1147,10 @@ class WindowMaintenanceScheduleTypeDef(TypedDict):
     End: datetime
     ScheduledTime: datetime
 
+class ManualRtmpPushNamingConfigurationTypeDef(TypedDict):
+    ApplicationName: str
+    StreamName: str
+
 class MergeRouterInputIndexedStreamDetailsTypeDef(TypedDict):
     SourceIndex: int
     SourceIpAddress: NotRequired[str]
@@ -1122,6 +1173,53 @@ class ResourceSpecificationTypeDef(TypedDict):
 
 class OwnedResourceShareDetailsTypeDef(TypedDict):
     ShareState: ResourceShareStateType
+
+class PidMapRuleTypeDef(TypedDict):
+    MatchExpression: str
+    Action: str
+
+ProgramClockReferencePidConfigurationOutputTypeDef = TypedDict(
+    "ProgramClockReferencePidConfigurationOutputTypeDef",
+    {
+        "Passthrough": NotRequired[dict[str, Any]],
+        "Set": NotRequired[int],
+    },
+)
+ProgramClockReferencePidConfigurationTypeDef = TypedDict(
+    "ProgramClockReferencePidConfigurationTypeDef",
+    {
+        "Passthrough": NotRequired[Mapping[str, Any]],
+        "Set": NotRequired[int],
+    },
+)
+ProgramMapTablePidConfigurationOutputTypeDef = TypedDict(
+    "ProgramMapTablePidConfigurationOutputTypeDef",
+    {
+        "Passthrough": NotRequired[dict[str, Any]],
+        "Set": NotRequired[int],
+    },
+)
+ProgramMapTablePidConfigurationTypeDef = TypedDict(
+    "ProgramMapTablePidConfigurationTypeDef",
+    {
+        "Passthrough": NotRequired[Mapping[str, Any]],
+        "Set": NotRequired[int],
+    },
+)
+ProgramNumberConfigurationOutputTypeDef = TypedDict(
+    "ProgramNumberConfigurationOutputTypeDef",
+    {
+        "Passthrough": NotRequired[dict[str, Any]],
+        "Set": NotRequired[int],
+    },
+)
+ProgramNumberConfigurationTypeDef = TypedDict(
+    "ProgramNumberConfigurationTypeDef",
+    {
+        "Passthrough": NotRequired[Mapping[str, Any]],
+        "Set": NotRequired[int],
+    },
+)
 
 class PublicDestinationEndpointNetworkingConfigurationAllowRuleTypeDef(TypedDict):
     Cidr: str
@@ -1187,9 +1285,6 @@ class RouterInputMessageTypeDef(TypedDict):
     Code: str
     Message: str
 
-class StandardRouterInputStreamDetailsTypeDef(TypedDict):
-    SourceIpAddress: NotRequired[str]
-
 class VpcRouterNetworkInterfaceConfigurationOutputTypeDef(TypedDict):
     SecurityGroupIds: list[str]
     SubnetId: str
@@ -1213,6 +1308,11 @@ class RouterOutputSourceEndpointConfigurationTypeDef(TypedDict):
 class StandardRouterOutputStreamDetailsTypeDef(TypedDict):
     DestinationIpAddress: NotRequired[str]
 
+class RtmpPushSourceSettingsTypeDef(TypedDict):
+    ApplicationName: str
+    StreamName: str
+    NamingType: RtmpPushNamingTypeType
+
 class RtpStandardDestinationEndpointConfigurationTypeDef(TypedDict):
     DestinationAddress: str
     DestinationIngestPort: int
@@ -1221,6 +1321,21 @@ class RtpStandardDestinationEndpointConfigurationTypeDef(TypedDict):
 class RtpStandardSourceEndpointConfigurationTypeDef(TypedDict):
     DestinationIngestPort: int
     ForwardErrorCorrectionState: ForwardErrorCorrectionStateType
+
+TransportStreamIdConfigurationOutputTypeDef = TypedDict(
+    "TransportStreamIdConfigurationOutputTypeDef",
+    {
+        "Passthrough": NotRequired[dict[str, Any]],
+        "Set": NotRequired[int],
+    },
+)
+TransportStreamIdConfigurationTypeDef = TypedDict(
+    "TransportStreamIdConfigurationTypeDef",
+    {
+        "Passthrough": NotRequired[Mapping[str, Any]],
+        "Set": NotRequired[int],
+    },
+)
 
 class SourceEndpointMessageTypeDef(TypedDict):
     Code: str
@@ -1756,6 +1871,14 @@ class SrtListenerStandardSourceEndpointConfigurationTypeDef(TypedDict):
     StreamId: NotRequired[str]
     EncryptionPassphrase: NotRequired[EndpointEncryptionSecretConfigurationTypeDef]
 
+class FabricSwitchingConfigurationOutputTypeDef(TypedDict):
+    Immediate: NotRequired[dict[str, Any]]
+    KeyFrame: NotRequired[KeyFrameFabricSwitchingConfigurationTypeDef]
+
+class FabricSwitchingConfigurationTypeDef(TypedDict):
+    Immediate: NotRequired[Mapping[str, Any]]
+    KeyFrame: NotRequired[KeyFrameFabricSwitchingConfigurationTypeDef]
+
 class FailoverConfigTypeDef(TypedDict):
     FailoverMode: NotRequired[FailoverModeType]
     RecoveryWindow: NotRequired[int]
@@ -1768,13 +1891,14 @@ class UpdateFailoverConfigTypeDef(TypedDict):
     SourcePriority: NotRequired[SourcePriorityTypeDef]
     State: NotRequired[StateType]
 
-class FailoverRouterInputStreamDetailsTypeDef(TypedDict):
-    SourceIndexZeroStreamDetails: FailoverRouterInputIndexedStreamDetailsTypeDef
-    SourceIndexOneStreamDetails: FailoverRouterInputIndexedStreamDetailsTypeDef
+class FailoverRouterInputIndexedStreamDetailsTypeDef(TypedDict):
+    SourceIndex: int
+    SourceIpAddress: NotRequired[str]
+    RtmpPush: NotRequired[RtmpPushStreamDetailsTypeDef]
 
-class MergeRouterInputProtocolConfigurationTypeDef(TypedDict):
-    Rtp: NotRequired[RtpRouterInputConfigurationTypeDef]
-    Rist: NotRequired[RistRouterInputConfigurationTypeDef]
+class StandardRouterInputStreamDetailsTypeDef(TypedDict):
+    SourceIpAddress: NotRequired[str]
+    RtmpPush: NotRequired[RtmpPushStreamDetailsTypeDef]
 
 class FlowTransitEncryptionKeyConfigurationOutputTypeDef(TypedDict):
     SecretsManager: NotRequired[SecretsManagerEncryptionKeyConfigurationTypeDef]
@@ -1834,6 +1958,19 @@ class NdiMediaStreamInfoTypeDef(TypedDict):
     Channels: NotRequired[int]
     SampleRate: NotRequired[int]
 
+class RtmpMediaStreamInfoTypeDef(TypedDict):
+    StreamId: int
+    StreamType: SourceMediaStreamTypeType
+    Codec: str
+    FrameRate: NotRequired[str]
+    FrameResolution: NotRequired[FrameResolutionTypeDef]
+    ScanMode: NotRequired[ScanModeType]
+    Color: NotRequired[ColorInformationTypeDef]
+    Channels: NotRequired[int]
+    SampleRate: NotRequired[int]
+    SampleSize: NotRequired[int]
+    Language: NotRequired[str]
+
 class TransportStreamTypeDef(TypedDict):
     Pid: int
     StreamType: str
@@ -1844,6 +1981,8 @@ class TransportStreamTypeDef(TypedDict):
     FrameResolution: NotRequired[FrameResolutionTypeDef]
     SampleRate: NotRequired[int]
     SampleSize: NotRequired[int]
+    ScanMode: NotRequired[ScanModeType]
+    Language: NotRequired[str]
 
 class VideoMonitoringSettingTypeDef(TypedDict):
     BlackFrames: NotRequired[BlackFramesTypeDef]
@@ -1958,6 +2097,14 @@ class MaintenanceConfigurationTypeDef(TypedDict):
 class MaintenanceScheduleTypeDef(TypedDict):
     Window: NotRequired[WindowMaintenanceScheduleTypeDef]
 
+class RtmpPushNamingConfigurationOutputTypeDef(TypedDict):
+    Manual: NotRequired[ManualRtmpPushNamingConfigurationTypeDef]
+    Automatic: NotRequired[dict[str, Any]]
+
+class RtmpPushNamingConfigurationTypeDef(TypedDict):
+    Manual: NotRequired[ManualRtmpPushNamingConfigurationTypeDef]
+    Automatic: NotRequired[Mapping[str, Any]]
+
 class MergeRouterInputStreamDetailsTypeDef(TypedDict):
     SourceIndexZeroStreamDetails: MergeRouterInputIndexedStreamDetailsTypeDef
     SourceIndexOneStreamDetails: MergeRouterInputIndexedStreamDetailsTypeDef
@@ -1971,30 +2118,6 @@ class NdiConfigTypeDef(TypedDict):
     NdiState: NotRequired[NdiStateType]
     MachineName: NotRequired[str]
     NdiDiscoveryServers: NotRequired[Sequence[NdiDiscoveryServerConfigTypeDef]]
-
-TransportTypeDef = TypedDict(
-    "TransportTypeDef",
-    {
-        "Protocol": ProtocolType,
-        "CidrAllowList": NotRequired[list[str]],
-        "MaxBitrate": NotRequired[int],
-        "MaxLatency": NotRequired[int],
-        "MaxSyncBuffer": NotRequired[int],
-        "MinLatency": NotRequired[int],
-        "RemoteId": NotRequired[str],
-        "SenderControlPort": NotRequired[int],
-        "SenderIpAddress": NotRequired[str],
-        "SmoothingLatency": NotRequired[int],
-        "SourceListenerAddress": NotRequired[str],
-        "SourceListenerPort": NotRequired[int],
-        "StreamId": NotRequired[str],
-        "NdiSpeedHqQuality": NotRequired[int],
-        "NdiProgramName": NotRequired[str],
-        "NdiSourceSettings": NotRequired[NdiSourceSettingsTypeDef],
-        "NdiOutputTimecodeSource": NotRequired[NdiOutputTimecodeSourceType],
-        "NdiAudioReferenceLevel": NotRequired[int],
-    },
-)
 
 class OfferingTypeDef(TypedDict):
     CurrencyCode: str
@@ -2069,13 +2192,31 @@ class RouterOutputStreamDetailsTypeDef(TypedDict):
     MediaLiveInput: NotRequired[dict[str, Any]]
     SourceEndpoint: NotRequired[dict[str, Any]]
 
+class SingleProgramTransportStreamPidMapConfigurationOutputTypeDef(TypedDict):
+    Rules: list[PidMapRuleTypeDef]
+    DefaultAction: str
+    TransportStreamId: NotRequired[TransportStreamIdConfigurationOutputTypeDef]
+    ProgramNumber: NotRequired[ProgramNumberConfigurationOutputTypeDef]
+    ProgramMapTablePid: NotRequired[ProgramMapTablePidConfigurationOutputTypeDef]
+    ProgramClockReferencePid: NotRequired[ProgramClockReferencePidConfigurationOutputTypeDef]
+    Auto: NotRequired[AutoPidMapConfigurationTypeDef]
+
+class SingleProgramTransportStreamPidMapConfigurationTypeDef(TypedDict):
+    Rules: Sequence[PidMapRuleTypeDef]
+    DefaultAction: str
+    TransportStreamId: NotRequired[TransportStreamIdConfigurationTypeDef]
+    ProgramNumber: NotRequired[ProgramNumberConfigurationTypeDef]
+    ProgramMapTablePid: NotRequired[ProgramMapTablePidConfigurationTypeDef]
+    ProgramClockReferencePid: NotRequired[ProgramClockReferencePidConfigurationTypeDef]
+    Auto: NotRequired[AutoPidMapConfigurationTypeDef]
+
 class TlsEncryptionOutputTypeDef(TypedDict):
     EncryptionConfiguration: TlsEncryptionConfigurationOutputTypeDef
     EncryptionType: NotRequired[Literal["PUBLIC"]]
 
-class TlsEncryptionTypeDef(TypedDict):
-    EncryptionConfiguration: TlsEncryptionConfigurationTypeDef
-    EncryptionType: NotRequired[Literal["PUBLIC"]]
+TlsEncryptionConfigurationUnionTypeDef = Union[
+    TlsEncryptionConfigurationTypeDef, TlsEncryptionConfigurationOutputTypeDef
+]
 
 class UpdateBridgeOutputRequestTypeDef(TypedDict):
     BridgeArn: str
@@ -2193,21 +2334,25 @@ class StandardSourceEndpointProtocolConfigurationTypeDef(TypedDict):
     SrtCaller: NotRequired[SrtCallerStandardSourceEndpointConfigurationTypeDef]
     Rtp: NotRequired[RtpStandardSourceEndpointConfigurationTypeDef]
 
+class FabricConfigurationOutputTypeDef(TypedDict):
+    RecoveryLatencyMode: FabricLatencyModeType
+    SwitchingMode: NotRequired[FabricSwitchingModeType]
+    SwitchingConfiguration: NotRequired[FabricSwitchingConfigurationOutputTypeDef]
+
+class FabricConfigurationTypeDef(TypedDict):
+    RecoveryLatencyMode: FabricLatencyModeType
+    SwitchingMode: NotRequired[FabricSwitchingModeType]
+    SwitchingConfiguration: NotRequired[FabricSwitchingConfigurationTypeDef]
+
 class UpdateBridgeRequestTypeDef(TypedDict):
     BridgeArn: str
     EgressGatewayBridge: NotRequired[UpdateEgressGatewayBridgeRequestTypeDef]
     IngressGatewayBridge: NotRequired[UpdateIngressGatewayBridgeRequestTypeDef]
     SourceFailoverConfig: NotRequired[UpdateFailoverConfigTypeDef]
 
-class MergeRouterInputConfigurationOutputTypeDef(TypedDict):
-    NetworkInterfaceArn: str
-    ProtocolConfigurations: list[MergeRouterInputProtocolConfigurationTypeDef]
-    MergeRecoveryWindowMilliseconds: int
-
-class MergeRouterInputConfigurationTypeDef(TypedDict):
-    NetworkInterfaceArn: str
-    ProtocolConfigurations: Sequence[MergeRouterInputProtocolConfigurationTypeDef]
-    MergeRecoveryWindowMilliseconds: int
+class FailoverRouterInputStreamDetailsTypeDef(TypedDict):
+    SourceIndexZeroStreamDetails: FailoverRouterInputIndexedStreamDetailsTypeDef
+    SourceIndexOneStreamDetails: FailoverRouterInputIndexedStreamDetailsTypeDef
 
 class FlowTransitEncryptionOutputTypeDef(TypedDict):
     EncryptionKeyConfiguration: FlowTransitEncryptionKeyConfigurationOutputTypeDef
@@ -2294,6 +2439,9 @@ class MediaStreamTypeDef(TypedDict):
 class NdiMediaInfoTypeDef(TypedDict):
     Streams: list[NdiMediaStreamInfoTypeDef]
 
+class RtmpMediaInfoTypeDef(TypedDict):
+    Streams: list[RtmpMediaStreamInfoTypeDef]
+
 class TransportStreamProgramTypeDef(TypedDict):
     PcrPid: int
     ProgramNumber: int
@@ -2376,13 +2524,19 @@ class StartRouterOutputResponseTypeDef(TypedDict):
     MaintenanceSchedule: MaintenanceScheduleTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class RouterInputStreamDetailsTypeDef(TypedDict):
-    DestinationEndpoint: NotRequired[dict[str, Any]]
-    Standard: NotRequired[StandardRouterInputStreamDetailsTypeDef]
-    MediaLiveChannel: NotRequired[dict[str, Any]]
-    Failover: NotRequired[FailoverRouterInputStreamDetailsTypeDef]
-    MediaConnectFlow: NotRequired[dict[str, Any]]
-    Merge: NotRequired[MergeRouterInputStreamDetailsTypeDef]
+class RtmpPushRouterInputConfigurationOutputTypeDef(TypedDict):
+    Port: int
+    NamingConfiguration: RtmpPushNamingConfigurationOutputTypeDef
+    NamingType: NotRequired[RtmpPushNamingTypeType]
+
+RtmpPushNamingConfigurationUnionTypeDef = Union[
+    RtmpPushNamingConfigurationTypeDef, RtmpPushNamingConfigurationOutputTypeDef
+]
+
+class RtmpPushRouterInputConfigurationTypeDef(TypedDict):
+    Port: int
+    NamingConfiguration: RtmpPushNamingConfigurationTypeDef
+    NamingType: NotRequired[RtmpPushNamingTypeType]
 
 NdiConfigUnionTypeDef = Union[NdiConfigTypeDef, NdiConfigOutputTypeDef]
 
@@ -2446,6 +2600,21 @@ class SourceEndpointAssociatedResourceDetailsTypeDef(TypedDict):
     Standard: NotRequired[dict[str, Any]]
     RouterOutput: NotRequired[RouterOutputSourceEndpointAssociatedResourceDetailsTypeDef]
 
+class RouterOutputProcessorsOutputTypeDef(TypedDict):
+    SingleProgramTransportStreamPidMap: NotRequired[
+        SingleProgramTransportStreamPidMapConfigurationOutputTypeDef
+    ]
+
+class RouterOutputProcessorsTypeDef(TypedDict):
+    SingleProgramTransportStreamPidMap: NotRequired[
+        SingleProgramTransportStreamPidMapConfigurationTypeDef
+    ]
+
+class RtmpPushOutputSettingsOutputTypeDef(TypedDict):
+    ApplicationName: str
+    StreamName: str
+    TlsEncryption: NotRequired[TlsEncryptionOutputTypeDef]
+
 class RtmpPushRouterOutputConfigurationOutputTypeDef(TypedDict):
     DestinationAddress: str
     DestinationPort: int
@@ -2453,12 +2622,9 @@ class RtmpPushRouterOutputConfigurationOutputTypeDef(TypedDict):
     StreamName: str
     TlsEncryption: NotRequired[TlsEncryptionOutputTypeDef]
 
-class RtmpPushRouterOutputConfigurationTypeDef(TypedDict):
-    DestinationAddress: str
-    DestinationPort: int
-    ApplicationName: str
-    StreamName: str
-    TlsEncryption: NotRequired[TlsEncryptionTypeDef]
+class TlsEncryptionTypeDef(TypedDict):
+    EncryptionConfiguration: TlsEncryptionConfigurationUnionTypeDef
+    EncryptionType: NotRequired[Literal["PUBLIC"]]
 
 class AddBridgeSourcesRequestTypeDef(TypedDict):
     BridgeArn: str
@@ -2539,6 +2705,18 @@ class SourceEndpointRouterOutputConfigurationTypeDef(TypedDict):
     DestinationTransitEncryption: EndpointEncryptionConfigurationTypeDef
     DestinationTransitEncryptionType: NotRequired[EndpointEncryptionTypeType]
 
+FabricConfigurationUnionTypeDef = Union[
+    FabricConfigurationTypeDef, FabricConfigurationOutputTypeDef
+]
+
+class RouterInputStreamDetailsTypeDef(TypedDict):
+    DestinationEndpoint: NotRequired[dict[str, Any]]
+    Standard: NotRequired[StandardRouterInputStreamDetailsTypeDef]
+    MediaLiveChannel: NotRequired[dict[str, Any]]
+    Failover: NotRequired[FailoverRouterInputStreamDetailsTypeDef]
+    MediaConnectFlow: NotRequired[dict[str, Any]]
+    Merge: NotRequired[MergeRouterInputStreamDetailsTypeDef]
+
 class MediaConnectFlowRouterInputConfigurationOutputTypeDef(TypedDict):
     SourceTransitDecryption: FlowTransitEncryptionOutputTypeDef
     FlowArn: NotRequired[str]
@@ -2548,49 +2726,6 @@ class MediaConnectFlowRouterOutputConfigurationOutputTypeDef(TypedDict):
     DestinationTransitEncryption: FlowTransitEncryptionOutputTypeDef
     FlowArn: NotRequired[str]
     FlowSourceArn: NotRequired[str]
-
-class OutputTypeDef(TypedDict):
-    Name: str
-    OutputArn: str
-    DataTransferSubscriberFeePercent: NotRequired[int]
-    Description: NotRequired[str]
-    Destination: NotRequired[str]
-    Encryption: NotRequired[EncryptionTypeDef]
-    EntitlementArn: NotRequired[str]
-    ListenerAddress: NotRequired[str]
-    MediaLiveInputArn: NotRequired[str]
-    MediaStreamOutputConfigurations: NotRequired[list[MediaStreamOutputConfigurationTypeDef]]
-    Port: NotRequired[int]
-    Transport: NotRequired[TransportTypeDef]
-    VpcInterfaceAttachment: NotRequired[VpcInterfaceAttachmentTypeDef]
-    BridgeArn: NotRequired[str]
-    BridgePorts: NotRequired[list[int]]
-    OutputStatus: NotRequired[OutputStatusType]
-    PeerIpAddress: NotRequired[str]
-    RouterIntegrationState: NotRequired[StateType]
-    RouterIntegrationTransitEncryption: NotRequired[FlowTransitEncryptionOutputTypeDef]
-    ConnectedRouterInputArn: NotRequired[str]
-
-class SourceTypeDef(TypedDict):
-    Name: str
-    SourceArn: str
-    DataTransferSubscriberFeePercent: NotRequired[int]
-    Decryption: NotRequired[EncryptionTypeDef]
-    Description: NotRequired[str]
-    EntitlementArn: NotRequired[str]
-    IngestIp: NotRequired[str]
-    IngestPort: NotRequired[int]
-    MediaStreamSourceConfigurations: NotRequired[list[MediaStreamSourceConfigurationTypeDef]]
-    SenderControlPort: NotRequired[int]
-    SenderIpAddress: NotRequired[str]
-    Transport: NotRequired[TransportTypeDef]
-    VpcInterfaceName: NotRequired[str]
-    WhitelistCidr: NotRequired[str]
-    GatewayBridgeSource: NotRequired[GatewayBridgeSourceTypeDef]
-    PeerIpAddress: NotRequired[str]
-    RouterIntegrationState: NotRequired[StateType]
-    RouterIntegrationTransitDecryption: NotRequired[FlowTransitEncryptionOutputTypeDef]
-    ConnectedRouterOutputArn: NotRequired[str]
 
 class FlowTransitEncryptionTypeDef(TypedDict):
     EncryptionKeyConfiguration: FlowTransitEncryptionKeyConfigurationUnionTypeDef
@@ -2622,17 +2757,11 @@ RouterInputTransitEncryptionUnionTypeDef = Union[
     RouterInputTransitEncryptionTypeDef, RouterInputTransitEncryptionOutputTypeDef
 ]
 
-class FailoverRouterInputProtocolConfigurationTypeDef(TypedDict):
+class MergeRouterInputProtocolConfigurationTypeDef(TypedDict):
+    Rtp: NotRequired[RtpRouterInputConfigurationTypeDef]
     Rist: NotRequired[RistRouterInputConfigurationTypeDef]
     SrtListener: NotRequired[SrtListenerRouterInputConfigurationTypeDef]
     SrtCaller: NotRequired[SrtCallerRouterInputConfigurationTypeDef]
-    Rtp: NotRequired[RtpRouterInputConfigurationTypeDef]
-
-class RouterInputProtocolConfigurationTypeDef(TypedDict):
-    Rist: NotRequired[RistRouterInputConfigurationTypeDef]
-    SrtListener: NotRequired[SrtListenerRouterInputConfigurationTypeDef]
-    SrtCaller: NotRequired[SrtCallerRouterInputConfigurationTypeDef]
-    Rtp: NotRequired[RtpRouterInputConfigurationTypeDef]
 
 class AddFlowMediaStreamsRequestTypeDef(TypedDict):
     FlowArn: str
@@ -2654,6 +2783,11 @@ class NdiSourceMetadataInfoTypeDef(TypedDict):
     Messages: list[MessageDetailTypeDef]
     ActiveSource: NotRequired[NdiSourceInfoTypeDef]
 
+class RtmpSourceMetadataInfoTypeDef(TypedDict):
+    MediaInfo: RtmpMediaInfoTypeDef
+    ApplicationName: NotRequired[str]
+    StreamName: NotRequired[str]
+
 class TransportMediaInfoTypeDef(TypedDict):
     Programs: list[TransportStreamProgramTypeDef]
     TsId: NotRequired[int]
@@ -2669,6 +2803,37 @@ class ListRouterOutputsResponseTypeDef(TypedDict):
     RouterOutputs: list[ListedRouterOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class FailoverRouterInputProtocolConfigurationOutputTypeDef(TypedDict):
+    Rist: NotRequired[RistRouterInputConfigurationTypeDef]
+    SrtListener: NotRequired[SrtListenerRouterInputConfigurationTypeDef]
+    RtmpPush: NotRequired[RtmpPushRouterInputConfigurationOutputTypeDef]
+    SrtCaller: NotRequired[SrtCallerRouterInputConfigurationTypeDef]
+    Rtp: NotRequired[RtpRouterInputConfigurationTypeDef]
+
+class RouterInputProtocolConfigurationOutputTypeDef(TypedDict):
+    Rist: NotRequired[RistRouterInputConfigurationTypeDef]
+    SrtListener: NotRequired[SrtListenerRouterInputConfigurationTypeDef]
+    RtmpPush: NotRequired[RtmpPushRouterInputConfigurationOutputTypeDef]
+    SrtCaller: NotRequired[SrtCallerRouterInputConfigurationTypeDef]
+    Rtp: NotRequired[RtpRouterInputConfigurationTypeDef]
+
+class SetRtmpPushSourceSettingsTypeDef(TypedDict):
+    NamingConfiguration: RtmpPushNamingConfigurationUnionTypeDef
+
+class FailoverRouterInputProtocolConfigurationTypeDef(TypedDict):
+    Rist: NotRequired[RistRouterInputConfigurationTypeDef]
+    SrtListener: NotRequired[SrtListenerRouterInputConfigurationTypeDef]
+    RtmpPush: NotRequired[RtmpPushRouterInputConfigurationTypeDef]
+    SrtCaller: NotRequired[SrtCallerRouterInputConfigurationTypeDef]
+    Rtp: NotRequired[RtpRouterInputConfigurationTypeDef]
+
+class RouterInputProtocolConfigurationTypeDef(TypedDict):
+    Rist: NotRequired[RistRouterInputConfigurationTypeDef]
+    SrtListener: NotRequired[SrtListenerRouterInputConfigurationTypeDef]
+    RtmpPush: NotRequired[RtmpPushRouterInputConfigurationTypeDef]
+    SrtCaller: NotRequired[SrtCallerRouterInputConfigurationTypeDef]
+    Rtp: NotRequired[RtpRouterInputConfigurationTypeDef]
 
 StandardDestinationEndpointConfigurationOutputTypeDef = TypedDict(
     "StandardDestinationEndpointConfigurationOutputTypeDef",
@@ -2730,6 +2895,34 @@ StandardSourceEndpointConfigurationTypeDef = TypedDict(
         "Protocol": NotRequired[SourceEndpointProtocolType],
     },
 )
+RouterOutputProcessorsUnionTypeDef = Union[
+    RouterOutputProcessorsTypeDef, RouterOutputProcessorsOutputTypeDef
+]
+TransportTypeDef = TypedDict(
+    "TransportTypeDef",
+    {
+        "Protocol": ProtocolType,
+        "CidrAllowList": NotRequired[list[str]],
+        "MaxBitrate": NotRequired[int],
+        "MaxLatency": NotRequired[int],
+        "MaxSyncBuffer": NotRequired[int],
+        "MinLatency": NotRequired[int],
+        "RemoteId": NotRequired[str],
+        "SenderControlPort": NotRequired[int],
+        "SenderIpAddress": NotRequired[str],
+        "SmoothingLatency": NotRequired[int],
+        "SourceListenerAddress": NotRequired[str],
+        "SourceListenerPort": NotRequired[int],
+        "StreamId": NotRequired[str],
+        "NdiSpeedHqQuality": NotRequired[int],
+        "NdiProgramName": NotRequired[str],
+        "NdiSourceSettings": NotRequired[NdiSourceSettingsTypeDef],
+        "NdiOutputTimecodeSource": NotRequired[NdiOutputTimecodeSourceType],
+        "NdiAudioReferenceLevel": NotRequired[int],
+        "RtmpPushSourceSettings": NotRequired[RtmpPushSourceSettingsTypeDef],
+        "RtmpPushOutputSettings": NotRequired[RtmpPushOutputSettingsOutputTypeDef],
+    },
+)
 
 class RouterOutputProtocolConfigurationOutputTypeDef(TypedDict):
     Rist: NotRequired[RistRouterOutputConfigurationTypeDef]
@@ -2738,12 +2931,14 @@ class RouterOutputProtocolConfigurationOutputTypeDef(TypedDict):
     SrtCaller: NotRequired[SrtCallerRouterOutputConfigurationTypeDef]
     Rtp: NotRequired[RtpRouterOutputConfigurationTypeDef]
 
-class RouterOutputProtocolConfigurationTypeDef(TypedDict):
-    Rist: NotRequired[RistRouterOutputConfigurationTypeDef]
-    SrtListener: NotRequired[SrtListenerRouterOutputConfigurationTypeDef]
-    RtmpPush: NotRequired[RtmpPushRouterOutputConfigurationTypeDef]
-    SrtCaller: NotRequired[SrtCallerRouterOutputConfigurationTypeDef]
-    Rtp: NotRequired[RtpRouterOutputConfigurationTypeDef]
+class RtmpPushRouterOutputConfigurationTypeDef(TypedDict):
+    DestinationAddress: str
+    DestinationPort: int
+    ApplicationName: str
+    StreamName: str
+    TlsEncryption: NotRequired[TlsEncryptionTypeDef]
+
+TlsEncryptionUnionTypeDef = Union[TlsEncryptionTypeDef, TlsEncryptionOutputTypeDef]
 
 class CreateBridgeResponseTypeDef(TypedDict):
     Bridge: BridgeTypeDef
@@ -2765,46 +2960,6 @@ class SourceEndpointConnectionDetailsTypeDef(TypedDict):
     Standard: NotRequired[StandardSourceEndpointConnectionDetailsTypeDef]
     RouterOutput: NotRequired[RouterOutputSourceEndpointConnectionDetailsTypeDef]
 
-class AddFlowOutputsResponseTypeDef(TypedDict):
-    FlowArn: str
-    Outputs: list[OutputTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateFlowOutputResponseTypeDef(TypedDict):
-    FlowArn: str
-    Output: OutputTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class AddFlowSourcesResponseTypeDef(TypedDict):
-    FlowArn: str
-    Sources: list[SourceTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class FlowTypeDef(TypedDict):
-    AvailabilityZone: str
-    Entitlements: list[EntitlementTypeDef]
-    FlowArn: str
-    Name: str
-    Outputs: list[OutputTypeDef]
-    Source: SourceTypeDef
-    Status: StatusType
-    Description: NotRequired[str]
-    EgressIp: NotRequired[str]
-    MediaStreams: NotRequired[list[MediaStreamTypeDef]]
-    SourceFailoverConfig: NotRequired[FailoverConfigTypeDef]
-    Sources: NotRequired[list[SourceTypeDef]]
-    VpcInterfaces: NotRequired[list[VpcInterfaceTypeDef]]
-    Maintenance: NotRequired[MaintenanceTypeDef]
-    SourceMonitoringConfig: NotRequired[MonitoringConfigOutputTypeDef]
-    FlowSize: NotRequired[FlowSizeType]
-    NdiConfig: NotRequired[NdiConfigOutputTypeDef]
-    EncodingConfig: NotRequired[EncodingConfigTypeDef]
-
-class UpdateFlowSourceResponseTypeDef(TypedDict):
-    FlowArn: str
-    Source: SourceTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
 FlowTransitEncryptionUnionTypeDef = Union[
     FlowTransitEncryptionTypeDef, FlowTransitEncryptionOutputTypeDef
 ]
@@ -2819,11 +2974,52 @@ class MediaConnectFlowRouterOutputConfigurationTypeDef(TypedDict):
     FlowArn: NotRequired[str]
     FlowSourceArn: NotRequired[str]
 
+class MergeRouterInputConfigurationOutputTypeDef(TypedDict):
+    NetworkInterfaceArn: str
+    ProtocolConfigurations: list[MergeRouterInputProtocolConfigurationTypeDef]
+    MergeRecoveryWindowMilliseconds: int
+
+class MergeRouterInputConfigurationTypeDef(TypedDict):
+    NetworkInterfaceArn: str
+    ProtocolConfigurations: Sequence[MergeRouterInputProtocolConfigurationTypeDef]
+    MergeRecoveryWindowMilliseconds: int
+
+class DescribeFlowSourceMetadataResponseTypeDef(TypedDict):
+    FlowArn: str
+    Messages: list[MessageDetailTypeDef]
+    Timestamp: datetime
+    TransportMediaInfo: TransportMediaInfoTypeDef
+    NdiInfo: NdiSourceMetadataInfoTypeDef
+    RtmpInfo: RtmpSourceMetadataInfoTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RouterInputMetadataTypeDef(TypedDict):
+    TransportStreamMediaInfo: NotRequired[TransportMediaInfoTypeDef]
+    RtmpInfo: NotRequired[RtmpSourceMetadataInfoTypeDef]
+
+class UpdateFlowRequestTypeDef(TypedDict):
+    FlowArn: str
+    SourceFailoverConfig: NotRequired[UpdateFailoverConfigTypeDef]
+    Maintenance: NotRequired[UpdateMaintenanceTypeDef]
+    SourceMonitoringConfig: NotRequired[MonitoringConfigUnionTypeDef]
+    NdiConfig: NotRequired[NdiConfigUnionTypeDef]
+    FlowSize: NotRequired[FlowSizeType]
+    EncodingConfig: NotRequired[EncodingConfigTypeDef]
+
 class FailoverRouterInputConfigurationOutputTypeDef(TypedDict):
     NetworkInterfaceArn: str
-    ProtocolConfigurations: list[FailoverRouterInputProtocolConfigurationTypeDef]
+    ProtocolConfigurations: list[FailoverRouterInputProtocolConfigurationOutputTypeDef]
     SourcePriorityMode: FailoverInputSourcePriorityModeType
     PrimarySourceIndex: NotRequired[int]
+
+StandardRouterInputConfigurationOutputTypeDef = TypedDict(
+    "StandardRouterInputConfigurationOutputTypeDef",
+    {
+        "NetworkInterfaceArn": str,
+        "ProtocolConfiguration": RouterInputProtocolConfigurationOutputTypeDef,
+        "Protocol": NotRequired[RouterInputProtocolType],
+    },
+)
 
 class FailoverRouterInputConfigurationTypeDef(TypedDict):
     NetworkInterfaceArn: str
@@ -2839,26 +3035,6 @@ StandardRouterInputConfigurationTypeDef = TypedDict(
         "Protocol": NotRequired[RouterInputProtocolType],
     },
 )
-
-class DescribeFlowSourceMetadataResponseTypeDef(TypedDict):
-    FlowArn: str
-    Messages: list[MessageDetailTypeDef]
-    Timestamp: datetime
-    TransportMediaInfo: TransportMediaInfoTypeDef
-    NdiInfo: NdiSourceMetadataInfoTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class RouterInputMetadataTypeDef(TypedDict):
-    TransportStreamMediaInfo: NotRequired[TransportMediaInfoTypeDef]
-
-class UpdateFlowRequestTypeDef(TypedDict):
-    FlowArn: str
-    SourceFailoverConfig: NotRequired[UpdateFailoverConfigTypeDef]
-    Maintenance: NotRequired[UpdateMaintenanceTypeDef]
-    SourceMonitoringConfig: NotRequired[MonitoringConfigUnionTypeDef]
-    NdiConfig: NotRequired[NdiConfigUnionTypeDef]
-    FlowSize: NotRequired[FlowSizeType]
-    EncodingConfig: NotRequired[EncodingConfigTypeDef]
 
 class DestinationEndpointConfigurationOutputTypeDef(TypedDict):
     Standard: NotRequired[StandardDestinationEndpointConfigurationOutputTypeDef]
@@ -2909,6 +3085,49 @@ class SourceEndpointConfigurationTypeDef(TypedDict):
     Standard: NotRequired[StandardSourceEndpointConfigurationTypeDef]
     RouterOutput: NotRequired[RouterOutputSourceEndpointConfigurationTypeDef]
 
+class OutputTypeDef(TypedDict):
+    Name: str
+    OutputArn: str
+    DataTransferSubscriberFeePercent: NotRequired[int]
+    Description: NotRequired[str]
+    Destination: NotRequired[str]
+    Encryption: NotRequired[EncryptionTypeDef]
+    EntitlementArn: NotRequired[str]
+    ListenerAddress: NotRequired[str]
+    MediaLiveInputArn: NotRequired[str]
+    MediaStreamOutputConfigurations: NotRequired[list[MediaStreamOutputConfigurationTypeDef]]
+    Port: NotRequired[int]
+    Transport: NotRequired[TransportTypeDef]
+    VpcInterfaceAttachment: NotRequired[VpcInterfaceAttachmentTypeDef]
+    BridgeArn: NotRequired[str]
+    BridgePorts: NotRequired[list[int]]
+    OutputStatus: NotRequired[OutputStatusType]
+    PeerIpAddress: NotRequired[str]
+    RouterIntegrationState: NotRequired[StateType]
+    RouterIntegrationTransitEncryption: NotRequired[FlowTransitEncryptionOutputTypeDef]
+    ConnectedRouterInputArn: NotRequired[str]
+
+class SourceTypeDef(TypedDict):
+    Name: str
+    SourceArn: str
+    DataTransferSubscriberFeePercent: NotRequired[int]
+    Decryption: NotRequired[EncryptionTypeDef]
+    Description: NotRequired[str]
+    EntitlementArn: NotRequired[str]
+    IngestIp: NotRequired[str]
+    IngestPort: NotRequired[int]
+    MediaStreamSourceConfigurations: NotRequired[list[MediaStreamSourceConfigurationTypeDef]]
+    SenderControlPort: NotRequired[int]
+    SenderIpAddress: NotRequired[str]
+    Transport: NotRequired[TransportTypeDef]
+    VpcInterfaceName: NotRequired[str]
+    WhitelistCidr: NotRequired[str]
+    GatewayBridgeSource: NotRequired[GatewayBridgeSourceTypeDef]
+    PeerIpAddress: NotRequired[str]
+    RouterIntegrationState: NotRequired[StateType]
+    RouterIntegrationTransitDecryption: NotRequired[FlowTransitEncryptionOutputTypeDef]
+    ConnectedRouterOutputArn: NotRequired[str]
+
 StandardRouterOutputConfigurationOutputTypeDef = TypedDict(
     "StandardRouterOutputConfigurationOutputTypeDef",
     {
@@ -2917,58 +3136,19 @@ StandardRouterOutputConfigurationOutputTypeDef = TypedDict(
         "Protocol": NotRequired[RouterOutputProtocolType],
     },
 )
-StandardRouterOutputConfigurationTypeDef = TypedDict(
-    "StandardRouterOutputConfigurationTypeDef",
-    {
-        "NetworkInterfaceArn": str,
-        "ProtocolConfiguration": RouterOutputProtocolConfigurationTypeDef,
-        "Protocol": NotRequired[RouterOutputProtocolType],
-    },
-)
 
-class CreateFlowResponseTypeDef(TypedDict):
-    Flow: FlowTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class RouterOutputProtocolConfigurationTypeDef(TypedDict):
+    Rist: NotRequired[RistRouterOutputConfigurationTypeDef]
+    SrtListener: NotRequired[SrtListenerRouterOutputConfigurationTypeDef]
+    RtmpPush: NotRequired[RtmpPushRouterOutputConfigurationTypeDef]
+    SrtCaller: NotRequired[SrtCallerRouterOutputConfigurationTypeDef]
+    Rtp: NotRequired[RtpRouterOutputConfigurationTypeDef]
 
-class DescribeFlowResponseTypeDef(TypedDict):
-    Flow: FlowTypeDef
-    Messages: MessagesTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class RtmpPushOutputSettingsTypeDef(TypedDict):
+    ApplicationName: str
+    StreamName: str
+    TlsEncryption: NotRequired[TlsEncryptionUnionTypeDef]
 
-class UpdateFlowResponseTypeDef(TypedDict):
-    Flow: FlowTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-AddOutputRequestTypeDef = TypedDict(
-    "AddOutputRequestTypeDef",
-    {
-        "CidrAllowList": NotRequired[Sequence[str]],
-        "Description": NotRequired[str],
-        "Destination": NotRequired[str],
-        "Encryption": NotRequired[EncryptionTypeDef],
-        "MaxLatency": NotRequired[int],
-        "MediaStreamOutputConfigurations": NotRequired[
-            Sequence[MediaStreamOutputConfigurationRequestTypeDef]
-        ],
-        "MinLatency": NotRequired[int],
-        "Name": NotRequired[str],
-        "Port": NotRequired[int],
-        "Protocol": NotRequired[ProtocolType],
-        "RemoteId": NotRequired[str],
-        "SenderControlPort": NotRequired[int],
-        "SmoothingLatency": NotRequired[int],
-        "StreamId": NotRequired[str],
-        "VpcInterfaceAttachment": NotRequired[VpcInterfaceAttachmentTypeDef],
-        "OutputStatus": NotRequired[OutputStatusType],
-        "NdiSpeedHqQuality": NotRequired[int],
-        "NdiProgramName": NotRequired[str],
-        "OutputTags": NotRequired[Mapping[str, str]],
-        "RouterIntegrationState": NotRequired[StateType],
-        "RouterIntegrationTransitEncryption": NotRequired[FlowTransitEncryptionUnionTypeDef],
-        "NdiOutputTimecodeSource": NotRequired[NdiOutputTimecodeSourceType],
-        "NdiAudioReferenceLevel": NotRequired[int],
-    },
-)
 SetSourceRequestTypeDef = TypedDict(
     "SetSourceRequestTypeDef",
     {
@@ -2997,37 +3177,7 @@ SetSourceRequestTypeDef = TypedDict(
         "SourceTags": NotRequired[Mapping[str, str]],
         "RouterIntegrationState": NotRequired[StateType],
         "RouterIntegrationTransitDecryption": NotRequired[FlowTransitEncryptionUnionTypeDef],
-    },
-)
-UpdateFlowOutputRequestTypeDef = TypedDict(
-    "UpdateFlowOutputRequestTypeDef",
-    {
-        "FlowArn": str,
-        "OutputArn": str,
-        "CidrAllowList": NotRequired[Sequence[str]],
-        "Description": NotRequired[str],
-        "Destination": NotRequired[str],
-        "Encryption": NotRequired[UpdateEncryptionTypeDef],
-        "MaxLatency": NotRequired[int],
-        "MediaStreamOutputConfigurations": NotRequired[
-            Sequence[MediaStreamOutputConfigurationRequestTypeDef]
-        ],
-        "MinLatency": NotRequired[int],
-        "Port": NotRequired[int],
-        "Protocol": NotRequired[ProtocolType],
-        "RemoteId": NotRequired[str],
-        "SenderControlPort": NotRequired[int],
-        "SenderIpAddress": NotRequired[str],
-        "SmoothingLatency": NotRequired[int],
-        "StreamId": NotRequired[str],
-        "VpcInterfaceAttachment": NotRequired[VpcInterfaceAttachmentTypeDef],
-        "OutputStatus": NotRequired[OutputStatusType],
-        "NdiProgramName": NotRequired[str],
-        "NdiSpeedHqQuality": NotRequired[int],
-        "RouterIntegrationState": NotRequired[StateType],
-        "RouterIntegrationTransitEncryption": NotRequired[FlowTransitEncryptionUnionTypeDef],
-        "NdiOutputTimecodeSource": NotRequired[NdiOutputTimecodeSourceType],
-        "NdiAudioReferenceLevel": NotRequired[int],
+        "RtmpPushSettings": NotRequired[SetRtmpPushSourceSettingsTypeDef],
     },
 )
 UpdateFlowSourceRequestTypeDef = TypedDict(
@@ -3058,12 +3208,18 @@ UpdateFlowSourceRequestTypeDef = TypedDict(
         "NdiSourceSettings": NotRequired[NdiSourceSettingsTypeDef],
         "RouterIntegrationState": NotRequired[StateType],
         "RouterIntegrationTransitDecryption": NotRequired[FlowTransitEncryptionUnionTypeDef],
+        "RtmpPushSettings": NotRequired[SetRtmpPushSourceSettingsTypeDef],
     },
 )
 
+class RouterInputSourceMetadataDetailsTypeDef(TypedDict):
+    SourceMetadataMessages: list[RouterInputMessageTypeDef]
+    Timestamp: datetime
+    RouterInputMetadata: NotRequired[RouterInputMetadataTypeDef]
+
 class RouterInputConfigurationOutputTypeDef(TypedDict):
     DestinationEndpoint: NotRequired[DestinationEndpointRouterInputConfigurationOutputTypeDef]
-    Standard: NotRequired[StandardRouterInputConfigurationTypeDef]
+    Standard: NotRequired[StandardRouterInputConfigurationOutputTypeDef]
     MediaLiveChannel: NotRequired[MediaLiveChannelRouterInputConfigurationOutputTypeDef]
     Failover: NotRequired[FailoverRouterInputConfigurationOutputTypeDef]
     MediaConnectFlow: NotRequired[MediaConnectFlowRouterInputConfigurationOutputTypeDef]
@@ -3076,11 +3232,6 @@ class RouterInputConfigurationTypeDef(TypedDict):
     Failover: NotRequired[FailoverRouterInputConfigurationTypeDef]
     MediaConnectFlow: NotRequired[MediaConnectFlowRouterInputConfigurationTypeDef]
     Merge: NotRequired[MergeRouterInputConfigurationTypeDef]
-
-class RouterInputSourceMetadataDetailsTypeDef(TypedDict):
-    SourceMetadataMessages: list[RouterInputMessageTypeDef]
-    Timestamp: datetime
-    RouterInputMetadata: NotRequired[RouterInputMetadataTypeDef]
 
 DestinationEndpointTypeDef = TypedDict(
     "DestinationEndpointTypeDef",
@@ -3145,42 +3296,73 @@ SourceEndpointConfigurationUnionTypeDef = Union[
     SourceEndpointConfigurationTypeDef, SourceEndpointConfigurationOutputTypeDef
 ]
 
+class AddFlowOutputsResponseTypeDef(TypedDict):
+    FlowArn: str
+    Outputs: list[OutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateFlowOutputResponseTypeDef(TypedDict):
+    FlowArn: str
+    Output: OutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class AddFlowSourcesResponseTypeDef(TypedDict):
+    FlowArn: str
+    Sources: list[SourceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class FlowTypeDef(TypedDict):
+    AvailabilityZone: str
+    Entitlements: list[EntitlementTypeDef]
+    FlowArn: str
+    Name: str
+    Outputs: list[OutputTypeDef]
+    Source: SourceTypeDef
+    Status: StatusType
+    Description: NotRequired[str]
+    EgressIp: NotRequired[str]
+    MediaStreams: NotRequired[list[MediaStreamTypeDef]]
+    SourceFailoverConfig: NotRequired[FailoverConfigTypeDef]
+    Sources: NotRequired[list[SourceTypeDef]]
+    VpcInterfaces: NotRequired[list[VpcInterfaceTypeDef]]
+    Maintenance: NotRequired[MaintenanceTypeDef]
+    SourceMonitoringConfig: NotRequired[MonitoringConfigOutputTypeDef]
+    FlowSize: NotRequired[FlowSizeType]
+    NdiConfig: NotRequired[NdiConfigOutputTypeDef]
+    EncodingConfig: NotRequired[EncodingConfigTypeDef]
+
+class UpdateFlowSourceResponseTypeDef(TypedDict):
+    FlowArn: str
+    Source: SourceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class RouterOutputConfigurationOutputTypeDef(TypedDict):
     Standard: NotRequired[StandardRouterOutputConfigurationOutputTypeDef]
     MediaConnectFlow: NotRequired[MediaConnectFlowRouterOutputConfigurationOutputTypeDef]
     MediaLiveInput: NotRequired[MediaLiveInputRouterOutputConfigurationOutputTypeDef]
     SourceEndpoint: NotRequired[SourceEndpointRouterOutputConfigurationOutputTypeDef]
 
-class RouterOutputConfigurationTypeDef(TypedDict):
-    Standard: NotRequired[StandardRouterOutputConfigurationTypeDef]
-    MediaConnectFlow: NotRequired[MediaConnectFlowRouterOutputConfigurationTypeDef]
-    MediaLiveInput: NotRequired[MediaLiveInputRouterOutputConfigurationTypeDef]
-    SourceEndpoint: NotRequired[SourceEndpointRouterOutputConfigurationTypeDef]
-
-class AddFlowOutputsRequestTypeDef(TypedDict):
-    FlowArn: str
-    Outputs: Sequence[AddOutputRequestTypeDef]
+StandardRouterOutputConfigurationTypeDef = TypedDict(
+    "StandardRouterOutputConfigurationTypeDef",
+    {
+        "NetworkInterfaceArn": str,
+        "ProtocolConfiguration": RouterOutputProtocolConfigurationTypeDef,
+        "Protocol": NotRequired[RouterOutputProtocolType],
+    },
+)
+RtmpPushOutputSettingsUnionTypeDef = Union[
+    RtmpPushOutputSettingsTypeDef, RtmpPushOutputSettingsOutputTypeDef
+]
 
 class AddFlowSourcesRequestTypeDef(TypedDict):
     FlowArn: str
     Sources: Sequence[SetSourceRequestTypeDef]
 
-class CreateFlowRequestTypeDef(TypedDict):
+class GetRouterInputSourceMetadataResponseTypeDef(TypedDict):
+    Arn: str
     Name: str
-    AvailabilityZone: NotRequired[str]
-    Entitlements: NotRequired[Sequence[GrantEntitlementRequestTypeDef]]
-    MediaStreams: NotRequired[Sequence[AddMediaStreamRequestTypeDef]]
-    Outputs: NotRequired[Sequence[AddOutputRequestTypeDef]]
-    Source: NotRequired[SetSourceRequestTypeDef]
-    SourceFailoverConfig: NotRequired[FailoverConfigTypeDef]
-    Sources: NotRequired[Sequence[SetSourceRequestTypeDef]]
-    VpcInterfaces: NotRequired[Sequence[VpcInterfaceRequestTypeDef]]
-    Maintenance: NotRequired[AddMaintenanceTypeDef]
-    SourceMonitoringConfig: NotRequired[MonitoringConfigUnionTypeDef]
-    FlowSize: NotRequired[FlowSizeType]
-    NdiConfig: NotRequired[NdiConfigUnionTypeDef]
-    EncodingConfig: NotRequired[EncodingConfigTypeDef]
-    FlowTags: NotRequired[Mapping[str, str]]
+    SourceMetadataDetails: RouterInputSourceMetadataDetailsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 RouterInputTypeDef = TypedDict(
     "RouterInputTypeDef",
@@ -3217,12 +3399,6 @@ RouterInputTypeDef = TypedDict(
 RouterInputConfigurationUnionTypeDef = Union[
     RouterInputConfigurationTypeDef, RouterInputConfigurationOutputTypeDef
 ]
-
-class GetRouterInputSourceMetadataResponseTypeDef(TypedDict):
-    Arn: str
-    Name: str
-    SourceMetadataDetails: RouterInputSourceMetadataDetailsTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetDestinationEndpointResponseTypeDef(TypedDict):
     DestinationEndpoints: list[DestinationEndpointTypeDef]
@@ -3290,6 +3466,19 @@ class UpdateSourceEndpointRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     Configuration: NotRequired[SourceEndpointConfigurationUnionTypeDef]
 
+class CreateFlowResponseTypeDef(TypedDict):
+    Flow: FlowTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeFlowResponseTypeDef(TypedDict):
+    Flow: FlowTypeDef
+    Messages: MessagesTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateFlowResponseTypeDef(TypedDict):
+    Flow: FlowTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 RouterOutputTypeDef = TypedDict(
     "RouterOutputTypeDef",
     {
@@ -3312,17 +3501,85 @@ RouterOutputTypeDef = TypedDict(
         "StreamDetails": RouterOutputStreamDetailsTypeDef,
         "MaintenanceType": MaintenanceTypeType,
         "MaintenanceConfiguration": MaintenanceConfigurationOutputTypeDef,
-        "FabricConfiguration": FabricConfigurationTypeDef,
+        "FabricConfiguration": FabricConfigurationOutputTypeDef,
         "IpAddress": NotRequired[str],
         "RoutedInputArn": NotRequired[str],
         "MaintenanceScheduleType": NotRequired[Literal["WINDOW"]],
         "MaintenanceSchedule": NotRequired[MaintenanceScheduleTypeDef],
+        "Processors": NotRequired[RouterOutputProcessorsOutputTypeDef],
         "AssociatedSourceEndpointArns": NotRequired[list[str]],
     },
 )
-RouterOutputConfigurationUnionTypeDef = Union[
-    RouterOutputConfigurationTypeDef, RouterOutputConfigurationOutputTypeDef
-]
+
+class RouterOutputConfigurationTypeDef(TypedDict):
+    Standard: NotRequired[StandardRouterOutputConfigurationTypeDef]
+    MediaConnectFlow: NotRequired[MediaConnectFlowRouterOutputConfigurationTypeDef]
+    MediaLiveInput: NotRequired[MediaLiveInputRouterOutputConfigurationTypeDef]
+    SourceEndpoint: NotRequired[SourceEndpointRouterOutputConfigurationTypeDef]
+
+AddOutputRequestTypeDef = TypedDict(
+    "AddOutputRequestTypeDef",
+    {
+        "CidrAllowList": NotRequired[Sequence[str]],
+        "Description": NotRequired[str],
+        "Destination": NotRequired[str],
+        "Encryption": NotRequired[EncryptionTypeDef],
+        "MaxLatency": NotRequired[int],
+        "MediaStreamOutputConfigurations": NotRequired[
+            Sequence[MediaStreamOutputConfigurationRequestTypeDef]
+        ],
+        "MinLatency": NotRequired[int],
+        "Name": NotRequired[str],
+        "Port": NotRequired[int],
+        "Protocol": NotRequired[ProtocolType],
+        "RemoteId": NotRequired[str],
+        "SenderControlPort": NotRequired[int],
+        "SmoothingLatency": NotRequired[int],
+        "StreamId": NotRequired[str],
+        "VpcInterfaceAttachment": NotRequired[VpcInterfaceAttachmentTypeDef],
+        "OutputStatus": NotRequired[OutputStatusType],
+        "NdiSpeedHqQuality": NotRequired[int],
+        "NdiProgramName": NotRequired[str],
+        "OutputTags": NotRequired[Mapping[str, str]],
+        "RouterIntegrationState": NotRequired[StateType],
+        "RouterIntegrationTransitEncryption": NotRequired[FlowTransitEncryptionUnionTypeDef],
+        "NdiOutputTimecodeSource": NotRequired[NdiOutputTimecodeSourceType],
+        "NdiAudioReferenceLevel": NotRequired[int],
+        "RtmpPushSettings": NotRequired[RtmpPushOutputSettingsUnionTypeDef],
+    },
+)
+UpdateFlowOutputRequestTypeDef = TypedDict(
+    "UpdateFlowOutputRequestTypeDef",
+    {
+        "FlowArn": str,
+        "OutputArn": str,
+        "CidrAllowList": NotRequired[Sequence[str]],
+        "Description": NotRequired[str],
+        "Destination": NotRequired[str],
+        "Encryption": NotRequired[UpdateEncryptionTypeDef],
+        "MaxLatency": NotRequired[int],
+        "MediaStreamOutputConfigurations": NotRequired[
+            Sequence[MediaStreamOutputConfigurationRequestTypeDef]
+        ],
+        "MinLatency": NotRequired[int],
+        "Port": NotRequired[int],
+        "Protocol": NotRequired[ProtocolType],
+        "RemoteId": NotRequired[str],
+        "SenderControlPort": NotRequired[int],
+        "SenderIpAddress": NotRequired[str],
+        "SmoothingLatency": NotRequired[int],
+        "StreamId": NotRequired[str],
+        "VpcInterfaceAttachment": NotRequired[VpcInterfaceAttachmentTypeDef],
+        "OutputStatus": NotRequired[OutputStatusType],
+        "NdiProgramName": NotRequired[str],
+        "NdiSpeedHqQuality": NotRequired[int],
+        "RouterIntegrationState": NotRequired[StateType],
+        "RouterIntegrationTransitEncryption": NotRequired[FlowTransitEncryptionUnionTypeDef],
+        "NdiOutputTimecodeSource": NotRequired[NdiOutputTimecodeSourceType],
+        "NdiAudioReferenceLevel": NotRequired[int],
+        "RtmpPushSettings": NotRequired[RtmpPushOutputSettingsUnionTypeDef],
+    },
+)
 
 class BatchGetRouterInputResponseTypeDef(TypedDict):
     RouterInputs: list[RouterInputTypeDef]
@@ -3391,6 +3648,31 @@ class UpdateRouterOutputResponseTypeDef(TypedDict):
     RouterOutput: RouterOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+RouterOutputConfigurationUnionTypeDef = Union[
+    RouterOutputConfigurationTypeDef, RouterOutputConfigurationOutputTypeDef
+]
+
+class AddFlowOutputsRequestTypeDef(TypedDict):
+    FlowArn: str
+    Outputs: Sequence[AddOutputRequestTypeDef]
+
+class CreateFlowRequestTypeDef(TypedDict):
+    Name: str
+    AvailabilityZone: NotRequired[str]
+    Entitlements: NotRequired[Sequence[GrantEntitlementRequestTypeDef]]
+    MediaStreams: NotRequired[Sequence[AddMediaStreamRequestTypeDef]]
+    Outputs: NotRequired[Sequence[AddOutputRequestTypeDef]]
+    Source: NotRequired[SetSourceRequestTypeDef]
+    SourceFailoverConfig: NotRequired[FailoverConfigTypeDef]
+    Sources: NotRequired[Sequence[SetSourceRequestTypeDef]]
+    VpcInterfaces: NotRequired[Sequence[VpcInterfaceRequestTypeDef]]
+    Maintenance: NotRequired[AddMaintenanceTypeDef]
+    SourceMonitoringConfig: NotRequired[MonitoringConfigUnionTypeDef]
+    FlowSize: NotRequired[FlowSizeType]
+    NdiConfig: NotRequired[NdiConfigUnionTypeDef]
+    EncodingConfig: NotRequired[EncodingConfigTypeDef]
+    FlowTags: NotRequired[Mapping[str, str]]
+
 CreateRouterOutputRequestTypeDef = TypedDict(
     "CreateRouterOutputRequestTypeDef",
     {
@@ -3403,8 +3685,9 @@ CreateRouterOutputRequestTypeDef = TypedDict(
         "AvailabilityZone": NotRequired[str],
         "MaintenanceConfiguration": NotRequired[MaintenanceConfigurationUnionTypeDef],
         "Tags": NotRequired[Mapping[str, str]],
-        "FabricConfiguration": NotRequired[FabricConfigurationTypeDef],
+        "FabricConfiguration": NotRequired[FabricConfigurationUnionTypeDef],
         "ClientToken": NotRequired[str],
+        "Processors": NotRequired[RouterOutputProcessorsUnionTypeDef],
     },
 )
 
@@ -3416,4 +3699,5 @@ class UpdateRouterOutputRequestTypeDef(TypedDict):
     RoutingScope: NotRequired[RoutingScopeType]
     Tier: NotRequired[RouterOutputTierType]
     MaintenanceConfiguration: NotRequired[MaintenanceConfigurationUnionTypeDef]
-    FabricConfiguration: NotRequired[FabricConfigurationTypeDef]
+    FabricConfiguration: NotRequired[FabricConfigurationUnionTypeDef]
+    Processors: NotRequired[RouterOutputProcessorsUnionTypeDef]

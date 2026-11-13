@@ -517,15 +517,12 @@ def fleet(name: str, *, base_url: str | None = None, echo: Echo = _silent, versi
 
 
 def where_line(w: dict) -> str | None:
-    """Where a worker runs and why it was started there, as the platform says them (the fleet's `region`, our
-    region's name, and `placed`, its why in words): "in US East: the region nearest the robot it was started for".
-    None from a platform that says neither.
+    """Why a worker was started where it was, as the platform says it (the fleet's `placed`, in words): "the region
+    nearest the robot it was started for". No region is named, ours or a provider's, whatever a platform sends. None
+    from a platform that says none.
 """
-    region = w.get("region") if isinstance(w.get("region"), str) and w["region"] else None
-    placed = w.get("placed") if isinstance(w.get("placed"), str) and w["placed"] else None
-    if region is None and placed is None:
-        return None
-    return (f"in {region}" if region else "") + (": " if region and placed else "") + (placed or "")
+    placed = w.get("placed")
+    return placed if isinstance(placed, str) and placed else None
 
 
 def _turn(w: dict) -> str | None:
@@ -785,8 +782,7 @@ def show_session_params(f: dict, echo: Echo) -> None:
         echo("inference parameters (deployment defaults): " + _kv(defaults))
     for s in sessions or []:
         driver = driver_words(s.get("driver"))
-        region = f" ({s['region']})" if isinstance(s.get("region"), str) and s["region"] else ""
-        echo(f"  robot {s.get('session')} on {str(s.get('worker') or '')[:12]}{region}"
+        echo(f"  robot {s.get('session')} on {str(s.get('worker') or '')[:12]}"
              + (f" · {driver}" if driver else ""))
         if isinstance(s.get("seated"), str) and s["seated"]:
             echo(f"    ↳ {s['seated']}")

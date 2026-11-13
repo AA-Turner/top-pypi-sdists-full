@@ -504,11 +504,75 @@ fn qwpws_store_and_forward_size_suffixes_match_java_config_surface() {
     }
 }
 
+/// Each tier set answers only the level whose acknowledgement trims it; with
+/// the replicated level requested the local one is refused, as in Java.
+#[cfg(feature = "sync-sender-qwp-ws")]
+#[test]
+fn durable_ack_tiers_answer_only_their_trim_level() {
+    use super::conf::DurableAckTiers::*;
+    const NEEDS_REPLICATED: &str = "AckLevel::Durable requires `request_durable_ack=on`, \
+        `replicated`, or `local,replicated` in the connect string.";
+    const NEEDS_LOCAL: &str =
+        "AckLevel::LocalDurable requires `request_durable_ack=local` in the connect string.";
+    let not_with = |value: &str| {
+        format!(
+            "AckLevel::LocalDurable is not available with `request_durable_ack={value}`: \
+             the sender trims on the replicated acknowledgement, so wait for AckLevel::Durable."
+        )
+    };
+    for (tiers, durable, local_durable) in [
+        (
+            Off,
+            Some(NEEDS_REPLICATED.to_owned()),
+            Some(NEEDS_LOCAL.to_owned()),
+        ),
+        (LegacyReplicated, None, Some(not_with("on"))),
+        (Local, Some(NEEDS_REPLICATED.to_owned()), None),
+        (Replicated, None, Some(not_with("replicated"))),
+        (LocalAndReplicated, None, Some(not_with("local,replicated"))),
+    ] {
+        assert!(tiers.check_ack_level(AckLevel::Ok).is_ok(), "{tiers:?}");
+        for (level, expected) in [
+            (AckLevel::Durable, durable),
+            (AckLevel::LocalDurable, local_durable),
+        ] {
+            let result = tiers.check_ack_level(level);
+            match expected {
+                None => assert!(result.is_ok(), "{tiers:?} {level:?}: {result:?}"),
+                Some(msg) => {
+                    let err = result.unwrap_err();
+                    assert_eq!(err.code(), ErrorCode::InvalidApiCall, "{tiers:?} {level:?}");
+                    assert_eq!(err.msg(), msg, "{tiers:?} {level:?}");
+                }
+            }
+        }
+    }
+}
+
 #[cfg(feature = "sync-sender-qwp-ws")]
 #[test]
 fn qwpws_store_and_forward_config_accepts_and_rejects_java_keys() {
-    SenderBuilder::from_conf("ws::addr=localhost:9000;request_durable_ack=off;").unwrap();
-    SenderBuilder::from_conf("ws::addr=localhost:9000;request_durable_ack=on;").unwrap();
+    for (value, expected) in [
+        ("off", super::conf::DurableAckTiers::Off),
+        ("on", super::conf::DurableAckTiers::LegacyReplicated),
+        ("local", super::conf::DurableAckTiers::Local),
+        ("replicated", super::conf::DurableAckTiers::Replicated),
+        (
+            "local,replicated",
+            super::conf::DurableAckTiers::LocalAndReplicated,
+        ),
+        (
+            "replicated,local",
+            super::conf::DurableAckTiers::LocalAndReplicated,
+        ),
+    ] {
+        let conf = format!("ws::addr=localhost:9000;request_durable_ack={value};");
+        let builder = SenderBuilder::from_conf(conf).unwrap();
+        assert_specified_eq(
+            &builder.qwp_ws.as_ref().unwrap().request_durable_ack,
+            expected,
+        );
+    }
     SenderBuilder::from_conf(
         "ws::addr=localhost:9000;request_durable_ack=off;durable_ack_keepalive_interval_millis=5000;",
     )
@@ -570,7 +634,7 @@ fn qwpws_store_and_forward_config_accepts_and_rejects_java_keys() {
     }
     assert_conf_err(
         SenderBuilder::from_conf("ws::addr=localhost:9000;request_durable_ack=maybe;"),
-        "invalid request_durable_ack [value=maybe, allowed-values=[on, off]]",
+        "invalid request_durable_ack [value=maybe, allowed-values=[on, off, local, replicated, local,replicated]]",
     );
     assert_conf_err(
         SenderBuilder::from_conf("ws::addr=localhost:9000;drain_orphans=maybe;"),
@@ -1850,4 +1914,46 @@ fn assert_conf_err<T, M: AsRef<str>>(result: Result<T>, expect_msg: M) {
     };
     assert_eq!(err.code(), ErrorCode::ConfigError);
     assert_eq!(err.msg(), expect_msg.as_ref());
+}
+
+#[cfg(feature = "_sender-qwp-ws")]
+#[test]
+fn qwp_ws_token_provider_conflicts_with_static_auth() {
+    // A rotating token provider is mutually exclusive with static auth.
+    let result = SenderBuilder::new(Protocol::Ws, "127.0.0.1", 9000)
+        .username("u")
+        .unwrap()
+        .qwp_ws_token_provider(|| Ok::<_, crate::Error>("provided".to_string()));
+    assert_eq!(result.unwrap_err().code(), ErrorCode::ConfigError);
+}
+
+#[cfg(feature = "_sender-qwp-ws")]
+#[test]
+fn qwp_ws_token_provider_stored_in_config() {
+    // With no static auth, the provider is accepted and stored on the QWP/WS
+    // config, ready to be pulled at each (re)connect.
+    let builder = SenderBuilder::new(Protocol::Ws, "127.0.0.1", 9000)
+        .qwp_ws_token_provider(|| Ok::<_, crate::Error>("tok".to_string()))
+        .unwrap();
+    assert!(builder.qwp_ws.as_ref().unwrap().token_provider.is_some());
+    assert!(builder.has_token_provider_auth());
+}
+
+#[cfg(feature = "sync-sender-qwp-ws")]
+#[test]
+fn qwp_ws_connector_rejects_static_auth_added_after_token_provider() {
+    // The pooled connector bypasses SenderBuilder::build, so its shared
+    // validation must independently catch auth assigned after the provider.
+    let builder = SenderBuilder::new(Protocol::Ws, "127.0.0.1", 9000)
+        .qwp_ws_token_provider(|| Ok::<_, crate::Error>("provided".to_string()))
+        .unwrap()
+        .username("u")
+        .unwrap()
+        .password("p")
+        .unwrap();
+    let Err(err) = builder.build_qwp_ws_connector() else {
+        panic!("expected the pooled connector to reject provider plus static auth");
+    };
+    assert_eq!(err.code(), ErrorCode::ConfigError);
+    assert!(err.msg().contains("qwp_ws_token_provider"));
 }

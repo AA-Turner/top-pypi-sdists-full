@@ -416,8 +416,7 @@ class SMatrix_SELL(SMatrix):
         if data['norm_factor_inv'].size > 0:
             self.norm_factor_inv = data['norm_factor_inv']
 
-        # 3. Rebuild sell_rowinds (required by CPU projections)
-        self.sell_rowinds = self._build_sell_rowinds()
+        self.sell_rowinds =  None   # built lazily on first CPU projection
 
         data.close()
         self.device = 'cpu'
@@ -560,8 +559,10 @@ class SMatrix_SELL(SMatrix):
 
         print(f"[AOT-biomaps] SELL SMatrix loaded into VRAM. Density restored.")
 
-    def _build_sell_rowinds(self, num_rows=None):
-        """Rebuild sell_rowinds, fully vectorized (no Python loop over slices)."""
+    def _build_sell_rowinds(self, num_rows=None, chunk=1 << 28):
+        """Rebuild sell_rowinds, vectorized and CHUNKED (bounded peak RAM).
+        The old full-size np.arange(total) peaked at ~20 bytes * total_storage,
+        which is hundreds of GB for large matrices and triggered the OOM killer."""
         num_rows = int(num_rows if num_rows is not None else self.N * self.T)
         C = int(self.slice_height)
         num_slices = len(self.slice_len)
@@ -571,15 +572,13 @@ class SMatrix_SELL(SMatrix):
         if total == 0:
             return np.zeros(0, dtype=np.int32)
 
-        # Cumulative base offset of each slice
         bases = np.concatenate(([0], np.cumsum(lengths)))
-
-        # For each position p in [0, total): slice s such that bases[s] <= p < bases[s+1]
-        p = np.arange(total, dtype=np.int64)
-        s = np.searchsorted(bases, p, side='right') - 1
-
-        # Row within slice layout: s*C + (p - bases[s]) % C
-        out = (s * C + (p - bases[s]) % C).astype(np.int32)
+        out = np.empty(total, dtype=np.int32)
+        for i in range(0, total, chunk):
+            j = min(i + chunk, total)
+            p = np.arange(i, j, dtype=np.int64)
+            s = np.searchsorted(bases, p, side='right') - 1
+            out[i:j] = (s * C + (p - bases[s]) % C).astype(np.int32)
         return out
 
     def forward_projection(self, theta: Union[np.ndarray, 'cp.ndarray']) -> Union[np.ndarray, 'cp.ndarray']:
@@ -1751,6 +1750,9 @@ class SMatrix_SELL(SMatrix):
     def _ensure_cpu_csr_cache(self):
         """Build (once) scipy CSR matrices equivalent to the SELL layout (A and A^H).
         Much faster than np.add.at (multithreaded scipy kernels) for repeated projections."""
+
+        if getattr(self, "sell_rowinds", None) is None or self.sell_rowinds.size != self.total_storage:
+            self.sell_rowinds = self._build_sell_rowinds()
         if getattr(self, "_cpu_csr_cache", None) is not None:
             return self._cpu_csr_cache
 

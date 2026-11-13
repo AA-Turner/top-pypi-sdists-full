@@ -7,6 +7,7 @@ from .... import agent_session
 
 from .... import errors
 from ....delivery.transport.transport import Page
+from ....values.run_type import to_run_type
 
 
 # Late import to avoid a cycle at module load (Run needs Client, Client returns Run).
@@ -153,8 +154,9 @@ class RunReadsMixin:
         status: str | None = None,
         authored_by: str | None = None,
         expected_name: str | None = None,
+        run_type: str | None = None,
     ) -> dict:
-        """PATCH /v1/runs/{id} — amend a run's authored fields.
+        """PATCH /v1/runs/{id} — amend a run's authored fields, status or type.
 
         ``expected_name`` makes a ``name`` write a compare-and-set: the name read before it, so a rename
         meanwhile refuses the write (409) instead of being overwritten. It marks the script's own name
@@ -179,6 +181,8 @@ class RunReadsMixin:
         later reader should distrust about it, and writing the caveat into
         ``description`` means destroying the description to keep it.
 
+        ``run_type`` (``general`` or ``rl``) is a choice and overwrites whatever was declared.
+
         Omitting a field leaves it alone; passing ``""`` for ``notes`` clears it."""
         body = {
             key: value
@@ -187,11 +191,12 @@ class RunReadsMixin:
                 "description": description,
                 "notes": notes,
                 "status": status,
+                "run_type": to_run_type(run_type) if run_type is not None else None,
             }.items()
             if value is not None
         }
         if not body:
-            raise ValueError("update_run needs at least one of name/description/notes/status")
+            raise ValueError("update_run needs at least one of name/description/notes/status/run_type")
         # AFTER the emptiness check, deliberately. `authored_by` declares who
         # wrote the OTHER fields; on its own it declares authorship of nothing,
         # and letting it satisfy "at least one field to set" would turn a

@@ -6,6 +6,7 @@ connection string generation, parameter validation, and configuration.
 """
 
 import pytest
+import sqlglot
 
 from sagemaker_studio.sql_engine.vertica_transformer import VerticaTransformer
 
@@ -220,6 +221,27 @@ class TestVerticaTransformer:
         """Test resource action with invalid type raises ValueError."""
         with pytest.raises(ValueError, match="Unsupported resource type"):
             VerticaTransformer.get_resources_action("INVALID_TYPE")
+
+    def test_supports_row_limit_is_false(self):
+        # No sqlglot Vertica dialect to classify with, so Vertica does not opt in.
+        assert VerticaTransformer.supports_row_limit is False
+
+    def test_get_dialect_is_none(self):
+        """Vertica inherits the generic (None) dialect; see test_sqlglot_has_no_vertica_dialect."""
+        assert VerticaTransformer.get_dialect() is None
+
+    def test_row_limit_leaves_statement_unchanged(self):
+        assert (
+            VerticaTransformer.apply_row_limit("SELECT a FROM t", "SELECT", 100)
+            == "SELECT a FROM t"
+        )
+
+    def test_sqlglot_has_no_vertica_dialect(self):
+        """If this fails, give VerticaTransformer a get_dialect() and revisit its row limit."""
+        assert "Vertica" not in sqlglot.dialects.DIALECTS, (
+            "sqlglot now has a Vertica dialect: give VerticaTransformer a get_dialect() "
+            "override returning it, and revisit supports_row_limit"
+        )
 
 
 if __name__ == "__main__":

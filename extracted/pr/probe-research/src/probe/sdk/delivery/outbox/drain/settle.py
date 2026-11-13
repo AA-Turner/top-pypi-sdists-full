@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import re
 import time
 from typing import Any
 
@@ -25,6 +26,37 @@ MIN_TRANSIENT_ATTEMPTS = 50
 _RUN_BUSY_RECHECK_SECONDS = 5.0
 #: A lane's note while the server holds its run's close for queued data (I15d).
 SERVER_STORING_NOTE = "the server is storing this run's queued data; the close is sent again shortly"
+
+
+def _is_own_run_in_trash(op: dict, exc: Exception) -> bool:
+    """The server's trash notice (410 `in_trash`, never another 410) names this op's OWN run. Not a
+    project or experiment it resolves, not another run, and never a run's create (`probe sync
+    --project` refiles one)."""
+    from probe.sdk.delivery.offline.offline import CREATE_KIND
+
+    if not (isinstance(exc, errors.RosError) and exc.in_trash) or op.get("kind") == CREATE_KIND:
+        return False
+    run_id = exc.in_trash_id
+    if exc.in_trash_kind != "run" or not run_id:
+        return False
+    # An offline run's op keeps `local:<key>` as its run_ref; its path names the bound server id.
+    path = str(op.get("path") or "")
+    upload = op.get("upload")
+    anchor = upload.get("anchor_id") if isinstance(upload, dict) else None
+    return run_id in (op.get("run_ref"), anchor) or re.search(rf"/runs/{re.escape(run_id)}(?:[/?]|$)", path) is not None
+
+
+def _stamp_trash_refusal(op: dict, exc: Exception) -> None:
+    """Mark a write the server refused as in the trash with what the notice named (`TRASH_REFUSAL_KEY`):
+    it dead-letters as before (an older SDK's `finish()` sharing this outbox must see it in failed/,
+    or it reports "delivered" and waits on a run it can no longer read), and the rescuer's sweep
+    takes it once the trashed thing is its own run (`discards.is_final_letter`)."""
+    if not (isinstance(exc, errors.RosError) and exc.in_trash):
+        op.pop(TRASH_REFUSAL_KEY, None)
+        return
+    op[TRASH_REFUSAL_KEY] = {
+        "kind": exc.in_trash_kind, "id": exc.in_trash_id, "own_run": _is_own_run_in_trash(op, exc),
+    }
 
 
 class DrainSettleMixin:
@@ -226,7 +258,10 @@ class DrainSettleMixin:
         if self.options.on_error is not None:
             self.options.on_error(exc)
         if errors.names_stale_write_epoch(exc) and not _is_multipart(op):
-            return self._set_aside_superseded(path, op, exc, lane)
+            from ..... import analytics as _telemetry
+
+            return self._set_aside(path, op, exc, lane, _telemetry.DiscardReason.SUPERSEDED)
+        _stamp_trash_refusal(op, exc)
         verdict = classify(exc)
         if _edge_already_there(op, exc) or (
             verdict == "idempotent"
@@ -257,12 +292,13 @@ class DrainSettleMixin:
         self.report.deadline_reached = True
         return "break"
 
-    def _set_aside_superseded(self, path: Path, op: dict, exc: Exception, lane: Any) -> str:
-        """A newer attempt owns the run (the op's write epoch is past): the server refuses
-        it every time, so it is set aside in discarded/ (kept, never sent) instead of
-        dead-lettered, where it nagged every session start and `probe outbox retry`
-        could never deliver it (#3629, T24). Before the idempotent check: the
-        heartbeat's refusal names `existing_id`."""
+    def _set_aside(self, path: Path, op: dict, exc: Exception, lane: Any, reason: str) -> str:
+        """Move a write the server refuses every time to discarded/ (kept, never sent), counted
+        under ``reason`` (`DiscardReason`): a newer attempt owns its run (a past write epoch,
+        #3629, T24). As a dead letter it nagged every session start and `probe outbox retry`
+        could never deliver it. Before the idempotent check: the heartbeat's stale-epoch refusal
+        names `existing_id`. A run in the trash is NOT set aside here: an older SDK sharing this
+        outbox reads its close from failed/ (`_stamp_trash_refusal`)."""
         op["attempts"] = _attempts(op) + 1
         op["last_error"] = _redact(f"{type(exc).__name__}: {exc}")
         write_text_atomic(path, json.dumps(op, indent=2) + "\n", mode=0o600)
@@ -271,7 +307,7 @@ class DrainSettleMixin:
         os.replace(path, target / path.name)
         fsync_directory(target)
         fsync_directory(path.parent)
-        self.report.superseded.add(op)
+        self.report.set_aside.setdefault(reason, DiscardCounts()).add(op)
         self.report.progressed_runs.add(lane)
         self.report.note_run_progress(op, delivered=False)
         self.settled_upload = self.settled_upload or op.get("kind") == "upload"
@@ -543,6 +579,7 @@ from probe.sdk.delivery.ops.ops import _is_multipart  # noqa: E402 -- pieces nee
 from probe.sdk.delivery.ops.ops import _lane_of  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.ops import _meta_of  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.op_handler import _record_upload_fallback  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.journal.failures.discards import DiscardCounts, TRASH_REFUSAL_KEY  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.classify import _redact  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.credentials import _stamp_fingerprint  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.classify import _transient_budget_seconds  # noqa: E402 -- pieces need each other; the front door loads this one first

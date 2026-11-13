@@ -8,6 +8,8 @@ from .database_transformer import DatabaseTransformer
 
 class VerticaTransformer(DatabaseTransformer):
 
+    # No get_dialect() or row limit: sqlglot has no Vertica dialect to parse with.
+
     @staticmethod
     def get_required_fields() -> List[str]:
         return ["host", "port", "database", "user", "password"]

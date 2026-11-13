@@ -169,7 +169,7 @@ class instrumentsproperty:
         """
         if instruments is None:
             return None
-        instruments = set(instrument.strip() for instrument in instruments.split(","))
+        instruments = {instrument.strip() for instrument in instruments.split(",")}
         instruments.discard("")
         return instruments
 
@@ -265,7 +265,7 @@ class gpsproperty:
             elif (s, ns) == self.neginf:
                 return segments.NegInfinity
             raise ValueError(
-                "unrecognized denormalized number LIGOTimeGPS(%d,%d)" % (s, ns)
+                f"unrecognized denormalized number LIGOTimeGPS({s:d},{ns:d})"
             )
         return LIGOTimeGPS(s, ns)
 
@@ -288,8 +288,7 @@ class gpsproperty:
                 return self.__set__(obj, LIGOTimeGPS(gps))
             if abs(ns) > 999999999:
                 raise ValueError(
-                    "denormalized LIGOTimeGPS not allowed: LIGOTimeGPS(%d, %d)"
-                    % (s, ns)
+                    f"denormalized LIGOTimeGPS not allowed: LIGOTimeGPS({s:d}, {ns:d})"
                 )
         setattr(obj, self.s_name, s)
         setattr(obj, self.ns_name, ns)
@@ -311,11 +310,11 @@ class gpsproperty_with_gmst(gpsproperty):
     """
 
     def __init__(self, s_name, ns_name, gmst_name):
-        super(gpsproperty_with_gmst, self).__init__(s_name, ns_name)
+        super().__init__(s_name, ns_name)
         self.gmst_name = gmst_name
 
     def __set__(self, obj, gps):
-        super(gpsproperty_with_gmst, self).__set__(obj, gps)
+        super().__set__(obj, gps)
         if gps is None:
             setattr(obj, self.gmst_name, None)
         else:
@@ -405,7 +404,7 @@ class ProcessTable(ligolw.Table):
         Return a set containing the process IDs from rows whose
         program string equals the given program.
         """
-        return set(row.process_id for row in self if row.program == program)
+        return {row.process_id for row in self if row.program == program}
 
     @staticmethod
     def get_username():
@@ -585,10 +584,9 @@ class ProcessParamsTable(ligolw.Table):
     def append(self, row):
         if row.type is not None and row.type not in ligolwtypes.Types:
             raise ligolw.ElementError(
-                "unrecognized type '%s' for process %d param '%s'"
-                % (row.type, row.process_id, row.param)
+                f"unrecognized type '{row.type}' for process {row.process_id:d} param '{row.param}'"
             )
-        super(ProcessParamsTable, self).append(row)
+        super().append(row)
 
 
 class ProcessParams(ligolw.Table.RowType):
@@ -633,7 +631,7 @@ class ProcessParams(ligolw.Table.RowType):
         try:
             parsefunc = ligolwtypes.ToPyType[self.type]
         except KeyError:
-            raise ValueError("invalid type '%s'" % self.type)
+            raise ValueError(f"invalid type '{self.type}'")
         return parsefunc(self.value)
 
     @pyvalue.setter
@@ -644,7 +642,7 @@ class ProcessParams(ligolw.Table.RowType):
             try:
                 self.type = ligolwtypes.FromPyType[type(value)]
             except KeyError:
-                raise ValueError("type not supported: %s" % repr(type(value)))
+                raise ValueError(f"type not supported: {type(value)!r}")
             self.value = (
                 value
                 if self.type in ligolwtypes.StringTypes
@@ -704,7 +702,7 @@ class SearchSummaryTable(ligolw.Table):
             ifos = row.instruments or (None,)
             if process_ids is None or row.process_id in process_ids:
                 seglists.extend(
-                    dict((ifo, segments.segmentlist([row.in_segment])) for ifo in ifos)
+                    {ifo: segments.segmentlist([row.in_segment]) for ifo in ifos}
                 )
         return seglists
 
@@ -724,7 +722,7 @@ class SearchSummaryTable(ligolw.Table):
             ifos = row.instruments or (None,)
             if process_ids is None or row.process_id in process_ids:
                 seglists.extend(
-                    dict((ifo, segments.segmentlist([row.out_segment])) for ifo in ifos)
+                    {ifo: segments.segmentlist([row.out_segment]) for ifo in ifos}
                 )
         return seglists
 
@@ -2554,13 +2552,13 @@ class TimeSlideTable(ligolw.Table):
         # here.
         from lalburst.offsetvector import offsetvector
 
-        return dict(
-            (time_slide_id, offsetvector((row.instrument, row.offset) for row in rows))
+        return {
+            time_slide_id: offsetvector((row.instrument, row.offset) for row in rows)
             for time_slide_id, rows in itertools.groupby(
                 sorted(self, key=lambda row: row.time_slide_id),
                 lambda row: row.time_slide_id,
             )
-        )
+        }
 
     def append_offsetvector(self, offsetvect, process):
         """
@@ -2628,11 +2626,11 @@ class TimeSlideTable(ligolw.Table):
                 time_slide_id
                 for time_slide_id, slide in self.as_dict().items()
                 if offsetdict
-                == dict(
-                    (instrument, offset)
+                == {
+                    instrument: offset
                     for instrument, offset in slide.items()
                     if instrument in offsetdict
-                )
+                }
             ]
         else:
             ids = [
@@ -2646,14 +2644,14 @@ class TimeSlideTable(ligolw.Table):
                 # and that's OK
                 return ids[0]
             # and that's not OK
-            raise KeyError("%s not unique" % repr(offsetdict))
+            raise KeyError(f"{offsetdict!r} not unique")
         if len(ids) == 1:
             # found one
             return ids[0]
         # offset vector not found in table
         if create_new is None:
             # and that's not OK
-            raise KeyError("%s not found" % repr(offsetdict))
+            raise KeyError(f"{offsetdict!r} not found")
         # that's OK, create new vector, return its ID
         return self.append_offsetvector(offsetdict, create_new)
 
@@ -2711,8 +2709,7 @@ class CoincDefTable(ligolw.Table):
         ]
         if len(rows) > 1:
             raise ValueError(
-                "(search, search coincidence type) = ('%s', %d) is not unique"
-                % (search, search_coinc_type)
+                f"(search, search coincidence type) = ('{search}', {search_coinc_type:d}) is not unique"
             )
         if len(rows) > 0:
             return rows[0].coinc_def_id
@@ -2899,9 +2896,9 @@ class VetoDefTable(ligolw.Table):
         Report the versions available for the (name, category)
         pair.
         """
-        return set(
+        return {
             row.version for row in self if row.name == name and row.category == category
-        )
+        }
 
     def segmentlistdict(self, name, category, version=None, padded=False):
         """

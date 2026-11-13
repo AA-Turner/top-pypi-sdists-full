@@ -5,11 +5,15 @@ from __future__ import annotations
 
 import abc
 import logging
+import uuid
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from dataclasses import replace
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, final, overload
 
-from pyrit.common.deprecation import print_deprecation_message
-from pyrit.exceptions import PyritException
+from pyrit.common import print_deprecation_message
+from pyrit.common.task_utils import gather_with_cleanup_async
+from pyrit.exceptions import PyritException, execution_context, get_execution_context
 from pyrit.memory import CentralMemory, MemoryInterface
 from pyrit.models import (
     MEDIA_PATH_DATA_TYPES,
@@ -17,8 +21,10 @@ from pyrit.models import (
     Condition,
     ContentScorable,
     Identifiable,
+    MatchesObjective,
     Message,
     MessageScorable,
+    Observation,
     Scorable,
     ScorableUnion,
     Score,
@@ -28,13 +34,22 @@ from pyrit.models import (
     ScoreType,
     ScoringExpectation,
 )
+from pyrit.prompt_target import CHAT_TARGET_REQUIREMENTS, CapabilityName, TargetRequirements
 from pyrit.prompt_target.batch_helper import batch_task_async
-from pyrit.prompt_target.common.target_requirements import TargetRequirements
+from pyrit.score.observation.execution import (
+    NonReplayableObservationError,
+    _collect_scores,
+    _ObservationEvidence,
+    _ObservationEvidenceResolver,
+    _scoring_collection,
+    _scoring_message_context,
+    _scoring_scorable_context,
+)
 
 if TYPE_CHECKING:
-    import uuid
-    from collections.abc import Sequence
+    from collections.abc import Awaitable, Callable, Sequence
 
+    from pyrit.exceptions import ComponentRole
     from pyrit.models import ChatMessageRole
     from pyrit.prompt_target import PromptTarget
     from pyrit.score.scorer_evaluation.metrics_type import RegistryUpdateBehavior
@@ -46,6 +61,108 @@ logger = logging.getLogger(__name__)
 
 #: Release in which the message-shaped ``score_async`` parameters are removed.
 LEGACY_SCORE_ASYNC_REMOVED_IN = "2.0.0"
+SnapshotParticipation = dict[str, Any]
+ConditionT = TypeVar("ConditionT", bound=Condition)
+
+
+def _read_snapshot_participation(score: Score) -> SnapshotParticipation | None:
+    """
+    Read the same-input child participation tree stored on a wrapper result.
+
+    Returns:
+        The validated child tree, or ``None`` when it is absent or invalid.
+    """
+    raw: Any = score._snapshot_participation
+    return raw if _is_snapshot_participation(raw) else None
+
+
+def _is_snapshot_participation(value: Any) -> bool:
+    """
+    Validate persisted participation metadata before using it to skip a freshness check.
+
+    Returns:
+        Whether the value is a valid participation tree.
+    """
+    return isinstance(value, dict) and all(
+        isinstance(index, str)
+        and index.isascii()
+        and index.isdecimal()
+        and (index == "0" or not index.startswith("0"))
+        and (child is None or _is_snapshot_participation(child))
+        for index, child in value.items()
+    )
+
+
+def _participates_in_snapshot(
+    *,
+    score: Score,
+    child_index: int,
+    participation_by_score: dict[str, SnapshotParticipation | None],
+) -> bool:
+    """Return whether a child participated, conservatively including unknown legacy branches."""
+    participation = participation_by_score.get(str(score.id))
+    return participation is None or str(child_index) in participation
+
+
+def _child_snapshot_participation(
+    *,
+    score: Score,
+    child_index: int,
+    participation_by_score: dict[str, SnapshotParticipation | None],
+) -> SnapshotParticipation | None:
+    """Return the nested participation tree for one child, if known."""
+    participation = participation_by_score.get(str(score.id))
+    return participation.get(str(child_index)) if participation is not None else None
+
+
+def _validated_snapshot_participation(
+    *,
+    score: Score,
+    child_count: int,
+    participation_by_score: dict[str, SnapshotParticipation | None],
+) -> SnapshotParticipation | None:
+    """
+    Treat incomplete or out-of-range participation data as unknown.
+
+    Returns:
+        The validated participation tree, or ``None`` when the tree is unknown.
+    """
+    participation = participation_by_score.get(str(score.id))
+    if participation is None or not participation:
+        return None
+    valid_indices = {str(index) for index in range(child_count)}
+    if any(index not in valid_indices for index in participation):
+        return None
+    return participation
+
+
+def _set_snapshot_participation(*, score: Score, child_scores: dict[int, Score]) -> None:
+    """Attach the exact same-input child branches that contributed to a wrapper score."""
+    score._snapshot_participation = {
+        str(index): _read_snapshot_participation(child) for index, child in sorted(child_scores.items())
+    }
+
+
+class LegacyScorerHookError(TypeError):
+    """
+    A scorer's protected hook cannot receive the typed criterion the scorer declares.
+
+    Legacy hooks receive only the objective. They keep working for objective-based and
+    constructor-configured scoring until 2.0, but a scorer that declares a typed condition
+    must implement an expectation-aware hook so the criterion reaches the code that matches it.
+    """
+
+
+class _SelfContainedJudgeTargetRequirements(TargetRequirements):
+    def validate(self, *, target: PromptTarget) -> None:
+        requirements = CHAT_TARGET_REQUIREMENTS
+        if not target.capabilities.supports_editable_history:
+            requirements = replace(
+                requirements,
+                required=requirements.required - {CapabilityName.EDITABLE_HISTORY},
+                native_required=requirements.native_required | {CapabilityName.SYSTEM_PROMPT},
+            )
+        requirements.validate(target=target)
 
 
 async def _legacy_score_scorable_async(
@@ -67,11 +184,35 @@ async def _legacy_score_scorable_async(
         new_item="pyrit.score.MessageScorer (or MessageTrueFalseScorer / MessageFloatScaleScorer) as the base class",
         removed_in=LEGACY_SCORE_ASYNC_REMOVED_IN,
     )
+    self._validate_legacy_hook_expectation(
+        expectation=expectation, replacement="a MessageScorer expectation-aware hook"
+    )
     resolver = getattr(self, "_message_resolver", None) or MessageScorableResolver()
-    message = resolver.resolve(scorable=scorable, memory=self._memory)
+    message = await resolver.resolve_async(scorable=scorable, memory=self._memory)
     legacy_score_async = self._score_async  # type: ignore[ty:unresolved-attribute]
-    scores: list[Score] = await legacy_score_async(message, objective=expectation.objective if expectation else None)
+    with _scoring_message_context(message):
+        scores: list[Score] = await legacy_score_async(
+            message,
+            objective=expectation.objective if expectation else None,
+        )
     return scores
+
+
+def _reject_typed_legacy_condition(cls: type[Scorer]) -> None:
+    """
+    Reject a typed condition on a scorer whose only hooks receive the objective.
+
+    Raises:
+        LegacyScorerHookError: If the class declares a condition other than ``MatchesObjective``.
+    """
+    condition_type = cls.CONDITION_TYPE
+    if condition_type is not None and condition_type is not MatchesObjective:
+        raise LegacyScorerHookError(
+            f"{cls.__name__} declares {condition_type.__name__}, which the legacy objective-only "
+            "hooks cannot receive. Implement _score_scorable_async, or derive from MessageScorer and "
+            "implement _score_piece_with_expectation_async. Legacy hooks support objective-based "
+            "scoring only, until 2.0."
+        )
 
 
 def _adapt_legacy_message_scorer(cls: type) -> None:
@@ -82,7 +223,8 @@ def _adapt_legacy_message_scorer(cls: type) -> None:
     predates the split implements ``_score_async`` or only ``_score_piece_async`` instead, and
     would otherwise fail to instantiate because ``_score_scorable_async`` is abstract.
     ``ABCMeta`` recomputes ``__abstractmethods__`` after ``__init_subclass__``, so assigning
-    here is enough.
+    here is enough. The adapted scorer reads message evidence, so it also declares the message
+    scorable types unless it declares its own.
     """
     for base in cls.__mro__:
         if base is Scorer:
@@ -93,14 +235,16 @@ def _adapt_legacy_message_scorer(cls: type) -> None:
     def defines(name: str) -> bool:
         return any(name in base.__dict__ for base in cls.__mro__)
 
+    if not defines("_score_async") and not defines("_score_piece_async"):
+        return
+
+    from pyrit.score.message_scorer import MessageScorer
+
     if not defines("_score_async"):
-        if not defines("_score_piece_async"):
-            return
         # A leaf that only fans in at the piece level used to inherit the message pipeline
         # from its family base. That pipeline now lives on the message-capable family,
         # so lend the matching family implementation here.
         from pyrit.score.float_scale.float_scale_scorer import FloatScaleScorer, MessageFloatScaleScorer
-        from pyrit.score.message_scorer import MessageScorer
         from pyrit.score.true_false.true_false_scorer import MessageTrueFalseScorer, TrueFalseScorer
 
         if issubclass(cls, TrueFalseScorer):
@@ -111,9 +255,13 @@ def _adapt_legacy_message_scorer(cls: type) -> None:
             score_async = MessageScorer._score_async
 
         cls._score_async = score_async  # type: ignore[ty:invalid-assignment, ty:unresolved-attribute]
+        if not defines("_score_piece_with_expectation_async"):
+            cls._score_piece_with_expectation_async = MessageScorer._score_piece_with_expectation_async  # type: ignore[ty:invalid-assignment, ty:unresolved-attribute]
         if not defines("_get_supported_pieces"):
             cls._get_supported_pieces = MessageScorer._get_supported_pieces  # type: ignore[ty:invalid-assignment, ty:unresolved-attribute]
 
+    if not cls.SUPPORTED_SCORABLE_TYPES:  # type: ignore[ty:unresolved-attribute]
+        cls.SUPPORTED_SCORABLE_TYPES = MessageScorer.SUPPORTED_SCORABLE_TYPES  # type: ignore[ty:unresolved-attribute]
     cls._score_scorable_async = _legacy_score_scorable_async  # type: ignore[ty:invalid-assignment, ty:unresolved-attribute]
 
 
@@ -132,32 +280,42 @@ class Scorer(Identifiable, abc.ABC):
     evaluation_file_mapping: ScorerEvalDatasetFiles | None = None
 
     #: Capability requirements placed on the scorer's chat target (if any).
-    #: Subclasses that use a chat target should override this and pass the
-    #: target to ``super().__init__(chat_target=...)`` so the base class can
-    #: validate it.
+    #: Concrete target-backed scorers validate these through their target collaborator.
     TARGET_REQUIREMENTS: ClassVar[TargetRequirements] = TargetRequirements()
 
-    #: Condition types this scorer can use as its criterion. Wrapping scorers report their
-    #: children's union so the root can reject conditions that reach no configured leaf.
-    MATCHED_CONDITIONS: ClassVar[frozenset[type[Condition]]] = frozenset()
-
-    #: Matched condition types that this scorer cannot operate without. The empty-condition
-    #: legacy path remains valid during the transition to typed expectations.
-    REQUIRED_CONDITIONS: ClassVar[frozenset[type[Condition]]] = frozenset()
+    #: The single required criterion for a leaf, or None for constructor-configured scoring.
+    #: Wrappers expose their children instead of declaring their own criterion.
+    CONDITION_TYPE: ClassVar[type[Condition] | None] = None
+    SUPPORTED_SCORABLE_TYPES: ClassVar[tuple[type[Scorable], ...]] = ()
 
     _identifier: ComponentIdentifier | None = None
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """
-        Enforce the keyword-only constructor contract on subclasses.
+        Enforce keyword-only constructors and singular leaf condition declarations.
 
         See ``.github/instructions/scorers.instructions.md`` for the contract.
+
+        Raises:
+            TypeError: If a subclass declares invalid or independently derived condition capabilities.
         """
         super().__init_subclass__(**kwargs)
         # Local import to avoid a circular dependency at package init time.
-        from pyrit.common.brick_contract import enforce_keyword_only_init
+        from pyrit.common import enforce_keyword_only_init
 
         enforce_keyword_only_init(cls, base_name="Scorer")
+        if any(
+            name in cls.__dict__
+            for name in ("MATCHED_CONDITIONS", "REQUIRED_CONDITIONS", "matched_conditions", "required_conditions")
+        ):
+            raise TypeError(f"{cls.__name__} must declare one CONDITION_TYPE, not condition sets.")
+        if any(name in cls.__dict__ for name in ("condition_type", "get_condition_types")):
+            raise TypeError(f"{cls.__name__} cannot override derived condition capabilities.")
+        cls._check_condition_type(cls.CONDITION_TYPE)
+        if cls.CONDITION_TYPE is not None and any(
+            "_get_child_scorers" in base.__dict__ for base in cls.__mro__ if base is not Scorer
+        ):
+            raise TypeError(f"{cls.__name__} wraps scorers and cannot declare its own CONDITION_TYPE.")
         _adapt_legacy_message_scorer(cls)
 
     def __init__(
@@ -170,11 +328,17 @@ class Scorer(Identifiable, abc.ABC):
         Initialize the Scorer.
 
         Args:
-            chat_target (PromptTarget | None): Chat target used by the scorer, if any. When
-                provided, it is validated against ``TARGET_REQUIREMENTS``.
+            chat_target (PromptTarget | None): Deprecated validation-only compatibility parameter,
+                removed in 1.4.0. Does not store a target or create a judge.
             validator (ScorerPromptValidator | None): Deprecated. Message validation moved to
                 ``MessageScorer``; a value passed here is kept so pre-2.0 subclasses keep working.
+
+        Raises:
+            LegacyScorerHookError: If a pre-2.0 subclass declares a typed condition that its
+                objective-only hooks cannot receive.
         """
+        if type(self)._score_scorable_async is _legacy_score_scorable_async:
+            _reject_typed_legacy_condition(type(self))
         if validator is not None:
             print_deprecation_message(
                 old_item="Scorer.__init__(validator=...)",
@@ -184,38 +348,167 @@ class Scorer(Identifiable, abc.ABC):
             if getattr(self, "_validator", None) is None:
                 self._validator = validator
         if chat_target is not None:
+            print_deprecation_message(
+                old_item="Scorer.__init__(chat_target=...)",
+                new_item="TargetJudge(target=..., requirements=...)",
+                removed_in="1.4.0",
+            )
             type(self).TARGET_REQUIREMENTS.validate(target=chat_target)
 
-    def matched_conditions(self) -> frozenset[type[Condition]]:
+    @property
+    @final
+    def condition_type(self) -> type[Condition] | None:
         """
-        Return the condition types this scorer can use as its criterion.
+        The leaf's required condition type, or None for a wrapper or configured criterion.
+
+        Raises:
+            TypeError: If a wrapper declares its own condition type.
+        """
+        condition_type = self._get_condition_type()
+        self._check_condition_type(condition_type)
+        if condition_type is not None and self._get_child_scorers():
+            raise TypeError(f"{type(self).__name__} wraps scorers and cannot declare its own condition type.")
+        return condition_type
+
+    def _get_condition_type(self) -> type[Condition] | None:
+        """Return the leaf declaration, or its instance-specific equivalent."""
+        return self.CONDITION_TYPE
+
+    @staticmethod
+    def _check_condition_type(value: object) -> None:
+        """
+        Enforce a singular, concrete declaration.
+
+        Raises:
+            TypeError: If the declaration is not one specific Condition type or None.
+        """
+        if value is not None and (
+            not isinstance(value, type) or not issubclass(value, Condition) or value is Condition
+        ):
+            raise TypeError("CONDITION_TYPE must be one specific Condition subclass or None.")
+
+    @final
+    def get_condition_types(self) -> frozenset[type[Condition]]:
+        """
+        Derive condition coverage from the scorer tree, not a separate declaration.
 
         Returns:
-            frozenset[type[Condition]]: The matched condition types.
+            frozenset[type[Condition]]: The union of the leaves' condition types.
         """
-        return type(self).MATCHED_CONDITIONS
+        condition_type = self.condition_type
+        children = self._get_child_scorers()
+        if children:
+            return frozenset(condition_type for child in children for condition_type in child.get_condition_types())
+        return frozenset({condition_type}) if condition_type is not None else frozenset[type[Condition]]()
 
-    def required_conditions(self) -> frozenset[type[Condition]]:
+    def get_supported_scorable_types(self) -> frozenset[type[Scorable]]:
         """
-        Return the matched condition types this scorer requires.
+        Describe accepted evidence references without scoring or acquiring evidence.
+
+        A leaf declares its supported types. A wrapper without its own evidence adapter
+        accepts the types shared by all children. An undeclared custom leaf reports none.
 
         Returns:
-            frozenset[type[Condition]]: The required condition types.
+            The declared evidence types, or the common types of wrapped scorers.
         """
-        return type(self).REQUIRED_CONDITIONS
+        if self.SUPPORTED_SCORABLE_TYPES:
+            return frozenset(self.SUPPORTED_SCORABLE_TYPES)
+        children = self._get_child_scorers()
+        if not children:
+            return frozenset[type[Scorable]]()
+        return (
+            children[0]
+            .get_supported_scorable_types()
+            .intersection(*(child.get_supported_scorable_types() for child in children[1:]))
+        )
+
+    def _get_child_scorers(self) -> tuple[Scorer, ...]:
+        """Return the wrapped scorers, or an empty tuple for a leaf."""
+        return ()
+
+    def _get_required_condition(
+        self, *, expectation: ScoringExpectation | None, condition_type: type[ConditionT]
+    ) -> ConditionT:
+        """
+        Retrieve exactly one condition of the requested type.
+
+        Returns:
+            ConditionT: The criterion used by this leaf.
+
+        Raises:
+            TypeError: If the expectation is invalid or the requested type is not this leaf's criterion.
+            ValueError: If the condition is missing or duplicated.
+        """
+        ScoringExpectation.validate_type(expectation)
+        if condition_type is not self.condition_type:
+            raise TypeError(f"{type(self).__name__} can only retrieve its declared condition type.")
+        matches = [
+            condition
+            for condition in (expectation.conditions if expectation else ())
+            if isinstance(condition, condition_type)
+        ]
+        if not matches:
+            raise ValueError(
+                f"{type(self).__name__} requires one {condition_type.__name__} condition. "
+                f"Supply it in ScoringExpectation.conditions; objective text alone does not supply this criterion."
+            )
+        if len(matches) > 1:
+            raise ValueError(
+                f"{type(self).__name__} received {len(matches)} {condition_type.__name__} conditions. "
+                "A leaf scorer requires exactly one condition of its declared type."
+            )
+        return matches[0]
+
+    def _validate_legacy_hook_expectation(self, *, expectation: ScoringExpectation | None, replacement: str) -> None:
+        """
+        Reject criteria a legacy hook claims to match but cannot receive.
+
+        Raises:
+            LegacyScorerHookError: If the hook cannot receive a matched non-objective condition.
+        """
+        if expectation is not None and any(
+            not isinstance(condition, MatchesObjective) for condition in expectation.conditions
+        ):
+            raise LegacyScorerHookError(
+                f"{type(self).__name__} must accept and forward expectation for its matched typed conditions. "
+                f"Implement {replacement}."
+            )
 
     def get_chat_target(self) -> PromptTarget | None:
         """
         Return the chat target used by this scorer, or None if it doesn't use one.
 
         Subclasses that wrap other scorers (e.g. inverters, composites) should
-        override to delegate to their inner scorer(s).
+        override to delegate to their inner scorer(s). Batch scoring and evaluation
+        use this target to validate rate-limit settings.
 
         Returns:
             PromptTarget | None: The chat target, or None if not applicable.
         """
         prompt_target: PromptTarget | None = getattr(self, "_prompt_target", None)
         return prompt_target
+
+    def with_scorer_block_policy(self, *, raise_if_scorer_blocks: bool) -> Scorer:
+        """
+        Return a scorer whose LLM-backed leaves use the given blocked-response policy.
+
+        Scorers that never call an LLM cannot express the policy and return themselves.
+        Subclasses that wrap other scorers (e.g. inverters, composites) should override to
+        delegate, mirroring ``get_chat_target``, because the leaf that calls the LLM is the
+        one that has to decide whether a blocked scoring response raises or yields an
+        undetermined score.
+
+        Implementations return ``self`` when nothing changes so shared instances are not
+        copied needlessly, and otherwise return an independent scorer; callers may hold a
+        registry singleton that must not be mutated.
+
+        Args:
+            raise_if_scorer_blocks (bool): The policy to apply to LLM-backed leaves.
+
+        Returns:
+            Scorer: ``self`` when already compliant, otherwise a scorer carrying the policy.
+        """
+        return self
 
     def get_identifier(self) -> ComponentIdentifier:
         """
@@ -263,6 +556,7 @@ class Scorer(Identifiable, abc.ABC):
         score_aggregator: str | None = None,
         prompt_target: ComponentIdentifier | None = None,
         sub_scorers: list[ComponentIdentifier] | None = None,
+        children: dict[str, ComponentIdentifier] | None = None,
     ) -> ComponentIdentifier:
         """
         Construct the scorer identifier.
@@ -285,6 +579,8 @@ class Scorer(Identifiable, abc.ABC):
                 scorer calls, promoted to ``ScorerIdentifier.prompt_target``.
             sub_scorers (list[ComponentIdentifier] | None): Nested scorers a
                 composite wraps, promoted to ``ScorerIdentifier.sub_scorers``.
+            children (dict[str, ComponentIdentifier] | None): Additional component
+                dependencies not covered by the promoted child slots.
 
         Returns:
             ComponentIdentifier: The identifier for this scorer.
@@ -296,6 +592,7 @@ class Scorer(Identifiable, abc.ABC):
             score_aggregator=score_aggregator,
             prompt_target=prompt_target,
             sub_scorers=sub_scorers,
+            children=children,
         )
 
     async def score_async(
@@ -306,6 +603,8 @@ class Scorer(Identifiable, abc.ABC):
     ) -> list[Score]:
         """
         Score a scorable against an expectation, persist the results, and return them.
+
+        Every supplied condition must be supported by this scorer tree.
 
         Args:
             scorable (Scorable): What to look at.
@@ -318,85 +617,282 @@ class Scorer(Identifiable, abc.ABC):
 
         Raises:
             TypeError: If this scorer does not support this kind of scorable.
+            ValueError: If conditions are unsupported, missing, or duplicated.
             PyritException: If scoring raises a PyRIT exception (re-raised with enhanced context).
+            LegacyScorerHookError: If a legacy hook cannot receive the typed criteria.
             RuntimeError: If scoring raises a non-PyRIT exception (wrapped with scorer context).
         """
+        expectation = self.prepare_expectation(expectation=expectation)
+        with _scoring_collection() as collector:
+            try:
+                with _scoring_scorable_context(scorable):
+                    scores = await self._score_scorable_async(scorable=scorable, expectation=expectation)
+            except PyritException as e:
+                e.message = f"Error in scorer {self.__class__.__name__}: {e.message}"
+                e.args = (f"Status Code: {e.status_code}, Message: {e.message}",)
+                raise
+            except LegacyScorerHookError:
+                raise
+            except Exception as e:
+                raise RuntimeError(f"Error in scorer {self.__class__.__name__}: {str(e)}") from e
+
+            self._stamp_scored_expectation(scores=scores, expectation=expectation)
+            observations = collector.referenced_by(scores=[*scores, *collector.intermediate_scores])
+            return await self._validate_and_persist_scores_async(
+                scores=scores,
+                observations=observations,
+                intermediate_scores=collector.intermediate_scores,
+            )
+
+    @staticmethod
+    def _stamp_scored_expectation(*, scores: list[Score], expectation: ScoringExpectation | None) -> None:
+        """
+        Record on each score the expectation it was judged against.
+
+        The scorer, not the score, knows the expectation it used, so it stamps the finished
+        scores before they persist. ``objective`` is the derived view, so it is refreshed to
+        match. A ``None`` expectation leaves the scores unchanged.
+
+        Args:
+            scores (list[Score]): The scores to stamp.
+            expectation (ScoringExpectation | None): The expectation the scorer used.
+        """
+        if expectation is None:
+            return
+        for score in scores:
+            object.__setattr__(score, "scored_expectation", expectation)
+            object.__setattr__(score, "objective", expectation.objective)
+
+    @staticmethod
+    async def score_with_scorers_async(
+        *,
+        scorable: Scorable,
+        scorers: Sequence[Scorer],
+        expectation: ScoringExpectation | None = None,
+        scorer_roles: Sequence[ComponentRole] | None = None,
+    ) -> list[list[Score]]:
+        """
+        Score evidence concurrently with independently persisted scoring roots.
+
+        Each root receives the original scorable and complete expectation through its public
+        ``score_async`` method. Each root is validated independently before any scorer runs.
+        This does not apply message-specific evidence policies.
+        If a root fails or is cancelled, unfinished roots are cancelled and drained before
+        the error propagates. Scores persisted by already-completed roots are retained.
+
+        Args:
+            scorable (Scorable): The evidence each scorer acquires.
+            scorers (Sequence[Scorer]): The ordered scoring roots.
+            expectation (ScoringExpectation | None): The complete scoring question. Defaults to None.
+            scorer_roles (Sequence[ComponentRole] | None): One execution role per scorer, in
+                input order. Omission preserves the caller's execution context.
+
+        Returns:
+            list[list[Score]]: One score list per root, in input order, including empty lists.
+
+        Raises:
+            TypeError: If the expectation is not a ``ScoringExpectation``.
+            ValueError: If conditions are unmatched, ambiguous, or missing required criteria,
+                or the role count differs from the scorer count.
+        """
+        roots = tuple(scorers)
+        roles = tuple(scorer_roles) if scorer_roles is not None else (None,) * len(roots)
+        if len(roles) != len(roots):
+            raise ValueError("scorer_roles must have one entry per scorer.")
+        Scorer.validate_expectation_for_scorers(scorers=roots, expectation=expectation)
+        return await gather_with_cleanup_async(
+            Scorer._score_with_context_async(
+                scorer=scorer, scorable=scorable, expectation=expectation, component_role=role
+            )
+            for scorer, role in zip(roots, roles, strict=True)
+        )
+
+    @staticmethod
+    async def _score_with_context_async(
+        *,
+        scorer: Scorer,
+        scorable: Scorable,
+        expectation: ScoringExpectation | None,
+        component_role: ComponentRole | None,
+    ) -> list[Score]:
+        """
+        Call a scoring root with an optional role and its own component identifier.
+
+        Returns:
+            list[Score]: The root's persisted scores.
+        """
+        if component_role is None:
+            return await scorer.score_async(scorable=scorable, expectation=expectation)
+        parent = get_execution_context()
+        with execution_context(
+            component_role=component_role,
+            component_identifier=scorer.get_identifier(),
+            attack_strategy_name=parent.attack_strategy_name if parent else None,
+            attack_identifier=parent.attack_identifier if parent else None,
+            objective_target_conversation_id=parent.objective_target_conversation_id if parent else None,
+            objective=parent.objective if parent else None,
+        ):
+            return await scorer.score_async(scorable=scorable, expectation=expectation)
+
+    @staticmethod
+    def validate_expectation_for_scorers(
+        *,
+        scorers: Sequence[Scorer],
+        expectation: ScoringExpectation | None,
+    ) -> None:
+        """
+        Validate the complete expectation independently against each scoring root.
+
+        Args:
+            scorers (Sequence[Scorer]): The independent scoring roots.
+            expectation (ScoringExpectation | None): The complete scoring question.
+
+        Raises:
+            TypeError: If the expectation is not a ``ScoringExpectation``.
+            ValueError: If conditions are unmatched, ambiguous, or missing required criteria.
+        """
+        ScoringExpectation.validate_type(expectation)
+        if not scorers and expectation is not None and expectation.conditions:
+            raise ValueError("No scorer is configured to evaluate the supplied conditions.")
+        for scorer in scorers:
+            scorer.prepare_expectation(expectation=expectation)
+
+    def prepare_expectation(self, *, expectation: ScoringExpectation | None) -> ScoringExpectation | None:
+        """
+        Resolve objective-only input and validate the complete scorer tree.
+
+        Returns:
+            ScoringExpectation | None: The effective input used for judgment and attribution.
+        """
+        expectation = self._normalize_expectation(expectation=expectation)
         self._validate_expectation(expectation=expectation)
-        try:
-            scores = await self._score_scorable_async(scorable=scorable, expectation=expectation)
-        except PyritException as e:
-            e.message = f"Error in scorer {self.__class__.__name__}: {e.message}"
-            e.args = (f"Status Code: {e.status_code}, Message: {e.message}",)
-            raise
-        except Exception as e:
-            raise RuntimeError(f"Error in scorer {self.__class__.__name__}: {str(e)}") from e
-        return await self._validate_and_persist_scores_async(scores=scores)
+        return expectation
+
+    def _normalize_expectation(self, *, expectation: ScoringExpectation | None) -> ScoringExpectation | None:
+        """
+        Supply the objective criterion only for an original condition-free input.
+
+        Returns:
+            ScoringExpectation | None: The input with its objective default resolved.
+        """
+        ScoringExpectation.validate_type(expectation)
+        if expectation is not None and not expectation.conditions and MatchesObjective in self.get_condition_types():
+            return expectation.model_copy(update={"conditions": (MatchesObjective(),)})
+        return expectation
+
+    @overload
+    def _select_expectation(self, *, expectation: ScoringExpectation) -> ScoringExpectation: ...
+
+    @overload
+    def _select_expectation(self, *, expectation: None) -> None: ...
+
+    def _select_expectation(self, *, expectation: ScoringExpectation | None) -> ScoringExpectation | None:
+        """
+        Select this child's conditions without changing shared context or applying defaults.
+
+        Returns:
+            ScoringExpectation | None: The supported subset, preserving the input's context.
+        """
+        if expectation is None:
+            return None
+        supported = tuple(self.get_condition_types())
+        conditions = tuple(condition for condition in expectation.conditions if isinstance(condition, supported))
+        return (
+            expectation
+            if conditions == expectation.conditions
+            else expectation.model_copy(update={"conditions": conditions})
+        )
+
+    def _get_child_expectations(
+        self, *, expectation: ScoringExpectation | None
+    ) -> tuple[tuple[Scorer, ScoringExpectation | None], ...]:
+        """
+        Prepare child inputs for recursive validation, including wrapper-specific context.
+
+        Returns:
+            tuple: Each child and its effective expectation.
+        """
+        return tuple((child, child._select_expectation(expectation=expectation)) for child in self._get_child_scorers())
+
+    def select_expectation(self, *, expectation: ScoringExpectation | None) -> ScoringExpectation | None:
+        """
+        Select the part of an input that this scorer tree reads, without validation.
+
+        Callers that decide which scorers apply to an input use this subset. The result
+        can omit criteria that this tree requires.
+
+        Returns:
+            ScoringExpectation | None: The supported conditions and the shared context.
+        """
+        return self._select_expectation(expectation=self._normalize_expectation(expectation=expectation))
 
     def _validate_expectation(
         self,
         *,
         expectation: ScoringExpectation | None,
-        allow_unmatched_conditions: bool = False,
     ) -> None:
         """
-        Reject conditions no scorer in this tree consumes, and ambiguous routing.
+        Validate coverage and every required child against its supported subset.
 
         Args:
             expectation (ScoringExpectation | None): The expectation to validate.
-            allow_unmatched_conditions (bool): Permit conditions addressed to sibling leaves.
 
         Raises:
-            ValueError: If a condition is unsupported at the root, if a required condition is
-                absent, or if more than one condition of the same matched type is present.
+            TypeError: If the expectation is not a ``ScoringExpectation``.
+            ValueError: If a condition is unsupported, a required condition is absent, or
+                more than one condition of the same supported type is present.
         """
-        if expectation is None or not expectation.conditions:
-            return
-
-        matched = self.matched_conditions()
-        unmatched = [condition for condition in expectation.conditions if not isinstance(condition, tuple(matched))]
-        if unmatched and not allow_unmatched_conditions:
-            names = ", ".join(sorted({type(condition).__name__ for condition in unmatched}))
-            matched_names = ", ".join(sorted(cls.__name__ for cls in matched)) or "none"
-            raise ValueError(
-                f"{type(self).__name__} does not match the condition(s) {names}. Matched conditions: {matched_names}."
-            )
-
-        for condition_type in matched:
-            matches = [condition for condition in expectation.conditions if isinstance(condition, condition_type)]
-            if len(matches) > 1:
-                raise ValueError(
-                    f"{type(self).__name__} received {len(matches)} {condition_type.__name__} conditions. "
-                    "A scorer matches at most one condition of a given type."
-                )
-
-        missing = [
-            condition_type
-            for condition_type in self.required_conditions()
-            if not any(isinstance(condition, condition_type) for condition in expectation.conditions)
+        ScoringExpectation.validate_type(expectation)
+        condition_type = self.condition_type
+        if condition_type is not None:
+            self._get_required_condition(expectation=expectation, condition_type=condition_type)
+        supported = tuple(self.get_condition_types())
+        unmatched = [
+            condition
+            for condition in (expectation.conditions if expectation is not None else ())
+            if not isinstance(condition, supported)
         ]
-        if missing:
-            names = ", ".join(sorted(condition_type.__name__ for condition_type in missing))
-            raise ValueError(f"{type(self).__name__} requires the condition(s) {names}.")
+        if unmatched:
+            names = ", ".join(sorted({type(condition).__name__ for condition in unmatched}))
+            raise ValueError(f"{type(self).__name__} does not support condition(s): {names}.")
+        for child, selected in self._get_child_expectations(expectation=expectation):
+            child._validate_expectation(expectation=selected)
 
-    async def _validate_and_persist_scores_async(self, *, scores: list[Score]) -> list[Score]:
+    async def _validate_and_persist_scores_async(
+        self,
+        *,
+        scores: list[Score],
+        observations: Sequence[Observation] = (),
+        intermediate_scores: Sequence[Score] = (),
+    ) -> list[Score]:
         """
         Validate and persist non-empty scorer output.
 
         Returns:
             list[Score]: The original scores.
+
+        Raises:
+            ValueError: If a wrapper reuses an intermediate result ID.
         """
         if not scores:
             return []
 
         self.validate_return_scores(scores=scores)
+        intermediate_ids = {str(score.id) for score in intermediate_scores}
+        if any(str(score.id) in intermediate_ids for score in scores):
+            raise ValueError("A wrapper must create a new result instead of reusing an intermediate score ID.")
         requires_file_copy = any(
             isinstance(score.scorable, ContentScorable) and score.scorable.data_type in MEDIA_PATH_DATA_TYPES
-            for score in scores
+            for score in [*scores, *intermediate_scores]
         )
         if requires_file_copy:
-            await self._memory.add_scores_to_memory_async(scores=scores)
+            await self._memory.add_scores_to_memory_async(
+                scores=scores, observations=observations, intermediate_scores=intermediate_scores
+            )
         else:
-            self._memory.add_scores_to_memory(scores=scores)
+            await self._memory.add_scores_to_memory_async(
+                scores=scores, observations=observations, intermediate_scores=intermediate_scores
+            )
         return scores
 
     async def _score_nested_async(
@@ -408,9 +904,8 @@ class Scorer(Identifiable, abc.ABC):
         """
         Score a scorable as a child in a scorer tree.
 
-        Conditions addressed to sibling leaves are ignored here because the root scorer
-        already validates that every supplied condition reaches at least one leaf. The
-        root scorer owns persistence, so this path only validates child output.
+        The parent supplies only this child's supported conditions. The root scorer
+        owns persistence, so this path collects validated output without committing it.
 
         Args:
             scorable (Scorable): What to look at.
@@ -419,11 +914,242 @@ class Scorer(Identifiable, abc.ABC):
         Returns:
             list[Score]: The validated child scores.
         """
-        self._validate_expectation(expectation=expectation, allow_unmatched_conditions=True)
-        scores = await self._score_scorable_async(scorable=scorable, expectation=expectation)
+        self._validate_expectation(expectation=expectation)
+        with _scoring_scorable_context(scorable):
+            scores = await self._score_scorable_async(scorable=scorable, expectation=expectation)
+        self._stamp_scored_expectation(scores=scores, expectation=expectation)
         if scores:
             self.validate_return_scores(scores=scores)
+            _collect_scores(scores)
         return scores
+
+    def _create_wrapper_score(self, score: Score) -> Score:
+        """
+        Copy a child's judgment into a new wrapper-owned result without changing the child.
+
+        Returns:
+            Score: An independent result with a new ID, timestamp, and scorer identity.
+        """
+        return score.model_copy(
+            deep=True,
+            update={
+                "id": uuid.uuid4(),
+                "timestamp": datetime.now(UTC),
+                "scorer_class_identifier": self.get_identifier(),
+            },
+        )
+
+    async def score_observation_async(
+        self,
+        *,
+        observation: Observation,
+        expectation: ScoringExpectation | None = None,
+    ) -> list[Score]:
+        """
+        Judge managed evidence again without calling its original source.
+
+        Target-backed judgment observations require the original expectation.
+        To evaluate stored attack evidence against a new expectation, use
+        ``score_async`` with that evidence's scorable. This can call the scoring
+        target again, but does not rerun the attack.
+
+        Args:
+            observation (Observation): The stored evidence to judge.
+            expectation (ScoringExpectation | None): What to look for. Defaults to None.
+
+        Returns:
+            list[Score]: Newly persisted scores linked to the existing observation.
+
+        Raises:
+            NonReplayableObservationError: If this scorer or payload cannot replay.
+        """
+        expectation = self.prepare_expectation(expectation=expectation)
+        stored_observations = await self._memory.get_observations_async(observation_ids=[observation.id])
+        if not stored_observations:
+            raise NonReplayableObservationError(f"Observation {observation.id} is not stored in memory.")
+        stored_observation = stored_observations[0]
+        if stored_observation != observation:
+            raise NonReplayableObservationError(
+                f"Observation {observation.id} does not match its canonical stored evidence."
+            )
+        evidence = await _ObservationEvidenceResolver(memory=self._memory).resolve_async(observation=observation)
+        scores = self._score_observation(
+            observation=observation,
+            evidence=evidence,
+            expectation=expectation,
+        )
+        for score in scores:
+            score.scorable = observation.scorable
+            if observation.id not in score.observation_ids:
+                score.observation_ids.append(observation.id)
+        self._stamp_scored_expectation(scores=scores, expectation=expectation)
+        return await self._validate_and_persist_scores_async(scores=scores)
+
+    async def find_matching_scores_async(
+        self,
+        *,
+        scores: Sequence[Score],
+        scorable: Scorable,
+        expectation: ScoringExpectation | None = None,
+    ) -> list[Score]:
+        """
+        Match stored scores, acquiring current evidence when the scorer requires a snapshot.
+
+        Returns:
+            Matching scores in newest-first order, including undetermined results.
+        """
+        prepared = self.prepare_expectation(expectation=expectation)
+        candidates = self.find_matching_scores(scores=scores, scorable=scorable, expectation=prepared)
+        if not candidates:
+            return []
+        return await self._filter_matching_scores_by_snapshot_async(
+            scores=candidates,
+            scorable=scorable,
+            expectation=prepared,
+            used_observation_ids={str(score.id): set() for score in candidates},
+            participation_by_score={str(score.id): _read_snapshot_participation(score) for score in candidates},
+        )
+
+    async def _filter_matching_scores_by_snapshot_async(
+        self,
+        *,
+        scores: Sequence[Score],
+        scorable: Scorable,
+        expectation: ScoringExpectation | None,
+        used_observation_ids: dict[str, set[str]],
+        participation_by_score: dict[str, SnapshotParticipation | None],
+    ) -> list[Score]:
+        """
+        Filter identity matches whose required evidence snapshots are no longer current.
+
+        Leaf scorers without snapshot-dependent children keep the root identity match.
+        Same-input wrappers can recurse into their children while retaining the root scores.
+
+        Returns:
+            list[Score]: The candidates whose required snapshots remain current.
+        """
+        return list(scores)
+
+    async def _filter_matching_scores_by_children_async(
+        self,
+        *,
+        scores: Sequence[Score],
+        scorable: Scorable,
+        expectation: ScoringExpectation | None,
+        used_observation_ids: dict[str, set[str]],
+        participation_by_score: dict[str, SnapshotParticipation | None],
+    ) -> list[Score]:
+        """
+        Apply each same-input child's freshness contract to the root identity matches.
+
+        Child observations are consumed per root score so one linked snapshot cannot stand
+        in for multiple participating conversation-scoring branches.
+
+        Returns:
+            list[Score]: The candidates whose same-input children remain current.
+        """
+        candidates: list[Score] = list(scores)
+        child_expectations = self._get_child_expectations(expectation=expectation)
+        normalized_participation_by_score = {
+            str(score.id): _validated_snapshot_participation(
+                score=score,
+                child_count=len(child_expectations),
+                participation_by_score=participation_by_score,
+            )
+            for score in scores
+        }
+        participation_by_score = normalized_participation_by_score
+        for child_index, (child, child_expectation) in enumerate(child_expectations):
+            participating_scores = [
+                score
+                for score in candidates
+                if _participates_in_snapshot(
+                    score=score,
+                    child_index=child_index,
+                    participation_by_score=participation_by_score,
+                )
+            ]
+            if not participating_scores:
+                continue
+            child_participation = {
+                str(score.id): _child_snapshot_participation(
+                    score=score,
+                    child_index=child_index,
+                    participation_by_score=participation_by_score,
+                )
+                for score in participating_scores
+            }
+            fresh_scores = await child._filter_matching_scores_by_snapshot_async(
+                scores=participating_scores,
+                scorable=scorable,
+                expectation=child_expectation,
+                used_observation_ids=used_observation_ids,
+                participation_by_score=child_participation,
+            )
+            fresh_ids = {str(score.id) for score in fresh_scores}
+            participating_ids = {str(score.id) for score in participating_scores}
+            candidates = [
+                score for score in candidates if str(score.id) not in participating_ids or str(score.id) in fresh_ids
+            ]
+            if not candidates:
+                return []
+        return candidates
+
+    def find_matching_scores(
+        self,
+        *,
+        scores: Sequence[Score],
+        scorable: Scorable,
+        expectation: ScoringExpectation | None = None,
+    ) -> list[Score]:
+        """
+        Select stored results that this scorer configuration produced for the same evidence and input.
+
+        A result matches when it records this scorer's identity, names the same evidence as
+        ``scorable``, and was judged against the expectation that ``score_async`` prepares from
+        ``expectation``. Undetermined results also match. The scorer owns this identity and
+        expectation rule; the caller decides whether a match replaces a new evaluation and how
+        it is recorded.
+
+        Args:
+            scores (Sequence[Score]): Candidate results, such as the stored scores for the evidence.
+            scorable (Scorable): The evidence that a new evaluation would read.
+            expectation (ScoringExpectation | None): The input that a new evaluation would receive.
+                Defaults to None.
+
+        Returns:
+            list[Score]: The matching results, newest first.
+
+        Raises:
+            TypeError: If ``expectation`` is not a ``ScoringExpectation``.
+            ValueError: If this scorer cannot evaluate ``expectation``.
+        """
+        prepared = self.prepare_expectation(expectation=expectation)
+        identifier_hash = self.get_identifier().hash
+        matches = [
+            score
+            for score in scores
+            if score.scorer_class_identifier is not None
+            and score.scorer_class_identifier.hash == identifier_hash
+            and score.scored_expectation == prepared
+            and scorable.names_same_evidence(score.scorable)
+        ]
+        return sorted(matches, key=lambda score: (score.timestamp, str(score.id)), reverse=True)
+
+    def _score_observation(
+        self,
+        *,
+        observation: Observation,
+        evidence: _ObservationEvidence,
+        expectation: ScoringExpectation | None,
+    ) -> list[Score]:
+        """
+        Judge resolved evidence without I/O.
+
+        Raises:
+            NonReplayableObservationError: Always, unless a scorer implements replay.
+        """
+        raise NonReplayableObservationError(f"{type(self).__name__} does not implement observation replay.")
 
     def _build_undetermined_score(
         self,
@@ -625,6 +1351,7 @@ class Scorer(Identifiable, abc.ABC):
         objective_scorer: Scorer | None = None,
         auxiliary_scorers: list[Scorer] | None = None,
         role_filter: ChatMessageRole | None = None,
+        expectation: ScoringExpectation | None = None,
         objective: str | None = None,
         skip_on_error_result: bool | None = None,
     ) -> dict[str, list[Score]]:
@@ -634,6 +1361,8 @@ class Scorer(Identifiable, abc.ABC):
         Response scoring is message-only policy, so it moved to ``MessageScorer``.
         ``role_filter`` and ``skip_on_error_result`` are deprecated compatibility filters.
         New code declares the roles it reads on the scorer.
+        ``expectation`` is forwarded unchanged; ``objective`` remains a deprecated alternative
+        until 2.0 and cannot be supplied alongside a non-null expectation.
 
         Returns:
             dict[str, list[Score]]: Auxiliary and objective scores, keyed by
@@ -651,6 +1380,7 @@ class Scorer(Identifiable, abc.ABC):
             objective_scorer=objective_scorer,
             auxiliary_scorers=auxiliary_scorers,
             role_filter=role_filter,
+            expectation=expectation,
             objective=objective,
             skip_on_error_result=skip_on_error_result,
         )
@@ -661,6 +1391,7 @@ class Scorer(Identifiable, abc.ABC):
         response: Message,
         scorers: list[Scorer],
         role_filter: ChatMessageRole | None = None,
+        expectation: ScoringExpectation | None = None,
         objective: str | None = None,
         skip_on_error_result: bool | None = None,
     ) -> list[Score]:
@@ -668,6 +1399,8 @@ class Scorer(Identifiable, abc.ABC):
         Score a response with several scorers through the message family. Deprecated.
 
         ``role_filter`` and ``skip_on_error_result`` are deprecated compatibility filters.
+        ``expectation`` is forwarded unchanged; ``objective`` remains a deprecated alternative
+        until 2.0 and cannot be supplied alongside a non-null expectation.
 
         Returns:
             list[Score]: Every score the scorers produced.
@@ -683,6 +1416,7 @@ class Scorer(Identifiable, abc.ABC):
             response=response,
             scorers=scorers,
             role_filter=role_filter,
+            expectation=expectation,
             objective=objective,
             skip_on_error_result=skip_on_error_result,
         )
@@ -715,6 +1449,52 @@ class Scorer(Identifiable, abc.ABC):
         Raises:
             ValueError: If the number of expectations does not match the number of scorables.
         """
+        return await self._score_batch_with_task_async(
+            task_func=self.score_async,
+            scorables=scorables,
+            expectations=expectations,
+            batch_size=batch_size,
+            **score_async_kwargs,
+        )
+
+    async def _score_batch_nested_async(
+        self,
+        *,
+        scorables: Sequence[Scorable],
+        expectations: Sequence[ScoringExpectation | None] | None = None,
+        batch_size: int = 10,
+    ) -> list[Score]:
+        """
+        Score child evidence in a batch without persisting intermediate scores.
+
+        Returns:
+            list[Score]: A flattened list of validated child scores.
+        """
+        return await self._score_batch_with_task_async(
+            task_func=self._score_nested_async,
+            scorables=scorables,
+            expectations=expectations,
+            batch_size=batch_size,
+        )
+
+    async def _score_batch_with_task_async(
+        self,
+        *,
+        task_func: Callable[..., Awaitable[list[Score]]],
+        scorables: Sequence[Scorable],
+        expectations: Sequence[ScoringExpectation | None] | None,
+        batch_size: int,
+        **task_kwargs: Any,
+    ) -> list[Score]:
+        """
+        Run one public or nested scoring task over a batch.
+
+        Returns:
+            list[Score]: A flattened list of scores from every scorable.
+
+        Raises:
+            ValueError: If the number of expectations does not match the number of scorables.
+        """
         if expectations is None:
             resolved_expectations: list[ScoringExpectation | None] = [None] * len(scorables)
         elif len(expectations) != len(scorables):
@@ -726,14 +1506,13 @@ class Scorer(Identifiable, abc.ABC):
             return []
 
         # Some scorers do not have an associated prompt target; batch helper validates RPM only when present
-        prompt_target = getattr(self, "_prompt_target", None)
         results = await batch_task_async(
-            task_func=self.score_async,
+            task_func=task_func,
             task_arguments=["scorable", "expectation"],
-            prompt_target=cast("PromptTarget", prompt_target),
+            prompt_target=self.get_chat_target(),
             batch_size=batch_size,
             items_to_batch=[list(scorables), resolved_expectations],
-            **score_async_kwargs,
+            **task_kwargs,
         )
 
         # results is a list[list[Score]] and needs to be flattened
@@ -763,11 +1542,10 @@ class Scorer(Identifiable, abc.ABC):
         if len(image_paths) == 0:
             return []
 
-        prompt_target = getattr(self, "_prompt_target", None)
         results = await batch_task_async(
             task_func=self.score_image_async,
             task_arguments=["image_path", "objective"] if objectives is not None else ["image_path"],
-            prompt_target=prompt_target,
+            prompt_target=self.get_chat_target(),
             batch_size=batch_size,
             items_to_batch=[image_paths, objectives] if objectives is not None else [image_paths],
         )
@@ -791,11 +1569,11 @@ class Scorer(Identifiable, abc.ABC):
 
         return (value - min_value) / (max_value - min_value)
 
-    def _extract_objective_from_response(self, response: Message) -> str:
+    async def _extract_objective_from_response_async(self, response: Message) -> str:
         """
         Read the objective from the turn before an assistant response.
 
-        Deprecated: use ``pyrit.score.message_scorer.extract_objective_from_previous_turn``.
+        Deprecated: use ``pyrit.score.message_scorer.extract_objective_from_previous_turn_async``.
 
         Args:
             response (Message): The response to extract the objective from.
@@ -803,11 +1581,11 @@ class Scorer(Identifiable, abc.ABC):
         Returns:
             str: The objective extracted from the response, or empty string if not found.
         """
-        from pyrit.score.message_scorer import extract_objective_from_previous_turn
+        from pyrit.score.message_scorer import extract_objective_from_previous_turn_async
 
         print_deprecation_message(
             old_item="Scorer._extract_objective_from_response",
-            new_item="pyrit.score.message_scorer.extract_objective_from_previous_turn",
+            new_item="pyrit.score.message_scorer.extract_objective_from_previous_turn_async",
             removed_in=LEGACY_SCORE_ASYNC_REMOVED_IN,
         )
-        return extract_objective_from_previous_turn(message=response, memory=self._memory)
+        return await extract_objective_from_previous_turn_async(message=response, memory=self._memory)

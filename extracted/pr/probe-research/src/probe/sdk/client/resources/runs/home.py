@@ -85,12 +85,12 @@ class MissingHome(StrEnum):
 
 #: Every way to name a project, for the agent cases.
 _NAME_ONE = ("Pass project= (CLI: --project), set PROBE_PROJECT, or run `probe project use <slug>`; "
-             "if none fits, `probe project create <slug> --kind <kind>`.")
+             "if none fits, `probe project create <slug> --kind <kind> --name \"...\"`.")
 MISSING_HOME_FIXES = {
     MissingHome.HAND_RUN: (
         'probe: this run needs a project. Pass one: probe.init(project="<slug or id>"), or set one for '
         "this computer: probe project use <slug>. Your projects: probe project list. "
-        "None fits: probe project create <slug> --kind <kind>"),
+        "None fits: probe project create <slug> --kind <kind> --name \"...\""),
     MissingHome.NOT_DAEMON: (
         "probe: this run needs a project. The Probe daemon does not record this session, so nothing "
         "will set this session's project (`probe session home show`). " + _NAME_ONE),

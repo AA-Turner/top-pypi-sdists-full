@@ -43,13 +43,13 @@ import urllib.request
 from .. import ligolw
 
 __all__ = [
-    "sort_files_by_size",
-    "local_path_from_url",
-    "load_fileobj",
     "load_filename",
+    "load_fileobj",
     "load_url",
-    "write_fileobj",
+    "local_path_from_url",
+    "sort_files_by_size",
     "write_filename",
+    "write_fileobj",
     "write_url",
 ]
 __doctest_skip__ = ["write_filename"]
@@ -80,9 +80,9 @@ def sort_files_by_size(filenames, verbose=False, reverse=False):
     return sorted(
         filenames,
         key=(
-            lambda filename: os.stat(filename)[stat.ST_SIZE]
-            if filename is not None
-            else 0
+            lambda filename: (
+                os.stat(filename)[stat.ST_SIZE] if filename is not None else 0
+            )
         ),
         reverse=reverse,
     )
@@ -107,7 +107,7 @@ def local_path_from_url(url):
         return None
     scheme, host, path = urllib.parse.urlparse(url)[:3]
     if scheme.lower() not in ("", "file") or host.lower() not in ("", "localhost"):
-        raise ValueError("%s is not a local file" % repr(url))
+        raise ValueError(f"{url!r} is not a local file")
     return path
 
 
@@ -212,18 +212,18 @@ class RewindableInputFile:
                 self.reuse += self.pos - offset
                 self.pos = offset
             else:
-                raise IOError("seek out of range")
+                raise OSError("seek out of range")
         elif whence == os.SEEK_CUR:
             if self.reuse - len(self.buf) <= offset:
                 self.reuse -= offset
                 self.pos += offset
             else:
-                raise IOError("seek out of range")
+                raise OSError("seek out of range")
         elif whence == os.SEEK_END:
             if offset == 0:
                 self.gzip_hack_pretend_to_be_at_eof = True
             else:
-                raise IOError("seek out of range")
+                raise OSError("seek out of range")
 
     def tell(self):
         if self.gzip_hack_pretend_to_be_at_eof:
@@ -405,7 +405,7 @@ class tildefile:
         try:
             self.tildefilename = self.filename + "~"
             self.fobj = open(self.tildefilename, "wb")
-        except IOError:
+        except OSError:
             self.tildefilename = None
             self.fobj = open(self.filename, "wb")
         return self.fobj
@@ -498,7 +498,7 @@ def load_fileobj(
     # select stream decoder
     #
 
-    if compress == False:  # noqa: E712
+    if compress == False:
         # pass-through
         pass
     elif compress == "bz2":
@@ -517,7 +517,7 @@ def load_fileobj(
         fileobj = lzma.LZMAFile(fileobj, mode="rb")
     else:
         # oops
-        raise ValueError('unrecognized compress "%s"' % compress)
+        raise ValueError(f'unrecognized compress "{compress}"')
 
     #
     # parse stream into XML tree and return it
@@ -545,7 +545,7 @@ def load_filename(filename, verbose=False, **kwargs):
     if verbose:
         sys.stderr.write(
             "reading %s ...\n"
-            % (("'%s'" % filename) if filename is not None else "stdin")
+            % ((f"'{filename}'") if filename is not None else "stdin")
         )
     if filename is None:
         return load_fileobj(sys.stdin.buffer, **kwargs)
@@ -571,11 +571,9 @@ def load_url(url, verbose=False, **kwargs):
     >>> xmldoc = load_url("file://localhost/%s/test/demo.xml" % getcwd(), verbose = True)
     """
     # separate urlopen()'s kwargs from load_fileobj()'s
-    urlopen_kwargs = dict(
-        (kwarg, kwargs.pop(kwarg))
-        for kwarg in ("context", "timeout")
-        if kwarg in kwargs
-    )
+    urlopen_kwargs = {
+        kwarg: kwargs.pop(kwarg) for kwarg in ("context", "timeout") if kwarg in kwargs
+    }
     try:
         # also accepts None as a valid local file
         filename = local_path_from_url(url)
@@ -583,7 +581,7 @@ def load_url(url, verbose=False, **kwargs):
         # not a local file
         if verbose:
             sys.stderr.write(
-                "reading %s ...\n" % (("'%s'" % url) if url is not None else "stdin")
+                "reading %s ...\n" % ((f"'{url}'") if url is not None else "stdin")
             )
         with contextlib.closing(
             urllib.request.urlopen(url, **urlopen_kwargs)
@@ -623,7 +621,7 @@ def write_fileobj(xmldoc, fileobj, compress=None, compresslevel=3, **kwargs):
         # select stream encoder
         #
 
-        if compress == False:  # noqa: E712
+        if compress == False:
             # no compression
             pass
         elif compress == "bz2":
@@ -636,7 +634,7 @@ def write_fileobj(xmldoc, fileobj, compress=None, compresslevel=3, **kwargs):
             fileobj = lzma.LZMAFile(fileobj, mode="wb", format=lzma.FORMAT_XZ)
         else:
             # oops
-            raise ValueError('unrecognized compress "%s"' % compress)
+            raise ValueError(f'unrecognized compress "{compress}"')
 
         #
         # write file
@@ -731,7 +729,7 @@ def write_filename(
     if verbose:
         sys.stderr.write(
             "writing %s ...\n"
-            % (("'%s'" % filename) if filename is not None else "stdout")
+            % ((f"'{filename}'") if filename is not None else "stdout")
         )
     with SignalsTrap(trap_signals):
         if filename is None:

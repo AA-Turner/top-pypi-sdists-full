@@ -204,6 +204,7 @@ __all__ = (
     "DescribeMacHostsPaginatorName",
     "DescribeMacModificationTasksPaginatorName",
     "DescribeManagedPrefixListsPaginatorName",
+    "DescribeMetricCategoriesPaginatorName",
     "DescribeMovingAddressesPaginatorName",
     "DescribeNatGatewaysPaginatorName",
     "DescribeNetworkAclsPaginatorName",
@@ -1107,6 +1108,7 @@ DescribeLocalGatewaysPaginatorName = Literal["describe_local_gateways"]
 DescribeMacHostsPaginatorName = Literal["describe_mac_hosts"]
 DescribeMacModificationTasksPaginatorName = Literal["describe_mac_modification_tasks"]
 DescribeManagedPrefixListsPaginatorName = Literal["describe_managed_prefix_lists"]
+DescribeMetricCategoriesPaginatorName = Literal["describe_metric_categories"]
 DescribeMovingAddressesPaginatorName = Literal["describe_moving_addresses"]
 DescribeNatGatewaysPaginatorName = Literal["describe_nat_gateways"]
 DescribeNetworkAclsPaginatorName = Literal["describe_network_acls"]
@@ -3463,6 +3465,7 @@ ResourceTypeType = Literal[
     "local-gateway-virtual-interface",
     "local-gateway-virtual-interface-group",
     "mac-modification-task",
+    "metric-category",
     "natgateway",
     "network-acl",
     "network-insights-access-scope",
@@ -4387,6 +4390,7 @@ PaginatorName = Literal[
     "describe_mac_hosts",
     "describe_mac_modification_tasks",
     "describe_managed_prefix_lists",
+    "describe_metric_categories",
     "describe_moving_addresses",
     "describe_nat_gateways",
     "describe_network_acls",

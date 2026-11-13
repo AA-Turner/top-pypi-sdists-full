@@ -4,7 +4,9 @@ import asyncio
 from dataclasses import fields, replace
 import inspect
 import json
+import os
 from pathlib import Path
+import socket
 import subprocess
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -3957,6 +3959,9 @@ class TestEvolveStepHandler:
             return None
 
         class _CountingQAHandler:
+            def __init__(self, **_kwargs):
+                pass
+
             async def handle(self, _arguments):  # noqa: ANN001
                 nonlocal qa_calls
                 qa_calls += 1
@@ -4085,6 +4090,9 @@ class TestEvolveStepHandler:
         handler = EvolveStepHandler(evolutionary_loop=make_loop(store, gen_result=gen_result))
 
         class _FailingQAHandler:
+            def __init__(self, **_kwargs):
+                pass
+
             async def handle(self, _arguments):  # noqa: ANN001
                 return Result.err(ProviderError(message="unparseable QA response"))
 
@@ -4160,12 +4168,16 @@ class TestEvolveStepHandler:
         workspace = SimpleNamespace(
             effective_cwd=str(worktree_dir),
             lock_path=tmp_path / "task.lock",
+            lock_owner={"pid": os.getpid(), "host": socket.gethostname(), "lease_id": "c" * 32},
             worktree_path=str(worktree_dir),
             branch="codex/test-worktree",
         )
         order: list[str] = []
 
         class _CapturingQAHandler:
+            def __init__(self, **_kwargs):
+                pass
+
             async def handle(self, arguments):  # type: ignore[no-untyped-def]
                 order.append("qa")
                 captured.update(arguments)

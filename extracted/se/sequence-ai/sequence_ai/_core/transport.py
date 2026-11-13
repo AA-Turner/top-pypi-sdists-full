@@ -56,6 +56,8 @@ DEFAULT_BASE_URL = "https://api.generalsequences.com"
 
 DEFAULT_TIMEOUT_S = 30.0
 
+FROM_IPV4 = "0.0.0.0"
+
 from ..errors import (
     AuthError,
     Unavailable,
@@ -69,7 +71,7 @@ from ..errors import (
 
 
 
-_THROUGH: Optional[Callable[[], httpx.BaseTransport]] = None
+_THROUGH: Optional[Callable[..., httpx.BaseTransport]] = None
 
 
 
@@ -157,11 +159,20 @@ def _no_key(login: bool, robot_of: Optional[str]) -> str:
             + ". Create a key at https://app.generalsequences.com/")
 
 
-def send_through(make: Optional[Callable[[], httpx.BaseTransport]]) -> None:
-    """Every Transport made from now on in this process sends through `make()`, a transport of its own each; None puts
+def send_through(make: Optional[Callable[..., httpx.BaseTransport]]) -> None:
+    """Every Transport made from now on in this process sends through `make()`, a transport of its own each - and one
+    whose connections all go out over IPv4 (Transport(ipv4=True)) through `make(local_address=FROM_IPV4)`; None puts
     httpx's own back. For a command-line process around its command - never a robot's."""
     global _THROUGH
     _THROUGH = make
+
+
+def _through(ipv4: bool) -> httpx.BaseTransport:
+    """The transport a Transport's client is given: this process's (send_through), made to connect from FROM_IPV4 where
+    `ipv4`; where the process has none - asked for `ipv4` alone -, httpx's own, connecting from FROM_IPV4."""
+    if _THROUGH is not None:
+        return _THROUGH(local_address=FROM_IPV4) if ipv4 else _THROUGH()
+    return httpx.HTTPTransport(local_address=FROM_IPV4)
 
 
 class Transport:
@@ -184,6 +195,7 @@ class Transport:
         login: bool = False,
         person: bool = False,
         robot_of: str | None = None,
+        ipv4: bool = False,
     ) -> None:
         self._base = (base_url or os.environ.get("SEQUENCES_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
 
@@ -232,7 +244,9 @@ class Transport:
 
             limits=httpx.Limits(max_keepalive_connections=4, keepalive_expiry=300.0),
 
-            **({"transport": _THROUGH()} if _THROUGH is not None else {}),
+
+
+            **({"transport": _through(ipv4)} if ipv4 or _THROUGH is not None else {}),
 
             **({"auth": LoginAuth(signed_in)} if signed_in is not None else {}),
         )

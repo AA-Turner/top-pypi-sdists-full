@@ -5,6 +5,8 @@ from .database_transformer import DatabaseTransformer
 
 class OracleTransformer(DatabaseTransformer):
 
+    # No row limit: "FETCH FIRST n ROWS ONLY" is unverified against a real Oracle engine.
+
     @classmethod
     def get_dialect(cls) -> Optional[str]:
         return "oracle"

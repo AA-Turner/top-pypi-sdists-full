@@ -13,7 +13,7 @@
 # limitations under the License.
 """Shared provider support for boxed quantized parameters."""
 
-from typing import Callable, Generic, Sequence, TypeVar
+from typing import Any, Callable, Generic, Sequence, TypeVar
 
 import flax
 from flax import linen as nn
@@ -133,6 +133,7 @@ class BoxedParamProvider(qconfig.QuantizationProvider):
       preferred_element_type: jax.typing.DTypeLike | None = None,
       *,
       out_sharding: jax.sharding.NamedSharding | None = None,
+      **kwargs: Any,
   ) -> jax.Array:
     rule, op_id = self._get_current_rule_and_op_id('dot_general')
     if rule is None or rule.weight_qtype is None:
@@ -143,7 +144,9 @@ class BoxedParamProvider(qconfig.QuantizationProvider):
           precision=precision,
           preferred_element_type=preferred_element_type,
           out_sharding=out_sharding,
+          **kwargs,
       )
+    qconfig.check_unsupported_options('Quantized dot_general', kwargs)
 
     def get_how_to_quantize(*, qtype, **kwargs):
       return dot_general.get_how_to_quantize(

@@ -2,7 +2,7 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Generator, Iterable, Mapping
 from typing import TYPE_CHECKING
 
 from contrast_fireball import OtelAttributes, SpanType
@@ -141,17 +141,28 @@ def observe_log_handler_builder(
 
 def cve_shield_handler_builder(
     permission_reporter: shields.PermissionReporter,
-    permission: str,
-    location_name: str,
+    permission: str | Callable[[Mapping[str, object]], Iterable[str]],
+    dangerous_namespace: str,
+    dangerous_function: str,
 ) -> EventHandler:
-    dangerous_namespace, _, dangerous_function = location_name.partition(".")
+    """
+    Builds an event handler that reports the use of a CVE shield permission
+    (capability) before the function call.
+
+    `permission` is either a single permission, or a function of the call arguments
+    that returns every permission the call uses. The latter is for functions whose
+    capabilities depend on how they're called (e.g. `open`, depending on its mode),
+    and may return no permissions at all for calls that don't use any.
+    """
 
     def cve_shield_handler(
         context: ContrastContext | None, args: Mapping[str, object]
     ) -> Generator:
-        permission_reporter.report_permission(
-            permission, dangerous_namespace, dangerous_function
-        )
+        permissions = (permission,) if isinstance(permission, str) else permission(args)
+        for p in permissions:
+            permission_reporter.report_permission(
+                p, dangerous_namespace, dangerous_function
+            )
         yield
 
     return cve_shield_handler

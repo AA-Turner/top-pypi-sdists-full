@@ -27,6 +27,8 @@ from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 
 logger = get_logger(__name__)
 
+_EXECUTOR_POLICY = "run_as=EXECUTOR (or use_executor_credentials=True)"
+
 
 def _resolve_hook_token_provider(api_key: str | None, token_provider: TokenProvider | None) -> TokenProvider | None:
     """Resolve the hook's credential, accepting the deprecated ``api_key`` for back compatibility."""
@@ -43,7 +45,7 @@ def _resolve_hook_token_provider(api_key: str | None, token_provider: TokenProvi
 
 
 class ExecutorCredentialsHook(abc.ABC):
-    """Authenticate requests as the executor, or per ``run_as`` when set.
+    """Authenticate requests per ``run_as``, which defaults to EXECUTOR.
 
     AUTO follows the current workflow; DEPLOYMENT uses the worker's credentials.
     Executor JWTs are cached separately for each execution.
@@ -61,14 +63,13 @@ class ExecutorCredentialsHook(abc.ABC):
         run_as: RunAs | None = None,
         headers: dict[str, str] | None = None,
     ) -> None:
-        self._run_as = RunAs(run_as) if run_as is not None else None
+        self._run_as = RunAs(run_as) if run_as is not None else RunAs.EXECUTOR
         self._server_url = server_url.rstrip("/")
         self._headers = dict(headers if headers is not None else config.worker.mistral_api_headers or {})
         self._token_provider = _resolve_hook_token_provider(api_key, token_provider)
-        if self._run_as is None and self._token_provider is None and not self._headers:
+        if self._run_as == RunAs.EXECUTOR and self._token_provider is None and not self._headers:
             raise WorkflowError(
-                "executor-credentials hook requires a token_provider or authentication headers "
-                "(or the deprecated api_key)",
+                f"{_EXECUTOR_POLICY} requires a token_provider or authentication headers (or the deprecated api_key)",
                 non_retryable=True,
             )
         # execution_token -> (jwt, expiration_timestamp)
@@ -90,7 +91,7 @@ class ExecutorCredentialsHook(abc.ABC):
                 identity="executor" if use_executor else "deployment",
             )
             return use_executor
-        return self._run_as is None
+        return self._run_as == RunAs.EXECUTOR
 
     def _authenticate_deployment(self, request: httpx.Request) -> None:
         if self._token_provider is not None:
@@ -101,7 +102,7 @@ class ExecutorCredentialsHook(abc.ABC):
     def _require_executor_provider(self) -> TokenProvider | None:
         if not self._server_url or (self._token_provider is None and not self._headers):
             raise WorkflowError(
-                "Executor authentication requires server_url and token_provider or authentication headers",
+                f"{_EXECUTOR_POLICY} requires server_url and a token_provider or authentication headers",
                 non_retryable=True,
             )
         return None if self._headers else self._token_provider
@@ -128,13 +129,13 @@ class ExecutorCredentialsHook(abc.ABC):
         context = retrieve_context()
         if not context or not context.execution_token:
             raise WorkflowError(
-                "use_executor_credentials requires an execution_token but no workflow context is available; "
+                f"{_EXECUTOR_POLICY} requires a workflow context with an execution_token; "
                 "ensure the call is made from within an activity or workflow execution",
                 non_retryable=True,
             )
         if not context.on_behalf_of:
             raise WorkflowError(
-                "use_executor_credentials requires on_behalf_of=True on the @workflow.define decorator",
+                f"{_EXECUTOR_POLICY} requires on_behalf_of=True on the @workflow.define decorator",
                 non_retryable=True,
             )
         return context.execution_token

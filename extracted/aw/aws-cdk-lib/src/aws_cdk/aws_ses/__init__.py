@@ -3659,7 +3659,7 @@ class CfnCustomVerificationEmailTemplate(
         :param template_content: The content of the custom verification email. The total size of the email must be less than 10 MB. The message body may contain HTML, with some limitations.
         :param template_name: The name of the custom verification email template.
         :param template_subject: The subject line of the custom verification email.
-        :param tags: The tags (keys and values) associated with the tenant.
+        :param tags: The tags (keys and values) associated with the custom verification email template.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__83534ed6288ed51b14238d731d7f9dfde3e00ea62f7a8340a643c5c762ad7fc8)
@@ -3860,7 +3860,7 @@ class CfnCustomVerificationEmailTemplate(
     @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
-        '''The tags (keys and values) associated with the tenant.'''
+        '''The tags (keys and values) associated with the custom verification email template.'''
         return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -3907,7 +3907,7 @@ class CfnCustomVerificationEmailTemplateProps:
         :param template_content: The content of the custom verification email. The total size of the email must be less than 10 MB. The message body may contain HTML, with some limitations.
         :param template_name: The name of the custom verification email template.
         :param template_subject: The subject line of the custom verification email.
-        :param tags: The tags (keys and values) associated with the tenant.
+        :param tags: The tags (keys and values) associated with the custom verification email template.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-customverificationemailtemplate.html
         :exampleMetadata: fixture=_generated
@@ -4018,7 +4018,7 @@ class CfnCustomVerificationEmailTemplateProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
-        '''The tags (keys and values) associated with the tenant.
+        '''The tags (keys and values) associated with the custom verification email template.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-customverificationemailtemplate.html#cfn-ses-customverificationemailtemplate-tags
         '''

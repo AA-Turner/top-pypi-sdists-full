@@ -82,6 +82,7 @@ class RawAccountsClient:
         query: typing.Optional[str] = None,
         created_after: typing.Optional[dt.datetime] = None,
         created_before: typing.Optional[dt.datetime] = None,
+        external_id: typing.Optional[str] = None,
         volume_min: typing.Optional[float] = None,
         volume_max: typing.Optional[float] = None,
         parent_account_id: typing.Optional[str] = None,
@@ -89,7 +90,7 @@ class RawAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Account, ListAccountsResponse]:
         """
-        Lists accounts visible to the credential. User tokens return the user's business accounts; Account API keys return the requesting account and its connected accounts.
+        Lists accounts visible to the credential. User tokens return the user's business accounts; Account API keys return the requesting account and its subaccounts.
 
         Parameters
         ----------
@@ -123,6 +124,9 @@ class RawAccountsClient:
         created_before : typing.Optional[dt.datetime]
             Return only accounts created before this ISO 8601 timestamp.
 
+        external_id : typing.Optional[str]
+            Return only the subaccount with this `external_id`, matched exactly and case-sensitively. End it with `%` to return every subaccount whose `external_id` starts with the text before it, such as `shopline:%`. `%` is accepted only at the end, because anywhere else it would scan all your subaccounts. `_` always matches literally.
+
         volume_min : typing.Optional[float]
             Return only accounts whose lifetime USD volume is at least this value. Requires `stats:read` on the parent account.
 
@@ -130,7 +134,7 @@ class RawAccountsClient:
             Return only accounts whose lifetime USD volume is at most this value. Requires `stats:read` on the parent account.
 
         parent_account_id : typing.Optional[str]
-            For platforms: the parent account ID whose direct connected accounts to return. Requires `payout:account:read` on the parent account.
+            For platforms: the parent account ID whose direct subaccounts to return. Requires `payout:account:read` on the parent account.
 
         owner_id : typing.Optional[str]
             Return only accounts owned by this user (`user_...`), the account's `owner`. Cannot be combined with `parent_account_id`.
@@ -158,6 +162,7 @@ class RawAccountsClient:
                 "query": query,
                 "created_after": serialize_datetime(created_after) if created_after is not None else None,
                 "created_before": serialize_datetime(created_before) if created_before is not None else None,
+                "external_id": external_id,
                 "volume_min": volume_min,
                 "volume_max": volume_max,
                 "parent_account_id": parent_account_id,
@@ -191,6 +196,7 @@ class RawAccountsClient:
                         query=query,
                         created_after=created_after,
                         created_before=created_before,
+                        external_id=external_id,
                         volume_min=volume_min,
                         volume_max=volume_max,
                         parent_account_id=parent_account_id,
@@ -248,15 +254,17 @@ class RawAccountsClient:
         country: typing.Optional[str] = OMIT,
         dispute_fighter_enabled: typing.Optional[bool] = OMIT,
         email: typing.Optional[str] = OMIT,
+        external_id: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         orchestration_enabled: typing.Optional[bool] = OMIT,
+        reassign_external_id: typing.Optional[bool] = OMIT,
         send_customer_emails: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         website: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Account]:
         """
-        Creates an account. User tokens create business accounts; Account API keys create connected accounts. Tax fields (`tax_remitted_by`, `tax_type`, `product_tax_code_id`, `business_address`, `tax_identifiers`) are configured with Update Account, not at creation.
+        Creates an account. User tokens create business accounts; Account API keys create subaccounts. Tax fields (`tax_remitted_by`, `tax_type`, `product_tax_code_id`, `business_address`, `tax_identifiers`) are configured with Update Account, not at creation.
 
         Parameters
         ----------
@@ -267,25 +275,31 @@ class RawAccountsClient:
             The blueprint App ID, prefixed `app_`. Creates a hosted website for the account and queues its deployment asynchronously; the Account response does not report deployment completion.
 
         country : typing.Optional[str]
-            The ISO 3166-1 alpha-2 country code where the account's business is located (e.g. `US`). Defaults to the parent account's country for connected accounts.
+            The ISO 3166-1 alpha-2 country code where the account's business is located (e.g. `US`). Defaults to the parent account's country for subaccounts.
 
         dispute_fighter_enabled : typing.Optional[bool]
             Whether Whop assembles and files dispute evidence for this account. Enabling it opts into the success fee charged on disputes it wins. Requires payment:dispute. Omit to preserve the existing setting or creation default.
 
         email : typing.Optional[str]
-            The email address of the account owner. Required when creating a connected account.
+            The email address of the account owner. Required when creating a subaccount.
+
+        external_id : typing.Optional[str]
+            Your platform's own identifier for this subaccount, such as your user or store ID. Unique among your subaccounts: creating a second account with the same `external_id` and a different `email` returns a 409, unless `reassign_external_id` is `true`. Retrying with the same `email` and `external_id` returns the existing account. Subaccounts only.
 
         metadata : typing.Optional[typing.Dict[str, typing.Any]]
-            Arbitrary key/value metadata to store on the account.
+            Arbitrary key/value metadata to store on the account. When `external_id` is not sent, an `external_id` key here sets `external_id` and follows its rules. It must be unique among your subaccounts unless `reassign_external_id` is `true`. It stays in `metadata` as sent. Changing it later does not change `external_id`.
 
         orchestration_enabled : typing.Optional[bool]
             Whether payment orchestration is enabled for this account. Requires payout:account:update. Omit to preserve the existing setting or creation default.
 
+        reassign_external_id : typing.Optional[bool]
+            Pass `true` to move `external_id` to the new subaccount when another of your subaccounts already has it. Without it, that request returns a 409. The subaccount that had it is not deleted. It stays active with `external_id` set to `null`, and its `metadata` is unchanged. Requires `external_id`. Also requires the `company:update` permission on your platform account, in addition to `company:create_child`. Ignored when the same `email` already has the `external_id`, which returns that account.
+
         send_customer_emails : typing.Optional[bool]
-            Whether Whop sends transactional emails to customers on behalf of the connected account.
+            Whether Whop sends transactional emails to customers on behalf of the subaccount.
 
         title : typing.Optional[str]
-            The display name of the account. Defaults to `metadata.external_id` or the owner's email when omitted.
+            The display name of the account. Defaults to `external_id` or the owner's email when omitted.
 
         website : typing.Optional[str]
             The account's business website, as an `http` or `https` URL of at most 255 characters. Also added to the account's `social_links` as a `website` entry.
@@ -308,8 +322,10 @@ class RawAccountsClient:
                 "country": country,
                 "dispute_fighter_enabled": dispute_fighter_enabled,
                 "email": email,
+                "external_id": external_id,
                 "metadata": metadata,
                 "orchestration_enabled": orchestration_enabled,
+                "reassign_external_id": reassign_external_id,
                 "send_customer_emails": send_customer_emails,
                 "title": title,
                 "website": website,
@@ -392,7 +408,7 @@ class RawAccountsClient:
         Parameters
         ----------
         include_trading : typing.Optional[bool]
-            Also return the trading account under `trading`: its address and its Hyperliquid WebSocket subscriptions. Requires crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet; null otherwise.
+            Also return the trading account under `trading`: its address, a snapshot of its margin and open positions, and its Hyperliquid WebSocket subscriptions. Requires crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet. Otherwise `trading` is `null`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -586,7 +602,7 @@ class RawAccountsClient:
             Account ID, prefixed `biz_`, its public route, or `me` for the account associated with the current Account API key. User tokens have no single account, so they cannot use `me`.
 
         include_trading : typing.Optional[bool]
-            Also return the trading account under `trading`: its address and its Hyperliquid WebSocket subscriptions. Requires crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet; null otherwise.
+            Also return the trading account under `trading`: its address, a snapshot of its margin and open positions, and its Hyperliquid WebSocket subscriptions. Requires crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet. Otherwise `trading` is `null`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -661,12 +677,12 @@ class RawAccountsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DeleteAccountsResponse]:
         """
-        Deletes a connected account directly owned by the authenticated platform account. The account must have no settled, pending, or reserved balance in any currency and no active, trialing, or past-due memberships. The account stops resolving immediately, and its products, plans, and team access are removed in the background; payment history is retained. Deletion cannot be undone through the API. This cannot delete the platform account itself or an account owned by another platform.
+        Deletes a subaccount directly owned by the authenticated platform account. The account must have no settled, pending, or reserved balance in any currency and no active, trialing, or past-due memberships. The account stops resolving immediately, and its products, plans, and team access are removed in the background; payment history is retained. Deletion cannot be undone through the API. This cannot delete the platform account itself or an account owned by another platform.
 
         Parameters
         ----------
         id : str
-            Connected account ID, prefixed `biz_`.
+            Subaccount ID, prefixed `biz_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -674,7 +690,7 @@ class RawAccountsClient:
         Returns
         -------
         HttpResponse[DeleteAccountsResponse]
-            Connected account deleted.
+            Subaccount deleted.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"accounts/{encode_path_param(id)}",
@@ -760,6 +776,7 @@ class RawAccountsClient:
         description: typing.Optional[str] = OMIT,
         dispute_fighter_enabled: typing.Optional[bool] = OMIT,
         eula: typing.Optional[UpdateAccountsRequestEula] = OMIT,
+        external_id: typing.Optional[str] = OMIT,
         featured_affiliate_product_id: typing.Optional[str] = OMIT,
         home_preferences: typing.Optional[typing.Sequence[UpdateAccountsRequestHomePreferencesItem]] = OMIT,
         invoice_prefix: typing.Optional[str] = OMIT,
@@ -800,7 +817,7 @@ class RawAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Account]:
         """
-        Updates an account. User tokens can update business accounts; Account API keys can update connected accounts.
+        Updates an account. User tokens can update business accounts; Account API keys can update subaccounts.
 
         Parameters
         ----------
@@ -839,6 +856,9 @@ class RawAccountsClient:
 
         eula : typing.Optional[UpdateAccountsRequestEula]
             The account's end-user license agreement document. PDF only. Pass a JSON object containing an `id` from [Create File](/api-reference/files/create-file), or `null` to remove it.
+
+        external_id : typing.Optional[str]
+            Your platform's own identifier for this subaccount. It must be unique among your subaccounts, and a duplicate returns a 409. Only the parent account can set it. Pass `null` to clear.
 
         featured_affiliate_product_id : typing.Optional[str]
             The ID of the product to feature for affiliates. Pass `null` to clear.
@@ -916,7 +936,7 @@ class RawAccountsClient:
             US state codes (50 states plus `DC`) where the account collects tax. Replaces the full set on update. Only settable when `tax_remitted_by` is `self`.
 
         tax_identifiers : typing.Optional[typing.Sequence[UpdateAccountsRequestTaxIdentifiersItem]]
-            Account tax/VAT registrations to add or update. When `tax_remitted_by` is `self`, tax is calculated and collected only in the countries where the account holds a registration.
+            Tax IDs to add to the account, or to replace when the account already has one of that type. When `tax_remitted_by` is `self`, tax outside the US is calculated and collected only in the countries where the account has a tax ID. US collection follows `tax_collection_enabled_states`.
 
         tax_remitted_by : typing.Optional[UpdateAccountsRequestTaxRemittedBy]
             Determines whether Whop or the account calculates and remits tax. The account must provide a supported-country business address when it self-remits.
@@ -940,7 +960,7 @@ class RawAccountsClient:
             The account's business website, as an `http` or `https` URL of at most 255 characters. Also added to the account's `social_links` as a `website` entry. Pass `null` to clear the website; existing social links are left unchanged.
 
         whop_partner_enabled : typing.Optional[bool]
-            Set to `true` to turn on Whop Partner mode for the account, so its team can refer businesses and the account is paid partner commission on their sales. Recorded once; `false` is rejected.
+            Set to `true` to turn on Whop Partner mode for the account, so its team can refer businesses and the account is paid partner commission on their sales. Recorded once; `false` is rejected. Only a verified Whop Partner can turn it on.
 
         industry_type : typing.Optional[typing.Any]
 
@@ -980,6 +1000,7 @@ class RawAccountsClient:
                 "eula": convert_and_respect_annotation_metadata(
                     object_=eula, annotation=typing.Optional[UpdateAccountsRequestEula], direction="write"
                 ),
+                "external_id": external_id,
                 "featured_affiliate_product_id": featured_affiliate_product_id,
                 "home_preferences": home_preferences,
                 "invoice_prefix": invoice_prefix,
@@ -1106,6 +1127,17 @@ class RawAccountsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -1133,7 +1165,7 @@ class RawAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[FormCompanyAccountsResponse]:
         """
-        Starts an LLC or C-Corp formation for a business account. The application is validated and the response returns a hosted checkout URL; once paid, the filing is submitted. Track progress through the account's [`company_formation`](/api-reference/beta/accounts/retrieve-account) field on Retrieve Account.
+        Starts an LLC or C-Corp formation for a business account. The application is validated and the response returns a hosted checkout URL; once paid, the filing is submitted. Track progress through the account's [`company_formation`](/api-reference/accounts/retrieve-account) field on Retrieve Account.
 
         Parameters
         ----------
@@ -1387,12 +1419,12 @@ class RawAccountsClient:
 
     def suspend(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Account]:
         """
-        Suspends a connected account directly owned by the authenticated platform account. This cannot suspend the platform account itself or an account owned by another platform.
+        Suspends a subaccount directly owned by the authenticated platform account. This cannot suspend the platform account itself or an account owned by another platform.
 
         Parameters
         ----------
         id : str
-            Connected account ID, prefixed `biz_`.
+            Subaccount ID, prefixed `biz_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1400,7 +1432,7 @@ class RawAccountsClient:
         Returns
         -------
         HttpResponse[Account]
-            Connected account suspended.
+            Subaccount suspended.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"accounts/{encode_path_param(id)}/suspend",
@@ -1589,6 +1621,7 @@ class AsyncRawAccountsClient:
         query: typing.Optional[str] = None,
         created_after: typing.Optional[dt.datetime] = None,
         created_before: typing.Optional[dt.datetime] = None,
+        external_id: typing.Optional[str] = None,
         volume_min: typing.Optional[float] = None,
         volume_max: typing.Optional[float] = None,
         parent_account_id: typing.Optional[str] = None,
@@ -1596,7 +1629,7 @@ class AsyncRawAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Account, ListAccountsResponse]:
         """
-        Lists accounts visible to the credential. User tokens return the user's business accounts; Account API keys return the requesting account and its connected accounts.
+        Lists accounts visible to the credential. User tokens return the user's business accounts; Account API keys return the requesting account and its subaccounts.
 
         Parameters
         ----------
@@ -1630,6 +1663,9 @@ class AsyncRawAccountsClient:
         created_before : typing.Optional[dt.datetime]
             Return only accounts created before this ISO 8601 timestamp.
 
+        external_id : typing.Optional[str]
+            Return only the subaccount with this `external_id`, matched exactly and case-sensitively. End it with `%` to return every subaccount whose `external_id` starts with the text before it, such as `shopline:%`. `%` is accepted only at the end, because anywhere else it would scan all your subaccounts. `_` always matches literally.
+
         volume_min : typing.Optional[float]
             Return only accounts whose lifetime USD volume is at least this value. Requires `stats:read` on the parent account.
 
@@ -1637,7 +1673,7 @@ class AsyncRawAccountsClient:
             Return only accounts whose lifetime USD volume is at most this value. Requires `stats:read` on the parent account.
 
         parent_account_id : typing.Optional[str]
-            For platforms: the parent account ID whose direct connected accounts to return. Requires `payout:account:read` on the parent account.
+            For platforms: the parent account ID whose direct subaccounts to return. Requires `payout:account:read` on the parent account.
 
         owner_id : typing.Optional[str]
             Return only accounts owned by this user (`user_...`), the account's `owner`. Cannot be combined with `parent_account_id`.
@@ -1665,6 +1701,7 @@ class AsyncRawAccountsClient:
                 "query": query,
                 "created_after": serialize_datetime(created_after) if created_after is not None else None,
                 "created_before": serialize_datetime(created_before) if created_before is not None else None,
+                "external_id": external_id,
                 "volume_min": volume_min,
                 "volume_max": volume_max,
                 "parent_account_id": parent_account_id,
@@ -1700,6 +1737,7 @@ class AsyncRawAccountsClient:
                             query=query,
                             created_after=created_after,
                             created_before=created_before,
+                            external_id=external_id,
                             volume_min=volume_min,
                             volume_max=volume_max,
                             parent_account_id=parent_account_id,
@@ -1758,15 +1796,17 @@ class AsyncRawAccountsClient:
         country: typing.Optional[str] = OMIT,
         dispute_fighter_enabled: typing.Optional[bool] = OMIT,
         email: typing.Optional[str] = OMIT,
+        external_id: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         orchestration_enabled: typing.Optional[bool] = OMIT,
+        reassign_external_id: typing.Optional[bool] = OMIT,
         send_customer_emails: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         website: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Account]:
         """
-        Creates an account. User tokens create business accounts; Account API keys create connected accounts. Tax fields (`tax_remitted_by`, `tax_type`, `product_tax_code_id`, `business_address`, `tax_identifiers`) are configured with Update Account, not at creation.
+        Creates an account. User tokens create business accounts; Account API keys create subaccounts. Tax fields (`tax_remitted_by`, `tax_type`, `product_tax_code_id`, `business_address`, `tax_identifiers`) are configured with Update Account, not at creation.
 
         Parameters
         ----------
@@ -1777,25 +1817,31 @@ class AsyncRawAccountsClient:
             The blueprint App ID, prefixed `app_`. Creates a hosted website for the account and queues its deployment asynchronously; the Account response does not report deployment completion.
 
         country : typing.Optional[str]
-            The ISO 3166-1 alpha-2 country code where the account's business is located (e.g. `US`). Defaults to the parent account's country for connected accounts.
+            The ISO 3166-1 alpha-2 country code where the account's business is located (e.g. `US`). Defaults to the parent account's country for subaccounts.
 
         dispute_fighter_enabled : typing.Optional[bool]
             Whether Whop assembles and files dispute evidence for this account. Enabling it opts into the success fee charged on disputes it wins. Requires payment:dispute. Omit to preserve the existing setting or creation default.
 
         email : typing.Optional[str]
-            The email address of the account owner. Required when creating a connected account.
+            The email address of the account owner. Required when creating a subaccount.
+
+        external_id : typing.Optional[str]
+            Your platform's own identifier for this subaccount, such as your user or store ID. Unique among your subaccounts: creating a second account with the same `external_id` and a different `email` returns a 409, unless `reassign_external_id` is `true`. Retrying with the same `email` and `external_id` returns the existing account. Subaccounts only.
 
         metadata : typing.Optional[typing.Dict[str, typing.Any]]
-            Arbitrary key/value metadata to store on the account.
+            Arbitrary key/value metadata to store on the account. When `external_id` is not sent, an `external_id` key here sets `external_id` and follows its rules. It must be unique among your subaccounts unless `reassign_external_id` is `true`. It stays in `metadata` as sent. Changing it later does not change `external_id`.
 
         orchestration_enabled : typing.Optional[bool]
             Whether payment orchestration is enabled for this account. Requires payout:account:update. Omit to preserve the existing setting or creation default.
 
+        reassign_external_id : typing.Optional[bool]
+            Pass `true` to move `external_id` to the new subaccount when another of your subaccounts already has it. Without it, that request returns a 409. The subaccount that had it is not deleted. It stays active with `external_id` set to `null`, and its `metadata` is unchanged. Requires `external_id`. Also requires the `company:update` permission on your platform account, in addition to `company:create_child`. Ignored when the same `email` already has the `external_id`, which returns that account.
+
         send_customer_emails : typing.Optional[bool]
-            Whether Whop sends transactional emails to customers on behalf of the connected account.
+            Whether Whop sends transactional emails to customers on behalf of the subaccount.
 
         title : typing.Optional[str]
-            The display name of the account. Defaults to `metadata.external_id` or the owner's email when omitted.
+            The display name of the account. Defaults to `external_id` or the owner's email when omitted.
 
         website : typing.Optional[str]
             The account's business website, as an `http` or `https` URL of at most 255 characters. Also added to the account's `social_links` as a `website` entry.
@@ -1818,8 +1864,10 @@ class AsyncRawAccountsClient:
                 "country": country,
                 "dispute_fighter_enabled": dispute_fighter_enabled,
                 "email": email,
+                "external_id": external_id,
                 "metadata": metadata,
                 "orchestration_enabled": orchestration_enabled,
+                "reassign_external_id": reassign_external_id,
                 "send_customer_emails": send_customer_emails,
                 "title": title,
                 "website": website,
@@ -1902,7 +1950,7 @@ class AsyncRawAccountsClient:
         Parameters
         ----------
         include_trading : typing.Optional[bool]
-            Also return the trading account under `trading`: its address and its Hyperliquid WebSocket subscriptions. Requires crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet; null otherwise.
+            Also return the trading account under `trading`: its address, a snapshot of its margin and open positions, and its Hyperliquid WebSocket subscriptions. Requires crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet. Otherwise `trading` is `null`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2099,7 +2147,7 @@ class AsyncRawAccountsClient:
             Account ID, prefixed `biz_`, its public route, or `me` for the account associated with the current Account API key. User tokens have no single account, so they cannot use `me`.
 
         include_trading : typing.Optional[bool]
-            Also return the trading account under `trading`: its address and its Hyperliquid WebSocket subscriptions. Requires crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet; null otherwise.
+            Also return the trading account under `trading`: its address, a snapshot of its margin and open positions, and its Hyperliquid WebSocket subscriptions. Requires crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet. Otherwise `trading` is `null`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2174,12 +2222,12 @@ class AsyncRawAccountsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DeleteAccountsResponse]:
         """
-        Deletes a connected account directly owned by the authenticated platform account. The account must have no settled, pending, or reserved balance in any currency and no active, trialing, or past-due memberships. The account stops resolving immediately, and its products, plans, and team access are removed in the background; payment history is retained. Deletion cannot be undone through the API. This cannot delete the platform account itself or an account owned by another platform.
+        Deletes a subaccount directly owned by the authenticated platform account. The account must have no settled, pending, or reserved balance in any currency and no active, trialing, or past-due memberships. The account stops resolving immediately, and its products, plans, and team access are removed in the background; payment history is retained. Deletion cannot be undone through the API. This cannot delete the platform account itself or an account owned by another platform.
 
         Parameters
         ----------
         id : str
-            Connected account ID, prefixed `biz_`.
+            Subaccount ID, prefixed `biz_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2187,7 +2235,7 @@ class AsyncRawAccountsClient:
         Returns
         -------
         AsyncHttpResponse[DeleteAccountsResponse]
-            Connected account deleted.
+            Subaccount deleted.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"accounts/{encode_path_param(id)}",
@@ -2273,6 +2321,7 @@ class AsyncRawAccountsClient:
         description: typing.Optional[str] = OMIT,
         dispute_fighter_enabled: typing.Optional[bool] = OMIT,
         eula: typing.Optional[UpdateAccountsRequestEula] = OMIT,
+        external_id: typing.Optional[str] = OMIT,
         featured_affiliate_product_id: typing.Optional[str] = OMIT,
         home_preferences: typing.Optional[typing.Sequence[UpdateAccountsRequestHomePreferencesItem]] = OMIT,
         invoice_prefix: typing.Optional[str] = OMIT,
@@ -2313,7 +2362,7 @@ class AsyncRawAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Account]:
         """
-        Updates an account. User tokens can update business accounts; Account API keys can update connected accounts.
+        Updates an account. User tokens can update business accounts; Account API keys can update subaccounts.
 
         Parameters
         ----------
@@ -2352,6 +2401,9 @@ class AsyncRawAccountsClient:
 
         eula : typing.Optional[UpdateAccountsRequestEula]
             The account's end-user license agreement document. PDF only. Pass a JSON object containing an `id` from [Create File](/api-reference/files/create-file), or `null` to remove it.
+
+        external_id : typing.Optional[str]
+            Your platform's own identifier for this subaccount. It must be unique among your subaccounts, and a duplicate returns a 409. Only the parent account can set it. Pass `null` to clear.
 
         featured_affiliate_product_id : typing.Optional[str]
             The ID of the product to feature for affiliates. Pass `null` to clear.
@@ -2429,7 +2481,7 @@ class AsyncRawAccountsClient:
             US state codes (50 states plus `DC`) where the account collects tax. Replaces the full set on update. Only settable when `tax_remitted_by` is `self`.
 
         tax_identifiers : typing.Optional[typing.Sequence[UpdateAccountsRequestTaxIdentifiersItem]]
-            Account tax/VAT registrations to add or update. When `tax_remitted_by` is `self`, tax is calculated and collected only in the countries where the account holds a registration.
+            Tax IDs to add to the account, or to replace when the account already has one of that type. When `tax_remitted_by` is `self`, tax outside the US is calculated and collected only in the countries where the account has a tax ID. US collection follows `tax_collection_enabled_states`.
 
         tax_remitted_by : typing.Optional[UpdateAccountsRequestTaxRemittedBy]
             Determines whether Whop or the account calculates and remits tax. The account must provide a supported-country business address when it self-remits.
@@ -2453,7 +2505,7 @@ class AsyncRawAccountsClient:
             The account's business website, as an `http` or `https` URL of at most 255 characters. Also added to the account's `social_links` as a `website` entry. Pass `null` to clear the website; existing social links are left unchanged.
 
         whop_partner_enabled : typing.Optional[bool]
-            Set to `true` to turn on Whop Partner mode for the account, so its team can refer businesses and the account is paid partner commission on their sales. Recorded once; `false` is rejected.
+            Set to `true` to turn on Whop Partner mode for the account, so its team can refer businesses and the account is paid partner commission on their sales. Recorded once; `false` is rejected. Only a verified Whop Partner can turn it on.
 
         industry_type : typing.Optional[typing.Any]
 
@@ -2493,6 +2545,7 @@ class AsyncRawAccountsClient:
                 "eula": convert_and_respect_annotation_metadata(
                     object_=eula, annotation=typing.Optional[UpdateAccountsRequestEula], direction="write"
                 ),
+                "external_id": external_id,
                 "featured_affiliate_product_id": featured_affiliate_product_id,
                 "home_preferences": home_preferences,
                 "invoice_prefix": invoice_prefix,
@@ -2619,6 +2672,17 @@ class AsyncRawAccountsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -2646,7 +2710,7 @@ class AsyncRawAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[FormCompanyAccountsResponse]:
         """
-        Starts an LLC or C-Corp formation for a business account. The application is validated and the response returns a hosted checkout URL; once paid, the filing is submitted. Track progress through the account's [`company_formation`](/api-reference/beta/accounts/retrieve-account) field on Retrieve Account.
+        Starts an LLC or C-Corp formation for a business account. The application is validated and the response returns a hosted checkout URL; once paid, the filing is submitted. Track progress through the account's [`company_formation`](/api-reference/accounts/retrieve-account) field on Retrieve Account.
 
         Parameters
         ----------
@@ -2902,12 +2966,12 @@ class AsyncRawAccountsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[Account]:
         """
-        Suspends a connected account directly owned by the authenticated platform account. This cannot suspend the platform account itself or an account owned by another platform.
+        Suspends a subaccount directly owned by the authenticated platform account. This cannot suspend the platform account itself or an account owned by another platform.
 
         Parameters
         ----------
         id : str
-            Connected account ID, prefixed `biz_`.
+            Subaccount ID, prefixed `biz_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2915,7 +2979,7 @@ class AsyncRawAccountsClient:
         Returns
         -------
         AsyncHttpResponse[Account]
-            Connected account suspended.
+            Subaccount suspended.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"accounts/{encode_path_param(id)}/suspend",

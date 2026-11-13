@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cua-bench
-Version: 0.4.2
+Version: 0.4.4
 Summary: Run computer-use benchmark datasets on sandboxes
 Project-URL: Homepage, https://github.com/trycua/cua
 Project-URL: Documentation, https://docs.trycua.com
@@ -23,7 +23,7 @@ Requires-Python: <3.14,>=3.12
 Requires-Dist: aiohttp>=3.9.0
 Requires-Dist: beautifulsoup4>=4.14.2
 Requires-Dist: cua-agent
-Requires-Dist: cua-sandbox<0.11.0,>=0.8.0
+Requires-Dist: cua-sandbox<0.12.0,>=0.8.0
 Requires-Dist: datasets>=3.0.0
 Requires-Dist: html5lib>=1.1
 Requires-Dist: jinja2>=3.1.0

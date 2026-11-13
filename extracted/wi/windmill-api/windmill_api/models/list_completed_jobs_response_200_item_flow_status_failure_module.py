@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -72,7 +72,8 @@ class ListCompletedJobsResponse200ItemFlowStatusFailureModule:
             'ListCompletedJobsResponse200ItemFlowStatusFailureModuleAgentActionsItemType3',
             'ListCompletedJobsResponse200ItemFlowStatusFailureModuleAgentActionsItemType4',
             'ListCompletedJobsResponse200ItemFlowStatusFailureModuleAgentActionsItemType5']]]):
-        agent_actions_success (Union[Unset, List[bool]]):
+        agent_actions_success (Union[Unset, List[Optional[bool]]]): The outcome of each agent action, by position. null
+            while a background tool call is still running.
         parent_module (Union[Unset, str]):
     """
 
@@ -103,7 +104,7 @@ class ListCompletedJobsResponse200ItemFlowStatusFailureModule:
             ]
         ],
     ] = UNSET
-    agent_actions_success: Union[Unset, List[bool]] = UNSET
+    agent_actions_success: Union[Unset, List[Optional[bool]]] = UNSET
     parent_module: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -208,7 +209,7 @@ class ListCompletedJobsResponse200ItemFlowStatusFailureModule:
 
                 agent_actions.append(agent_actions_item)
 
-        agent_actions_success: Union[Unset, List[bool]] = UNSET
+        agent_actions_success: Union[Unset, List[Optional[bool]]] = UNSET
         if not isinstance(self.agent_actions_success, Unset):
             agent_actions_success = self.agent_actions_success
 
@@ -428,7 +429,7 @@ class ListCompletedJobsResponse200ItemFlowStatusFailureModule:
 
             agent_actions.append(agent_actions_item)
 
-        agent_actions_success = cast(List[bool], d.pop("agent_actions_success", UNSET))
+        agent_actions_success = cast(List[Optional[bool]], d.pop("agent_actions_success", UNSET))
 
         parent_module = d.pop("parent_module", UNSET)
 

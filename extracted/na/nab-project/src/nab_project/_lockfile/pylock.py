@@ -47,7 +47,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias
 from nab_index.atomic import atomic_write_text
 from nab_markersets.conversions import PreparedMarkerSets
 from nab_markersets.errors import IntractableMarkerSet, UnserializableMarkerSet
-from nab_markersets.markersets import DecisionStore, MarkerSet
+from nab_markersets.markersets import DecisionStore, MarkerSet, factor_membership_marker
 from nab_provider._vendor.packaging.markers import (
     MARKERS_REQUIRING_VERSION,
     Marker,
@@ -233,7 +233,7 @@ class _ForkAxes(Record):
     the resolve forked over (:func:`_forked_exclusion_groups`).  ``forks``
     indexes every target by its environment and its selection, which is how
     :func:`_project_fork` walks one set's members with the other sets
-    held fixed.  ``markers`` is each fork's unprojected selection marker,
+    held fixed.  ``markers`` is each fork's environment-free selection condition,
     which does not vary by package. The next mapping records each fork's
     :attr:`~nab_project.lockfile.TargetLock.package_gates` as sets.
     ``env_rows`` is the values the declared environments pin, or ``None``
@@ -317,19 +317,25 @@ class _ForkAxes(Record):
 class _GatedMarker(Record):
     """The environments paired with one package selection condition.
 
-    ``marker`` is ``None`` when the condition holds in all of them.
+    ``condition`` also preserves negated conflict members.
+    A ``None`` marker covers every declared environment.
     """
 
-    __slots__ = __match_args__ = ("marker", "gate")
+    __slots__ = __match_args__ = ("marker", "gate", "condition")
 
     marker: Marker | None
     gate: tuple[tuple[str, str], ...]
+    condition: Marker | None
 
     def __init__(
-        self, marker: Marker | None, gate: tuple[tuple[str, str], ...]
+        self,
+        marker: Marker | None,
+        gate: tuple[tuple[str, str], ...],
+        condition: Marker | None = None,
     ) -> None:
         self.marker = marker
         self.gate = gate
+        self.condition = condition
 
 
 class _Projection(Record):
@@ -1709,7 +1715,7 @@ def _build_marker(
     labels_by_gate: defaultdict[tuple[tuple[str, str], ...], list[str]] = defaultdict(
         list
     )
-    loose: list[Marker] = []
+    labels_by_condition: defaultdict[str, list[str]] = defaultdict(list)
     unconditional = len(labels) >= len(targets)
     for signature, env_labels in by_env.items():
         is_base = _is_base(name, signature, env_fork_counts, env_base_names)
@@ -1733,10 +1739,10 @@ def _build_marker(
             if shared:
                 labels_by_gate[shared].append(env_labels[0])
 
-        loose.extend(
-            _parsed_marker(text)
-            for text in _fork_contributions(axes, projections, name, env_labels)
-        )
+        for label, condition in _fork_contributions(
+            axes, projections, name, env_labels
+        ):
+            labels_by_condition[condition].append(label)
         unconditional = False
 
     # At full coverage, an agreed selector needs no environment clause.
@@ -1750,8 +1756,14 @@ def _build_marker(
         _GatedMarker(axes.environment_marker(env_labels), gate)
         for gate, env_labels in labels_by_gate.items()
     )
-    if loose:
-        parts += (_GatedMarker(_or_markers(loose), ()),)
+    parts += tuple(
+        _GatedMarker(
+            axes.environment_marker(env_labels),
+            (),
+            _parsed_marker(condition) if condition else None,
+        )
+        for condition, env_labels in labels_by_condition.items()
+    )
     return parts
 
 
@@ -1760,15 +1772,9 @@ def _fork_contributions(
     projections: Mapping[tuple[str, str], _Projection],
     name: str,
     env_labels: Sequence[str],
-) -> list[str]:
-    """Render one environment's per-fork markers, projected and deduped.
-
-    Each fork drops the clauses of the conflict sets the package does not
-    vary over (:func:`_fork_projections`), which leaves the forks of a
-    dropped set rendering the same text; the duplicates are folded into
-    one contribution, in first-seen order.
-    """
-    seen: dict[str, None] = {}
+) -> list[tuple[str, str]]:
+    """Pair each projected selection condition with its contributing environment."""
+    contributions: list[tuple[str, str]] = []
     for label in env_labels:
         target = axes.targets[label].target
         projection = projections[name, label]
@@ -1778,8 +1784,9 @@ def _fork_contributions(
             else _selection_marker(target, axes.exclusion_groups, projection.dropped)
         )
         kept = frozenset(target.selection) - projection.dropped
-        seen[_with_gate(text, _fork_gate(kept, projection.gate))] = None
-    return list(seen)
+        condition = _with_gate(text, _fork_gate(kept, projection.gate))
+        contributions.append((label, condition))
+    return contributions
 
 
 def _fork_projections(
@@ -2066,22 +2073,7 @@ def _selection_marker(
     exclusion_groups: Sequence[AbstractSet[tuple[str, str]]],
     dropped: AbstractSet[tuple[str, str]] = frozenset(),
 ) -> str:
-    """Return the fork's per-package marker with its co-members negated.
-
-    Conjoins ``'name' in <variable>`` for every member of the selection
-    onto the target's environment marker, then ``'name' not in
-    <variable>`` for every other member of every conflict set the
-    selection draws from, so at most one fork installs.  With no
-    ``dropped`` members this is the target's
-    :attr:`~nab_provider.target.ResolveTarget.marker_string` plus the
-    negations, and a selection drawing from no exclusion group is
-    ``marker_string`` unchanged.
-
-    ``dropped`` are the members of conflict sets the package does not
-    vary over (:func:`_project_fork`); both their positive clause and
-    their set's negations fall away, since a set nothing is kept from is
-    no longer drawn from.
-    """
+    """Render a fork's projected positive and negative selection conditions."""
     selected = set(target.selection) - set(dropped)
 
     co_members: set[tuple[str, str]] = set()
@@ -2089,14 +2081,14 @@ def _selection_marker(
         if group & selected:
             co_members |= group - selected
 
-    marker = target.environment_marker_string
+    clauses = []
     for kind, name in sorted(selected):
         variable = MARKER_VARIABLE_FOR_KIND[kind]
-        marker += f' and "{name}" in {variable}'
+        clauses.append(f'"{name}" in {variable}')
     for kind, name in sorted(co_members):
         variable = MARKER_VARIABLE_FOR_KIND[kind]
-        marker += f' and "{name}" not in {variable}'
-    return marker
+        clauses.append(f'"{name}" not in {variable}')
+    return " and ".join(clauses)
 
 
 def _gate_clause(gate: Sequence[tuple[str, str]]) -> str:
@@ -2120,24 +2112,43 @@ def _finalize_parts(
     *,
     prepared_sets: PreparedMarkerSets | None = None,
 ) -> Marker | None:
-    """Simplify each condition's environments, then assemble the marker.
-
-    Simplifying the whole marker in one pass walks a cell space the
-    membership variables multiply. The condition environments carry no
-    membership variable, so they shrink first, and the marker they
-    assemble into is small by the time the second pass canonicalises it.
-    """
+    """Simplify scalar support, then factor selectors sharing that support."""
     assembled: list[Marker] = []
+    conditions_by_environment: defaultdict[Marker | None, list[Marker]] = defaultdict(
+        list
+    )
     for part in parts:
         simplified = _finalize_cached(
             part.marker, universe, name, memo, store, prepared_sets=prepared_sets
         )
+
+        # Positive package selectors must stay attached to their conflict conditions.
+        if part.condition is not None and not part.gate:
+            conditions_by_environment[simplified].append(part.condition)
+            continue
+
+        if part.condition is not None:
+            simplified = (
+                part.condition
+                if simplified is None
+                else _parsed_marker(f"({simplified}) and ({part.condition})")
+            )
+
         if not part.gate:
             if simplified is None:
                 return None
             assembled.append(simplified)
             continue
+
         assembled.append(_gated_marker(simplified, part.gate))
+
+    for environment, conditions in conditions_by_environment.items():
+        condition = _factored_condition(conditions)
+        assembled.append(
+            condition
+            if environment is None
+            else _parsed_marker(f"({environment}) and ({condition})")
+        )
 
     # One ungated part is already what the second pass would return.
     if len(parts) == 1 and not parts[0].gate:
@@ -2145,6 +2156,16 @@ def _finalize_parts(
     return _finalize_cached(
         _or_markers(assembled), universe, name, memo, store, prepared_sets=prepared_sets
     )
+
+
+def _factored_condition(conditions: Sequence[Marker]) -> Marker:
+    """Factor complete conflict selectors before parsing their combined marker."""
+    if len(conditions) == 1:
+        return conditions[0]
+
+    # The formatter parses its input; avoid parsing and caching it twice.
+    text = " or ".join(f"({condition})" for condition in conditions)
+    return _parsed_marker(factor_membership_marker(text))
 
 
 def _gated_marker(marker: Marker | None, gate: Sequence[tuple[str, str]]) -> Marker:
@@ -2163,6 +2184,8 @@ def _with_gate(marker: str, gate: Sequence[tuple[str, str]]) -> str:
     if not gate:
         return marker
     clause = _gate_clause(gate)
+    if not marker:
+        return clause
     if len(gate) > 1:
         clause = f"({clause})"
     return f"{marker} and {clause}"

@@ -2,6 +2,7 @@ from enum import Enum
 from importlib.metadata import version
 import logging
 import os
+import platform
 import shutil
 from subprocess import Popen
 import sys
@@ -111,6 +112,7 @@ def start():
 
         env = os.environ.copy()
         env["DD_SERVERLESS_COMPAT_VERSION"] = package_version
+        env["DD_SERVERLESS_COMPAT_RUNTIME"] = f"python{platform.python_version()}"
         Popen(executable_file_path, env=env)
     except Exception:
         logger.exception("An unexpected error occurred while spawning Serverless Compatibility Layer process")

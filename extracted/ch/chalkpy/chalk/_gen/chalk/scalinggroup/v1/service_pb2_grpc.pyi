@@ -18,6 +18,8 @@ from chalk._gen.chalk.scalinggroup.v1.service_pb2 import (
     GetScalingGroupResponse,
     GetScalingGroupRevisionRequest,
     GetScalingGroupRevisionResponse,
+    ListScalingGroupReplicasRequest,
+    ListScalingGroupReplicasResponse,
     ListScalingGroupRevisionsRequest,
     ListScalingGroupRevisionsResponse,
     ListScalingGroupsRequest,
@@ -55,6 +57,10 @@ class ScalingGroupManagerServiceStub:
         ListScalingGroupsResponse,
     ]
     """ListScalingGroups lists all scaling groups in the current environment"""
+    ListScalingGroupReplicas: UnaryUnaryMultiCallable[
+        ListScalingGroupReplicasRequest,
+        ListScalingGroupReplicasResponse,
+    ]
     DeleteScalingGroup: UnaryUnaryMultiCallable[
         DeleteScalingGroupRequest,
         DeleteScalingGroupResponse,
@@ -106,6 +112,12 @@ class ScalingGroupManagerServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> ListScalingGroupsResponse:
         """ListScalingGroups lists all scaling groups in the current environment"""
+    @abstractmethod
+    def ListScalingGroupReplicas(
+        self,
+        request: ListScalingGroupReplicasRequest,
+        context: ServicerContext,
+    ) -> ListScalingGroupReplicasResponse: ...
     @abstractmethod
     def DeleteScalingGroup(
         self,

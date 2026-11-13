@@ -1,4 +1,4 @@
-from unittest import TestCase, skipIf
+from unittest import skipIf
 
 from aioquic.buffer import Buffer
 from aioquic.quic.crypto import (
@@ -12,7 +12,7 @@ from aioquic.quic.crypto import (
 from aioquic.quic.packet import PACKET_FIXED_BIT, QuicProtocolVersion
 from aioquic.tls import CipherSuite
 
-from .utils import SKIP_TESTS
+from .utils import SKIP_TESTS, TestCase
 
 PROTOCOL_VERSION = QuicProtocolVersion.VERSION_2
 
@@ -162,7 +162,7 @@ class CryptoTest(TestCase):
             "9ac312a7f877468ebe69422748ad00a15443f18203a07d6060f688f30f21632b"
         )
         key, iv, hp = derive_key_iv_hp(
-            cipher_suite=CipherSuite.CHACHA20_POLY1305_SHA256,
+            cipher_suite=CipherSuite.TLS_CHACHA20_POLY1305_SHA256,
             secret=secret,
             version=PROTOCOL_VERSION,
         )
@@ -184,7 +184,7 @@ class CryptoTest(TestCase):
     def test_decrypt_chacha20(self) -> None:
         pair = CryptoPair()
         pair.recv.setup(
-            cipher_suite=CipherSuite.CHACHA20_POLY1305_SHA256,
+            cipher_suite=CipherSuite.TLS_CHACHA20_POLY1305_SHA256,
             secret=bytes.fromhex(
                 "9ac312a7f877468ebe69422748ad00a15443f18203a07d6060f688f30f21632b"
             ),
@@ -244,7 +244,7 @@ class CryptoTest(TestCase):
     def test_encrypt_chacha20(self) -> None:
         pair = CryptoPair()
         pair.send.setup(
-            cipher_suite=CipherSuite.CHACHA20_POLY1305_SHA256,
+            cipher_suite=CipherSuite.TLS_CHACHA20_POLY1305_SHA256,
             secret=bytes.fromhex(
                 "9ac312a7f877468ebe69422748ad00a15443f18203a07d6060f688f30f21632b"
             ),
@@ -360,7 +360,7 @@ class CryptoTest(TestCase):
         # https://datatracker.ietf.org/doc/html/rfc9369#appendix-A.5
         crypto = CryptoContext()
         crypto.setup(
-            cipher_suite=CipherSuite.CHACHA20_POLY1305_SHA256,
+            cipher_suite=CipherSuite.TLS_CHACHA20_POLY1305_SHA256,
             secret=bytes.fromhex(
                 "9ac312a7f877468ebe69422748ad00a15443f18203a07d6060f688f30f21632b"
             ),

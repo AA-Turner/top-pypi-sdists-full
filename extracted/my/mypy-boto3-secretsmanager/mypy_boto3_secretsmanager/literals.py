@@ -24,9 +24,11 @@ else:
 
 __all__ = (
     "FilterNameStringTypeType",
+    "ListResourcePoliciesPaginatorName",
     "ListSecretsPaginatorName",
     "PaginatorName",
     "RegionName",
+    "ReplicaRestrictionTypeType",
     "ResourceServiceName",
     "SecretsManagerServiceName",
     "ServiceName",
@@ -39,10 +41,12 @@ __all__ = (
 FilterNameStringTypeType = Literal[
     "all", "description", "name", "owning-service", "primary-region", "tag-key", "tag-value"
 ]
+ListResourcePoliciesPaginatorName = Literal["list_resource_policies"]
 ListSecretsPaginatorName = Literal["list_secrets"]
+ReplicaRestrictionTypeType = Literal["NoRestriction", "SameOrg"]
 SortByTypeType = Literal["created-date", "last-accessed-date", "last-changed-date", "name"]
 SortOrderTypeType = Literal["asc", "desc"]
-StatusTypeType = Literal["Failed", "InProgress", "InSync"]
+StatusTypeType = Literal["Detached", "Failed", "InProgress", "InSync", "Pending"]
 SecretsManagerServiceName = Literal["secretsmanager"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -484,7 +488,7 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_secrets"]
+PaginatorName = Literal["list_resource_policies", "list_secrets"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

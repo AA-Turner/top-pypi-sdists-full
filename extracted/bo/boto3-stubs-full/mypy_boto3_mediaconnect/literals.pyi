@@ -48,6 +48,7 @@ __all__ = (
     "EndpointLifecycleType",
     "EntitlementStatusType",
     "FabricLatencyModeType",
+    "FabricSwitchingModeType",
     "FailoverInputSourcePriorityModeType",
     "FailoverModeType",
     "FlowActiveWaiterName",
@@ -115,6 +116,7 @@ __all__ = (
     "RouterOutputTierType",
     "RouterOutputTypeType",
     "RoutingScopeType",
+    "RtmpPushNamingTypeType",
     "ScanModeType",
     "ServiceName",
     "SourceEndpointConnectedWaiterName",
@@ -128,6 +130,7 @@ __all__ = (
     "SourceEndpointRegisteredWaiterName",
     "SourceEndpointRegistrationStateType",
     "SourceEndpointTypeType",
+    "SourceMediaStreamTypeType",
     "SourceTypeType",
     "StateType",
     "StatusType",
@@ -185,6 +188,7 @@ EndpointEncryptionTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
 EndpointLifecycleType = Literal["MANAGED", "UNMANAGED"]
 EntitlementStatusType = Literal["DISABLED", "ENABLED"]
 FabricLatencyModeType = Literal["BALANCED", "LOW_LATENCY"]
+FabricSwitchingModeType = Literal["IMMEDIATE", "KEY_FRAME"]
 FailoverInputSourcePriorityModeType = Literal["NO_PRIORITY", "PRIMARY_SECONDARY"]
 FailoverModeType = Literal["FAILOVER", "MERGE"]
 FlowActiveWaiterName = Literal["flow_active"]
@@ -242,6 +246,7 @@ ProtocolType = Literal[
     "fujitsu-qos",
     "ndi-speed-hq",
     "rist",
+    "rtmp-push",
     "rtp",
     "rtp-fec",
     "srt-caller",
@@ -257,7 +262,7 @@ ResourceShareOwnershipType = Literal["CONSUMED", "OWNED"]
 ResourceShareStateType = Literal["SHARED", "UNSHARED"]
 ResourceTypeType = Literal["Mbps_Outbound_Bandwidth"]
 RouterContentQualityAnalysisTypeType = Literal["CONTENT_LEVEL"]
-RouterInputProtocolType = Literal["RIST", "RTP", "SRT_CALLER", "SRT_LISTENER"]
+RouterInputProtocolType = Literal["RIST", "RTMP_PUSH", "RTP", "SRT_CALLER", "SRT_LISTENER"]
 RouterInputStateType = Literal[
     "ACTIVE",
     "CREATING",
@@ -303,6 +308,7 @@ RouterOutputTypeType = Literal[
     "MEDIACONNECT_FLOW", "MEDIALIVE_INPUT", "SOURCE_ENDPOINT", "STANDARD"
 ]
 RoutingScopeType = Literal["GLOBAL", "REGIONAL"]
+RtmpPushNamingTypeType = Literal["AUTOMATIC", "MANUAL"]
 ScanModeType = Literal["interlace", "progressive", "progressive-segmented-frame"]
 SourceEndpointConnectedWaiterName = Literal["source_endpoint_connected"]
 SourceEndpointConnectingWaiterName = Literal["source_endpoint_connecting"]
@@ -319,6 +325,7 @@ SourceEndpointRegistrationStateType = Literal[
     "DEREGISTERING", "REGISTERED", "REGISTERING", "REGISTRATION_FAILED"
 ]
 SourceEndpointTypeType = Literal["ROUTER_OUTPUT", "STANDARD"]
+SourceMediaStreamTypeType = Literal["AUDIO", "DATA", "UNKNOWN", "VIDEO"]
 SourceTypeType = Literal["ENTITLED", "OWNED"]
 StateType = Literal["DISABLED", "ENABLED"]
 StatusType = Literal["ACTIVE", "DELETING", "ERROR", "STANDBY", "STARTING", "STOPPING", "UPDATING"]

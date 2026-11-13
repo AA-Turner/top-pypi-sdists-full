@@ -6,7 +6,7 @@ import logging
 import uuid
 from typing import Any
 
-from pyrit.models import ComponentIdentifier, Message, MessagePiece, Score, ScoreType
+from pyrit.models import ComponentIdentifier, Message, MessagePiece, Score, ScoreType, ScoringExpectation
 from pyrit.prompt_target import PromptShieldTarget
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
 from pyrit.score.true_false.true_false_score_aggregator import (
@@ -60,10 +60,13 @@ class PromptShieldScorer(MessageTrueFalseScorer):
             prompt_target=self._prompt_target.get_identifier(),
         )
 
-    async def _score_piece_async(self, message_piece: MessagePiece, *, objective: str | None = None) -> list[Score]:
+    async def _score_piece_with_expectation_async(
+        self, message_piece: MessagePiece, *, expectation: ScoringExpectation | None
+    ) -> list[Score]:
+        objective = expectation.objective if expectation else None
         conversation_id = str(uuid.uuid4())
 
-        body = message_piece.original_value
+        body = message_piece.converted_value
 
         request = Message(
             message_pieces=[
@@ -83,18 +86,15 @@ class PromptShieldScorer(MessageTrueFalseScorer):
         # Whether or not any of the documents or userPrompt got flagged as an attack
         result: bool = any(self._parse_response_to_boolean_list(response))
 
-        # Store parsed response in metadata for structured access
-        try:
-            meta = json.loads(response)
-        except Exception:
-            meta = {"raw": response}
+        # Score metadata only accepts flat primitive values, so keep the raw response as JSON text.
+        meta = {"raw": response}
 
         score = Score(
             score_type="true_false",
             score_value=str(result),
             score_value_description="True if an attack or jailbreak has been detected, else False.",
             score_category=["attack_detection"],
-            score_metadata=meta,  # type: ignore[ty:invalid-argument-type]
+            score_metadata=meta,
             score_rationale="",
             scorer_class_identifier=self.get_identifier(),
             message_piece_id=message_piece.id,
@@ -105,8 +105,9 @@ class PromptShieldScorer(MessageTrueFalseScorer):
 
     def _parse_response_to_boolean_list(self, response: str) -> list[bool]:
         """
-        Remember that you can just access the metadata attribute to get the original Prompt Shield endpoint response,
-        and then just call json.loads() on it to interact with it.
+        Parse the Prompt Shield endpoint response into detection flags.
+
+        The original response is stored as JSON text in ``score_metadata["raw"]``.
 
         Returns:
             list[bool]: A list of boolean values indicating whether an attack was detected.

@@ -9,9 +9,10 @@ from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 
 from ..command import CommandKind
-from .capture import MAX_PRODUCERS, Plan, Producer, Refusal, Seal
+from .capture import MAX_PRODUCERS, CaptureField, Plan, Producer, Refusal, Seal
 from .live.turns import LiveTurnIn
 from .part import SamplePartIn
+from .points import SampleMetricsIn, TrainingPlan, UpdateIn
 from .samples import SampleGroup
 from .task import MAX_TASK_KEY_CHARS, Scenario, Task
 from .weights import WeightVersion
@@ -48,18 +49,22 @@ class WeightVersionIn(WeightVersion.project("policy_id", "version", "after_step"
 
 class PlanIn(Plan.project(
     "expected_steps", "producers", "reward_max", "max_staleness", "final_step", "is_closed", "capabilities",
-    "refusals", "adapter_hooks_missing",
+    "refusals", "adapter_hooks_missing", "training", "unsupported",
     producers=(list[Producer] | None, Field(default=None, max_length=MAX_PRODUCERS)),
     reward_max=(float | None, None),
     is_closed=(bool | None, None),
     capabilities=(list[CommandKind] | None, None),
     refusals=(dict[CommandKind, Refusal] | None, None),
     adapter_hooks_missing=(bool | None, None),
+    training=(TrainingPlan | None, None),
+    unsupported=(dict[CaptureField, Refusal] | None, None),
 )):
     """A change to the run's plan: only the fields sent change (`model_fields_set`). `capabilities` is what THIS
     batch's producer can be asked (it replaces that producer's list on the plan row); `refusals` why it refuses the
     kinds it cannot do (it replaces that producer's map). `adapter_hooks_missing` is also
-    about THIS batch's producer: true adds it to the plan row's list (never removed)."""
+    about THIS batch's producer: true adds it to the plan row's list (never removed). `training`: what this producer
+    says about its per-sample metrics (it replaces that producer's declaration). `unsupported` is what THIS
+    producer's framework cannot give a sample, with why (it replaces that producer's map)."""
 
 
 class SampleBatchIn(BaseModel):
@@ -76,12 +81,16 @@ class SampleBatchIn(BaseModel):
     weights: list[WeightVersionIn] = Field(default_factory=list, max_length=MAX_BATCH_ITEMS)
     #: A watched attempt's turns as they happen (DESIGN.md "Live"); they ride the same message and dedup token.
     live_turns: list[LiveTurnIn] = Field(default_factory=list, max_length=MAX_BATCH_ITEMS)
+    #: Per-sample metrics and update records: sent to `/samples/points` (`SamplePointsIn`), which queues them on
+    #: this same message kind; the batch route refuses them (an older server would drop them unread).
+    points: list[SampleMetricsIn] = Field(default_factory=list, max_length=MAX_BATCH_ITEMS)
+    updates: list[UpdateIn] = Field(default_factory=list, max_length=MAX_BATCH_ITEMS)
     plan: PlanIn | None = None
 
     @model_validator(mode="after")
     def _one_each(self) -> SampleBatchIn:
         if not (self.samples or self.tasks or self.groups or self.seals or self.commits or self.weights
-                or self.live_turns or self.plan is not None):
+                or self.live_turns or self.points or self.updates or self.plan is not None):
             raise ValueError("an empty sample batch")
         for name, steps in (("seals", [s.step for s in self.seals]), ("commits", [c.step for c in self.commits])):
             if len(steps) != len(set(steps)):
@@ -93,8 +102,31 @@ class SampleBatchIn(BaseModel):
 
     @property
     def item_count(self) -> int:
-        lists = (self.samples, self.tasks, self.groups, self.seals, self.commits, self.weights, self.live_turns)
+        lists = (self.samples, self.tasks, self.groups, self.seals, self.commits, self.weights, self.live_turns,
+                 self.points, self.updates)  # fmt: skip
         return sum(len(items) for items in lists) + (self.plan is not None)
+
+
+class SamplePointsIn(BaseModel):
+    """`POST /v1/runs/{id}/samples/points`: one producer's per-sample metrics and update records, in one write epoch.
+    Its own route, so an older server answers 404 instead of dropping them unread (the batch is a plain model)."""
+
+    producer: Producer
+    write_epoch: int = Field(ge=1)
+    session_id: UUID | None = None
+    points: list[SampleMetricsIn] = Field(default_factory=list, max_length=MAX_BATCH_ITEMS)
+    updates: list[UpdateIn] = Field(default_factory=list, max_length=MAX_BATCH_ITEMS)
+
+    @model_validator(mode="after")
+    def _not_empty(self) -> SamplePointsIn:
+        if not (self.points or self.updates):
+            raise ValueError("an empty points batch")
+        return self
+
+    def to_batch(self) -> SampleBatchIn:
+        """The same items as the sample message the writer applies."""
+        return SampleBatchIn(producer=self.producer, write_epoch=self.write_epoch, session_id=self.session_id,
+                             points=self.points, updates=self.updates)  # fmt: skip
 
 
 class SampleBatchOut(BaseModel):

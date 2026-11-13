@@ -42,12 +42,16 @@ from langgraph_api.metrics_otlp import (
     COUNTER_PG_POOL_REQUESTS_QUEUED,
     GAUGE_NUM_PENDING_RUNS,
     GAUGE_NUM_RUNNING_RUNS,
+    GAUGE_NUM_RUNNING_RUNS_BY_PRIORITY,
+    GAUGE_NUM_STARTABLE_RUNS,
     GAUGE_PG_POOL_AVAILABLE,
     GAUGE_PG_POOL_MAX,
     GAUGE_PG_POOL_SIZE,
     GAUGE_REDIS_POOL_AVAILABLE,
     GAUGE_REDIS_POOL_MAX,
     GAUGE_REDIS_POOL_SIZE,
+    GAUGE_STARTABLE_RUNS_WAIT_TIME_MAX,
+    GAUGE_STARTABLE_RUNS_WAIT_TIME_MED,
     GAUGE_WORKERS_ACTIVE,
     GAUGE_WORKERS_AVAILABLE,
     GAUGE_WORKERS_MAX,
@@ -104,6 +108,26 @@ async def _collect_queue_and_workers(reporter) -> None:
             stats = await Runs.stats(conn)
         reporter.record_gauge(GAUGE_NUM_PENDING_RUNS, stats["n_pending"])
         reporter.record_gauge(GAUGE_NUM_RUNNING_RUNS, stats["n_running"])
+        # One series per level; Runs.stats lists the levels only on a deployment with a
+        # priority callback. A level with nothing waiting reports 0.
+        for level in stats.get("by_priority", ()):
+            attributes = {"priority": str(level["priority"])}
+            reporter.record_gauge(
+                GAUGE_NUM_STARTABLE_RUNS, level["n_startable"], attributes
+            )
+            reporter.record_gauge(
+                GAUGE_STARTABLE_RUNS_WAIT_TIME_MAX,
+                level["startable_runs_wait_time_max_secs"] or 0,
+                attributes,
+            )
+            reporter.record_gauge(
+                GAUGE_STARTABLE_RUNS_WAIT_TIME_MED,
+                level["startable_runs_wait_time_med_secs"] or 0,
+                attributes,
+            )
+            reporter.record_gauge(
+                GAUGE_NUM_RUNNING_RUNS_BY_PRIORITY, level["n_running"], attributes
+            )
 
 
 async def _collect_pool(reporter, prev_counters: dict[str, int]) -> None:
@@ -150,7 +174,9 @@ async def _collect_pool(reporter, prev_counters: dict[str, int]) -> None:
             GAUGE_REDIS_POOL_AVAILABLE, redis.get("idle_connections", 0)
         )
         reporter.record_gauge(GAUGE_REDIS_POOL_SIZE, redis.get("in_use_connections", 0))
-        reporter.record_gauge(GAUGE_REDIS_POOL_MAX, redis.get("max_connections", 0))
+        # Cluster may omit max (no honest cluster-wide capacity from go-redis).
+        if "max_connections" in redis:
+            reporter.record_gauge(GAUGE_REDIS_POOL_MAX, redis["max_connections"])
         await logger.ainfo("Redis pool stats", **redis)
 
 

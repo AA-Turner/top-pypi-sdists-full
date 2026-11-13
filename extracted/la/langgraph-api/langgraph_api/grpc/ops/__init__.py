@@ -158,24 +158,24 @@ def build_encryption_context(model: str) -> enc_pb.EncryptionContext | None:
     return enc_ctx
 
 
+def encryption_context_from_proto(
+    enc_ctx: enc_pb.EncryptionContext | None,
+) -> dict[str, Any]:
+    """Decode EncryptionContext proto metadata into the dict set_encryption_context expects."""
+    encryption_context: dict[str, Any] = {}
+    if not enc_ctx or not enc_ctx.metadata:
+        return encryption_context
+    for key, value_bytes in enc_ctx.metadata.items():
+        try:
+            encryption_context[key] = orjson.loads(value_bytes)
+        except Exception:
+            encryption_context[key] = value_bytes
+    return encryption_context
+
+
 def extract_encryption_context(run_with_attempt: pb.RunWithAttempt) -> dict[str, Any]:
     """Extract the encryption context from a gRPC EncryptionContext proto message."""
-    # Extract encryption context if present
-    encryption_context = {}
-    if (
-        run_with_attempt.encryption_context
-        and run_with_attempt.encryption_context.metadata
-    ):
-        for (
-            key,
-            value_bytes,
-        ) in run_with_attempt.encryption_context.metadata.items():
-            try:
-                encryption_context[key] = orjson.loads(value_bytes)
-            except Exception:
-                # If we can't decode, keep as bytes
-                encryption_context[key] = value_bytes
-    return encryption_context
+    return encryption_context_from_proto(run_with_attempt.encryption_context)
 
 
 def _handle_grpc_error(error: AioRpcError) -> None:

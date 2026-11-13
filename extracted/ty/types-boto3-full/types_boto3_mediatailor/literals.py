@@ -38,6 +38,7 @@ __all__ = (
     "FillPolicyType",
     "FunctionTypeType",
     "GetChannelSchedulePaginatorName",
+    "HlsTagNameType",
     "InsertionModeType",
     "ListAlertsPaginatorName",
     "ListChannelsPaginatorName",
@@ -153,18 +154,24 @@ ChannelStateType = Literal["RUNNING", "STOPPED"]
 ClientSideBeaconingModeType = Literal["DISABLED", "INSIGHTS"]
 CompressionMethodType = Literal["GZIP", "NONE"]
 EventNameType = Literal[
-    "POST_ADS_RESPONSE", "PRE_ADS_REQUEST", "PRE_MANIFEST_INSERTION", "PRE_SESSION_INITIALIZATION"
+    "POST_ADS_RESPONSE",
+    "POST_ORIGIN_RESPONSE",
+    "PRE_ADS_REQUEST",
+    "PRE_MANIFEST_INSERTION",
+    "PRE_SESSION_INITIALIZATION",
 ]
 FillPolicyType = Literal["FULL_AVAIL_ONLY", "PARTIAL_AVAIL"]
 FunctionTypeType = Literal[
     "AWS_SERVICE_REQUEST",
     "CONCURRENT_EXECUTOR",
     "CUSTOM_OUTPUT",
+    "HLS_TAG_PROCESSOR",
     "HTTP_REQUEST",
     "SEQUENTIAL_EXECUTOR",
     "VAST_REQUEST",
 ]
 GetChannelSchedulePaginatorName = Literal["get_channel_schedule"]
+HlsTagNameType = Literal["EXT-X-DATERANGE"]
 InsertionModeType = Literal["PLAYER_SELECT", "STITCHED_ONLY"]
 ListAlertsPaginatorName = Literal["list_alerts"]
 ListChannelsPaginatorName = Literal["list_channels"]
@@ -203,6 +210,8 @@ ManifestServiceExcludeEventTypeType = Literal[
     "NO_MEDIA_PLAYLIST",
     "ORIGIN_MANIFEST",
     "PARSING_ERROR",
+    "POST_ORIGIN_RESPONSE_FUNCTION_ERROR",
+    "POST_ORIGIN_RESPONSE_HOOK_ERROR",
     "PRE_SESSION_INIT_FUNCTION_ERROR",
     "PRE_SESSION_INIT_HOOK_ERROR",
     "SCTE35_PARSING_ERROR",
@@ -214,7 +223,10 @@ ManifestServiceExcludeEventTypeType = Literal[
     "UNSUPPORTED_SINGLE_PERIOD_DASH_MANIFEST",
 ]
 ManifestServicePublishOptInEventTypeType = Literal[
-    "PRE_SESSION_INIT_FUNCTION_COMPLETED", "PRE_SESSION_INIT_HOOK_SUMMARY"
+    "POST_ORIGIN_RESPONSE_FUNCTION_COMPLETED",
+    "POST_ORIGIN_RESPONSE_HOOK_SUMMARY",
+    "PRE_SESSION_INIT_FUNCTION_COMPLETED",
+    "PRE_SESSION_INIT_HOOK_SUMMARY",
 ]
 MessageTypeType = Literal["SPLICE_INSERT", "TIME_SIGNAL"]
 MethodType = Literal["GET", "POST"]

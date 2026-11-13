@@ -7,8 +7,8 @@ from enum import Enum
 from types import MappingProxyType
 from typing import NoReturn, cast
 
-from pyrit.models.literals import PromptDataType
-from pyrit.models.target.target_capabilities import CapabilityName, TargetCapabilities
+from pyrit.models import CapabilityName, PromptDataType, TargetCapabilities
+from pyrit.prompt_target.common.tool_call_history import TOOL_CALL_INPUT_MODALITIES
 
 __all__ = [
     "CapabilityHandlingPolicy",
@@ -118,7 +118,7 @@ _GPT_4O = TargetCapabilities(
     supports_system_prompt=True,
     supports_json_output=True,
     supports_editable_history=True,
-    input_modalities=_TEXT_IMAGE_INPUT,
+    input_modalities=_TEXT_IMAGE_INPUT | TOOL_CALL_INPUT_MODALITIES,
     output_modalities=_TEXT_OUTPUT,
 )
 
@@ -129,7 +129,7 @@ _GPT_5 = TargetCapabilities(
     supports_json_schema=True,
     supports_json_output=True,
     supports_editable_history=True,
-    input_modalities=_TEXT_IMAGE_INPUT,
+    input_modalities=_TEXT_IMAGE_INPUT | TOOL_CALL_INPUT_MODALITIES,
     output_modalities=_TEXT_OUTPUT,
 )
 

@@ -2354,12 +2354,8 @@ paths:
         20,000 characters (`truncated`), the conversation keeps its first 50
         comments (`commentsTruncated`, with the full `commentCount`), and a
         reaction names at most its first 10 people while `count` is the full
-        number. An avatar is the forge's own URL, passed through unchanged
-        and never proxied; this app sets no Content-Security-Policy today, so
-        the browser loads it directly. A future policy's `img-src` has to
-        allow avatars.githubusercontent.com, repository-images.githubusercontent.com
-        (a GitHub repository's logo, see `logoUrl` on a repo in GET
-        /api/v1/dashboard) and the Forgejo host.
+        number. An avatar is the forge's own URL, passed through unchanged;
+        the page loads it through GET /api/v1/images, never from the forge.
 
         A forge that can't be read is an error, never an empty thread.
       tags: [pull-requests]
@@ -2449,8 +2445,8 @@ paths:
         20,000 characters (`truncated`), the conversation keeps its first 50
         comments (`commentsTruncated`, with the full `commentCount`), and a
         reaction names at most its first 10 people while `count` is the full
-        number. An avatar is the forge's own URL, passed through unchanged and
-        never proxied.
+        number. An avatar is the forge's own URL, passed through unchanged;
+        the page loads it through GET /api/v1/images.
 
         The error answers are those of GET /api/v1/pull-requests/details, with
         the same codes. An issue that doesn't exist is a 404, and a forge that
@@ -3509,16 +3505,32 @@ paths:
         Only the forge the item belongs to is reached. Forgejo: the saved
         instance, with the saved token sent to that host only. GitHub:
         `github.com` and its user-content hosts (`user-images`,
-        `private-user-images` and `raw.githubusercontent.com`), without a
-        token, since its attachment links are signed. Any other host, scheme or
+        `private-user-images`, `raw`, `avatars` and `repository-images`
+        under `githubusercontent.com`), without a
+        token, since its attachment links are signed. A
+        `github.com/user-attachments/...` link in a private repository is not
+        served unsigned, so when `fullName` and `number` (or `tag`, or the
+        `comment` it was posted in) name where it sits, the server reads that
+        item's or comment's rendered HTML through the
+        GitHub API with the saved token and fetches the signed address found
+        there instead, without the token. If the lookup finds nothing or fails, or the signed address is on a host
+        that isn't allowed or doesn't load, the link is fetched as written.
+        Each such image costs one GitHub API request, which is never served from
+        the ETag cache because the signature expires. Any other host, scheme or
         address answers 403 without a request. A redirect is followed only to
         another allowed host, and at most three times. GitHub's hosts are also
         refused at connect time if they resolve to a non-public address.
 
         The body must be a PNG, JPEG, GIF or WebP by its own bytes, not by the
-        host's `Content-Type`, and at most 8 MiB. SVG and anything else answers
-        415. The answer carries `nosniff` and a sandboxing
-        `Content-Security-Policy`, and is cacheable by the browser for an hour.
+        host's `Content-Type`, and at most 8 MiB (512 KiB with `kind=avatar`).
+        SVG and anything else answers 415.
+
+        The cost is bounded. At most 8 fetches run upstream at once; another
+        request waits up to 5 seconds for a slot, then answers 503 with
+        `Retry-After`. A fetched image is served again from a server-side cache
+        for 5 minutes, without a new upstream fetch. The answer carries
+        `nosniff` and a sandboxing `Content-Security-Policy`, and is cacheable
+        by the browser for an hour.
       tags: [dashboard]
       x-mcp-excluded: Returns image bytes for a browser to draw; an MCP tool has no use for them.
       security: [{ bearerAuth: [] }]
@@ -3535,6 +3547,47 @@ paths:
           schema:
             type: string
           description: The absolute address of the image, as written in the Markdown.
+        - name: fullName
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            GitHub only. "owner/repo" of the issue, pull request or release the
+            image is embedded in. Used with `number` or `tag` to find a private
+            attachment's signed address.
+        - name: number
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: GitHub only. The issue or pull request the image is embedded in.
+        - name: tag
+          in: query
+          required: false
+          schema:
+            type: string
+          description: GitHub only. The release the image is embedded in; wins over `number`.
+        - name: comment
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+          description: |
+            GitHub only. The number of the issue or pull request comment the
+            image is embedded in (a `DetailsComment.id`); wins over `tag` and
+            `number`. A comment's body is a different object from the item's, so
+            the server reads that comment's rendered HTML for the signed
+            address. A value that isn't a positive whole number looks nothing
+            up.
+        - name: kind
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [avatar]
+          description: Set to `avatar` for an avatar or repository logo, which has a 512 KiB size cap instead of 8 MiB.
       responses:
         "200":
           description: The image.
@@ -3548,7 +3601,7 @@ paths:
             image/webp:
               schema: { type: string, format: binary }
         "400":
-          description: "`url` is missing, `forge` is not github or forgejo, or no credentials are saved for that forge."
+          description: "`url` is missing, `forge` is not github or forgejo, `kind` is set to something other than `avatar`, or no credentials are saved for that forge."
           content:
             application/json:
               schema:
@@ -3572,7 +3625,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "413":
-          description: The image is over 8 MiB.
+          description: The image is over 8 MiB, or over 512 KiB for `kind=avatar`.
           content:
             application/json:
               schema:
@@ -3585,6 +3638,15 @@ paths:
                 $ref: "#/components/schemas/Error"
         "502":
           description: The forge was unreachable or answered something this app could not use.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: Too many images are loading; no fetch slot freed within 5 seconds. Retry after the `Retry-After` delay.
+          headers:
+            Retry-After:
+              schema: { type: string }
           content:
             application/json:
               schema:
@@ -4245,6 +4307,7 @@ components:
           renovateRebaseLabel,
           renovateAuthors,
           ignoredTitleCounts,
+          forgejoSkippedAvatarHosts,
           theme,
         ]
       properties:
@@ -4318,6 +4381,18 @@ components:
             the user lists it here. A pull request by one of these gets
             Renovate's own rebase, not Update branch, and is a `dependency`.
             Matched case-insensitively. Empty means only the GitHub slugs.
+        forgejoSkippedAvatarHosts:
+          type: array
+          items:
+            type: string
+          description: |
+            Other hosts a Forgejo avatar was refused for lately: the image
+            proxy only fetches from the saved instance, so an avatar on
+            Gravatar or Libravatar is skipped and the page shows an initial.
+            Lowercase, sorted, at most eight, and never the instance's own
+            host. A host is listed while its avatars keep being asked for and
+            drops off after about ten minutes without one, so the list is
+            empty when nothing is skipped. Held in memory: a restart empties it.
         theme:
           type: string
           enum: ["", light, dark]
@@ -4397,6 +4472,7 @@ components:
           hideDependencyDashboard,
           ignoredTitles,
           ignoredTitleCounts,
+          forgejoSkippedAvatarHosts,
           theme,
           timezone,
         ]
@@ -4440,6 +4516,18 @@ components:
           items:
             type: [integer, "null"]
             minimum: 0
+        forgejoSkippedAvatarHosts:
+          type: array
+          items:
+            type: string
+          description: |
+            Other hosts a Forgejo avatar was refused for lately: the image
+            proxy only fetches from the saved instance, so an avatar on
+            Gravatar or Libravatar is skipped and the page shows an initial.
+            Lowercase, sorted, at most eight, and never the instance's own
+            host. A host is listed while its avatars keep being asked for and
+            drops off after about ten minutes without one, so the list is
+            empty when nothing is skipped. Held in memory: a restart empties it.
         theme:
           type: string
           enum: ["", light, dark]
@@ -5066,6 +5154,16 @@ components:
           $ref: "#/components/schemas/CheckStatus"
         conclusion:
           $ref: "#/components/schemas/CheckConclusion"
+        waitingFor:
+          type: string
+          enum: [jobs, runner]
+          description: |
+            Why a queued Forgejo job has not started: `jobs` when it waits on
+            earlier jobs it needs (Forgejo's `blocked`), `runner` when it is
+            ready and waits for a runner to pick it up (`waiting`). The page
+            words it. Absent for GitHub, for a job that is not queued, and
+            for a blocked job in a run that has failed, which will never
+            start.
         url:
           type: string
           description: That job's own page on the forge that ran it — never the pull request's own page.
@@ -5303,7 +5401,7 @@ components:
           type: string
         avatarUrl:
           type: string
-          description: The forge's own avatar URL, passed through unchanged and never proxied.
+          description: The forge's own avatar URL, passed through unchanged. The page loads it through GET /api/v1/images.
         url:
           type: string
           description: The person's profile page on the forge, built by the server from the web address of an item the board already holds for that forge. Empty when the board holds none yet, so a client shows the name alone.
@@ -5374,7 +5472,7 @@ components:
       properties:
         id:
           type: string
-          description: The forge's own identifier for the comment.
+          description: The forge's own identifier for the comment. On GitHub, the number its REST comments route takes.
         author:
           oneOf:
             - type: "null"
@@ -5757,6 +5855,44 @@ components:
             read fails. Rerun failed checks is not offered for the forge, and
             the page shows this text where the button would be. Omitted when
             rerunning works or the version could not be read.
+        providerStatus:
+          allOf:
+            - $ref: "#/components/schemas/ProviderStatus"
+          description: >-
+            What the forge's own status page reports, set only for GitHub, only
+            while it is unreachable (reachable is false, errorKind
+            unreachable, upstream_error or unknown), and only when the page
+            names an incident or a degraded component the dashboard uses (API
+            Requests, Pull Requests, Actions or Webhooks). The page is read
+            only after a failed call, at most once a minute, with a request
+            that carries nothing about the user. Omitted when the page reports
+            nothing there, when it can't be read, and for Forgejo, which has no
+            such page. A client says "GitHub reports an incident" and leaves
+            the cause of a failure with no incident to the forge's own error.
+
+    ProviderStatus:
+      type: object
+      required: [indicator]
+      properties:
+        indicator:
+          type: string
+          enum: [none, minor, major, critical]
+          description: >-
+            The status page's overall level. It covers every GitHub component,
+            including ones the dashboard doesn't use, so read incidents and
+            components for what concerns this service.
+        components:
+          type: array
+          items:
+            type: string
+          description: >-
+            The affected components the dashboard uses, as the page names them
+            ("Pull Requests").
+        incidents:
+          type: array
+          items:
+            type: string
+          description: Titles of the open incidents on those components.
 
     ForgeApiStats:
       type: object
@@ -5933,7 +6069,7 @@ components:
           type: string
         authorAvatarUrl:
           type: string
-          description: The forge's own avatar URL for the author, passed through unchanged and never proxied. Empty when the forge supplies none, such as a deleted account.
+          description: The forge's own avatar URL for the author, passed through unchanged. The page loads it through GET /api/v1/images. Empty when the forge supplies none, such as a deleted account.
         authorUrl:
           type: string
           description: The author's profile page on the forge, built by the server from the forge's own web address, so a client needs no rule per forge. A GitHub bot links to its app page. Empty when there is nothing to link to, such as a deleted account.
@@ -6849,7 +6985,7 @@ components:
           type: string
         authorAvatarUrl:
           type: string
-          description: The forge's own avatar URL for whoever filed the issue, passed through unchanged and never proxied. Empty when the forge supplies none, such as a deleted account.
+          description: The forge's own avatar URL for whoever filed the issue, passed through unchanged. The page loads it through GET /api/v1/images. Empty when the forge supplies none, such as a deleted account.
         authorUrl:
           type: string
           description: The author's profile page on the forge, built by the server from the forge's own web address. Empty when there is nothing to link to, such as a deleted account.
@@ -6941,6 +7077,28 @@ components:
         bots:
           $ref: "#/components/schemas/NavPullRequestCount"
 
+    HiddenDraftCounts:
+      type: object
+      required: [pullRequests, releases, bots]
+      description: |
+        How many draft pull requests the board left out, per page that lists
+        them: release pull requests under `releases`, Dependabot and Renovate
+        under `bots`, the rest under `pullRequests`, the same split as
+        `navCounts`. A page shows its Show drafts button only when its own
+        number is above zero, so the button never appears on a page where it
+        would reveal nothing. Always present, with zeros when there is nothing
+        hidden or the request set `includeDrafts=true`.
+      properties:
+        pullRequests:
+          type: integer
+          minimum: 0
+        releases:
+          type: integer
+          minimum: 0
+        bots:
+          type: integer
+          minimum: 0
+
     Dashboard:
       type: object
       required:
@@ -6955,6 +7113,7 @@ components:
           mainBranchPage,
           repos,
           hiddenDrafts,
+          hiddenDraftsByPage,
           autoMerged,
           queuedActions,
           readIntervalSeconds,
@@ -7051,7 +7210,13 @@ components:
             present, and `0` when the request set `includeDrafts=true`, so
             a client can render "N hidden" without a special case. Drafts
             in a repo the account ignores aren't counted, since none of
-            that repo's pull requests show.
+            that repo's pull requests show. The sum of `hiddenDraftsByPage`.
+        hiddenDraftsByPage:
+          $ref: "#/components/schemas/HiddenDraftCounts"
+          description: |
+            `hiddenDrafts` split by the page that lists each draft, so a page
+            reads its own number and never shows a Show drafts button for
+            drafts that belong on another page.
         hiddenPullRequests:
           type: integer
           minimum: 0
@@ -7535,7 +7700,7 @@ components:
             repository's own avatar. Absent otherwise, and never the
             generated social card GitHub shows for a repository with none,
             nor the owner's avatar. Always an https URL, passed through
-            unchanged and never proxied: on GitHub exactly
+            unchanged; the page loads it through GET /api/v1/images. On GitHub exactly
             repository-images.githubusercontent.com, on Forgejo the
             instance's own host. A GitHub custom image is a wide banner,
             not a square logo.

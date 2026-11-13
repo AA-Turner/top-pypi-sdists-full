@@ -9,7 +9,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 class AdText(UniversalBaseModel):
     language: typing.Optional[str] = pydantic.Field(default=None)
     """
-    ISO 639 code of the language this text is in, such as `es`. On an ad with translations, the ad's own copy carries `translations.source_language`. It's `null` on an ad without translations.
+    Always `null`. Translations are no longer available.
     """
 
     text: str = pydantic.Field()

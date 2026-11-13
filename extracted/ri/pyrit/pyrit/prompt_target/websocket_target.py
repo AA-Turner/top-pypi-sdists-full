@@ -11,7 +11,7 @@ import websockets
 from websockets.asyncio.client import ClientConnection
 from websockets.protocol import State
 
-from pyrit.common.deprecation import print_deprecation_message
+from pyrit.common import print_deprecation_message
 from pyrit.exceptions import EmptyResponseException, pyrit_target_retry
 from pyrit.models import ComponentIdentifier, Message, construct_response_from_request
 from pyrit.prompt_target import PromptTarget, limit_requests_per_minute
@@ -72,7 +72,8 @@ class WebsocketTarget(PromptTarget):
                 reconnect without this callback because the target cannot infer the service-specific protocol.
                 The callback must consume all frames produced by its restoration exchange.
             discard_initial_messages (int): Number of parsed messages to discard after initialization.
-            response_timeout_seconds (float): Maximum time to wait for a parsed response.
+            response_timeout_seconds (float): Maximum time to wait for a complete parsed response. During
+                initialization, one separate timeout budget is shared across all discarded initial messages.
             existing_convo (dict[str, ClientConnection] | None): Pre-initialized connections by
                 PyRIT conversation ID.
             max_requests_per_minute (int | None): Maximum number of requests per minute.
@@ -118,6 +119,11 @@ class WebsocketTarget(PromptTarget):
             ComponentIdentifier: The identifier for this target instance.
         """
         return self._create_identifier(params={"protocol_identifier": self._protocol_identifier})
+
+    def validate_history_replay(self) -> None:
+        """Check for a restoration callback or configured history support."""
+        if self._conversation_restore_callback is None:
+            super().validate_history_replay()
 
     async def _connect_async(self) -> ClientConnection:
         """
@@ -178,7 +184,7 @@ class WebsocketTarget(PromptTarget):
                 self._receive_messages_async(conversation_id),
                 timeout=self._response_timeout_seconds,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise TimeoutError(
                 f"Timed out waiting for a WebSocket response after {self._response_timeout_seconds} seconds."
             ) from None
@@ -240,8 +246,8 @@ class WebsocketTarget(PromptTarget):
             self._conversation_locks.clear()
             self._is_cleaning_up = False
 
-    @limit_requests_per_minute
     @pyrit_target_retry
+    @limit_requests_per_minute
     async def _send_prompt_to_target_async(self, *, normalized_conversation: list[Message]) -> list[Message]:
         """
         Send the current normalized message to the WebSocket service.
@@ -340,7 +346,7 @@ class WebsocketTarget(PromptTarget):
                 restore_callback(websocket, conversation_history),
                 timeout=self._response_timeout_seconds,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise TimeoutError(
                 f"Timed out restoring WebSocket conversation history after {self._response_timeout_seconds} seconds."
             ) from None
@@ -349,17 +355,14 @@ class WebsocketTarget(PromptTarget):
         for initialization_string in self._initialization_strings:
             await websocket.send(initialization_string)
 
-        for _ in range(self._discard_initial_messages):
-            try:
-                await asyncio.wait_for(
-                    self._receive_message_async(websocket=websocket),
-                    timeout=self._response_timeout_seconds,
-                )
-            except asyncio.TimeoutError:
-                raise TimeoutError(
-                    "Timed out waiting for an initial WebSocket message after "
-                    f"{self._response_timeout_seconds} seconds."
-                ) from None
+        try:
+            async with asyncio.timeout(self._response_timeout_seconds):
+                for _ in range(self._discard_initial_messages):
+                    await self._receive_message_async(websocket=websocket)
+        except TimeoutError:
+            raise TimeoutError(
+                f"Timed out waiting for an initial WebSocket message after {self._response_timeout_seconds} seconds."
+            ) from None
 
     async def _receive_message_async(self, *, websocket: ClientConnection) -> str:
         async for message in websocket:

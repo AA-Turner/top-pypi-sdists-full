@@ -7,7 +7,7 @@ from collections.abc import Callable
 from typing import Any
 from mcp.server.fastmcp.exceptions import ToolError
 from ...sdk.client.ids import _BARE_ID
-from ...shared.reads.search_contract import BrowseMode
+from ...shared.reads.search_contract import OWNER_MODES, BrowseMode, BrowseOrder
 
 
 # -- browse: one tool, five listings ------------------------------------------
@@ -23,8 +23,10 @@ from ...shared.reads.search_contract import BrowseMode
 # RETURNS, in the caller's own argument names.
 #
 # The cursor is every mode's (delivery owns it) and is not listed. `limit` is
-# every mode's too, with a mode-specific meaning the schema states.
-_BROWSE_MODE_ARGS: dict[BrowseMode, frozenset[str]] = {
+# every mode's too, with a mode-specific meaning the schema states. The person
+# and time filters (`_PEOPLE_FILTER_ARGS`) join every mode in `OWNER_MODES`
+# below, so the two can never disagree.
+_MODE_OWN_ARGS: dict[BrowseMode, frozenset[str]] = {
     BrowseMode.PROJECTS: frozenset(
         {
             "ref",
@@ -75,6 +77,18 @@ _BROWSE_MODE_ARGS: dict[BrowseMode, frozenset[str]] = {
     # The workspace is the route's address; rows page by the token budget.
     # `branch` opens one of its branches in full, from the same read.
     BrowseMode.BRANCHES: frozenset({"workspace_id", "branch"}),
+    # The roster is the team's, whole; `limit` pages it.
+    BrowseMode.PEOPLE: frozenset({"limit"}),
+    # `project` narrows to one project's sessions (resolved into `ref`).
+    BrowseMode.SESSIONS: frozenset({"ref", "project", "limit"}),
+}
+
+#: The person and time filters (people and time filters B2): passed to the route as given.
+_PEOPLE_FILTER_ARGS = frozenset({"owner", "since", "until", "order"})
+
+_BROWSE_MODE_ARGS: dict[BrowseMode, frozenset[str]] = {
+    mode: args | _PEOPLE_FILTER_ARGS if mode in OWNER_MODES else args
+    for mode, args in _MODE_OWN_ARGS.items()
 }
 
 #: Browse arguments whose DEFAULT is not None. Supplied means "differs from the
@@ -101,6 +115,13 @@ def _browse_args_for_mode(mode: BrowseMode, args: dict[str, Any]) -> None:
     allowed = _BROWSE_MODE_ARGS[mode]
     supplied = {name for name, value in args.items() if not _browse_arg_is_neutral(name, value)}
     unsupported = sorted(supplied - allowed)
+    order = args.get("order")
+    if not unsupported and order and mode is not BrowseMode.RUNS and order != BrowseOrder.RECENT:
+        # Only mode=runs sorts by a field; every other mode's order is its default or newest first.
+        raise ToolError(
+            f"browse: mode={mode.value} does not read order={order!r} -- order (read by mode=runs) sorts "
+            f'by a field; mode={mode.value} takes order="recent" (newest first) or no order.'
+        )
     if not unsupported:
         return
     detail = "; ".join(
@@ -141,7 +162,7 @@ def _browse_args_for_mode(mode: BrowseMode, args: dict[str, Any]) -> None:
 # refs and never pass through this again. `ref` itself still works, undocumented.
 
 #: The modes whose scope `project` / `experiment` name (the catalog modes read them as their own filters).
-_SCOPED_MODES = frozenset({BrowseMode.PROJECTS, BrowseMode.RUNS})
+_SCOPED_MODES = frozenset({BrowseMode.PROJECTS, BrowseMode.RUNS, BrowseMode.SESSIONS})
 _SCOPE_KINDS = ("project", "experiment")
 
 
@@ -154,8 +175,22 @@ def normalize_browse_scope(arguments: dict[str, Any], find_id: Callable[[str, st
     """The caller's browse arguments with `project` / `experiment` (or a slug in `ref`) turned into
     the internal `ref` = `kind:<uuid>`. `find_id(kind, slug)` is the tenant's own lookup (the one
     `entity` reads with); a uuid is used as given. Refuses two scopes at once, naming the one to keep."""
-    if BrowseMode(arguments.get("mode") or BrowseMode.PROJECTS) not in _SCOPED_MODES:
+    mode = BrowseMode(arguments.get("mode") or BrowseMode.PROJECTS)
+    if mode not in _SCOPED_MODES:
         return arguments
+    if mode is BrowseMode.SESSIONS and arguments.get("experiment"):
+        raise ToolError("browse: mode=sessions narrows by `project`, not `experiment`.")
+    # `order` counts only as "recent": a field order is mode=runs', refused below in its own words.
+    people_asked = sorted(
+        name for name in _PEOPLE_FILTER_ARGS
+        if arguments.get(name) and (name != "order" or arguments[name] == BrowseOrder.RECENT)
+    )
+    if mode is BrowseMode.PROJECTS and people_asked and any(arguments.get(k) for k in ("project", "experiment", "ref")):
+        # GET /v1/browse filters its TOP level only, and refuses a filter beside a scope.
+        raise ToolError(
+            f"browse: {', '.join(people_asked)} narrow the top-level project list, not one project's "
+            "contents. Drop `project` / `experiment`, or use mode=runs or mode=sessions with `project`."
+        )
     given = {kind: arguments.get(kind) for kind in _SCOPE_KINDS if arguments.get(kind)}
     ref = arguments.get("ref")
     if len(given) == 2:

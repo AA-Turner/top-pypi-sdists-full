@@ -1,8 +1,11 @@
 import asyncio
 import base64
+import concurrent.futures
 import json
+import threading
 import time
-from contextlib import suppress
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager, suppress
 from http import HTTPStatus
 from typing import Any
 from unittest.mock import MagicMock
@@ -11,10 +14,12 @@ import pytest
 from pydantic import SecretStr
 from temporalio.runtime import Runtime
 
-from mistralai.workflows.core.auth import FileTokenProvider, StaticTokenProvider
+from mistralai.workflows.core.auth import FileTokenProvider, StaticTokenProvider, TokenWithMaxAge
 from mistralai.workflows.core.config.config import AppConfig
 from mistralai.workflows.core.temporal import temporal_client
 from mistralai.workflows.exceptions import ErrorCode, WorkflowError, WorkflowsException
+
+_TEST_REFRESH_DELAY_SECONDS = 0.05
 
 
 def _make_jwt(exp: float) -> str:
@@ -217,30 +222,45 @@ class TestReadTemporalToken:
 
 class TestTemporalTokenRefresh:
     @staticmethod
-    def _patch_sleep(monkeypatch, stop_after: int, on_sleep=None) -> list[float]:
-        """Patch asyncio.sleep to record slept durations and cancel after ``stop_after`` calls.
-
-        ``on_sleep(call_index)`` runs on each call (1-based) for tests that mutate state between polls.
-        """
-        captured: list[float] = []
-
-        async def fake_sleep(seconds: float) -> None:
-            captured.append(seconds)
-            if on_sleep is not None:
-                on_sleep(len(captured))
-            if len(captured) >= stop_after:
-                raise asyncio.CancelledError
-
-        monkeypatch.setattr(temporal_client.asyncio, "sleep", fake_sleep)
-        return captured
-
-    @staticmethod
-    def _use_file_provider(monkeypatch, token_file) -> None:
+    def _use_file_provider(monkeypatch, token_file, provider: FileTokenProvider | None = None) -> None:
         cfg = AppConfig()
         monkeypatch.setattr(cfg.temporal, "api_key", None)
         monkeypatch.setattr(cfg.common, "mistral_sa_token_path", str(token_file))
         monkeypatch.setattr(temporal_client, "config", cfg)
-        monkeypatch.setattr(temporal_client, "get_token_provider", lambda *a: FileTokenProvider(token_file))
+        resolved = provider or FileTokenProvider(token_file)
+        monkeypatch.setattr(temporal_client, "get_token_provider", lambda *a: resolved)
+
+    @staticmethod
+    def _rotate(token_file, token: str) -> None:
+        # Swap the file in one step, like the kubelet does, so a concurrent reader never sees a half-written token.
+        staged = token_file.with_name(f"{token_file.name}.staged")
+        staged.write_text(token)
+        staged.replace(token_file)
+
+    @staticmethod
+    def _pushed(service_client: MagicMock) -> list[str]:
+        return [c.args[0] for c in service_client.update_api_key.call_args_list]
+
+    @staticmethod
+    async def _wait_until(condition: Callable[[], bool], timeout: float = 2.0) -> None:
+        deadline = time.monotonic() + timeout
+        while not condition():
+            assert time.monotonic() < deadline, "condition not met before timeout"
+            await asyncio.sleep(0.01)
+
+    @staticmethod
+    @asynccontextmanager
+    async def _refreshing(service_client: MagicMock) -> AsyncIterator[None]:
+        """Run the refresh like the worker does: a task cancelled on exit."""
+        task = asyncio.create_task(
+            temporal_client.refresh_temporal_api_key(service_client, delay_seconds=_TEST_REFRESH_DELAY_SECONDS)
+        )
+        try:
+            yield
+        finally:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
 
     @pytest.mark.asyncio
     async def test_pushes_rotated_token(self, monkeypatch, tmp_path):
@@ -251,15 +271,75 @@ class TestTemporalTokenRefresh:
         token_file = tmp_path / "token"
         token_file.write_text(token_v1)
         self._use_file_provider(monkeypatch, token_file)
-
         service_client = MagicMock()
-        self._patch_sleep(monkeypatch, 2, on_sleep=lambda i: token_file.write_text(token_v2) if i == 1 else None)
 
+        async with self._refreshing(service_client):
+            await self._wait_until(lambda: self._pushed(service_client) == [token_v1])
+            self._rotate(token_file, token_v2)
+            await self._wait_until(lambda: self._pushed(service_client) == [token_v1, token_v2])
+
+    @pytest.mark.asyncio
+    async def test_pushes_rotated_token_while_event_loop_is_blocked(self, monkeypatch, tmp_path):
+        # An async activity running CPU-bound code blocks the loop; the pollers must still get the rotated token.
+        token_v1 = _fresh_jwt()
+        token_v2 = _fresh_jwt(bump=1.0)
+        token_file = tmp_path / "token"
+        token_file.write_text(token_v1)
+        self._use_file_provider(monkeypatch, token_file)
+        service_client = MagicMock()
+
+        async with self._refreshing(service_client):
+            await self._wait_until(lambda: self._pushed(service_client) == [token_v1])
+            self._rotate(token_file, token_v2)
+            time.sleep(20 * _TEST_REFRESH_DELAY_SECONDS)
+            assert self._pushed(service_client) == [token_v1, token_v2]
+
+    @pytest.mark.asyncio
+    async def test_stops_pushing_once_cancelled(self, monkeypatch, tmp_path):
+        token_v1 = _fresh_jwt()
+        token_v2 = _fresh_jwt(bump=1.0)
+        token_file = tmp_path / "token"
+        token_file.write_text(token_v1)
+        self._use_file_provider(monkeypatch, token_file)
+        service_client = MagicMock()
+
+        async with self._refreshing(service_client):
+            await self._wait_until(lambda: self._pushed(service_client) == [token_v1])
+        self._rotate(token_file, token_v2)
+        await asyncio.sleep(5 * _TEST_REFRESH_DELAY_SECONDS)
+
+        assert self._pushed(service_client) == [token_v1]
+
+    @pytest.mark.asyncio
+    async def test_thread_exits_cleanly_when_cancelled_twice(self, monkeypatch, tmp_path):
+        # On shutdown the worker cancels this task twice: the TaskGroup abort, then run_worker's finally.
+        reading = threading.Event()
+        release = threading.Event()
+
+        class BlockingProvider(FileTokenProvider):
+            def get_token_with_max_age(self) -> TokenWithMaxAge:
+                reading.set()
+                release.wait()
+                return TokenWithMaxAge("token", 0.0)
+
+        self._use_file_provider(monkeypatch, tmp_path / "token", BlockingProvider(tmp_path / "token"))
+        thread_errors: list[threading.ExceptHookArgs] = []
+        monkeypatch.setattr(threading, "excepthook", thread_errors.append)
+        task = asyncio.create_task(
+            temporal_client.refresh_temporal_api_key(MagicMock(), delay_seconds=_TEST_REFRESH_DELAY_SECONDS)
+        )
+        await self._wait_until(reading.is_set)
+        (refresh_thread,) = [t for t in threading.enumerate() if t.name == "temporal-token-refresh"]
+
+        task.cancel()
+        await asyncio.sleep(_TEST_REFRESH_DELAY_SECONDS)
+        task.cancel()
         with pytest.raises(asyncio.CancelledError):
-            await temporal_client.refresh_temporal_api_key(service_client)
+            await task
+        release.set()
+        await self._wait_until(lambda: not refresh_thread.is_alive())
 
-        pushed = [c.args[0] for c in service_client.update_api_key.call_args_list]
-        assert pushed == [token_v1, token_v2]
+        assert thread_errors == []
 
     @pytest.mark.asyncio
     async def test_pushes_once_when_token_unchanged(self, monkeypatch, tmp_path):
@@ -267,12 +347,11 @@ class TestTemporalTokenRefresh:
         token_file = tmp_path / "token"
         token_file.write_text(token)
         self._use_file_provider(monkeypatch, token_file)
-
         service_client = MagicMock()
-        self._patch_sleep(monkeypatch, 3)
 
-        with pytest.raises(asyncio.CancelledError):
-            await temporal_client.refresh_temporal_api_key(service_client)
+        async with self._refreshing(service_client):
+            await self._wait_until(lambda: service_client.update_api_key.called)
+            await asyncio.sleep(5 * _TEST_REFRESH_DELAY_SECONDS)
 
         service_client.update_api_key.assert_called_once_with(token)
 
@@ -299,13 +378,6 @@ class TestTemporalTokenRefresh:
     async def test_survives_transient_read_error(self, monkeypatch, tmp_path):
         # The refresh loop reads via get_token_with_max_age; a transient read failure must be swallowed
         # and retried on the next cycle rather than tearing down the loop.
-        from mistralai.workflows.core.auth import TokenWithMaxAge
-
-        cfg = AppConfig()
-        monkeypatch.setattr(cfg.temporal, "api_key", None)
-        monkeypatch.setattr(cfg.common, "mistral_sa_token_path", str(tmp_path / "token"))
-        monkeypatch.setattr(temporal_client, "config", cfg)
-
         class FlakyProvider(FileTokenProvider):
             def __init__(self) -> None:
                 super().__init__(tmp_path / "token")
@@ -317,13 +389,11 @@ class TestTemporalTokenRefresh:
                     raise WorkflowError("transient read failure", non_retryable=True)
                 return TokenWithMaxAge("recovered-token", 0.0)
 
-        monkeypatch.setattr(temporal_client, "get_token_provider", lambda *a: FlakyProvider())
-
+        self._use_file_provider(monkeypatch, tmp_path / "token", FlakyProvider())
         service_client = MagicMock()
-        self._patch_sleep(monkeypatch, 2)
 
-        with pytest.raises(asyncio.CancelledError):
-            await temporal_client.refresh_temporal_api_key(service_client)
+        async with self._refreshing(service_client):
+            await self._wait_until(lambda: service_client.update_api_key.called)
 
         service_client.update_api_key.assert_called_once_with("recovered-token")
 
@@ -333,25 +403,65 @@ class TestTemporalTokenRefresh:
         token_file = tmp_path / "token"
         token_file.write_text(_fresh_jwt())
         self._use_file_provider(monkeypatch, token_file)
-
         service_client = MagicMock()
         service_client.update_api_key.side_effect = [RuntimeError("transient push failure"), None]
-        self._patch_sleep(monkeypatch, 2)
 
-        with pytest.raises(asyncio.CancelledError):
-            await temporal_client.refresh_temporal_api_key(service_client)
-
-        assert service_client.update_api_key.call_count == 2  # first push raised, loop retried and pushed again
+        async with self._refreshing(service_client):
+            await self._wait_until(lambda: service_client.update_api_key.call_count == 2)
 
     @pytest.mark.asyncio
-    async def test_sleeps_until_refresh_plus_delay(self, monkeypatch, tmp_path):
-        # exp + 600, margin 30 → wakes (600 - 30) + 5 = 575s later, i.e. 25s before expiry.
+    async def test_waits_until_refresh_plus_delay(self, monkeypatch, tmp_path):
+        # The provider says the token is good for 0.3s, so the next read waits at least 0.3s plus the delay.
+        max_age = 0.3
+
+        class RecordingProvider(FileTokenProvider):
+            def __init__(self) -> None:
+                super().__init__(tmp_path / "token")
+                self.read_at: list[float] = []
+
+            def get_token_with_max_age(self) -> TokenWithMaxAge:
+                self.read_at.append(time.monotonic())
+                return TokenWithMaxAge(f"token-{len(self.read_at)}", max_age)
+
+        provider = RecordingProvider()
+        self._use_file_provider(monkeypatch, tmp_path / "token", provider)
+
+        async with self._refreshing(MagicMock()):
+            await self._wait_until(lambda: len(provider.read_at) >= 2)
+
+        assert provider.read_at[1] - provider.read_at[0] >= max_age + _TEST_REFRESH_DELAY_SECONDS
+
+    @pytest.mark.asyncio
+    async def test_pushes_while_default_executor_is_saturated(self, monkeypatch, tmp_path):
+        # Activities share the loop's default executor; a full executor must not delay the refresh.
+        token = _fresh_jwt()
         token_file = tmp_path / "token"
-        token_file.write_text(_make_jwt(exp=time.time() + 600))
+        token_file.write_text(token)
         self._use_file_provider(monkeypatch, token_file)
-        captured = self._patch_sleep(monkeypatch, 1)
+        service_client = MagicMock()
+        release = threading.Event()
+        loop = asyncio.get_running_loop()
+        loop.set_default_executor(concurrent.futures.ThreadPoolExecutor(max_workers=1))
+        busy = loop.run_in_executor(None, release.wait)
+        async with self._refreshing(service_client):
+            try:
+                await self._wait_until(lambda: self._pushed(service_client) == [token])
+            finally:
+                # Free the executor before cancelling, or a refresh queued behind it would never finish.
+                release.set()
+        await busy
 
-        with pytest.raises(asyncio.CancelledError):
-            await temporal_client.refresh_temporal_api_key(MagicMock())
+    @pytest.mark.asyncio
+    async def test_keeps_running_when_max_age_exceeds_wait_limit(self, monkeypatch, tmp_path):
+        class FarFutureProvider(FileTokenProvider):
+            def get_token_with_max_age(self) -> TokenWithMaxAge:
+                return TokenWithMaxAge("far-future-token", threading.TIMEOUT_MAX * 2)
 
-        assert 570 <= captured[0] <= 575  # 575 minus a little time.time() drift
+        self._use_file_provider(monkeypatch, tmp_path / "token", FarFutureProvider(tmp_path / "token"))
+        service_client = MagicMock()
+
+        async with self._refreshing(service_client):
+            await self._wait_until(lambda: service_client.update_api_key.called)
+            await asyncio.sleep(5 * _TEST_REFRESH_DELAY_SECONDS)
+
+        service_client.update_api_key.assert_called_once_with("far-future-token")

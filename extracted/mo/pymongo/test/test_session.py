@@ -21,7 +21,7 @@ import sys
 import time
 from inspect import iscoroutinefunction
 from io import BytesIO
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from test.helpers import ExceptionCatchingTask
 
@@ -51,6 +51,9 @@ from test.utils_shared import (
     OvertCommandListener,
     wait_until,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _IS_SYNC = True
 
@@ -1018,7 +1021,7 @@ class TestCausalConsistency(UnitTest):
                 self.assertIsNone(sess2.cluster_time)
                 self.assertIsNone(sess2.operation_time)
                 self.assertRaises(TypeError, sess2.advance_cluster_time, 1)
-                self.assertRaises(ValueError, sess2.advance_cluster_time, {})
+                self.assertRaises(TypeError, sess2.advance_cluster_time, {})
                 self.assertRaises(TypeError, sess2.advance_operation_time, 1)
                 # No error
                 assert sess.cluster_time is not None

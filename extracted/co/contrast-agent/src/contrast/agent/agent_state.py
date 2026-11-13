@@ -50,6 +50,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from contrast.agent.policy.registry_v2 import EventHandler
+    from contrast.agent.shields import PermissionReporter
     from contrast.configuration.agent_config import AgentConfig
     from contrast.reporting.fireball import Client
 
@@ -123,6 +124,7 @@ class module(Namespace):
     observe_enabled: bool = False
     protect_enabled: bool = False
     shield_enabled: bool = False
+    shield_permission_reporter: PermissionReporter | None = None
 
     automatic_middleware: ContextVar = ContextVar("automatic_middleware", default=False)
 
@@ -265,13 +267,15 @@ def initialize_libraries(
     """
     Read libraries from the application
     """
+    path_finder = None
     if analyze_libraries or preinstrument:
-        import_hook.register_path_finder()
+        path_finder = import_hook.register_path_finder()
     if analyze_libraries or enable_shields:
         LibraryReader(
             fireball_client,
             analyze_libraries=analyze_libraries,
             enable_shields=enable_shields,
+            path_finder=path_finder,
         ).start()
 
 

@@ -9,7 +9,7 @@ from probe.sdk.delivery.outbox.waiter.marks import (
     touch_mark,
     waited_runs,
 )
-from probe.sdk.delivery.outbox.waiter.outcome import STILL_SENDING, WaitOutcome, WaitResult
+from probe.sdk.delivery.outbox.waiter.outcome import SET_ASIDE_WHY, STILL_SENDING, WaitOutcome, WaitResult
 from probe.sdk.delivery.outbox.waiter.waiter import (
     CRASH_RESTARTS,
     OUTAGE_LIMIT_SECONDS,
@@ -20,6 +20,7 @@ __all__ = [
     "CRASH_RESTARTS",
     "MARK_STALE_SECONDS",
     "OUTAGE_LIMIT_SECONDS",
+    "SET_ASIDE_WHY",
     "STILL_SENDING",
     "WAITING_DIR",
     "DeliveryIncomplete",

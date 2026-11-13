@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 macro_rules! emit {
@@ -13,15 +13,16 @@ macro_rules! emit_error {
     };
 }
 
-use owo_colors::{OwoColorize, Stream};
+use owo_colors::OwoColorize;
 
 use crate::args::CliArgs;
-use crate::output::diff::format_diff;
+use crate::output::diff::{format_diff, format_ignored_by_change};
 use crate::output::messages::{
-    config_gate_change_warning, diff_flags_warning, handle_snapshot_console,
+    config_gate_change_warning, diff_flags_warning, explain_output, handle_snapshot_console,
     ignore_rule_skips_output, ignored_saved_output, ignored_summary_output, no_active_rule_warning,
-    nothing_selected_warning, removable_ignores_output, skipped_path_warning, unknown_rule_warning,
-    unmatchable_exclude_warning, unresolved_diff_warnings,
+    nothing_selected_warning, removable_ignores_output, skipped_path_warning,
+    unknown_explain_error, unknown_rule_warning, unmatchable_exclude_warning,
+    unresolved_diff_warnings,
 };
 use crate::output::render::{
     color_enabled_for, handle_console_settings, print_invalid_paths, rule,
@@ -32,6 +33,7 @@ use crate::types::{DiffBaseline, ExitReport, OutputFormat, RunConfig};
 use crate::utils::config::resolve_config;
 use crate::utils::fix::run_fix_pass;
 use crate::utils::ignored::handle_report_ignored;
+use crate::utils::paths::{PathsError, STDOUT_OUTPUT};
 use crate::utils::snapshot::evaluate_snapshot;
 use crate::utils::toml::load_run_config;
 use complexipy_core::classes::FileComplexity;
@@ -42,10 +44,14 @@ use complexipy_core::diff::{
 use complexipy_core::runner::{Analysis, ArgumentCoverage, LocationReports};
 use complexipy_core::sanitize::escape_controls;
 use complexipy_core::{
-    AnalysisOptions, RuleSet, registered_rule_ids, unmatchable_exclude_patterns,
+    AnalysisOptions, ExcludeMatcher, RuleSet, registered_rule_ids, registered_rules, rule_metadata,
+    unmatchable_exclude_patterns,
 };
 
 pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
+    if let Some(rule_id) = &cli.explain {
+        return explain_rule(rule_id);
+    }
     let source = match load_run_config(&cli, invocation_path) {
         Ok(source) => source,
         Err(error) => {
@@ -57,12 +63,27 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         .as_ref()
         .map(|source| source.path.display().to_string());
 
-    let config = match resolve_config(source.map(|source| source.value), cli, invocation_path) {
+    let mut config = match resolve_config(source.map(|source| source.value), cli, invocation_path) {
         Ok(config) => config,
         Err(error) => {
             emit_error!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
+    };
+
+    let to_stdout =
+        config.output.as_deref() == Some(STDOUT_OUTPUT) && !config.output_format.is_empty();
+    if to_stdout {
+        if config.output_format.len() > 1 {
+            emit_error!("{}", PathsError::StdoutMultiFormat);
+            return ExitCode::FAILURE;
+        }
+        config.quiet = true;
+    }
+    let emit_notice = if to_stdout {
+        crate::output::emit_error
+    } else {
+        crate::output::emit
     };
 
     let settings = handle_console_settings(&config.color, config.quiet, config.plain);
@@ -84,37 +105,31 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         emit!("{}", settings.banner);
     }
 
-    if !config.quiet
-        && let Some(warning) =
-            diff_flags_warning(config.diff.as_deref(), config.diff_only.as_deref())
-    {
-        emit!(
-            "{} {}",
-            "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow()),
-            warning
-        );
+    if let Some(warning) = diff_flags_warning(config.diff.as_deref(), config.diff_only.as_deref()) {
+        emit_error!("{} {}", label, warning);
     }
     let (diff, diff_only) =
         resolve_diff_flags(config.diff.clone(), config.diff_only.clone(), config.staged);
 
-    let known_rules = registered_rule_ids();
+    let known_rules = registered_rules();
     let (rules, unknown_rules) = RuleSet::resolve(&config.select, &config.ignore, &known_rules);
-    if !config.quiet {
-        let mut warnings: Vec<String> = unknown_rules
+    let mut warnings: Vec<String> = unknown_rules
+        .iter()
+        .map(|rule_id| unknown_rule_warning(rule_id))
+        .collect();
+    if !rules.has_active_rule(&registered_rule_ids()) {
+        warnings.push(no_active_rule_warning());
+    }
+    warnings.extend(
+        unmatchable_exclude_patterns(&config.exclude)
             .iter()
-            .map(|rule_id| unknown_rule_warning(rule_id))
-            .collect();
-        if !rules.has_active_rule(&known_rules) {
-            warnings.push(no_active_rule_warning());
-        }
-        warnings.extend(
-            unmatchable_exclude_patterns(&config.exclude)
-                .iter()
-                .map(|pattern| unmatchable_exclude_warning(pattern)),
-        );
-        for warning in warnings {
-            emit_error!("{} {}", label, escape_controls(&warning));
-        }
+            .map(|pattern| unmatchable_exclude_warning(pattern)),
+    );
+    for warning in warnings {
+        emit_error!("{} {}", label, escape_controls(&warning));
+    }
+    if config.force_exclude {
+        config.paths = without_excluded_files(&config.paths, &config.exclude, invocation_path);
     }
     let analysis = analysis_options(&config, rules);
 
@@ -128,10 +143,8 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             removable_above: (!config.quiet).then_some(config.max_complexity_allowed),
         },
     );
-    if !config.quiet {
-        for warning in run.skipped.iter().filter_map(skipped_path_warning) {
-            emit_error!("{} {}", label, escape_controls(&warning));
-        }
+    for warning in run.skipped.iter().filter_map(skipped_path_warning) {
+        emit_error!("{} {}", label, escape_controls(&warning));
     }
     if run.files.is_empty() && run.failed_paths.is_empty() {
         emit_error!("{} {}", label, nothing_selected_warning(&run.skipped));
@@ -251,7 +264,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         config.report_ignored,
         &run,
         &config.output_format,
-        config.output.as_deref(),
+        config.output.as_deref().filter(|_| !to_stdout),
         invocation_path,
     ) {
         Ok(result) => result,
@@ -269,7 +282,10 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             emit!("{}", ignore_rule_skips_output(&skipped));
         }
         if let Some(path) = ignored_json_path {
-            emit!("{}", escape_controls(&ignored_saved_output(&path)));
+            emit_notice(format_args!(
+                "{}",
+                escape_controls(&ignored_saved_output(&path))
+            ));
         }
     }
 
@@ -294,35 +310,41 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         snap.watermark_success
     };
 
-    let (paths_ok, invalid_paths_output) = print_invalid_paths(&failed_paths);
+    let invalid_paths_color = if to_stdout {
+        color_enabled_for(&config.color, config.plain, supports_color::Stream::Stderr)
+    } else {
+        settings.color_enabled
+    };
+    let (paths_ok, invalid_paths_output) = print_invalid_paths(&failed_paths, invalid_paths_color);
     if !invalid_paths_output.is_empty() {
-        emit!("{}", invalid_paths_output);
+        emit_notice(format_args!("{}", invalid_paths_output));
     }
 
-    if !config.quiet
-        && let Some(run_diff) = &run_diff
-    {
+    if let Some(run_diff) = &run_diff {
         match &run_diff.report {
             Some(report) => {
-                emit!(
-                    "{}",
-                    format_diff(
-                        &report.entries,
-                        &run_diff.label,
-                        run_diff.verdicts.as_deref()
-                    )
-                );
-                for warning in unresolved_diff_warnings(&report.unresolved, &run_diff.git_ref) {
+                if !config.quiet {
                     emit!(
-                        "{} {}",
-                        "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow()),
-                        escape_controls(&warning)
+                        "{}",
+                        format_diff(
+                            &report.entries,
+                            &run_diff.label,
+                            run_diff.verdicts.as_deref()
+                        )
                     );
+                    let ignored =
+                        format_ignored_by_change(&report.ignored_by_change, &run_diff.git_ref);
+                    if !ignored.is_empty() {
+                        emit!("{}", ignored);
+                    }
+                }
+                for warning in unresolved_diff_warnings(&report.unresolved, &run_diff.git_ref) {
+                    emit_error!("{} {}", label, escape_controls(&warning));
                 }
             }
-            None => emit!(
+            None => emit_error!(
                 "{} --staged requires a git repository; skipping the staged diff, so the threshold does not decide the exit code.",
-                "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow())
+                label
             ),
         }
     }
@@ -351,6 +373,15 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     } else {
         ExitCode::FAILURE
     }
+}
+
+fn explain_rule(rule_id: &str) -> ExitCode {
+    let Some(meta) = rule_metadata(rule_id) else {
+        emit_error!("{}", unknown_explain_error(rule_id, &registered_rule_ids()));
+        return ExitCode::FAILURE;
+    };
+    emit!("{}", explain_output(meta));
+    ExitCode::SUCCESS
 }
 
 fn analysis_options(config: &RunConfig, rules: RuleSet) -> AnalysisOptions {
@@ -429,6 +460,36 @@ impl RunDiff {
         }
         baseline
     }
+}
+
+/// `paths` without the file arguments an `exclude` pattern matches relative
+/// to `invocation_path`. Directory arguments stay, since their walk applies
+/// the patterns itself.
+fn without_excluded_files(
+    paths: &[String],
+    exclude: &[String],
+    invocation_path: &str,
+) -> Vec<String> {
+    let matcher = ExcludeMatcher::new(exclude);
+    let anchor = resolved(Path::new(invocation_path));
+    paths
+        .iter()
+        .filter(|path| {
+            let file = Path::new(path);
+            file.is_dir()
+                || !matcher.is_excluded_inside(
+                    &resolved(file).to_string_lossy(),
+                    &anchor.to_string_lossy(),
+                )
+        })
+        .cloned()
+        .collect()
+}
+
+fn resolved(path: &Path) -> PathBuf {
+    path.canonicalize()
+        .or_else(|_| std::path::absolute(path))
+        .unwrap_or_else(|_| path.to_path_buf())
 }
 
 fn compute_run_diff(

@@ -31,3 +31,6 @@ class BillingRunCost(BaseModel):
 
   waived: bool
   """Staff made this run free; its charges are returned as promotional credit"""
+
+  waived_cents: float
+  """Part of `cents` used after the run was made free, which is never charged"""

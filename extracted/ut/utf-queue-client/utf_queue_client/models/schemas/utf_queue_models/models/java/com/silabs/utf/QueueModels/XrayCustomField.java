@@ -33,7 +33,7 @@ public class XrayCustomField {
      */
     @JsonProperty("value")
     @NotNull
-    private String value;
+    private Object value;
 
     /**
      * 
@@ -81,7 +81,7 @@ public class XrayCustomField {
      * 
      */
     @JsonProperty("value")
-    public String getValue() {
+    public Object getValue() {
         return value;
     }
 
@@ -91,11 +91,11 @@ public class XrayCustomField {
      * 
      */
     @JsonProperty("value")
-    public void setValue(String value) {
+    public void setValue(Object value) {
         this.value = value;
     }
 
-    public XrayCustomField withValue(String value) {
+    public XrayCustomField withValue(Object value) {
         this.value = value;
         return this;
     }

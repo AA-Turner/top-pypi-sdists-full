@@ -12,7 +12,7 @@ from typing import Any
 from tqdm import tqdm
 
 from pyrit.datasets.seed_datasets.seed_metadata import SeedDatasetFilter, SeedDatasetLoadTime, SeedDatasetMetadata
-from pyrit.models.seeds import SeedDataset
+from pyrit.models import SeedDataset
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class SeedDatasetProvider(ABC):
         """
         super().__init_subclass__(**kwargs)
         # Local import to avoid a circular dependency at package init time.
-        from pyrit.common.brick_contract import enforce_keyword_only_init
+        from pyrit.common import enforce_keyword_only_init
 
         enforce_keyword_only_init(cls, base_name="SeedDatasetProvider")
         if not inspect.isabstract(cls) and getattr(cls, "should_register", True):
@@ -106,6 +106,31 @@ class SeedDatasetProvider(ABC):
         """
         cls._materialize_builtin_providers()
         return cls._registry.copy()
+
+    @classmethod
+    async def get_providers_by_name_async(cls, *, dataset_names: list[str]) -> dict[str, "SeedDatasetProvider"]:
+        """
+        Resolve registered providers by name without parsing metadata or fetching seeds.
+
+        Returns:
+            dict[str, SeedDatasetProvider]: Matching providers; missing names are omitted.
+        """
+        return await asyncio.to_thread(cls._get_providers_by_name, dataset_names=dataset_names)
+
+    @classmethod
+    def _get_providers_by_name(cls, *, dataset_names: list[str]) -> dict[str, "SeedDatasetProvider"]:
+        cls._materialize_builtin_providers()
+        requested = set(dataset_names)
+        providers: dict[str, SeedDatasetProvider] = {}
+        for provider_class in cls._registry.values():
+            provider = provider_class()
+            name = provider.dataset_name
+            if name not in requested:
+                continue
+            if name in providers:
+                raise ValueError(f"Multiple registered providers have dataset name '{name}'.")
+            providers[name] = provider
+        return providers
 
     @classmethod
     async def get_all_dataset_names_async(cls, filters: SeedDatasetFilter | None = None) -> list[str]:
@@ -222,8 +247,12 @@ class SeedDatasetProvider(ABC):
             filter_vals = getattr(criterion, field.name)
             meta_vals = getattr(metadata, field.name)
 
-            if filter_vals is None or meta_vals is None:
+            if filter_vals is None:
                 continue
+
+            # A requested axis cannot match metadata that does not declare it.
+            if meta_vals is None:
+                return False
 
             if strict_match:
                 if filter_vals - meta_vals:
@@ -296,7 +325,11 @@ class SeedDatasetProvider(ABC):
                 logger.debug(f"Skipping {provider_name} - not in filter list")
                 return None
 
-            dataset = await provider.fetch_dataset_async(cache=cache)
+            try:
+                dataset = await provider.fetch_dataset_async(cache=cache)
+            except Exception as exc:
+                exc.add_note(f"Failed to fetch dataset {provider.dataset_name!r} using provider {provider_name}.")
+                raise
             return (provider.dataset_name, dataset)
 
         # Create semaphore to limit concurrency

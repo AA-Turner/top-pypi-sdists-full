@@ -16,6 +16,8 @@ from ..enums.region import Region
 from ..models.project import Project
 from ..enums.project_key_scopes import ProjectKeyScopes
 from ..models.ephemeral_key import EphemeralKey
+from ..models.transfer_list import TransferList
+from ..models.transfer import Transfer
 
 T = TypeVar('T')
 
@@ -846,7 +848,8 @@ class Organization(Service):
         queries: Optional[List[str]] = None,
         search: Optional[str] = None,
         total: Optional[bool] = None,
-    ) -> ProjectList:
+        model_type: Type[T] = dict,
+    ) -> ProjectList[T]:
         """
         Get a list of all projects. You can use the query params to filter your results.
 
@@ -858,9 +861,12 @@ class Organization(Service):
             Search term to filter your list results. Max length: 256 chars.
         total : Optional[bool]
             When set to false, the total count returned will be 0 and will not be calculated.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        ProjectList
+        ProjectList[T]
             API response as a typed Pydantic model
 
         Raises
@@ -888,14 +894,15 @@ class Organization(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=ProjectList)
+        return ProjectList.with_data(response, model_type)
 
     def create_project(
         self,
         project_id: str,
         name: str,
         region: Optional[Region] = None,
-    ) -> Project:
+        model_type: Type[T] = dict,
+    ) -> Project[T]:
         """
         Create a new project.
 
@@ -907,9 +914,12 @@ class Organization(Service):
             Project name. Max length: 128 chars.
         region : Optional[Region]
             Project Region.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        Project
+        Project[T]
             API response as a typed Pydantic model
 
         Raises
@@ -940,12 +950,13 @@ class Organization(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=Project)
+        return Project.with_data(response, model_type)
 
     def get_project(
         self,
         project_id: str,
-    ) -> Project:
+        model_type: Type[T] = dict,
+    ) -> Project[T]:
         """
         Get a project.
 
@@ -953,9 +964,12 @@ class Organization(Service):
         ----------
         project_id : str
             Project unique ID.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        Project
+        Project[T]
             API response as a typed Pydantic model
 
         Raises
@@ -980,13 +994,14 @@ class Organization(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=Project)
+        return Project.with_data(response, model_type)
 
     def update_project(
         self,
         project_id: str,
         name: str,
-    ) -> Project:
+        model_type: Type[T] = dict,
+    ) -> Project[T]:
         """
         Update a project by its unique ID.
 
@@ -996,9 +1011,12 @@ class Organization(Service):
             Project unique ID.
         name : str
             Project name. Max length: 128 chars.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
         Returns
         -------
-        Project
+        Project[T]
             API response as a typed Pydantic model
 
         Raises
@@ -1027,7 +1045,7 @@ class Organization(Service):
             api_params,
         )
 
-        return self._parse_response(response, model=Project)
+        return Project.with_data(response, model_type)
 
     def delete_project(
         self,
@@ -1407,3 +1425,244 @@ class Organization(Service):
         )
 
         return response
+
+    def list_project_transfers(
+        self,
+        project_id: Optional[str] = None,
+        queries: Optional[List[str]] = None,
+        total: Optional[bool] = None,
+    ) -> TransferList:
+        """
+        Get a list of the pending transfers of projects in your organization. An owner of the organization also gets their secrets, so their links can be shared again.
+
+        Parameters
+        ----------
+        project_id : Optional[str]
+            Only list the transfers of this project.
+        queries : Optional[List[str]]
+            Array of query strings generated using the Query class provided by the SDK. [Learn more about queries](https://appwrite.io/docs/queries). Maximum of 100 queries are allowed, each 4096 characters long. You may filter on the following attributes: recipientId, expire
+        total : Optional[bool]
+            When set to false, the total count returned will be 0 and will not be calculated.
+        Returns
+        -------
+        TransferList
+            API response as a typed Pydantic model
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/organization/transfers'
+        api_params = {}
+        if project_id is not None:
+            api_params['projectId'] = self._normalize_value(project_id)
+        if queries is not None:
+            api_params['queries'] = self._normalize_value(queries)
+        if total is not None:
+            api_params['total'] = self._normalize_value(total)
+
+        response = self.client.call(
+            'get',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return self._parse_response(response, model=TransferList)
+
+    def create_project_transfer(
+        self,
+        project_id: str,
+        recipient_id: Optional[str] = None,
+        expire: Optional[str] = None,
+    ) -> Transfer:
+        """
+        Create a transfer for a project in your organization. Share the returned transfer ID and secret with another organization so it can claim the project, even when you are not a member of it.
+
+        Your organization can get the secret again by getting or listing the transfer. A transfer expires after 24 hours unless you set a different expiration date.
+
+        Parameters
+        ----------
+        project_id : str
+            ID of the project to transfer.
+        recipient_id : Optional[str]
+            ID of the only organization allowed to claim the project. Leave empty to allow any organization.
+        expire : Optional[str]
+            Expiration time in [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) format. Defaults to 24 hours from now. Maximum of 30 days from now.
+        Returns
+        -------
+        Transfer
+            API response as a typed Pydantic model
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/organization/transfers'
+        api_params = {}
+        if project_id is None:
+            raise AppwriteException('Missing required parameter: "project_id"')
+        api_params['projectId'] = self._normalize_value(project_id)
+        if recipient_id is not None:
+            api_params['recipientId'] = self._normalize_value(recipient_id)
+        if expire is not None:
+            api_params['expire'] = self._normalize_value(expire)
+
+        response = self.client.call(
+            'post',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'content-type': 'application/json',
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return self._parse_response(response, model=Transfer)
+
+    def get_project_transfer(
+        self,
+        transfer_id: str,
+        secret: Optional[str] = None,
+    ) -> Transfer:
+        """
+        Get a project transfer by its unique ID. The organization that owns the project can get it without a secret. Any other organization needs the transfer secret, so it can see which project it is about to claim and which organizations are involved.
+
+        Only an owner of the organization that owns the project reads the secret back.
+
+        Parameters
+        ----------
+        transfer_id : str
+            Transfer ID.
+        secret : Optional[str]
+            Transfer secret. Required unless the project belongs to your organization.
+        Returns
+        -------
+        Transfer
+            API response as a typed Pydantic model
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/organization/transfers/{transferId}'
+        api_params = {}
+        if transfer_id is None or transfer_id == '':
+            raise AppwriteException('Missing required parameter: "transfer_id"')
+        api_path = api_path.replace('{transferId}', self._encode_path(transfer_id))
+        if secret is not None:
+            api_params['secret'] = self._normalize_value(secret)
+
+        response = self.client.call(
+            'get',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return self._parse_response(response, model=Transfer)
+
+    def delete_project_transfer(
+        self,
+        transfer_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Delete a project transfer, so its secret can no longer be used to claim the project.
+
+        Parameters
+        ----------
+        transfer_id : str
+            Transfer ID.
+        Returns
+        -------
+        Dict[str, Any]
+            API response as a dictionary
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/organization/transfers/{transferId}'
+        api_params = {}
+        if transfer_id is None or transfer_id == '':
+            raise AppwriteException('Missing required parameter: "transfer_id"')
+        api_path = api_path.replace('{transferId}', self._encode_path(transfer_id))
+
+        response = self.client.call(
+            'delete',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'content-type': 'application/json',
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return response
+
+    def update_project_transfer_status(
+        self,
+        transfer_id: str,
+        secret: str,
+        model_type: Type[T] = dict,
+    ) -> Project[T]:
+        """
+        Claim a project with the transfer ID and secret its owner shared with you. The project moves to your organization, and the transfer can't be used again.
+
+        Parameters
+        ----------
+        transfer_id : str
+            Transfer ID.
+        secret : str
+            Transfer secret.
+        model_type : Type[T], optional
+            Pydantic model class for the user-defined data. Defaults to dict for backward compatibility.
+
+        Returns
+        -------
+        Project[T]
+            API response as a typed Pydantic model
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/organization/transfers/{transferId}/status'
+        api_params = {}
+        if transfer_id is None or transfer_id == '':
+            raise AppwriteException('Missing required parameter: "transfer_id"')
+        if secret is None:
+            raise AppwriteException('Missing required parameter: "secret"')
+        api_path = api_path.replace('{transferId}', self._encode_path(transfer_id))
+        api_params['secret'] = self._normalize_value(secret)
+
+        response = self.client.call(
+            'patch',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'content-type': 'application/json',
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return Project.with_data(response, model_type)

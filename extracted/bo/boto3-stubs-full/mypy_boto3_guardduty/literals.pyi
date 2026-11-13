@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_guardduty.literals import ActivityTypeType
+    from mypy_boto3_guardduty.literals import ActionPriorityType
 
-    data: ActivityTypeType = "API_CALL"
+    data: ActionPriorityType = "IMMEDIATE"
     ```
 """
 
@@ -22,9 +22,12 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "ActionPriorityType",
     "ActivityTypeType",
     "AdminStatusType",
+    "AnalysisTypeType",
     "AssociationModeType",
+    "AttackPhaseNameType",
     "AutoEnableMembersType",
     "CloudProviderType",
     "ClusterStatusType",
@@ -32,6 +35,7 @@ __all__ = (
     "ConfidenceType",
     "ContentPolicyFilterActionType",
     "ContentPolicyFilterTypeType",
+    "CorrelationReasonType",
     "CoverageFilterCriterionKeyType",
     "CoverageSortKeyType",
     "CoverageStatisticsTypeType",
@@ -39,6 +43,7 @@ __all__ = (
     "CriterionKeyType",
     "DataSourceStatusType",
     "DataSourceType",
+    "DefenseTacticType",
     "DescribeMalwareScansPaginatorName",
     "DestinationTypeType",
     "DetectionRuleConfigurationStatusType",
@@ -49,12 +54,17 @@ __all__ = (
     "DetectorFeatureResultType",
     "DetectorFeatureType",
     "DetectorStatusType",
+    "DispositionType",
+    "DistributionDimensionType",
     "EbsSnapshotPreservationType",
     "EcsClusterStatusType",
     "EcsLaunchTypeType",
     "FeatureAdditionalConfigurationType",
     "FeatureStatusType",
     "FeedbackType",
+    "FetchCriterionConditionType",
+    "FetchTypeType",
+    "FetchVerdictType",
     "FilterActionType",
     "FilterFieldNameType",
     "FindingPublishingFrequencyType",
@@ -66,8 +76,13 @@ __all__ = (
     "GuardrailActionType",
     "GuardrailSourceType",
     "IndicatorTypeType",
+    "InvestigationDetectorFeatureType",
+    "InvestigationFilterCriterionKeyType",
+    "InvestigationIndicatorTypeType",
+    "InvestigationResourceTypeType",
     "InvestigationSortFieldType",
     "InvestigationStatusType",
+    "InvestigationTypeType",
     "IpSetFormatType",
     "IpSetStatusType",
     "KubernetesResourcesTypesType",
@@ -79,6 +94,7 @@ __all__ = (
     "ListFiltersPaginatorName",
     "ListFindingsPaginatorName",
     "ListIPSetsPaginatorName",
+    "ListInvestigationRecordsPaginatorName",
     "ListInvestigationsPaginatorName",
     "ListInvitationsPaginatorName",
     "ListMalwareScansCriterionKeyType",
@@ -97,6 +113,7 @@ __all__ = (
     "ManagementTypeType",
     "MfaStatusType",
     "NetworkDirectionType",
+    "ObservationTypeType",
     "OrderByType",
     "OrgFeatureAdditionalConfigurationType",
     "OrgFeatureStatusType",
@@ -108,6 +125,8 @@ __all__ = (
     "PublicAclIgnoreBehaviorType",
     "PublicBucketRestrictBehaviorType",
     "PublishingStatusType",
+    "RecommendationCategoryType",
+    "RecordTypeType",
     "RegionName",
     "ResourceServiceName",
     "ResourceTypeType",
@@ -123,10 +142,13 @@ __all__ = (
     "ScanTypeType",
     "ServiceName",
     "SignalTypeType",
+    "SummaryFormatType",
+    "ThreatConfidenceType",
     "ThreatEntitySetFormatType",
     "ThreatEntitySetStatusType",
     "ThreatIntelSetFormatType",
     "ThreatIntelSetStatusType",
+    "TimeGranularityType",
     "TriggerTypeType",
     "TrustedEntitySetFormatType",
     "TrustedEntitySetStatusType",
@@ -134,9 +156,38 @@ __all__ = (
     "UsageStatisticTypeType",
 )
 
+ActionPriorityType = Literal["IMMEDIATE", "SHORT_TERM", "STRATEGIC"]
 ActivityTypeType = Literal["API_CALL"]
 AdminStatusType = Literal["DISABLE_IN_PROGRESS", "ENABLED"]
+AnalysisTypeType = Literal[
+    "BASELINE",
+    "KUBERNETES_POLICY_VIOLATION",
+    "PROCESS_LINEAGE",
+    "RDS_THREAT_ASSESSMENT",
+    "REPUTATION",
+    "S3_ACTOR_CONTEXT",
+    "S3_EXPOSURE",
+    "S3_PEN_TEST",
+    "THREAT_ASSESSMENT",
+    "TREND",
+]
 AssociationModeType = Literal["DRY_RUN", "LIVE"]
+AttackPhaseNameType = Literal[
+    "Collection",
+    "Command and Control",
+    "Credential Access",
+    "Defense Evasion",
+    "Discovery",
+    "Execution",
+    "Exfiltration",
+    "Impact",
+    "Initial Access",
+    "Lateral Movement",
+    "Persistence",
+    "Privilege Escalation",
+    "Reconnaissance",
+    "Resource Development",
+]
 AutoEnableMembersType = Literal["ALL", "NEW", "NONE"]
 CloudProviderType = Literal["AWS"]
 ClusterStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "PENDING", "UPDATING"]
@@ -146,6 +197,7 @@ ContentPolicyFilterActionType = Literal["BLOCKED", "NONE"]
 ContentPolicyFilterTypeType = Literal[
     "HATE", "INSULTS", "JAILBREAK", "MISCONDUCT", "PROMPT_ATTACK", "SEXUAL", "VIOLENCE"
 ]
+CorrelationReasonType = Literal["HIGH_SEVERITY", "SAME_BEHAVIOR", "SAME_RESOURCE"]
 CoverageFilterCriterionKeyType = Literal[
     "ACCOUNT_ID",
     "ADDON_VERSION",
@@ -185,6 +237,7 @@ DataSourceStatusType = Literal["DISABLED", "ENABLED"]
 DataSourceType = Literal[
     "CLOUD_TRAIL", "DNS_LOGS", "EC2_MALWARE_SCAN", "FLOW_LOGS", "KUBERNETES_AUDIT_LOGS", "S3_LOGS"
 ]
+DefenseTacticType = Literal["Detect", "Evict", "Harden", "Isolate", "Restore"]
 DescribeMalwareScansPaginatorName = Literal["describe_malware_scans"]
 DestinationTypeType = Literal["S3"]
 DetectionRuleConfigurationStatusType = Literal["ACTIVE", "FAILED", "PROCESSING"]
@@ -218,6 +271,8 @@ DetectorFeatureType = Literal[
     "S3_DATA_EVENTS",
 ]
 DetectorStatusType = Literal["DISABLED", "ENABLED"]
+DispositionType = Literal["Access Revoked", "Blocked", "Deleted", "Isolated", "Logged"]
+DistributionDimensionType = Literal["ARCHIVE", "ATTACK_VECTOR", "RESOURCE", "SEVERITY", "TYPE"]
 EbsSnapshotPreservationType = Literal["NO_RETENTION", "RETENTION_WITH_FINDING"]
 EcsClusterStatusType = Literal["ACTIVE", "DEPROVISIONING", "FAILED", "INACTIVE", "PROVISIONING"]
 EcsLaunchTypeType = Literal["EC2", "FARGATE"]
@@ -226,6 +281,24 @@ FeatureAdditionalConfigurationType = Literal[
 ]
 FeatureStatusType = Literal["DISABLED", "ENABLED"]
 FeedbackType = Literal["NOT_USEFUL", "USEFUL"]
+FetchCriterionConditionType = Literal[
+    "EQUALS",
+    "GREATER_THAN",
+    "GREATER_THAN_OR_EQUAL",
+    "LESS_THAN",
+    "LESS_THAN_OR_EQUAL",
+    "NOT_EQUALS",
+]
+FetchTypeType = Literal[
+    "CLOUD_TRAIL_RAW_EVENTS",
+    "DETECTOR",
+    "FINDINGS",
+    "FINDING_TYPE_DOCUMENTATION",
+    "MEMBER_ACCOUNTS",
+    "REPUTATION",
+    "RUNTIME_SIGNALS",
+]
+FetchVerdictType = Literal["BENIGN", "NEUTRAL", "THREAT"]
 FilterActionType = Literal["ARCHIVE", "NOOP"]
 FilterFieldNameType = Literal[
     "dataSource", "description", "name", "service", "severity", "tactic", "technique"
@@ -301,8 +374,43 @@ IndicatorTypeType = Literal[
     "UNUSUAL_ASN_FOR_USER",
     "VULNERABILITY",
 ]
+InvestigationDetectorFeatureType = Literal[
+    "CLOUD_TRAIL",
+    "DNS_LOGS",
+    "EBS_MALWARE_PROTECTION",
+    "EC2_AGENT_MANAGEMENT",
+    "ECS_FARGATE_AGENT_MANAGEMENT",
+    "EKS_ADDON_MANAGEMENT",
+    "EKS_AUDIT_LOGS",
+    "EKS_RUNTIME_MONITORING",
+    "FLOW_LOGS",
+    "LAMBDA_NETWORK_LOGS",
+    "RDS_LOGIN_EVENTS",
+    "RUNTIME_MONITORING",
+    "S3_DATA_EVENTS",
+]
+InvestigationFilterCriterionKeyType = Literal[
+    "CONFIDENCE", "FINDING_ID", "INVESTIGATION_TYPE", "RISK_LEVEL", "STATUS"
+]
+InvestigationIndicatorTypeType = Literal["DOMAIN", "FILE", "IP"]
+InvestigationResourceTypeType = Literal[
+    "EBS_VOLUME",
+    "EC2_INSTANCE",
+    "EC2_SECURITY_GROUP",
+    "ECS_CLUSTER",
+    "EKS_CLUSTER",
+    "IAM_ACCESS_KEY",
+    "IAM_ROLE",
+    "IAM_USER",
+    "KUBERNETES_WORKLOAD",
+    "LAMBDA_FUNCTION",
+    "RDS_DB_USER",
+    "RDS_INSTANCE",
+    "S3_BUCKET",
+]
 InvestigationSortFieldType = Literal["CONFIDENCE", "END_TIME", "RISK_LEVEL", "START_TIME", "STATUS"]
 InvestigationStatusType = Literal["COMPLETED", "FAILED", "RUNNING"]
+InvestigationTypeType = Literal["ACCOUNT", "FINDING", "ORGANIZATION"]
 IpSetFormatType = Literal["ALIEN_VAULT", "FIRE_EYE", "OTX_CSV", "PROOF_POINT", "STIX", "TXT"]
 IpSetStatusType = Literal[
     "ACTIVATING", "ACTIVE", "DEACTIVATING", "DELETED", "DELETE_PENDING", "ERROR", "INACTIVE"
@@ -329,6 +437,7 @@ ListDetectorsPaginatorName = Literal["list_detectors"]
 ListFiltersPaginatorName = Literal["list_filters"]
 ListFindingsPaginatorName = Literal["list_findings"]
 ListIPSetsPaginatorName = Literal["list_ip_sets"]
+ListInvestigationRecordsPaginatorName = Literal["list_investigation_records"]
 ListInvestigationsPaginatorName = Literal["list_investigations"]
 ListInvitationsPaginatorName = Literal["list_invitations"]
 ListMalwareScansCriterionKeyType = Literal[
@@ -368,6 +477,22 @@ ManagedByType = Literal["GUARDDUTY_POLICY"]
 ManagementTypeType = Literal["AUTO_MANAGED", "DISABLED", "MANUAL"]
 MfaStatusType = Literal["DISABLED", "ENABLED"]
 NetworkDirectionType = Literal["INBOUND", "OUTBOUND"]
+ObservationTypeType = Literal[
+    "ACCOUNT_OVERVIEW",
+    "DETECTION_COVERAGE",
+    "DISTRIBUTION",
+    "FINDING_DETAIL",
+    "KUBERNETES_ACTIVITY",
+    "MALWARE_SCAN",
+    "NETWORK_ACTIVITY",
+    "RDS_LOGIN_ACTIVITY",
+    "RECOMMENDATION",
+    "RELATED_FINDINGS",
+    "REPRESENTATIVE_RESOURCE",
+    "RESOURCE",
+    "RUNTIME_SIGNALS",
+    "S3_ACTIVITY",
+]
 OrderByType = Literal["ASC", "DESC"]
 OrgFeatureAdditionalConfigurationType = Literal[
     "EC2_AGENT_MANAGEMENT", "ECS_FARGATE_AGENT_MANAGEMENT", "EKS_ADDON_MANAGEMENT", "RDS_DATA_RISK"
@@ -391,6 +516,10 @@ PublicBucketRestrictBehaviorType = Literal["NOT_RESTRICTED", "RESTRICTED"]
 PublishingStatusType = Literal[
     "PENDING_VERIFICATION", "PUBLISHING", "STOPPED", "UNABLE_TO_PUBLISH_FIX_DESTINATION_PROPERTY"
 ]
+RecommendationCategoryType = Literal[
+    "ENABLE_PROTECTION", "FURTHER_INVESTIGATION", "HARDENING", "MONITORING", "SUPPRESSION_RULE"
+]
+RecordTypeType = Literal["ANALYSIS", "FETCH", "METADATA", "OBSERVATION", "UPDATE"]
 ResourceTypeType = Literal["EC2", "ECS", "EKS"]
 RiskLevelType = Literal["Critical", "High", "Info", "Low", "Medium"]
 RuleLanguageType = Literal["SQL"]
@@ -429,6 +558,8 @@ SignalTypeType = Literal[
     "RUNTIME_MONITORING",
     "S3_DATA_EVENTS",
 ]
+SummaryFormatType = Literal["STRING", "STRUCTURED"]
+ThreatConfidenceType = Literal["HIGH", "LOW", "MEDIUM", "VERY_HIGH"]
 ThreatEntitySetFormatType = Literal[
     "ALIEN_VAULT", "FIRE_EYE", "OTX_CSV", "PROOF_POINT", "STIX", "TXT"
 ]
@@ -441,6 +572,7 @@ ThreatIntelSetFormatType = Literal[
 ThreatIntelSetStatusType = Literal[
     "ACTIVATING", "ACTIVE", "DEACTIVATING", "DELETED", "DELETE_PENDING", "ERROR", "INACTIVE"
 ]
+TimeGranularityType = Literal["DAY", "MONTH", "WEEK"]
 TriggerTypeType = Literal["BACKUP", "GUARDDUTY"]
 TrustedEntitySetFormatType = Literal[
     "ALIEN_VAULT", "FIRE_EYE", "OTX_CSV", "PROOF_POINT", "STIX", "TXT"
@@ -926,6 +1058,7 @@ PaginatorName = Literal[
     "list_detectors",
     "list_filters",
     "list_findings",
+    "list_investigation_records",
     "list_investigations",
     "list_invitations",
     "list_ip_sets",

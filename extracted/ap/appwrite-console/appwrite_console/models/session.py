@@ -18,6 +18,8 @@ class Session(AppwriteModel):
         Session update date in ISO 8601 format.
     userid : str
         User ID.
+    username : str
+        Name of the user the session belongs to. Lets a client label the account, for example in an account switcher.
     expire : str
         Session expiration date in ISO 8601 format.
     provider : str
@@ -74,12 +76,13 @@ class Session(AppwriteModel):
     createdat: str = Field(..., alias='$createdAt')
     updatedat: str = Field(..., alias='$updatedAt')
     userid: str = Field(..., alias='userId')
+    username: str = Field(..., alias='userName')
     expire: str = Field(..., alias='expire')
     provider: str = Field(..., alias='provider')
     provideruid: str = Field(..., alias='providerUid')
-    provideraccesstoken: str = Field(..., alias='providerAccessToken')
+    provideraccesstoken: str = Field(..., alias='providerAccessToken', json_schema_extra={'format': 'password'})
     provideraccesstokenexpiry: str = Field(..., alias='providerAccessTokenExpiry')
-    providerrefreshtoken: str = Field(..., alias='providerRefreshToken')
+    providerrefreshtoken: str = Field(..., alias='providerRefreshToken', json_schema_extra={'format': 'password'})
     ip: str = Field(..., alias='ip')
     oscode: str = Field(..., alias='osCode')
     osname: str = Field(..., alias='osName')
@@ -97,7 +100,7 @@ class Session(AppwriteModel):
     countryname: str = Field(..., alias='countryName')
     current: bool = Field(..., alias='current')
     factors: List[Any] = Field(..., alias='factors')
-    secret: str = Field(..., alias='secret')
+    secret: str = Field(..., alias='secret', json_schema_extra={'format': 'password'})
     mfaupdatedat: str = Field(..., alias='mfaUpdatedAt')
 
     @model_validator(mode='before')
@@ -115,6 +118,8 @@ class Session(AppwriteModel):
             data['$updatedAt'] = ''
         if 'userId' not in data and 'userid' not in data:
             data['userId'] = ''
+        if 'userName' not in data and 'username' not in data:
+            data['userName'] = ''
         if 'expire' not in data:
             data['expire'] = ''
         if 'provider' not in data:

@@ -5,6 +5,8 @@
 
 from pydantic import BaseModel, Field
 
+from pyrit.backend.models.common import MAX_FILE_CONTENT_LENGTH, IdentifierStr
+
 
 class ConfigurationFileContent(BaseModel):
     """Raw UTF-8 contents of the backend configuration file."""
@@ -12,13 +14,17 @@ class ConfigurationFileContent(BaseModel):
     content: str = Field(..., description="Raw YAML configuration file contents")
     source: str = Field(..., description="Configuration file path or credential-free blob URI")
     version: str = Field(..., description="Opaque version token for optimistic concurrency")
+    live_reinitialization_enabled: bool = Field(
+        False,
+        description="Whether the saved configuration explicitly enables live runtime replacement",
+    )
 
 
 class UpdateConfigurationFileRequest(BaseModel):
     """Replacement contents for the backend configuration file."""
 
-    content: str = Field(..., description="Raw YAML configuration file contents")
-    version: str = Field(..., description="Version token returned by the latest content read")
+    content: str = Field(..., max_length=MAX_FILE_CONTENT_LENGTH, description="Raw YAML configuration file contents")
+    version: IdentifierStr = Field(..., description="Version token returned by the latest content read")
 
 
 class EnvironmentFileContent(BaseModel):
@@ -43,5 +49,11 @@ class EnvironmentFileListResponse(BaseModel):
 class UpdateEnvironmentFileRequest(BaseModel):
     """Replacement contents for an environment file."""
 
-    content: str = Field(..., description="Raw dotenv file contents")
-    version: str = Field(..., description="Version token returned by the latest content read")
+    content: str = Field(..., max_length=MAX_FILE_CONTENT_LENGTH, description="Raw dotenv file contents")
+    version: IdentifierStr = Field(..., description="Version token returned by the latest content read")
+
+
+class ReinitializeRequest(BaseModel):
+    """Apply saved sources to an idle single-process runtime."""
+
+    version: IdentifierStr

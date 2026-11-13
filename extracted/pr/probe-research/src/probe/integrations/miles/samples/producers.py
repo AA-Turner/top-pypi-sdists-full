@@ -19,8 +19,40 @@ _UNSAFE = re.compile(r"[^A-Za-z0-9_.:\-]+")
 
 def get_trainer_name(dp_rank: int, model_id: str | None = None) -> str:
     """`trainer-<dp>`, or `trainer-<model>-<dp>` in a multi-policy run (`trainer_model_id`)."""
-    model = _UNSAFE.sub("_", model_id)[:64] if model_id else ""
-    return f"trainer-{model}-{dp_rank}" if model else f"trainer-{dp_rank}"
+    return "-".join(part for part in ("trainer", _to_name_part(model_id), str(dp_rank)) if part)
+
+
+def get_training_name(dp_rank: int, cp_rank: int, model_id: str | None = None, role: str | None = None) -> str:
+    """`miles-train-<dp>-<cp>` (`miles-train-<model>-<dp>-<cp>` multi-policy; `miles-train-<role>-...` for a trainer
+    role other than the actor, so a critic never writes as the actor): the producer a train rank's per-sample training
+    metrics go out as, every data- and context-parallel rank its own (never declared in the plan, so sample capture is
+    unchanged)."""
+    role_part = "" if role in (None, "actor") else _to_name_part(role)
+    parts = ("miles-train", role_part, _to_name_part(model_id), str(dp_rank), str(cp_rank))
+    return "-".join(part for part in parts if part)
+
+
+def _to_name_part(model_id: str | None) -> str:
+    """A policy id as a producer name accepts it ("" for none)."""
+    return _UNSAFE.sub("_", model_id)[:64] if model_id else ""
+
+
+def is_probe_off() -> bool:
+    """Probe records nothing in this Miles process: `PROBE_MILES=off` (the launcher's switch when Probe was down at
+    launch) or `PROBE_MODE=disabled`."""
+    if os.environ.get("PROBE_MILES", "").strip().lower() == "off":
+        return True
+    from probe.sdk.settings.settings import Mode, resolve_mode
+
+    try:
+        return resolve_mode(None) is Mode.DISABLED
+    except Exception:  # noqa: BLE001 -- an unknown PROBE_MODE: the SDK itself refuses it where it matters
+        return False
+
+
+def get_run_id(args: Any = None) -> str | None:
+    """The run a worker joins: `PROBE_RUN_ID` from the launcher's runtime env, else the fork's `args.probe_run_id`."""
+    return os.environ.get("PROBE_RUN_ID", "").strip() or _get_text(getattr(args, "probe_run_id", None))
 
 
 class ProcessRun:
@@ -72,8 +104,7 @@ def _open_handle(args: Any, producer: str) -> Any:
         return found
     from probe.sdk.run.samples import attach_producer
 
-    run_id = os.environ.get("PROBE_RUN_ID", "").strip() or _get_text(getattr(args, "probe_run_id", None))
-    return attach_producer(producer, run_id=run_id or None)
+    return attach_producer(producer, run_id=get_run_id(args))
 
 
 def _get_text(value: Any) -> str | None:

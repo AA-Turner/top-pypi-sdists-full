@@ -20,7 +20,7 @@ classifiers = [
 ]
 dependencies = [
     "mistralai[agents]>=2.0.0,<4.0.0",
-    "mistralai-workflows>=3.0.0a1,<4.0.0",
+    "mistralai-workflows>=3.19.0,<4.0.0",
     "structlog>=24,<26",
     "mcp>=1.27.2,<3.0.0",
     "authlib>=1.7.2",  # Required for MCP OAuth support

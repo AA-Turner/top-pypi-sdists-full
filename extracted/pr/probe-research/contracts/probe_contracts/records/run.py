@@ -23,6 +23,15 @@ class RunStatus(StrEnum):
     UNTRACKED = "untracked"
 
 
+class RunType(StrEnum):
+    """What a run is, as its creator declares it (0495). Training and evaluation are phases inside a run, not types.
+    RL presentation (RL workspace, Rollouts, Compute timeline, Trials) follows `RL`; DESIGN.md (run.py)."""
+
+    GENERAL = "general"
+    #: Rollouts in an environment scored by a reward: an RL trainer's run, or a Harbor agent eval.
+    RL = "rl"
+
+
 class ParentRelation(StrEnum):
     FORK = "fork"
     RESUME = "resume"

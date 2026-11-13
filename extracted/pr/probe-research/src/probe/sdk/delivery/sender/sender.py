@@ -58,7 +58,9 @@ class Sender:
             client._enqueue(method, path, body, blocking=blocking, prepared=True, admitted=admitted)
             return None
         try:
-            resp = client.transport.request(method, path, json_body=body)
+            from ..ops.op_handler import gate_samples_body
+
+            resp = client.transport.request(method, path, json_body=gate_samples_body(client, method, path, body))
             # A 2xx with a non-JSON body raises ValueError, not RosError (`Transport.delete`
             # defends the same: "an ingress/CDN HTML interstitial in front of the API").
             # On the door every write uses, it took down the training loop instead of spooling.

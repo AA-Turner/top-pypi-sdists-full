@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-shopping-merchant-datasources
-Version: 1.6.0
+Version: 2.0.0
 Summary: Google Shopping Merchant Datasources API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-shopping-merchant-datasources
 Author: Google LLC

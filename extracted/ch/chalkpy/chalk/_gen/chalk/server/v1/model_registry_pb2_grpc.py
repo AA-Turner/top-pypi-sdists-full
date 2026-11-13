@@ -3,7 +3,9 @@
 
 import grpc
 
-from chalk._gen.chalk.server.v1 import model_registry_pb2 as chalk_dot_server_dot_v1_dot_model__registry__pb2
+from chalk._gen.chalk.server.v1 import (
+    model_registry_pb2 as chalk_dot_server_dot_v1_dot_model__registry__pb2,
+)
 
 
 class ModelRegistryServiceStub(object):
@@ -312,7 +314,9 @@ def add_ModelRegistryServiceServicer_to_server(servicer, server):
             response_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelArtifactResponse.SerializeToString,
         ),
     }
-    generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.ModelRegistryService", rpc_method_handlers)
+    generic_handler = grpc.method_handlers_generic_handler(
+        "chalk.server.v1.ModelRegistryService", rpc_method_handlers
+    )
     server.add_generic_rpc_handlers((generic_handler,))
 
 

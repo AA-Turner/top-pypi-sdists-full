@@ -52,6 +52,7 @@ from .records import (
     RunCounts,
     RunEdit,
     RunStatus,
+    RunType,
     ScaleArgs,
     SetConfigArgs,
     ShiftStepArgs,
@@ -114,6 +115,7 @@ CONTRACTS = Contracts(
     ),
     enums=(
         RunStatus,
+        RunType,
         ParentRelation,
         ProjectKind,
         ArtifactStatus,

@@ -19,6 +19,8 @@ class RunView:
     held: int = 0
     failed: int = 0
     discarded: int = 0
+    #: Writes the server refused for good, dead letters or in discarded/ (counted from the folders only).
+    set_aside: int = 0
     #: Best-effort writes still in line: waited for, never a reason to raise.
     best_effort: int = 0
     delivered_total: int = 0
@@ -103,6 +105,7 @@ def count_run(
         view.held += run.held
         view.failed += run.failed
         view.discarded += run.discarded
+        view.set_aside += run.set_aside
         view.best_effort += run.best_effort
     return view
 

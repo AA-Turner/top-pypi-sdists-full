@@ -8653,7 +8653,7 @@ class CfnFunctionProps:
                 ),
                 events={
                     "events_key": sam.CfnFunction.EventSourceProperty(
-                        properties=sam.CfnFunction.AlexaSkillEventProperty(
+                        properties=sam.CfnFunction.S3EventProperty(
                             skill_id="skillId"
                         ),
                         type="type"
@@ -13159,7 +13159,7 @@ class CfnStateMachineProps:
                 definition_uri="definitionUri",
                 events={
                     "events_key": sam.CfnStateMachine.EventSourceProperty(
-                        properties=sam.CfnStateMachine.ScheduleEventProperty(
+                        properties=sam.CfnStateMachine.ApiEventProperty(
                             method="method",
                             path="path",
             

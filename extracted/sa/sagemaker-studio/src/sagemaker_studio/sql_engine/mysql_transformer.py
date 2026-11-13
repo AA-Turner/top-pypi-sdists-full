@@ -5,6 +5,8 @@ from .database_transformer import DatabaseTransformer
 
 class MySQLTransformer(DatabaseTransformer):
 
+    supports_row_limit = True  # MySQL accepts a trailing "LIMIT n"
+
     @classmethod
     def get_dialect(cls) -> Optional[str]:
         return "mysql"

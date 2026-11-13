@@ -81,11 +81,16 @@ python_test_manylinux_x86_64_3.12:
   needs: ["wheel_manylinux_x86_64: [3.12]"]
 
 python_test_manylinux_x86_64_3.13:
-  extends: .python_test_without_lal
+  extends: .python_test_with_lal
   image: "python:3.13"
   needs: ["wheel_manylinux_x86_64: [3.13]"]
 
 python_test_manylinux_x86_64_3.14:
-  extends: .python_test_without_lal
+  extends: .python_test_with_lal
   image: "python:3.14"
   needs: ["wheel_manylinux_x86_64: [3.14]"]
+
+python_test_manylinux_x86_64_3.15:
+  extends: .python_test_with_lal
+  image: "python:3.15"
+  needs: ["wheel_manylinux_x86_64: [3.15]"]

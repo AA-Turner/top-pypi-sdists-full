@@ -196,6 +196,25 @@ def awkward_ByteMaskedArray_getitem_nextcarry(tocarry, mask, length, validwhen):
 awkward_ByteMaskedArray_getitem_nextcarry_64 = awkward_ByteMaskedArray_getitem_nextcarry
 
 
+def awkward_ListOffsetArray_getitem_boolmask(tooffsets, tocarry, mask, fromoffsets, length, carrylength):
+    k = 0
+    tooffsets[0] = 0
+    for i in range(length):
+        start = fromoffsets[i]
+        stop = fromoffsets[i + 1]
+        if stop < start:
+            raise ValueError("offsets must be monotonically increasing")
+        for j in range(start, stop):
+            if k < carrylength:
+                tocarry[k] = j - start
+            k = k + (1 if mask[j] != 0 else 0)
+        tooffsets[i + 1] = k
+    if k != carrylength:
+        raise ValueError("carrylength must be the number of selected elements")
+
+awkward_ListOffsetArray_getitem_boolmask_64 = awkward_ListOffsetArray_getitem_boolmask
+
+
 def awkward_ByteMaskedArray_getitem_nextcarry_outindex(
     tocarry, outindex, mask, length, validwhen
 ):
@@ -2464,28 +2483,5 @@ awkward_unique_ranges_uint32 = awkward_unique_ranges
 awkward_unique_ranges_uint64 = awkward_unique_ranges
 awkward_unique_ranges_float32 = awkward_unique_ranges
 awkward_unique_ranges_float64 = awkward_unique_ranges
-
-
-def awkward_sorting_ranges(toindex, tolength, parents, parentslength):
-    toindex[0] = 0
-    j = 1
-    k = 1
-    for i in range(1, parentslength):
-        if parents[i - 1] != parents[i]:
-            toindex[j] = k
-            j += 1
-        k += 1
-    toindex[tolength - 1] = parentslength
-
-awkward_sorting_ranges = awkward_sorting_ranges
-
-
-def awkward_sorting_ranges_length(tolength, parents, parentslength):
-    tolength[0] = 2
-    for i in range(1, parentslength):
-        if parents[i - 1] != parents[i]:
-            tolength[0] = tolength[0] + 1
-
-awkward_sorting_ranges_length = awkward_sorting_ranges_length
 
 

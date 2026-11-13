@@ -69,6 +69,13 @@ class SettingsResponse:
                 the user lists it here. A pull request by one of these gets
                 Renovate's own rebase, not Update branch, and is a `dependency`.
                 Matched case-insensitively. Empty means only the GitHub slugs.
+            forgejo_skipped_avatar_hosts (list[str]): Other hosts a Forgejo avatar was refused for lately: the image
+                proxy only fetches from the saved instance, so an avatar on
+                Gravatar or Libravatar is skipped and the page shows an initial.
+                Lowercase, sorted, at most eight, and never the instance's own
+                host. A host is listed while its avatars keep being asked for and
+                drops off after about ten minutes without one, so the list is
+                empty when nothing is skipped. Held in memory: a restart empties it.
             theme (SettingsResponseTheme): The signed-in user's own theme preference. Empty
                 means "system" — follow the browser's prefers-color-scheme
                 rather than a saved choice. Set only from Settings; every
@@ -113,6 +120,7 @@ class SettingsResponse:
     webhook_secret: str
     renovate_rebase_label: str
     renovate_authors: list[str]
+    forgejo_skipped_avatar_hosts: list[str]
     theme: SettingsResponseTheme
     ignored_title_counts: list[int | None]
     timezone: str | Unset = UNSET
@@ -146,6 +154,10 @@ class SettingsResponse:
         renovate_rebase_label = self.renovate_rebase_label
 
         renovate_authors = self.renovate_authors
+
+
+
+        forgejo_skipped_avatar_hosts = self.forgejo_skipped_avatar_hosts
 
 
 
@@ -184,6 +196,7 @@ class SettingsResponse:
             "webhookSecret": webhook_secret,
             "renovateRebaseLabel": renovate_rebase_label,
             "renovateAuthors": renovate_authors,
+            "forgejoSkippedAvatarHosts": forgejo_skipped_avatar_hosts,
             "theme": theme,
             "ignoredTitleCounts": ignored_title_counts,
         })
@@ -224,6 +237,9 @@ class SettingsResponse:
         renovate_authors = cast(list[str], d.pop("renovateAuthors"))
 
 
+        forgejo_skipped_avatar_hosts = cast(list[str], d.pop("forgejoSkippedAvatarHosts"))
+
+
         theme = SettingsResponseTheme(d.pop("theme"))
 
 
@@ -261,6 +277,7 @@ class SettingsResponse:
             webhook_secret=webhook_secret,
             renovate_rebase_label=renovate_rebase_label,
             renovate_authors=renovate_authors,
+            forgejo_skipped_avatar_hosts=forgejo_skipped_avatar_hosts,
             theme=theme,
             ignored_title_counts=ignored_title_counts,
             timezone=timezone,

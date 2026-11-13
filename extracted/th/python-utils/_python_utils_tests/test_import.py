@@ -299,3 +299,106 @@ def test_import_global_requested_name_needs_an_export(
     import_.import_global(module_name, ['eggs'], locals_={}, globals_=scope)
     assert scope == {}
     assert 'eggs' not in calls
+
+
+@pytest.fixture
+def deep_package(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> collections.abc.Iterator[str]:
+    """Create ``testrel.nested.deeper`` with importable helper modules."""
+    package: pathlib.Path = tmp_path / 'testrel'
+    nested: pathlib.Path = package / 'nested'
+    deeper: pathlib.Path = nested / 'deeper'
+    deeper.mkdir(parents=True)
+    (package / '__init__.py').write_text('', encoding='utf-8')
+    (nested / '__init__.py').write_text('', encoding='utf-8')
+    (deeper / '__init__.py').write_text('', encoding='utf-8')
+    (package / 'helper.py').write_text('value = 42\n', encoding='utf-8')
+    (nested / 'inner.py').write_text(
+        "inner_value = 'inner'\n", encoding='utf-8'
+    )
+    monkeypatch.setattr(sys, 'path', [str(tmp_path), *sys.path])
+
+    yield 'testrel'
+
+    imported: list[str] = [
+        name for name in sys.modules if name.split('.')[0] == 'testrel'
+    ]
+    for name in imported:
+        del sys.modules[name]
+
+
+def test_import_globals_relative_import_two_dots(deep_package: str) -> None:
+    """Resolve ``..helper`` two levels up, to ``testrel.helper`` (#73)."""
+    locals_: types.Dict[str, types.Any] = {}
+    globals_: types.Dict[str, types.Any] = {'__package__': 'testrel.nested'}
+    import_.import_global('..helper', locals_=locals_, globals_=globals_)
+    assert globals_['value'] == 42
+
+
+def test_import_globals_relative_import_three_dots(deep_package: str) -> None:
+    """Resolve ``...helper`` three levels up, to ``testrel.helper`` (#73)."""
+    locals_: types.Dict[str, types.Any] = {}
+    globals_: types.Dict[str, types.Any] = {
+        '__package__': 'testrel.nested.deeper'
+    }
+    import_.import_global('...helper', locals_=locals_, globals_=globals_)
+    assert globals_['value'] == 42
+
+
+def test_import_globals_relative_import_one_dot(deep_package: str) -> None:
+    """Keep resolving a single leading dot one level up (#73 control)."""
+    locals_: types.Dict[str, types.Any] = {}
+    globals_: types.Dict[str, types.Any] = {'__package__': 'testrel.nested'}
+    import_.import_global('.inner', locals_=locals_, globals_=globals_)
+    assert globals_['inner_value'] == 'inner'
+
+
+def test_import_globals_relative_import_dots_only(deep_package: str) -> None:
+    """Reject a dots-only name, which names no module to import (#73)."""
+    locals_: types.Dict[str, types.Any] = {}
+    globals_: types.Dict[str, types.Any] = {'__package__': 'testrel.nested'}
+    with pytest.raises(ImportError):
+        import_.import_global('..', locals_=locals_, globals_=globals_)
+
+
+def test_import_globals_relative_import_dots_only_exception(
+    deep_package: str,
+) -> None:
+    """Keep raising ModuleNotFoundError for a dots-only name, as 4.2.0 did."""
+    globals_: types.Dict[str, types.Any] = {
+        '__package__': 'testrel.nested.deeper'
+    }
+    error = import_.import_global(
+        '...',
+        exceptions=ModuleNotFoundError,
+        locals_={},
+        globals_=globals_,
+    )
+    assert isinstance(error, ModuleNotFoundError)
+
+
+def test_import_globals_relative_import_beyond_top_level(
+    deep_package: str,
+) -> None:
+    """Raise ModuleNotFoundError above the top-level package, as 4.2.0 did."""
+    globals_: types.Dict[str, types.Any] = {
+        '__package__': 'testrel.nested.deeper'
+    }
+    with pytest.raises(ModuleNotFoundError, match='beyond top-level'):
+        import_.import_global('....helper', locals_={}, globals_=globals_)
+
+
+def test_import_globals_empty_name() -> None:
+    """Keep raising IndexError for an empty name, as 4.2.0 did."""
+    with pytest.raises(IndexError):
+        import_.import_global('', locals_={}, globals_={'__package__': ''})
+
+
+def test_import_globals_relative_import_trailing_dot(
+    deep_package: str,
+) -> None:
+    """Raise ModuleNotFoundError for ``..helper.``, as 4.2.0 did."""
+    globals_: types.Dict[str, types.Any] = {'__package__': 'testrel.nested'}
+    with pytest.raises(ModuleNotFoundError):
+        import_.import_global('..helper.', locals_={}, globals_=globals_)

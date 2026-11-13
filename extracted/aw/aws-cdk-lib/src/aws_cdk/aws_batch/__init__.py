@@ -6533,6 +6533,73 @@ class CfnJobDefinition(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnJobDefinition.EksContainerLinuxCapabilitiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"add": "add", "drop": "drop"},
+    )
+    class EksContainerLinuxCapabilitiesProperty:
+        def __init__(
+            self,
+            *,
+            add: typing.Optional[typing.Sequence[builtins.str]] = None,
+            drop: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param add: 
+            :param drop: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-ekscontainerlinuxcapabilities.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                eks_container_linux_capabilities_property = batch.CfnJobDefinition.EksContainerLinuxCapabilitiesProperty(
+                    add=["add"],
+                    drop=["drop"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5cba028bedf31a12e3a9e2cff4044c3e24898d459b09926e3a7a384aa63c7b7c)
+                check_type(argname="argument add", value=add, expected_type=type_hints["add"])
+                check_type(argname="argument drop", value=drop, expected_type=type_hints["drop"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if add is not None:
+                self._values["add"] = add
+            if drop is not None:
+                self._values["drop"] = drop
+
+        @builtins.property
+        def add(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-ekscontainerlinuxcapabilities.html#cfn-batch-jobdefinition-ekscontainerlinuxcapabilities-add
+            '''
+            result = self._values.get("add")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def drop(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-ekscontainerlinuxcapabilities.html#cfn-batch-jobdefinition-ekscontainerlinuxcapabilities-drop
+            '''
+            result = self._values.get("drop")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EksContainerLinuxCapabilitiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_batch.CfnJobDefinition.EksContainerProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -6607,11 +6674,21 @@ class CfnJobDefinition(
                     ),
                     security_context=batch.CfnJobDefinition.SecurityContextProperty(
                         allow_privilege_escalation=False,
+                        capabilities=batch.CfnJobDefinition.EksContainerLinuxCapabilitiesProperty(
+                            add=["add"],
+                            drop=["drop"]
+                        ),
                         privileged=False,
                         read_only_root_filesystem=False,
                         run_as_group=123,
                         run_as_non_root=False,
-                        run_as_user=123
+                        run_as_user=123,
+                        seccomp_profile=batch.CfnJobDefinition.EksSeccompProfileProperty(
+                            type="type",
+                
+                            # the properties below are optional
+                            localhost_profile="localhostProfile"
+                        )
                     ),
                     volume_mounts=[batch.CfnJobDefinition.EksContainerVolumeMountProperty(
                         mount_path="mountPath",
@@ -6968,6 +7045,130 @@ class CfnJobDefinition(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnJobDefinition.EksPodSecurityContextProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "fs_group": "fsGroup",
+            "run_as_group": "runAsGroup",
+            "run_as_non_root": "runAsNonRoot",
+            "run_as_user": "runAsUser",
+            "seccomp_profile": "seccompProfile",
+        },
+    )
+    class EksPodSecurityContextProperty:
+        def __init__(
+            self,
+            *,
+            fs_group: typing.Optional[jsii.Number] = None,
+            run_as_group: typing.Optional[jsii.Number] = None,
+            run_as_non_root: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            run_as_user: typing.Optional[jsii.Number] = None,
+            seccomp_profile: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobDefinition.EksSeccompProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param fs_group: 
+            :param run_as_group: 
+            :param run_as_non_root: 
+            :param run_as_user: 
+            :param seccomp_profile: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-ekspodsecuritycontext.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                eks_pod_security_context_property = batch.CfnJobDefinition.EksPodSecurityContextProperty(
+                    fs_group=123,
+                    run_as_group=123,
+                    run_as_non_root=False,
+                    run_as_user=123,
+                    seccomp_profile=batch.CfnJobDefinition.EksSeccompProfileProperty(
+                        type="type",
+                
+                        # the properties below are optional
+                        localhost_profile="localhostProfile"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4ae67c9aceee5551604e33b8b6e524ee3be3b972a2833f414a4c83c8975fa425)
+                check_type(argname="argument fs_group", value=fs_group, expected_type=type_hints["fs_group"])
+                check_type(argname="argument run_as_group", value=run_as_group, expected_type=type_hints["run_as_group"])
+                check_type(argname="argument run_as_non_root", value=run_as_non_root, expected_type=type_hints["run_as_non_root"])
+                check_type(argname="argument run_as_user", value=run_as_user, expected_type=type_hints["run_as_user"])
+                check_type(argname="argument seccomp_profile", value=seccomp_profile, expected_type=type_hints["seccomp_profile"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if fs_group is not None:
+                self._values["fs_group"] = fs_group
+            if run_as_group is not None:
+                self._values["run_as_group"] = run_as_group
+            if run_as_non_root is not None:
+                self._values["run_as_non_root"] = run_as_non_root
+            if run_as_user is not None:
+                self._values["run_as_user"] = run_as_user
+            if seccomp_profile is not None:
+                self._values["seccomp_profile"] = seccomp_profile
+
+        @builtins.property
+        def fs_group(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-ekspodsecuritycontext.html#cfn-batch-jobdefinition-ekspodsecuritycontext-fsgroup
+            '''
+            result = self._values.get("fs_group")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def run_as_group(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-ekspodsecuritycontext.html#cfn-batch-jobdefinition-ekspodsecuritycontext-runasgroup
+            '''
+            result = self._values.get("run_as_group")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def run_as_non_root(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-ekspodsecuritycontext.html#cfn-batch-jobdefinition-ekspodsecuritycontext-runasnonroot
+            '''
+            result = self._values.get("run_as_non_root")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def run_as_user(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-ekspodsecuritycontext.html#cfn-batch-jobdefinition-ekspodsecuritycontext-runasuser
+            '''
+            result = self._values.get("run_as_user")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def seccomp_profile(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobDefinition.EksSeccompProfileProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-ekspodsecuritycontext.html#cfn-batch-jobdefinition-ekspodsecuritycontext-seccompprofile
+            '''
+            result = self._values.get("seccomp_profile")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobDefinition.EksSeccompProfileProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EksPodSecurityContextProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_batch.CfnJobDefinition.EksPropertiesProperty",
         jsii_struct_bases=[],
         name_mapping={"pod_properties": "podProperties"},
@@ -7017,11 +7218,21 @@ class CfnJobDefinition(
                             ),
                             security_context=batch.CfnJobDefinition.SecurityContextProperty(
                                 allow_privilege_escalation=False,
+                                capabilities=batch.CfnJobDefinition.EksContainerLinuxCapabilitiesProperty(
+                                    add=["add"],
+                                    drop=["drop"]
+                                ),
                                 privileged=False,
                                 read_only_root_filesystem=False,
                                 run_as_group=123,
                                 run_as_non_root=False,
-                                run_as_user=123
+                                run_as_user=123,
+                                seccomp_profile=batch.CfnJobDefinition.EksSeccompProfileProperty(
+                                    type="type",
+                
+                                    # the properties below are optional
+                                    localhost_profile="localhostProfile"
+                                )
                             ),
                             volume_mounts=[batch.CfnJobDefinition.EksContainerVolumeMountProperty(
                                 mount_path="mountPath",
@@ -7055,11 +7266,21 @@ class CfnJobDefinition(
                             ),
                             security_context=batch.CfnJobDefinition.SecurityContextProperty(
                                 allow_privilege_escalation=False,
+                                capabilities=batch.CfnJobDefinition.EksContainerLinuxCapabilitiesProperty(
+                                    add=["add"],
+                                    drop=["drop"]
+                                ),
                                 privileged=False,
                                 read_only_root_filesystem=False,
                                 run_as_group=123,
                                 run_as_non_root=False,
-                                run_as_user=123
+                                run_as_user=123,
+                                seccomp_profile=batch.CfnJobDefinition.EksSeccompProfileProperty(
+                                    type="type",
+                
+                                    # the properties below are optional
+                                    localhost_profile="localhostProfile"
+                                )
                             ),
                             volume_mounts=[batch.CfnJobDefinition.EksContainerVolumeMountProperty(
                                 mount_path="mountPath",
@@ -7070,6 +7291,18 @@ class CfnJobDefinition(
                         )],
                         metadata=batch.CfnJobDefinition.MetadataProperty(
                             labels=labels
+                        ),
+                        security_context=batch.CfnJobDefinition.EksPodSecurityContextProperty(
+                            fs_group=123,
+                            run_as_group=123,
+                            run_as_non_root=False,
+                            run_as_user=123,
+                            seccomp_profile=batch.CfnJobDefinition.EksSeccompProfileProperty(
+                                type="type",
+                
+                                # the properties below are optional
+                                localhost_profile="localhostProfile"
+                            )
                         ),
                         service_account_name="serviceAccountName",
                         share_process_namespace=False,
@@ -7126,6 +7359,76 @@ class CfnJobDefinition(
 
         def __repr__(self) -> str:
             return "EksPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnJobDefinition.EksSeccompProfileProperty",
+        jsii_struct_bases=[],
+        name_mapping={"type": "type", "localhost_profile": "localhostProfile"},
+    )
+    class EksSeccompProfileProperty:
+        def __init__(
+            self,
+            *,
+            type: builtins.str,
+            localhost_profile: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param type: 
+            :param localhost_profile: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-eksseccompprofile.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                eks_seccomp_profile_property = batch.CfnJobDefinition.EksSeccompProfileProperty(
+                    type="type",
+                
+                    # the properties below are optional
+                    localhost_profile="localhostProfile"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__de18f8de8a59c5da7b47849197aea076569a6a8114194fee221134e019dd25f8)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument localhost_profile", value=localhost_profile, expected_type=type_hints["localhost_profile"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+            }
+            if localhost_profile is not None:
+                self._values["localhost_profile"] = localhost_profile
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-eksseccompprofile.html#cfn-batch-jobdefinition-eksseccompprofile-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def localhost_profile(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-eksseccompprofile.html#cfn-batch-jobdefinition-eksseccompprofile-localhostprofile
+            '''
+            result = self._values.get("localhost_profile")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EksSeccompProfileProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -9356,11 +9659,21 @@ class CfnJobDefinition(
                                     ),
                                     security_context=batch.CfnJobDefinition.SecurityContextProperty(
                                         allow_privilege_escalation=False,
+                                        capabilities=batch.CfnJobDefinition.EksContainerLinuxCapabilitiesProperty(
+                                            add=["add"],
+                                            drop=["drop"]
+                                        ),
                                         privileged=False,
                                         read_only_root_filesystem=False,
                                         run_as_group=123,
                                         run_as_non_root=False,
-                                        run_as_user=123
+                                        run_as_user=123,
+                                        seccomp_profile=batch.CfnJobDefinition.EksSeccompProfileProperty(
+                                            type="type",
+                
+                                            # the properties below are optional
+                                            localhost_profile="localhostProfile"
+                                        )
                                     ),
                                     volume_mounts=[batch.CfnJobDefinition.EksContainerVolumeMountProperty(
                                         mount_path="mountPath",
@@ -9394,11 +9707,21 @@ class CfnJobDefinition(
                                     ),
                                     security_context=batch.CfnJobDefinition.SecurityContextProperty(
                                         allow_privilege_escalation=False,
+                                        capabilities=batch.CfnJobDefinition.EksContainerLinuxCapabilitiesProperty(
+                                            add=["add"],
+                                            drop=["drop"]
+                                        ),
                                         privileged=False,
                                         read_only_root_filesystem=False,
                                         run_as_group=123,
                                         run_as_non_root=False,
-                                        run_as_user=123
+                                        run_as_user=123,
+                                        seccomp_profile=batch.CfnJobDefinition.EksSeccompProfileProperty(
+                                            type="type",
+                
+                                            # the properties below are optional
+                                            localhost_profile="localhostProfile"
+                                        )
                                     ),
                                     volume_mounts=[batch.CfnJobDefinition.EksContainerVolumeMountProperty(
                                         mount_path="mountPath",
@@ -9409,6 +9732,18 @@ class CfnJobDefinition(
                                 )],
                                 metadata=batch.CfnJobDefinition.MetadataProperty(
                                     labels=labels
+                                ),
+                                security_context=batch.CfnJobDefinition.EksPodSecurityContextProperty(
+                                    fs_group=123,
+                                    run_as_group=123,
+                                    run_as_non_root=False,
+                                    run_as_user=123,
+                                    seccomp_profile=batch.CfnJobDefinition.EksSeccompProfileProperty(
+                                        type="type",
+                
+                                        # the properties below are optional
+                                        localhost_profile="localhostProfile"
+                                    )
                                 ),
                                 service_account_name="serviceAccountName",
                                 share_process_namespace=False,
@@ -9797,11 +10132,21 @@ class CfnJobDefinition(
                                 ),
                                 security_context=batch.CfnJobDefinition.SecurityContextProperty(
                                     allow_privilege_escalation=False,
+                                    capabilities=batch.CfnJobDefinition.EksContainerLinuxCapabilitiesProperty(
+                                        add=["add"],
+                                        drop=["drop"]
+                                    ),
                                     privileged=False,
                                     read_only_root_filesystem=False,
                                     run_as_group=123,
                                     run_as_non_root=False,
-                                    run_as_user=123
+                                    run_as_user=123,
+                                    seccomp_profile=batch.CfnJobDefinition.EksSeccompProfileProperty(
+                                        type="type",
+                
+                                        # the properties below are optional
+                                        localhost_profile="localhostProfile"
+                                    )
                                 ),
                                 volume_mounts=[batch.CfnJobDefinition.EksContainerVolumeMountProperty(
                                     mount_path="mountPath",
@@ -9835,11 +10180,21 @@ class CfnJobDefinition(
                                 ),
                                 security_context=batch.CfnJobDefinition.SecurityContextProperty(
                                     allow_privilege_escalation=False,
+                                    capabilities=batch.CfnJobDefinition.EksContainerLinuxCapabilitiesProperty(
+                                        add=["add"],
+                                        drop=["drop"]
+                                    ),
                                     privileged=False,
                                     read_only_root_filesystem=False,
                                     run_as_group=123,
                                     run_as_non_root=False,
-                                    run_as_user=123
+                                    run_as_user=123,
+                                    seccomp_profile=batch.CfnJobDefinition.EksSeccompProfileProperty(
+                                        type="type",
+                
+                                        # the properties below are optional
+                                        localhost_profile="localhostProfile"
+                                    )
                                 ),
                                 volume_mounts=[batch.CfnJobDefinition.EksContainerVolumeMountProperty(
                                     mount_path="mountPath",
@@ -9850,6 +10205,18 @@ class CfnJobDefinition(
                             )],
                             metadata=batch.CfnJobDefinition.MetadataProperty(
                                 labels=labels
+                            ),
+                            security_context=batch.CfnJobDefinition.EksPodSecurityContextProperty(
+                                fs_group=123,
+                                run_as_group=123,
+                                run_as_non_root=False,
+                                run_as_user=123,
+                                seccomp_profile=batch.CfnJobDefinition.EksSeccompProfileProperty(
+                                    type="type",
+                
+                                    # the properties below are optional
+                                    localhost_profile="localhostProfile"
+                                )
                             ),
                             service_account_name="serviceAccountName",
                             share_process_namespace=False,
@@ -9996,6 +10363,7 @@ class CfnJobDefinition(
             "image_pull_secrets": "imagePullSecrets",
             "init_containers": "initContainers",
             "metadata": "metadata",
+            "security_context": "securityContext",
             "service_account_name": "serviceAccountName",
             "share_process_namespace": "shareProcessNamespace",
             "volumes": "volumes",
@@ -10011,6 +10379,7 @@ class CfnJobDefinition(
             image_pull_secrets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobDefinition.ImagePullSecretProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             init_containers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobDefinition.EksContainerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobDefinition.MetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            security_context: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobDefinition.EksPodSecurityContextProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             service_account_name: typing.Optional[builtins.str] = None,
             share_process_namespace: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             volumes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobDefinition.EksVolumeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -10022,6 +10391,7 @@ class CfnJobDefinition(
             :param image_pull_secrets: 
             :param init_containers: 
             :param metadata: 
+            :param security_context: 
             :param service_account_name: 
             :param share_process_namespace: 
             :param volumes: 
@@ -10060,11 +10430,21 @@ class CfnJobDefinition(
                         ),
                         security_context=batch.CfnJobDefinition.SecurityContextProperty(
                             allow_privilege_escalation=False,
+                            capabilities=batch.CfnJobDefinition.EksContainerLinuxCapabilitiesProperty(
+                                add=["add"],
+                                drop=["drop"]
+                            ),
                             privileged=False,
                             read_only_root_filesystem=False,
                             run_as_group=123,
                             run_as_non_root=False,
-                            run_as_user=123
+                            run_as_user=123,
+                            seccomp_profile=batch.CfnJobDefinition.EksSeccompProfileProperty(
+                                type="type",
+                
+                                # the properties below are optional
+                                localhost_profile="localhostProfile"
+                            )
                         ),
                         volume_mounts=[batch.CfnJobDefinition.EksContainerVolumeMountProperty(
                             mount_path="mountPath",
@@ -10098,11 +10478,21 @@ class CfnJobDefinition(
                         ),
                         security_context=batch.CfnJobDefinition.SecurityContextProperty(
                             allow_privilege_escalation=False,
+                            capabilities=batch.CfnJobDefinition.EksContainerLinuxCapabilitiesProperty(
+                                add=["add"],
+                                drop=["drop"]
+                            ),
                             privileged=False,
                             read_only_root_filesystem=False,
                             run_as_group=123,
                             run_as_non_root=False,
-                            run_as_user=123
+                            run_as_user=123,
+                            seccomp_profile=batch.CfnJobDefinition.EksSeccompProfileProperty(
+                                type="type",
+                
+                                # the properties below are optional
+                                localhost_profile="localhostProfile"
+                            )
                         ),
                         volume_mounts=[batch.CfnJobDefinition.EksContainerVolumeMountProperty(
                             mount_path="mountPath",
@@ -10113,6 +10503,18 @@ class CfnJobDefinition(
                     )],
                     metadata=batch.CfnJobDefinition.MetadataProperty(
                         labels=labels
+                    ),
+                    security_context=batch.CfnJobDefinition.EksPodSecurityContextProperty(
+                        fs_group=123,
+                        run_as_group=123,
+                        run_as_non_root=False,
+                        run_as_user=123,
+                        seccomp_profile=batch.CfnJobDefinition.EksSeccompProfileProperty(
+                            type="type",
+                
+                            # the properties below are optional
+                            localhost_profile="localhostProfile"
+                        )
                     ),
                     service_account_name="serviceAccountName",
                     share_process_namespace=False,
@@ -10150,6 +10552,7 @@ class CfnJobDefinition(
                 check_type(argname="argument image_pull_secrets", value=image_pull_secrets, expected_type=type_hints["image_pull_secrets"])
                 check_type(argname="argument init_containers", value=init_containers, expected_type=type_hints["init_containers"])
                 check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
+                check_type(argname="argument security_context", value=security_context, expected_type=type_hints["security_context"])
                 check_type(argname="argument service_account_name", value=service_account_name, expected_type=type_hints["service_account_name"])
                 check_type(argname="argument share_process_namespace", value=share_process_namespace, expected_type=type_hints["share_process_namespace"])
                 check_type(argname="argument volumes", value=volumes, expected_type=type_hints["volumes"])
@@ -10166,6 +10569,8 @@ class CfnJobDefinition(
                 self._values["init_containers"] = init_containers
             if metadata is not None:
                 self._values["metadata"] = metadata
+            if security_context is not None:
+                self._values["security_context"] = security_context
             if service_account_name is not None:
                 self._values["service_account_name"] = service_account_name
             if share_process_namespace is not None:
@@ -10230,6 +10635,16 @@ class CfnJobDefinition(
             '''
             result = self._values.get("metadata")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobDefinition.MetadataProperty"]], result)
+
+        @builtins.property
+        def security_context(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobDefinition.EksPodSecurityContextProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-podproperties.html#cfn-batch-jobdefinition-podproperties-securitycontext
+            '''
+            result = self._values.get("security_context")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobDefinition.EksPodSecurityContextProperty"]], result)
 
         @builtins.property
         def service_account_name(self) -> typing.Optional[builtins.str]:
@@ -10922,11 +11337,13 @@ class CfnJobDefinition(
         jsii_struct_bases=[],
         name_mapping={
             "allow_privilege_escalation": "allowPrivilegeEscalation",
+            "capabilities": "capabilities",
             "privileged": "privileged",
             "read_only_root_filesystem": "readOnlyRootFilesystem",
             "run_as_group": "runAsGroup",
             "run_as_non_root": "runAsNonRoot",
             "run_as_user": "runAsUser",
+            "seccomp_profile": "seccompProfile",
         },
     )
     class SecurityContextProperty:
@@ -10934,19 +11351,23 @@ class CfnJobDefinition(
             self,
             *,
             allow_privilege_escalation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            capabilities: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobDefinition.EksContainerLinuxCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             privileged: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             read_only_root_filesystem: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             run_as_group: typing.Optional[jsii.Number] = None,
             run_as_non_root: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             run_as_user: typing.Optional[jsii.Number] = None,
+            seccomp_profile: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobDefinition.EksSeccompProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param allow_privilege_escalation: 
+            :param capabilities: 
             :param privileged: 
             :param read_only_root_filesystem: 
             :param run_as_group: 
             :param run_as_non_root: 
             :param run_as_user: 
+            :param seccomp_profile: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-securitycontext.html
             :exampleMetadata: fixture=_generated
@@ -10959,24 +11380,38 @@ class CfnJobDefinition(
                 
                 security_context_property = batch.CfnJobDefinition.SecurityContextProperty(
                     allow_privilege_escalation=False,
+                    capabilities=batch.CfnJobDefinition.EksContainerLinuxCapabilitiesProperty(
+                        add=["add"],
+                        drop=["drop"]
+                    ),
                     privileged=False,
                     read_only_root_filesystem=False,
                     run_as_group=123,
                     run_as_non_root=False,
-                    run_as_user=123
+                    run_as_user=123,
+                    seccomp_profile=batch.CfnJobDefinition.EksSeccompProfileProperty(
+                        type="type",
+                
+                        # the properties below are optional
+                        localhost_profile="localhostProfile"
+                    )
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__ecf4bfd8ece80e1bc3ee0536353fc145f3c5b08f62a604a53b62e7d2526f9d0e)
                 check_type(argname="argument allow_privilege_escalation", value=allow_privilege_escalation, expected_type=type_hints["allow_privilege_escalation"])
+                check_type(argname="argument capabilities", value=capabilities, expected_type=type_hints["capabilities"])
                 check_type(argname="argument privileged", value=privileged, expected_type=type_hints["privileged"])
                 check_type(argname="argument read_only_root_filesystem", value=read_only_root_filesystem, expected_type=type_hints["read_only_root_filesystem"])
                 check_type(argname="argument run_as_group", value=run_as_group, expected_type=type_hints["run_as_group"])
                 check_type(argname="argument run_as_non_root", value=run_as_non_root, expected_type=type_hints["run_as_non_root"])
                 check_type(argname="argument run_as_user", value=run_as_user, expected_type=type_hints["run_as_user"])
+                check_type(argname="argument seccomp_profile", value=seccomp_profile, expected_type=type_hints["seccomp_profile"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if allow_privilege_escalation is not None:
                 self._values["allow_privilege_escalation"] = allow_privilege_escalation
+            if capabilities is not None:
+                self._values["capabilities"] = capabilities
             if privileged is not None:
                 self._values["privileged"] = privileged
             if read_only_root_filesystem is not None:
@@ -10987,6 +11422,8 @@ class CfnJobDefinition(
                 self._values["run_as_non_root"] = run_as_non_root
             if run_as_user is not None:
                 self._values["run_as_user"] = run_as_user
+            if seccomp_profile is not None:
+                self._values["seccomp_profile"] = seccomp_profile
 
         @builtins.property
         def allow_privilege_escalation(
@@ -10997,6 +11434,16 @@ class CfnJobDefinition(
             '''
             result = self._values.get("allow_privilege_escalation")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def capabilities(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobDefinition.EksContainerLinuxCapabilitiesProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-securitycontext.html#cfn-batch-jobdefinition-securitycontext-capabilities
+            '''
+            result = self._values.get("capabilities")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobDefinition.EksContainerLinuxCapabilitiesProperty"]], result)
 
         @builtins.property
         def privileged(
@@ -11043,6 +11490,16 @@ class CfnJobDefinition(
             '''
             result = self._values.get("run_as_user")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def seccomp_profile(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobDefinition.EksSeccompProfileProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-securitycontext.html#cfn-batch-jobdefinition-securitycontext-seccompprofile
+            '''
+            result = self._values.get("seccomp_profile")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobDefinition.EksSeccompProfileProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -30099,6 +30556,14 @@ def _typecheckingstub__daaaeed078e13c29ac34da5a79bab4c04e8767edaf6d6a60877918a94
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5cba028bedf31a12e3a9e2cff4044c3e24898d459b09926e3a7a384aa63c7b7c(
+    *,
+    add: typing.Optional[typing.Sequence[builtins.str]] = None,
+    drop: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a9ece3a6d2417f8d913bdfc7bdf646d1de352c65903e333939133c3e81b1f4f3(
     *,
     image: builtins.str,
@@ -30132,9 +30597,28 @@ def _typecheckingstub__df2f02db37a79a03e0e657d7178a4c5a549ddd6252265363593910bdf
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4ae67c9aceee5551604e33b8b6e524ee3be3b972a2833f414a4c83c8975fa425(
+    *,
+    fs_group: typing.Optional[jsii.Number] = None,
+    run_as_group: typing.Optional[jsii.Number] = None,
+    run_as_non_root: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    run_as_user: typing.Optional[jsii.Number] = None,
+    seccomp_profile: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobDefinition.EksSeccompProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ab4acc4a05a00897faf964911a9c5d642ebccbae43237575ad3b0b27ecb3ee74(
     *,
     pod_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobDefinition.PodPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de18f8de8a59c5da7b47849197aea076569a6a8114194fee221134e019dd25f8(
+    *,
+    type: builtins.str,
+    localhost_profile: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30329,6 +30813,7 @@ def _typecheckingstub__75127ae5a1697c34be5f24dcb69fa5c36a3498e1b2c284babc814c444
     image_pull_secrets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobDefinition.ImagePullSecretProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     init_containers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobDefinition.EksContainerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobDefinition.MetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    security_context: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobDefinition.EksPodSecurityContextProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     service_account_name: typing.Optional[builtins.str] = None,
     share_process_namespace: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     volumes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobDefinition.EksVolumeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -30403,11 +30888,13 @@ def _typecheckingstub__627c25c89399f4c648455cf23b1833f2f5961be5393bea72498980b6d
 def _typecheckingstub__ecf4bfd8ece80e1bc3ee0536353fc145f3c5b08f62a604a53b62e7d2526f9d0e(
     *,
     allow_privilege_escalation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    capabilities: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobDefinition.EksContainerLinuxCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     privileged: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     read_only_root_filesystem: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     run_as_group: typing.Optional[jsii.Number] = None,
     run_as_non_root: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     run_as_user: typing.Optional[jsii.Number] = None,
+    seccomp_profile: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobDefinition.EksSeccompProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

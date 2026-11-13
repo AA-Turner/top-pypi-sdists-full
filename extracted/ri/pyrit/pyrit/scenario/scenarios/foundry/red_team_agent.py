@@ -17,11 +17,14 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, cast
 
 from pyrit.common import apply_defaults
+from pyrit.common.async_compatibility import run_legacy_sync_async
 from pyrit.converter import (
     AnsiAttackConverter,
     AsciiArtConverter,
+    AsciiSmugglerConverter,
     AtbashConverter,
     Base64Converter,
+    BinaryConverter,
     CaesarConverter,
     CharacterSpaceConverter,
     CharSwapConverter,
@@ -39,32 +42,34 @@ from pyrit.converter import (
     UnicodeSubstitutionConverter,
     UrlConverter,
 )
-from pyrit.converter.binary_converter import BinaryConverter
-from pyrit.converter.token_smuggling.ascii_smuggler_converter import AsciiSmugglerConverter
 from pyrit.datasets import TextJailBreak
 from pyrit.executor.attack import (
+    AttackAdversarialConfig,
+    AttackConverterConfig,
+    AttackScoringConfig,
     AttackStrategy,
     CrescendoAttack,
     PromptSendingAttack,
     RedTeamingAttack,
     TreeOfAttacksWithPruningAttack,
 )
-from pyrit.executor.attack.core.attack_config import AttackAdversarialConfig, AttackConverterConfig, AttackScoringConfig
 from pyrit.models import (
     AttackSeedGroup,
+    BoundedDatasetSize,
     ScenarioRunSizeComponent,
     ScenarioRunSizeEstimate,
 )
-from pyrit.prompt_normalizer.converter_configuration import ConverterConfiguration
+from pyrit.prompt_normalizer import ConverterConfiguration
 from pyrit.prompt_target import PromptTarget
+from pyrit.scenario.core import get_default_adversarial_target
 from pyrit.scenario.core.atomic_attack import AtomicAttack
 from pyrit.scenario.core.attack_technique import AttackTechnique
-from pyrit.scenario.core.dataset_configuration import DatasetAttackConfiguration
+from pyrit.scenario.core.dataset_configuration import DatasetAttackConfiguration, DatasetSource
 from pyrit.scenario.core.matrix_atomic_attack_builder import build_baseline_atomic_attack
 from pyrit.scenario.core.scenario import Scenario
 from pyrit.scenario.core.scenario_context import ScenarioContext
-from pyrit.scenario.core.scenario_target_defaults import get_default_adversarial_target
 from pyrit.scenario.core.scenario_technique import ScenarioTechnique
+from pyrit.scenario.core.technique_requirements import TechniqueRequirements, check_target_compatibility
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -252,6 +257,7 @@ class RedTeamAgent(Scenario):
     """
 
     VERSION: int = 1
+    SUPPORTS_TECHNIQUE_CONVERTERS: ClassVar[bool] = False
     _DEFAULT_ATTACK_SPECIFICATION: ClassVar[_AttackSpecification] = _AttackSpecification(PromptSendingAttack)
     _ATTACK_SPECIFICATIONS: ClassVar[Mapping[FoundryTechnique, _AttackSpecification]] = MappingProxyType(
         {
@@ -341,8 +347,11 @@ class RedTeamAgent(Scenario):
         # Call super().__init__() first to initialize self._memory
         super().__init__(
             version=self.VERSION,
+            uses_default_adversarial_target=adversarial_chat is None,
             technique_class=FoundryTechnique,
-            default_dataset_config=DatasetAttackConfiguration(dataset_names=["harmbench"], max_dataset_size=4),
+            default_dataset_config=DatasetAttackConfiguration(
+                sources=[DatasetSource(name=name) for name in ["harmbench"]], max_per_dataset="all", max_total=4
+            ),
             objective_scorer=objective_scorer,
             scenario_result_id=scenario_result_id,
         )
@@ -418,15 +427,14 @@ class RedTeamAgent(Scenario):
         self._scenario_composites = composites
         return flat
 
-    async def _estimate_run_size_async(self) -> ScenarioRunSizeEstimate:
+    async def _estimate_run_size_async(self, *, budget: BoundedDatasetSize) -> ScenarioRunSizeEstimate:
         """
         Estimate one selected seed population per resolved Foundry composition.
 
         Returns:
             ScenarioRunSizeEstimate: The composition population estimate.
         """
-        selected_groups, datasets = await self._resolve_dataset_groups_for_estimate_async()
-        selected_count = sum(len(groups) for groups in selected_groups.values())
+        selected_count, datasets = await self._get_dataset_size_for_estimate_async(budget=budget)
         components = [
             ScenarioRunSizeComponent(
                 label=composition.name,
@@ -443,7 +451,7 @@ class RedTeamAgent(Scenario):
                 )
             )
         return ScenarioRunSizeEstimate(
-            estimated_attack_count=sum(component.count for component in components),
+            total_attack_count=sum(component.count for component in components),
             components=components,
             datasets=datasets,
             note="Counts one population per resolved Foundry composite, not per flattened constituent technique.",
@@ -477,6 +485,15 @@ class RedTeamAgent(Scenario):
         Returns:
             list[AtomicAttack]: The list of AtomicAttack instances in this scenario.
         """
+        return await run_legacy_sync_async(self._build_atomic_attacks, context=context)
+
+    def _build_atomic_attacks(self, *, context: ScenarioContext) -> list[AtomicAttack]:
+        """
+        Build Foundry attacks and converters off the event loop.
+
+        Returns:
+            list[AtomicAttack]: The configured Foundry attacks.
+        """
         seed_groups = list(context.seed_groups)
         atomic_attacks: list[AtomicAttack] = []
         if context.include_baseline:
@@ -488,19 +505,31 @@ class RedTeamAgent(Scenario):
                     memory_labels=context.memory_labels,
                 )
             )
-        atomic_attacks.extend(
-            self._get_attack_from_technique(composite=composition, seed_groups=seed_groups)
-            for composition in self._scenario_composites
-        )
+        for composition in self._scenario_composites:
+            attack_specification = self._ATTACK_SPECIFICATIONS.get(
+                composition.attack, self._DEFAULT_ATTACK_SPECIFICATION
+            )
+            if not check_target_compatibility(
+                target=context.objective_target,
+                attack_class=attack_specification.attack_type,
+                requirements=TechniqueRequirements(),
+                technique_name=composition.name,
+                policy=context.incompatible_technique_policy,
+            ):
+                continue
+            atomic_attacks.append(
+                self._get_attack_from_technique(context=context, composite=composition, seed_groups=seed_groups)
+            )
         return atomic_attacks
 
     def _get_attack_from_technique(
-        self, *, composite: FoundryComposite, seed_groups: list[AttackSeedGroup]
+        self, *, context: ScenarioContext, composite: FoundryComposite, seed_groups: list[AttackSeedGroup]
     ) -> AtomicAttack:
         """
         Get an atomic attack for the specified FoundryComposite.
 
         Args:
+            context (ScenarioContext): The resolved runtime inputs.
             composite (FoundryComposite): Typed composite with an optional attack technique
                 and zero or more converter techniques.
             seed_groups (list[AttackSeedGroup]): Seed groups the attack draws from.
@@ -523,6 +552,7 @@ class RedTeamAgent(Scenario):
             converters.append(converter_specification.create(converter_target=self._adversarial_chat))
 
         attack = self._get_attack(
+            objective_target=context.objective_target,
             attack_type=attack_specification.attack_type,
             converters=converters,
             attack_kwargs=dict(attack_specification.kwargs),
@@ -534,12 +564,13 @@ class RedTeamAgent(Scenario):
             seed_groups=seed_groups,
             adversarial_chat=self._adversarial_chat,
             objective_scorer=self._attack_scoring_config.objective_scorer,
-            memory_labels=self._memory_labels,
+            memory_labels=context.memory_labels,
         )
 
     def _get_attack(
         self,
         *,
+        objective_target: PromptTarget,
         attack_type: type[AttackStrategyT],
         converters: list[Converter],
         attack_kwargs: dict[str, Any] | None = None,
@@ -559,6 +590,7 @@ class RedTeamAgent(Scenario):
         - Other attacks with compatible constructors
 
         Args:
+            objective_target (PromptTarget): Target supplied by the construction context.
             attack_type (type[AttackStrategyT]): The attack strategy class to instantiate.
                 Must accept objective_target and attack_converter_config parameters.
             converters (list[Converter]): List of converters to apply as request converters.
@@ -577,7 +609,7 @@ class RedTeamAgent(Scenario):
 
         # Build kwargs with required parameters
         kwargs = {
-            "objective_target": self._objective_target,
+            "objective_target": objective_target,
             "attack_converter_config": attack_converter_config,
             "attack_scoring_config": self._attack_scoring_config,
         }

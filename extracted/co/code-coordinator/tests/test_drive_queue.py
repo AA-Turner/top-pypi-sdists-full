@@ -38,6 +38,12 @@ from coord.drive_queue import (
     STATE_PARKED,
     STATE_RUNNING,
     STATE_WAITING,
+    QUEUE_ALERT_NO_REMEDY_COMMAND,
+    UNREACHABLE_WAIT_CAUSE_DISPATCH_FAILURE,
+    UNREACHABLE_WAIT_CAUSE_NEEDS_DECOMPOSITION,
+    UNREACHABLE_WAIT_CAUSE_NEVER_DISPATCHED,
+    UNREACHABLE_WAIT_CAUSE_PREMISE_REFUSAL,
+    UNREACHABLE_WAIT_CAUSE_UPSTREAM_GAP_PARK,
     UNREACHABLE_WAIT_MIN_DEFERRALS,
     BoardView,
     ExistingPrMatch,
@@ -47,8 +53,11 @@ from coord.drive_queue import (
     QueueError,
     add_preflight_notice,
     build_board_view,
+    classify_unreachable_wait_cause,
     conventional_branch_patterns,
+    describe_unreachable_wait,
     detect_unreachable_waits,
+    is_benign_queue_alert_command,
     compute_leg_counts,
     dispatch_type_for_labels,
     effective_max_fix_rounds,
@@ -65,9 +74,12 @@ from coord.drive_queue import (
     plan_tick,
     remaining_fix_rounds,
     render_plan,
+    rewrite_after_for_split,
+    sink_children,
     summarize_drive_queue,
     total_fix_round_budget,
     unreachable_wait_alert,
+    unreachable_wait_remedy_command,
     validate_enqueue,
 )
 from coord.entry_truth import (
@@ -376,6 +388,61 @@ def test_a_malformed_after_entry_raises_rather_than_being_dropped():
     # feature exists to prevent.
     with pytest.raises(QueueError, match="malformed"):
         parse_after_spec("not-an-issue", REPO)
+
+
+# ── split-supersede dependent re-pointing (#3984) ────────────────────────────
+
+
+def test_sink_children_excludes_a_node_something_else_depends_on():
+    """#3984: split into `C1 -> C2` plus a parallel `C3` — C1 is excluded
+    (C2 depends on it), C2 and C3 are each a chain's own tail."""
+    from coord.milestone_order import WorkOrderNode
+
+    nodes = (
+        WorkOrderNode(issue_number=501, after=()),
+        WorkOrderNode(issue_number=502, after=(501,)),
+        WorkOrderNode(issue_number=503, after=()),
+    )
+    assert sink_children(nodes) == [502, 503]
+
+
+def test_sink_children_of_a_single_linear_chain_is_just_the_tail():
+    from coord.milestone_order import WorkOrderNode
+
+    nodes = (
+        WorkOrderNode(issue_number=501, after=()),
+        WorkOrderNode(issue_number=502, after=(501,)),
+        WorkOrderNode(issue_number=503, after=(502,)),
+    )
+    assert sink_children(nodes) == [503]
+
+
+def test_rewrite_after_for_split_drops_original_and_appends_sinks():
+    """D1's `after=O` becomes `after=C2,C3` — the acceptance shape."""
+    assert rewrite_after_for_split(
+        ["repo#99"], "repo#99", ["repo#502", "repo#503"]
+    ) == ["repo#502", "repo#503"]
+
+
+def test_rewrite_after_for_split_keeps_other_prereqs_before_the_sinks():
+    """D2's `after=O,X` becomes `after=X,C2,C3` — the OTHER pre-req (`X`) is
+    kept, the superseded original is dropped, and the sink children are
+    appended after it, not spliced into O's old position."""
+    assert rewrite_after_for_split(
+        ["repo#99", "repo#300"], "repo#99", ["repo#502", "repo#503"]
+    ) == ["repo#300", "repo#502", "repo#503"]
+
+
+def test_rewrite_after_for_split_is_a_no_op_when_original_key_absent():
+    assert rewrite_after_for_split(
+        ["repo#300"], "repo#99", ["repo#502", "repo#503"]
+    ) == ["repo#300"]
+
+
+def test_rewrite_after_for_split_deduplicates_an_already_named_sink():
+    assert rewrite_after_for_split(
+        ["repo#99", "repo#502"], "repo#99", ["repo#502", "repo#503"]
+    ) == ["repo#502", "repo#503"]
 
 
 # ── cycle validation (the `add` gate) ────────────────────────────────────────
@@ -4733,9 +4800,13 @@ def test_a_premise_refusal_and_a_policy_refusal_are_never_conflated():
 # `coord.agent.NEEDS_DECOMPOSITION` (clean exit, 0 commits, its own final
 # message or `WORK_OUTCOME:` marker concludes the issue needs epic
 # decomposition) — parks exactly like a premise refusal above: same
-# no-attempt-spent accounting, same "never auto-resumes" posture. The remedy
-# text differs again: decompose + close/re-scope, no retarget and no
-# `clear-refusal`-style recheck.
+# no-attempt-spent accounting, same "never auto-resumes" posture. #3996:
+# unlike the original #3931 cut, this park is no longer a dead end — the
+# remedy text names decompose + close/re-scope AND the same two escape
+# hatches `refused_policy`/`refused_premise` already have (an automatic
+# retarget-staleness check in `coord.drive.decide()`, or `clear-refusal`'s
+# manual recheck) — see tests/test_drive.py's `needs_decomposition` section
+# for the `decide()` half of this.
 # ═══════════════════════════════════════════════════════════════════════════
 
 NEEDS_DECOMPOSITION_REASON = (
@@ -4762,15 +4833,19 @@ def test_a_needs_decomposition_leg_parks_without_spending_an_attempt():
     assert NEEDS_DECOMPOSITION_REASON in reconcile.updates["last_reason"]
 
 
-def test_a_needs_decomposition_park_reason_names_decomposition_not_retarget_or_recheck():
+def test_a_needs_decomposition_park_reason_names_both_escape_hatches():
+    """#3996: the park is no longer a dead end — the reason text must name
+    BOTH ways the coordinator can clear it once the issue is actually
+    decomposed/re-scoped: an automatic retarget (title rewrite) or the
+    manual `clear-refusal`."""
     entries = [entry(3922, position=3, state=STATE_RUNNING, attempts=0)]
     plan = plan_tick(
         entries, board(), capacity=1,
         exit_reasons={entry_key(REPO, 3922): NEEDS_DECOMPOSITION_REASON},
     )
     reason = plan.reconciles[0].reason
-    assert "retarget" not in reason
-    assert "clear-refusal" not in reason
+    assert "retarget" in reason.lower()
+    assert "clear-refusal" in reason
     assert "decompose" in reason
 
 
@@ -9079,6 +9154,172 @@ def test_detect_unreachable_waits_reproduces_the_ms5_incident_shape():
         assert dep.key not in alert.reason
     assert "8 dependent entries" in alert.reason
     assert "self-heal" in alert.reason
+
+
+# ── #3983: the quadraui#2341 incident — a `parked` needs-decomposition root
+# with `attempts=0` and a chain of `waiting` (never-`blocked`) dependents.
+# Unlike #2978's shape above, the dependents here never reach `blocked` —
+# `_resolve_prereqs` gives a `parked` pre-req an ordinary unsatisfied
+# deferral, not the unsatisfiable-and-escalate verdict a `blocked`/`failed`
+# one gets — so they carry none of the "it will never satisfy" caption and
+# would not exercise the `_is_unsatisfiable_prereq_reason` exclusion at all.
+# This pins that the root itself still qualifies on its own last_reason,
+# with the dependent count read off `after=` regardless of the dependents'
+# own (irrelevant) state.
+
+
+def test_detect_unreachable_waits_reproduces_the_3983_incident_shape():
+    root_key = entry_key(REPO, 2341)
+    root = entry(
+        2341,
+        state=STATE_PARKED,
+        attempts=0,
+        deferrals=380,
+        last_reason=(
+            f"pre-dispatch refusal (needs_decomposition, 13h old) — the "
+            f"worker concluded the issue itself needs epic decomposition. "
+            f"{NEEDS_DECOMPOSITION_MARKER} — parking without spending an "
+            "attempt (#3931); needs the coordinator, not a relaunch."
+        ),
+    )
+    dependents = [
+        entry(issue, state=STATE_WAITING, attempts=0, deferrals=40, after=(root_key,))
+        for issue in range(3000, 3013)
+    ]
+
+    waits = detect_unreachable_waits([root, *dependents])
+    assert [w.key for w in waits] == [root_key]
+    assert waits[0].dependents == 13
+    # #3983 review: the root's cause is classified (#3979's shape), not
+    # just its raw state/deferral count — and that classification is what
+    # a cause-specific remedy switches on, not a blanket requeue.
+    assert waits[0].cause == UNREACHABLE_WAIT_CAUSE_NEEDS_DECOMPOSITION
+    assert "coord drive-queue remove" not in unreachable_wait_remedy_command(waits[0])
+
+    alert = unreachable_wait_alert(waits)
+    assert root_key in alert.reason
+    for dep in dependents:
+        assert dep.key not in alert.reason
+    assert "13 dependent entries" in alert.reason
+    assert "needs-decomposition" in alert.reason
+
+
+def test_detect_unreachable_waits_does_not_claim_a_chain_with_no_dependents():
+    root = entry(
+        2341,
+        state=STATE_PARKED,
+        attempts=0,
+        deferrals=380,
+        last_reason=f"needs_decomposition park. {NEEDS_DECOMPOSITION_MARKER}",
+    )
+    waits = detect_unreachable_waits([root])
+    assert len(waits) == 1
+    assert waits[0].dependents == 0
+
+    alert = unreachable_wait_alert(waits)
+    assert entry_key(REPO, 2341) in alert.reason
+    assert "self-heal" not in alert.reason
+    assert "dependent entr" not in alert.reason
+
+
+# ── #3983 review: cause classification + a cause-specific remedy, never ────
+# the blanket `remove`+`add` for the three terminal-park shapes. The
+# generic (never-dispatched / exhausted-dispatch-layer) shapes keep the
+# original remedy — only a row whose OWN `last_reason` already asserts no
+# relaunch can resolve it gets routed to the read-only fallback.
+
+
+def test_classify_unreachable_wait_cause_recognises_all_three_terminal_parks():
+    needs_decomp = entry(
+        1, state=STATE_PARKED, attempts=0,
+        last_reason=f"park. {NEEDS_DECOMPOSITION_MARKER}",
+    )
+    premise = entry(
+        2, state=STATE_PARKED, attempts=0,
+        last_reason=f"park. {PREMISE_REFUSAL_MARKER}",
+    )
+    upstream_gap = entry(
+        3, state=STATE_PARKED, attempts=0,
+        last_reason=f"park. {UPSTREAM_GAP_PARK_MARKER}",
+    )
+    never_dispatched = entry(4, state=STATE_BLOCKED, attempts=0, last_reason="")
+    dispatch_failure = entry(
+        5, state=STATE_BLOCKED, attempts=2,
+        last_reason=_DISPATCH_FAILURE_REASON,
+    )
+    assert classify_unreachable_wait_cause(needs_decomp) == UNREACHABLE_WAIT_CAUSE_NEEDS_DECOMPOSITION
+    assert classify_unreachable_wait_cause(premise) == UNREACHABLE_WAIT_CAUSE_PREMISE_REFUSAL
+    assert classify_unreachable_wait_cause(upstream_gap) == UNREACHABLE_WAIT_CAUSE_UPSTREAM_GAP_PARK
+    assert classify_unreachable_wait_cause(never_dispatched) == UNREACHABLE_WAIT_CAUSE_NEVER_DISPATCHED
+    assert classify_unreachable_wait_cause(dispatch_failure) == UNREACHABLE_WAIT_CAUSE_DISPATCH_FAILURE
+
+
+@pytest.mark.parametrize(
+    "marker", [PREMISE_REFUSAL_MARKER, NEEDS_DECOMPOSITION_MARKER, UPSTREAM_GAP_PARK_MARKER]
+)
+def test_unreachable_wait_remedy_command_never_proposes_requeue_for_a_terminal_park(marker):
+    """#3983: for every terminal-park cause, `remove`+`add` would only
+    relaunch the drive straight back into re-emitting the identical park
+    (the needs-decomposition #3922 incident) — the remedy must be the
+    read-only `coord drive-queue list` fallback instead, same posture as
+    #3016's `merge_gate_remedy_command` for its own no-safe-command shapes.
+    """
+    root = entry(2341, state=STATE_PARKED, attempts=0, deferrals=380, last_reason=f"park. {marker}")
+    waits = detect_unreachable_waits([root])
+    command = unreachable_wait_remedy_command(waits[0])
+    assert "remove" not in command
+    assert "coord drive-queue list" in command
+    assert REPO in command
+
+
+def test_unreachable_wait_remedy_command_still_proposes_requeue_for_a_generic_wait():
+    root = entry(2900, state=STATE_BLOCKED, attempts=0, deferrals=207)
+    waits = detect_unreachable_waits([root])
+    command = unreachable_wait_remedy_command(waits[0])
+    assert command == (
+        f"coord drive-queue remove {REPO} 2900 && coord drive-queue add {REPO} 2900"
+    )
+
+
+def test_is_benign_queue_alert_command_normalizes_like_both_callers_expect():
+    """#3983 review: `coord drive-queue status` and the notifier's
+    `halted_drives` must ask this exact same question the same way — a
+    raw, un-normalized comparison (whitespace, `None`) must not silently
+    disagree with the `str(...).strip()` form either call site used to
+    write by hand."""
+    assert is_benign_queue_alert_command(QUEUE_ALERT_NO_REMEDY_COMMAND) is True
+    assert is_benign_queue_alert_command(f"  {QUEUE_ALERT_NO_REMEDY_COMMAND}  ") is True
+    assert is_benign_queue_alert_command(None) is False
+    assert is_benign_queue_alert_command("") is False
+    assert is_benign_queue_alert_command("coord drive-queue resume") is False
+
+
+def test_unreachable_wait_alert_falls_back_to_a_read_only_command_for_mixed_causes():
+    """Several roots of DIFFERENT causes have no single command that is
+    safe for all of them — never silently pick one entry's remedy (or the
+    destructive blanket requeue) and apply it fleet-wide."""
+    needs_decomp = entry(
+        1, state=STATE_PARKED, attempts=0, deferrals=10,
+        last_reason=f"x {NEEDS_DECOMPOSITION_MARKER}",
+    )
+    generic = entry(2, state=STATE_BLOCKED, attempts=0, deferrals=10)
+    waits = detect_unreachable_waits([needs_decomp, generic])
+    alert = unreachable_wait_alert(waits)
+    assert "remove" not in alert.command
+    assert "coord drive-queue list" in alert.command
+
+
+def test_describe_unreachable_wait_names_the_cause_and_age_when_a_clock_is_given():
+    root = entry(
+        2341, state=STATE_PARKED, attempts=0, deferrals=380,
+        last_reason=f"park. {NEEDS_DECOMPOSITION_MARKER}", reason_at=1_000.0,
+    )
+    waits = detect_unreachable_waits([root])
+    rendered = describe_unreachable_wait(waits[0], now=1_000.0 + 13 * 3600)
+    assert "needs-decomposition" in rendered
+    assert "stuck 13h" in rendered
+    # No clock given: the age clause degrades away rather than guessing one.
+    assert "stuck" not in describe_unreachable_wait(waits[0])
 
 
 # ── #3016: the escalation-time remedy for a merge-gate block must be the ──

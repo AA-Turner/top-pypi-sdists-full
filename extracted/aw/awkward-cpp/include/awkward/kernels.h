@@ -1,4 +1,4 @@
-// AUTO GENERATED ON 2026-09-17 AT 19:00:59
+// AUTO GENERATED ON 2026-11-12 AT 19:21:42
 // DO NOT EDIT BY HAND!
 //
 // To regenerate file, run
@@ -36,6 +36,15 @@ extern "C" {
     const int8_t* mask,
     int64_t length,
     bool validwhen);
+
+  EXPORT_SYMBOL ERROR
+  awkward_ListOffsetArray_getitem_boolmask_64(
+    int64_t* tooffsets,
+    int64_t* tocarry,
+    const int8_t* mask,
+    const int64_t* fromoffsets,
+    int64_t length,
+    int64_t carrylength);
 
   EXPORT_SYMBOL ERROR
   awkward_ByteMaskedArray_getitem_nextcarry_outindex_64(
@@ -3691,19 +3700,6 @@ extern "C" {
     const int64_t* fromoffsets,
     int64_t offsetslength,
     int64_t* tooffsets);
-
-  EXPORT_SYMBOL ERROR
-  awkward_sorting_ranges(
-    int64_t* toindex,
-    int64_t tolength,
-    const int64_t* parents,
-    int64_t parentslength);
-
-  EXPORT_SYMBOL ERROR
-  awkward_sorting_ranges_length(
-    int64_t* tolength,
-    const int64_t* parents,
-    int64_t parentslength);
 
 }
 

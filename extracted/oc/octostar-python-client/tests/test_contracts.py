@@ -111,6 +111,9 @@ SPEC_ROUTES_WITHOUT_SDK = {
     "/api/v1/files/attachments/{os_workspace}/{entity_id}": "Attachment upload",
     # v2 Files
     "/api/v2/files/upload-from-url/{os_workspace}": "Server-side URL fetch + stream-to-S3 (no temp files)",
+    "/api/v2/files/delete": "Bulk file action on a search selection (frontend only; no SDK flow)",
+    "/api/v2/files/move": "Bulk file action on a search selection (frontend only; no SDK flow)",
+    "/api/v2/files/copy": "Bulk file action on a search selection (frontend only; no SDK flow)",
     # v2 Report export
     "/api/v2/report-export/capabilities": "Composer export dialog limits; no SDK export flow",
     "/api/v2/report-export/download/{tracking_id}": "Composer temporary export download; no SDK export flow",

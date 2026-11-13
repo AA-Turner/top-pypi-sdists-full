@@ -1,6 +1,6 @@
 [project]
 name = "google-agents-cli"
-version = "1.13.0"
+version = "1.14.0"
 description = "Agents CLI — Agent Development Lifecycle toolchain for ADK"
 readme = "README.md"
 license = "Apache-2.0"
@@ -16,7 +16,12 @@ dependencies = [
   "PyYAML>=6.0.2,<7",
   "cookiecutter>=2.6.0,<3",
   "jinja2>=3.1.0,<4",
-  "google-cloud-aiplatform[evaluation]>=2.2.0,<3",
+  # Not the [evaluation] extra: it adds scikit-learn, scipy and litellm, which
+  # the CLI never imports. These are the parts agentplatform._genai.evals needs.
+  # tests/unittests/cli/test_eval_deps.py fails if the SDK starts needing more.
+  "google-cloud-aiplatform>=2.2.0,<3",
+  "pandas>=1.0.0,<4",
+  "tqdm>=4.23.0,<5",
   "google-cloud-resource-manager>=1.12.0,<2",
   "google-auth[pyopenssl]>=2.47.0,<3",
   # pyOpenSSL 26.2 forbids mutating a used SSL Context; urllib3 does it per
@@ -94,6 +99,8 @@ dev = [
     "pytest-xdist>=3.6.1,<4",
     "pytest-cov>=4.1.0,<8",
     "jsonschema>=4.20,<5",
+    # google-genai's httpx fallback breaks across event loops (e2e SDK query test).
+    "aiohttp>=3.14,<4",
 ]
 
 [tool.ruff]
@@ -108,6 +115,9 @@ include = [
   # The lift report builder and the eval tools.
   "evals/report/**/*.py",
   "evals/tools/**/*.py",
+  "evals/harbor/**/*.py",
+  "evals/tests/**/*.py",
+  "evals/tasks/**/*.py",
 ]
 exclude = [
     "src/google/agents/cli/scaffold/agents",
@@ -139,6 +149,7 @@ ignore = ["E501", "C901", "RUF001", "UP036", "RUF067", "RUF069"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["PLR0917"]
+"evals/tests/**/*.py" = ["PLR0917"]
 # The only module allowed to import private Agent Platform SDK modules; keep in
 # sync with ALLOWED_PRIVATE_IMPORT_FILES in tools/ci/check_private_imports.py.
 "src/google/agents/cli/_sdk_compat.py" = ["TID251"]

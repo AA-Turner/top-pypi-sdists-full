@@ -230,6 +230,10 @@ class LCD(Phidget):
         PhidgetError
             A Phidget error occurred.
         """
+        if bitmap is None or len(bitmap) < (self.getFontSize(font)[0] * self.getFontSize(font)[1]):
+            raise PhidgetException(
+                ErrorCode.EPHIDGET_INVALIDARG, "bitmap is too short for the other arguments"
+            )
         _font = ctypes.c_int(font)
         _character = ctypes.create_string_buffer(character.encode("utf-8"))
         _bitmap = (ctypes.c_uint8 * len(bitmap)).from_buffer_copy(bytearray(bitmap))
@@ -245,6 +249,10 @@ class LCD(Phidget):
         """
         Provided for Python2.7 compatibility. See setCharacterBitmapAsync for method details.
         """
+        if bitmap is None or len(bitmap) < (self.getFontSize(font)[0] * self.getFontSize(font)[1]):
+            raise PhidgetException(
+                ErrorCode.EPHIDGET_INVALIDARG, "bitmap is too short for the other arguments"
+            )
         _font = ctypes.c_int(font)
         _character = ctypes.create_string_buffer(character.encode("utf-8"))
         _bitmap = (ctypes.c_uint8 * len(bitmap)).from_buffer_copy(bytearray(bitmap))
@@ -1435,6 +1443,12 @@ class LCD(Phidget):
         PhidgetError
             A Phidget error occurred.
         """
+        if bitmap is None or len(bitmap) < (
+            float("inf") if xSize < 0 or ySize < 0 else xSize * ySize
+        ):
+            raise PhidgetException(
+                ErrorCode.EPHIDGET_INVALIDARG, "bitmap is too short for the other arguments"
+            )
         _xPosition = ctypes.c_int(xPosition)
         _yPosition = ctypes.c_int(yPosition)
         _xSize = ctypes.c_int(xSize)
@@ -1452,6 +1466,12 @@ class LCD(Phidget):
         """
         Provided for Python2.7 compatibility. See writeBitmapAsync for method details.
         """
+        if bitmap is None or len(bitmap) < (
+            float("inf") if xSize < 0 or ySize < 0 else xSize * ySize
+        ):
+            raise PhidgetException(
+                ErrorCode.EPHIDGET_INVALIDARG, "bitmap is too short for the other arguments"
+            )
         _xPosition = ctypes.c_int(xPosition)
         _yPosition = ctypes.c_int(yPosition)
         _xSize = ctypes.c_int(xSize)

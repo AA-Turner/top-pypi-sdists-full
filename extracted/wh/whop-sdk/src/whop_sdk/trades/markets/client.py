@@ -39,8 +39,8 @@ class MarketsClient:
         """
         Returns every market you can trade on Whop.
 
-        - **Spot:** listed by symbol: `BTC`, `ETH`, `SOL` and `XAUT` (gold).
-        - **Perpetuals:** such as `BTC`. Send the `id` as `market` when you create a trade.
+        - **Spot:** listed by symbol: `BTC`, `SOL` and `XAUT` (gold), and tokenized stocks by ticker, such as `AAPL`, with their 24-hour change and logo.
+        - **Perpetuals:** such as `BTC`, and stock and commodity perpetuals from Hyperliquid's `xyz` exchange, such as `xyz:TSLA`. Send the `id` as `market` when you create a trade.
 
         The same symbol can appear twice, once as a perpetual and once as spot, so use `id` together with `instrument_type` to tell them apart. Results are sorted by `id`, then `instrument_type`.
 
@@ -76,7 +76,7 @@ class MarketsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -125,8 +125,8 @@ class AsyncMarketsClient:
         """
         Returns every market you can trade on Whop.
 
-        - **Spot:** listed by symbol: `BTC`, `ETH`, `SOL` and `XAUT` (gold).
-        - **Perpetuals:** such as `BTC`. Send the `id` as `market` when you create a trade.
+        - **Spot:** listed by symbol: `BTC`, `SOL` and `XAUT` (gold), and tokenized stocks by ticker, such as `AAPL`, with their 24-hour change and logo.
+        - **Perpetuals:** such as `BTC`, and stock and commodity perpetuals from Hyperliquid's `xyz` exchange, such as `xyz:TSLA`. Send the `id` as `market` when you create a trade.
 
         The same symbol can appear twice, once as a perpetual and once as spot, so use `id` together with `instrument_type` to tell them apart. Results are sorted by `id`, then `instrument_type`.
 
@@ -164,7 +164,7 @@ class AsyncMarketsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

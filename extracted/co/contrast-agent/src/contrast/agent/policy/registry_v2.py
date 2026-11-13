@@ -46,7 +46,7 @@ from contrast.utils.patch_utils import add_watermark
 from contrast_vendor import wrapt
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Generator
     from typing import Any
 
     from contrast.agent.context import ContrastContext
@@ -65,20 +65,37 @@ EVENT_HANDLER_BUILDERS: dict[str, dict[str, Any]] = {
         "observe_span": cmd_exec.observe_span_attrs_builder,
         "shield": "process",
     },
-    "file-open": {"observe_span": file_open.observe_span_attrs_builder},
+    "file-open": {
+        "observe_span": file_open.observe_span_attrs_builder,
+        "shield_permissions": file_open.shield_permissions_builder,
+    },
+    "file-delete": {"shield": "file-delete"},
+    "file-move": {"shield": "file-move"},
+    "file-permissions": {"shield": "file-permissions"},
+    "nosql": {"shield": "data-access"},
     "django-authn": {"observe_span": authn.django_authn_span_attrs_builder},
     "django-session-authn": {
         "observe_span": authn.django_session_authn_span_attrs_builder
     },
-    "starlette-authn": {"observe_span": authn.starlette_authn_span_attrs_builder},
+    "starlette-authn": {"observe": authn.starlette_authn_observe_handler_builder},
     "authz": {"observe_span": authz.authz_span_attrs_builder},
     "outbound-request": {"observe_span": outbound_request.observe_span_attrs_builder},
     "outbound-request-http.client": {
         "observe_span": outbound_request.http_client_attrs_builder
     },
-    "ai-usage-stainless": {"ai-usage": ai_usage.stainless_log_event_builder},
-    "aws-api-call": {"ai-usage": ai_usage.botocore_log_event_builder},
-    "ai-usage-google-genai": {"ai-usage": ai_usage.google_genai_log_event_builder},
+    "ai-usage-stainless": {
+        "ai-usage": ai_usage.stainless_log_event_builder,
+        "shield": "ai-access",
+    },
+    "aws-api-call": {
+        "ai-usage": ai_usage.botocore_log_event_builder,
+        # Every AWS API call goes through botocore, so only report AI calls.
+        "shield_permissions": ai_usage.botocore_shield_permissions_builder,
+    },
+    "ai-usage-google-genai": {
+        "ai-usage": ai_usage.google_genai_log_event_builder,
+        "shield": "ai-access",
+    },
     "graphql-request": {},  # populated conditionally below
 }
 """
@@ -104,6 +121,14 @@ _policy_v2: dict[str, EventDict] = {}
 full function name -> event dict
 
 Central storage for v2 policy definitions at runtime.
+"""
+
+_policy_v2_modules: dict[str, str] = {}
+"""
+full function name -> module name
+
+The module of each registered v2 policy function, since the module name can't be
+recovered from the full function name when either contains dots.
 """
 
 
@@ -158,6 +183,11 @@ def register_policy_definitions(definitions: list[PolicyDefinition]) -> None:
         raise RuntimeError(f"Duplicate policy definitions: {duplicates}")
 
     _policy_v2.update(new_definitions)
+    _policy_v2_modules.update(
+        (f"{d['module']}.{method_name}", d["module"])
+        for d in definitions
+        for method_name in d["method_names"]
+    )
     policy_locations.update(
         Location.from_string(
             module=d["module"],
@@ -194,6 +224,11 @@ def generate_policy_event_handlers(
             reporter,
             shields.RateLimiter(shield_rate_limit_window_ms),
         )
+    # Some capabilities are reported by v1 patches (e.g. dbapi2 for `sql`) rather than
+    # by v2 policy. Share the reporter so that they use the same rate limiter.
+    from contrast.agent import agent_state
+
+    agent_state.module.shield_permission_reporter = shield_reporter
     event_handlers = {}
     for location_name, event_dict in _policy_v2.items():
         handler_builders = EVENT_HANDLER_BUILDERS[event_dict["name"]]
@@ -213,9 +248,20 @@ def generate_policy_event_handlers(
                 handlers.append(observe_handler)
         if assess and (build_assess_handler := handler_builders.get("assess")):
             handlers.append(build_assess_handler(event_dict))
-        if shield and (permission := handler_builders.get("shield")):
+        permission = handler_builders.get("shield")
+        if permission is None and (
+            build_permissions := handler_builders.get("shield_permissions")
+        ):
+            permission = build_permissions(event_dict)
+        if shield and permission:
+            module = _policy_v2_modules[location_name]
             handlers.append(
-                cve_shield_handler_builder(shield_reporter, permission, location_name)
+                cve_shield_handler_builder(
+                    shield_reporter,
+                    permission,
+                    dangerous_namespace=module,
+                    dangerous_function=location_name.removeprefix(f"{module}."),
+                )
             )
         if protect and (build_protect_handler := handler_builders.get("protect")):
             handlers.append(build_protect_handler(event_dict))
@@ -249,6 +295,104 @@ def build_generic_contrast_wrapper(original_func, module_name: str | None = None
     )
     bind_args = event_arguments_binder(original_func)
 
+    def run_pre_handlers(
+        bound_args: inspect.BoundArguments, args, kwargs
+    ) -> list[Generator]:
+        # In the future we need to consider error handling more carefully here.
+        # Exceptions raised by our machinery should not affect the original function
+        # call. Beware that `@fail_quietly` may not work as expected with generator
+        # functions.
+        post = []
+        event_handlers, context = get_event_handlers(location_name)
+        for handler in event_handlers:
+            try:
+                gen = handler(context, bound_args.arguments)
+                next(gen)
+            except StopIteration:  # noqa: PERF203
+                assert False, "Invalid event handler - did not yield"  # noqa: B011 PT015
+            except contrast.SecurityException:
+                raise
+            except Exception as e:
+                # If an exception is raised in the event handler, we report it and
+                # continue with the next handler.
+                log_and_report_exception(
+                    log_message="Exception in pre event handler",
+                    error=e,
+                    original_func=original_func,
+                    args=args,
+                    kwargs=kwargs,
+                    log_level="error",
+                )
+            else:
+                post.append(gen)
+        return post
+
+    def run_post_handlers(post: list[Generator], result, args, kwargs) -> None:
+        for gen in reversed(post):
+            try:
+                gen.send(result)
+            except StopIteration:  # noqa: PERF203
+                pass
+            except Exception as e:
+                # If an exception is raised in the event handler, we report it and
+                # continue with the next handler.
+                log_and_report_exception(
+                    log_message="Exception in post event handler",
+                    error=e,
+                    original_func=original_func,
+                    args=args,
+                    kwargs=kwargs,
+                    log_level="error",
+                )
+            else:
+                assert False, "Invalid event handler - more than one yield"  # noqa: B011 PT015
+
+    # Look through decorators, since some libraries wrap async functions in a sync
+    # function that returns the coroutine (e.g. openai's `required_args`).
+    if inspect.iscoroutinefunction(inspect.unwrap(original_func)):
+
+        async def await_with_handlers(wrapped, bound_args, args, kwargs):
+            """
+            Async counterpart of generic_contrast_wrapper. Event handlers run when the
+            coroutine is awaited, since that's when the original function's code actually
+            executes, and post handlers get the awaited result.
+            """
+            if scope.in_contrast_scope():
+                return await wrapped(*args, **kwargs)
+
+            with scope.contrast_scope():
+                result = NO_RESULT
+                post = run_pre_handlers(bound_args, args, kwargs)
+                try:
+                    with scope.pop_contrast_scope():
+                        result = await wrapped(*args, **kwargs)
+                finally:
+                    run_post_handlers(post, result, args, kwargs)
+
+                assert result is not NO_RESULT
+                return result
+
+        @wrapt.function_wrapper
+        @add_watermark
+        def async_generic_contrast_wrapper(wrapped, instance, args, kwargs):
+            """
+            Generic wrapper for async functions instrumented with v2 policy.
+
+            Event handlers run when the returned coroutine is awaited, because some
+            depend on where the function executes. For example, CVE shields check the
+            shield scope that's active when the handler runs.
+
+            The original function isn't called until then either, so the returned
+            coroutine is the only one that exists before it runs, and it behaves like any
+            other coroutine if it's closed, cancelled or abandoned first. Arguments are
+            still bound right away so that invalid arguments raise at call time.
+            """
+            return await_with_handlers(
+                wrapped, bind_args(instance, args, kwargs), args, kwargs
+            )
+
+        return async_generic_contrast_wrapper(original_func)
+
     @wrapt.function_wrapper
     @add_watermark
     def generic_contrast_wrapper(wrapped, instance, args, kwargs):
@@ -264,59 +408,13 @@ def build_generic_contrast_wrapper(original_func, module_name: str | None = None
             return wrapped(*args, **kwargs)
 
         with scope.contrast_scope():
-            # In the future we need to consider error handling more carefully here.
-            # Exceptions raised by our machinery should not affect the original function
-            # call. Beware that `@fail_quietly` may not work as expected with generator
-            # functions.
             result = NO_RESULT
-            bound_args = bind_args(instance, args, kwargs)
-
-            post = []
-            event_handlers, context = get_event_handlers(location_name)
-            for handler in event_handlers:
-                try:
-                    gen = handler(context, bound_args.arguments)
-                    next(gen)
-                except StopIteration:  # noqa: PERF203
-                    assert False, "Invalid event handler - did not yield"  # noqa: B011 PT015
-                except contrast.SecurityException:
-                    raise
-                except Exception as e:
-                    # If an exception is raised in the event handler, we report it and
-                    # continue with the next handler.
-                    log_and_report_exception(
-                        log_message="Exception in pre event handler",
-                        error=e,
-                        original_func=original_func,
-                        args=args,
-                        kwargs=kwargs,
-                        log_level="error",
-                    )
-                else:
-                    post.append(gen)
-
+            post = run_pre_handlers(bind_args(instance, args, kwargs), args, kwargs)
             try:
                 with scope.pop_contrast_scope():
                     result = wrapped(*args, **kwargs)
             finally:
-                for gen in reversed(post):
-                    try:
-                        gen.send(result)
-                    except StopIteration:  # noqa: PERF203
-                        pass
-                    except Exception as e:
-                        # If an exception is raised in the event handler, we report it and
-                        # continue with the next handler.
-                        log_and_report_exception(
-                            log_message="Exception in post event handler",
-                            error=e,
-                            original_func=original_func,
-                            args=args,
-                            kwargs=kwargs,
-                            log_level="error",
-                        )
-                    else:
-                        assert False, "Invalid event handler - more than one yield"  # noqa: B011 PT015
+                run_post_handlers(post, result, args, kwargs)
 
             assert result is not NO_RESULT
             return result
@@ -331,6 +429,14 @@ if sys.version_info[:2] >= (3, 14):
     inspect_signature = partial(inspect.signature, annotation_format=Format.STRING)
 
 
+_CATCH_ALL_SIGNATURE = inspect.Signature(
+    [
+        inspect.Parameter("args", inspect.Parameter.VAR_POSITIONAL),
+        inspect.Parameter("kwargs", inspect.Parameter.VAR_KEYWORD),
+    ]
+)
+
+
 def event_arguments_binder(func: Callable):
     """
     Returns a function that binds the arguments for func.
@@ -339,9 +445,15 @@ def event_arguments_binder(func: Callable):
     can be retrieved by their names regardless of their order or how they are passed
     in the function call.
     """
-    sig = inspect_signature(func)
-    if inspect.ismethod(func):
-        sig = inspect_signature(func.__func__)
+    try:
+        sig = inspect_signature(func)
+        if inspect.ismethod(func):
+            sig = inspect_signature(func.__func__)
+    except ValueError:
+        # Some builtins have signatures that inspect can't parse (e.g. os.chmod, whose
+        # follow_symlinks default is an expression). Handlers for these functions can't
+        # look up arguments by name, and receive {"args": (...), "kwargs": {...}}.
+        sig = _CATCH_ALL_SIGNATURE
 
     def _bind(instance, args, kwargs) -> inspect.BoundArguments:
         bound_args = (

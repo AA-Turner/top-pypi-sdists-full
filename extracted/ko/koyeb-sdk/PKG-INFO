@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: koyeb-sdk
-Version: 1.5.6
+Version: 1.6.0
 Summary: Koyeb python sdk
 Author-email: Koyeb team <support@koyeb.com>
 License-Expression: Apache-2.0
 Project-URL: Repository, https://github.com/koyeb/koyeb-python-sdk
 Keywords: Koyeb,Koyeb API client,SDK,API client
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: urllib3<3.0.0,>=2.1.0
@@ -74,6 +74,12 @@ Optionally, set a default region for all sandbox deployments (defaults to `"na"`
 
 ```bash copy
 export KOYEB_REGION="fra"
+```
+
+Optionally, send all sandbox commands and file operations to a specific sandbox gateway instead of the one the API returns (for example an in-cluster Service on a self-hosted cluster):
+
+```bash copy
+export KOYEB_SANDBOX_GATEWAY_URL="http://sandbox-gateway.<namespace>.svc"
 ```
 
 ### Example sandbox code

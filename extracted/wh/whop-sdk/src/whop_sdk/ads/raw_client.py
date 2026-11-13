@@ -23,15 +23,8 @@ from ..types.ad_stat import AdStat
 from .types.create_ads_request_call_to_action import CreateAdsRequestCallToAction
 from .types.create_ads_request_creatives_item import CreateAdsRequestCreativesItem
 from .types.create_ads_request_descriptions_item import CreateAdsRequestDescriptionsItem
-from .types.create_ads_request_external_accounts_item import CreateAdsRequestExternalAccountsItem
 from .types.create_ads_request_headlines_item import CreateAdsRequestHeadlinesItem
-from .types.create_ads_request_lead_form import CreateAdsRequestLeadForm
-from .types.create_ads_request_messaging_config import CreateAdsRequestMessagingConfig
-from .types.create_ads_request_music import CreateAdsRequestMusic
-from .types.create_ads_request_post_source import CreateAdsRequestPostSource
 from .types.create_ads_request_primary_texts_item import CreateAdsRequestPrimaryTextsItem
-from .types.create_ads_request_translations import CreateAdsRequestTranslations
-from .types.create_ads_request_x_ads_platform import CreateAdsRequestXAdsPlatform
 from .types.delete_ads_response import DeleteAdsResponse
 from .types.duplicate_ads_response import DuplicateAdsResponse
 from .types.list_ads_request_attribution_model import ListAdsRequestAttributionModel
@@ -39,22 +32,16 @@ from .types.list_ads_request_direction import ListAdsRequestDirection
 from .types.list_ads_request_order import ListAdsRequestOrder
 from .types.list_ads_request_status import ListAdsRequestStatus
 from .types.list_ads_response import ListAdsResponse
-from .types.report_stats_ads_request_clicks import ReportStatsAdsRequestClicks
+from .types.report_issues_ads_request_issues_item import ReportIssuesAdsRequestIssuesItem
+from .types.report_issues_ads_response import ReportIssuesAdsResponse
 from .types.report_stats_ads_request_impressions import ReportStatsAdsRequestImpressions
 from .types.report_stats_ads_request_spend import ReportStatsAdsRequestSpend
 from .types.retrieve_ads_request_attribution_model import RetrieveAdsRequestAttributionModel
 from .types.update_ads_request_call_to_action import UpdateAdsRequestCallToAction
 from .types.update_ads_request_creatives_item import UpdateAdsRequestCreativesItem
 from .types.update_ads_request_descriptions_item import UpdateAdsRequestDescriptionsItem
-from .types.update_ads_request_external_accounts_item import UpdateAdsRequestExternalAccountsItem
 from .types.update_ads_request_headlines_item import UpdateAdsRequestHeadlinesItem
-from .types.update_ads_request_lead_form import UpdateAdsRequestLeadForm
-from .types.update_ads_request_messaging_config import UpdateAdsRequestMessagingConfig
-from .types.update_ads_request_music import UpdateAdsRequestMusic
-from .types.update_ads_request_post_source import UpdateAdsRequestPostSource
 from .types.update_ads_request_primary_texts_item import UpdateAdsRequestPrimaryTextsItem
-from .types.update_ads_request_translations import UpdateAdsRequestTranslations
-from .types.update_ads_request_x_ads_platform import UpdateAdsRequestXAdsPlatform
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -65,18 +52,138 @@ class RawAdsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
+    def report_issues(
+        self,
+        *,
+        issues: typing.Sequence[ReportIssuesAdsRequestIssuesItem],
+        ad_group_id: typing.Optional[str] = OMIT,
+        ad_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ReportIssuesAdsResponse]:
+        """
+        Reports why one of a runner's ads or ad groups can't deliver yet, and replaces what the runner reported for it before. The account running the campaign sees each issue, with what to change when it can fix it. An empty `issues` list clears the object's issues, and they also clear when the runner stops holding the campaign. Takes the runner's Whop session, a user API key, or a user OAuth token with `ad_campaign:update`. A token without that scope gets a 403, and anyone not holding the whole campaign gets a 404.
+
+        Parameters
+        ----------
+        issues : typing.Sequence[ReportIssuesAdsRequestIssuesItem]
+            Every issue the object has now, each reason once. Send an empty list when it has none.
+
+        ad_group_id : typing.Optional[str]
+            The ID of the ad group the issues are on, prefixed `adgrp_`.
+
+        ad_id : typing.Optional[str]
+            The ID of the ad the issues are on, prefixed `ad_`. Send exactly one of `ad_id` or `ad_group_id`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ReportIssuesAdsResponse]
+            issues recorded
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "ad_issues",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            json={
+                "ad_group_id": ad_group_id,
+                "ad_id": ad_id,
+                "issues": convert_and_respect_annotation_metadata(
+                    object_=issues, annotation=typing.Sequence[ReportIssuesAdsRequestIssuesItem], direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ReportIssuesAdsResponse,
+                    parse_obj_as(
+                        type_=ReportIssuesAdsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def report_stats(
         self,
         *,
         ad_id: str,
         hour_started_at: dt.datetime,
         spend: ReportStatsAdsRequestSpend,
-        clicks: typing.Optional[ReportStatsAdsRequestClicks] = OMIT,
         impressions: typing.Optional[ReportStatsAdsRequestImpressions] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[AdStat]:
         """
-        Records a runner's stats for one of their ads in one hour, and pays them for the spend. Send the ad's totals so far for an hour that started in the last 24 hours; they replace what the ad held for that hour, and its ad group's and campaign's hours are rebuilt from their ads. The spend can go up but never down. Reporting on a campaign starts with the hour of its first recorded report; earlier hours are refused. Spend over what is left of a budget (the runner's share of the day, the campaign's daily budget or the ad group's budget) is refused with the most the ad can record. Takes the runner's Whop session or a user OAuth token with `ad_campaign:update`. A token without that scope gets a 403, and anyone not holding the ad's campaign gets a 404.
+        Records a runner's stats for one of their ads in one hour, and pays them for the spend. Send the ad's totals so far for an hour that has started; they replace what the ad held for that hour, and its ad group's and campaign's hours are rebuilt from their ads. The spend can go up but never down. Hours before the runner's first report on the campaign can be reported too. The spend is recorded and paid exactly as sent, with no markup added, so send it with the runner's markup already applied. Takes the runner's Whop session, a user API key, or a user OAuth token with `ad_campaign:update`. A token without that scope gets a 403, and anyone not holding the ad's campaign gets a 404.
 
         Parameters
         ----------
@@ -84,13 +191,10 @@ class RawAdsClient:
             The ad's ID, prefixed `ad_`: the campaign's ad or the runner's copy of it.
 
         hour_started_at : dt.datetime
-            Start of the hour, on the hour, within the last 24 hours.
+            Start of the hour, on the hour, for an hour that has already started.
 
         spend : ReportStatsAdsRequestSpend
-            USD spent on the ad in the hour so far, to the cent.
-
-        clicks : typing.Optional[ReportStatsAdsRequestClicks]
-            The ad's clicks in the hour so far, at most `impressions`. Zero when left out.
+            The USD to be paid for the ad's hour so far, to the cent: what the ad spent plus any markup, such as 105.00 for 100.00 spent with a 5% markup.
 
         impressions : typing.Optional[ReportStatsAdsRequestImpressions]
             The ad's impressions in the hour so far. Zero when left out.
@@ -109,9 +213,6 @@ class RawAdsClient:
             method="POST",
             json={
                 "ad_id": ad_id,
-                "clicks": convert_and_respect_annotation_metadata(
-                    object_=clicks, annotation=ReportStatsAdsRequestClicks, direction="write"
-                ),
                 "hour_started_at": hour_started_at,
                 "impressions": convert_and_respect_annotation_metadata(
                     object_=impressions, annotation=ReportStatsAdsRequestImpressions, direction="write"
@@ -136,17 +237,6 @@ class RawAdsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             if _response.status_code == 401:
                 raise UnauthorizedError(
                     headers=dict(_response.headers),
@@ -393,24 +483,14 @@ class RawAdsClient:
     def create(
         self,
         *,
-        ads_platform: typing.Optional[CreateAdsRequestXAdsPlatform] = None,
         ad_group: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         ad_group_id: typing.Optional[str] = OMIT,
         call_to_action: typing.Optional[CreateAdsRequestCallToAction] = OMIT,
         creatives: typing.Optional[typing.Sequence[CreateAdsRequestCreativesItem]] = OMIT,
         descriptions: typing.Optional[typing.Sequence[CreateAdsRequestDescriptionsItem]] = OMIT,
-        existing_post_id: typing.Optional[str] = OMIT,
-        external_accounts: typing.Optional[typing.Sequence[CreateAdsRequestExternalAccountsItem]] = OMIT,
         headlines: typing.Optional[typing.Sequence[CreateAdsRequestHeadlinesItem]] = OMIT,
-        lead_form: typing.Optional[CreateAdsRequestLeadForm] = OMIT,
-        lead_form_id: typing.Optional[str] = OMIT,
-        messaging_config: typing.Optional[CreateAdsRequestMessagingConfig] = OMIT,
-        multi_advertiser_ads: typing.Optional[bool] = OMIT,
-        music: typing.Optional[CreateAdsRequestMusic] = OMIT,
-        post_source: typing.Optional[CreateAdsRequestPostSource] = OMIT,
         primary_texts: typing.Optional[typing.Sequence[CreateAdsRequestPrimaryTextsItem]] = OMIT,
         title: typing.Optional[str] = OMIT,
-        translations: typing.Optional[CreateAdsRequestTranslations] = OMIT,
         url: typing.Optional[str] = OMIT,
         url_parameters: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -420,9 +500,6 @@ class RawAdsClient:
 
         Parameters
         ----------
-        ads_platform : typing.Optional[CreateAdsRequestXAdsPlatform]
-            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
-
         ad_group : typing.Optional[typing.Dict[str, typing.Any]]
             An inline ad group to create (same shape as POST /ad_groups, including ad_campaign_id). Creates the ad group and the ad together. Provide this OR ad_group_id.
 
@@ -433,52 +510,25 @@ class RawAdsClient:
             The call-to-action button shown on the ad.
 
         creatives : typing.Optional[typing.Sequence[CreateAdsRequestCreativesItem]]
-            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Entries with no format become a carousel's ordered cards, sharing the ad's copy — 2-10 of them on Meta, while TikTok runs even a single image as a one-card carousel.
+            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Entries with no format become a carousel's ordered cards, sharing the ad's copy.
 
         descriptions : typing.Optional[typing.Sequence[CreateAdsRequestDescriptionsItem]]
-            The description shown on the ad. Entries without a language are the ad's own copy; add one entry per other language on a Meta ad with `translations`.
-
-        existing_post_id : typing.Optional[str]
-            Promote a post you already published instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
-
-        external_accounts : typing.Optional[typing.Sequence[CreateAdsRequestExternalAccountsItem]]
-            The external accounts the ad runs under — a connected Facebook page and, optionally, an Instagram profile.
+            The description shown on the ad.
 
         headlines : typing.Optional[typing.Sequence[CreateAdsRequestHeadlinesItem]]
-            The headline shown on the ad. Entries without a language are the ad's own copy; add one entry per other language on a Meta ad with `translations`.
-
-        lead_form : typing.Optional[CreateAdsRequestLeadForm]
-            Instant lead form for the ad. Only allowed when the ad group's conversion_location is an instant-form destination (instant_forms, instant_forms_and_messenger, website_and_instant_forms). Mutually exclusive with lead_form_id.
-
-        lead_form_id : typing.Optional[str]
-            Use an existing instant form instead of creating one — the form's platform ID, from a form already on the ad's Facebook page. Only allowed when the ad group's conversion_location is an instant-form destination. Mutually exclusive with lead_form.
-
-        messaging_config : typing.Optional[CreateAdsRequestMessagingConfig]
-            Click-to-message welcome copy: the greeting (message) and the ice-breaker prompt (keyword).
-
-        multi_advertiser_ads : typing.Optional[bool]
-            Whether the ad can appear alongside other advertisers' ads in the same unit. Defaults to true.
-
-        music : typing.Optional[CreateAdsRequestMusic]
-            The looping track a TikTok carousel ad plays — an MP3 you uploaded, no larger than 10MB. Required for TikTok carousels (image creatives); TikTok-only.
-
-        post_source : typing.Optional[CreateAdsRequestPostSource]
-            Identifies the network that owns `existing_post_id`. The source is inferred from the ID shape when omitted.
+            The headline shown on the ad.
 
         primary_texts : typing.Optional[typing.Sequence[CreateAdsRequestPrimaryTextsItem]]
-            The primary text shown in the ad body. Entries without a language are the ad's own copy (several make text variations); add one entry per other language on a Meta ad with `translations`.
+            The primary text shown in the ad body. Several entries make text variations.
 
         title : typing.Optional[str]
             The display name of the ad.
-
-        translations : typing.Optional[CreateAdsRequestTranslations]
-            Shows a Meta ad in other languages. Each viewer sees the version for their language; everyone else sees the ad's own copy. Tag every copy and creatives entry with its language: the ad's own with `source_language`, and give every other language a `primary_texts` and `headlines` entry (a `descriptions` entry and a `creatives` entry are optional), or list it in `automatic_languages`. Needs a website destination, one image or video, and exactly one primary text and headline of the ad's own (and at most one description), with no Dynamic Creative or crops. Replaced as a whole when sent, so send `automatic_languages` with `source_language`. null turns translations off and deletes their media. Meta-only.
 
         url : typing.Optional[str]
             The URL the ad links to. Query parameters are merged into url_parameters, so the stored URL is always bare.
 
         url_parameters : typing.Optional[typing.Dict[str, typing.Any]]
-            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved and rejected if you set them. Which keys are reserved depends on the ad's network — Meta: utm_meta_ad_id, utm_meta_adset_id, utm_meta_campaign_id, utm_source, utm_placement, utm_medium, utm_content, utm_adset, utm_whop, wacid, wasid, waid, tw_source, tw_adid; TikTok: waid, wasid, wacid, ad_id, adset_id, campaign_id, utm_source, utm_medium, utm_placement, utm_whop, tw_source, tw_adid.
+            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved, and setting one returns an error that names it.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -486,7 +536,7 @@ class RawAdsClient:
         Returns
         -------
         HttpResponse[Ad]
-            ad created from an existing post
+            ad created together with its ad group
         """
         _response = self._client_wrapper.httpx_client.request(
             "ads",
@@ -504,42 +554,20 @@ class RawAdsClient:
                     annotation=typing.Sequence[CreateAdsRequestDescriptionsItem],
                     direction="write",
                 ),
-                "existing_post_id": existing_post_id,
-                "external_accounts": convert_and_respect_annotation_metadata(
-                    object_=external_accounts,
-                    annotation=typing.Sequence[CreateAdsRequestExternalAccountsItem],
-                    direction="write",
-                ),
                 "headlines": convert_and_respect_annotation_metadata(
                     object_=headlines, annotation=typing.Sequence[CreateAdsRequestHeadlinesItem], direction="write"
                 ),
-                "lead_form": convert_and_respect_annotation_metadata(
-                    object_=lead_form, annotation=CreateAdsRequestLeadForm, direction="write"
-                ),
-                "lead_form_id": lead_form_id,
-                "messaging_config": convert_and_respect_annotation_metadata(
-                    object_=messaging_config, annotation=CreateAdsRequestMessagingConfig, direction="write"
-                ),
-                "multi_advertiser_ads": multi_advertiser_ads,
-                "music": convert_and_respect_annotation_metadata(
-                    object_=music, annotation=typing.Optional[CreateAdsRequestMusic], direction="write"
-                ),
-                "post_source": post_source,
                 "primary_texts": convert_and_respect_annotation_metadata(
                     object_=primary_texts,
                     annotation=typing.Sequence[CreateAdsRequestPrimaryTextsItem],
                     direction="write",
                 ),
                 "title": title,
-                "translations": convert_and_respect_annotation_metadata(
-                    object_=translations, annotation=typing.Optional[CreateAdsRequestTranslations], direction="write"
-                ),
                 "url": url,
                 "url_parameters": url_parameters,
             },
             headers={
                 "content-type": "application/json",
-                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -735,22 +763,12 @@ class RawAdsClient:
         self,
         id: str,
         *,
-        ads_platform: typing.Optional[UpdateAdsRequestXAdsPlatform] = None,
         call_to_action: typing.Optional[UpdateAdsRequestCallToAction] = OMIT,
         creatives: typing.Optional[typing.Sequence[UpdateAdsRequestCreativesItem]] = OMIT,
         descriptions: typing.Optional[typing.Sequence[UpdateAdsRequestDescriptionsItem]] = OMIT,
-        existing_post_id: typing.Optional[str] = OMIT,
-        external_accounts: typing.Optional[typing.Sequence[UpdateAdsRequestExternalAccountsItem]] = OMIT,
         headlines: typing.Optional[typing.Sequence[UpdateAdsRequestHeadlinesItem]] = OMIT,
-        lead_form: typing.Optional[UpdateAdsRequestLeadForm] = OMIT,
-        lead_form_id: typing.Optional[str] = OMIT,
-        messaging_config: typing.Optional[UpdateAdsRequestMessagingConfig] = OMIT,
-        multi_advertiser_ads: typing.Optional[bool] = OMIT,
-        music: typing.Optional[UpdateAdsRequestMusic] = OMIT,
-        post_source: typing.Optional[UpdateAdsRequestPostSource] = OMIT,
         primary_texts: typing.Optional[typing.Sequence[UpdateAdsRequestPrimaryTextsItem]] = OMIT,
         title: typing.Optional[str] = OMIT,
-        translations: typing.Optional[UpdateAdsRequestTranslations] = OMIT,
         url: typing.Optional[str] = OMIT,
         url_parameters: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -763,59 +781,29 @@ class RawAdsClient:
         id : str
             The ad ID.
 
-        ads_platform : typing.Optional[UpdateAdsRequestXAdsPlatform]
-            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
-
         call_to_action : typing.Optional[UpdateAdsRequestCallToAction]
             The call-to-action button shown on the ad.
 
         creatives : typing.Optional[typing.Sequence[UpdateAdsRequestCreativesItem]]
-            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Replaces a live ad's creative on the platform. Entries with no format replace it with a carousel's ordered cards — 2-10 of them on Meta, while TikTok runs even a single image as a one-card carousel.
+            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Replaces a live ad's creative. Entries with no format replace it with a carousel's ordered cards.
 
         descriptions : typing.Optional[typing.Sequence[UpdateAdsRequestDescriptionsItem]]
-            The description shown on the ad. Entries without a language are the ad's own copy; add one entry per other language on a Meta ad with `translations`.
-
-        existing_post_id : typing.Optional[str]
-            Promote a post you already published instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
-
-        external_accounts : typing.Optional[typing.Sequence[UpdateAdsRequestExternalAccountsItem]]
-            The external accounts the ad runs under — a connected Facebook page and, optionally, an Instagram profile.
+            The description shown on the ad.
 
         headlines : typing.Optional[typing.Sequence[UpdateAdsRequestHeadlinesItem]]
-            The headline shown on the ad. Entries without a language are the ad's own copy; add one entry per other language on a Meta ad with `translations`.
-
-        lead_form : typing.Optional[UpdateAdsRequestLeadForm]
-            Instant lead form for the ad. Only allowed when the ad group's conversion_location is an instant-form destination (instant_forms, instant_forms_and_messenger, website_and_instant_forms). Mutually exclusive with lead_form_id.
-
-        lead_form_id : typing.Optional[str]
-            Use an existing instant form instead of creating one — the form's platform ID, from a form already on the ad's Facebook page. Only allowed when the ad group's conversion_location is an instant-form destination. Mutually exclusive with lead_form. Replaces a stored lead_form.
-
-        messaging_config : typing.Optional[UpdateAdsRequestMessagingConfig]
-            Click-to-message welcome copy: the greeting (message) and the ice-breaker prompt (keyword).
-
-        multi_advertiser_ads : typing.Optional[bool]
-            Whether the ad can appear alongside other advertisers' ads in the same unit. Defaults to true.
-
-        music : typing.Optional[UpdateAdsRequestMusic]
-            The looping track a TikTok carousel ad plays — an MP3 you uploaded, no larger than 10MB. Omitted leaves the ad's music untouched. Null removes it before launch; a submitted carousel takes a replacement track instead. TikTok-only.
-
-        post_source : typing.Optional[UpdateAdsRequestPostSource]
-            Identifies the network that owns `existing_post_id`. The source is inferred from the ID shape when omitted.
+            The headline shown on the ad.
 
         primary_texts : typing.Optional[typing.Sequence[UpdateAdsRequestPrimaryTextsItem]]
-            The primary text shown in the ad body. Entries without a language are the ad's own copy (several make text variations); add one entry per other language on a Meta ad with `translations`.
+            The primary text shown in the ad body. Several entries make text variations.
 
         title : typing.Optional[str]
             The display name of the ad.
-
-        translations : typing.Optional[UpdateAdsRequestTranslations]
-            Shows a Meta ad in other languages. Each viewer sees the version for their language; everyone else sees the ad's own copy. Tag every copy and creatives entry with its language: the ad's own with `source_language`, and give every other language a `primary_texts` and `headlines` entry (a `descriptions` entry and a `creatives` entry are optional), or list it in `automatic_languages`. Needs a website destination, one image or video, and exactly one primary text and headline of the ad's own (and at most one description), with no Dynamic Creative or crops. Replaced as a whole when sent, so send `automatic_languages` with `source_language`. null turns translations off and deletes their media. Meta-only.
 
         url : typing.Optional[str]
             The URL the ad links to. Query parameters are merged into url_parameters, so the stored URL is always bare.
 
         url_parameters : typing.Optional[typing.Dict[str, typing.Any]]
-            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved and rejected if you set them. Which keys are reserved depends on the ad's network — Meta: utm_meta_ad_id, utm_meta_adset_id, utm_meta_campaign_id, utm_source, utm_placement, utm_medium, utm_content, utm_adset, utm_whop, wacid, wasid, waid, tw_source, tw_adid; TikTok: waid, wasid, wacid, ad_id, adset_id, campaign_id, utm_source, utm_medium, utm_placement, utm_whop, tw_source, tw_adid.
+            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved, and setting one returns an error that names it.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -823,7 +811,7 @@ class RawAdsClient:
         Returns
         -------
         HttpResponse[Ad]
-            ad switched to an existing post
+            ad updated
         """
         _response = self._client_wrapper.httpx_client.request(
             f"ads/{encode_path_param(id)}",
@@ -839,42 +827,20 @@ class RawAdsClient:
                     annotation=typing.Sequence[UpdateAdsRequestDescriptionsItem],
                     direction="write",
                 ),
-                "existing_post_id": existing_post_id,
-                "external_accounts": convert_and_respect_annotation_metadata(
-                    object_=external_accounts,
-                    annotation=typing.Sequence[UpdateAdsRequestExternalAccountsItem],
-                    direction="write",
-                ),
                 "headlines": convert_and_respect_annotation_metadata(
                     object_=headlines, annotation=typing.Sequence[UpdateAdsRequestHeadlinesItem], direction="write"
                 ),
-                "lead_form": convert_and_respect_annotation_metadata(
-                    object_=lead_form, annotation=UpdateAdsRequestLeadForm, direction="write"
-                ),
-                "lead_form_id": lead_form_id,
-                "messaging_config": convert_and_respect_annotation_metadata(
-                    object_=messaging_config, annotation=UpdateAdsRequestMessagingConfig, direction="write"
-                ),
-                "multi_advertiser_ads": multi_advertiser_ads,
-                "music": convert_and_respect_annotation_metadata(
-                    object_=music, annotation=typing.Optional[UpdateAdsRequestMusic], direction="write"
-                ),
-                "post_source": post_source,
                 "primary_texts": convert_and_respect_annotation_metadata(
                     object_=primary_texts,
                     annotation=typing.Sequence[UpdateAdsRequestPrimaryTextsItem],
                     direction="write",
                 ),
                 "title": title,
-                "translations": convert_and_respect_annotation_metadata(
-                    object_=translations, annotation=typing.Optional[UpdateAdsRequestTranslations], direction="write"
-                ),
                 "url": url,
                 "url_parameters": url_parameters,
             },
             headers={
                 "content-type": "application/json",
-                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -903,7 +869,6 @@ class RawAdsClient:
         id: str,
         *,
         count: typing.Optional[int] = OMIT,
-        preserve_engagement: typing.Optional[bool] = OMIT,
         target_ad_group_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[DuplicateAdsResponse]:
@@ -917,9 +882,6 @@ class RawAdsClient:
 
         count : typing.Optional[int]
             Number of copies to create (1-10). Defaults to 1.
-
-        preserve_engagement : typing.Optional[bool]
-            Whether the copies keep the original post's engagement (likes, comments, shares). Defaults to false.
 
         target_ad_group_id : typing.Optional[str]
             Ad group to duplicate into, which must belong to the same account and be compatible with the ad. Defaults to the ad's own ad group.
@@ -938,7 +900,6 @@ class RawAdsClient:
             method="POST",
             json={
                 "count": count,
-                "preserve_engagement": preserve_engagement,
                 "target_ad_group_id": target_ad_group_id,
             },
             headers={
@@ -1110,18 +1071,138 @@ class AsyncRawAdsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
+    async def report_issues(
+        self,
+        *,
+        issues: typing.Sequence[ReportIssuesAdsRequestIssuesItem],
+        ad_group_id: typing.Optional[str] = OMIT,
+        ad_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ReportIssuesAdsResponse]:
+        """
+        Reports why one of a runner's ads or ad groups can't deliver yet, and replaces what the runner reported for it before. The account running the campaign sees each issue, with what to change when it can fix it. An empty `issues` list clears the object's issues, and they also clear when the runner stops holding the campaign. Takes the runner's Whop session, a user API key, or a user OAuth token with `ad_campaign:update`. A token without that scope gets a 403, and anyone not holding the whole campaign gets a 404.
+
+        Parameters
+        ----------
+        issues : typing.Sequence[ReportIssuesAdsRequestIssuesItem]
+            Every issue the object has now, each reason once. Send an empty list when it has none.
+
+        ad_group_id : typing.Optional[str]
+            The ID of the ad group the issues are on, prefixed `adgrp_`.
+
+        ad_id : typing.Optional[str]
+            The ID of the ad the issues are on, prefixed `ad_`. Send exactly one of `ad_id` or `ad_group_id`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ReportIssuesAdsResponse]
+            issues recorded
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "ad_issues",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            json={
+                "ad_group_id": ad_group_id,
+                "ad_id": ad_id,
+                "issues": convert_and_respect_annotation_metadata(
+                    object_=issues, annotation=typing.Sequence[ReportIssuesAdsRequestIssuesItem], direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ReportIssuesAdsResponse,
+                    parse_obj_as(
+                        type_=ReportIssuesAdsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def report_stats(
         self,
         *,
         ad_id: str,
         hour_started_at: dt.datetime,
         spend: ReportStatsAdsRequestSpend,
-        clicks: typing.Optional[ReportStatsAdsRequestClicks] = OMIT,
         impressions: typing.Optional[ReportStatsAdsRequestImpressions] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[AdStat]:
         """
-        Records a runner's stats for one of their ads in one hour, and pays them for the spend. Send the ad's totals so far for an hour that started in the last 24 hours; they replace what the ad held for that hour, and its ad group's and campaign's hours are rebuilt from their ads. The spend can go up but never down. Reporting on a campaign starts with the hour of its first recorded report; earlier hours are refused. Spend over what is left of a budget (the runner's share of the day, the campaign's daily budget or the ad group's budget) is refused with the most the ad can record. Takes the runner's Whop session or a user OAuth token with `ad_campaign:update`. A token without that scope gets a 403, and anyone not holding the ad's campaign gets a 404.
+        Records a runner's stats for one of their ads in one hour, and pays them for the spend. Send the ad's totals so far for an hour that has started; they replace what the ad held for that hour, and its ad group's and campaign's hours are rebuilt from their ads. The spend can go up but never down. Hours before the runner's first report on the campaign can be reported too. The spend is recorded and paid exactly as sent, with no markup added, so send it with the runner's markup already applied. Takes the runner's Whop session, a user API key, or a user OAuth token with `ad_campaign:update`. A token without that scope gets a 403, and anyone not holding the ad's campaign gets a 404.
 
         Parameters
         ----------
@@ -1129,13 +1210,10 @@ class AsyncRawAdsClient:
             The ad's ID, prefixed `ad_`: the campaign's ad or the runner's copy of it.
 
         hour_started_at : dt.datetime
-            Start of the hour, on the hour, within the last 24 hours.
+            Start of the hour, on the hour, for an hour that has already started.
 
         spend : ReportStatsAdsRequestSpend
-            USD spent on the ad in the hour so far, to the cent.
-
-        clicks : typing.Optional[ReportStatsAdsRequestClicks]
-            The ad's clicks in the hour so far, at most `impressions`. Zero when left out.
+            The USD to be paid for the ad's hour so far, to the cent: what the ad spent plus any markup, such as 105.00 for 100.00 spent with a 5% markup.
 
         impressions : typing.Optional[ReportStatsAdsRequestImpressions]
             The ad's impressions in the hour so far. Zero when left out.
@@ -1154,9 +1232,6 @@ class AsyncRawAdsClient:
             method="POST",
             json={
                 "ad_id": ad_id,
-                "clicks": convert_and_respect_annotation_metadata(
-                    object_=clicks, annotation=ReportStatsAdsRequestClicks, direction="write"
-                ),
                 "hour_started_at": hour_started_at,
                 "impressions": convert_and_respect_annotation_metadata(
                     object_=impressions, annotation=ReportStatsAdsRequestImpressions, direction="write"
@@ -1181,17 +1256,6 @@ class AsyncRawAdsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             if _response.status_code == 401:
                 raise UnauthorizedError(
                     headers=dict(_response.headers),
@@ -1441,24 +1505,14 @@ class AsyncRawAdsClient:
     async def create(
         self,
         *,
-        ads_platform: typing.Optional[CreateAdsRequestXAdsPlatform] = None,
         ad_group: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         ad_group_id: typing.Optional[str] = OMIT,
         call_to_action: typing.Optional[CreateAdsRequestCallToAction] = OMIT,
         creatives: typing.Optional[typing.Sequence[CreateAdsRequestCreativesItem]] = OMIT,
         descriptions: typing.Optional[typing.Sequence[CreateAdsRequestDescriptionsItem]] = OMIT,
-        existing_post_id: typing.Optional[str] = OMIT,
-        external_accounts: typing.Optional[typing.Sequence[CreateAdsRequestExternalAccountsItem]] = OMIT,
         headlines: typing.Optional[typing.Sequence[CreateAdsRequestHeadlinesItem]] = OMIT,
-        lead_form: typing.Optional[CreateAdsRequestLeadForm] = OMIT,
-        lead_form_id: typing.Optional[str] = OMIT,
-        messaging_config: typing.Optional[CreateAdsRequestMessagingConfig] = OMIT,
-        multi_advertiser_ads: typing.Optional[bool] = OMIT,
-        music: typing.Optional[CreateAdsRequestMusic] = OMIT,
-        post_source: typing.Optional[CreateAdsRequestPostSource] = OMIT,
         primary_texts: typing.Optional[typing.Sequence[CreateAdsRequestPrimaryTextsItem]] = OMIT,
         title: typing.Optional[str] = OMIT,
-        translations: typing.Optional[CreateAdsRequestTranslations] = OMIT,
         url: typing.Optional[str] = OMIT,
         url_parameters: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -1468,9 +1522,6 @@ class AsyncRawAdsClient:
 
         Parameters
         ----------
-        ads_platform : typing.Optional[CreateAdsRequestXAdsPlatform]
-            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
-
         ad_group : typing.Optional[typing.Dict[str, typing.Any]]
             An inline ad group to create (same shape as POST /ad_groups, including ad_campaign_id). Creates the ad group and the ad together. Provide this OR ad_group_id.
 
@@ -1481,52 +1532,25 @@ class AsyncRawAdsClient:
             The call-to-action button shown on the ad.
 
         creatives : typing.Optional[typing.Sequence[CreateAdsRequestCreativesItem]]
-            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Entries with no format become a carousel's ordered cards, sharing the ad's copy — 2-10 of them on Meta, while TikTok runs even a single image as a one-card carousel.
+            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Entries with no format become a carousel's ordered cards, sharing the ad's copy.
 
         descriptions : typing.Optional[typing.Sequence[CreateAdsRequestDescriptionsItem]]
-            The description shown on the ad. Entries without a language are the ad's own copy; add one entry per other language on a Meta ad with `translations`.
-
-        existing_post_id : typing.Optional[str]
-            Promote a post you already published instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
-
-        external_accounts : typing.Optional[typing.Sequence[CreateAdsRequestExternalAccountsItem]]
-            The external accounts the ad runs under — a connected Facebook page and, optionally, an Instagram profile.
+            The description shown on the ad.
 
         headlines : typing.Optional[typing.Sequence[CreateAdsRequestHeadlinesItem]]
-            The headline shown on the ad. Entries without a language are the ad's own copy; add one entry per other language on a Meta ad with `translations`.
-
-        lead_form : typing.Optional[CreateAdsRequestLeadForm]
-            Instant lead form for the ad. Only allowed when the ad group's conversion_location is an instant-form destination (instant_forms, instant_forms_and_messenger, website_and_instant_forms). Mutually exclusive with lead_form_id.
-
-        lead_form_id : typing.Optional[str]
-            Use an existing instant form instead of creating one — the form's platform ID, from a form already on the ad's Facebook page. Only allowed when the ad group's conversion_location is an instant-form destination. Mutually exclusive with lead_form.
-
-        messaging_config : typing.Optional[CreateAdsRequestMessagingConfig]
-            Click-to-message welcome copy: the greeting (message) and the ice-breaker prompt (keyword).
-
-        multi_advertiser_ads : typing.Optional[bool]
-            Whether the ad can appear alongside other advertisers' ads in the same unit. Defaults to true.
-
-        music : typing.Optional[CreateAdsRequestMusic]
-            The looping track a TikTok carousel ad plays — an MP3 you uploaded, no larger than 10MB. Required for TikTok carousels (image creatives); TikTok-only.
-
-        post_source : typing.Optional[CreateAdsRequestPostSource]
-            Identifies the network that owns `existing_post_id`. The source is inferred from the ID shape when omitted.
+            The headline shown on the ad.
 
         primary_texts : typing.Optional[typing.Sequence[CreateAdsRequestPrimaryTextsItem]]
-            The primary text shown in the ad body. Entries without a language are the ad's own copy (several make text variations); add one entry per other language on a Meta ad with `translations`.
+            The primary text shown in the ad body. Several entries make text variations.
 
         title : typing.Optional[str]
             The display name of the ad.
-
-        translations : typing.Optional[CreateAdsRequestTranslations]
-            Shows a Meta ad in other languages. Each viewer sees the version for their language; everyone else sees the ad's own copy. Tag every copy and creatives entry with its language: the ad's own with `source_language`, and give every other language a `primary_texts` and `headlines` entry (a `descriptions` entry and a `creatives` entry are optional), or list it in `automatic_languages`. Needs a website destination, one image or video, and exactly one primary text and headline of the ad's own (and at most one description), with no Dynamic Creative or crops. Replaced as a whole when sent, so send `automatic_languages` with `source_language`. null turns translations off and deletes their media. Meta-only.
 
         url : typing.Optional[str]
             The URL the ad links to. Query parameters are merged into url_parameters, so the stored URL is always bare.
 
         url_parameters : typing.Optional[typing.Dict[str, typing.Any]]
-            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved and rejected if you set them. Which keys are reserved depends on the ad's network — Meta: utm_meta_ad_id, utm_meta_adset_id, utm_meta_campaign_id, utm_source, utm_placement, utm_medium, utm_content, utm_adset, utm_whop, wacid, wasid, waid, tw_source, tw_adid; TikTok: waid, wasid, wacid, ad_id, adset_id, campaign_id, utm_source, utm_medium, utm_placement, utm_whop, tw_source, tw_adid.
+            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved, and setting one returns an error that names it.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1534,7 +1558,7 @@ class AsyncRawAdsClient:
         Returns
         -------
         AsyncHttpResponse[Ad]
-            ad created from an existing post
+            ad created together with its ad group
         """
         _response = await self._client_wrapper.httpx_client.request(
             "ads",
@@ -1552,42 +1576,20 @@ class AsyncRawAdsClient:
                     annotation=typing.Sequence[CreateAdsRequestDescriptionsItem],
                     direction="write",
                 ),
-                "existing_post_id": existing_post_id,
-                "external_accounts": convert_and_respect_annotation_metadata(
-                    object_=external_accounts,
-                    annotation=typing.Sequence[CreateAdsRequestExternalAccountsItem],
-                    direction="write",
-                ),
                 "headlines": convert_and_respect_annotation_metadata(
                     object_=headlines, annotation=typing.Sequence[CreateAdsRequestHeadlinesItem], direction="write"
                 ),
-                "lead_form": convert_and_respect_annotation_metadata(
-                    object_=lead_form, annotation=CreateAdsRequestLeadForm, direction="write"
-                ),
-                "lead_form_id": lead_form_id,
-                "messaging_config": convert_and_respect_annotation_metadata(
-                    object_=messaging_config, annotation=CreateAdsRequestMessagingConfig, direction="write"
-                ),
-                "multi_advertiser_ads": multi_advertiser_ads,
-                "music": convert_and_respect_annotation_metadata(
-                    object_=music, annotation=typing.Optional[CreateAdsRequestMusic], direction="write"
-                ),
-                "post_source": post_source,
                 "primary_texts": convert_and_respect_annotation_metadata(
                     object_=primary_texts,
                     annotation=typing.Sequence[CreateAdsRequestPrimaryTextsItem],
                     direction="write",
                 ),
                 "title": title,
-                "translations": convert_and_respect_annotation_metadata(
-                    object_=translations, annotation=typing.Optional[CreateAdsRequestTranslations], direction="write"
-                ),
                 "url": url,
                 "url_parameters": url_parameters,
             },
             headers={
                 "content-type": "application/json",
-                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -1783,22 +1785,12 @@ class AsyncRawAdsClient:
         self,
         id: str,
         *,
-        ads_platform: typing.Optional[UpdateAdsRequestXAdsPlatform] = None,
         call_to_action: typing.Optional[UpdateAdsRequestCallToAction] = OMIT,
         creatives: typing.Optional[typing.Sequence[UpdateAdsRequestCreativesItem]] = OMIT,
         descriptions: typing.Optional[typing.Sequence[UpdateAdsRequestDescriptionsItem]] = OMIT,
-        existing_post_id: typing.Optional[str] = OMIT,
-        external_accounts: typing.Optional[typing.Sequence[UpdateAdsRequestExternalAccountsItem]] = OMIT,
         headlines: typing.Optional[typing.Sequence[UpdateAdsRequestHeadlinesItem]] = OMIT,
-        lead_form: typing.Optional[UpdateAdsRequestLeadForm] = OMIT,
-        lead_form_id: typing.Optional[str] = OMIT,
-        messaging_config: typing.Optional[UpdateAdsRequestMessagingConfig] = OMIT,
-        multi_advertiser_ads: typing.Optional[bool] = OMIT,
-        music: typing.Optional[UpdateAdsRequestMusic] = OMIT,
-        post_source: typing.Optional[UpdateAdsRequestPostSource] = OMIT,
         primary_texts: typing.Optional[typing.Sequence[UpdateAdsRequestPrimaryTextsItem]] = OMIT,
         title: typing.Optional[str] = OMIT,
-        translations: typing.Optional[UpdateAdsRequestTranslations] = OMIT,
         url: typing.Optional[str] = OMIT,
         url_parameters: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -1811,59 +1803,29 @@ class AsyncRawAdsClient:
         id : str
             The ad ID.
 
-        ads_platform : typing.Optional[UpdateAdsRequestXAdsPlatform]
-            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
-
         call_to_action : typing.Optional[UpdateAdsRequestCallToAction]
             The call-to-action button shown on the ad.
 
         creatives : typing.Optional[typing.Sequence[UpdateAdsRequestCreativesItem]]
-            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Replaces a live ad's creative on the platform. Entries with no format replace it with a carousel's ordered cards — 2-10 of them on Meta, while TikTok runs even a single image as a one-card carousel.
+            The ad's creative assets. Each entry is an uploaded file id with an optional format; omit format for the original asset. Replaces a live ad's creative. Entries with no format replace it with a carousel's ordered cards.
 
         descriptions : typing.Optional[typing.Sequence[UpdateAdsRequestDescriptionsItem]]
-            The description shown on the ad. Entries without a language are the ad's own copy; add one entry per other language on a Meta ad with `translations`.
-
-        existing_post_id : typing.Optional[str]
-            Promote a post you already published instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
-
-        external_accounts : typing.Optional[typing.Sequence[UpdateAdsRequestExternalAccountsItem]]
-            The external accounts the ad runs under — a connected Facebook page and, optionally, an Instagram profile.
+            The description shown on the ad.
 
         headlines : typing.Optional[typing.Sequence[UpdateAdsRequestHeadlinesItem]]
-            The headline shown on the ad. Entries without a language are the ad's own copy; add one entry per other language on a Meta ad with `translations`.
-
-        lead_form : typing.Optional[UpdateAdsRequestLeadForm]
-            Instant lead form for the ad. Only allowed when the ad group's conversion_location is an instant-form destination (instant_forms, instant_forms_and_messenger, website_and_instant_forms). Mutually exclusive with lead_form_id.
-
-        lead_form_id : typing.Optional[str]
-            Use an existing instant form instead of creating one — the form's platform ID, from a form already on the ad's Facebook page. Only allowed when the ad group's conversion_location is an instant-form destination. Mutually exclusive with lead_form. Replaces a stored lead_form.
-
-        messaging_config : typing.Optional[UpdateAdsRequestMessagingConfig]
-            Click-to-message welcome copy: the greeting (message) and the ice-breaker prompt (keyword).
-
-        multi_advertiser_ads : typing.Optional[bool]
-            Whether the ad can appear alongside other advertisers' ads in the same unit. Defaults to true.
-
-        music : typing.Optional[UpdateAdsRequestMusic]
-            The looping track a TikTok carousel ad plays — an MP3 you uploaded, no larger than 10MB. Omitted leaves the ad's music untouched. Null removes it before launch; a submitted carousel takes a replacement track instead. TikTok-only.
-
-        post_source : typing.Optional[UpdateAdsRequestPostSource]
-            Identifies the network that owns `existing_post_id`. The source is inferred from the ID shape when omitted.
+            The headline shown on the ad.
 
         primary_texts : typing.Optional[typing.Sequence[UpdateAdsRequestPrimaryTextsItem]]
-            The primary text shown in the ad body. Entries without a language are the ad's own copy (several make text variations); add one entry per other language on a Meta ad with `translations`.
+            The primary text shown in the ad body. Several entries make text variations.
 
         title : typing.Optional[str]
             The display name of the ad.
-
-        translations : typing.Optional[UpdateAdsRequestTranslations]
-            Shows a Meta ad in other languages. Each viewer sees the version for their language; everyone else sees the ad's own copy. Tag every copy and creatives entry with its language: the ad's own with `source_language`, and give every other language a `primary_texts` and `headlines` entry (a `descriptions` entry and a `creatives` entry are optional), or list it in `automatic_languages`. Needs a website destination, one image or video, and exactly one primary text and headline of the ad's own (and at most one description), with no Dynamic Creative or crops. Replaced as a whole when sent, so send `automatic_languages` with `source_language`. null turns translations off and deletes their media. Meta-only.
 
         url : typing.Optional[str]
             The URL the ad links to. Query parameters are merged into url_parameters, so the stored URL is always bare.
 
         url_parameters : typing.Optional[typing.Dict[str, typing.Any]]
-            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved and rejected if you set them. Which keys are reserved depends on the ad's network — Meta: utm_meta_ad_id, utm_meta_adset_id, utm_meta_campaign_id, utm_source, utm_placement, utm_medium, utm_content, utm_adset, utm_whop, wacid, wasid, waid, tw_source, tw_adid; TikTok: waid, wasid, wacid, ad_id, adset_id, campaign_id, utm_source, utm_medium, utm_placement, utm_whop, tw_source, tw_adid.
+            Query parameters to append to the destination URL, keyed by parameter name. Merged with any query string on `url`. Whop adds its own click-attribution parameters; those are reserved, and setting one returns an error that names it.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1871,7 +1833,7 @@ class AsyncRawAdsClient:
         Returns
         -------
         AsyncHttpResponse[Ad]
-            ad switched to an existing post
+            ad updated
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"ads/{encode_path_param(id)}",
@@ -1887,42 +1849,20 @@ class AsyncRawAdsClient:
                     annotation=typing.Sequence[UpdateAdsRequestDescriptionsItem],
                     direction="write",
                 ),
-                "existing_post_id": existing_post_id,
-                "external_accounts": convert_and_respect_annotation_metadata(
-                    object_=external_accounts,
-                    annotation=typing.Sequence[UpdateAdsRequestExternalAccountsItem],
-                    direction="write",
-                ),
                 "headlines": convert_and_respect_annotation_metadata(
                     object_=headlines, annotation=typing.Sequence[UpdateAdsRequestHeadlinesItem], direction="write"
                 ),
-                "lead_form": convert_and_respect_annotation_metadata(
-                    object_=lead_form, annotation=UpdateAdsRequestLeadForm, direction="write"
-                ),
-                "lead_form_id": lead_form_id,
-                "messaging_config": convert_and_respect_annotation_metadata(
-                    object_=messaging_config, annotation=UpdateAdsRequestMessagingConfig, direction="write"
-                ),
-                "multi_advertiser_ads": multi_advertiser_ads,
-                "music": convert_and_respect_annotation_metadata(
-                    object_=music, annotation=typing.Optional[UpdateAdsRequestMusic], direction="write"
-                ),
-                "post_source": post_source,
                 "primary_texts": convert_and_respect_annotation_metadata(
                     object_=primary_texts,
                     annotation=typing.Sequence[UpdateAdsRequestPrimaryTextsItem],
                     direction="write",
                 ),
                 "title": title,
-                "translations": convert_and_respect_annotation_metadata(
-                    object_=translations, annotation=typing.Optional[UpdateAdsRequestTranslations], direction="write"
-                ),
                 "url": url,
                 "url_parameters": url_parameters,
             },
             headers={
                 "content-type": "application/json",
-                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -1951,7 +1891,6 @@ class AsyncRawAdsClient:
         id: str,
         *,
         count: typing.Optional[int] = OMIT,
-        preserve_engagement: typing.Optional[bool] = OMIT,
         target_ad_group_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[DuplicateAdsResponse]:
@@ -1965,9 +1904,6 @@ class AsyncRawAdsClient:
 
         count : typing.Optional[int]
             Number of copies to create (1-10). Defaults to 1.
-
-        preserve_engagement : typing.Optional[bool]
-            Whether the copies keep the original post's engagement (likes, comments, shares). Defaults to false.
 
         target_ad_group_id : typing.Optional[str]
             Ad group to duplicate into, which must belong to the same account and be compatible with the ad. Defaults to the ad's own ad group.
@@ -1986,7 +1922,6 @@ class AsyncRawAdsClient:
             method="POST",
             json={
                 "count": count,
-                "preserve_engagement": preserve_engagement,
                 "target_ad_group_id": target_ad_group_id,
             },
             headers={

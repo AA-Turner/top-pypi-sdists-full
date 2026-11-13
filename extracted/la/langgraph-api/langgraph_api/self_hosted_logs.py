@@ -109,7 +109,9 @@ def initialize_self_hosted_logs() -> None:
         if instance_id:
             _customer_attributes["instance_id"] = instance_id
 
-        if config.IS_QUEUE_ENTRYPOINT:
+        if config.IS_EXECUTOR_ENTRYPOINT:
+            _customer_attributes["entrypoint"] = "executor"
+        elif config.IS_QUEUE_ENTRYPOINT:
             _customer_attributes["entrypoint"] = "queue"
         else:
             _customer_attributes["entrypoint"] = "api"

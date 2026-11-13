@@ -1,0 +1,209 @@
+"""What a producer says about its per-sample metrics (`PlanIn.training`): whether it sends loss bookkeeping, how the
+framework reduces each per-sample key into its own logged series (an ordered list of grouping levels, each with a
+reducer: series reads, the step finalizer and the trainer check all follow it), and what it cannot capture, with
+why. A key with no declaration reads as the plain weighted mean, like a run's `mean`."""
+
+from __future__ import annotations
+
+import fnmatch
+from collections.abc import Mapping
+from typing import Annotated
+
+from pydantic import BaseModel, Field, model_validator
+
+from ....compat import StrEnum
+from ..outcome import SampleSplit
+from .points import MAX_POINT_METRICS, Dtype, LossRole, PointKey
+
+MAX_UNSUPPORTED = 64
+MAX_UNSUPPORTED_CHARS = 1024
+MAX_APPROXIMATE_CHARS = 512
+#: The longest logging window a rollup declares (TRL `logging_steps` is 500 by default).
+MAX_LOGGING_WINDOW = 100_000
+MAX_LEVELS = 6
+
+
+class RollupSource(StrEnum):
+    """What the finest group's value is made from."""
+
+    VALUE = "value"  # the key's per-sample values and weights
+    CONTRIBUTION = "contribution"  # the rows' contributions, or one `term` of them (a loss: dr_grpo, dapo, Miles)
+
+
+class Reducer(StrEnum):
+    """How one level folds the groups below it. On the stored rows (the first level): `sum` is sum(value x weight),
+    `mean` the plain mean of each call's weighted mean, `min` / `max` the rows' own extremes."""
+
+    WEIGHTED_MEAN = "weighted_mean"  # sum(value x weight) / sum(weight), pooled
+    MEAN = "mean"
+    SUM = "sum"
+    MIN = "min"
+    MAX = "max"
+
+
+class Grouping(StrEnum):
+    """What one level's groups are, finest first. A level groups strictly coarser than the level before it."""
+
+    MICRO_BATCH = "micro_batch"  # one call on one rank (the finest group stored)
+    CALL = "call"  # one call (the micro-batch ordinal every process shares) across ranks
+    RANK = "rank"  # one rank's whole update
+    UPDATE = "update"  # one optimizer update (or eval pass) across ranks
+    STEP = "step"
+
+
+#: Each grouping's keys among (step, update, rank, micro_batch).
+GROUPING_KEYS: dict[Grouping, frozenset[str]] = {
+    Grouping.MICRO_BATCH: frozenset({"step", "update", "rank", "micro_batch"}),
+    Grouping.CALL: frozenset({"step", "update", "micro_batch"}),
+    Grouping.RANK: frozenset({"step", "update", "rank"}),
+    Grouping.UPDATE: frozenset({"step", "update"}),
+    Grouping.STEP: frozenset({"step"}),
+}
+
+
+#: The groupings a framework logs its series per (`Rollup.logged_per`).
+LOGGED_PER = frozenset({Grouping.STEP, Grouping.UPDATE})
+
+
+class RollupLevel(BaseModel):
+    by: Grouping
+    reducer: Reducer
+
+
+class Rollup(BaseModel):
+    """How the framework computes the run-level series of one per-sample key (or every key a `*` pattern matches).
+    verl / SkyRL `update_mean`: [update: sum (the weight is the row's share of the update), step: mean]; TRL: [call:
+    mean of each rank's weighted mean, step: mean]; `clip_ratio/low_min`: [micro_batch: min, step: min]. A pass's
+    declared denominator (`UpdateIn.denominators`) replaces sum(weight) where a level groups by update with
+    `weighted_mean`; padding micro-batches (`UpdateIn.padding_micro_batches`) count as 0 where a level takes a mean."""
+
+    #: The run's own key, where the framework's series of this key lands (TRL through the HF callback: `train/loss` for
+    #: `loss`): the trainer check reads it and the derived points land on it. None: the per-sample key's own name.
+    run_key: PointKey | None = None
+    split: SampleSplit = SampleSplit.TRAIN
+    #: The model whose rows and update records it folds (a critic's value loss: critic), never the other's.
+    role: LossRole = LossRole.ACTOR
+    source: RollupSource = RollupSource.VALUE
+    #: With source contribution: one `contribution_terms` entry instead of the whole contribution.
+    term: PointKey | None = None
+    #: Finest first, ending at `step`.
+    levels: list[RollupLevel] = Field(
+        default_factory=lambda: [RollupLevel(by=Grouping.STEP, reducer=Reducer.WEIGHTED_MEAN)],
+        min_length=1, max_length=MAX_LEVELS,
+    )  # fmt: skip
+    #: The precision the framework computed it in: the trainer check's tolerance (`TOLERANCES`).
+    dtype: Dtype = Dtype.FP32
+    #: The framework's own series is approximate, and why (TRL's `eval_loss` repeats the last eval batch through
+    #: `gather_for_metrics`): the check shows both numbers and never calls the step unreconciled for it.
+    approximate: str | None = Field(default=None, min_length=1, max_length=MAX_APPROXIMATE_CHARS)
+    #: The framework logs the key every N steps, pooling every call since its last log before the step level (TRL
+    #: `logging_steps`): the trainer check compares its point at step S with the declared levels over steps
+    #: S - N + 1 .. S (from the step after its previous point), or reads unchecked when it cannot see them all.
+    #: None or 1: every step. Series reads and derived points stay per step.
+    logging_window: int | None = Field(default=None, ge=1, le=MAX_LOGGING_WINDOW)
+    #: How often the framework logs its series: `step` (one point per step), or `update` (Miles with
+    #: `num_steps_per_rollout` > 1: one point per optimizer update at step x updates_in_step + update, `updates_in_step`
+    #: from the step's whole-update record). With `update` the levels fold to the update for the trainer check and the
+    #: derived points; the step level still answers a series read by step or by run. Train only, no logging window.
+    logged_per: Grouping = Grouping.STEP
+
+    @model_validator(mode="after")
+    def _check(self) -> Rollup:
+        if self.levels[-1].by is not Grouping.STEP:
+            raise ValueError("a rollup's last level groups by step")
+        for finer, coarser in zip(self.levels, self.levels[1:], strict=False):
+            if not GROUPING_KEYS[coarser.by] < GROUPING_KEYS[finer.by]:
+                raise ValueError(f"level {coarser.by.value} does not group coarser than {finer.by.value}")
+        if self.term is not None and self.source is not RollupSource.CONTRIBUTION:
+            raise ValueError("a term is one of the contributions: source contribution")
+        if self.logged_per not in LOGGED_PER:
+            raise ValueError("logged_per is step or update")
+        if self.logged_per is Grouping.UPDATE and self.split is not SampleSplit.TRAIN:
+            raise ValueError("an eval pass is never logged per update: logged_per update is split train")
+        if self.logged_per is Grouping.UPDATE and (self.logging_window or 1) > 1:
+            raise ValueError("a series logged per update has no logging window")
+        return self
+
+
+#: What could not be captured, in the producer's words (`per_sample_loss`), and why.
+UnsupportedWhat = Annotated[str, Field(min_length=1, max_length=128)]
+UnsupportedWhy = Annotated[str, Field(min_length=1, max_length=MAX_UNSUPPORTED_CHARS)]
+
+
+class TrainingPlan(BaseModel):
+    """One producer's declaration, replaced whole each time it is sent."""
+
+    sends_loss_bookkeeping: bool = False
+    #: By per-sample key, or a `*` pattern (`clip_ratio/*`); an exact key wins over a pattern.
+    rollups: dict[PointKey, Rollup] = Field(default_factory=dict, max_length=MAX_POINT_METRICS)
+    #: What this producer cannot capture, in its own words: a key or key pattern it never sends, a path it does not
+    #: prove (a loss type, a trainer class), or `*` when it stopped capturing for this whole run (it names every key).
+    unsupported: dict[UnsupportedWhat, UnsupportedWhy] = Field(default_factory=dict, max_length=MAX_UNSUPPORTED)
+
+    @model_validator(mode="after")
+    def _check(self) -> TrainingPlan:
+        """Derived points land on each rollup's `run_key` (else its key): a pattern's keys would collapse onto one
+        series, two rollups on one series in one split would hide one of them, and one series logged per step in one
+        split and per update in another has no one step axis (nor do a pattern and a key it matches, either way round,
+        one logged per step and one per update: `train/kl` and `train/*`)."""
+        series: dict[tuple[str, SampleSplit], str] = {}
+        axes: dict[Grouping, list[tuple[str, str]]] = {Grouping.STEP: [], Grouping.UPDATE: []}
+        for key, rollup in sorted(self.rollups.items()):
+            if rollup.run_key is not None and is_pattern(key):
+                raise ValueError(f"rollup {key!r} is a pattern: it names no run_key")
+            name = rollup.run_key or key
+            if (name, rollup.split) in series:
+                raise ValueError(f"rollups {series[(name, rollup.split)]!r} and {key!r} both land on {name!r}")
+            series[(name, rollup.split)] = key
+            axes[rollup.logged_per].append((name, key))
+        for name, key in axes[Grouping.UPDATE]:
+            for other, first in axes[Grouping.STEP]:
+                if fnmatch.fnmatchcase(name, other) or fnmatch.fnmatchcase(other, name):
+                    raise ValueError(f"rollups {first!r} and {key!r} land on {other!r} and {name!r}, one series, one "
+                                     "logged per step and one per update")  # fmt: skip
+        return self
+
+
+#: The marks that make a key a pattern (`fnmatch`): `*`, `?` and a `[...]` group.
+PATTERN_MARKS = "*?["
+
+
+def is_pattern(key: str) -> bool:
+    return any(mark in key for mark in PATTERN_MARKS)
+
+
+def get_pattern_specificity(pattern: str) -> int:
+    """How much of a key a pattern pins: its literal characters, a `?` or a whole `[...]` group counting one and `*`
+    none (`train/critic-*` 13 > `train/*` 6 > `*` 0), so the most specific of several matching patterns can win. A
+    group is read as `fnmatch.translate` reads it: an optional `!`, then a `]` right there is a member, and a `[` with
+    no closing `]` is a literal character."""
+    count, index, end = 0, 0, len(pattern)
+    while index < end:
+        char = pattern[index]
+        index += 1
+        if char == "*":
+            continue
+        if char == "[":
+            close = index
+            if close < end and pattern[close] == "!":
+                close += 1
+            if close < end and pattern[close] == "]":
+                close += 1
+            close = pattern.find("]", close)
+            if close != -1:
+                index = close + 1  # the whole group is one character
+        count += 1
+    return count
+
+
+def find_rollup(rollups: Mapping[str, Rollup], key: str, split: str | None = None) -> Rollup | None:
+    """The rollup declared for `key` (in `split` when given): its own, else the most specific pattern that matches
+    it (`get_pattern_specificity`; a tie: the first in sorted order), as `find_unsupported` picks a reason."""
+    found = rollups.get(key)
+    if found is None:
+        matches = sorted((-get_pattern_specificity(name), name) for name in rollups
+                         if is_pattern(name) and fnmatch.fnmatchcase(key, name))  # fmt: skip
+        found = rollups[matches[0][1]] if matches else None
+    if found is not None and split is not None and found.split.value != split:
+        return None
+    return found

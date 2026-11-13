@@ -23,6 +23,7 @@ from .recorders import pick_recorder
 from .rows import CollatedRows, RowReader, ScenarioSpec, make_prompt_key, read_labeled_rows
 from .run_key import KEY_FILE, KEY_FOLDER, KEY_PREFIX, RunKey, find_legacy_parent, make_run_key
 from .runs import drop_wandb, get_config, get_identity, get_rewind_step, get_teacher_ref, read_resume_step
+from .training import TrainingRecorder
 
 #: The producer a TRL process writes samples as: generation and training share one process.
 PRODUCER = "trl"
@@ -55,6 +56,7 @@ def track(
     found = _TRACKERS.get(id(trainer))
     tracker = found[1] if found is not None and found[0]() is trainer else None
     if tracker is not None and not tracker.is_finished:
+        tracker.guard.call("per-sample metrics", tracker.reset_training)
         return tracker
     tracker = TrlTracker(
         trainer, scenario=scenario, should_record_sft=record_sft, teacher=teacher, sft_generated_by=sft_generated_by,
@@ -93,6 +95,10 @@ class TrlTracker:
         #: This producer's running samples (`live.LiveBatch`), once the run is open.
         self.live: LiveAttempts | None = None
         self.recorder: Any = None
+        #: Per-sample training metrics (`training/`), on every process.
+        self.training: TrainingRecorder | None = None
+        #: The newest generation call's (step, ordinal) by split (`take_call`): a sample key's step and call.
+        self.last_calls: dict[str, tuple[int, int]] = {}
         self.floor = 0
         #: `training_step` calls since the last optimizer step: where a generation sits inside its step.
         self.micro_index = 0
@@ -129,6 +135,8 @@ class TrlTracker:
             return
         self.is_finished = True
         try:
+            if self.training is not None:
+                self.guard.call("per-sample metrics", self.training.close)
             self._close(should_finish=self._is_owner, status=status)
         finally:
             self._unwrap()
@@ -142,11 +150,35 @@ class TrlTracker:
             self._close(should_finish=False, status=None)
 
     # -- what recorders call ---------------------------------------------------------------------------------
+    def send_training_plan(self) -> None:
+        """Declare the per-sample training side again once it is known better (the loss's dtype, a pass it cannot
+        send): a `TrainingPlan` replaces this producer's last one whole."""
+        training = self.training.get_plan() if self.training is not None else None
+        if training is not None and self.samples is not None:
+            self.guard.call("per-sample metrics", self.samples.plan, training=training)
+
     def install(self, target: Any, name: str, value: Any) -> None:
         """``value`` as ``target.name`` on this instance alone; `finish()` puts the old one back."""
         before = getattr(target, "__dict__", {}).get(name, _MISSING)
         object.__setattr__(target, name, value)
         self._installed.append((target, name, value, before))
+
+    def uninstall(self, target: Any, name: str, value: Any) -> None:
+        """Take one `install` off now (a closed per-sample recorder's), putting back what it covered."""
+        for index, entry in enumerate(self._installed):
+            if entry[0] is target and entry[1] == name and entry[2] is value:
+                del self._installed[index]
+                _put_back(*entry)
+                return
+
+    def reset_training(self) -> None:
+        """A trainer tracked again after another's `train()` closed its per-sample recorder: a fresh one, with the
+        next handoff, made here on every process as the main process makes a new tracker (`_finish_trained_runs`)."""
+        if self.training is None or not self.training.is_closed:
+            return
+        self.training = None
+        self._setup_training()
+        self.send_training_plan()
 
     def remember_collated_rows(self, *, should_carry: bool = False) -> None:
         """GKD and GOLD train on collated tensors: the trainer's collator (read when `train()` builds its dataloader)
@@ -206,6 +238,7 @@ class TrlTracker:
         reserves that many in a row (GOLD's buffered slices) and returns the first."""
         ordinal = self._ordinals[(split, step)]
         self._ordinals[(split, step)] += max(1, count)
+        self.last_calls[split] = (step, ordinal)
         return ordinal
 
     def start_live(self, starts: list[dict]) -> LiveBatch:
@@ -281,12 +314,12 @@ class TrlTracker:
                                                                           "scenario": {}}
 
     def decode_text(self, ids: list[int]) -> str:
-        tokenizer = self._get_tokenizer()
+        tokenizer = self.get_tokenizer()
         return str(tokenizer.decode(ids, skip_special_tokens=True)) if tokenizer is not None and ids else ""
 
     def decode_tokens(self, ids: list[int]) -> list[str] | None:
         """One string per token (the adapter has the tokenizer, the server does not)."""
-        tokenizer = self._get_tokenizer()
+        tokenizer = self.get_tokenizer()
         if tokenizer is None or not ids:
             return None
         return [str(text) for text in tokenizer.batch_decode([[token] for token in ids])]
@@ -298,6 +331,8 @@ class TrlTracker:
 
     def handle_step_end(self, step: int) -> None:
         self.micro_index = 0
+        if self.training is not None and not self.is_finished:
+            self.guard.call("a per-sample update", self.training.handle_step_end, step)
         if self.is_recording():
             self.guard.call("a step", self._end_step, step)
 
@@ -315,6 +350,8 @@ class TrlTracker:
             self.guard.call("a checkpoint", self.recorder.handle_save, step, {"uri": local_file_uri(folder), "step": step})
 
     def handle_train_end(self, step: int) -> None:
+        if self.training is not None and not self.is_finished:
+            self.guard.call("a per-sample update", self.training.handle_train_end)
         if self.run is not None and self.is_main and not self.is_finished:
             self._send_seals_safely(step)
             self._close(should_finish=False, status=None)
@@ -333,12 +370,19 @@ class TrlTracker:
         self.trainer.add_callback(self._callback)
         if self.recorder is not None:
             self.recorder.install()
-        else:
+        self.guard.call("per-sample metrics", self._setup_training)
+        if self.recorder is None:
             _diagnostics.warn(
                 f"probe: track() records samples for GRPO, RLOO, AsyncGRPO and the distillation trainers (SFT with "
                 f"record_sft=True); {type(self.trainer).__name__} gets its run and checkpoints only. Its metrics come "
                 "from report_to='probe'."
             )
+
+    def _setup_training(self) -> None:
+        """Per-sample training metrics: their wraps sit outside the recorder's (a generation's key comes first)."""
+        training = TrainingRecorder(self)
+        training.setup()
+        self.training = training
 
     def _wrap_trainer(self) -> None:
         trainer = self.trainer
@@ -348,9 +392,19 @@ class TrlTracker:
         @functools.wraps(train)
         def call_train(*args: Any, **kwargs: Any) -> Any:
             if not self.is_finished:
+                _close_other_trainings(self)
+            training = self.training if not self.is_finished and not getattr(self.training, "is_closed", True) \
+                else None  # fmt: skip
+            if not self.is_finished:
                 resume = kwargs.get("resume_from_checkpoint", args[0] if args else None)
                 self.guard.call("the run", self._open_for_train, resume)
-            return train(*args, **kwargs)
+                if training is not None:  # the main process leaves its run's id for the others here
+                    self.guard.call("per-sample metrics", training.handle_train_start)
+            try:
+                return train(*args, **kwargs)
+            finally:  # a crash still sends the update it cut off (its rows read undeclared)
+                if training is not None:
+                    self.guard.call("per-sample metrics", training.handle_train_end)
 
         @functools.wraps(training_step)
         def call_training_step(model: Any, inputs: Any, *args: Any, **kwargs: Any) -> Any:
@@ -405,6 +459,12 @@ class TrlTracker:
             plan["reward_max"] = self._reward_max
         if self.max_staleness is not None:
             plan["max_staleness"] = self.max_staleness
+        training = self.training.get_plan() if self.training is not None else None
+        if training is not None:
+            plan["training"] = training
+        unsupported = self.guard.call("what TRL cannot capture", self.recorder.get_unsupported) if self.recorder else None
+        if unsupported:
+            plan["unsupported"] = unsupported
         self.samples.plan(**plan)
         refuse_commands(self.samples, COMMAND_REFUSAL)
         _rl_owner.close_at_exit(self)
@@ -482,27 +542,44 @@ class TrlTracker:
             final_step=final, should_finish=should_finish, status=status,
         )
 
-    def _get_tokenizer(self) -> Any:
+    def get_tokenizer(self) -> Any:
         processing = getattr(self.trainer, "processing_class", None)
         return getattr(processing, "tokenizer", None) or processing
 
     def _unwrap(self) -> None:
-        for target, name, value, before in reversed(self._installed):
-            try:
-                if target.__dict__.get(name) is not value:
-                    continue  # another wrap went on top: ours passes through
-                if before is _MISSING:
-                    del target.__dict__[name]
-                else:
-                    object.__setattr__(target, name, before)
-            except Exception:  # noqa: BLE001 -- an object that will not give it back keeps the wrap
-                pass
+        for entry in reversed(self._installed):
+            _put_back(*entry)
         self._installed.clear()
         if self._callback is not None:
             try:
                 self.trainer.remove_callback(self._callback)
             except Exception:  # noqa: BLE001 -- a trainer that lost it already: nothing left to take off
                 pass
+
+
+def _put_back(target: Any, name: str, value: Any, before: Any) -> None:
+    try:
+        if target.__dict__.get(name) is not value:
+            return  # another wrap went on top: ours passes through
+        if before is _MISSING:
+            del target.__dict__[name]
+        else:
+            object.__setattr__(target, name, before)
+    except Exception:  # noqa: BLE001 -- an object that will not give it back keeps the wrap
+        pass
+
+
+def _close_other_trainings(current: TrlTracker) -> None:
+    """``current``'s `train()` begins: every other tracker's per-sample recorder whose training ENDED closes, on every
+    process (the main process finishes their runs too, `_finish_trained_runs`). Trainers alternated in a loop then
+    send each round to its own run: a trainer tracked again gets a fresh recorder and handoff (`reset_training`). A
+    recorder tracked up front and not trained yet stays open (`track(a); track(b); a.train(); b.train()`)."""
+    for _ref, tracker in list(_TRACKERS.values()):
+        training = tracker.training
+        if (tracker is current or tracker.is_finished or training is None or training.is_training
+                or not training.has_trained):  # fmt: skip
+            continue
+        tracker.guard.call("per-sample metrics", training.close)
 
 
 def _finish_trained_runs() -> None:

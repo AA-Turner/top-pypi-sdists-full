@@ -1,18 +1,21 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: compress_json
-Version: 1.1.1
+Version: 1.1.2
 Summary: The missing Python utility to read and write large compressed JSONs.
-Home-page: https://github.com/LucaCappelletti94/compress_json
-Author: Luca Cappelletti
-Author-email: cappelletti.luca94@gmail.com
-License: MIT
-Platform: UNKNOWN
+Author-email: Luca Cappelletti <cappelletti.luca94@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/LucaCappelletti94/compress_json
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Description-Content-Type: text/markdown
-Provides-Extra: test
 License-File: LICENSE
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-readme; extra == "test"
+Requires-Dist: validate_version_code; extra == "test"
+Requires-Dist: random_dict; extra == "test"
+Requires-Dist: dict_hash; extra == "test"
+Dynamic: license-file
 
 # compress_json
 
@@ -20,8 +23,7 @@ License-File: LICENSE
 [![python](https://img.shields.io/pypi/pyversions/compress-json.svg)](https://pypi.org/project/compress-json/)
 [![license](https://img.shields.io/pypi/l/compress-json.svg)](https://pypi.org/project/compress-json/)
 [![downloads](https://pepy.tech/badge/compress-json)](https://pepy.tech/project/compress-json)
-[![Github Actions](https://github.com/LucaCappelletti94/ugly_csv_generator/actions/workflows/python.yml/badge.svg)](https://github.com/LucaCappelletti94/ugly_csv_generator/actions/)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/6aa4b62b4ed34f7d8e2c37ef09848294)](https://app.codacy.com/gh/LucaCappelletti94/compress_json/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+[![Github Actions](https://github.com/LucaCappelletti94/compress_json/actions/workflows/python.yml/badge.svg)](https://github.com/LucaCappelletti94/compress_json/actions/workflows/python.yml)
 
 The missing Python utility to read and write compressed JSONs.
 
@@ -170,7 +172,13 @@ D4 = compress_json.load(
 assert D == D4
 ```
 
+## Building
+
+Run `uv build` to create the source distribution and wheel.
+
+## Releasing
+
+Set a new version in `compress_json/__version__.py` and publish a GitHub release with a matching tag, optionally prefixed with `v`. The `publish.yml` workflow tests, builds, and publishes the source distribution and wheel through the `pypi` environment using PyPI Trusted Publishing.
+
 ## License
 The library is released under the MIT license.
-
-

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: repo-standards
-Version: 6.23.2
+Version: 7.0.0
 Summary: Deterministic pull-request sizing and reviewed repository policy
 Keywords: architecture,github-actions,lint,openapi,repository
 Author: sarj-ai
@@ -26,9 +26,7 @@ Description-Content-Type: text/markdown
 
 # repo-standards
 
-`repo-standards` measures pull-request review size without executing repository code. Its
-repository rules are available for review but remain disabled until individually approved
-and explicitly activated by a consumer.
+`repo-standards` measures pull-request review size without executing repository code.
 
 ## Where rules belong
 
@@ -93,5 +91,5 @@ publication or GitHub Release from the same verified source revision.
 ## GitHub Action
 
 ```yaml
-- uses: sarj-ai/repo-standards@0f8e73a80c62670f5fd5ea41d79c1c63b6695d7d # v6.23.2
+- uses: sarj-ai/repo-standards@fb64668d4598c8a781e04009abe856483ceacdba # v7.0.0
 ```

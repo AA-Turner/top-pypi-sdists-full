@@ -516,3 +516,53 @@ test('every table line in the channel message and the thread fits a phone', () =
   assert.ok(widestCodeLine(text) <= PHONE_WIDTH, `channel table is ${widestCodeLine(text)} wide`);
   assert.ok(widestCodeLine(thread[0]) <= PHONE_WIDTH, `thread table is ${widestCodeLine(thread[0])} wide`);
 });
+
+const ROME = { 'AuthenticAMD 143/49': 1 };
+const BROADWELL = { 'GenuineIntel 6/79': 1 };
+const on = (serverCpus) => () => ({ serverCpus });
+
+test('a slow night on an older cpu is compared only with nights on that cpu, so it is no regression', () => {
+  const past = [...nights([9.6, 9.9, 10.2], on(BROADWELL)), ...nights([4.5, 4.5, 4.5, 4.5, 4.5, 4.5], on(ROME))];
+  const tonight = { ...healthyMetrics, p95Duration: 10.1, serverCpus: BROADWELL };
+  const { text, thread } = buildDigest([run('wait_write', { summary: { metrics: tonight }, history: past })], base);
+  assert.match(text, /^🟢 \*Daily Benchmark · Aug 17\* · API 0\.14\.0 · intel broadwell · 1 of 1 passed · all quiet$/m);
+  assert.doesNotMatch(text, /Regressed:/, 'against the rome nights this would be +124%');
+  assert.match(text, /^_3 of 5 nights of history on this cpu, no change flags yet_$/m);
+  assert.match(thread[0], /^wait_write: 133,000 runs, 0 failed · intel broadwell · vs 3 nights: /m);
+});
+
+test('a regression on the same cpu is still flagged', () => {
+  const past = nights([4.5, 4.5, 4.5, 4.5, 4.5, 4.5], on(ROME));
+  const { text } = buildDigest([run('wait_write', { summary: { metrics: { ...healthyMetrics, p95Duration: 9.0, serverCpus: ROME } }, history: past })], base);
+  assert.match(text, /^\*Regressed:\* wait_write p95 4\.5 → 9\.0 s \(\+100%\)$/m);
+});
+
+test('a night on a different cpu than the night before says so instead of flagging', () => {
+  const past = nights([4.5, 4.5, 4.5, 4.5, 4.5, 4.5], on(ROME));
+  const { text } = buildDigest([run('stream_write', { summary: { metrics: { ...healthyMetrics, p95Duration: 9.0, serverCpus: BROADWELL } }, history: past })], base);
+  assert.match(text, /^\*New machine:\* stream_write on intel broadwell \(was amd rome\) · compared only with nights on the same cpu$/m);
+  assert.doesNotMatch(text, /Regressed:/);
+  assert.match(text, /^_0 of 5 nights of history on this cpu, no change flags yet_$/m);
+  assert.match(text, /^stream\s+9\.0 [▁-█]+$/m, 'the trend still draws every night');
+});
+
+test('nights before the probe keep comparing with each other', () => {
+  const past = nights([4.5, 4.5, 4.5, 4.5, 4.5, 4.5]);
+  const { text } = buildDigest([run('wait_write', { summary: { metrics: { ...healthyMetrics, p95Duration: 9.0 } }, history: past })], base);
+  assert.match(text, /^\*Regressed:\* wait_write p95 4\.5 → 9\.0 s/m);
+  assert.doesNotMatch(text, /New machine|intel|amd/);
+});
+
+test('runners on different cpus say so in the header and name their cpu in the thread', () => {
+  const mixed = { 'AuthenticAMD 143/49': 6, 'GenuineIntel 6/79': 4 };
+  const runs = [
+    run('wait_write', { summary: { metrics: { ...healthyMetrics, serverCpus: BROADWELL } } }),
+    run('stream_write', { summary: { metrics: { ...healthyMetrics, serverCpus: mixed } } }),
+  ];
+  const { text, thread } = buildDigest(runs, base);
+  assert.match(text, /· API 0\.14\.0 · cpus differ by runner · 2 of 2 passed/);
+  assert.match(thread[0], /^wait_write: 133,000 runs, 0 failed · intel broadwell · /m);
+  assert.match(thread[0], /^stream_write: 133,000 runs, 0 failed · 6 amd rome, 4 intel broadwell · /m);
+  const same = buildDigest([runs[1]], base).text;
+  assert.match(same, /· API 0\.14\.0 · amd rome \+ intel broadwell · 1 of 1 passed/);
+});

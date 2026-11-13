@@ -16,12 +16,10 @@ from ..errors.conflict_error import ConflictError
 from ..errors.not_found_error import NotFoundError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..types.ad_campaign import AdCampaign
-from .types.create_ad_campaigns_request_bid_type import CreateAdCampaignsRequestBidType
 from .types.create_ad_campaigns_request_budget_optimization import CreateAdCampaignsRequestBudgetOptimization
 from .types.create_ad_campaigns_request_budget_type import CreateAdCampaignsRequestBudgetType
 from .types.create_ad_campaigns_request_campaign_type import CreateAdCampaignsRequestCampaignType
 from .types.create_ad_campaigns_request_objective import CreateAdCampaignsRequestObjective
-from .types.create_ad_campaigns_request_platform import CreateAdCampaignsRequestPlatform
 from .types.create_ad_campaigns_request_special_ad_categories_item import (
     CreateAdCampaignsRequestSpecialAdCategoriesItem,
 )
@@ -34,7 +32,6 @@ from .types.list_ad_campaigns_request_order import ListAdCampaignsRequestOrder
 from .types.list_ad_campaigns_request_status import ListAdCampaignsRequestStatus
 from .types.list_ad_campaigns_response import ListAdCampaignsResponse
 from .types.retrieve_ad_campaigns_request_attribution_model import RetrieveAdCampaignsRequestAttributionModel
-from .types.update_ad_campaigns_request_bid_type import UpdateAdCampaignsRequestBidType
 from .types.update_ad_campaigns_request_budget_optimization import UpdateAdCampaignsRequestBudgetOptimization
 from .types.update_ad_campaigns_request_budget_type import UpdateAdCampaignsRequestBudgetType
 from .types.update_ad_campaigns_request_campaign_type import UpdateAdCampaignsRequestCampaignType
@@ -42,7 +39,6 @@ from .types.update_ad_campaigns_request_special_ad_categories_item import (
     UpdateAdCampaignsRequestSpecialAdCategoriesItem,
 )
 from .types.update_ad_campaigns_request_status import UpdateAdCampaignsRequestStatus
-from .types.update_ad_campaigns_request_x_ads_platform import UpdateAdCampaignsRequestXAdsPlatform
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -229,10 +225,8 @@ class RawAdCampaignsClient:
         self,
         *,
         objective: CreateAdCampaignsRequestObjective,
-        platform: CreateAdCampaignsRequestPlatform,
         title: str,
         account_id: typing.Optional[str] = OMIT,
-        bid_type: typing.Optional[CreateAdCampaignsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
         budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[CreateAdCampaignsRequestBudgetOptimization] = OMIT,
@@ -252,17 +246,11 @@ class RawAdCampaignsClient:
         objective : CreateAdCampaignsRequestObjective
             The goal the campaign optimizes toward.
 
-        platform : CreateAdCampaignsRequestPlatform
-            The ad network the campaign runs on.
-
         title : str
             The title of the campaign.
 
         account_id : typing.Optional[str]
             The account to create the campaign under. Defaults to the account-scoped key's own account.
-
-        bid_type : typing.Optional[CreateAdCampaignsRequestBidType]
-            How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, `maximum_target` never bids above a cap. Only for campaigns that own the budget.
 
         budget_amount : typing.Optional[float]
             The campaign's budget in USD, which is what it is stored and billed in. Required when budget_optimization is `ad_campaign` (or send budget_amount_local instead); omit when each ad group sets its own budget.
@@ -277,7 +265,7 @@ class RawAdCampaignsClient:
             Whether the budget is spent per day (`daily`) or over the campaign's full run (`lifetime`). Defaults to `daily`.
 
         campaign_type : typing.Optional[CreateAdCampaignsRequestCampaignType]
-            The kind of campaign to create. `standard` is the ad network's standard campaign; `search` shows text ads on search results for the ad groups' keywords. Defaults to `standard`. Can't be changed after creation.
+            The kind of campaign to create. `standard` runs image and video ads; `search` shows text ads on search results for the ad groups' keywords. Defaults to `standard`. Can't be changed after creation.
 
         desired_cost_per_result : typing.Optional[float]
             The cost per result, in USD, you want this campaign to achieve. A target only: it is not a bid, cost cap, or bid cap, and doesn't change how the campaign's ads bid. Ad groups set cost and bid caps with their own `desired_cost_per_result`. Omit or send `null` for no target.
@@ -305,7 +293,6 @@ class RawAdCampaignsClient:
             method="POST",
             json={
                 "account_id": account_id,
-                "bid_type": bid_type,
                 "budget_amount": budget_amount,
                 "budget_amount_local": budget_amount_local,
                 "budget_optimization": budget_optimization,
@@ -314,7 +301,6 @@ class RawAdCampaignsClient:
                 "desired_cost_per_result": desired_cost_per_result,
                 "ends_at": ends_at,
                 "objective": objective,
-                "platform": platform,
                 "special_ad_categories": special_ad_categories,
                 "starts_at": starts_at,
                 "title": title,
@@ -450,7 +436,7 @@ class RawAdCampaignsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DeleteAdCampaignsResponse]:
         """
-        Deletes an ad campaign and archives it on the ad platform (cascades to ad groups and ads).
+        Deletes an ad campaign with its ad groups and ads, and stops their delivery.
 
         Parameters
         ----------
@@ -505,8 +491,6 @@ class RawAdCampaignsClient:
         self,
         id: str,
         *,
-        ads_platform: typing.Optional[UpdateAdCampaignsRequestXAdsPlatform] = None,
-        bid_type: typing.Optional[UpdateAdCampaignsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
         budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[UpdateAdCampaignsRequestBudgetOptimization] = OMIT,
@@ -528,12 +512,6 @@ class RawAdCampaignsClient:
         id : str
             The ad campaign ID.
 
-        ads_platform : typing.Optional[UpdateAdCampaignsRequestXAdsPlatform]
-            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
-
-        bid_type : typing.Optional[UpdateAdCampaignsRequestBidType]
-            How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, `maximum_target` never bids above a cap. Switching to `minimum_cost` clears the cap amounts stored on the campaign's ad groups. Only for campaigns that own the budget.
-
         budget_amount : typing.Optional[float]
             The campaign budget in USD, which is what it is stored and billed in. Interpreted as daily or lifetime per the campaign's budget type, including a budget_type sent in the same request.
 
@@ -541,7 +519,7 @@ class RawAdCampaignsClient:
             The campaign budget stated in the account's ads reporting currency (`budget_currency` on the response) instead of USD. Converted to USD at the current exchange rate and stored as budget_amount; an amount equal to the current budget_amount_local keeps the stored USD budget as is. Provide this or budget_amount, not both.
 
         budget_optimization : typing.Optional[UpdateAdCampaignsRequestBudgetOptimization]
-            Which level owns the budget: the whole campaign (`ad_campaign`) or each ad group individually (`ad_group`). Only changeable before the campaign is live on the ad network; switching to `ad_campaign` requires budget_amount in the same request, and switching to `ad_group` clears the campaign budget.
+            Which level owns the budget: the whole campaign (`ad_campaign`) or each ad group individually (`ad_group`). Only changeable before the campaign launches; switching to `ad_campaign` requires budget_amount in the same request, and switching to `ad_group` clears the campaign budget.
 
         budget_type : typing.Optional[UpdateAdCampaignsRequestBudgetType]
             Whether `budget_amount` is spent per day (`daily`) or over the campaign's full run (`lifetime`). Only changeable while the campaign is a draft; send budget_amount in the same request so the amount lands on the new type.
@@ -580,7 +558,6 @@ class RawAdCampaignsClient:
             base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
-                "bid_type": bid_type,
                 "budget_amount": budget_amount,
                 "budget_amount_local": budget_amount_local,
                 "budget_optimization": budget_optimization,
@@ -595,7 +572,6 @@ class RawAdCampaignsClient:
             },
             headers={
                 "content-type": "application/json",
-                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -619,13 +595,61 @@ class RawAdCampaignsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def claim(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[AdCampaign]:
+        """
+        Attributes the whole campaign and its daily budget to the calling user as its runner. One runner holds a campaign at a time. Takes the runner's Whop session, or a user API key with `ad_campaign:update`. The caller also needs active advertiser-supplier program access. Everyone else gets a 404. Returns 403 until the caller has verified their identity and added a phone number and a social account. Returns 403 when the claim would take the daily budget the caller holds past the limit for their score. Returns 409 when another user holds the campaign. Changes nothing when the caller already holds it.
+
+        Parameters
+        ----------
+        id : str
+            The ad campaign ID.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[AdCampaign]
+            ad campaign claimed
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"ad_campaigns/{encode_path_param(id)}/claim",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    AdCampaign,
+                    parse_obj_as(
+                        type_=AdCampaign,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def duplicate(
-        self,
-        id: str,
-        *,
-        count: typing.Optional[int] = OMIT,
-        preserve_engagement: typing.Optional[bool] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, id: str, *, count: typing.Optional[int] = OMIT, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DuplicateAdCampaignsResponse]:
         """
         Creates copies of the campaign in `duplicating` status and returns them; each copy transitions to `draft` once duplication completes. Poll each returned campaign until it leaves `duplicating` — a copy that could not be completed is deleted and returns 404.
@@ -637,9 +661,6 @@ class RawAdCampaignsClient:
 
         count : typing.Optional[int]
             Number of copies to create (1-10). Defaults to 1.
-
-        preserve_engagement : typing.Optional[bool]
-            Whether the copied ads keep the original posts' engagement (likes, comments, shares). Defaults to false.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -655,7 +676,6 @@ class RawAdCampaignsClient:
             method="POST",
             json={
                 "count": count,
-                "preserve_engagement": preserve_engagement,
             },
             headers={
                 "content-type": "application/json",
@@ -1005,10 +1025,8 @@ class AsyncRawAdCampaignsClient:
         self,
         *,
         objective: CreateAdCampaignsRequestObjective,
-        platform: CreateAdCampaignsRequestPlatform,
         title: str,
         account_id: typing.Optional[str] = OMIT,
-        bid_type: typing.Optional[CreateAdCampaignsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
         budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[CreateAdCampaignsRequestBudgetOptimization] = OMIT,
@@ -1028,17 +1046,11 @@ class AsyncRawAdCampaignsClient:
         objective : CreateAdCampaignsRequestObjective
             The goal the campaign optimizes toward.
 
-        platform : CreateAdCampaignsRequestPlatform
-            The ad network the campaign runs on.
-
         title : str
             The title of the campaign.
 
         account_id : typing.Optional[str]
             The account to create the campaign under. Defaults to the account-scoped key's own account.
-
-        bid_type : typing.Optional[CreateAdCampaignsRequestBidType]
-            How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, `maximum_target` never bids above a cap. Only for campaigns that own the budget.
 
         budget_amount : typing.Optional[float]
             The campaign's budget in USD, which is what it is stored and billed in. Required when budget_optimization is `ad_campaign` (or send budget_amount_local instead); omit when each ad group sets its own budget.
@@ -1053,7 +1065,7 @@ class AsyncRawAdCampaignsClient:
             Whether the budget is spent per day (`daily`) or over the campaign's full run (`lifetime`). Defaults to `daily`.
 
         campaign_type : typing.Optional[CreateAdCampaignsRequestCampaignType]
-            The kind of campaign to create. `standard` is the ad network's standard campaign; `search` shows text ads on search results for the ad groups' keywords. Defaults to `standard`. Can't be changed after creation.
+            The kind of campaign to create. `standard` runs image and video ads; `search` shows text ads on search results for the ad groups' keywords. Defaults to `standard`. Can't be changed after creation.
 
         desired_cost_per_result : typing.Optional[float]
             The cost per result, in USD, you want this campaign to achieve. A target only: it is not a bid, cost cap, or bid cap, and doesn't change how the campaign's ads bid. Ad groups set cost and bid caps with their own `desired_cost_per_result`. Omit or send `null` for no target.
@@ -1081,7 +1093,6 @@ class AsyncRawAdCampaignsClient:
             method="POST",
             json={
                 "account_id": account_id,
-                "bid_type": bid_type,
                 "budget_amount": budget_amount,
                 "budget_amount_local": budget_amount_local,
                 "budget_optimization": budget_optimization,
@@ -1090,7 +1101,6 @@ class AsyncRawAdCampaignsClient:
                 "desired_cost_per_result": desired_cost_per_result,
                 "ends_at": ends_at,
                 "objective": objective,
-                "platform": platform,
                 "special_ad_categories": special_ad_categories,
                 "starts_at": starts_at,
                 "title": title,
@@ -1226,7 +1236,7 @@ class AsyncRawAdCampaignsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DeleteAdCampaignsResponse]:
         """
-        Deletes an ad campaign and archives it on the ad platform (cascades to ad groups and ads).
+        Deletes an ad campaign with its ad groups and ads, and stops their delivery.
 
         Parameters
         ----------
@@ -1281,8 +1291,6 @@ class AsyncRawAdCampaignsClient:
         self,
         id: str,
         *,
-        ads_platform: typing.Optional[UpdateAdCampaignsRequestXAdsPlatform] = None,
-        bid_type: typing.Optional[UpdateAdCampaignsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
         budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[UpdateAdCampaignsRequestBudgetOptimization] = OMIT,
@@ -1304,12 +1312,6 @@ class AsyncRawAdCampaignsClient:
         id : str
             The ad campaign ID.
 
-        ads_platform : typing.Optional[UpdateAdCampaignsRequestXAdsPlatform]
-            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
-
-        bid_type : typing.Optional[UpdateAdCampaignsRequestBidType]
-            How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, `maximum_target` never bids above a cap. Switching to `minimum_cost` clears the cap amounts stored on the campaign's ad groups. Only for campaigns that own the budget.
-
         budget_amount : typing.Optional[float]
             The campaign budget in USD, which is what it is stored and billed in. Interpreted as daily or lifetime per the campaign's budget type, including a budget_type sent in the same request.
 
@@ -1317,7 +1319,7 @@ class AsyncRawAdCampaignsClient:
             The campaign budget stated in the account's ads reporting currency (`budget_currency` on the response) instead of USD. Converted to USD at the current exchange rate and stored as budget_amount; an amount equal to the current budget_amount_local keeps the stored USD budget as is. Provide this or budget_amount, not both.
 
         budget_optimization : typing.Optional[UpdateAdCampaignsRequestBudgetOptimization]
-            Which level owns the budget: the whole campaign (`ad_campaign`) or each ad group individually (`ad_group`). Only changeable before the campaign is live on the ad network; switching to `ad_campaign` requires budget_amount in the same request, and switching to `ad_group` clears the campaign budget.
+            Which level owns the budget: the whole campaign (`ad_campaign`) or each ad group individually (`ad_group`). Only changeable before the campaign launches; switching to `ad_campaign` requires budget_amount in the same request, and switching to `ad_group` clears the campaign budget.
 
         budget_type : typing.Optional[UpdateAdCampaignsRequestBudgetType]
             Whether `budget_amount` is spent per day (`daily`) or over the campaign's full run (`lifetime`). Only changeable while the campaign is a draft; send budget_amount in the same request so the amount lands on the new type.
@@ -1356,7 +1358,6 @@ class AsyncRawAdCampaignsClient:
             base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
-                "bid_type": bid_type,
                 "budget_amount": budget_amount,
                 "budget_amount_local": budget_amount_local,
                 "budget_optimization": budget_optimization,
@@ -1371,7 +1372,6 @@ class AsyncRawAdCampaignsClient:
             },
             headers={
                 "content-type": "application/json",
-                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -1395,13 +1395,63 @@ class AsyncRawAdCampaignsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    async def claim(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[AdCampaign]:
+        """
+        Attributes the whole campaign and its daily budget to the calling user as its runner. One runner holds a campaign at a time. Takes the runner's Whop session, or a user API key with `ad_campaign:update`. The caller also needs active advertiser-supplier program access. Everyone else gets a 404. Returns 403 until the caller has verified their identity and added a phone number and a social account. Returns 403 when the claim would take the daily budget the caller holds past the limit for their score. Returns 409 when another user holds the campaign. Changes nothing when the caller already holds it.
+
+        Parameters
+        ----------
+        id : str
+            The ad campaign ID.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[AdCampaign]
+            ad campaign claimed
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"ad_campaigns/{encode_path_param(id)}/claim",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    AdCampaign,
+                    parse_obj_as(
+                        type_=AdCampaign,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def duplicate(
-        self,
-        id: str,
-        *,
-        count: typing.Optional[int] = OMIT,
-        preserve_engagement: typing.Optional[bool] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, id: str, *, count: typing.Optional[int] = OMIT, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DuplicateAdCampaignsResponse]:
         """
         Creates copies of the campaign in `duplicating` status and returns them; each copy transitions to `draft` once duplication completes. Poll each returned campaign until it leaves `duplicating` — a copy that could not be completed is deleted and returns 404.
@@ -1413,9 +1463,6 @@ class AsyncRawAdCampaignsClient:
 
         count : typing.Optional[int]
             Number of copies to create (1-10). Defaults to 1.
-
-        preserve_engagement : typing.Optional[bool]
-            Whether the copied ads keep the original posts' engagement (likes, comments, shares). Defaults to false.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1431,7 +1478,6 @@ class AsyncRawAdCampaignsClient:
             method="POST",
             json={
                 "count": count,
-                "preserve_engagement": preserve_engagement,
             },
             headers={
                 "content-type": "application/json",

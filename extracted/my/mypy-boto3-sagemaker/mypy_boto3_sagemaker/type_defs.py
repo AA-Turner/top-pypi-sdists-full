@@ -10317,20 +10317,6 @@ class CreateHubRequestTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
-class DescribeHubResponseTypeDef(TypedDict):
-    HubName: str
-    HubArn: str
-    HubDisplayName: str
-    HubDescription: str
-    HubSearchKeywords: list[str]
-    S3StorageConfig: HubS3StorageConfigTypeDef
-    HubStatus: HubStatusType
-    FailureReason: str
-    CreationTime: datetime
-    LastModifiedTime: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class CreateHumanTaskUiRequestTypeDef(TypedDict):
     HumanTaskUiName: str
     UiTemplate: UiTemplateTypeDef
@@ -10772,54 +10758,6 @@ class UpdateFeatureMetadataRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     ParameterAdditions: NotRequired[Sequence[FeatureParameterTypeDef]]
     ParameterRemovals: NotRequired[Sequence[str]]
-
-
-class DescribeHubContentResponseTypeDef(TypedDict):
-    HubContentName: str
-    HubContentArn: str
-    HubContentVersion: str
-    HubContentType: HubContentTypeType
-    DocumentSchemaVersion: str
-    HubName: str
-    HubArn: str
-    HubContentDisplayName: str
-    HubContentDescription: str
-    HubContentMarkdown: str
-    HubContentDocument: str
-    SageMakerPublicHubContentArn: str
-    ReferenceMinVersion: str
-    SupportStatus: HubContentSupportStatusType
-    HubContentSearchKeywords: list[str]
-    HubContentDependencies: list[HubContentDependencyTypeDef]
-    HubContentStatus: HubContentStatusType
-    FailureReason: str
-    CreationTime: datetime
-    LastModifiedTime: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class HubContentTypeDef(TypedDict):
-    HubContentName: str
-    HubContentArn: str
-    HubContentVersion: str
-    HubContentType: HubContentTypeType
-    DocumentSchemaVersion: str
-    HubName: str
-    HubArn: str
-    HubContentStatus: HubContentStatusType
-    CreationTime: datetime
-    HubContentDisplayName: NotRequired[str]
-    HubContentDescription: NotRequired[str]
-    HubContentMarkdown: NotRequired[str]
-    HubContentDocument: NotRequired[str]
-    SageMakerPublicHubContentArn: NotRequired[str]
-    ReferenceMinVersion: NotRequired[str]
-    SupportStatus: NotRequired[HubContentSupportStatusType]
-    HubContentSearchKeywords: NotRequired[list[str]]
-    HubContentDependencies: NotRequired[list[HubContentDependencyTypeDef]]
-    FailureReason: NotRequired[str]
-    LastModifiedTime: NotRequired[datetime]
-    Tags: NotRequired[list[TagTypeDef]]
 
 
 class DescribeHumanTaskUiResponseTypeDef(TypedDict):
@@ -12780,6 +12718,48 @@ class DescribeExperimentResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DescribeHubContentResponseTypeDef(TypedDict):
+    HubContentName: str
+    HubContentArn: str
+    HubContentVersion: str
+    HubContentType: HubContentTypeType
+    DocumentSchemaVersion: str
+    HubName: str
+    HubArn: str
+    HubContentDisplayName: str
+    HubContentDescription: str
+    HubContentMarkdown: str
+    HubContentDocument: str
+    SageMakerPublicHubContentArn: str
+    ReferenceMinVersion: str
+    SupportStatus: HubContentSupportStatusType
+    HubContentSearchKeywords: list[str]
+    HubContentDependencies: list[HubContentDependencyTypeDef]
+    HubContentStatus: HubContentStatusType
+    FailureReason: str
+    CreationTime: datetime
+    LastModifiedTime: datetime
+    CreatedBy: UserContextTypeDef
+    LastModifiedBy: UserContextTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeHubResponseTypeDef(TypedDict):
+    HubName: str
+    HubArn: str
+    HubDisplayName: str
+    HubDescription: str
+    HubSearchKeywords: list[str]
+    S3StorageConfig: HubS3StorageConfigTypeDef
+    HubStatus: HubStatusType
+    FailureReason: str
+    CreationTime: datetime
+    LastModifiedTime: datetime
+    CreatedBy: UserContextTypeDef
+    LastModifiedBy: UserContextTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeLineageGroupResponseTypeDef(TypedDict):
     LineageGroupName: str
     LineageGroupArn: str
@@ -12925,6 +12905,32 @@ class ExperimentTypeDef(TypedDict):
     CreationTime: NotRequired[datetime]
     CreatedBy: NotRequired[UserContextTypeDef]
     LastModifiedTime: NotRequired[datetime]
+    LastModifiedBy: NotRequired[UserContextTypeDef]
+    Tags: NotRequired[list[TagTypeDef]]
+
+
+class HubContentTypeDef(TypedDict):
+    HubContentName: str
+    HubContentArn: str
+    HubContentVersion: str
+    HubContentType: HubContentTypeType
+    DocumentSchemaVersion: str
+    HubName: str
+    HubArn: str
+    HubContentStatus: HubContentStatusType
+    CreationTime: datetime
+    HubContentDisplayName: NotRequired[str]
+    HubContentDescription: NotRequired[str]
+    HubContentMarkdown: NotRequired[str]
+    HubContentDocument: NotRequired[str]
+    SageMakerPublicHubContentArn: NotRequired[str]
+    ReferenceMinVersion: NotRequired[str]
+    SupportStatus: NotRequired[HubContentSupportStatusType]
+    HubContentSearchKeywords: NotRequired[list[str]]
+    HubContentDependencies: NotRequired[list[HubContentDependencyTypeDef]]
+    FailureReason: NotRequired[str]
+    LastModifiedTime: NotRequired[datetime]
+    CreatedBy: NotRequired[UserContextTypeDef]
     LastModifiedBy: NotRequired[UserContextTypeDef]
     Tags: NotRequired[list[TagTypeDef]]
 

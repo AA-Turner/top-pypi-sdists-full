@@ -235,7 +235,7 @@ nodejs.NodejsFunction(self, "my-handler",
         charset=nodejs.Charset.UTF8,  # do not escape non-ASCII characters, defaults to Charset.ASCII
         format=nodejs.OutputFormat.ESM,  # ECMAScript module output format, defaults to OutputFormat.CJS (OutputFormat.ESM requires Node.js >= 14)
         main_fields=["module", "main"],  # prefer ECMAScript versions of dependencies
-        inject=["./my-shim.js", "./other-shim.js"],  # allows to automatically replace a global variable with an import from another file
+        inject=["./my-shim.js", "./other-shim.js"],  # allows you to automatically replace a global variable with an import from another file
         esbuild_args={ # Pass additional arguments to esbuild
             "--log-limit": "0",
             "--splitting": True}
@@ -323,7 +323,35 @@ nodejs.NodejsFunction(self, "my-handler",
 )
 ```
 
-Note: A [`tsconfig.json` file](https://www.typescriptlang.org/docs/handbook/tsconfig-json.html) is required
+A [`tsconfig.json` file](https://www.typescriptlang.org/docs/handbook/tsconfig-json.html) is required.
+Enable the required compiler options (for example, `experimentalDecorators` and
+`emitDecoratorMetadata`) in that file. You can select a configuration explicitly with
+`bundling.tsconfig`.
+
+Pre-compilation passes the JavaScript entry point emitted by `tsc` to `esbuild`.
+However, when an extensionless import can resolve to both a TypeScript source file
+and its emitted JavaScript file, [esbuild prefers TypeScript by default](https://esbuild.github.io/api/#resolve-extensions).
+It may therefore compile an imported module again without emitting decorator metadata.
+If your bundle loses metadata from imported modules, configure resolution to use the
+JavaScript emitted by `tsc`:
+
+```python
+esbuild_args = {"--resolve-extensions": ".js"}
+
+nodejs.NodejsFunction(self, "metadata-handler",
+    entry="lib/handler.ts",
+    bundling=nodejs.BundlingOptions(
+        pre_compilation=True,
+        tsconfig="tsconfig.lambda.json",
+        esbuild_args=esbuild_args
+    )
+)
+```
+
+This setting changes extensionless import resolution throughout the bundle. Ensure
+all required modules have JavaScript output available; extend the list if your
+application also needs other file extensions. Pre-compilation does not invoke your
+package's build script, so its commands and configuration can produce different output.
 
 ## Customizing Docker bundling
 
@@ -658,7 +686,7 @@ class BundlingOptions(_aws_cdk_0cae9daa.DockerRunOptions):
         :param metafile: This option tells esbuild to write out a JSON file relative to output directory with metadata about the build. The metadata in this JSON file follows this schema (specified using TypeScript syntax):: { outputs: { [path: string]: { bytes: number inputs: { [path: string]: { bytesInOutput: number } } imports: { path: string }[] exports: string[] } } } This data can then be analyzed by other tools. For example, bundle buddy can consume esbuild's metadata format and generates a treemap visualization of the modules in your bundle and how much space each one takes up. Default: false
         :param minify: Whether to minify files when bundling. Default: false
         :param node_modules: A list of modules that should be installed instead of bundled. Modules are installed in a Lambda compatible environment only when bundling runs in Docker. Default: - all modules are bundled
-        :param pre_compilation: Run compilation using tsc before running file through bundling step. This usually is not required unless you are using new experimental features that are only supported by typescript's ``tsc`` compiler. One example of such feature is ``emitDecoratorMetadata``. Default: false
+        :param pre_compilation: Run compilation using tsc before running file through bundling step. This usually is not required unless you are using new experimental features that are only supported by typescript's ``tsc`` compiler. One example of such feature is ``emitDecoratorMetadata``. If imported TypeScript modules are compiled again by esbuild and lose metadata, use ``esbuildArgs`` to set ``--resolve-extensions`` to ``.js``, provided the imported modules have JavaScript output available. Default: false
         :param source_map: Whether to include source maps when bundling. Default: false
         :param source_map_mode: Source map mode to be used when bundling. Default: SourceMapMode.DEFAULT
         :param sources_content: Whether to include original source code in source maps when bundling. Default: true
@@ -669,9 +697,14 @@ class BundlingOptions(_aws_cdk_0cae9daa.DockerRunOptions):
 
         Example::
 
-            nodejs.NodejsFunction(self, "my-handler",
+            esbuild_args = {"--resolve-extensions": ".js"}
+            
+            nodejs.NodejsFunction(self, "metadata-handler",
+                entry="lib/handler.ts",
                 bundling=nodejs.BundlingOptions(
-                    docker_image=DockerImage.from_build("/path/to/Dockerfile")
+                    pre_compilation=True,
+                    tsconfig="tsconfig.lambda.json",
+                    esbuild_args=esbuild_args
                 )
             )
         '''
@@ -1219,8 +1252,13 @@ class BundlingOptions(_aws_cdk_0cae9daa.DockerRunOptions):
         This usually is not required unless you are using new experimental features that
         are only supported by typescript's ``tsc`` compiler.
         One example of such feature is ``emitDecoratorMetadata``.
+        If imported TypeScript modules are compiled again by esbuild and lose metadata,
+        use ``esbuildArgs`` to set ``--resolve-extensions`` to ``.js``, provided the imported
+        modules have JavaScript output available.
 
         :default: false
+
+        :see: https://esbuild.github.io/api/#resolve-extensions
         '''
         result = self._values.get("pre_compilation")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -1326,7 +1364,7 @@ class Charset(enum.Enum):
                 charset=nodejs.Charset.UTF8,  # do not escape non-ASCII characters, defaults to Charset.ASCII
                 format=nodejs.OutputFormat.ESM,  # ECMAScript module output format, defaults to OutputFormat.CJS (OutputFormat.ESM requires Node.js >= 14)
                 main_fields=["module", "main"],  # prefer ECMAScript versions of dependencies
-                inject=["./my-shim.js", "./other-shim.js"],  # allows to automatically replace a global variable with an import from another file
+                inject=["./my-shim.js", "./other-shim.js"],  # allows you to automatically replace a global variable with an import from another file
                 esbuild_args={ # Pass additional arguments to esbuild
                     "--log-limit": "0",
                     "--splitting": True}
@@ -1522,7 +1560,7 @@ class LogLevel(enum.Enum):
                 charset=nodejs.Charset.UTF8,  # do not escape non-ASCII characters, defaults to Charset.ASCII
                 format=nodejs.OutputFormat.ESM,  # ECMAScript module output format, defaults to OutputFormat.CJS (OutputFormat.ESM requires Node.js >= 14)
                 main_fields=["module", "main"],  # prefer ECMAScript versions of dependencies
-                inject=["./my-shim.js", "./other-shim.js"],  # allows to automatically replace a global variable with an import from another file
+                inject=["./my-shim.js", "./other-shim.js"],  # allows you to automatically replace a global variable with an import from another file
                 esbuild_args={ # Pass additional arguments to esbuild
                     "--log-limit": "0",
                     "--splitting": True}
@@ -1555,14 +1593,14 @@ class NodejsFunction(
 
     Example::
 
-        from aws_cdk import DockerVolume
-        nodejs.NodejsFunction(self, "my-handler",
+        esbuild_args = {"--resolve-extensions": ".js"}
+        
+        nodejs.NodejsFunction(self, "metadata-handler",
+            entry="lib/handler.ts",
             bundling=nodejs.BundlingOptions(
-                network="host",
-                security_opt="no-new-privileges",
-                user="user:group",
-                volumes_from=["777f7dc92da7"],
-                volumes=[DockerVolume(host_path="/host-path", container_path="/container-path")]
+                pre_compilation=True,
+                tsconfig="tsconfig.lambda.json",
+                esbuild_args=esbuild_args
             )
         )
     '''
@@ -3009,7 +3047,7 @@ class OutputFormat(enum.Enum):
                 charset=nodejs.Charset.UTF8,  # do not escape non-ASCII characters, defaults to Charset.ASCII
                 format=nodejs.OutputFormat.ESM,  # ECMAScript module output format, defaults to OutputFormat.CJS (OutputFormat.ESM requires Node.js >= 14)
                 main_fields=["module", "main"],  # prefer ECMAScript versions of dependencies
-                inject=["./my-shim.js", "./other-shim.js"],  # allows to automatically replace a global variable with an import from another file
+                inject=["./my-shim.js", "./other-shim.js"],  # allows you to automatically replace a global variable with an import from another file
                 esbuild_args={ # Pass additional arguments to esbuild
                     "--log-limit": "0",
                     "--splitting": True}
@@ -3057,7 +3095,7 @@ class SourceMapMode(enum.Enum):
                 charset=nodejs.Charset.UTF8,  # do not escape non-ASCII characters, defaults to Charset.ASCII
                 format=nodejs.OutputFormat.ESM,  # ECMAScript module output format, defaults to OutputFormat.CJS (OutputFormat.ESM requires Node.js >= 14)
                 main_fields=["module", "main"],  # prefer ECMAScript versions of dependencies
-                inject=["./my-shim.js", "./other-shim.js"],  # allows to automatically replace a global variable with an import from another file
+                inject=["./my-shim.js", "./other-shim.js"],  # allows you to automatically replace a global variable with an import from another file
                 esbuild_args={ # Pass additional arguments to esbuild
                     "--log-limit": "0",
                     "--splitting": True}

@@ -37,6 +37,7 @@ from .check_log import CheckLog
 from .check_status import CheckStatus
 from .check_subject import CheckSubject
 from .check_subject_kind import CheckSubjectKind
+from .check_waiting_for import CheckWaitingFor
 from .ci_status import CIStatus
 from .closing_issue import ClosingIssue
 from .credential import Credential
@@ -54,8 +55,10 @@ from .forge_api_stats import ForgeApiStats
 from .forge_error_kind import ForgeErrorKind
 from .forge_health import ForgeHealth
 from .get_image_forge import GetImageForge
+from .get_image_kind import GetImageKind
 from .get_pull_request_rerunnable_response_200 import GetPullRequestRerunnableResponse200
 from .health import Health
+from .hidden_draft_counts import HiddenDraftCounts
 from .issue import Issue
 from .issue_action_request import IssueActionRequest
 from .issue_comment_request import IssueCommentRequest
@@ -79,6 +82,8 @@ from .nav_pull_request_count import NavPullRequestCount
 from .person import Person
 from .presence_answer import PresenceAnswer
 from .presence_report import PresenceReport
+from .provider_status import ProviderStatus
+from .provider_status_indicator import ProviderStatusIndicator
 from .pull_request import PullRequest
 from .pull_request_action_request import PullRequestActionRequest
 from .pull_request_auto_update_request import PullRequestAutoUpdateRequest
@@ -169,6 +174,7 @@ __all__ = (
     "CheckStatus",
     "CheckSubject",
     "CheckSubjectKind",
+    "CheckWaitingFor",
     "CIStatus",
     "ClosingIssue",
     "Credential",
@@ -186,8 +192,10 @@ __all__ = (
     "ForgeErrorKind",
     "ForgeHealth",
     "GetImageForge",
+    "GetImageKind",
     "GetPullRequestRerunnableResponse200",
     "Health",
+    "HiddenDraftCounts",
     "Issue",
     "IssueActionRequest",
     "IssueCommentRequest",
@@ -211,6 +219,8 @@ __all__ = (
     "Person",
     "PresenceAnswer",
     "PresenceReport",
+    "ProviderStatus",
+    "ProviderStatusIndicator",
     "PullRequest",
     "PullRequestActionRequest",
     "PullRequestAutoUpdateRequest",

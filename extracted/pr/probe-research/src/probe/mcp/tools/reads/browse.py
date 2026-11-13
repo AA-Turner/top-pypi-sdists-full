@@ -12,6 +12,8 @@ from ....shared.reads.search_contract import (
     MissingMarker)
 from probe.mcp.tools.shaping.session_work import _scrub_provenance_graph, _scrub_session_work
 from probe.mcp.tools.view import _ViewData, _supported_views
+from probe.mcp.source.people import PeopleFilters
+from probe.mcp.tools.shaping.people import get_owner_echo
 
 
 def _annotate(node: dict, kind: str, *, api_base_url: str | None = None) -> dict:
@@ -84,8 +86,12 @@ class BrowseMixin:
         cursor: str | None = None,
         runs_cursor: str | None = None,
         subprojects_cursor: str | None = None,
+        people: PeopleFilters = PeopleFilters(),
     ) -> dict:
         """The structured tree: what EXISTS, as opposed to what MATCHES a query.
+
+        `people` (`owner`, `since`, `until`, `order="recent"`) goes to GET /v1/browse
+        as given; who `owner` matched rides the page (`owner_matched`).
 
         Every node -- nested children included -- carries the two labelled
         addresses the other read tools consume (slug/uuid); `available_views`
@@ -97,6 +103,8 @@ class BrowseMixin:
         # reader) does not see the work its own session created; see
         # search. None for everyone else: the same request as ever.
         hide_session = accounting.session_work_to_hide()
+        if people.is_set:
+            self.source.require_people_filters(list(people.to_query()))
         try:
             payload = self.source.browse(
                 scope=scope,
@@ -110,6 +118,9 @@ class BrowseMixin:
                 subprojects_cursor=subprojects_cursor,
                 continuation_handles=True,
                 exclude_origin_session=hide_session,
+                # The server filters the TOP level only and refuses a filter beside a scope: a page
+                # under one project (a delivery continuation) is that project's, unfiltered.
+                filters=people if scope is None else PeopleFilters(),
             )
         except errors.CapabilityUnavailable:
             # NOT an empty tree: "nothing exists" and "this server cannot tell
@@ -120,7 +131,11 @@ class BrowseMixin:
                 state=EnvelopeState.PARTIAL,
                 missing=[MissingMarker.STRUCTURED_BROWSE],
             )
-        data: dict[str, Any] = {"scope": scope, "depth": payload.get("depth", depth)}
+        data: dict[str, Any] = {
+            "scope": scope,
+            **get_owner_echo(payload),
+            "depth": payload.get("depth", depth),
+        }
         # ONCE per kind, not once per node: every node of a kind advertises the
         # same views, and a 22-project browse used to repeat the same four
         # strings 22 times. Still derived from `_VIEWS` (via _supported_views),

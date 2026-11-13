@@ -20,9 +20,9 @@ import asyncio
 import builtins
 import functools
 import socket
+from collections.abc import Callable
 from typing import (
     Any,
-    Callable,
     TypeVar,
     cast,
 )
@@ -72,7 +72,7 @@ def _handle_reauth(func: F) -> F:
                 return func(*args, **kwargs)
             raise
 
-    return cast(F, inner)
+    return cast("F", inner)
 
 
 def _getaddrinfo(

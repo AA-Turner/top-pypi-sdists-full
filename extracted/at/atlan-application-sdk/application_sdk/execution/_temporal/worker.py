@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Callable
 
 from pydantic import ValidationError
 from temporalio.client import Client
+from temporalio.runtime import Runtime
 from temporalio.worker import Interceptor as TemporalInterceptor
 from temporalio.worker import Worker, WorkerDeploymentConfig, WorkerDeploymentVersion
 from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner
@@ -28,6 +29,7 @@ from application_sdk.app.registry import (
     resolve_pool_queue,
 )
 from application_sdk.constants import (
+    _LOCK_METADATA_KEY,
     APP_BUILD_ID,
     APP_DEPLOYMENT_NAME,
     PREFLIGHT_GATE_MODE_ENV,
@@ -583,6 +585,41 @@ def _resolve_max_concurrent_activities(passed: int | None) -> int:
     return slots
 
 
+#: Gauge carrying the activity-slot count this worker runs with. KEDA's temporal
+#: scaler reads it from the worker's metrics endpoint to count a pod's busy
+#: slots as limit minus ``temporal_worker_task_slots_available``; see
+#: ``docs/standards/cross-repo-contracts.md`` before renaming it or its labels.
+#: ``TelemetryConfig.metric_prefix`` is not applied to meter-created metrics, so
+#: the full name is given here.
+ACTIVITY_SLOTS_LIMIT_METRIC = "temporal_worker_activity_slots_limit"
+
+
+def _publish_activity_slots_limit(client: Client, task_queue: str, slots: int) -> None:
+    """Publish *slots* as this worker's activity-slot limit.
+
+    Recorded on the client's Runtime, the one the worker's own slot gauges
+    report through, with the same ``task_queue`` and ``worker_type`` labels so a
+    scraper can pair it with them. A failure is logged and does not stop the
+    worker: the scaler falls back to its configured limit without the gauge.
+    """
+    try:
+        # A client connected without an explicit runtime uses the default one,
+        # so that is where its slot gauges, and this one, report.
+        runtime = client.service_client.config.runtime or Runtime.default()
+        runtime.metric_meter.with_additional_attributes(
+            {"task_queue": task_queue, "worker_type": "ActivityWorker"}
+        ).create_gauge(
+            ACTIVITY_SLOTS_LIMIT_METRIC,
+            "Activity slots this worker runs with.",
+        ).set(slots)
+    except Exception:
+        logger.warning(
+            "Failed to publish %s; autoscalers fall back to their configured limit",
+            ACTIVITY_SLOTS_LIMIT_METRIC,
+            exc_info=True,
+        )
+
+
 def create_worker(
     client: Client,
     task_queue: str = "application-sdk",
@@ -1047,6 +1084,23 @@ def create_worker(
     if _pool_queue_map:
         logger.info("Pool queue map: %s", _pool_queue_map)
 
+    # needs_lock is deprecated and has no effect: nothing here registers the lock
+    # interceptor or the lock activities. Its DeprecationWarning fires at import,
+    # where default filters hide it, so say it once more where operators look.
+    _locked_tasks = sorted(
+        _tm.name
+        for _tasks in task_registry.get_all_tasks().values()
+        for _tm in _tasks
+        if getattr(_tm.func, _LOCK_METADATA_KEY, None)
+    )
+    if _locked_tasks:
+        logger.warning(
+            "Tasks %s are decorated with needs_lock, which has no effect: the "
+            "worker registers no distributed-lock interceptor, so they run with no "
+            "concurrency limit. Remove the decorator; it will be removed in v4.0.0.",
+            _locked_tasks,
+        )
+
     if interceptor_settings.enable_event_interceptor:
         from application_sdk.execution._temporal.interceptors.events import (  # noqa: PLC0415 — circular: execution/__init__.py loads sibling modules + app.base imports execution
             EventInterceptor,
@@ -1081,6 +1135,7 @@ def create_worker(
     max_concurrent_activities = _resolve_max_concurrent_activities(
         max_concurrent_activities
     )
+    _publish_activity_slots_limit(client, task_queue, max_concurrent_activities)
 
     if graceful_shutdown_timeout_seconds is None:
         graceful_shutdown_timeout_seconds = (

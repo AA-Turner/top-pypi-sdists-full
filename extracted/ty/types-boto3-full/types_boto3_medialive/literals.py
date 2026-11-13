@@ -317,6 +317,7 @@ __all__ = (
     "MaintenanceDayType",
     "MediaConnectRouterOutputEncryptionTypeType",
     "MediaLiveServiceName",
+    "MediaPackageV2CaptionLanguageSettingType",
     "MotionGraphicsInsertionType",
     "Mp2CodingModeType",
     "Mpeg2AdaptiveQuantizationType",
@@ -949,6 +950,7 @@ MaintenanceDayType = Literal[
     "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
 ]
 MediaConnectRouterOutputEncryptionTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
+MediaPackageV2CaptionLanguageSettingType = Literal["AUTO", "NONE"]
 MotionGraphicsInsertionType = Literal["DISABLED", "ENABLED"]
 Mp2CodingModeType = Literal["CODING_MODE_1_0", "CODING_MODE_2_0"]
 Mpeg2AdaptiveQuantizationType = Literal["AUTO", "HIGH", "LOW", "MEDIUM", "OFF"]

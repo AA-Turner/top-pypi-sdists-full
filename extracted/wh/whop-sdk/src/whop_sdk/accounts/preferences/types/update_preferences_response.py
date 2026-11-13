@@ -6,7 +6,6 @@ import pydantic
 from ....core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ....types.customer_tracking_preferences import CustomerTrackingPreferences
 from .update_preferences_response_ads_agreement import UpdatePreferencesResponseAdsAgreement
-from .update_preferences_response_ads_certifications_item import UpdatePreferencesResponseAdsCertificationsItem
 from .update_preferences_response_ads_payment_methods import UpdatePreferencesResponseAdsPaymentMethods
 from .update_preferences_response_ads_triple_whale_integration import UpdatePreferencesResponseAdsTripleWhaleIntegration
 from .update_preferences_response_economic_intelligence_offers_item import (
@@ -28,11 +27,6 @@ class UpdatePreferencesResponse(UniversalBaseModel):
     ads_agreement: UpdatePreferencesResponseAdsAgreement = pydantic.Field()
     """
     The account's Whop Ads services and payment authorization agreement. While `pending_signature`, campaign launch is blocked; sign by answering `requested_information` via `PATCH /verifications/{id}`.
-    """
-
-    ads_certifications: typing.List[UpdatePreferencesResponseAdsCertificationsItem] = pydantic.Field()
-    """
-    The account's advertising certifications, one entry per certification type Whop offers. Start an application by setting a type's `status` to `pending_information` via `PATCH`, then answer the fields it requests via `GET`/`PATCH /verifications/{id}`.
     """
 
     ads_payment_methods: typing.Optional[UpdatePreferencesResponseAdsPaymentMethods] = pydantic.Field(default=None)
@@ -65,14 +59,14 @@ class UpdatePreferencesResponse(UniversalBaseModel):
     Whether Whop Card notifications reach this account's team. `true` by default, including when the account has no cards balance. Set it to `false` to stop every card email and push notification for the account — application status, verification and action-required alerts, card-ready alerts, declines, large charges, and cashback summaries. Cardholder onboarding invitations still send, because they carry the only link an invited cardholder can onboard with. Requesting a card is rejected while notifications are off, since the request reaches nobody. Cards on personal accounts are unaffected.
     """
 
-    covers_connected_account_negative_balances: typing.Optional[bool] = pydantic.Field(default=None)
+    covers_subaccount_negative_balances: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    Whether this account covers its connected accounts' negative balances. When a connected account's balance drops below zero (from refunds, disputes, or fees), this account's available balance in the same currency pays it back, up to what is available. Refunds on its connected accounts may also take them negative by up to this account's available balance. `null` when the account has no connected accounts.
+    Whether this account covers its subaccounts' negative balances. When a subaccount's balance drops below zero (from refunds, disputes, or fees), this account's available balance in the same currency pays it back, up to what is available. Refunds on its subaccounts may also take them negative by up to this account's available balance. `null` when the account has no subaccounts.
     """
 
     customer_tracking: typing.Optional[CustomerTrackingPreferences] = pydantic.Field(default=None)
     """
-    The saved customer tracking settings for the hosted tracking page and Element, exactly as saved. `null` until set; tracking is off unless `enabled` is `true`.
+    The saved customer tracking settings for the hosted tracking page and Element, with defaults applied. `null` until set; tracking is off unless `enabled` is `true`.
     """
 
     dispute_fighter_enabled: bool = pydantic.Field()
@@ -87,29 +81,29 @@ class UpdatePreferencesResponse(UniversalBaseModel):
 
     economic_intelligence_auto_renew: bool = pydantic.Field()
     """
-    Whether Economic Intelligence renews itself every week, with no end date. Turn it on with the `weekly` offer. Set it to `false` to stop renewing, which keeps Economic Intelligence on until the end of the current week, shown in `economic_intelligence_ends_at`; stopping before the first renewal charges the rest of that week at the `7_days` offer's fee. Set it back to `true` before then to keep renewing at the weekly fee.
+    Whether Economic Intelligence renews itself every period, with no end date. Turn it on by setting this to `true`, or by passing the `3_days` offer's key as `economic_intelligence_duration_key`. Set it to `false` to stop renewing: Economic Intelligence stays on until the end of the current period, shown in `economic_intelligence_ends_at`, and the fee is charged until then. Set it back to `true` before then to keep renewing.
     """
 
     economic_intelligence_ends_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    When the account's committed Economic Intelligence period ends, as an ISO 8601 timestamp. Economic Intelligence can't be turned off before then. `null` when Economic Intelligence is off or renews automatically.
+    When Economic Intelligence turns off, as an ISO 8601 timestamp: the end of the current period once auto-renew is turned off. `null` when Economic Intelligence is off or renews automatically.
     """
 
     economic_intelligence_fee_percentage: typing.Optional[float] = pydantic.Field(default=None)
     """
-    Percentage of volume charged while Economic Intelligence is on, such as `1.5` for 1.5%. `null` when Economic Intelligence is off.
+    Percentage of payment volume charged while Economic Intelligence is on, such as `3` for 3%. `null` when Economic Intelligence is off.
     """
 
     economic_intelligence_first_renewal_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    When auto-renew first renews, as an ISO 8601 timestamp. Turning auto-renew off before then charges the rest of that week at the `7_days` offer's fee. `null` when auto-renew is off.
+    When auto-renew first renews, as an ISO 8601 timestamp: one period after it was turned on. `null` when auto-renew is off.
     """
 
     economic_intelligence_offers: typing.List[UpdatePreferencesResponseEconomicIntelligenceOffersItem] = (
         pydantic.Field()
     )
     """
-    What the account can choose now to turn on Economic Intelligence, each with its fee. Every offer while Economic Intelligence is off; only the `weekly` auto-renew offer while a committed period is running, as an upgrade; empty while it renews automatically.
+    What the account can choose now to turn on Economic Intelligence. Auto-renew is the only plan: one offer, with its fee and the length of each period, while auto-renew is off, and empty while Economic Intelligence renews automatically.
     """
 
     economic_intelligence_previous_period: typing.Optional[
@@ -134,6 +128,21 @@ class UpdatePreferencesResponse(UniversalBaseModel):
     preferred_settlement_currency_changeable_at: typing.Optional[str] = pydantic.Field(default=None)
     """
     When `preferred_settlement_currency` may next be changed or turned off, as an ISO 8601 timestamp. It can change at most once a day. `null` when it may change now.
+    """
+
+    review_request_emails: bool = pydantic.Field()
+    """
+    Whether Whop emails customers after a purchase asking them to leave a review. `true` by default. Set it to `false` to stop these emails, including ones already scheduled. They also stop while the account's `send_customer_emails` is `false`.
+    """
+
+    subaccount_notifications: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether Whop emails and notifies the teams of this account's subaccounts. `true` by default. Set it to `false` to stop Whop's emails, push, and in-app notifications to them. These include payout, verification, dispute, and card alerts about their accounts. `null` when the account has no subaccounts.
+    """
+
+    subaccount_team_view_only: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether this account's subaccounts are view-only for their own team members. When `true`, a subaccount's team can still see everything their role allows but every change is refused with a view-only error. `false` by default. `null` when the account has no subaccounts.
     """
 
     subscription_failure_behavior: UpdatePreferencesResponseSubscriptionFailureBehavior = pydantic.Field()

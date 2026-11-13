@@ -1,9 +1,9 @@
 """GKDTrainer samples (experimental, RL plan §6.6): the one TRL trainer whose batches are written three ways
 (`_maybe_generate`, `gkd_trainer.py:411-450`): by the student (`lmbda`, on-policy), by the teacher (`seq_kd`: the
 student trains on teacher-written sequences) or by the dataset. Every batch is graded by the teacher's logits. The
-main process records the rows it trains on. A model-written batch's rows are live samples from
-`generate_on_policy_outputs` (`:428`, `:442`) until `_maybe_generate` returns, `ungraded` (the loss grades them). Line
-refs are `huggingface/trl@4ae4d34a86f3`."""
+main process records the rows it trains on, and each eval batch's rows (the dataset's, at the step the pass runs). A
+model-written batch's rows are live samples from `generate_on_policy_outputs` (`:428`, `:442`) until `_maybe_generate`
+returns, `ungraded` (the loss grades them). Line refs are `huggingface/trl@4ae4d34a86f3`."""
 
 from __future__ import annotations
 
@@ -11,12 +11,24 @@ import functools
 from collections.abc import Mapping, MutableMapping
 from typing import Any
 
+from probe.generated.samples import CaptureField
+
 from ..live import LiveBatch
 from ..recorder import Recorder
-from ..rows import CARRIED_ROWS_KEY, read_labeled_rows
+from ..rows import CARRIED_ROWS_KEY, TOOL_FIELDS, read_labeled_rows
 from ..runs import parse_model_ref
 
 STUDENT, TEACHER, DATASET = "student", "teacher", "dataset"
+#: What GKD cannot give a sample (`plan(unsupported=)`), and why.
+UNSUPPORTED = {
+    CaptureField.MESSAGES: (
+        "GKD trains on DataCollatorForChatML's token ids (experimental/utils.py:289): the dataset's messages are "
+        "rendered into tokens before the trainer sees them, and a generated completion stays token ids"),
+    **dict.fromkeys(TOOL_FIELDS, (
+        "GKD runs no tools or environment: a completion is a plain generation (`generate_on_policy_outputs`, "
+        "gkd_trainer.py:364), so there are no tool calls, results or tool files")),
+    CaptureField.REASONING: "GKD never parses a completion: it stays token ids, with no reasoning apart from the text",
+}
 
 
 class GkdRecorder(Recorder):
@@ -31,6 +43,10 @@ class GkdRecorder(Recorder):
         #: The `_maybe_generate` call in progress: its step and call ordinal (its rows' keys), and its live rows.
         self._call: tuple[int, int] = (0, 0)
         self._live = LiveBatch()
+
+    def get_unsupported(self) -> dict[str, str]:
+        """Every field: GKD keeps token ids and runs no tools."""
+        return dict(UNSUPPORTED)
 
     def install(self) -> None:
         trainer = self.trainer
@@ -63,7 +79,10 @@ class GkdRecorder(Recorder):
 
         @functools.wraps(prediction_step)
         def call_prediction_step(model: Any, inputs: Any, *args: Any, **kwargs: Any) -> Any:
-            take_carried(inputs)  # an eval batch a worker collated: not recorded, but TRL never sees the key
+            take_carried(inputs)  # an eval batch a worker collated: TRL never sees the key
+            step = self.tracker.get_step()
+            call = self.tracker.take_call("eval", step)  # every process: the per-sample rows' keys use it
+            guard.call("an eval batch", self._record_eval, inputs, step, call)
             return prediction_step(model, inputs, *args, **kwargs)
 
         def take_carried(inputs: Any) -> None:
@@ -106,6 +125,13 @@ class GkdRecorder(Recorder):
                 self._live.link(part)
         self.tracker.send(parts, step + 1)
         self._live.end(parts)
+
+    def _record_eval(self, batch: Any, step: int, call: int) -> None:
+        if not isinstance(batch, Mapping) or batch.get("input_ids") is None or not self.tracker.is_recording():
+            return
+        parts = self.tracker.make_labeled_parts(batch, step, split="eval", writer=self._get_writer_ref(DATASET, step),
+                                                extras={"gkd_source": DATASET}, call=call)  # fmt: skip
+        self.tracker.send(parts, step)
 
     def _get_writer_ref(self, writer: str, step: int) -> dict | None:
         if writer == STUDENT:

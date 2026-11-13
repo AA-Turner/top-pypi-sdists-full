@@ -41,6 +41,7 @@ import threading
 import time
 from typing import Any, Callable, Optional
 
+from .. import _engine_env
 from .deadline import Deadline
 
 NUL = b"\x00"
@@ -384,6 +385,22 @@ class EventListeners:
                     self.handler_errors.append("%s: %s" % (method, failure))
 
 
+#: `sys.platform == "win32"`, a name of its own so that a test can stand on either side.
+_IS_WINDOWS = sys.platform == "win32"
+#: How long a write that failed with EINVAL on Windows waits for the proof that the engine is gone (seconds).
+_GONE_WAIT = 1.0
+
+
+def _is_a_closed_pipe(exc: OSError) -> bool:
+    """A write that failed because the other end of the pipe is closed: EPIPE (`BrokenPipeError`) everywhere, and on Windows also
+    ERROR_BROKEN_PIPE (109) and ERROR_NO_DATA (232), the two codes a pipe says it by. NOT EINVAL: on Windows a pipe whose reader
+    is gone can also come out as EINVAL, but so does a descriptor that is not valid or a count out of range, and a bare errno
+    cannot tell them apart (`Connection._engine_is_gone` can)."""
+    if isinstance(exc, BrokenPipeError) or exc.errno == errno.EPIPE:
+        return True
+    return _IS_WINDOWS and getattr(exc, "winerror", None) in (109, 232)
+
+
 class Connection(EventListeners):
     """A pipe to an already-launched Firefox."""
 
@@ -442,7 +459,8 @@ class Connection(EventListeners):
                     if raw:
                         self._deliver(raw)
         except OSError as e:
-            self._error = e
+            with self._lock:
+                self._error = e
         finally:
             self._closed = True
             # ⛔ Whoever is waiting must be WOKEN UP, not left to the
@@ -599,8 +617,15 @@ class Connection(EventListeners):
         msg: dict = {"id": msg_id, "method": method, "params": params or {}}
         if session:
             msg["sessionId"] = session
-        if not self._write(msg):
-            # `close` ran between the check above and the write.
+        try:
+            written = self._write(msg)
+        except BaseException:
+            # A write that fails for another reason than a closed pipe leaves nothing pending either.
+            with self._lock:
+                self._pending.pop(msg_id, None)
+            raise
+        if not written:
+            # `close` ran between the check above and the write, or the browser closed its end.
             with self._lock:
                 self._pending.pop(msg_id, None)
             raise self._closed_error()
@@ -685,13 +710,60 @@ class Connection(EventListeners):
 
     def _write(self, msg: dict) -> bool:
         """Writes one message; False, writing nothing, once `close` has
-        released the write end (see `__init__`)."""
+        released the write end (see `__init__`) or the browser has closed its
+        end of the pipe.
+
+        ⛔ THE ONE PLACE A WRITE CAN FAIL BECAUSE THE BROWSER IS GONE. An engine
+        that dies between the check at the top of `send_placed` (or the one of
+        `launch`) and this write, before the reader has seen the end of its
+        pipe, used to leave `os.write` raising a bare `BrokenPipeError`: it
+        came out of `BrowserType.launch` as "[Errno 32] Broken pipe", with
+        neither the exit code nor the last lines of the engine, which are the
+        only account of why it stopped, and nothing a client could tell from a
+        bug of its own (seen once in the e2e of the wrapper on a hosted runner,
+        2026-11-12, while 640 other launches of the same run were good). A pipe the other end has closed is the same fact as a
+        closed one, so it gets the same answer: False, which every caller turns
+        into `_closed_error()` (exit code, last output, `TargetClosedError`,
+        the word a client's rerun rules recognise), or ignores (`post`). The
+        error that the write itself raised is kept as the reason head."""
         data = json.dumps(msg).encode("utf-8") + NUL
         with self._write_lock:
             if self._to_browser < 0:
                 return False
-            os.write(self._to_browser, data)
-        return True
+            try:
+                os.write(self._to_browser, data)
+                return True
+            except OSError as exc:
+                failure = exc
+        # Decided outside the write lock: the wait below is not a reason to hold the other writers.
+        if not (_is_a_closed_pipe(failure)
+                or (_IS_WINDOWS and failure.errno == errno.EINVAL and self._engine_is_gone(_GONE_WAIT))):
+            raise failure
+        with self._lock:                     # the reader writes the same field, under the same lock
+            if self._error is None:
+                self._error = failure
+        return False
+
+    def _engine_is_gone(self, wait: float) -> bool:
+        """True once the engine has exited or the reader has seen the end of its stream, waiting up to `wait` seconds for it.
+
+        Only the error branch of a write asks, and only for an error that does not say by itself that the pipe is closed (EINVAL
+        on Windows). The window is real: the pipe is already closed while `poll()` still says None, so a bare `poll()` would turn
+        the very case this is for into a rethrown EINVAL. A process that is alive and a reader that still reads are the proof
+        that the error is something else, and then the caller raises it as it came."""
+        deadline = time.monotonic() + wait
+        while True:
+            if self._closed:
+                return True
+            if self._process is not None:
+                try:
+                    if self._process.poll() is not None:
+                        return True
+                except Exception:
+                    pass
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.01)
 
     def close(self, timeout: float = 5.0) -> None:
         """Closes the pipe and waits for the browser to exit on its own.
@@ -1132,9 +1204,17 @@ LAUNCH_EVENT = "invisible_core.engine.launch"
 def launch(executable: str, profile_dir: str, *, headless: bool = True,
           argv_extra: Optional[list] = None, env: Optional[dict] = None,
           ready_timeout: Optional[float] = 60.0,
-          proxy: Optional[dict] = None) -> Connection:
+          proxy: Optional[dict] = None,
+          locale: Optional[str] = None) -> Connection:
     """Launches Firefox over the pipe and returns an already-ready
     connection.
+
+    ⛔ `env` IS RAW MATERIAL, and this is where the environment of the process is BORN
+    (`_engine_env.compose`): what the host's carries of the engine's families (`MOZ_*`, the GL and
+    toolkit ones), of the zone and of the language never reaches the engine, whoever built `env`
+    (`None` is `os.environ`; the served path hands the client's), and the core writes its own over it.
+    `locale` is the session's language (`intl.locale.requested`), from which `LANG`, `LC_ALL` and
+    `LANGUAGE` are written; none declared, none written.
 
     `ready_timeout` is the caller's launch timeout, in seconds, and it bounds
     the whole startup: the readiness line, the proxy below, and whatever the
@@ -1142,7 +1222,10 @@ def launch(executable: str, profile_dir: str, *, headless: bool = True,
     None is no limit, which is what Playwright's `launch(timeout=0)` asks.
 
     `proxy` is the `Browser.setBrowserProxy` command
-    (`parse_proxy(...).as_engine_command()`), sent before any page exists.
+    (`parse_proxy(...).as_engine_command()`), sent before any page exists and
+    FIRST; without one the explicit `Browser.setNoBrowserProxy` is sent
+    instead, because the engine holds its proxied channels until it hears
+    which of the two the session is.
     ⛔ A PROXY THAT CANNOT BE SET CLOSES THE BROWSER: until 2026-08-30 `proxy=`
     was accepted and dropped for every scheme the engine prefs do not carry,
     and a page resolved its own DNS and went out on the host address while the
@@ -1161,7 +1244,7 @@ def launch(executable: str, profile_dir: str, *, headless: bool = True,
     argv += list(argv_extra or [])
     argv.append("-silent")
 
-    full_env = dict(os.environ if env is None else env)
+    full_env = _engine_env.compose(os.environ if env is None else env, locale)
     spawn = _spawn_windows if sys.platform == "win32" else _spawn_posix
     to_browser, from_browser, p = spawn(executable, argv, full_env)
 
@@ -1200,18 +1283,25 @@ def launch(executable: str, profile_dir: str, *, headless: bool = True,
     c.ready_seen = seen
     c.output = output
     c._startup = deadline
-    if proxy is not None:
-        try:
+    # ⛔ THE FIRST COMMAND, ALWAYS. The engine's Juggler holds every proxied channel until it has been told what the
+    # session's proxy is: `Browser.setBrowserProxy`, or the explicit `Browser.setNoBrowserProxy` for a session without
+    # one. Both travel on the pipe only: a credential in the browser's environment or command line is readable by other
+    # processes of the user.
+    try:
+        if proxy is not None:
             c.startup_send("Browser.setBrowserProxy", proxy)
-        except ReplyTimeout:
-            c.close()
-            raise
-        except ProtocolError as exc:
-            c.close()
-            raise ProtocolError(
-                "the engine refused the proxy, so the browser was closed "
-                "rather than left running without one: %s" % exc) from exc
-        except BaseException:
-            c.close()
-            raise
+        else:
+            c.startup_send("Browser.setNoBrowserProxy", {})
+    except ReplyTimeout:
+        c.close()
+        raise
+    except ProtocolError as exc:
+        c.close()
+        what = "the proxy" if proxy is not None else "the session's 'no proxy'"
+        raise ProtocolError(
+            "the engine refused %s, so the browser was closed "
+            "rather than left running without one: %s" % (what, exc)) from exc
+    except BaseException:
+        c.close()
+        raise
     return c

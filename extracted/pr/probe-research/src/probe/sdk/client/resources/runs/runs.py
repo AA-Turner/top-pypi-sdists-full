@@ -14,6 +14,7 @@ from typing import Any
 from pydantic import BaseModel
 from ....values import values as _coerce
 from ....values.times import to_iso_time
+from ....values.run_type import to_run_type
 from .....generated.models import (
     RunBundle,
     RunCountsOut,
@@ -41,6 +42,7 @@ from ....run.run import Run  # noqa: E402
 from probe.sdk.client.ids import _id_ref, is_new_slug, to_kebab_slug
 from probe.sdk.client.resources.runs.logs import LogsResource
 from probe.sdk.client.resources.runs.ordering import DEFAULT_ORDER, parse_run_order
+from probe.sdk.client.resources.runs.listing import RECENT_ORDER
 from probe.sdk.client.resources.runs.table import RunTable
 from probe.sdk.client.resources.projects.experiment_locator import _walks_once
 from probe.sdk.client.resources.runs.home import (
@@ -160,6 +162,7 @@ class RunsMixin:
         ignore: str | list[str] | tuple[str, ...] | None = None,
         workspace: str | None = None,
         started_at: str | datetime | None = None,
+        run_type: str | None = None,
         **run_kw,
     ) -> Run:
         """Open a run — full resolution/creation/``on_conflict`` semantics in
@@ -169,7 +172,8 @@ class RunsMixin:
         none set files into your home workspace, and raises ``WorkspaceRequired``
         before anything is created when you have none. ``started_at`` (ISO 8601 with an
         offset, or an aware datetime) is a re-logged past run's real start; close it with
-        ``run.set_status(status, ended_at=...)``. ``hw=True`` (or ``PROBE_HW=1``) also
+        ``run.set_status(status, ended_at=...)``. ``run_type="rl"`` declares an RL training or agent-eval
+        run (RL tabs and Trials); omitted, the run reads ``general`` until RL data marks it. ``hw=True`` (or ``PROBE_HW=1``) also
         starts the opt-in hardware collector when this process is the
         node-local leader. Best-effort by contract: a broken collector never
         touches the run (agent/src/probe/sdk/hardware/DESIGN.md). ``snapshot``
@@ -224,6 +228,9 @@ class RunsMixin:
         if started_at is not None:
             # Checked before any request, so a bad time creates no project either.
             started_at = to_iso_time(started_at, label="started_at")
+        if run_type is not None:
+            # Checked before any request, so a typo creates no project either.
+            run_kw["run_type"] = to_run_type(run_type)
         if ignore is not None:
             # Checked before the run exists, so a bad value opens nothing.
             from ....recording_rules import recording_rules as _ignore
@@ -618,7 +625,7 @@ def _get_row_model(filters: dict) -> type[BaseModel]:
     ordered `iter` by a metric asks for it)."""
     order = filters.get("order")
     has_metrics = bool(filters.get("latest_metrics")) or (
-        order not in (None, "", DEFAULT_ORDER) and parse_run_order(order).metric_key is not None
+        order not in (None, "", DEFAULT_ORDER, RECENT_ORDER) and parse_run_order(order).metric_key is not None
     )
     if filters.get("view") == "light":
         return RunListLightRowOut if has_metrics else RunListLightOut

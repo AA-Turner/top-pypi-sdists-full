@@ -17,6 +17,13 @@ from ....models import (
     IngestRunRequest,
     LatestScalarsRequest)
 from ...values.tags import canonical_tags
+from ... import errors
+
+#: The server feature behind `owner`, `since`, `until` and `order="recent"` on the browse listings, plus
+#: `GET /v1/people` and `GET /v1/sessions` (`GET /v1/server/features`; people and time filters, S1).
+PEOPLE_FILTERS_FEATURE = "people_filters"
+#: The server feature behind `owner`, `since`, `until` and `sort` on `POST /v1/search` (S2).
+SEARCH_PEOPLE_FILTERS_FEATURE = "search_people_filters"
 
 
 class ReadsMixin:
@@ -123,6 +130,10 @@ class ReadsMixin:
         exclude_origin_session: str | None = None,
         retrieval: str | None = None,
         include_semantic: bool | None = None,
+        owner: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        sort: str | None = None,
     ) -> dict:
         """``POST /v1/search`` (workspaces+kb fold-in): one-index exact+semantic search.
 
@@ -138,7 +149,14 @@ class ReadsMixin:
 
         ``retrieval="keyword"`` runs the semantic leg as BM25 only, with no
         model call; a server that ran it echoes ``semantic.retrieval:
-        "keyword"`` (absent = it ignored the field and ran the full search)."""
+        "keyword"`` (absent = it ignored the field and ran the full search).
+
+        ``owner`` (a user id, an email, a name or ``me``), ``since`` / ``until`` (ISO 8601 or ``24h``,
+        ``7d``, ``2w``) and ``sort="recent"`` are passed as given: the server matches the person and reads
+        the dates, and echoes ``owner_matched``. A server without ``search_people_filters`` raises
+        ``CapabilityUnavailable`` rather than answer an unfiltered search."""
+        people_filters = {"owner": owner, "since": since, "until": until, "sort": sort}
+        _require_people_filters(self, people_filters, SEARCH_PEOPLE_FILTERS_FEATURE, "search")
         body: dict[str, Any] = {"query": query}
         optional = {
             "exclude_agent_session": exclude_agent_session,
@@ -157,6 +175,7 @@ class ReadsMixin:
             # Omitted unless asked, for the same byte-identical reason.
             "retrieval": retrieval,
             "include_semantic": include_semantic,
+            **people_filters,
         }
         body.update({key: value for key, value in optional.items() if value is not None})
         return self.transport.post("/v1/search", body, idempotent=True)
@@ -175,6 +194,10 @@ class ReadsMixin:
         subprojects_cursor: str | None = None,
         continuation_handles: bool | None = None,
         exclude_origin_session: str | None = None,
+        owner: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        order: str | None = None,
     ) -> dict:
         """``GET /v1/browse``: the structured "what exists" tree.
 
@@ -208,7 +231,12 @@ class ReadsMixin:
         ``exclude_origin_session`` leaves out, at every level, the work that
         coding-agent session created (as :meth:`search`); echoed as
         ``origin_exclusion_applied: true`` by a server that applied it.
+
+        ``owner``, ``since``, ``until`` and ``order="recent"`` pass through as :meth:`search` takes them,
+        gated on ``people_filters``.
         """
+        people_filters = {"owner": owner, "since": since, "until": until, "order": order}
+        _require_people_filters(self, people_filters, PEOPLE_FILTERS_FEATURE, "browse")
         params: dict[str, Any] = {}
         optional = {
             "scope": scope,
@@ -226,6 +254,7 @@ class ReadsMixin:
             "subprojects_cursor": subprojects_cursor,
             "continuation_handles": continuation_handles,
             "exclude_origin_session": exclude_origin_session,
+            **people_filters,
         }
         params.update({k: v for k, v in optional.items() if v is not None})
         return self.transport.get("/v1/browse", params=params or None)
@@ -421,7 +450,8 @@ class ReadsResource(Resource):
         exact_cursor: str | None = None, semantic_cursor: str | None = None,
         exclude_agent_session: str | None = None, curated_only: bool | None = None,
         exclude_origin_session: str | None = None, retrieval: str | None = None,
-        include_semantic: bool | None = None,
+        include_semantic: bool | None = None, owner: str | None = None, since: str | None = None,
+        until: str | None = None, sort: str | None = None,
     ) -> SearchResponse:
         """`Client.search` as a `SearchResponse`."""
         return self._to_model(
@@ -431,7 +461,7 @@ class ReadsResource(Resource):
                 exact_limit=exact_limit, exact_cursor=exact_cursor, semantic_cursor=semantic_cursor,
                 exclude_agent_session=exclude_agent_session, curated_only=curated_only,
                 exclude_origin_session=exclude_origin_session, retrieval=retrieval,
-                include_semantic=include_semantic,
+                include_semantic=include_semantic, owner=owner, since=since, until=until, sort=sort,
             ),
         )
 
@@ -475,7 +505,8 @@ class ReadsResource(Resource):
         tags: list[str] | None = None, workspace_id: str | None = None, limit: int | None = None,
         cursor: str | None = None, runs_cursor: str | None = None,
         subprojects_cursor: str | None = None, continuation_handles: bool | None = None,
-        exclude_origin_session: str | None = None,
+        exclude_origin_session: str | None = None, owner: str | None = None, since: str | None = None,
+        until: str | None = None, order: str | None = None,
     ) -> BrowseResponse:
         """`Client.browse` as a `BrowseResponse`."""
         return self._to_model(
@@ -484,7 +515,8 @@ class ReadsResource(Resource):
                 scope=scope, depth=depth, status=status, tags=tags, workspace_id=workspace_id,
                 limit=limit, cursor=cursor, runs_cursor=runs_cursor,
                 subprojects_cursor=subprojects_cursor, continuation_handles=continuation_handles,
-                exclude_origin_session=exclude_origin_session,
+                exclude_origin_session=exclude_origin_session, owner=owner, since=since, until=until,
+                order=order,
             ),
         )
 
@@ -493,3 +525,15 @@ class ReadsResource(Resource):
         return self._to_model(DocsOut, self._client.docs(query, limit=limit))
 
 from probe.sdk.client.resources.runs.metrics import SOURCE_READ_CONTRACT  # noqa: E402 -- pieces need each other; the front door loads this one first
+
+
+def _require_people_filters(client: Any, filters: dict[str, Any], feature: str, what: str) -> None:
+    """Refuse a person or time filter the server does not declare: an older one drops it and answers
+    everything, which reads as the person's work."""
+    asked = sorted(name for name, value in filters.items() if value)
+    if asked and not client.supports_feature(feature):
+        raise errors.CapabilityUnavailable(
+            feature,
+            f"{what} by {', '.join(asked)} is not available on this Probe server yet; "
+            f"leave {'it' if len(asked) == 1 else 'them'} out, or wait for the server update.",
+        )

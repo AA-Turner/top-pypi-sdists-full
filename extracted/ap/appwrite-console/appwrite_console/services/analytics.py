@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 from ..exception import AppwriteException
 from appwrite_console.utils.deprecated import deprecated
 from ..models.analytics_property_list import AnalyticsPropertyList
+from ..enums.analytics_property_type import AnalyticsPropertyType
 from ..models.analytics_property import AnalyticsProperty
 from ..enums.analytics_interval import AnalyticsInterval
 from ..enums.analytics_dimension import AnalyticsDimension
@@ -27,7 +28,7 @@ class Analytics(Service):
         Parameters
         ----------
         queries : Optional[List[str]]
-            Array of query strings generated using the Query class provided by the SDK. [Learn more about queries](https://appwrite.io/docs/queries). Maximum of 100 queries are allowed, each 4096 characters long. You may filter on the following attributes: name, domain, enabled
+            Array of query strings generated using the Query class provided by the SDK. [Learn more about queries](https://appwrite.io/docs/queries). Maximum of 100 queries are allowed, each 4096 characters long. You may filter on the following attributes: name, domain, enabled, type
         search : Optional[str]
             Search term to filter your list results. Matches the property ID, name and domain. Max length: 256 chars.
         total : Optional[bool]
@@ -71,6 +72,8 @@ class Analytics(Service):
         domain: Optional[str] = None,
         enabled: Optional[bool] = None,
         allowed_origins: Optional[List[str]] = None,
+        identify_users: Optional[bool] = None,
+        type: Optional[AnalyticsPropertyType] = None,
     ) -> AnalyticsProperty:
         """
         Create a new analytics property to track a website or application.
@@ -82,11 +85,15 @@ class Analytics(Service):
         name : str
             Human-readable name for this property.
         domain : Optional[str]
-            Primary domain to track (e.g. example.com). Optional for native apps.
+            Primary domain to track (e.g. example.com). May be empty for mobile and agent properties.
         enabled : Optional[bool]
             Whether the property accepts events. Events sent to a disabled property are rejected as not found.
         allowed_origins : Optional[List[str]]
             Allowed origins for tracking. Use ["*"] to allow all.
+        identify_users : Optional[bool]
+            Record the signed-in user's ID on events sent from a client session, so traffic can be broken down and counted by user. Off by default.
+        type : Optional[AnalyticsPropertyType]
+            Kind of product this property tracks. Only changes which panels the dashboard shows; ingestion accepts the same events for every type.
         Returns
         -------
         AnalyticsProperty
@@ -112,6 +119,10 @@ class Analytics(Service):
             api_params['enabled'] = self._normalize_value(enabled)
         if allowed_origins is not None:
             api_params['allowedOrigins'] = self._normalize_value(allowed_origins)
+        if identify_users is not None:
+            api_params['identifyUsers'] = self._normalize_value(identify_users)
+        if type is not None:
+            api_params['type'] = self._normalize_value(type)
 
         response = self.client.call(
             'post',
@@ -173,6 +184,8 @@ class Analytics(Service):
         domain: Optional[str] = None,
         enabled: Optional[bool] = None,
         allowed_origins: Optional[List[str]] = None,
+        identify_users: Optional[bool] = None,
+        type: Optional[AnalyticsPropertyType] = None,
     ) -> AnalyticsProperty:
         """
         Update an analytics property. Only the attributes you pass are changed; omitted attributes keep their current value.
@@ -189,6 +202,10 @@ class Analytics(Service):
             Whether the property accepts events. Events sent to a disabled property are rejected as not found.
         allowed_origins : Optional[List[str]]
             Allowed origins for tracking. Use ["*"] to allow all.
+        identify_users : Optional[bool]
+            Record the signed-in user's ID on events sent from a client session, so traffic can be broken down and counted by user.
+        type : Optional[AnalyticsPropertyType]
+            Kind of product this property tracks. Only changes which panels the dashboard shows; stored events are kept.
         Returns
         -------
         AnalyticsProperty
@@ -213,6 +230,10 @@ class Analytics(Service):
             api_params['enabled'] = self._normalize_value(enabled)
         if allowed_origins is not None:
             api_params['allowedOrigins'] = self._normalize_value(allowed_origins)
+        if identify_users is not None:
+            api_params['identifyUsers'] = self._normalize_value(identify_users)
+        if type is not None:
+            api_params['type'] = self._normalize_value(type)
 
         response = self.client.call(
             'patch',
@@ -283,6 +304,7 @@ class Analytics(Service):
         user_id: Optional[str] = None,
         ip: Optional[str] = None,
         user_agent: Optional[str] = None,
+        interactive: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
         Send a tracking event from a browser, native app, or server-side SDK.
@@ -310,11 +332,13 @@ class Analytics(Service):
         props : Optional[List[str]]
             Custom string properties as a flat key=value list (max 32 entries, alternating key,value).
         user_id : Optional[str]
-            Override user ID. Requires API-key auth with analytics.write scope.
+            Override user ID. Pass an opaque ID, not personal data such as an email. Requires API-key auth with analytics.write scope.
         ip : Optional[str]
             Override IP address. Requires API-key auth with analytics.write scope.
         user_agent : Optional[str]
             Override user agent. Requires API-key auth with analytics.write scope.
+        interactive : Optional[bool]
+            Whether this event is a visitor interaction that ends a bounce. Set false for telemetry such as heartbeats or background syncs. Defaults to true for custom events and false for the automatic engagement, scroll and app lifecycle events. Ignored for views.
         Returns
         -------
         Dict[str, Any]
@@ -357,6 +381,8 @@ class Analytics(Service):
             api_params['ip'] = self._normalize_value(ip)
         if user_agent is not None:
             api_params['userAgent'] = self._normalize_value(user_agent)
+        if interactive is not None:
+            api_params['interactive'] = self._normalize_value(interactive)
 
         response = self.client.call(
             'post',
@@ -377,6 +403,7 @@ class Analytics(Service):
         queries: Optional[List[str]] = None,
         interval: Optional[AnalyticsInterval] = None,
         dimensions: Optional[List[AnalyticsDimension]] = None,
+        prop_key: Optional[str] = None,
         date_range: Optional[str] = None,
         start_at: Optional[str] = None,
         end_at: Optional[str] = None,
@@ -393,6 +420,10 @@ class Analytics(Service):
 
         `pageviews` is carried by the flat aggregate and by `interval`, but not by a breakdown.
 
+        `userId` and `users` cover identified traffic only: events sent with an API key's `userId`, or from a signed-in session on a property with `identifyUsers` on. A `userId` breakdown leaves out anonymous events; returned values are the project's user IDs.
+
+        Custom event props: `dimensions[]=props` ranks the prop keys seen in the window, and adding `propKey` ranks the values of that one key. `queries[]` filters on a prop's value with the `props.<key>` attribute, e.g. `equal("props.plan", ["pro"])`.
+
         Combining `dimensions[]` with `interval` is not supported yet. `queries[]` filters the underlying events using standard Utopia query syntax.
 
         Parameters
@@ -400,11 +431,13 @@ class Analytics(Service):
         property_id : str
             Analytics property unique ID.
         queries : Optional[List[str]]
-            Up to 10 filter queries in Utopia syntax. Allowed attributes: country, region, city, browser, browserVersion, operatingSystem, operatingSystemVersion, device, screenSize, referrerSource, channel, utmSource, utmMedium, utmCampaign, utmContent, utmTerm, page, hostname, botName, botCategory, eventName. page, eventName are only accepted alongside `interval`, or with a breakdown on a dimension other than entryPage, exitPage. Allowed methods: equal, notEqual, contains, startsWith, endsWith. Example: `queries[]=equal("country", ["US"])`.
+            Up to 10 filter queries in Utopia syntax. Allowed attributes: country, region, city, browser, browserVersion, operatingSystem, operatingSystemVersion, device, screenSize, referrerSource, channel, utmSource, utmMedium, utmCampaign, utmContent, utmTerm, page, hostname, botName, botCategory, userId, eventName, and `props.<key>` for a custom prop. page, userId, eventName and `props.<key>` are only accepted alongside `interval`, or with a breakdown on a dimension other than entryPage, exitPage. Allowed methods: equal, notEqual, contains, startsWith, endsWith. Example: `queries[]=equal("country", ["US"])`.
         interval : Optional[AnalyticsInterval]
             Time bucket size. Omit (null) for a flat aggregate over the whole window. Allowed: 1h, 1d, 1w, 1m.
         dimensions : Optional[List[AnalyticsDimension]]
-            Dimension to break the metrics down by. One at most for now; the parameter is a list so that cap can be raised without a breaking change. Allowed: country, region, city, browser, browserVersion, operatingSystem, operatingSystemVersion, device, screenSize, referrerSource, channel, utmSource, utmMedium, utmCampaign, utmContent, utmTerm, page, hostname, entryPage, exitPage, trafficType, botName, botCategory, eventName.
+            Dimension to break the metrics down by. One at most for now; the parameter is a list so that cap can be raised without a breaking change. Allowed: country, region, city, browser, browserVersion, operatingSystem, operatingSystemVersion, device, screenSize, referrerSource, channel, utmSource, utmMedium, utmCampaign, utmContent, utmTerm, page, hostname, entryPage, exitPage, trafficType, botName, botCategory, userId, eventName, props.
+        prop_key : Optional[str]
+            Custom prop key whose values to rank, with `dimensions[]=props`. Omit to rank the prop keys themselves.
         date_range : Optional[str]
             Date range shorthand (e.g. 7d, 30d). Ignored for any bound you supply explicitly via startAt/endAt.
         start_at : Optional[str]
@@ -437,6 +470,8 @@ class Analytics(Service):
             api_params['interval'] = self._normalize_value(interval)
         if dimensions is not None:
             api_params['dimensions'] = self._normalize_value(dimensions)
+        if prop_key is not None:
+            api_params['propKey'] = self._normalize_value(prop_key)
         if date_range is not None:
             api_params['dateRange'] = self._normalize_value(date_range)
         if start_at is not None:

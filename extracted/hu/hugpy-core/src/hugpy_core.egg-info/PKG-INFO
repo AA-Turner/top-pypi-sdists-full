@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hugpy-core
-Version: 0.4.82
+Version: 0.4.96
 Summary: Hugpy Core: a small fleet API, worker console, dispatch and consolidated history.
 Author-email: putkoff <support@hugpy.ai>
 License: Proprietary
@@ -20,9 +20,8 @@ Requires-Dist: hugpy-resources<0.2,>=0.1.5
 Requires-Dist: hugpy-settings<0.2,>=0.1.8
 Requires-Dist: aiohttp>=3.9
 Requires-Dist: flask>=2
-Requires-Dist: hugpy-storage>=0.2.17
+Requires-Dist: hugpy-storage>=0.2.20
 Requires-Dist: hugpy-engine>=0.3.14
-Requires-Dist: hugpy-wrapper>=0.1.183.5
 Requires-Dist: hugpy-terminal<0.2,>=0.1.24
 Requires-Dist: psycopg[binary]>=3
 Requires-Dist: abstract_toolserver>=0.0.106
@@ -36,17 +35,21 @@ Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Provides-Extra: legacy
 Requires-Dist: abstract_toolserver[db,server]>=0.0.95; extra == "legacy"
-Requires-Dist: hugpy-media>=0.3.8; extra == "legacy"
-Requires-Dist: hugpy-video>=0.3.9; extra == "legacy"
+Requires-Dist: hugpy-media>=0.3.13; extra == "legacy"
+Requires-Dist: hugpy-video>=0.3.21; extra == "legacy"
 Provides-Extra: video
-Requires-Dist: hugpy-video>=0.3.9; extra == "video"
+Requires-Dist: hugpy-video>=0.3.21; extra == "video"
 Provides-Extra: media
-Requires-Dist: hugpy-media>=0.3.8; extra == "media"
+Requires-Dist: hugpy-media>=0.3.13; extra == "media"
+Provides-Extra: arms
+Requires-Dist: hugpy-video>=0.3.21; extra == "arms"
+Requires-Dist: hugpy-media>=0.3.13; extra == "arms"
 
 # Hugpy Core
 
 Core is the Flask console, API and fleet coordinator. It registers Wrapper hosts,
-mirrors their inventory and execution evidence into PostgreSQL, and routes work.
+mirrors their execution evidence into PostgreSQL, reads the model inventory
+Discovery publishes, and routes work.
 Wrapper owns execution, loading, memory admission, worker settings and local model
 copies. Core uses Wrapper's reported feasibility; it does not run a second sizing
 solver. See [model data ownership](docs/MODEL_DATA_OWNERSHIP.md) and the
@@ -68,11 +71,89 @@ Startup checks migrations and initializes Core services; use an isolated databas
 for development. `serve` uses the threaded Werkzeug server. A bare `hugpy-core`
 uses the older Flask startup sequence with additional startup jobs.
 
-Core currently depends on Wrapper, Storage, Abstract Toolserver and the shared
-Flask/database/utilities libraries as well as Flask, aiohttp, psycopg and
-Flask-Sock. Exact floors and optional extras are in [pyproject.toml](pyproject.toml).
+Core depends on Storage, Engine, Terminal, Resources, Settings, Abstract
+Toolserver and the shared Flask/database/utilities libraries as well as Flask,
+aiohttp, psycopg and Flask-Sock. It does not import Wrapper or Discovery: it
+reaches the Wrapper over its HTTP front door and reads Discovery's published
+export (`hugpy_core.discovery`), per the one-way discovery → wrapper → core
+ownership rule. Exact floors and optional extras are in [pyproject.toml](pyproject.toml).
 Media and Video are optional: their distributions own their APIs and UI assets.
 Toolserver provisions databases; Core queries PostgreSQL directly.
+
+## Media and Video on the same host
+
+Media (`hugpy-media`) and Video (`hugpy-video`) are separate packages, each able to run without
+Core as its own service. On a host that also has Core they are served by Core, in-process, at
+`/media/` and `/video/`. Nothing has to be configured and the order of installation does not
+matter:
+
+```sh
+sudo apt-get install hugpy-core hugpy-media hugpy-video    # any subset, in any order, now or later
+hugpy-core addon list                                      # media: embedded / video: embedded
+```
+
+Each arm's package ships a descriptor in `/usr/share/hugpy/core-addons.d/`. When the arm is
+installed it asks Core to take it (`hugpy-core addon attach <name>`); when Core is installed or
+upgraded it takes every arm described on the box (`hugpy-core addon sync`). Taking an arm means
+installing its wheels into Core's environment from the arm's own offline wheel directory, with
+every distribution Core already has pinned to its installed version: the arm is added and nothing
+Core was installed with is replaced. The arm's standalone service is then switched off.
+
+An arm Core cannot hold that way (it needs a newer sibling than this Core carries) is left
+untouched on its own service, and Core reaches it through its `arms.d` descriptor instead, so
+the arm still appears under Core's URLs. Removing the arm's package takes it back out of Core;
+removing Core returns the arm to its own service.
+
+`HUGPY_CORE_ADDONS` in Core's `core.env` decides what may be embedded: unset or `auto` (every
+described arm), `none` (arms stay separate services behind Core), or a comma list of names.
+Run `sudo hugpy-core addon sync` after changing it.
+
+With pip instead of Debian packages, the same result is one environment holding both:
+`pip install "hugpy-core[media,video]"` (or `hugpy-media[core]`, `hugpy-video[core]`).
+
+## Who needs an API key
+
+`/v1/*` is the model API, `/api/*` the control surface. Core checks keys on `/v1` and on
+`/live-api`; `/api` carries no key check of its own (a front gates it with the operator's
+session, and direct callers are whoever can reach Core's bind address).
+
+Those three prefixes, `/health`, and the console's own files and pages are everything Core
+serves. Any other path is a 404 with a JSON body naming the prefixes: a control route called
+without `/api` (`/llm/workers`, `/models`) does not return the console page. A page below its
+entry point (`/console/workers`, `/video/jobs/7`) is returned to a browser navigation only
+(`Accept: text/html`); a program asking for it gets the same 404. A client's base
+is the bare origin; it never ends in `/api` or `/v1`. `/api/v1/*` is the model API as the
+console's signed-in session reaches it through a front; clients with a key use `/v1`.
+
+The requirement has three states, set from the console's API access switch or
+`POST /api/keys/require`:
+
+| mode | who needs a key on `/v1` and `/live-api` |
+|---|---|
+| `never` | nobody (the switch off) |
+| `always` | everybody, callers on this box included (the switch on) |
+| `outside` | callers from outside this box and its trusted networks; local callers do not. Only `{"mode": "outside"}` selects it; it is also what an install whose switch was never used runs with |
+
+A caller that reaches Core through a reverse proxy is judged by the last address in
+`X-Forwarded-For` that is not one of Core's proxies. Core trusts no proxy until
+`HUGPY_ROUTER_TRUSTED_PROXIES` names it (for a front on the same host: `127.0.0.1,::1`), so
+until then every forwarded caller needs a key. Set it only for a front that writes
+`X-Forwarded-For` itself on every location it sends to Core. `HUGPY_ROUTER_TRUSTED_NETS`
+replaces the networks that count as local (loopback and the private ranges).
+
+`/live-api/<section>/<path>` is `/api/<section>/<path>` for a key holder: the same routes,
+behind the same rule as `/v1`, limited to the sections in `hugpy_core.web.ui.LIVE_SECTIONS`
+(models, llm, chat, prompt, session, uploads, media, video, movie, oracle, version, fleet,
+agent). `fleet` and `agent` are open to a use key only in part (`LIVE_USE_ROUTES`: the worker
+tree and the model and catalog reads; a node's `agent/register`); the rest of those two
+sections needs an admin key. A client
+that holds a key uses a bare origin as its base, `/v1` for model calls and `/live-api` for
+control calls, whether it talks to a front or straight to Core. Key management, settings and
+the other operator surfaces are not reachable that way.
+
+`hugpy_core.web.api_access.principal()` answers "who is calling" for the current request
+(`scope` admin, use or none; `inside`; whether it came through a front's session gate). Arms
+Core hosts receive it with Core's other services.
 
 ## API, UI and operations
 

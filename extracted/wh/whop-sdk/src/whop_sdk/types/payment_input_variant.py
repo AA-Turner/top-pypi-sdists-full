@@ -23,7 +23,7 @@ class PaymentInputVariant(UniversalBaseModel):
 
     application_fee_amount: typing.Optional[float] = pydantic.Field(default=None)
     """
-    Application fee the platform collects per unit, in the variant currency (5.00 means $5.00 for USD). Must be positive and below the initial price for one-time variants or renewal price for recurring variants. Paid to the parent account alongside other processing fees; collection is capped to remaining proceeds. Applies to subsequent payments on recurring variants. Only valid for connected accounts with a parent account.
+    Application fee the platform collects per unit, in the variant currency (5.00 means $5.00 for USD). Must be positive and below the initial price for one-time variants or renewal price for recurring variants. Paid to the parent account alongside other processing fees; collection is capped to remaining proceeds. Applies to subsequent payments on recurring variants. Only valid for subaccounts with a parent account.
     """
 
     billing_period: typing.Optional[int] = pydantic.Field(default=None)
@@ -84,6 +84,11 @@ class PaymentInputVariant(UniversalBaseModel):
     renewal_price: typing.Optional[float] = pydantic.Field(default=None)
     """
     Recurring price in the variant currency.
+    """
+
+    split_pay_required_payments: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    How many payments a recurring variant collects before it stops billing, from 2 to 115. Only valid for `renewal` variants. `null` bills until the subscription is canceled.
     """
 
     title: typing.Optional[str] = pydantic.Field(default=None)

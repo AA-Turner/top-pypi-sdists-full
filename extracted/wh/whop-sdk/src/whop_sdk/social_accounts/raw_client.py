@@ -11,24 +11,19 @@ from ..core.pagination import AsyncPager, SyncPager
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
+from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.conflict_error import ConflictError
 from ..types.social_account import SocialAccount
-from ..types.social_account_post import SocialAccountPost
 from .types.connect_social_accounts_request_platform import ConnectSocialAccountsRequestPlatform
-from .types.connect_social_accounts_request_scopes_item import ConnectSocialAccountsRequestScopesItem
 from .types.connect_social_accounts_response import ConnectSocialAccountsResponse
-from .types.create_social_accounts_request_platform import CreateSocialAccountsRequestPlatform
+from .types.create_social_accounts_request_body import CreateSocialAccountsRequestBody
 from .types.delete_social_accounts_response import DeleteSocialAccountsResponse
-from .types.lead_forms_social_accounts_response import LeadFormsSocialAccountsResponse
 from .types.list_social_accounts_request_direction import ListSocialAccountsRequestDirection
 from .types.list_social_accounts_request_order import ListSocialAccountsRequestOrder
 from .types.list_social_accounts_request_platform import ListSocialAccountsRequestPlatform
 from .types.list_social_accounts_request_scopes_item import ListSocialAccountsRequestScopesItem
 from .types.list_social_accounts_request_trust_level import ListSocialAccountsRequestTrustLevel
 from .types.list_social_accounts_response import ListSocialAccountsResponse
-from .types.partners_social_accounts_response import PartnersSocialAccountsResponse
-from .types.posts_social_accounts_response import PostsSocialAccountsResponse
-from .types.remove_partner_social_accounts_response import RemovePartnerSocialAccountsResponse
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -70,7 +65,7 @@ class RawSocialAccountsClient:
             The User that the external accounts are connected to. Provide either this or account_id.
 
         platform : typing.Optional[ListSocialAccountsRequestPlatform]
-            Only return external accounts for the platform that is specified.
+            Only return external accounts for the platform that is specified. An `aimerce` account is returned only with this filter, which requires the `company:manage_checkout` scope instead of `social_account:read`.
 
         trust_level : typing.Optional[ListSocialAccountsRequestTrustLevel]
             Only return external accounts linked with this trust level, such as `oauth` for accounts connected through OAuth.
@@ -168,26 +163,14 @@ class RawSocialAccountsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def create(
-        self,
-        *,
-        platform: CreateSocialAccountsRequestPlatform,
-        account_id: typing.Optional[str] = OMIT,
-        api_key: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request: CreateSocialAccountsRequestBody, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[SocialAccount]:
         """
         Deprecated compatibility endpoint. Create external accounts with `POST /external_accounts` instead.
 
         Parameters
         ----------
-        platform : CreateSocialAccountsRequestPlatform
-            The platform to create the external account on. `facebook` requires the account's `banner_image`, `logo`, and `description`, and `tiktok` requires its `logo`; configure them with [Update Account](/api-reference/beta/accounts/update-account). The account is returned before the platform has created it — its `id` is usable right away, and the rest of the profile fills in once provisioning finishes. `klaviyo` connects the account's existing Klaviyo account with the `api_key` you pass.
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) to create the external account for. An account-scoped API key may omit this to default to its own account. Account API keys cannot update their own account's branding through Update Account; use a user-authenticated path.
-
-        api_key : typing.Optional[str]
-            A private API key for the account on the platform. Required for `klaviyo`, which needs read access to Accounts; not accepted for other platforms. Whop checks the key with the platform before connecting and never returns it.
+        request : CreateSocialAccountsRequestBody
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -201,14 +184,9 @@ class RawSocialAccountsClient:
             "social_accounts",
             base_url=self._client_wrapper.get_environment().api,
             method="POST",
-            json={
-                "account_id": account_id,
-                "api_key": api_key,
-                "platform": platform,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=CreateSocialAccountsRequestBody, direction="write"
+            ),
             request_options=request_options,
             omit=OMIT,
         )
@@ -248,7 +226,6 @@ class RawSocialAccountsClient:
         platform: ConnectSocialAccountsRequestPlatform,
         redirect_url: str,
         account_id: typing.Optional[str] = OMIT,
-        scopes: typing.Optional[typing.Sequence[ConnectSocialAccountsRequestScopesItem]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ConnectSocialAccountsResponse]:
         """
@@ -257,16 +234,13 @@ class RawSocialAccountsClient:
         Parameters
         ----------
         platform : ConnectSocialAccountsRequestPlatform
-            The platform to connect the external account on. Use `meta_business` to connect Meta Business assets, which is how Facebook Pages and Instagram accounts are connected — there is no separate `instagram` value. Use `tiktok` for TikTok accounts, `snapchat` for Snapchat Public Profiles, `linkedin` to connect the authenticated user’s LinkedIn profile, `youtube` to connect their YouTube channel, or `x` to connect their X profile. Use `quickbooks` to connect the account’s QuickBooks Online company: pass `account_id`, omit `scopes`, and the user picks the company in QuickBooks.
+            The platform to connect the external account on. Use `tiktok` to connect the authenticated user’s TikTok profile, `linkedin` for their LinkedIn profile, `youtube` for their YouTube channel, or `x` for their X profile. Use `quickbooks` to connect the account’s QuickBooks Online company: pass `account_id`, and the user picks the company in QuickBooks.
 
         redirect_url : str
             Where to send the user once they finish connecting their accounts. Must be an `https` URL on whop.com; any other host is rejected. On success, the user is redirected with an `external_account_connected` query param naming the platform; if the connection fails, with an `external_account_error` query param instead. The same values also arrive as `social_account_connected` / `social_account_error`.
 
         account_id : typing.Optional[str]
             The Account (biz_ identifier) to connect the external account for. An account-scoped API key may omit this to default to its own account. Omit for user profile connections.
-
-        scopes : typing.Optional[typing.Sequence[ConnectSocialAccountsRequestScopesItem]]
-            The connection purpose. For `meta_business` and `snapchat`, `advertise` is required and connects company advertising assets. For `linkedin`, `youtube`, and `x`, omit scopes to connect the authenticated user’s profile; advertising is not supported. For `tiktok`, omit scopes to connect the authenticated user’s profile, or pass `advertise` to connect company advertising assets. For `quickbooks`, omit scopes; the connection belongs to the account in `account_id`. Profile connections still request the platform permissions needed to read the profile.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -284,7 +258,6 @@ class RawSocialAccountsClient:
                 "account_id": account_id,
                 "platform": platform,
                 "redirect_url": redirect_url,
-                "scopes": scopes,
             },
             headers={
                 "content-type": "application/json",
@@ -370,345 +343,6 @@ class RawSocialAccountsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def lead_forms(
-        self, id: str, *, account_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[LeadFormsSocialAccountsResponse]:
-        """
-        Deprecated compatibility endpoint. List lead forms with `GET /external_accounts/{id}/lead_forms` instead.
-
-        Parameters
-        ----------
-        id : str
-            The social account (a sacc_ identifier) whose lead forms to list.
-
-        account_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[LeadFormsSocialAccountsResponse]
-            lead forms listed through the deprecated path
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"social_accounts/{encode_path_param(id)}/lead_forms",
-            base_url=self._client_wrapper.get_environment().api,
-            method="GET",
-            params={
-                "account_id": account_id,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    LeadFormsSocialAccountsResponse,
-                    parse_obj_as(
-                        type_=LeadFormsSocialAccountsResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def partners(
-        self,
-        id: str,
-        *,
-        account_id: typing.Optional[str] = None,
-        first: typing.Optional[int] = None,
-        after: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[SocialAccount, PartnersSocialAccountsResponse]:
-        """
-        Deprecated compatibility endpoint. List partners with `GET /external_accounts/{external_account_id}/partners` instead.
-
-        Parameters
-        ----------
-        id : str
-            The brand's Instagram social account (a sacc_ identifier).
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
-
-        first : typing.Optional[int]
-            Number of results to return from the start of the range.
-
-        after : typing.Optional[str]
-            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        SyncPager[SocialAccount, PartnersSocialAccountsResponse]
-            partners listed through the deprecated path
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"social_accounts/{encode_path_param(id)}/partners",
-            base_url=self._client_wrapper.get_environment().api,
-            method="GET",
-            params={
-                "account_id": account_id,
-                "first": first,
-                "after": after,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
-                    PartnersSocialAccountsResponse,
-                    parse_obj_as(
-                        type_=PartnersSocialAccountsResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                _items = _parsed_response.data
-                _has_next = False
-                _get_next = None
-                if _parsed_response.page_info is not None:
-                    _parsed_next = _parsed_response.page_info.end_cursor
-                    _has_next = _parsed_next is not None and _parsed_next != ""
-                    _get_next = lambda: self.partners(
-                        id,
-                        account_id=account_id,
-                        first=first,
-                        after=_parsed_next,
-                        request_options=request_options,
-                    )
-                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def add_partner(
-        self,
-        id: str,
-        *,
-        username: str,
-        account_id: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[SocialAccount]:
-        """
-        Deprecated compatibility endpoint. Add partners with `POST /external_accounts/{external_account_id}/partners` instead.
-
-        Parameters
-        ----------
-        id : str
-            The brand's Instagram social account (a sacc_ identifier).
-
-        username : str
-            The creator's Instagram username, with or without the leading `@`. The creator needs a professional (Business or Creator) Instagram account.
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[SocialAccount]
-            creator invited through the deprecated path
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"social_accounts/{encode_path_param(id)}/partners",
-            base_url=self._client_wrapper.get_environment().api,
-            method="POST",
-            json={
-                "account_id": account_id,
-                "username": username,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    SocialAccount,
-                    parse_obj_as(
-                        type_=SocialAccount,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 409:
-                raise ConflictError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def remove_partner(
-        self,
-        id: str,
-        partner_id: str,
-        *,
-        account_id: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[RemovePartnerSocialAccountsResponse]:
-        """
-        Deprecated compatibility endpoint. Remove partners with `DELETE /external_accounts/{external_account_id}/partners/{id}` instead.
-
-        Parameters
-        ----------
-        id : str
-            The brand's Instagram social account (a sacc_ identifier).
-
-        partner_id : str
-            The partner creator's social account (a sacc_ identifier).
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[RemovePartnerSocialAccountsResponse]
-            partner removed through the deprecated path
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"social_accounts/{encode_path_param(id)}/partners/{encode_path_param(partner_id)}",
-            base_url=self._client_wrapper.get_environment().api,
-            method="DELETE",
-            params={
-                "account_id": account_id,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    RemovePartnerSocialAccountsResponse,
-                    parse_obj_as(
-                        type_=RemovePartnerSocialAccountsResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def posts(
-        self,
-        id: str,
-        *,
-        account_id: str,
-        post_id: typing.Optional[str] = None,
-        first: typing.Optional[int] = None,
-        after: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[SocialAccountPost, PostsSocialAccountsResponse]:
-        """
-        Deprecated compatibility endpoint. List posts with `GET /external_accounts/{id}/posts` instead.
-
-        Parameters
-        ----------
-        id : str
-            The social account (a sacc_ identifier) whose posts to list.
-
-        account_id : str
-
-        post_id : typing.Optional[str]
-
-        first : typing.Optional[int]
-            Number of results to return from the start of the range.
-
-        after : typing.Optional[str]
-            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        SyncPager[SocialAccountPost, PostsSocialAccountsResponse]
-            posts listed through the deprecated path
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"social_accounts/{encode_path_param(id)}/posts",
-            base_url=self._client_wrapper.get_environment().api,
-            method="GET",
-            params={
-                "account_id": account_id,
-                "post_id": post_id,
-                "first": first,
-                "after": after,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
-                    PostsSocialAccountsResponse,
-                    parse_obj_as(
-                        type_=PostsSocialAccountsResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                _items = _parsed_response.data
-                _has_next = False
-                _get_next = None
-                if _parsed_response.page_info is not None:
-                    _parsed_next = _parsed_response.page_info.end_cursor
-                    _has_next = _parsed_next is not None and _parsed_next != ""
-                    _get_next = lambda: self.posts(
-                        id,
-                        account_id=account_id,
-                        post_id=post_id,
-                        first=first,
-                        after=_parsed_next,
-                        request_options=request_options,
-                    )
-                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -823,7 +457,7 @@ class AsyncRawSocialAccountsClient:
             The User that the external accounts are connected to. Provide either this or account_id.
 
         platform : typing.Optional[ListSocialAccountsRequestPlatform]
-            Only return external accounts for the platform that is specified.
+            Only return external accounts for the platform that is specified. An `aimerce` account is returned only with this filter, which requires the `company:manage_checkout` scope instead of `social_account:read`.
 
         trust_level : typing.Optional[ListSocialAccountsRequestTrustLevel]
             Only return external accounts linked with this trust level, such as `oauth` for accounts connected through OAuth.
@@ -924,26 +558,14 @@ class AsyncRawSocialAccountsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def create(
-        self,
-        *,
-        platform: CreateSocialAccountsRequestPlatform,
-        account_id: typing.Optional[str] = OMIT,
-        api_key: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request: CreateSocialAccountsRequestBody, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[SocialAccount]:
         """
         Deprecated compatibility endpoint. Create external accounts with `POST /external_accounts` instead.
 
         Parameters
         ----------
-        platform : CreateSocialAccountsRequestPlatform
-            The platform to create the external account on. `facebook` requires the account's `banner_image`, `logo`, and `description`, and `tiktok` requires its `logo`; configure them with [Update Account](/api-reference/beta/accounts/update-account). The account is returned before the platform has created it — its `id` is usable right away, and the rest of the profile fills in once provisioning finishes. `klaviyo` connects the account's existing Klaviyo account with the `api_key` you pass.
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) to create the external account for. An account-scoped API key may omit this to default to its own account. Account API keys cannot update their own account's branding through Update Account; use a user-authenticated path.
-
-        api_key : typing.Optional[str]
-            A private API key for the account on the platform. Required for `klaviyo`, which needs read access to Accounts; not accepted for other platforms. Whop checks the key with the platform before connecting and never returns it.
+        request : CreateSocialAccountsRequestBody
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -957,14 +579,9 @@ class AsyncRawSocialAccountsClient:
             "social_accounts",
             base_url=self._client_wrapper.get_environment().api,
             method="POST",
-            json={
-                "account_id": account_id,
-                "api_key": api_key,
-                "platform": platform,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=CreateSocialAccountsRequestBody, direction="write"
+            ),
             request_options=request_options,
             omit=OMIT,
         )
@@ -1004,7 +621,6 @@ class AsyncRawSocialAccountsClient:
         platform: ConnectSocialAccountsRequestPlatform,
         redirect_url: str,
         account_id: typing.Optional[str] = OMIT,
-        scopes: typing.Optional[typing.Sequence[ConnectSocialAccountsRequestScopesItem]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ConnectSocialAccountsResponse]:
         """
@@ -1013,16 +629,13 @@ class AsyncRawSocialAccountsClient:
         Parameters
         ----------
         platform : ConnectSocialAccountsRequestPlatform
-            The platform to connect the external account on. Use `meta_business` to connect Meta Business assets, which is how Facebook Pages and Instagram accounts are connected — there is no separate `instagram` value. Use `tiktok` for TikTok accounts, `snapchat` for Snapchat Public Profiles, `linkedin` to connect the authenticated user’s LinkedIn profile, `youtube` to connect their YouTube channel, or `x` to connect their X profile. Use `quickbooks` to connect the account’s QuickBooks Online company: pass `account_id`, omit `scopes`, and the user picks the company in QuickBooks.
+            The platform to connect the external account on. Use `tiktok` to connect the authenticated user’s TikTok profile, `linkedin` for their LinkedIn profile, `youtube` for their YouTube channel, or `x` for their X profile. Use `quickbooks` to connect the account’s QuickBooks Online company: pass `account_id`, and the user picks the company in QuickBooks.
 
         redirect_url : str
             Where to send the user once they finish connecting their accounts. Must be an `https` URL on whop.com; any other host is rejected. On success, the user is redirected with an `external_account_connected` query param naming the platform; if the connection fails, with an `external_account_error` query param instead. The same values also arrive as `social_account_connected` / `social_account_error`.
 
         account_id : typing.Optional[str]
             The Account (biz_ identifier) to connect the external account for. An account-scoped API key may omit this to default to its own account. Omit for user profile connections.
-
-        scopes : typing.Optional[typing.Sequence[ConnectSocialAccountsRequestScopesItem]]
-            The connection purpose. For `meta_business` and `snapchat`, `advertise` is required and connects company advertising assets. For `linkedin`, `youtube`, and `x`, omit scopes to connect the authenticated user’s profile; advertising is not supported. For `tiktok`, omit scopes to connect the authenticated user’s profile, or pass `advertise` to connect company advertising assets. For `quickbooks`, omit scopes; the connection belongs to the account in `account_id`. Profile connections still request the platform permissions needed to read the profile.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1040,7 +653,6 @@ class AsyncRawSocialAccountsClient:
                 "account_id": account_id,
                 "platform": platform,
                 "redirect_url": redirect_url,
-                "scopes": scopes,
             },
             headers={
                 "content-type": "application/json",
@@ -1126,351 +738,6 @@ class AsyncRawSocialAccountsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def lead_forms(
-        self, id: str, *, account_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[LeadFormsSocialAccountsResponse]:
-        """
-        Deprecated compatibility endpoint. List lead forms with `GET /external_accounts/{id}/lead_forms` instead.
-
-        Parameters
-        ----------
-        id : str
-            The social account (a sacc_ identifier) whose lead forms to list.
-
-        account_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[LeadFormsSocialAccountsResponse]
-            lead forms listed through the deprecated path
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"social_accounts/{encode_path_param(id)}/lead_forms",
-            base_url=self._client_wrapper.get_environment().api,
-            method="GET",
-            params={
-                "account_id": account_id,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    LeadFormsSocialAccountsResponse,
-                    parse_obj_as(
-                        type_=LeadFormsSocialAccountsResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def partners(
-        self,
-        id: str,
-        *,
-        account_id: typing.Optional[str] = None,
-        first: typing.Optional[int] = None,
-        after: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[SocialAccount, PartnersSocialAccountsResponse]:
-        """
-        Deprecated compatibility endpoint. List partners with `GET /external_accounts/{external_account_id}/partners` instead.
-
-        Parameters
-        ----------
-        id : str
-            The brand's Instagram social account (a sacc_ identifier).
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
-
-        first : typing.Optional[int]
-            Number of results to return from the start of the range.
-
-        after : typing.Optional[str]
-            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncPager[SocialAccount, PartnersSocialAccountsResponse]
-            partners listed through the deprecated path
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"social_accounts/{encode_path_param(id)}/partners",
-            base_url=self._client_wrapper.get_environment().api,
-            method="GET",
-            params={
-                "account_id": account_id,
-                "first": first,
-                "after": after,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
-                    PartnersSocialAccountsResponse,
-                    parse_obj_as(
-                        type_=PartnersSocialAccountsResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                _items = _parsed_response.data
-                _has_next = False
-                _get_next = None
-                if _parsed_response.page_info is not None:
-                    _parsed_next = _parsed_response.page_info.end_cursor
-                    _has_next = _parsed_next is not None and _parsed_next != ""
-
-                    async def _get_next():
-                        return await self.partners(
-                            id,
-                            account_id=account_id,
-                            first=first,
-                            after=_parsed_next,
-                            request_options=request_options,
-                        )
-
-                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def add_partner(
-        self,
-        id: str,
-        *,
-        username: str,
-        account_id: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[SocialAccount]:
-        """
-        Deprecated compatibility endpoint. Add partners with `POST /external_accounts/{external_account_id}/partners` instead.
-
-        Parameters
-        ----------
-        id : str
-            The brand's Instagram social account (a sacc_ identifier).
-
-        username : str
-            The creator's Instagram username, with or without the leading `@`. The creator needs a professional (Business or Creator) Instagram account.
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[SocialAccount]
-            creator invited through the deprecated path
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"social_accounts/{encode_path_param(id)}/partners",
-            base_url=self._client_wrapper.get_environment().api,
-            method="POST",
-            json={
-                "account_id": account_id,
-                "username": username,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    SocialAccount,
-                    parse_obj_as(
-                        type_=SocialAccount,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 409:
-                raise ConflictError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def remove_partner(
-        self,
-        id: str,
-        partner_id: str,
-        *,
-        account_id: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[RemovePartnerSocialAccountsResponse]:
-        """
-        Deprecated compatibility endpoint. Remove partners with `DELETE /external_accounts/{external_account_id}/partners/{id}` instead.
-
-        Parameters
-        ----------
-        id : str
-            The brand's Instagram social account (a sacc_ identifier).
-
-        partner_id : str
-            The partner creator's social account (a sacc_ identifier).
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[RemovePartnerSocialAccountsResponse]
-            partner removed through the deprecated path
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"social_accounts/{encode_path_param(id)}/partners/{encode_path_param(partner_id)}",
-            base_url=self._client_wrapper.get_environment().api,
-            method="DELETE",
-            params={
-                "account_id": account_id,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    RemovePartnerSocialAccountsResponse,
-                    parse_obj_as(
-                        type_=RemovePartnerSocialAccountsResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def posts(
-        self,
-        id: str,
-        *,
-        account_id: str,
-        post_id: typing.Optional[str] = None,
-        first: typing.Optional[int] = None,
-        after: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[SocialAccountPost, PostsSocialAccountsResponse]:
-        """
-        Deprecated compatibility endpoint. List posts with `GET /external_accounts/{id}/posts` instead.
-
-        Parameters
-        ----------
-        id : str
-            The social account (a sacc_ identifier) whose posts to list.
-
-        account_id : str
-
-        post_id : typing.Optional[str]
-
-        first : typing.Optional[int]
-            Number of results to return from the start of the range.
-
-        after : typing.Optional[str]
-            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncPager[SocialAccountPost, PostsSocialAccountsResponse]
-            posts listed through the deprecated path
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"social_accounts/{encode_path_param(id)}/posts",
-            base_url=self._client_wrapper.get_environment().api,
-            method="GET",
-            params={
-                "account_id": account_id,
-                "post_id": post_id,
-                "first": first,
-                "after": after,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
-                    PostsSocialAccountsResponse,
-                    parse_obj_as(
-                        type_=PostsSocialAccountsResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                _items = _parsed_response.data
-                _has_next = False
-                _get_next = None
-                if _parsed_response.page_info is not None:
-                    _parsed_next = _parsed_response.page_info.end_cursor
-                    _has_next = _parsed_next is not None and _parsed_next != ""
-
-                    async def _get_next():
-                        return await self.posts(
-                            id,
-                            account_id=account_id,
-                            post_id=post_id,
-                            first=first,
-                            after=_parsed_next,
-                            request_options=request_options,
-                        )
-
-                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)

@@ -30,10 +30,12 @@ Pure standard library; cross-platform (pathlib, UTF-8, the O_EXCL lock in self_i
 """
 
 import argparse
+import contextlib
 import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 import capture_constraints
@@ -45,7 +47,7 @@ import uuid_store as us
 
 WRITE_VERBS = frozenset({"add", "amend-pinned", "move", "relocate", "rename", "retitle", "set-scope",
                          "heal", "ensure-memory-structure", "ensure-all-trees", "topics-set-list",
-                         "set-topics", "set-level-topics", "set-top-topics"})
+                         "set-topics", "set-level-topics", "set-top-topics", "render-topics"})
 """CLI verbs that write the store or a pointer block; refused under BITRANOX_MEMORY_WRITES=off."""
 
 SCOPE_BEGIN = sig.SCOPE_MARK_BEGIN          # <!-- bitranox:self-learning -->
@@ -90,6 +92,91 @@ class SlugCollision(ValueError):
     def __init__(self, slug, suggestion):
         super().__init__("slug %r already exists in this tree; suggested: %r" % (slug, suggestion))
         self.slug, self.suggestion = slug, suggestion
+
+
+_ENGINE_ROUTE = "hooks/memory_engine.py"
+
+
+class PlacedElsewhere(SlugCollision):
+    """Raised when `add` names a fact that is placed by topic from a level holding none of its
+    lines. Adopting it there would add a line the placement does not have; the write goes to a
+    level that holds one. A SlugCollision, so every caller that reports a collision reports this."""
+
+    def __init__(self, slug, levels):
+        # level order (sorted parts: the top first, a parent before its children, siblings by
+        # name), so the message and the level it suggests do not follow the walk's listing order
+        levels = sorted(levels, key=lambda level: Path(os.path.abspath(str(level))).parts)
+        ValueError.__init__(self, "slug %r is placed by topic and has no line at this level; it is "
+                                  "read at %s. Write it from one of those levels (%s add --proj "
+                                  "%s --slug %s ...), or change where it is read with set-topics"
+                            % (slug, ", ".join(str(level) for level in levels), _ENGINE_ROUTE,
+                               levels[0], slug))
+        self.slug, self.suggestion, self.levels = slug, None, levels
+
+
+def _copies_of(anchor, slug):
+    """[(level dir, Pointer)] for every line of `slug` in the tree, from one walk over its levels."""
+    out = []
+    for level in curated_levels_under(anchor):
+        for ptr in us.parse_pointer_index(read_store_text(sig.claude_local_md_path(level)))[1]:
+            if ptr.slug == slug:
+                out.append((level, ptr))
+    return out
+
+
+def _placed_slugs(anchor, slugs):
+    """The members of `slugs` whose facts are placed by topic: what the renderer manages, a body
+    bound to at least one topic that a line can be built from (`title:` and `description:`),
+    with a line at some level and no line of it pinned or legacy (`uuid:`) at any level (see
+    `_unplaceable_slugs`). A bound fact the renderer
+    does not manage stays where its lines are, so the verbs that place lines by hand still take
+    it, and the refusals of render-topics and set-topics offer to move exactly those lines.
+    Reads one body head per slug; walks the tree's levels once, and only when a body is
+    managed. Holds one small record per managed slug."""
+    managed = set()
+    for slug in slugs:
+        head = _read_body_head(us.body_path(anchor, slug))
+        if head is not None and _managed_topics(slug, head, ()) is not None:
+            managed.add(slug)
+    if not managed:
+        return set()
+    seen, fixed = set(), set()
+    for level in curated_levels_under(anchor):
+        for ptr in us.parse_pointer_index(read_store_text(sig.claude_local_md_path(level)))[1]:
+            if ptr.slug in managed:
+                seen.add(ptr.slug)
+                if _keeps_in_place(ptr):
+                    fixed.add(ptr.slug)
+    return seen - fixed
+
+
+def _placed_copies(anchor, slug):
+    """[(level dir, Pointer)] for every line of `slug` when its fact is placed by topic (see
+    `_placed_slugs`), else []. One body head; one walk over the levels for a managed body."""
+    head = _read_body_head(us.body_path(anchor, slug))
+    if head is None or _managed_topics(slug, head, ()) is None:
+        return []
+    copies = _copies_of(anchor, slug)
+    return [] if any(_keeps_in_place(ptr) for _level, ptr in copies) else copies
+
+
+def _keeps_in_place(ptr):
+    """True when the line `ptr` keeps its fact from being placed by topic, wherever it is: a
+    pinned line (an always-loaded rule stays where it was put) or a legacy `uuid:` line (the
+    renderer builds a line from the body alone and never drops a legacy one, so a tree render
+    would add lines no render or check could account for beside it)."""
+    return ptr.pin or ptr.legacy
+
+
+def _same_level(a, b):
+    return os.path.normcase(os.path.abspath(str(a))) == os.path.normcase(os.path.abspath(str(b)))
+
+
+_PLACED_BY_TOPIC = ("%r is placed by topic: where it is read follows its topics and the levels' "
+                    "(set-topics, set-level-topics, then render-topics). To place it by hand, "
+                    "un-bind it first: " + _ENGINE_ROUTE + " set-topics --proj %s --slug %s "
+                    "--clear (its lines collapse to one at the tree top, where a move or "
+                    "relocate takes it)")
 
 
 # A slug that is not a plain filename (`uuid_store.is_valid_slug`). Defined by the store, whose path
@@ -197,6 +284,81 @@ class ExcludedLevel(ValueError):
         super().__init__("%s is an excluded altitude (home/tempdir/root)" % proj)
 
 
+class NonLevelDir(ExcludedLevel):
+    """Raised, before any write, when `add`, `set-scope`, `move` or `relocate` targets a level
+    whose path below the tree's anchor crosses a directory every walk over the tree's levels
+    prunes (`uuid_store.is_non_level_dirname`: a virtualenv, a vendored, build or cache dir, the
+    store). No walk reads a level there, so a line written there would be read by nobody and its
+    body reported dangling by every check. An ExcludedLevel, so every caller that reports an
+    excluded altitude reports this. `route` is the verb's own call with `{level}` where the level
+    outside the pruned dir goes; `add`'s by default."""
+
+    def __init__(self, proj, name, outside, route=_ENGINE_ROUTE + " add --proj {level} ..."):
+        ValueError.__init__(self, "%s is no memory level: its path crosses %r, a directory every "
+                                  "walk over the tree's levels prunes (a virtualenv, a vendored, "
+                                  "build or cache dir, or the store), so a fact written there "
+                                  "would be read by no walk and its body reported dangling. Write "
+                                  "it at a level outside it, e.g. %s"
+                            % (proj, name, route.replace("{level}", str(outside))))
+        self.proj, self.name, self.outside = proj, name, outside
+
+
+def _pruned_part(anchor, proj):
+    """(name, the dir holding it) for the first directory on the way from `anchor` down to `proj`
+    that the level walk prunes, else None. Lexical, like the walk's own names; the anchor itself
+    is never pruned (the walk starts there), and a `proj` outside it has nothing to cross."""
+    top = Path(os.path.abspath(str(anchor)))
+    try:
+        rel = Path(os.path.abspath(str(proj))).relative_to(top)
+    except ValueError:
+        return None
+    for name in rel.parts:
+        if us.is_non_level_dirname(name):
+            return name, str(top)
+        top = top / name
+    return None
+
+
+def _pruned_refusal(anchor, level, route, src):
+    """The `NonLevelDir` text when `level` crosses a directory the level walk prunes below
+    `anchor`, else None; `route` as `NonLevelDir` takes it, for `move` and `relocate`, which
+    report a refusal rather than raise one. The level the route names is `_move_route_level`:
+    the dir holding the pruned one can be `src` itself, the level the line is taken from, and a
+    move to it is no move at all. When no level qualifies, the text says the line stays at
+    `src` instead of naming a call."""
+    pruned = _pruned_part(anchor, level)
+    if pruned is None:
+        return None
+    name, outside = pruned
+    target = _move_route_level(anchor, outside, src)
+    if target is not None:
+        return str(NonLevelDir(str(level), name, target, route=route))
+    text = str(NonLevelDir(str(level), name, outside, route="{level}"))
+    head = text[:text.rindex(" Write it at a level outside it")]
+    return head + (" No level outside it on the way from %s up to the tree top can take the line "
+                   "from %s, where it is read now, so it stays there" % (outside, src))
+
+
+def _move_route_level(anchor, outside, src):
+    """The level a pruned-target refusal of `move` or `relocate` names: the nearest curated level
+    at or above `outside` (the dir holding the pruned one) that is not `src`, and, in `src`'s own
+    tree, lies on `src`'s altitude chain (a move goes only up or down it). None when there is
+    none. Lexical, as the pruned check is; one level file read per dir walked."""
+    top = Path(os.path.abspath(str(anchor)))
+    here = Path(os.path.abspath(str(src)))
+    same_tree = here == top or top in here.parents
+    d = Path(os.path.abspath(str(outside)))
+    while d == top or top in d.parents:
+        on_chain = d in here.parents or here in d.parents
+        if d != here and (on_chain or not same_tree) \
+                and _carries_pointer_block(sig.claude_local_md_path(str(d))):
+            return str(d)
+        if d == top:
+            return None
+        d = d.parent
+    return None
+
+
 class UnknownSlug(ValueError):
     """Raised when `amend-pinned` targets a slug this level has no pointer for. The verb carries no
     `--title` (it amends, it does not create), so there is nothing to attach a first write to; use
@@ -214,6 +376,147 @@ def _anchor(proj):
     """The anchor dir for `proj` (holds the central `.claude-memory/` body-store). Falls back to `proj`
     itself when there is no CLAUDE.md-bearing ancestor to anchor to (bootstrap)."""
     return us.resolve_anchor(proj) or Path(proj)
+
+
+# ---- the placement lock: one per tree, held by everything that changes where a line is read ---
+#
+# A level lock covers one level's file, and a render, a set-topics and a write to a placed fact
+# each touch several levels plus a body: a peer landing between two of their steps saw half a
+# change and acted on it (a render's REMOVE dropping every line of a fact its ADD never placed; a
+# render putting back the lines a --clear collapse had just dropped). So each of them holds this
+# lock across ALL of its reads and writes: `render_topics` (a real run, both scopes, census to
+# last drop), `set_fact_topics` (checks, collapse lines and bodies), `upsert_entry` of a fact
+# bound to a topic, and `retitle_entry`, `rename_entry` and reconcile's archive of any fact in a
+# tree with a topic list. Dry runs and read-only checks take none (see `_write_lock`).
+#
+# Lock order, which keeps this deadlock-free by construction: the placement lock is taken FIRST,
+# before any level lock, and never while one is held. Every holder above takes it as its first
+# lock and takes level locks (one at a time) only inside it; nothing that holds a level lock
+# calls any of them.
+#
+# The mechanism is the level locks' own: `sig.memory_lock`, an O_EXCL `<target>.lock` file,
+# reclaimed when its mtime is older than `sig._LOCK_STALE_S` (a crashed holder). A long holder
+# keeps it from looking stale with a heartbeat (`_placement_heartbeat`): a render refreshes the
+# lock file's mtime once per level it walks in each pass, and set-topics once per row, so only a
+# holder that stops walking (crashed or hung) ages past the reclaim.
+
+PLACEMENT_LOCK_TIMEOUT_S = 30.0
+"""How long a verb waits for the placement lock before refusing with PlacementLockBusy: longer than
+a level lock's 5 s, because the holder may be a whole-tree render."""
+
+
+def _placement_target(anchor):
+    """The path `sig.memory_lock` locks for `anchor`'s tree: `<anchor>/.claude-memory/placement`."""
+    return us.central_facts_dir(anchor).parent / "placement"
+
+
+def placement_lock_path(anchor):
+    """The file whose existence IS the tree's placement lock: `<store>/placement.lock`."""
+    return Path(str(_placement_target(anchor)) + ".lock")
+
+
+class PlacementLockBusy(TimeoutError):
+    """The placement lock stayed held past the wait. A TimeoutError with only a message (strerror
+    None), so the CLI prints it as `! error: <message>` and exits 2 like any lock contention."""
+
+    def __init__(self, anchor, verb, waited):
+        super().__init__(
+            "%s waited %g s for the placement lock of the tree %s (%s): another render-topics, "
+            "set-topics, or write to a fact placed by topic holds it. Run %s again once that one "
+            "finishes; a lock left by a holder that crashed is reclaimed once it is %d s old"
+            % (verb, waited, anchor, placement_lock_path(anchor), verb, int(sig._LOCK_STALE_S)))
+
+
+_HEARTBEAT_AFTER_S = sig._LOCK_STALE_S / 4
+"""How old the held placement lock's mtime may get before a heartbeat refreshes it: well inside
+the reclaim age, so a holder that beats at least once per this many seconds never looks stale,
+and one stat per beat is all a fresh lock costs."""
+
+_HELD_PLACEMENT_LOCKS = []
+"""The lock files of the placement locks this process holds now, innermost last."""
+
+
+class PlacementInterrupted(OSError):
+    """A real render or set-topics stopped on an OSError (a level file it could not lock or write,
+    a level lock held past its timeout) after it may have written part of the tree. Only a
+    message (strerror None), so the CLI prints it as `! error: <message>` and exits 2. The message
+    says what such a stop can leave and that running the same verb again, once the cause is
+    fixed, completes it: a render adds every line before it drops any, and a collapse writes the
+    top's line before it drops the others and un-binds the body last, so each step a re-run finds
+    done it skips."""
+
+    def __init__(self, verb, cause, route):
+        detail = cause if cause.strerror is None else "%s: %s" % (cause.strerror,
+                                                                 cause.filename or "")
+        super().__init__("%s stopped before it finished: %s. %s Fix that cause, then run %s "
+                         "again: it finds what was already written and completes it"
+                         % (verb, detail, _INTERRUPTED_LEAVES[verb], route))
+
+
+_INTERRUPTED_LEAVES = {
+    "render-topics": ("A render adds every line before it drops any, so the stop left at most a "
+                      "surplus line, never a fact without one."),
+    "set-topics": ("A collapse writes the line at the tree top before it drops the others and "
+                   "un-binds the body last, so the stop left each fact with a line and still "
+                   "bound where its collapse was not done."),
+}
+
+
+def _placement_heartbeat():
+    """Refresh the mtime of every placement lock this process holds once it is older than
+    _HEARTBEAT_AFTER_S. The long holders call it once per level they walk in each pass (render)
+    and once per row (set-topics), so a holder that is still working never ages past
+    `sig._LOCK_STALE_S` and has its lock reclaimed by a waiter. A lock file gone (a peer
+    reclaimed it) is left alone: refreshing would not give the lock back."""
+    for lock in _HELD_PLACEMENT_LOCKS:
+        try:
+            if time.time() - lock.stat().st_mtime > _HEARTBEAT_AFTER_S:
+                os.utime(lock)
+        except OSError:
+            continue
+
+
+@contextlib.contextmanager
+def placement_lock(anchor, verb, timeout=PLACEMENT_LOCK_TIMEOUT_S):
+    """Hold `anchor`'s placement lock for the block; `verb` names the caller in a timeout's
+    PlacementLockBusy. Take it before any level lock (see the section comment). While it is held,
+    `_placement_heartbeat` keeps its mtime fresh."""
+    with contextlib.ExitStack() as held:
+        try:
+            held.enter_context(sig.memory_lock(_placement_target(anchor), timeout=timeout))
+        except TimeoutError as exc:
+            raise PlacementLockBusy(anchor, verb, timeout) from exc
+        _HELD_PLACEMENT_LOCKS.append(placement_lock_path(anchor))
+        try:
+            yield
+        finally:
+            _HELD_PLACEMENT_LOCKS.pop()
+
+
+def _placement_lock_if_bound(anchor, slug, verb):
+    """`add`'s placement lock: held when `slug`'s body is bound to a topic, else none.
+
+    Read without the lock, as a superset of "placed by topic": `add` then decides placed under
+    the lock. `add` writes the fact at ONE level, under that level's lock, so a fact bound and
+    placed by peers after this read meets an `add` that either finds its line there (and updates
+    it, a line the next render refreshes) or finds it gone and refuses as a collision; it can
+    neither drop a line elsewhere nor put one back. `add` is also the per-turn capture path, so it
+    does not wait behind a render for a fact no render manages."""
+    if not us.is_valid_slug(slug) or not read_body_topics(us.body_path(anchor, slug)):
+        return contextlib.nullcontext()
+    return placement_lock(anchor, verb)
+
+
+def placement_lock_if_listed(anchor, verb):
+    """The placement lock for a verb that walks EVERY level holding a fact's line (`rename`,
+    `retitle`, reconcile's archive): held whenever `anchor`'s tree has a topic list, else none.
+    Such a verb reads a level, then writes it, level after level; a fact bound, placed and
+    un-bound by peers between two of those steps would get a line put back where a collapse had
+    dropped it. Holding the lock for any fact of a tree that places by topic rules that out; a
+    tree without a list places nothing, and nothing there takes it."""
+    if anchor is None or not topic_store.store_path(anchor).is_file():
+        return contextlib.nullcontext()
+    return placement_lock(anchor, verb)
 
 
 # mtime-neutral writer: one implementation, in uuid_store.
@@ -383,6 +686,13 @@ def upsert_entry(proj, title, hook, body="", type_=None, pin=False,
     raises ValueError, both BEFORE any write. On an UPDATE, a `type_` with no body re-types the
     stored body in place (its prose untouched). A relative `proj` is taken relative to the cwd.
 
+    A fact placed by topic (see `_placed_slugs`) is written only from a level holding one of its
+    lines, else `PlacedElsewhere`; the write then refreshes its other lines too. Pinning one raises
+    TopicRefusal. A level whose path below the anchor crosses a directory the level walk prunes
+    raises `NonLevelDir`. All three before any write. A fact whose body is bound to a topic is
+    decided and written under the tree's placement lock (`_placement_lock_if_bound`), so its
+    lines change with no render or set-topics half done; PlacementLockBusy when it stays held.
+
     `skill` ties the fact to the skill it belongs with (`metadata: skill:`); it follows the same
     rules as `type_` - kept on an update that does not name it, set in place by one with no body -
     and an invalid name raises `InvalidSkill` before any write.
@@ -411,6 +721,9 @@ def upsert_entry(proj, title, hook, body="", type_=None, pin=False,
     if not allow_over_cap_hook and us.hook_over_hard_cap(hook):
         raise HookTooLong(len(hook))
     anchor = _anchor(proj)
+    pruned = _pruned_part(anchor, proj)
+    if pruned is not None:
+        raise NonLevelDir(proj, *pruned)
     # An empty body is the documented UPDATE path ("keep the stored one"), but on a CREATE there is
     # nothing to keep: it writes the frontmatter frame and stops, leaving a convincing always-loaded
     # hook with nothing behind it. Nothing downstream reports that - heal normalizes grammar, --check
@@ -425,6 +738,30 @@ def upsert_entry(proj, title, hook, body="", type_=None, pin=False,
     # the refusal writes nothing at all.
     if _body_topics_line(body) is not None and not us.body_path(anchor, slug).is_file():
         raise TopicsOnCreate(slug)
+    # A write to a fact bound to a topic holds the tree's placement lock from here on, so the
+    # placed decision below and every line it rewrites see no render or set-topics half done.
+    with _placement_lock_if_bound(anchor, slug, "add"):
+        return _upsert_checked(proj, anchor, slug, title, hook, body, type_, pin, scope_default,
+                               allow_pinned_overwrite, skill)
+
+
+def _upsert_checked(proj, anchor, slug, title, hook, body, type_, pin, scope_default,
+                    allow_pinned_overwrite, skill):
+    """The writing half of `upsert_entry`, from the placed-by-topic checks on: its caller has
+    validated every argument and holds the placement lock when the fact is bound."""
+    # A fact placed by topic (see `_placed_slugs`) has a line at each level its topics place it
+    # at. Checked here, before the level is scaffolded, so each refusal writes nothing: it is not
+    # pinned (a pinned fact is never placed by topic), and it is written from a level that holds
+    # one of its lines (adopting it elsewhere would add a line the placement lacks). One tree
+    # walk, and only for a body the renderer manages; a new fact has no body and skips it.
+    copies = _placed_copies(anchor, slug)
+    placed = bool(copies)
+    if placed and pin:
+        raise TopicRefusal(["%s is bound to topics, and a pinned fact is never placed by topic; "
+                            "un-bind it first (%s set-topics --proj %s --slug %s --clear), then "
+                            "pin it" % (slug, _ENGINE_ROUTE, anchor, slug)])
+    if placed and not any(_same_level(level, proj) for level, _ptr in copies):
+        raise PlacedElsewhere(slug, [level for level, _ptr in copies])
     store_dir = us.central_facts_dir(anchor).parent   # the `.claude-memory` store dir for this tree
     store_existed = store_dir.exists()
     lock_target = sig.claude_local_md_path(proj)
@@ -487,15 +824,54 @@ def upsert_entry(proj, title, hook, body="", type_=None, pin=False,
                                                      _framed_body(slug, hook, type_, body)),
                                        skill), pin=pin)
             entries.append(e)
+        # Every level this write rewrites is held to the block cap before any is written: this
+        # level, and each other level of a fact placed by topic (refreshed below).
+        _refuse_add_growth(proj, slug, e, copies, allow_pinned_overwrite)
         # The body carries the pointer's title as data (`title:`); every write through here,
         # amend-pinned and factedit's apply included, keeps the two equal.
         e.body = _with_title(e.body, e.title)
         bodies[slug] = e.body
         _commit_store(proj, scope or scope_default, entries, bodies)
+    if placed:
+        # The other lines of a fact placed by topic say what this one now says. After the commit
+        # and outside its lock (add_pointer takes each level's own): a failure here leaves the
+        # body and this level written and the rest as render drift, which --check-tree names.
+        for level, ptr in copies:
+            if not _same_level(level, proj) and (ptr.title, ptr.hook) != (e.title, e.hook):
+                us.add_pointer(str(level), slug, e.title, e.hook)
     if not store_existed and store_dir.exists():      # this add created a brand-new store dir:
         sig.bump_stores_generation()                  # bust the cross-tree dir-cache so recall sees it
     _warn_dangling_wikilinks(anchor, "%s\n%s" % (e.hook or "", e.body or ""), slug)
     return slug, created
+
+
+def _refuse_add_growth(proj, slug, e, copies, amend):
+    """Raise LineGrowsPastCap when the line `e` writes at `proj`, or the refreshed line at any
+    other level of `copies` (a fact placed by topic), would leave that level's block past the cap
+    and larger than it is now (`_grows_past_cap`). Called under `proj`'s level lock, before
+    anything is written; the other levels are read without theirs (a bound fact's writers hold
+    the placement lock, which this write holds too)."""
+    verb = "amend-pinned" if amend else "add"
+    line = us.Pointer(slug=slug, title=e.title, hook=e.hook, pin=e.pin)
+    changes = [(proj, slug, line)] + [
+        (level, slug, us.Pointer(slug=slug, title=e.title, hook=e.hook, pin=ptr.pin))
+        for level, ptr in copies if not _same_level(level, proj)]
+
+    def retry(shrink, old, new):
+        hook_bytes = len(e.hook.encode("utf-8"))
+        if old:
+            return ("Run %s again with a hook (or title) that makes the line at least %d bytes "
+                    "shorter: %s %s --proj %s --slug %s --title <title> --hook-file <file> (a "
+                    "line no longer than the %d bytes it takes now always goes through)"
+                    % (verb, shrink, _ENGINE_ROUTE, verb, proj, slug, old))
+        shorter = ("" if shrink >= hook_bytes else
+                   ", or here with a hook at least %d bytes shorter" % shrink)
+        return ("Add it at another level of the altitude chain that has room (%s add --proj "
+                "<level> --slug %s ...)%s" % (_ENGINE_ROUTE, slug, shorter))
+
+    text = _line_growth_refusal(verb, changes, retry)
+    if text:
+        raise LineGrowsPastCap(text)
 
 
 def add_with_advice(proj, title, hook, body="", type_=None, pin=False, scope_default="",
@@ -1089,6 +1465,12 @@ def move_entry(from_level, to_level, slug, force=False):
     command completes it (both halves are idempotent); a write error is reported as a refusal naming
     how many pointers already moved, with that same re-run instruction.
 
+    It also refuses, before any write, a set holding a fact placed by topic (its place follows its
+    topics; un-bind it first), and a set whose lines would leave the target's block past
+    MAX_RENDER_BLOCK_BYTES, the cap render-topics holds every level to, unless the move does not
+    grow that block (see `_move_cap_refusal`), and a target level whose path below the anchor
+    crosses a directory the level walk prunes (see `NonLevelDir`).
+
     Returns {"slug","slugs","from","to","direction","moved","moved_slugs","refused","warnings"};
     `slug` is the comma-joined set, identical to the input for a single slug."""
     sig.refuse_if_memory_writes_off()
@@ -1104,6 +1486,11 @@ def move_entry(from_level, to_level, slug, force=False):
     a_from, a_to = us.resolve_anchor(str(src)), us.resolve_anchor(str(dst))
     if a_from is None or a_to is None or a_from != a_to:
         rep["refused"] = "cross-tree move (or no anchor) - a move stays within one tree; use a lift/copy for cross-tree"
+        return rep
+    pruned = _pruned_refusal(a_to, dst, "%s move --from-level %s --to-level {level} --slug %s"
+                             % (_ENGINE_ROUTE, src, " ".join(slugs)), src)
+    if pruned:
+        rep["refused"] = pruned
         return rep
     if src == dst:
         rep["refused"] = "same level - nothing to move"
@@ -1134,6 +1521,11 @@ def move_entry(from_level, to_level, slug, force=False):
                               "migrate_to_slug_store.py first" % s)
             return rep
         moving.append(entry)
+    placed = _placed_slugs(a_from, slugs)
+    if placed:
+        s = next(s for s in slugs if s in placed)       # the first in the caller's order
+        rep["refused"] = _PLACED_BY_TOPIC % (s, a_from, s)
+        return rep
 
     if rep["direction"] == "down":
         # a citing entry must sit AT or BELOW the new home, or its [[ref]] leaves cascade reach
@@ -1184,6 +1576,13 @@ def move_entry(from_level, to_level, slug, force=False):
             fields = (entry.title, entry.hook, entry.pin)
         plan.append((entry.slug, fields))
 
+    # The target's block is held to the cap render-topics holds every level to; the refusals of
+    # render-topics and set-topics that name a move promise it.
+    full = _move_cap_refusal(src, dst, plan)
+    if full:
+        rep["refused"] = full
+        return rep
+
     for s, (title, hook, pin) in plan:
         try:
             us.add_pointer(str(dst), slug=s, title=title, hook=hook, pin=pin)
@@ -1198,6 +1597,51 @@ def move_entry(from_level, to_level, slug, force=False):
     rep["warnings"].extend(dedup_warnings)
     rep["moved"] = True
     return rep
+
+
+def _move_cap_refusal(src, dst, plan, verb="move"):
+    """The refusal text when the lines `plan` ([(slug, (title, hook, pin))]) moves to `dst` would
+    leave its block past MAX_RENDER_BLOCK_BYTES and larger than it is now, else None. A line the
+    target already holds for a moving slug is replaced by the planned one (`plan` already carries
+    the merged pin and the kept hook of a forced dedup, and an identical line is its own
+    replacement); every other line stays. A move that does not grow the block (completing an
+    interrupted one) is never refused: it makes no level fuller than it was. `verb` is the one
+    the refusal names for taking the lines from `src` elsewhere (`relocate` across trees); room
+    at `dst` is freed with `move`, which stays in its tree. Holds the target's block and one size
+    per moving line."""
+    pointers = us.parse_pointer_index(read_store_text(sig.claude_local_md_path(str(dst))))[1]
+    moving = {s for s, _fields in plan}
+    before = sum(_line_size(p) for p in pointers)
+    kept = sum(_line_size(p) for p in pointers if p.slug not in moving)
+    sizes = [_line_size(us.Pointer(slug=s, title=title, hook=hook, pin=pin))
+             for s, (title, hook, pin) in plan]
+    after = kept + sum(sizes)
+    if after <= MAX_RENDER_BLOCK_BYTES or after <= before:
+        return None
+    room = MAX_RENDER_BLOCK_BYTES - kept
+    fit, total = 0, 0
+    for size in sorted(sizes):
+        total += size
+        if total > room:
+            break
+        fit += 1
+    route = _ENGINE_ROUTE + " move --from-level %s --to-level <level> --slug <slug> [<slug> ...]"
+    take = route.replace(" move ", " %s " % verb, 1)
+    text = ("moving these lines to %s would leave its block at %d bytes, %d bytes over the %d "
+            "bytes one level's block may hold (render-topics holds every level to it; a line "
+            "counts its line break): the lines it keeps come to %d bytes and the %d line(s) "
+            "moved there to %d bytes, and %d bytes are left there"
+            % (dst, after, after - MAX_RENDER_BLOCK_BYTES, MAX_RENDER_BLOCK_BYTES, kept,
+               len(sizes), sum(sizes), max(room, 0)))
+    if fit:
+        return text + (". %d of the %d line(s) fit there, smallest first: move those there and "
+                       "the rest to another level of the altitude chain that has room, with "
+                       + take + "; every level is held to the same %d bytes") % (
+                           fit, len(sizes), src, MAX_RENDER_BLOCK_BYTES)
+    return text + (". None of the lines fits there: move them to another level of the altitude "
+                   "chain that has room, with " + take + ", or first free room at %s by moving "
+                   "lines out of it with " + route + "; every level is held to the same %d "
+                   "bytes") % (src, dst, dst, MAX_RENDER_BLOCK_BYTES)
 
 
 
@@ -1526,7 +1970,12 @@ def relocate_entry(from_level, to_level, slug, force=False):
     the slug: that level owns it, whatever its body. The archived source body never replaces an
     earlier archived body of the same slug.
     A cross-tree copy drops the body's frontmatter `topics:` line (topics are tagged against one
-    tree's closed list) and says so in `notes`; a same-tree move leaves the body untouched.
+    tree's closed list) and says so in `notes`; a same-tree move leaves the body untouched. A fact
+    placed by topic is refused across trees: its other lines would stay behind in the source tree.
+    A target level whose path below its anchor crosses a directory the level walk prunes is
+    refused (see `NonLevelDir`), and a cross-tree line that would leave the target's block past
+    MAX_RENDER_BLOCK_BYTES is refused as `move` refuses it (see `_move_cap_refusal`); both before
+    any write.
     Returns {"slug","from","to","cross_tree","relocated","refused","warnings","notes"}.
     """
     sig.refuse_if_memory_writes_off()
@@ -1536,6 +1985,11 @@ def relocate_entry(from_level, to_level, slug, force=False):
     a_from, a_to = us.resolve_anchor(str(src)), us.resolve_anchor(str(dst))
     if a_from is None or a_to is None:
         rep["refused"] = "no anchor for the source or the target level"
+        return rep
+    pruned = _pruned_refusal(a_to, dst, "%s relocate --from-level %s --to-level {level} --slug %s"
+                             % (_ENGINE_ROUTE, src, slug), src)
+    if pruned:
+        rep["refused"] = pruned
         return rep
     if Path(a_from).resolve() == Path(a_to).resolve():
         m = move_entry(from_level, to_level, slug, force=force)
@@ -1553,6 +2007,10 @@ def relocate_entry(from_level, to_level, slug, force=False):
         return rep
     if entry.legacy:
         rep["refused"] = "entry is an unmigrated legacy pointer - run migrate_to_slug_store.py first"
+        return rep
+    if _placed_slugs(a_from, [slug]):
+        # its other lines would stay behind in the source tree, pointing at an archived body
+        rep["refused"] = _PLACED_BY_TOPIC % (slug, a_from, slug)
         return rep
 
     # Slugs are TREE-unique, so a divergent slug already in the target tree is a different fact.
@@ -1612,6 +2070,14 @@ def relocate_entry(from_level, to_level, slug, force=False):
                               "(fix the citers, or --force to relocate anyway)" % what)
             return rep
         rep["warnings"].append("relocated despite dangling inbound [[refs]]: %s" % what)
+
+    # The target's block is held to the cap `move` holds it to (render-topics holds every level
+    # to it); checked before the body is copied, so a refusal writes nothing.
+    full = _move_cap_refusal(src, dst, [(slug, (entry.title, entry.hook, entry.pin))],
+                             verb="relocate")
+    if full:
+        rep["refused"] = full
+        return rep
 
     # COPY-THEN-DROP (same crash-safety direction as move_entry): a crash between the two leaves a
     # visible duplicate, never a lost fact. The body file is copied VERBATIM but for its topics
@@ -1728,6 +2194,16 @@ def rename_entry(level, slug, to_slug):
     Returns {"slug","to_slug","level","renamed","refs_rewritten","refused","warnings"}.
     """
     sig.refuse_if_memory_writes_off()
+    # In a tree that places by topic, a rename holds the placement lock: the fact's lines at
+    # every level change together, with no render or set-topics between them.
+    anchor = us.resolve_anchor(str(Path(level).resolve()))
+    with placement_lock_if_listed(anchor, "rename"):
+        return _rename_entry(level, slug, to_slug)
+
+
+def _rename_entry(level, slug, to_slug):
+    """`rename_entry` itself; its caller holds the placement lock when the fact is bound."""
+    sig.refuse_if_memory_writes_off()
     rep = {"slug": slug, "to_slug": to_slug, "level": str(level), "renamed": False,
            "refs_rewritten": [], "refused": None, "warnings": []}
     lvl = Path(level).resolve()
@@ -1760,6 +2236,10 @@ def rename_entry(level, slug, to_slug):
         rep["refused"] = "entry is an unmigrated legacy pointer - run migrate_to_slug_store.py first"
         return rep
 
+    # A fact placed by topic has a line at each level its topics place it at: renamed there too,
+    # and no duplicate to report. Decided before any write, while the old body answers.
+    placed = bool(_placed_slugs(anchor, [slug]))
+
     # Slugs are TREE-unique, so an existing one names a DIFFERENT fact. Landing on it would destroy
     # that fact silently; never pick a winner here, deduping is a decision.
     for other in curated_levels_under(anchor):
@@ -1768,6 +2248,18 @@ def rename_entry(level, slug, to_slug):
             rep["refused"] = ("slug %r already exists at %s - slugs are tree-unique; dedup "
                               "deliberately instead of renaming onto it" % (to_slug, other))
             return rep
+
+    # Every level holding a line of it is held to the block cap before any is written.
+    rep["refused"] = _line_growth_refusal(
+        "rename", [(level_dir, slug, us.Pointer(slug=to_slug, title=ptr.title, hook=ptr.hook,
+                                                pin=ptr.pin))
+                   for level_dir, ptr in _copies_of(anchor, slug)],
+        lambda shrink, _old, _new: (
+            "Rename it to a slug at least %d characters shorter: %s rename --level %s --slug %s "
+            "--to-slug <slug> (a slug no longer than %s always goes through)"
+            % (shrink, _ENGINE_ROUTE, level, slug, slug)))
+    if rep["refused"]:
+        return rep
 
     # COPY-THEN-DROP, the same crash-safety direction as move/relocate: a crash between the two
     # leaves a visible duplicate, never a lost fact.
@@ -1805,6 +2297,8 @@ def rename_entry(level, slug, to_slug):
         us.add_pointer(str(other), slug=to_slug, title=dup.title, hook=dup.hook,
                        pin=dup.pin)
         _drop_pointer(str(other), slug)
+        if placed:
+            continue                                 # placed by topic: one line per level, by design
         rep["warnings"].append("slug was ALSO pointed at from %s - a pre-existing duplicate; "
                                "renamed there too, dedup it deliberately" % other)
 
@@ -1848,6 +2342,16 @@ def retitle_entry(level, slug, to_title):
     {"slug","to_title","level","retitled","levels","refused","warnings"}.
     """
     sig.refuse_if_memory_writes_off()
+    # In a tree that places by topic, a retitle holds the placement lock: the fact's lines at
+    # every level change together, with no render or set-topics between them.
+    anchor = us.resolve_anchor(str(Path(level).resolve()))
+    with placement_lock_if_listed(anchor, "retitle"):
+        return _retitle_entry(level, slug, to_title)
+
+
+def _retitle_entry(level, slug, to_title):
+    """`retitle_entry` itself; its caller holds the placement lock when the fact is bound."""
+    sig.refuse_if_memory_writes_off()
     rep = {"slug": slug, "to_title": to_title, "level": str(level), "retitled": False,
            "levels": [], "refused": None, "warnings": []}
     lvl = Path(level).resolve()
@@ -1879,6 +2383,21 @@ def retitle_entry(level, slug, to_title):
         return rep
     if entry.title == title:
         rep["refused"] = "the new title is the same as the old one"
+        return rep
+    # Decided before any write: a fact placed by topic has a line at each level its topics place
+    # it at, retitled there too, and none of them is a duplicate.
+    placed = bool(_placed_slugs(anchor, [slug]))
+    # Every level it retitles is held to the block cap before any is written.
+    old_bytes = len(entry.title.encode("utf-8"))
+    rep["refused"] = _line_growth_refusal(
+        "retitle", [(level_dir, slug, us.Pointer(slug=slug, title=title, hook=ptr.hook,
+                                                 pin=ptr.pin))
+                    for level_dir, ptr in _copies_of(anchor, slug) if not ptr.legacy],
+        lambda shrink, _old, _new: (
+            "Retitle it with a title at least %d bytes shorter: %s retitle --level %s --slug %s "
+            "--to-title <title> (a title no longer than the %d bytes of the current one always "
+            "goes through)" % (shrink, _ENGINE_ROUTE, level, slug, old_bytes)))
+    if rep["refused"]:
         return rep
 
     us.add_pointer(str(lvl), slug=slug, title=title, hook=entry.hook,
@@ -1914,6 +2433,8 @@ def retitle_entry(level, slug, to_title):
         us.add_pointer(str(other), slug=slug, title=title, hook=dup.hook,
                        pin=dup.pin)
         rep["levels"].append(str(other))
+        if placed:
+            continue                                 # placed by topic: one line per level, by design
         rep["warnings"].append("slug was ALSO pointed at from %s - a pre-existing duplicate; "
                                "retitled there too, dedup it deliberately" % other)
 
@@ -1971,7 +2492,8 @@ def _carries_pointer_block(path):
 
 def curated_levels_under(anchor, unreadable=None):
     """Every curated level dir under `anchor` (a `CLAUDE.local.md` carrying a managed pointer block),
-    pruning vendored/build/cache dirs and the dream's own backup root - a bounded os.walk of the
+    pruning what `us.is_non_level_dirname` names (vendored/build/cache dirs, the store and a
+    migration's backup beside it) and the dream's own backup root - a bounded os.walk of the
     whole subtree, SIBLINGS included.
     THE single tree-walk (reconcile's `_all_curated_levels` delegates here) so the two never drift.
 
@@ -1990,7 +2512,7 @@ def curated_levels_under(anchor, unreadable=None):
     audit_root = sig._audit_dir().resolve()
     out = []
     for root, dirs, files in os.walk(str(anchor), onerror=_walk_error_sink(unreadable)):
-        dirs[:] = [d for d in dirs if d not in sig.VENDOR_DIRNAMES
+        dirs[:] = [d for d in dirs if not us.is_non_level_dirname(d)
                    and Path(root, d).resolve() != audit_root]
         if "CLAUDE.local.md" not in files:
             continue
@@ -2066,9 +2588,317 @@ InvalidTopic come from the level's descriptor (an add --scope with a TOPICS line
 whose line does not parse)."""
 
 
-def read_body_topics(path):
-    """`_body_topics` of the body at `path`, reading only its first FRONTMATTER_HEAD_BYTES.
-    None too when the file is missing. Raises TreeWalkError when it exists and cannot be read."""
+# ---- render: the parts a pointer line placed by topic is built from ---------------------------
+
+MAX_RENDER_BLOCK_BYTES = 1 << 20
+"""Most bytes of pointer lines one level's block may hold once `render-topics` is done with it:
+the lines it places there plus the lines that stay there (pinned, legacy, and those of facts it
+does not place). In the tree scope a managed line placed elsewhere does not count: the same run
+drops it. A chain render never drops a line for being placed elsewhere, so there it stays and
+counts. A level's lines are the one thing a render holds, and a block past this is a mistake to
+fix, not text to load. Every writer of a block follows one rule against it (`_grows_past_cap`): a
+write is refused only when the block would end past this AND larger than it is now."""
+_RENDER_SHOWN = 20
+_SWEEP_ROUTE = "hooks/memory_engine.py render-topics --proj %s --scope tree"
+
+
+class RenderBlockTooLarge(TopicRefusal):
+    """Raised, before that level is written, when the block one level would hold passes
+    MAX_RENDER_BLOCK_BYTES: `kept` bytes of pinned, legacy or unplaced lines that stay there,
+    `stale` bytes of managed lines placed at another level that stay there (only a chain render
+    leaves them: it never drops a line for being placed elsewhere), and `added` bytes of every
+    line the render places there (the whole count, not the count when the cap was first passed).
+    `size` is their sum and `over` how far it passes the cap: the fewest bytes that must leave the
+    block. `need` is how far `kept` plus `added` alone pass it (`over` when nothing is stale).
+
+    The message names one route, the first that applies:
+    - `stale` lines are there and the block fits without them (`need` <= 0): the tree-scope render
+      of `anchor`, the one render that drops them (a move would take a line a later render puts
+      back, and a rebind un-binds facts that are bound correctly).
+    - neither pool reaches `need` alone (`kept` and `added` each pass the cap): both, a move of
+      every kept line and a rebind of the rest, with the amounts and the bounds of any other
+      split. A route is named only when its own pool can free the bytes it asks for.
+    - the kept lines are at least as large as the added ones and reach `need`: the move that
+      takes at least `need` bytes of kept lines to another level of the altitude chain, whose own
+      block is held to the same cap. Only kept lines are offered: a line placed by topic is the
+      render's to place, not a move's.
+    - else (the added lines reach `need`): the set-topics batch that rebinds the facts which need
+      not be read at that level (`bound_to` says which topics put them there), at least `need`
+      bytes of their lines.
+    The last three name `need`, not `over`: a tree-scope render would refuse at that level too (it
+    adds at least the lines the chain does), so the stale lines cannot go first; once the rest
+    fits, the next refusal is the first kind and names the render that drops them."""
+
+    def __init__(self, level, kept, added, bound_to, stale=0, anchor=None, now=None):
+        self.level, self.kept, self.added, self.stale = level, kept, added, stale
+        self.size = kept + stale + added
+        # The cap rule (`_grows_past_cap`): only a render that ends past the cap AND grows the
+        # block is refused, so the reader learns that no smaller step is needed than this one.
+        grows = ("" if now is None else
+                 " It would also leave the block larger than the %d bytes it holds now; a render "
+                 "that leaves a block no larger than it is now is never refused." % now)
+        self.over = self.size - MAX_RENDER_BLOCK_BYTES
+        self.need = kept + added - MAX_RENDER_BLOCK_BYTES
+        if stale and self.need <= 0:
+            super().__init__([(
+                "%d bytes of lines placed by topic at another level stay at %s beside %d bytes "
+                "of pinned, legacy or unplaced lines, and %d bytes of lines placed there are to "
+                "be added: %d bytes over the %d bytes one level's block may hold. A chain render "
+                "never drops a line for being placed elsewhere, and without those lines the block "
+                "fits: run " + _SWEEP_ROUTE + ", which drops them (it holds every level to the "
+                "same %d bytes and names its own route if one would pass them), then run this "
+                "render again"
+            ) % (stale, level, kept, added, self.over, MAX_RENDER_BLOCK_BYTES, anchor,
+                 MAX_RENDER_BLOCK_BYTES) + ("." + grows if grows else "")])
+            return
+        also = ("" if not stale else
+                " (they count here until a tree-scope render drops them, which it cannot do "
+                "before the rest fits; without them the block is %d bytes over, the figure "
+                "below, and once that is gone this refusal names that render)" % self.need)
+        beside = ("" if not stale else
+                  ", beside %d bytes of lines placed by topic at another level%s,"
+                  % (stale, also))
+        if kept < self.need and added < self.need:
+            text = ("%d bytes of pinned, legacy or unplaced lines stay at %s%s and %d bytes of "
+                    "lines placed there are to be added, %d bytes over the %d bytes one level's "
+                    "block may hold. Each part alone is more than the block may hold, so neither "
+                    "moving kept lines nor rebinding facts frees the %d bytes by itself; do both. "
+                    "Move kept lines totalling at least %d bytes (a line counts its line break; a "
+                    "line placed by topic is not one to move) to levels above or below it with "
+                    "hooks/memory_engine.py move --from-level %s --to-level <level> --slug <slug> "
+                    "[<slug> ...] (a legacy line needs migrate_to_slug_store.py first; each level "
+                    "they go to is held to the same %d bytes, counting the lines it keeps and "
+                    "those placed there). And rebind facts that need not be read there (they are "
+                    "bound to %s), at least %d bytes of their lines, with hooks/memory_engine.py "
+                    "set-topics --proj %s --batch <file>, one {\"slug\": ..., \"topics\": [...]} "
+                    "per line giving its real topics ([] binds it to no topic and leaves its line "
+                    "where it is, so a line already at that level stays and still counts). Any "
+                    "split works that totals at least %d bytes, at most %d moved and %d rebound. "
+                    "Then run render-topics again"
+                    % (kept, level, beside, added, self.over, MAX_RENDER_BLOCK_BYTES, self.need,
+                       kept, level, MAX_RENDER_BLOCK_BYTES, bound_to, self.need - kept, level,
+                       self.need, kept, added))
+        elif kept >= added and kept >= self.need:
+            text = ("%d bytes of pinned, legacy or unplaced lines stay at %s%s and %d bytes of "
+                    "lines placed there are to be added, %d bytes over the %d bytes one level's "
+                    "block may hold: the pinned, legacy or unplaced lines are the larger part. "
+                    "Move kept lines totalling at least %d bytes (a line counts its line break; a "
+                    "line placed by topic is not one to move) to a level above or below it with "
+                    "hooks/memory_engine.py "
+                    "move --from-level %s --to-level <level> --slug <slug> [<slug> ...] (a legacy "
+                    "line needs migrate_to_slug_store.py first); the level they go to is held to "
+                    "the same %d bytes, counting the lines it keeps and those placed there. Then "
+                    "run render-topics again"
+                    % (kept, level, beside, added, self.over, MAX_RENDER_BLOCK_BYTES,
+                       self.need, level, MAX_RENDER_BLOCK_BYTES))
+        else:
+            stays = ("%d bytes of lines that stay there" % kept if not stale else
+                     "%d bytes of pinned, legacy or unplaced lines and %d bytes of lines placed by "
+                     "topic at another level%s that stay there" % (kept, stale, also))
+            text = ("%d bytes of lines placed at %s beside %s come "
+                    "to %d bytes over %d, the most one level's block may hold: too many facts are "
+                    "bound to %s. Rebind facts that need not be read there, at least %d bytes of "
+                    "their lines, with "
+                    "hooks/memory_engine.py set-topics --proj %s --batch <file>, one {\"slug\": "
+                    "..., \"topics\": [...]} per line giving its real topics ([] binds it to no "
+                    "topic and leaves its line where it is, so a line already at that level stays "
+                    "and still counts), then run render-topics again"
+                    % (added, level, stays, self.over, MAX_RENDER_BLOCK_BYTES, bound_to,
+                       self.need, level))
+        super().__init__([text + "." + grows if grows else text])
+
+
+class CollapseTooLarge(TopicRefusal):
+    """Raised by set-topics, before any write, when the line an un-bound fact keeps at the tree
+    top (see `set_fact_topics`) would take the top's block past MAX_RENDER_BLOCK_BYTES. The block
+    holds `kept` bytes of pinned, legacy or unplaced lines, `fixed` of them lines of facts this
+    call un-binds (the collapse keeps them at the top, so they never leave it in this call),
+    `placed` bytes of managed lines placed at the top and `stale` bytes of managed lines placed
+    below it, which a tree-scope render drops; `added` bytes would be added. `held` is the block's
+    whole count, `room` what it can still take, `over` the fewest bytes that must leave it and
+    `need` how far it passes the cap without the stale lines. `fit` is how many of the added lines
+    fit in `room`, smallest first; `rebind` whether a level below the top has a topic.
+
+    A route is named only when it can free the bytes it asks for on its own figures: `kept -
+    fixed` bytes can be moved, `placed` bytes rebound (after set-level-topics when no level below
+    has a topic), `stale` bytes swept. The first that applies:
+    - `stale` lines are there and the block fits without them (`need` <= 0): the tree-scope render.
+    - the lines this call keeps at the top alone pass the cap (`fixed + added`): nothing that
+      leaves the top makes room, so it says the top cannot hold a line of each of these facts at
+      once and names a smaller batch, at most `room` bytes of added lines per call - only when
+      that batch can un-bind a fact (`room` positive, and `fit` or `fixed` non-zero); else the
+      pools that free room first.
+    - the movable kept lines reach `need`: a move of them.
+    - the placed lines reach `need`: the set-topics batch that rebinds facts placed at the top,
+      then the tree-scope render.
+    - else both, each with its amount: every movable kept line moved and the rest rebound (the
+      two together always reach `need` once `fixed + added` fits)."""
+
+    def __init__(self, top, kept, added, stale=0, placed=0, fixed=0, fit=0, rebind=True):
+        self.top, self.kept, self.added, self.stale, self.placed = top, kept, added, stale, placed
+        self.fixed, self.fit, self.rebind = fixed, fit, rebind
+        self.movable = kept - fixed
+        self.held = kept + stale + placed
+        self.room = MAX_RENDER_BLOCK_BYTES - self.held
+        self.over = self.held + added - MAX_RENDER_BLOCK_BYTES
+        self.need = kept + placed + added - MAX_RENDER_BLOCK_BYTES
+        head = ("un-binding these facts leaves one line of each at the tree top %s: %d bytes of "
+                "lines are there and %d bytes would be added, %d bytes over the %d bytes one "
+                "level's block may hold"
+                % (top, self.held, added, self.over, MAX_RENDER_BLOCK_BYTES))
+        parts = ("; of the lines there, %d bytes are pinned, legacy or unplaced%s, %d bytes are "
+                 "placed by topic at the top and %d bytes are placed by topic at a level below it"
+                 % (self.movable, "" if not fixed else
+                    ", %d bytes are lines of facts this call un-binds (it keeps them at the top)"
+                    % fixed, placed, stale)) if stale or placed or fixed else ""
+        if stale and self.need <= 0:
+            tail = (". Without the lines placed below the top the block fits, and a tree-scope "
+                    "render drops them: run " + _SWEEP_ROUTE + " (it holds every level to the "
+                    "same %d bytes and names its own route if one would pass them), then run "
+                    "set-topics again") % (top, MAX_RENDER_BLOCK_BYTES)
+        elif fixed + added > MAX_RENDER_BLOCK_BYTES:
+            tail = self._split_text()
+        elif self.movable >= self.need and (self.movable >= placed or placed < self.need):
+            tail = ". " + self._move_text(self.need, "Move") + ". Then run set-topics again"
+        elif placed >= self.need:
+            tail = (". The lines placed by topic at the top are the larger part: "
+                    + self._rebind_text(self.need) + ", then run set-topics again")
+        else:
+            tail = (". Neither the movable lines (%d bytes) nor those placed by topic at the top "
+                    "(%d bytes) reach the %d bytes alone; do both: %s; and %s, then run "
+                    "set-topics again"
+                    % (self.movable, placed, self.need, self._move_text(self.movable, "move"),
+                       self._rebind_text(self.need - self.movable)))
+        super().__init__([head + parts + tail])
+
+    def _later(self):
+        return ("" if not self.stale else
+                " (without the lines placed below the top the block is %d bytes over; once "
+                "that is gone this refusal names the tree-scope render that drops them)"
+                % self.need)
+
+    def _move_text(self, amount, verb):
+        return ("%s %slines totalling at least %d bytes%s (a line counts its line break; a line "
+                "placed by topic is not one to move, nor one of a fact this call un-binds) from "
+                "the tree top to a level below it with hooks/memory_engine.py move --from-level "
+                "%s --to-level <level> --slug <slug> [<slug> ...] (a legacy line needs "
+                "migrate_to_slug_store.py first); the level they go to is held to the same %d "
+                "bytes, counting the lines it keeps and those placed there"
+                % (verb, "pinned, legacy or unplaced " if self.stale or self.placed or self.fixed
+                   else "", amount, self._later(), self.top, MAX_RENDER_BLOCK_BYTES))
+
+    def _rebind_text(self, amount):
+        first = ("" if self.rebind else
+                 "no level below the top has a topic, so first give one a topic with "
+                 "hooks/memory_engine.py set-level-topics --proj <level> --topics <tags>, then ")
+        return (first + "rebind facts placed there whose lines total at least %d bytes to a "
+                "topic a level below the top has, with hooks/memory_engine.py set-topics --proj "
+                "%s --batch <file>, one {\"slug\": ..., \"topics\": [...]} per line ([] would "
+                "leave each line at the top), and run " + _SWEEP_ROUTE + " to move their lines "
+                "down (it drops the lines placed below the top as well)") % (amount, self.top,
+                                                                              self.top)
+
+    def _split_text(self):
+        text = (". One line of each fact this call un-binds stays at the top, and those lines "
+                "alone come to %d bytes (%d there already, %d to be added), more than the block "
+                "may hold: the top cannot hold a line of each of them at once, and no line that "
+                "leaves the top makes room for them all. Un-bind fewer facts per call with "
+                "hooks/memory_engine.py set-topics --proj %s --batch <file>: the lines one call "
+                "adds at the top may total at most %d bytes now (%d of the lines this call "
+                "would add fit in that, smallest first; a fact whose line is already at the top "
+                "adds none). The lines a call leaves at the top are then unplaced lines, which "
+                "a later refusal offers to move to a level below"
+                % (self.fixed + self.added, self.fixed, self.added, self.top, self.room, self.fit))
+        # A smaller batch is a route only when it can un-bind a fact: one whose added line fits
+        # the room, or one whose line is already at the top. With room left but less than any
+        # added line and no such fact, a batch of none would be named and nothing freed, so the
+        # pools that free room are named exactly as for a full block.
+        if self.room > 0 and (self.fit or self.fixed):
+            return text
+        pools = []
+        if self.stale:
+            pools.append(("run " + _SWEEP_ROUTE + " (drops %d bytes of lines placed below the "
+                          "top)") % (self.top, self.stale))
+        if self.movable:
+            pools.append(self._move_text(self.movable, "move"))
+        if self.placed:
+            pools.append(self._rebind_text(self.placed))
+        if not pools:
+            return (text + ". The block is %s and holds nothing that can leave it in this "
+                    "call: only facts whose line is already at the top can be un-bound now"
+                    % self._fullness())
+        return (text + ". The block is %s: first free room - " % self._fullness()
+                + "; or ".join(pools))
+
+    def _fullness(self):
+        return ("full" if self.room <= 0 else
+                "too full for any line this call would add (%d bytes left)" % self.room)
+
+
+def _grows_past_cap(before, after):
+    """The one cap rule every writer of a level's block follows (add, amend-pinned, retitle,
+    rename, move, relocate, a set-topics collapse and render-topics): a write is refused only
+    when the block would END past MAX_RENDER_BLOCK_BYTES and GROW, ending larger than the
+    `before` bytes it holds now. A write that leaves an over-full block no larger than it is (a
+    render adding nothing, a refresh to a shorter line, a drop) goes through: refusing it would
+    wedge every writer of that level until a person freed room, though none of them made it
+    fuller."""
+    return after > MAX_RENDER_BLOCK_BYTES and after > before
+
+
+def _block_bytes(level_dir):
+    """Bytes of every line in one level's block, each counting its line break."""
+    return sum(_line_size(p) for p in
+               us.parse_pointer_index(read_store_text(sig.claude_local_md_path(str(level_dir))))[1])
+
+
+class LineGrowsPastCap(TopicRefusal):
+    """Raised by `add` and `amend-pinned` before any write when the line they write would leave a
+    level's block past MAX_RENDER_BLOCK_BYTES and larger than it is now (`_grows_past_cap`). A
+    TopicRefusal, so every caller that reports the engine's refusals reports this one."""
+
+    def __init__(self, text):
+        super().__init__([text])
+
+
+def _line_growth_refusal(verb, changes, retry):
+    """The refusal text when a write replacing one line per level (`changes`, an iterable of
+    (level dir, the slug whose line goes, the line that takes its place)) would leave any of
+    those blocks past the cap and larger than now (`_grows_past_cap`), else None. Every level is
+    judged before the caller writes any. The message names the first such level in the order
+    given, with its own numbers, and `retry(shrink, old, new)` the route that keeps the write
+    from growing every such level: `shrink` is how many bytes shorter the line must be, `old` the
+    bytes of the line it replaces at the named level (0 for none) and `new` the bytes of the new
+    line. Freeing room by moving other lines out is named as the second route. Reads one level's
+    block at a time; holds one row."""
+    named, shrink = None, 0
+    for level, slug, line in changes:
+        pointers = us.parse_pointer_index(read_store_text(sig.claude_local_md_path(str(level))))[1]
+        before = sum(_line_size(p) for p in pointers)
+        old = sum(_line_size(p) for p in pointers if p.slug == slug)
+        after = before - old + _line_size(line)
+        if not _grows_past_cap(before, after):
+            continue
+        shrink = max(shrink, after - max(MAX_RENDER_BLOCK_BYTES, before))
+        if named is None:
+            named = (level, before, after, old, _line_size(line))
+    if named is None:
+        return None
+    level, before, after, old, new = named
+    return ("%s would leave the block at %s at %d bytes, %d bytes over the %d bytes one level's "
+            "block may hold and %d bytes larger than it is now (a line counts its line break; a "
+            "write that leaves a block no larger than it is now is never refused). %s; or first "
+            "free at least %d bytes at %s by moving lines out of it with %s move --from-level %s "
+            "--to-level <level> --slug <slug> [<slug> ...] (a line placed by topic is not one to "
+            "move; the level they go to is held to the same %d bytes)"
+            % (verb, level, after, after - MAX_RENDER_BLOCK_BYTES, MAX_RENDER_BLOCK_BYTES,
+               after - before, retry(shrink, old, new), after - MAX_RENDER_BLOCK_BYTES, level,
+               _ENGINE_ROUTE, level, MAX_RENDER_BLOCK_BYTES))
+
+
+def _read_body_head(path):
+    """The first FRONTMATTER_HEAD_BYTES of the body at `path` as text, None when the file is
+    missing. Raises TreeWalkError when it exists and cannot be read."""
     try:
         with open(path, "rb") as fh:
             head = fh.read(FRONTMATTER_HEAD_BYTES)
@@ -2076,12 +2906,12 @@ def read_body_topics(path):
         return None
     except OSError as exc:
         raise TreeWalkError(path, "unreadable: %s" % exc) from exc
-    return _body_topics(head.decode("utf-8", errors="replace"))
+    return head.decode("utf-8", errors="replace")
 
 
-def iter_fact_topics(anchor):
-    """Yield (slug, topics) for every body of the tree that carries a `topics:` line, one body at a
-    time: nothing is held but the body's head being read."""
+def _iter_body_heads(anchor):
+    """Yield (slug, head text) for every body of the tree, one at a time: nothing is held but the
+    head being read."""
     facts = us.central_facts_dir(anchor)
     try:
         scan = os.scandir(facts)
@@ -2093,9 +2923,135 @@ def iter_fact_topics(anchor):
         for item in scan:
             if not item.name.endswith(".md") or not us.is_valid_slug(item.name[:-3]):
                 continue
-            topics = read_body_topics(item.path)
-            if topics is not None:
-                yield item.name[:-3], topics
+            head = _read_body_head(item.path)
+            if head is not None:
+                yield item.name[:-3], head
+
+
+def _level_parts(anchor, level):
+    """`level` as the path parts below `anchor` that `topic_placement` works on; () for the anchor.
+    Lexical, like `topic_store.level_key` it is built on."""
+    key = topic_store.level_key(anchor, level)
+    return tuple(key.split("/")) if key else tp.TOP
+
+
+def _line_from_head(slug, head):
+    """The pointer line a managed fact gets, built from its body alone: title from `title:`, hook
+    from `description:`, never pinned. None when the body lacks either: such a fact is never
+    rendered, it stays where its pointer is."""
+    title, hook = _body_title(head), _body_description(head)
+    if not title or not hook:
+        return None
+    return us.Pointer(slug=slug, title=title, hook=hook)
+
+
+def topic_level_map(anchor, levels=None):
+    """(LevelMap, {parts: level dir}) of the tree: every curated level whose descriptor is not
+    empty, with the topics its `TOPICS:` line declares (none without the line). The anchor is
+    always in the dir map, and in the LevelMap only when its own descriptor is not empty, like any
+    other level. A level with no descriptor is left out, so a scaffold-only level cannot block a
+    roll-up.
+    Raises TopicRefusal, naming the levels, when a `TOPICS:` line does not parse: placing by a
+    guessed line would move rules. Holds one small record per level."""
+    declared, dirs, bad, total = {}, {tp.TOP: os.path.abspath(str(anchor))}, [], 0
+    for level in curated_levels_under(anchor) if levels is None else levels:
+        scope = us.parse_pointer_index(read_store_text(sig.claude_local_md_path(level)))[0]
+        if not scope.strip():
+            continue
+        try:
+            topics = tp.descriptor_topics(scope) or ()
+        except tp.InvalidTopic as exc:
+            total += 1
+            if len(bad) < _RENDER_SHOWN:
+                bad.append("%s: its TOPICS line does not parse (%s); set-level-topics replaces it"
+                           % (level, exc))
+            continue
+        parts = _level_parts(anchor, level)
+        declared[parts], dirs[parts] = topics, os.path.abspath(str(level))
+    if total:
+        raise TopicRefusal(bad, total)
+    return tp.LevelMap(declared), dirs
+
+
+def _unplaceable_slugs(levels):
+    """The slugs with a pinned or legacy line at any of `levels` (`_keeps_in_place`): the facts
+    the renderer never places, whatever their bodies' `topics:` say. One record per such pointer."""
+    fixed = set()
+    for level in levels:
+        for ptr in us.parse_pointer_index(read_store_text(sig.claude_local_md_path(level)))[1]:
+            if _keeps_in_place(ptr):
+                fixed.add(ptr.slug)
+    return fixed
+
+
+def _comparable_line(ptr):
+    """`ptr`'s line with title and hook single-spaced (`_normalised_title`), never pinned: the form
+    a body stores them in. A line that differs from its body only in whitespace says the same
+    thing, and the renderer rewrites it to the body's form, so it is no reason to refuse a bind."""
+    return us.Pointer(slug=ptr.slug, title=_normalised_title(ptr.title),
+                      hook=_normalised_title(ptr.hook), uuid=ptr.uuid,
+                      legacy=ptr.legacy).index_line()
+
+
+def _line_problem(slug, anchor, lines):
+    """Why `slug` cannot be bound to a topic yet, or None. `lines` is {comparable line: (level,
+    pointer)} for every distinct line of the fact (see `_pointer_owners`). A rendered line is built
+    from the body alone, so a legacy pointer, a body without `description:` or `title:`, or any
+    line that says something else than the body would render has to be repaired first; each
+    refusal names the route that repairs that cause."""
+    for level, ptr in lines.values():
+        if ptr.legacy:
+            return ("%s: its line at %s is a legacy uuid: pointer, so the fact is not migrated to "
+                    "the slug store; run hooks/migrate_to_slug_store.py --root %s --apply (without "
+                    "--apply it only reports), then tag it" % (slug, level, anchor))
+    head = _read_body_head(us.body_path(anchor, slug)) or ""
+    # The body is shared, so a level holding any line of the fact is a level its repair may
+    # target. Every route names one: factedit otherwise walks up from its cwd and cannot run
+    # outside the tree, and add without --proj and --slug derives a new slug from the title,
+    # writing a second fact while this one stays as it is.
+    level = next(iter(lines.values()))[0]
+    if not _body_description(head):
+        return ("%s: its body has no description:, so no line can be rendered from it; write its "
+                "prose (without the --- frontmatter) to a file and run "
+                "skills/meta-dream-tree/factedit.py apply --slug %s --level %s "
+                "--body-file <that file>, which rebuilds the frame from its line (or "
+                "hooks/memory_engine.py add --proj %s --slug %s --title <the line's title> "
+                "--hook-file <file> --body-file <that file> with the line's hook in <file>), "
+                "then tag it" % (slug, slug, level, level, slug))
+    if not _body_title(head):
+        return ("%s: its body has no title:, so no line can be rendered from it; run "
+                "hooks/memory_engine.py heal --proj %s --backfill-titles (or "
+                "skills/meta-dream-tree/factedit.py apply --slug %s --level %s "
+                "--title <title>), then tag it" % (slug, anchor, slug, level))
+    wanted = _comparable_line(_line_from_head(slug, head))
+    for line, (level, _ptr) in lines.items():
+        if line != wanted:
+            # Both routes name the level: factedit otherwise resolves the owning level by
+            # walking up from its cwd, and rewrites a line that already matched while this one
+            # stays as it is.
+            return ("%s: its line at %s differs from what its body renders; run "
+                    "skills/meta-dream-tree/factedit.py apply --slug %s --level %s --hook-file "
+                    "<file> (or hooks/memory_engine.py add --proj %s --slug %s --title <the "
+                    "body's title:> --hook-file <file>) with the body's description: as the "
+                    "hook, or with the hook you want if it is not the line's current one, then "
+                    "tag it" % (slug, level, slug, level, level, slug))
+    return None
+
+
+def read_body_topics(path):
+    """`_body_topics` of the body at `path`, reading only its first FRONTMATTER_HEAD_BYTES.
+    None too when the file is missing. Raises TreeWalkError when it exists and cannot be read."""
+    head = _read_body_head(path)
+    return None if head is None else _body_topics(head)
+
+
+def iter_fact_topics(anchor):
+    """Yield (slug, topics) for every body of the tree that carries a `topics:` line, one body at a
+    time: nothing is held but the body's head being read."""
+    for slug, head in _iter_body_heads(anchor):
+        topics = _body_topics(head)
+        if topics is not None:
+            yield slug, topics
 
 
 def _topic_list(anchor):
@@ -2148,14 +3104,17 @@ def set_topic_list(proj, topics, tagger):
 
 
 def _pointer_owners(anchor, wanted):
-    """{slug: (first level pointing at it, pinned anywhere)} for the slugs in `wanted`, from one
-    walk over the tree's levels. Holds one entry per wanted slug."""
+    """{slug: (first level pointing at it, pinned anywhere, {comparable line: (first level holding
+    it, its pointer)})} for the slugs in `wanted`, from one walk over the tree's levels. Holds one
+    entry per wanted slug, and per slug one record per DISTINCT line (`_comparable_line`): lines
+    that say the same thing at several levels are one record, so a placed fact costs one."""
     owners = {}
     for level in curated_levels_under(anchor):
         for ptr in us.parse_pointer_index(read_store_text(sig.claude_local_md_path(level)))[1]:
             if ptr.slug in wanted:
-                first, pinned = owners.get(ptr.slug, (level, False))
-                owners[ptr.slug] = (first, pinned or ptr.pin)
+                first, pinned, lines = owners.get(ptr.slug) or (level, False, {})
+                lines.setdefault(_comparable_line(ptr), (level, ptr))
+                owners[ptr.slug] = (first, pinned or ptr.pin, lines)
     return owners
 
 
@@ -2171,28 +3130,166 @@ def _topic_row_problem(slug, topics, anchor, allowed, owners):
         return "%s is pinned; a pinned fact stays where it is (only --clear may change it)" % slug
     if topics and _outside_list(topics, allowed):
         return "%s: %s not in the topic list" % (slug, ", ".join(_outside_list(topics, allowed)))
+    if topics and any(ptr.legacy for _level, ptr in owners[slug][2].values()):
+        # Ahead of the frontmatter check: a legacy body sits at its uuid path, so the slug path
+        # reads as empty and that check would name the wrong cause.
+        return _line_problem(slug, anchor, owners[slug][2])
     body = read_store_text(us.body_path(anchor, slug))
     if _frontmatter(body)[1] is None:
         return "%s: its body has no frontmatter to carry topics" % slug
+    if topics:
+        # Binding a fact hands its lines to the renderer, which builds them from the body alone.
+        return _line_problem(slug, anchor, owners[slug][2])
     return None
 
 
-def set_fact_topics(proj, rows, dry_run=False):
+def _line_size(ptr):
+    """Bytes `ptr`'s line takes in a block, its line break counted."""
+    return len(ptr.index_line().encode("utf-8")) + 1
+
+
+def _copy_levels(anchor, wanted):
+    """{slug: ([every level dir holding a line of it, top first], the line at the first)} for the
+    slugs in `wanted`, from one walk over the tree's levels. Holds per slug its levels and one
+    pointer."""
+    found = {}
+    order = sorted(((_level_parts(anchor, level), os.path.abspath(str(level)))
+                    for level in curated_levels_under(anchor)),
+                   key=lambda row: (len(row[0]), row[0]))
+    for _parts, level in order:
+        for ptr in us.parse_pointer_index(read_store_text(sig.claude_local_md_path(level)))[1]:
+            if ptr.slug in wanted:
+                found.setdefault(ptr.slug, ([], ptr))[0].append(level)
+    return found
+
+
+def _collapse_plan(anchor, rows, owners):
+    """{slug: (holders, line)} for each fact `rows` un-binds (`[]` or None) that is bound now,
+    pinned nowhere, and has a line at more than one level: those lines collapse to one at the tree
+    top. A fact that was never bound keeps its lines: a duplicate pointer, which --check-tree
+    reports. Raises CollapseTooLarge, before anything is written, when the lines the collapse adds
+    at the top would take its block past MAX_RENDER_BLOCK_BYTES. Holds the holders of each such
+    row (batch rows times copies)."""
+    # A fact with a pinned or legacy line was never placed by topic (`_keeps_in_place`), so its
+    # lines are where they were put, not copies a collapse may fold.
+    unbound = {slug for slug in rows if not rows[slug] and not owners[slug][1]
+               and not any(ptr.legacy for _level, ptr in owners[slug][2].values())}
+    if not unbound:
+        return {}
+    plan = {slug: copy for slug, copy in _copy_levels(anchor, unbound).items()
+            if len(copy[0]) > 1 and read_body_topics(us.body_path(anchor, slug))}
+    added = sum(_line_size(line) for holders, line in plan.values()
+                if _level_parts(anchor, holders[0]) != tp.TOP)
+    if added:
+        top = os.path.abspath(str(anchor))
+        held = sum(_line_size(ptr) for ptr in
+                   us.parse_pointer_index(read_store_text(sig.claude_local_md_path(top)))[1])
+        if held + added > MAX_RENDER_BLOCK_BYTES:
+            split = _top_split(anchor, top, unbound)
+            raise CollapseTooLarge(top, split["kept"] + split["fixed"], added, split["stale"],
+                                   split["placed"], fixed=split["fixed"],
+                                   fit=_lines_that_fit(plan, anchor, MAX_RENDER_BLOCK_BYTES - held),
+                                   rebind=split["rebind"])
+    return plan
+
+
+def _lines_that_fit(plan, anchor, room):
+    """How many of the lines a collapse `plan` adds at the tree top fit in `room` bytes, smallest
+    first: what one smaller call can un-bind now. Holds one size per row of the plan."""
+    fit, total = 0, 0
+    for size in sorted(_line_size(line) for holders, line in plan.values()
+                       if _level_parts(anchor, holders[0]) != tp.TOP):
+        total += size
+        if total > room:
+            break
+        fit += 1
+    return fit
+
+
+def _top_split(anchor, top, unbound):
+    """{'kept', 'fixed', 'placed', 'stale': bytes, 'rebind': bool} of the tree top's block, for a
+    CollapseTooLarge message. A line of a fact in `unbound` whose body is still bound is 'fixed':
+    this call keeps it at the top whatever a move does (the collapse would add it back), so it is
+    never one to move. A fact in `unbound` that is un-bound already is not: the call leaves its
+    line alone, a move of it stays moved, and counting it as fixed would name a smaller batch of
+    facts that un-binds nothing. Of the rest a pinned, legacy or unplaced line is kept; a managed
+    line is placed when its fact is placed at the top, else stale (a tree-scope render drops it).
+    `rebind` says whether a level below the top has a topic a fact placed at the top could be
+    rebound to. Read only when the call refuses: one record per level and one body head per line
+    of the top's block (two for a line of a fact in `unbound` that is un-bound already)."""
+    levels = curated_levels_under(anchor)
+    level_map = topic_level_map(anchor, levels)[0]
+    place = _Placer(level_map)
+    split = _block_split(anchor, _unplaceable_slugs(levels), top,
+                         lambda slug, topics: "placed" if tp.TOP in place(topics) else "stale",
+                         claim=lambda slug: "fixed" if slug in unbound and read_body_topics(
+                             us.body_path(anchor, slug)) else None)
+    split["rebind"] = any(level_map.topics(parts) for parts in level_map.levels()
+                          if parts != tp.TOP)
+    return split
+
+
+def _collapse_copies(anchor, slug, holders, line, write):
+    """Leave ONE line of an un-bound fact: at the tree top, written before the others are dropped,
+    so no moment has the fact without a line. `holders` are the levels holding one, top first, and
+    `line` the one at the first of them."""
+    scratch = {"levels": {}}
+    if _level_parts(anchor, holders[0]) != tp.TOP:
+        _add_lines(os.path.abspath(str(anchor)),
+                   {slug: us.Pointer(slug=slug, title=line.title, hook=line.hook)},
+                   scratch, False, write)
+    for level in holders:
+        if _level_parts(anchor, level) != tp.TOP:
+            _drop_lines(level, {slug}, scratch, False, write)
+
+
+def set_fact_topics(proj, rows, dry_run=False, write=None, *,
+                    lock_timeout=PLACEMENT_LOCK_TIMEOUT_S):
     """Set the `topics:` line of each fact in `rows`, a {slug: topics} mapping where topics is a
     tuple of tags, an empty tuple (bound to no topic) or None (remove the line).
 
     Every row is checked before any is written: an invalid slug, a slug no level points at, a
-    pinned fact being tagged (clearing one, None, is allowed), a tag outside the tree's list or a body without frontmatter refuses the WHOLE call with TopicRefusal
-    (the first refusals and their total). Each body is then read and written under the lock of
-    the first level that points at it, the lock an ordinary write to that fact holds. Pointer
-    lines are not touched: `render-topics` places them. Returns {'set': [slugs], 'unchanged': n}.
-    Holds `rows` and one owner entry per row; a batch over MAX_TOPIC_BATCH rows is refused."""
+    pinned fact being tagged (clearing one, None, is allowed), a tag outside the tree's list, a
+    body without frontmatter, or a fact being bound to a topic that has a legacy `uuid:` pointer,
+    whose body lacks `title:` or `description:`, or any of whose pointer lines differs from the
+    line its body renders other than in whitespace (see `_line_problem`) refuses the WHOLE call
+    with TopicRefusal (the first refusals and their total). Each body is then read and written
+    under the lock of the first level that points at it, the lock an ordinary write to that fact
+    holds; a dry run reads without it and creates no file (`_write_lock`). Pointer
+    lines are placed by `render-topics`, with one exception: a fact this call un-binds that is
+    bound now, pinned nowhere and has a line at several levels keeps ONE line, at the tree top
+    (`_collapse_plan`; CollapseTooLarge refuses the whole call first when the top's block would
+    pass its cap). That line is written first, then the others are dropped, then the body is
+    un-bound: an interrupted call leaves a fact still bound, which a render places again and
+    the same call, run again, collapses. `write(path, text)` is the port those level files are
+    written through (default `uuid_store.write_if_changed`).
+    A real call holds the tree's placement lock (`placement_lock`) from the row checks to the
+    last body write, so no render runs between a collapse's line writes and its un-bind,
+    and none between its own passes while a body changes; it waits up to `lock_timeout`
+    seconds for it, then raises PlacementLockBusy. A dry run takes no lock. An OSError once it
+    holds the lock (a level it could not lock or write) is raised as PlacementInterrupted, naming
+    the cause and that the same call, run again, completes the collapse.
+    Returns {'set': [slugs], 'unchanged': n, 'collapsed': [slugs]}.
+    Holds `rows`, one owner entry per row and, for a collapse, the levels holding each un-bound
+    row's line; a batch over MAX_TOPIC_BATCH rows is refused."""
     if not dry_run:
         sig.refuse_if_memory_writes_off()
     if len(rows) > MAX_TOPIC_BATCH:
         raise TopicRefusal(["%d rows, over the limit of %d per call" % (len(rows), MAX_TOPIC_BATCH)])
     anchor = _anchor(proj)
     allowed = _topic_list(anchor)
+    if dry_run:
+        return _set_fact_topics_held(anchor, rows, allowed, True, write)
+    with placement_lock(anchor, "set-topics", lock_timeout):
+        try:
+            return _set_fact_topics_held(anchor, rows, allowed, False, write)
+        except OSError as exc:
+            raise PlacementInterrupted("set-topics", exc, "the same %s set-topics call"
+                                       % _ENGINE_ROUTE) from exc
+
+
+def _set_fact_topics_held(anchor, rows, allowed, dry_run, write):
+    """`set_fact_topics` from the row checks on; a real call's caller holds the placement lock."""
     owners = _pointer_owners(anchor, set(rows))
     problems, total = [], 0
     for slug in sorted(rows):
@@ -2203,9 +3300,19 @@ def set_fact_topics(proj, rows, dry_run=False):
                 problems.append(why)
     if total:
         raise TopicRefusal(problems, total)
-    rep = {"set": [], "unchanged": 0}
+    plan = _collapse_plan(anchor, rows, owners)
+    write = write or us.write_if_changed
+    rep = {"set": [], "unchanged": 0, "collapsed": []}
     for slug in sorted(rows):
-        with sig.memory_lock(sig.claude_local_md_path(owners[slug][0])):
+        _placement_heartbeat()
+        if slug in plan:
+            # Placed by topic at several levels and bound to none from now on: one line, at the
+            # tree top. Before the body changes, so a call cut short leaves a bound fact, and
+            # outside its lock: the pointer writers take their own.
+            if not dry_run:
+                _collapse_copies(anchor, slug, *plan[slug], write)
+            rep["collapsed"].append(slug)
+        with _write_lock(sig.claude_local_md_path(owners[slug][0]), dry_run):
             body = read_store_text(us.body_path(anchor, slug)).rstrip("\n")
             tagged = _with_topics(body, rows[slug])
             if tagged == body:
@@ -2322,6 +3429,504 @@ def _current_scope(proj):
     md = sig.claude_md_path(proj)
     legacy = sig.read_scope_block(read_store_text(md))
     return ("", None) if legacy is None else (legacy.strip(), md)
+
+
+# ---- render: place the lines ---------------------------------------------------------------
+
+_PLACEMENT_CACHE = 512
+
+
+class _Placer:
+    """`LevelMap.placements` remembered per topic set. Facts share few distinct sets, so the cache
+    stays small; it is emptied when it reaches _PLACEMENT_CACHE entries rather than grown."""
+
+    def __init__(self, level_map):
+        self._map, self._seen = level_map, {}
+
+    def __call__(self, topics):
+        hit = self._seen.get(topics)
+        if hit is None:
+            if len(self._seen) >= _PLACEMENT_CACHE:
+                self._seen.clear()
+            hit = self._seen[topics] = frozenset(self._map.placements(topics))
+        return hit
+
+    def remembered(self):
+        """How many topic sets are remembered: never more than _PLACEMENT_CACHE. A method, not
+        __len__, so an empty placer never reads as false."""
+        return len(self._seen)
+
+    def bound_to(self, parts):
+        """Which facts the lines at the level `parts` come from, for a RenderBlockTooLarge message:
+        the topics that level has, and at the top also the topics no level has (they fall back
+        there)."""
+        topics = ", ".join(sorted(self._map.topics(parts)))
+        if parts != tp.TOP:
+            return "a topic this level has (%s)" % topics
+        return "a topic no level below the top has" + (" or one the top has (%s)" % topics
+                                                        if topics else "")
+
+
+def _managed_topics(slug, head, pinned):
+    """The topics a body head binds its fact to when the renderer manages it, else None: managed
+    means a non-empty `topics:` line, a slug not in `pinned` (the slugs with a pinned or legacy
+    line anywhere, `_unplaceable_slugs`, or () when the caller judges that apart), and a body a
+    line can be built from."""
+    topics = _body_topics(head)
+    if not topics or slug in pinned or _line_from_head(slug, head) is None:
+        return None
+    return topics
+
+
+def _add_levels(level_map):
+    """The levels the ADD phase writes, in its order: the top, then every level that has a topic."""
+    return [parts for parts in level_map.levels() if parts == tp.TOP or level_map.topics(parts)]
+
+
+def _block_split(anchor, pinned, level_dir, part, claim=None):
+    """{part name: bytes} of one level's block, each line counting its line break: a line whose
+    slug `claim(slug)` names goes under that name whatever it is; else a pinned, legacy or
+    unmanaged line is 'kept', a managed line goes under `part(slug, topics)`, and is not counted
+    when that is None. One body head is read per unpinned line."""
+    split = {"kept": 0, "stale": 0, "placed": 0, "fixed": 0}
+    for ptr in us.parse_pointer_index(read_store_text(sig.claude_local_md_path(level_dir)))[1]:
+        name = "kept" if claim is None else claim(ptr.slug) or "kept"
+        if name == "kept" and not (ptr.pin or ptr.legacy):
+            head = _read_body_head(us.body_path(anchor, ptr.slug))
+            topics = None if head is None else _managed_topics(ptr.slug, head, pinned)
+            if topics is not None:
+                name = part(ptr.slug, topics)
+        if name is not None:
+            split[name] += _line_size(ptr)
+    return split
+
+
+def _held_bytes(anchor, pinned, level_dir, goes=None):
+    """(kept, stale): bytes of the lines a level's block still holds once this render is done with
+    it, beside the lines it places there. `kept` are pinned, legacy, and those of facts it does
+    not place; `stale` are managed lines placed elsewhere that this render leaves there. In the
+    tree scope (`goes` None) every managed line is left out, so `stale` is 0: one placed here is
+    replaced by the body's own line, which is counted from the body; one placed elsewhere is
+    dropped by this same run's REMOVE phase. The chain scope drops fewer, so it passes
+    `goes(slug, topics)`, true for a managed line that leaves or is replaced: the others stay,
+    count, and are `stale`, since only a tree-scope render drops them. The ADD phase writes a
+    level before that drop, so its file holds those lines a while longer: no read or write of a
+    level file is bounded, and the cap judges the block the render leaves."""
+    split = _block_split(anchor, pinned, level_dir,
+                         lambda slug, topics: None if goes is None or goes(slug, topics)
+                         else "stale")
+    return split["kept"], split["stale"]
+
+
+def _census_lines(anchor, pinned, tally):
+    """Yield (slug, topics, line) for every managed fact, one body head at a time, counting into
+    `tally` how many are managed and the tagged unpinned ones no line can be built from (the first
+    _RENDER_SHOWN and their total)."""
+    for slug, head in _iter_body_heads(anchor):
+        topics = _body_topics(head)
+        if not topics or slug in pinned:
+            continue
+        line = _line_from_head(slug, head)
+        if line is None:
+            tally["incomplete_total"] += 1
+            if len(tally["incomplete"]) < _RENDER_SHOWN:
+                tally["incomplete"].append(slug)
+            continue
+        tally["managed"] += 1
+        yield slug, topics, line
+
+
+def _census_tally():
+    """An empty census report, filled by `_census_lines`."""
+    return {"managed": 0, "incomplete": [], "incomplete_total": 0}
+
+
+def _render_census(anchor, pinned, place, dirs, adds):
+    """One pass over the bodies, before anything is written: the `_census_lines` counts, and the
+    bytes each level of `adds` will hold, starting from the lines it keeps (`_held_bytes`). Raises
+    RenderBlockTooLarge when a level would pass MAX_RENDER_BLOCK_BYTES, so that refusal comes
+    before ANY level is written, not after the levels ahead of it in the ADD order were. It raises
+    after the pass, with that level's whole count: a count stopped at the first line past the cap
+    would name too few bytes to move. Of several such levels it names the first in level order
+    (the sorted parts: the top first, a parent before its children, siblings by name), never the
+    one a line first pushed over, which depends on the order the store lists its bodies, so the
+    same tree would name a different level on another filesystem. Holds one byte count per level."""
+    tally = _census_tally()
+    kept = {parts: _held_bytes(anchor, pinned, dirs[parts])[0] for parts in adds}
+    now = {parts: _block_bytes(dirs[parts]) for parts in adds}
+    sizes = dict(kept)
+    for _slug, topics, line in _census_lines(anchor, pinned, tally):
+        for parts in place(topics):     # a placement is always the top or a level with a topic
+            sizes[parts] += len(line.index_line().encode("utf-8")) + 1
+    full = min((parts for parts in sizes if _grows_past_cap(now[parts], sizes[parts])),
+               default=None)
+    if full is not None:
+        raise RenderBlockTooLarge(dirs[full], kept[full], sizes[full] - kept[full],
+                                  place.bound_to(full), now=now[full])
+    tally["incomplete"].sort()
+    return tally
+
+
+def _wanted_lines(anchor, place, pinned, parts, level_dir, held=(0, 0), skip=frozenset(),
+                  now=0):
+    """{slug: Pointer} for every managed fact placed at the level `parts` and not in `skip` (the
+    chain scope's slugs a level above holds), from one streaming pass over the bodies. This dict
+    is what a render holds; once its lines and the `held` (kept, stale) bytes the level keeps
+    beside them pass both MAX_RENDER_BLOCK_BYTES and the `now` bytes the level's block holds
+    before this pass (`_grows_past_cap`) it raises RenderBlockTooLarge. The census refused that
+    case already; this check holds the bound when a body or the level's block grew between the
+    census and this pass (another writer). Past that bound it stops holding lines and only
+    counts, so the refusal names the whole overflow."""
+    wanted, size = {}, sum(held)
+    for slug, head in _iter_body_heads(anchor):
+        topics = _managed_topics(slug, head, pinned)
+        if topics is None or slug in skip or parts not in place(topics):
+            continue
+        line = _line_from_head(slug, head)
+        size += len(line.index_line().encode("utf-8")) + 1
+        if _grows_past_cap(now, size):
+            wanted = None
+        elif wanted is not None:
+            wanted[slug] = line
+    if wanted is None:
+        raise RenderBlockTooLarge(level_dir, held[0], size - sum(held), place.bound_to(parts),
+                                  stale=held[1], anchor=anchor, now=now)
+    return wanted
+
+
+def _note(rep, level_dir, kind, slugs):
+    """Count `slugs` under `kind` for `level_dir` in the report, keeping the first few as examples."""
+    if not slugs:
+        return
+    row = rep["levels"].setdefault(level_dir, {"added": 0, "refreshed": 0, "removed": 0, "examples": {}})
+    row[kind] = row.get(kind, 0) + len(slugs)        # `kept` is counted only where it happened
+    shown = row["examples"].setdefault(kind, [])
+    shown.extend(sorted(slugs)[:_RENDER_SHOWN - len(shown)])
+
+
+def _write_lock(local, dry_run):
+    """The lock a read-modify-write of the level file `local` takes, or none for a dry run.
+
+    A dry run writes nothing, so it must not create a file either: a lock is a `.lock` file made
+    and removed beside the level file, which fails on a read-only tree, waits out (and then fails
+    on) a peer's lock, may reclaim a stale one, and changes the directory's mtime - a check run
+    over the store would do all of that. Unlocked, a read sees one whole text: the store's writer
+    (`write_if_changed`) renames a finished temp file over the level file, so the old text or the
+    new one is read, never a part. What a dry run cannot get is a tree-wide snapshot: a writer may
+    change one level between the reads of two, which the locks never prevented either (each is
+    held for its own level only)."""
+    return contextlib.nullcontext() if dry_run else sig.memory_lock(local)
+
+
+def _add_lines(level_dir, wanted, rep, dry_run, write):
+    """Add the missing lines of `wanted` to one level and refresh an unpinned line that says
+    something else than its body, under the level's lock (none for a dry run, `_write_lock`).
+    Returns the slugs the level now holds."""
+    local = sig.claude_local_md_path(level_dir)
+    with _write_lock(local, dry_run):
+        text = read_store_text(local)
+        scope, pointers = us.parse_pointer_index(text)
+        held = {p.slug: p for p in pointers}
+        added, refreshed = [], []
+        for slug in sorted(wanted):
+            line, have = wanted[slug], held.get(slug)
+            if have is None:
+                pointers.append(line)
+                added.append(slug)
+            elif not have.pin and not have.legacy and have.index_line() != line.index_line():
+                have.title, have.hook = line.title, line.hook
+                refreshed.append(slug)
+        if (added or refreshed) and not dry_run:
+            write(local, us.upsert_pointer_block(text, scope, pointers))
+    _note(rep, level_dir, "added", added)
+    _note(rep, level_dir, "refreshed", refreshed)
+    return set(held) | set(added)
+
+
+def _drop_lines(level_dir, doomed, rep, dry_run, write):
+    """Drop the unpinned lines of `doomed` from one level, under its lock (none for a dry run)."""
+    if not doomed:
+        return
+    local = sig.claude_local_md_path(level_dir)
+    with _write_lock(local, dry_run):
+        text = read_store_text(local)
+        scope, pointers = us.parse_pointer_index(text)
+        kept = [p for p in pointers if p.slug not in doomed or p.pin or p.legacy]
+        removed = [p.slug for p in pointers if p.slug in doomed and not (p.pin or p.legacy)]
+        if removed and not dry_run:
+            write(local, us.upsert_pointer_block(text, scope, kept))
+    _note(rep, level_dir, "removed", removed)
+
+
+def _misplaced_lines(anchor, place, pinned, parts, level_dir):
+    """{slug: the levels (parts) its fact is placed at} for the managed lines at one level that are
+    placed elsewhere: one body head is read per line of the level's block."""
+    doomed = {}
+    for ptr in us.parse_pointer_index(read_store_text(sig.claude_local_md_path(level_dir)))[1]:
+        if ptr.pin or ptr.legacy:
+            continue
+        head = _read_body_head(us.body_path(anchor, ptr.slug))
+        topics = None if head is None else _managed_topics(ptr.slug, head, pinned)
+        if topics is not None and parts not in place(topics):
+            doomed[ptr.slug] = place(topics)
+    return doomed
+
+
+_HOME_BLOCKS = 8
+"""Most level blocks `_keep_last_lines` keeps read at once; emptied, not grown, when it fills."""
+
+
+def _keep_last_lines(dirs, doomed, dry_run):
+    """(drop, kept) from `doomed` ({slug: the levels it is placed at}): a line is dropped only
+    when a level its fact is placed at holds a line of it NOW, read from disk; else it is kept,
+    since dropping it could leave the fact with no line anywhere. The ADD pass put a line at every
+    such level, so under the placement lock nothing is kept; a body rebound by a writer that
+    ignores the lock (a hand edit) between the passes is what this catches. A dry run wrote no
+    line to read back and drops what it would drop. Holds the slugs of at most _HOME_BLOCKS
+    levels' blocks."""
+    if dry_run:
+        return set(doomed), set()
+    blocks, kept = {}, set()
+
+    def held(level):
+        if level not in blocks:
+            if len(blocks) >= _HOME_BLOCKS:
+                blocks.clear()
+            blocks[level] = _block_slugs(level)
+        return blocks[level]
+
+    for slug, placed_at in doomed.items():
+        if not any(slug in held(dirs[parts]) for parts in placed_at if parts in dirs):
+            kept.add(slug)
+    return set(doomed) - kept, kept
+
+
+def _render_tree(anchor, levels, adds, place, dirs, pinned, rep, dry_run, write):
+    """Tree scope. ADD over `adds` (every level that has a topic, plus the anchor); then, only when
+    every add went through, REMOVE over every curated level. An error in the ADD phase is raised
+    before a single line is dropped, so an interrupted run leaves a surplus copy, never a fact with
+    no line; nor does REMOVE drop a line whose fact has none where it is placed
+    (`_keep_last_lines`)."""
+    for parts in adds:
+        _placement_heartbeat()
+        held = _held_bytes(anchor, pinned, dirs[parts])
+        _add_lines(dirs[parts], _wanted_lines(anchor, place, pinned, parts, dirs[parts], held,
+                                              now=_block_bytes(dirs[parts])), rep,
+                   dry_run, write)
+    for level in levels:
+        _placement_heartbeat()
+        parts = _level_parts(anchor, level)
+        level = os.path.abspath(str(level))
+        drop, kept = _keep_last_lines(dirs, _misplaced_lines(anchor, place, pinned, parts, level),
+                                      dry_run)
+        _note(rep, level, "kept", kept)
+        _drop_lines(level, drop, rep, dry_run, write)
+
+
+def _chain_levels(anchor, proj, levels):
+    """The curated levels from the tree top down to `proj`, as (parts, level dir), top first.
+    Found lexically, as levels are keyed: a level reached through a symlink is the level its path
+    names. `proj` need not be a level itself."""
+    here = _level_parts(anchor, proj)
+    by_parts = {_level_parts(anchor, level): os.path.abspath(str(level)) for level in levels}
+    return [(here[:cut], by_parts[here[:cut]]) for cut in range(len(here) + 1)
+            if here[:cut] in by_parts]
+
+
+def _block_slugs(level_dir):
+    """The slugs of every pointer line in one level's block."""
+    return {p.slug for p in
+            us.parse_pointer_index(read_store_text(sig.claude_local_md_path(level_dir)))[1]}
+
+
+def _chain_target(slug, placed, chain, adds, held_at):
+    """The index of the chain level a chain render gives `slug`'s line, or None: the first level,
+    top down, of `adds` the fact is `placed` at, unless a level above it holds a line of the fact
+    already (`held_at`, the slugs of each chain level's block), which this chain reads."""
+    for i, (parts, _level) in enumerate(chain):
+        if parts in adds and parts in placed:
+            return i
+        if slug in held_at[i]:
+            return None
+    return None
+
+
+def _chain_goes(place, parts, above):
+    """The `_held_bytes` test at the chain level `parts`: a managed line leaves the block when a
+    level above holds its slug (the DROP pass removes it) and is replaced when its fact is placed
+    there (the body's own line is counted). Any other managed line stays: a chain render never
+    drops a line for being placed elsewhere."""
+    return lambda slug, topics: slug in above or parts in place(topics)
+
+
+def _chain_census(anchor, pinned, place, chain, adds):
+    """The chain scope's census, one pass over the bodies before anything is written: the
+    `_census_lines` counts and, for each chain level of `adds`, the block it will hold, the lines
+    it keeps (`_held_bytes` with `_chain_goes`) plus the lines added or refreshed there. Raises
+    RenderBlockTooLarge for the first such level, top down, past MAX_RENDER_BLOCK_BYTES, with its
+    whole count, so the refusal comes before any level is written. Holds the slugs of the chain's
+    blocks and, per chain level, the slugs added there while its count is within the cap (past it
+    the census refuses, so no level below needs them)."""
+    tally = _census_tally()
+    held_at = [_block_slugs(level) for _parts, level in chain]
+    now = [_block_bytes(level) for _parts, level in chain]
+    sizes, added = [0] * len(chain), [set() for _level in chain]
+    for slug, topics, line in _census_lines(anchor, pinned, tally):
+        i = _chain_target(slug, place(topics), chain, adds, held_at)
+        if i is not None:
+            sizes[i] += len(line.index_line().encode("utf-8")) + 1
+            if sizes[i] <= max(MAX_RENDER_BLOCK_BYTES, now[i]):
+                added[i].add(slug)
+    above = set()
+    for i, (parts, level) in enumerate(chain):
+        if parts in adds:
+            kept, stale = _held_bytes(anchor, pinned, level, _chain_goes(place, parts, above))
+            if _grows_past_cap(now[i], kept + stale + sizes[i]):
+                raise RenderBlockTooLarge(level, kept, sizes[i], place.bound_to(parts),
+                                          stale=stale, anchor=anchor, now=now[i])
+        above |= held_at[i] | added[i]
+    tally["incomplete"].sort()
+    return tally
+
+
+def _held_above(anchor, pinned, level_dir, above):
+    """The slugs of the managed lines at one level whose slug a level above it on the chain holds
+    (`above`): one body head is read per such line. A pinned, legacy or unmanaged line is never
+    among them."""
+    doomed = set()
+    for ptr in us.parse_pointer_index(read_store_text(sig.claude_local_md_path(level_dir)))[1]:
+        if ptr.slug not in above or ptr.pin or ptr.legacy:
+            continue
+        head = _read_body_head(us.body_path(anchor, ptr.slug))
+        if head is not None and _managed_topics(ptr.slug, head, pinned) is not None:
+            doomed.add(ptr.slug)
+    return doomed
+
+
+def _render_chain(anchor, chain, adds, place, pinned, rep, dry_run, write):
+    """Chain scope: only the levels of `chain` are read for their lines or written. ADD, top
+    first: a level of `adds` gets the lines placed at it unless a level above holds the slug.
+    Then, only when every add went through, DROP: a managed line a level above holds goes. A line
+    is never dropped for being placed elsewhere: another subtree may still read it, and the tree
+    scope sweeps. The slugs each level holds after its add are kept for the DROP pass, so a dry
+    run reports the drops a real run makes. Holds the slugs of the chain's blocks."""
+    above, holds = set(), []
+    for parts, level in chain:
+        _placement_heartbeat()
+        wanted = {}
+        if parts in adds:
+            held = _held_bytes(anchor, pinned, level, _chain_goes(place, parts, above))
+            wanted = _wanted_lines(anchor, place, pinned, parts, level, held, skip=above,
+                                   now=_block_bytes(level))
+        now = _add_lines(level, wanted, rep, dry_run, write)
+        holds.append(now)
+        above |= now
+    above = set()
+    for (_parts, level), now in zip(chain, holds, strict=True):
+        _placement_heartbeat()
+        _drop_lines(level, _held_above(anchor, pinned, level, above), rep, dry_run, write)
+        above |= now
+
+
+def render_topics(proj, scope="tree", dry_run=False, write=None, *,
+                  lock_timeout=PLACEMENT_LOCK_TIMEOUT_S):
+    """Place the pointer lines of every MANAGED fact of `proj`'s tree by topic.
+
+    A fact is managed when its body's `topics:` is non-empty, no pointer of it is pinned or
+    legacy (`uuid:`) at any level, and its body holds the `title:` and `description:` a line is
+    built from. Every other line is never
+    added, dropped or rewritten here. `scope` is 'tree' (every level; adds, then removes) or
+    'chain' (only the levels from `proj` up to the tree top: a line a level above holds is not
+    added below it and is dropped there, and a line merely placed elsewhere stays, for the tree
+    scope to sweep; no file off the chain is written). `write(path, text)` is the port a
+    level file is written through (default `uuid_store.write_if_changed`); a test passes a
+    recording one. A dry run takes no lock and creates no file (`_write_lock`), so it runs on a
+    read-only tree and beside a peer's held lock. Returns a report: {'list': False} alone when the tree has no topic list (then
+    nothing is read further and nothing written), else scope, dry_run, managed, incomplete,
+    incomplete_total and, per changed level dir, the counts added / refreshed / removed with a
+    few example slugs.
+
+    Checked before the first write: a level whose TOPICS line does not parse and a tree top with
+    no pointer block raise TopicRefusal, and a level whose block - the lines placed there plus the
+    lines that stay there, never a line this run drops - would pass MAX_RENDER_BLOCK_BYTES raises
+    RenderBlockTooLarge, naming the route for whichever part is larger (a body or block
+    that grew between the census and the ADD pass can still raise it there, after earlier levels
+    were added and before any line is dropped).
+    A real run holds the tree's placement lock (`placement_lock`) from the level walk to its last
+    drop, so no set-topics or write to a placed fact lands between its passes; it waits up to
+    `lock_timeout` seconds for it, then raises PlacementLockBusy; an OSError once it holds the
+    lock is raised as PlacementInterrupted, naming the cause and the render to run again, which
+    completes it. The tree scope's REMOVE never
+    drops the last line of a fact: a misplaced line whose fact has no line at any level it is
+    placed at is kept and counted as `kept` (`_keep_last_lines`).
+    Holds: one record per level, one per pinned pointer, the lines of the ONE level being written;
+    a chain render also the slugs of the chain's blocks."""
+    if scope not in ("tree", "chain"):
+        raise ValueError("scope must be 'tree' or 'chain', not %r" % (scope,))
+    if not dry_run:
+        sig.refuse_if_memory_writes_off()
+    proj = os.path.abspath(str(proj))
+    anchor = _anchor(proj)
+    if topic_store.load(anchor) is None:
+        return {"list": False}
+    if dry_run:
+        return _render_held(anchor, proj, scope, True, write)
+    with placement_lock(anchor, "render-topics", lock_timeout):
+        try:
+            return _render_held(anchor, proj, scope, False, write)
+        except OSError as exc:
+            raise PlacementInterrupted("render-topics", exc, "%s render-topics --proj %s --scope %s"
+                                       % (_ENGINE_ROUTE, proj, scope)) from exc
+
+
+def _render_held(anchor, proj, scope, dry_run, write):
+    """`render_topics` from the level walk on; a real run's caller holds the placement lock."""
+    levels = curated_levels_under(anchor)
+    level_map, dirs = topic_level_map(anchor, levels)
+    if not any(_level_parts(anchor, level) == tp.TOP for level in levels):
+        raise TopicRefusal(["the tree top %s has no pointer block for the lines that fall back to "
+                            "it (ensure-memory-structure writes one)" % anchor])
+    pinned = _unplaceable_slugs(levels)     # pinned or legacy anywhere: never placed
+    place, adds = _Placer(level_map), _add_levels(level_map)
+    rep = {"list": True, "scope": scope, "dry_run": bool(dry_run), "levels": {}}
+    write = write or us.write_if_changed
+    if scope == "tree":
+        rep.update(_render_census(anchor, pinned, place, dirs, adds))
+        _render_tree(anchor, levels, adds, place, dirs, pinned, rep, dry_run, write)
+    else:
+        chain, add_set = _chain_levels(anchor, proj, levels), frozenset(adds)
+        rep.update(_chain_census(anchor, pinned, place, chain, add_set))
+        _render_chain(anchor, chain, add_set, place, pinned, rep, dry_run, write)
+    return rep
+
+
+def _print_render(rep, as_json):
+    """Print a render report; the verb's whole output."""
+    if as_json:
+        print(json.dumps(rep, sort_keys=True))
+        return
+    if not rep["list"]:
+        print("no topic list in this tree: nothing is placed by topic")
+        return
+    verb = "would change" if rep["dry_run"] else "changed"
+    for level in sorted(rep["levels"]):
+        row = rep["levels"][level]
+        print("  %s: +%d added, %d refreshed, -%d removed" % (level, row["added"], row["refreshed"],
+                                                               row["removed"]))
+    kept = [(level, row) for level, row in sorted(rep["levels"].items()) if row.get("kept")]
+    if kept:
+        print("~ warning: kept %d line(s) placed elsewhere, because no level the fact is placed at "
+              "holds a line of it (its body changed during the render): %s. Run render-topics "
+              "--scope tree again to place them"
+              % (sum(row["kept"] for _level, row in kept),
+                 ", ".join(sorted({slug for _level, row in kept
+                                   for slug in row["examples"]["kept"]}))))
+    if rep["incomplete_total"]:
+        print("~ %d tagged fact(s) have a body without title: or description: and stay where they "
+              "are: %s%s" % (rep["incomplete_total"], ", ".join(rep["incomplete"]),
+                             " ..." if rep["incomplete_total"] > len(rep["incomplete"]) else ""))
+    print("render-topics (%s): %d managed fact(s); %s %d level(s)"
+          % (rep["scope"], rep["managed"], verb, len(rep["levels"])))
 
 
 def _read_topic_batch(path):
@@ -2499,13 +4104,14 @@ def _topic_read(args):
     return 0
 
 
-TOPIC_WRITE_VERBS = frozenset({"topics-set-list", "set-topics", "set-level-topics", "set-top-topics"})
+TOPIC_WRITE_VERBS = frozenset({"topics-set-list", "set-topics", "set-level-topics", "set-top-topics",
+                               "render-topics"})
 
 
 def _is_topic_dry_run(raw):
     """True when argv `raw` is a topic verb's `--dry-run`: it writes nothing, so it runs while
-    memory writes are off. Only `set-topics` has the flag (argparse refuses it on the others), and
-    `set_fact_topics` refuses a real write under the switch whatever this says."""
+    memory writes are off. Only `set-topics` and `render-topics` have the flag (argparse refuses
+    it on the others), and both refuse a real write under the switch whatever this says."""
     return raw[0] in TOPIC_WRITE_VERBS and "--dry-run" in raw[1:]
 
 
@@ -2519,7 +4125,10 @@ def _topics_arg(value):
 
 
 def _topic_write(args):
-    """The four topic write verbs; refusals are raised and mapped by the caller."""
+    """The topic write verbs; refusals are raised and mapped by the caller."""
+    if args.cmd == "render-topics":
+        _print_render(render_topics(args.proj, scope=args.scope, dry_run=args.dry_run), args.as_json)
+        return 0
     if args.cmd == "topics-set-list":
         text, err = _read_input_file(args.from_file)
         if err:
@@ -2554,6 +4163,13 @@ def _topic_write(args):
         rep = set_fact_topics(args.proj, rows, dry_run=args.dry_run)
         print("%s topics on %d fact(s); %d unchanged"
               % ("would set" if args.dry_run else "set", len(rep["set"]), rep["unchanged"]))
+        if rep["collapsed"]:
+            shown = rep["collapsed"][:_REFUSALS_SHOWN]
+            print("~ note: %d un-bound fact(s) had a line at several levels; each %s one line, at "
+                  "the tree top: %s%s" % (len(rep["collapsed"]),
+                                          "would keep" if args.dry_run else "now has",
+                                          ", ".join(shown),
+                                          " ..." if len(rep["collapsed"]) > len(shown) else ""))
         return 0
     topics, err = _topics_arg(args.topics)
     if err:
@@ -2737,6 +4353,16 @@ def _main(argv=None):
         lt = sub.add_parser(verb, help=text)
         lt.add_argument("--proj", required=True, help="the level dir")
         lt.add_argument("--topics", required=True, help="comma-separated tags; '' for none")
+    rd = sub.add_parser("render-topics",
+                        help="place the pointer lines of topic-bound facts: at each level that has "
+                             "one of a fact's topics while no level above it does")
+    rd.add_argument("--proj", required=True,
+                    help="any dir of the tree (tree) / the dir whose chain is rendered (chain)")
+    rd.add_argument("--scope", required=True, choices=["tree", "chain"],
+                    help="tree: every level, adds then removes (the dream); chain: only the levels "
+                         "from --proj up to the tree top (the nap)")
+    rd.add_argument("--dry-run", action="store_true", dest="dry_run")
+    rd.add_argument("--json", action="store_true", dest="as_json")
     sl = sub.add_parser("topics-stale", help="exit 1 when a level's topics need choosing again")
     sl.add_argument("--proj", required=True, help="the level dir")
     raw = sys.argv[1:] if argv is None else argv
@@ -2870,6 +4496,10 @@ def _main(argv=None):
         local = sig.claude_local_md_path(args.proj)
         if _is_excluded_level(args.proj):             # before the lock, which creates a file there
             raise ExcludedLevel(args.proj)
+        pruned = _pruned_part(_anchor(os.path.abspath(args.proj)), args.proj)
+        if pruned is not None:                        # same: no walk would read the descriptor
+            raise NonLevelDir(os.path.abspath(args.proj), *pruned,
+                              route=_ENGINE_ROUTE + " set-scope --proj {level} --scope ...")
         # One read-modify-write under the level's lock. The topics check runs on the level's
         # CURRENT descriptor - its pointer block's, else the legacy CLAUDE.md block ensure_level
         # would harvest, else none - before ensure_level writes anything, so a refused call leaves

@@ -7,7 +7,7 @@ with aiosqlite backend.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Coroutine, Mapping
+from collections.abc import Callable, Coroutine, Mapping, Set
 from dataclasses import dataclass
 from datetime import datetime
 import hashlib
@@ -1681,20 +1681,15 @@ class EventStore:
                     },
                 ) from e
 
-    async def replay(self, aggregate_type: str, aggregate_id: str) -> list[BaseEvent]:
-        """Replay all events for a specific aggregate.
+    async def replay(
+        self, aggregate_type: str, aggregate_id: str, *, event_types: Set[str] | None = None
+    ) -> list[BaseEvent]:
+        """Replay one aggregate's events in ``(timestamp, id)`` order, in one transaction.
 
-        The operation uses a transaction for read consistency.
-
-        Args:
-            aggregate_type: The type of aggregate (e.g., "seed", "execution").
-            aggregate_id: The unique identifier of the aggregate.
-
-        Returns:
-            List of events for the aggregate, ordered by timestamp.
-
-        Raises:
-            PersistenceError: If the replay operation fails.
+        ``event_types``, when given, keeps only rows of those types and applies
+        that filter in SQL under the same ordering, so the result equals a full
+        replay filtered in Python while only the matching rows are deserialized.
+        Raises :class:`PersistenceError` if the store is uninitialized or the read fails.
         """
         if self._engine is None:
             raise PersistenceError(
@@ -1703,16 +1698,18 @@ class EventStore:
             )
 
         try:
+            query = (
+                select(events_table)
+                .where(events_table.c.aggregate_type == aggregate_type)
+                .where(events_table.c.aggregate_id == aggregate_id)
+                # Order by timestamp + id for deterministic replay when
+                # multiple events share the same timestamp resolution.
+                .order_by(events_table.c.timestamp, events_table.c.id)
+            )
+            if event_types is not None:
+                query = query.where(events_table.c.event_type.in_(sorted(event_types)))
             async with self._engine.begin() as conn:
-                result = await conn.execute(
-                    select(events_table)
-                    .where(events_table.c.aggregate_type == aggregate_type)
-                    .where(events_table.c.aggregate_id == aggregate_id)
-                    # Order by timestamp + id for deterministic replay when
-                    # multiple events share the same timestamp resolution.
-                    .order_by(events_table.c.timestamp, events_table.c.id)
-                )
-                rows = result.mappings().all()
+                rows = (await conn.execute(query)).mappings().all()
                 return [BaseEvent.from_db_row(dict(row)) for row in rows]
         except Exception as e:
             raise PersistenceError(
@@ -1994,130 +1991,75 @@ class EventStore:
                 operation="get_session_activity_snapshots",
             )
 
-        status_expr = func.coalesce(
-            func.json_extract(events_table.c.payload, "$.progress.runtime_status"),
-            func.json_extract(events_table.c.payload, "$.runtime_status"),
+        # Probe each session through the (aggregate_type, aggregate_id[,
+        # timestamp]) indexes, so the cost is linear in session rows; three
+        # window subqueries joined by nested scans grew quadratically with the
+        # session count. Picks keep the (timestamp, id) tie-break, and explicit
+        # terminal lifecycle stays absorbing: a delayed progress checkpoint may
+        # be newer in wall-clock order, but it cannot revive a completed/failed/
+        # cancelled session in the snapshot path used for orphan cleanup.
+        # ``+e.event_type`` keeps the probes off ix_events_event_type.
+        status = (
+            "coalesce(json_extract({t}.payload, '$.progress.runtime_status'), "
+            "json_extract({t}.payload, '$.runtime_status'))"
         )
-
-        first_session_event_ranked = (
-            select(
-                events_table.c.aggregate_id.label("session_id"),
-                func.json_extract(events_table.c.payload, "$.execution_id").label("execution_id"),
-                func.json_extract(events_table.c.payload, "$.seed_id").label("seed_id"),
-                func.coalesce(
-                    func.json_extract(events_table.c.payload, "$.start_time"),
-                    events_table.c.timestamp,
-                ).label("start_time"),
-                func.row_number()
-                .over(
-                    partition_by=events_table.c.aggregate_id,
-                    order_by=(events_table.c.timestamp.asc(), events_table.c.id.asc()),
-                )
-                .label("rn"),
-            )
-            .where(events_table.c.aggregate_type == "session")
-            .subquery()
+        probe = (
+            "(SELECT e.rowid FROM events AS e WHERE e.aggregate_type = 'session' AND "
+            "e.aggregate_id = s.session_id {where} ORDER BY e.timestamp {o}, e.id {o} LIMIT 1)"
         )
-
-        latest_activity_ranked = (
-            select(
-                events_table.c.aggregate_id.label("session_id"),
-                events_table.c.timestamp.label("last_activity"),
-                func.row_number()
-                .over(
-                    partition_by=events_table.c.aggregate_id,
-                    order_by=(events_table.c.timestamp.desc(), events_table.c.id.desc()),
-                )
-                .label("rn"),
-            )
-            .where(events_table.c.aggregate_type == "session")
-            .subquery()
+        terminal = ", ".join(f"'{name}'" for name in sorted(_SESSION_TERMINAL_EVENT_TYPES))
+        paused = "'orchestrator.session.paused'"
+        progress = "'orchestrator.progress.updated', 'workflow.progress.updated'"
+        fallback = (
+            f"AND (+e.event_type = {paused} OR (+e.event_type IN ({progress}) "
+            f"AND {status.format(t='e')} IS NOT NULL))"
         )
-
-        latest_status_ranked = (
-            select(
-                events_table.c.aggregate_id.label("session_id"),
-                events_table.c.event_type.label("status_event_type"),
-                status_expr.label("runtime_status"),
-                func.row_number()
-                .over(
-                    partition_by=events_table.c.aggregate_id,
-                    order_by=(
-                        # Explicit terminal lifecycle is absorbing. A delayed
-                        # progress checkpoint may be newer in wall-clock order,
-                        # but it cannot revive a completed/failed/cancelled
-                        # session in the snapshot path used for orphan cleanup.
-                        case(
-                            (
-                                events_table.c.event_type.in_(_SESSION_TERMINAL_EVENT_TYPES),
-                                0,
-                            ),
-                            else_=1,
-                        ),
-                        events_table.c.timestamp.desc(),
-                        events_table.c.id.desc(),
-                    ),
-                )
-                .label("rn"),
+        # The window form evaluated these json_extract calls on every session
+        # row, so a payload SQLite cannot parse failed the whole call;
+        # ``payloads_checked`` keeps that error contract.
+        query = text(
+            f"""
+            WITH picks AS (
+                SELECT s.session_id,
+                    {probe.format(where="", o="ASC")} AS first_rowid,
+                    {probe.format(where="", o="DESC")} AS last_rowid,
+                    coalesce(
+                        {probe.format(where=f"AND +e.event_type IN ({terminal})", o="DESC")},
+                        {probe.format(where=fallback, o="DESC")}
+                    ) AS status_rowid
+                FROM (
+                    SELECT DISTINCT aggregate_id AS session_id
+                    FROM events WHERE aggregate_type = 'session'
+                ) AS s
             )
-            .where(events_table.c.aggregate_type == "session")
-            .where(
-                or_(
-                    events_table.c.event_type.in_(
-                        (
-                            "orchestrator.session.completed",
-                            "orchestrator.session.failed",
-                            "orchestrator.session.paused",
-                            "orchestrator.session.cancelled",
-                        )
-                    ),
-                    and_(
-                        events_table.c.event_type.in_(
-                            (
-                                "orchestrator.progress.updated",
-                                "workflow.progress.updated",
-                            )
-                        ),
-                        status_expr.is_not(None),
-                    ),
-                )
-            )
-            .subquery()
+            SELECT p.session_id,
+                json_extract(f.payload, '$.execution_id') AS execution_id,
+                json_extract(f.payload, '$.seed_id') AS seed_id,
+                coalesce(json_extract(f.payload, '$.start_time'), f.timestamp) AS start_time,
+                l.timestamp AS last_activity,
+                st.event_type AS status_event_type,
+                {status.format(t="st")} AS runtime_status,
+                (
+                    SELECT count(json_extract(payload, '$.execution_id'))
+                        + count(json_extract(payload, '$.seed_id'))
+                        + count(json_extract(payload, '$.start_time'))
+                        + count(CASE WHEN event_type IN ({terminal}, {paused}, {progress})
+                            THEN {status.format(t="events")} END)
+                    FROM events WHERE aggregate_type = 'session'
+                ) AS payloads_checked
+            FROM picks AS p
+            JOIN events AS f ON f.rowid = p.first_rowid
+            JOIN events AS l ON l.rowid = p.last_rowid
+            LEFT JOIN events AS st ON st.rowid = p.status_rowid
+            ORDER BY p.session_id ASC
+            """
+        ).columns(
+            start_time=events_table.c.timestamp.type,
+            last_activity=events_table.c.timestamp.type,
         )
 
         try:
             async with self._engine.begin() as conn:
-                query = (
-                    select(
-                        first_session_event_ranked.c.session_id,
-                        first_session_event_ranked.c.execution_id,
-                        first_session_event_ranked.c.seed_id,
-                        first_session_event_ranked.c.start_time,
-                        latest_activity_ranked.c.last_activity,
-                        latest_status_ranked.c.status_event_type,
-                        latest_status_ranked.c.runtime_status,
-                    )
-                    .select_from(first_session_event_ranked)
-                    .join(
-                        latest_activity_ranked,
-                        and_(
-                            latest_activity_ranked.c.session_id
-                            == first_session_event_ranked.c.session_id,
-                            latest_activity_ranked.c.rn == 1,
-                        ),
-                    )
-                    .outerjoin(
-                        latest_status_ranked,
-                        and_(
-                            latest_status_ranked.c.session_id
-                            == first_session_event_ranked.c.session_id,
-                            latest_status_ranked.c.rn == 1,
-                        ),
-                    )
-                    .where(first_session_event_ranked.c.rn == 1)
-                    .order_by(first_session_event_ranked.c.session_id.asc())
-                )
-
                 result = await conn.execute(query)
                 rows = result.mappings().all()
                 return [
@@ -2340,6 +2282,7 @@ class EventStore:
         event_type: str | None = None,
         limit: int | None = 50,
         offset: int = 0,
+        exclude_event_ids: frozenset[str] = frozenset(),
     ) -> list[BaseEvent]:
         """Query events across the session aggregate and related parallel scopes.
 
@@ -2362,6 +2305,7 @@ class EventStore:
             event_type: Optional event-type filter.
             limit: Maximum number of events to return. ``None`` returns all.
             offset: Number of events to skip for pagination.
+            exclude_event_ids: Ids of rows the caller already holds, omitted in SQL.
 
         Returns:
             Matching events ordered by timestamp descending.
@@ -2396,14 +2340,12 @@ class EventStore:
 
                 if event_type:
                     query = query.where(events_table.c.event_type == event_type)
+                if exclude_event_ids:
+                    ids = func.json_each(json.dumps(sorted(exclude_event_ids)))
+                    query = query.where(events_table.c.id.not_in(select(ids.table_valued("value"))))
 
-                if limit is not None:
-                    query = query.limit(limit).offset(offset)
-                elif offset:
-                    query = query.offset(offset)
-
-                result = await conn.execute(query)
-                rows = result.mappings().all()
+                query = query.limit(limit).offset(offset or None)
+                rows = (await conn.execute(query)).mappings().all()
                 return [BaseEvent.from_db_row(dict(row)) for row in rows]
         except Exception as e:
             raise PersistenceError(
@@ -2460,11 +2402,11 @@ class EventStore:
 
         try:
             async with self._engine.begin() as conn:
-                query = (
-                    select(events_table)
-                    .where(events_table.c.aggregate_type == "execution")
-                    .where(or_(*conditions))
-                )
+                # Unary + (no-op on TEXT) lets typed queries use ix_events_event_type.
+                aggregate_type: ColumnClause[Any] = events_table.c.aggregate_type
+                if event_type:
+                    aggregate_type = literal_column("+events.aggregate_type")
+                query = select(events_table).where(aggregate_type == "execution", or_(*conditions))
 
                 query = query.order_by(
                     *(

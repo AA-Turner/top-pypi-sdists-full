@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pyinfra
-Version: 3.11.0
+Version: 3.11.1
 Summary: pyinfra automates/provisions/manages/deploys infrastructure.
 Project-URL: homepage, https://pyinfra.com
 Project-URL: documentation, https://docs.pyinfra.com

@@ -57,7 +57,7 @@ class PaymentMethod(AppwriteModel):
     updatedat: str = Field(..., alias='$updatedAt')
     permissions: List[Any] = Field(..., alias='$permissions')
     providermethodid: str = Field(..., alias='providerMethodId')
-    clientsecret: str = Field(..., alias='clientSecret')
+    clientsecret: str = Field(..., alias='clientSecret', json_schema_extra={'format': 'password'})
     provideruserid: str = Field(..., alias='providerUserId')
     userid: str = Field(..., alias='userId')
     expirymonth: Optional[float] = Field(default=None, alias='expiryMonth')

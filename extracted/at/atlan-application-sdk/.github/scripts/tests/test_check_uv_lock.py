@@ -177,22 +177,26 @@ def test_a_stalled_git_reads_as_a_failure(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 @pytest.mark.parametrize(
-    ("base", "fetch", "diff", "changed"),
+    ("base", "present", "fetch", "diff", "changed"),
     [
-        ("", 0, 0, True),  # no base: check
-        ("abc", 128, 0, True),  # fetch failed: check
-        ("abc", 0, 128, True),  # diff errored: check
-        ("abc", 0, 1, True),
-        ("abc", 0, 0, False),
+        ("", 0, 0, 0, True),  # no base: check
+        ("abc", 1, 128, 0, True),  # missing, fetch failed: check
+        ("abc", 1, 0, 128, True),  # diff errored: check
+        ("abc", 1, 0, 1, True),
+        ("abc", 1, 0, 0, False),
+        ("abc", 0, 128, 0, False),  # already present: no fetch to fail
+        ("abc", 0, 0, 128, True),
     ],
 )
 def test_lock_changed_fails_towards_checking(
-    base: str, fetch: int, diff: int, changed: bool
+    base: str, present: int, fetch: int, diff: int, changed: bool
 ) -> None:
-    def quiet(cmd: Sequence[str]) -> int:
-        return fetch if cmd[1] == "fetch" else diff
+    codes = {"cat-file": present, "fetch": fetch, "diff": diff}
 
-    assert check_uv_lock.lock_changed(base, quiet) is changed
+    def quiet(cmd: Sequence[str]) -> int:
+        return codes[cmd[1]]
+
+    assert check_uv_lock.lock_changed(base, quiet, lambda: True) is changed
 
 
 def test_pre_commit_job_runs_the_lock_check_on_every_pr() -> None:
@@ -221,10 +225,12 @@ def test_conformance_gate_runs_the_lock_check_on_every_pr() -> None:
     names = [s.get("name") for s in steps]
 
     fetch = steps[names.index("Fetch check_uv_lock.py from SDK")]
-    # git_auth.py too: the check runs through it (FND-4740).
+    # git_auth.py too: the check runs through it (FND-4740). And the D
+    # series' apt install script, kept past the cleanup (FND-4908).
     assert fetch["with"]["sparse-checkout"].split() == [
         ".github/scripts/check_uv_lock.py",
         ".github/scripts/git_auth.py",
+        ".github/scripts/install_apt_packages.py",
     ]
     assert fetch["with"]["ref"] == "${{ job.workflow_sha }}"
     assert fetch["with"]["path"] == ".sdk-lock-check"

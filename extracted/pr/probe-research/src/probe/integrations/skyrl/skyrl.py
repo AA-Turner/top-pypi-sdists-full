@@ -21,8 +21,10 @@ from .hooks import SkyrlHooks
 from .live import COMMAND_REFUSAL, SkyrlLive
 from .outputs import OutputMapper
 from .recorder import SkyrlRecorder
+from .training import build_training_plan
 from .runs import (
-    get_resume_folder, get_config, get_external_id, get_rewind_step, get_run_name, read_resume_step, record_base_model,
+    UNSUPPORTED, get_config, get_external_id, get_resume_folder, get_rewind_step, get_run_name, read_resume_step,
+    record_base_model,
 )
 
 #: The producer a SkyRL training process writes samples as (generation and training share it).
@@ -147,7 +149,8 @@ class ProbeExp(BasePPOExp):
         phases.set_active_clock(self.hooks.phases)
         self.guard.call("phases", phases.install_phase_timer, Timer)
         self.guard.call("base model", record_base_model, run, cfg)
-        plan: dict[str, Any] = {"producers": [PRODUCER]}
+        training = build_training_plan(getattr(cfg.trainer.algorithm, "policy_loss_type", None))
+        plan: dict[str, Any] = {"producers": [PRODUCER], "training": training, "unsupported": UNSUPPORTED}
         if cfg.trainer.fully_async.enabled:
             plan["max_staleness"] = int(cfg.trainer.fully_async.max_staleness_steps)
         samples.plan(**plan)

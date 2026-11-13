@@ -13,6 +13,7 @@ from contrast.patches import (
     pure_python_strlike_patches,
     register_assess_monkeypatches,
     register_common_monkeypatches,
+    register_database_monkeypatches,
 )
 from contrast.utils.namespace import Namespace
 from contrast.utils.patch_utils import repatch_imported_modules
@@ -163,6 +164,8 @@ def enable_patches(
         import_hook.register_path_finder()
     if shield or preinstrument:
         applicator.register_v2_policy_patches()
+        # the sql capability is reported by the dbapi2 patches rather than v2 policy
+        register_database_monkeypatches()
 
     logger.debug("revisiting imported modules to apply patches")
     repatch_imported_modules()

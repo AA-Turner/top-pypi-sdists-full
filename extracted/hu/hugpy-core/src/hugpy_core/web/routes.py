@@ -439,7 +439,7 @@ def central_models(**kwargs):
     rows = central_store.rows(include_missing=bool(kwargs.get("missing")))
     for r in rows:
         r.pop("hugpy_json", None)
-    return jsonify({"root": central_store.root(), "count": len(rows), "models": rows})
+    return jsonify({"root": central_store.view_root(), "count": len(rows), "models": rows})
 
 
 # ── admission (the console's admit / block buttons) ──────────────────────────
@@ -565,7 +565,9 @@ def chat_stream(**body):
 
 
 def chat_cancel(request_id=None, **kwargs):
-    """``request_id`` was the path param (/llm/chat/cancel/<request_id>); now a kwarg."""
+    """``request_id`` was the path param (/llm/chat/cancel/<request_id>); now a kwarg.
+    That address still works (web/worker_aliases.py PATH_IDS) and hands the id over in the query."""
+    request_id = request_id or request.args.get("request_id")
     w = _chat_workers.get(request_id)
     if w is None:
         return _json({"cancelled": False, "reason": "unknown or finished request"}, 404)
@@ -672,7 +674,11 @@ def models_delete(model_key):
 
 
 # ── OpenAI surface ───────────────────────────────────────────────────────────
-def v1_models(**kwargs):
+def model_rows() -> list:
+    """The one list of models this Core can route: every catalog entry and every name an online
+    worker serves, each with ``id`` (the name to send), ``tasks``, ``available`` (an online worker
+    serves it), ``workers`` and ``loaded_on``. /v1/models returns it; the arms Core hosts pick
+    from it (relay/inference_catalog), so a name chosen anywhere is a name the relay routes."""
     seen: dict = {}
     # The engine reads this endpoint as its live capability catalog. Preserve
     # the OpenAI model-list fields and attach Core's model dossier facts so
@@ -712,6 +718,16 @@ def v1_models(**kwargs):
                 m["workers"].append(w.get("name"))
             if reported in loaded and w.get("name") not in m["loaded_on"]:
                 m["loaded_on"].append(w.get("name"))
+    # A worker names what it serves by unit (``repo::file``). The repo-level name is served too:
+    # the worker chooses the unit. So it is available wherever one of its units is.
+    for key, unit in list(seen.items()):
+        head = key.split("::", 1)[0] if "::" in key else None
+        parent = seen.get(head) if head else None
+        if parent is None or not unit.get("available"):
+            continue
+        parent["available"] = True
+        for field in ("workers", "loaded_on"):
+            parent[field] = list(dict.fromkeys([*(parent.get(field) or []), *(unit.get(field) or [])]))
     # the online named sessions, each callable as `session:<name>`
     try:
         from hugpy_core.web.agent_sessions import session_models
@@ -719,9 +735,12 @@ def v1_models(**kwargs):
             seen.setdefault(m["id"], m)
     except Exception as exc:  # the session registry must not hide the fleet's models
         logger.warning("v1 session models unavailable: %s", exc)
+    return sorted(seen.values(), key=lambda m: m["id"])
+
+
+def v1_models(**kwargs):
     from hugpy_core.config.model_preferences import projection
-    return jsonify({"object": "list", "data": sorted(seen.values(), key=lambda m: m["id"]),
-                    "model_preferences": projection()})
+    return jsonify({"object": "list", "data": model_rows(), "model_preferences": projection()})
 
 
 def v1_task_bindings(**kwargs):
@@ -922,6 +941,7 @@ from hugpy_core.web.console_routes import (  # noqa: E402
 from hugpy_core.web.db_viewer import DB_CATEGORIES  # noqa: E402
 from hugpy_core.web.setup_routes import SETUP_CATEGORIES  # noqa: E402
 from hugpy_core.web.predictions import PREDICTIONS_CATEGORIES  # noqa: E402
+from hugpy_core.web.engines_view import ENGINES_CATEGORIES  # noqa: E402
 
 # /arms and /readiness fold in as single-segment routes (callable leaves);
 # install.sh / bootstrap.sh fold under fleet/workers now that register_categories
@@ -930,6 +950,6 @@ from hugpy_core.web.predictions import PREDICTIONS_CATEGORIES  # noqa: E402
 # as nested path-parameter keys in their own trees (console_routes.py and
 # LOCAL_CATEGORIES above) — no absolute "rule" strings, no "exact" pseudo-node.
 ALL_CATEGORIES = _merge(LOCAL_CATEGORIES, CONSOLE_CATEGORIES, DB_CATEGORIES, SETUP_CATEGORIES,
-                        PREDICTIONS_CATEGORIES,
+                        PREDICTIONS_CATEGORIES, ENGINES_CATEGORIES,
                         {"arms": _installed_arms, "readiness": _readiness})
 register_categories(web_bp, ALL_CATEGORIES)

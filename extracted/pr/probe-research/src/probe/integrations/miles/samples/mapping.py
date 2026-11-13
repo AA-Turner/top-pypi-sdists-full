@@ -15,6 +15,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from probe.generated.samples import CaptureField, TurnsSource
+from probe.sdk.run.samples.rollout import build_turns
+
 #: The generation phases a weight-version span stands for (`types.py:24-42`: `prefill_spans`, `spans`).
 PREFILL, DECODE = "prefill", "decode"
 #: Miles `Sample.Status` (`utils/types.py:236-245`) as a finish reason, and the error behind a broken one.
@@ -26,6 +29,28 @@ ERROR_REASONS = frozenset(
 )
 #: The step a train sample's group began under, stamped by its live try (`../live/`): its group and fully async step.
 SCHEDULED_STEP_KEY = "probe_scheduled_step"
+#: Where Miles keeps a sample's messages as sent, only with `--save-debug-trajectory-data`: multi_turn's trajectory
+#: (`generate_hub/multi_turn.py:74,92`) and a session's last record (`session/samples/merge.py:99-103`).
+MESSAGES_KEY = "messages"
+#: The generate functions that keep messages (`arguments.py:500`: single_turn is Miles' default, and keeps none).
+SINGLE_TURN = "miles.rollout.generate_hub.single_turn.generate"
+MULTI_TURN = "miles.rollout.generate_hub.multi_turn.generate"
+AGENTIC_TOOL_CALL = "miles.rollout.generate_hub.agentic_tool_call.generate"
+#: The fields a structured reply holds: each call's id and arguments, each result's link, the reasoning apart.
+REPLY_FIELDS = (CaptureField.TOOL_CALL_IDS, CaptureField.TOOL_CALL_ARGUMENTS, CaptureField.TOOL_RESULT_LINKS,
+                CaptureField.REASONING)
+#: What Miles cannot give a sample (`plan(unsupported=)`), and why.
+ONE_REPLY = ("Miles' single_turn generate function sends one prompt and keeps the reply as text: it records no "
+             "messages, runs no tools, and keeps no reasoning apart from the text")
+OTHER_GENERATE = ("Probe reads a sample's messages only from Miles' multi_turn and agentic_tool_call generate "
+                  "functions; this run generates with {path}")
+NO_MESSAGES = ("Miles keeps a sample's messages only with --save-debug-trajectory-data; without it a sample holds its "
+               "token ids and text")
+TEXT_REPLIES = ("Miles' multi_turn keeps each reply as text: its tool calls stay inside the text, and each result's "
+                "tool_call_id is one Miles made up, linked to no call")
+CHILD_PROCESS = "agent functions run in a child process Probe has no context in, so a tool's files cannot reach its sample"
+IN_GENERATE = ("Miles runs tools inside its generate function (multi_turn's execute_tool_calls, an inline agent "
+               "function), where Probe opens no rollout context: a tool's files cannot reach its sample")
 _MISSING = object()
 
 
@@ -71,7 +96,12 @@ def build_train_key(step: int, index: Any, tokens: Any) -> str:
     """A training sample's producer key, unique per attempt within an epoch. The trainer rank rebuilds
     it from `rollout_id`, `sample_indices` and `tokens` (no `group_index` reaches it); the token digest
     tells apart the leaves one rollout splits into, which share `Sample.index` (`dump_reader.py:79-94`)."""
-    return f"train:{step}:{index}:{hash_tokens(tokens)}"
+    return join_train_key(step, index, hash_tokens(tokens))
+
+
+def join_train_key(step: int, index: Any, digest: str) -> str:
+    """`build_train_key` from a digest already taken (a loss hook hashes a micro-batch's tokens in one copy)."""
+    return f"train:{step}:{index}:{digest}"
 
 
 def build_group_key(step: Any, group_index: Any) -> str:
@@ -111,6 +141,7 @@ def build_generator_part(sample: Any, *, key: str, split: str, step: int, config
         part["group_key"] = group_key
     _add_lineage(part, sample)
     _add_response(part, sample)
+    part.update(build_turn_fields(metadata))
     _add_result(part, sample, metadata, config)
     part["generated_by"] = build_generations(sample)
     part["scored_by"] = build_scorers(sample, config)
@@ -130,6 +161,52 @@ def build_generator_part(sample: Any, *, key: str, split: str, step: int, config
 
         part["trace_span_id"] = stable_span_id(config.run_id, harbor_key)
     return {name: value for name, value in part.items() if value not in (None, [], {})}
+
+
+def build_turn_fields(metadata: Mapping) -> dict:
+    """The messages Miles kept on the sample (`MESSAGES_KEY`) as turns as sent: a session's replies hold their tool
+    calls (id, name, arguments) and `reasoning_content`, each result its `tool_call_id`; nothing when it kept none."""
+    messages = metadata.get(MESSAGES_KEY)
+    turns = build_turns(messages) if isinstance(messages, list) else []
+    return {"turns": turns, "turns_source": TurnsSource.AS_SENT} if turns else {}
+
+
+def get_unsupported(args: Any) -> dict[CaptureField, str]:
+    """The capture fields this run's Miles cannot give a sample, with why, from the generate function in use: only
+    multi_turn and agentic_tool_call keep messages, and only with `--save-debug-trajectory-data` (`--dump-details`
+    sets it, `arguments.py:1374`); multi_turn keeps text replies; files never reach a sample (an agent function's
+    own process by default, `--custom-agent-function-mode subproc`; else inside the generate function)."""
+    path = get_generate_path(args)
+    if path == SINGLE_TURN:
+        return dict.fromkeys(CaptureField, ONE_REPLY)
+    is_child = read_generate_flag(args, "custom_agent_function_path") is not None and read_generate_flag(
+        args, "custom_agent_function_mode", "subproc") != "inline"
+    unsupported = {CaptureField.ENVIRONMENT_FILES: CHILD_PROCESS if is_child else IN_GENERATE}
+    if path not in (MULTI_TURN, AGENTIC_TOOL_CALL):
+        reason = OTHER_GENERATE.format(path=path)
+        return {**unsupported, CaptureField.MESSAGES: reason, **dict.fromkeys(REPLY_FIELDS, reason)}
+    if getattr(args, "save_debug_trajectory_data", None) is None:
+        return {**unsupported, CaptureField.MESSAGES: NO_MESSAGES, **dict.fromkeys(REPLY_FIELDS, NO_MESSAGES)}
+    if path == AGENTIC_TOOL_CALL:  # a session server's last record keeps them structured (v1 and v2)
+        return unsupported
+    return {**unsupported, **dict.fromkeys(REPLY_FIELDS, TEXT_REPLIES)}
+
+
+def get_generate_path(args: Any) -> str:
+    """The run's generate function: `--custom-generate-function-path` (a `CustomFunctionConfig` once Miles resolves
+    it, else its path), else Miles' default single_turn (`inference_rollout_common.py:54`)."""
+    value = getattr(args, "custom_generate_function_path", None)
+    path = getattr(value, "path", value)
+    return path if isinstance(path, str) and path else SINGLE_TURN
+
+
+def read_generate_flag(args: Any, name: str, default: Any = None) -> Any:
+    """A generate function's own flag (`--custom-agent-function-mode`): Miles keeps it on that function's config
+    (`args.custom_generate_function_path.config`, `utils/args/custom_function.py:17-21`), not on the args a hook gets;
+    an older flat Namespace has it on the args."""
+    config = getattr(getattr(args, "custom_generate_function_path", None), "config", None)
+    value = getattr(config, name, None)
+    return value if value is not None else getattr(args, name, default)
 
 
 def build_task(sample: Any, metadata: Mapping) -> dict:

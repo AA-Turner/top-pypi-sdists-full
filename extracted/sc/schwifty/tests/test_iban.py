@@ -7,6 +7,7 @@ from pycountry import countries  # type: ignore
 
 from schwifty import IBAN
 from schwifty.domain import BankStatus
+from schwifty.domain import SEPAScheme
 from schwifty.exceptions import InvalidStructure
 from schwifty.exceptions import SchwiftyException
 from schwifty.registry import convert_bban_spec_to_regex
@@ -265,6 +266,26 @@ def test_iban_properties_is() -> None:
     assert iban.bank_code == "01"
 
 
+@pytest.mark.parametrize(
+    ("value", "bank_code", "branch_code", "account_code", "national_checksum_digits"),
+    [
+        ("AO06 0044 0000 6729 5030 1010 2", "0044", "0000", "67295030101", "02"),
+        ("KM46 0000 5000 0100 1090 4400 137", "00005", "00001", "00109044001", "37"),
+        ("MA64 0115 1900 0001 2050 0053 4921", "011", "519", "0000012050005349", "21"),
+        ("MG46 0000 5030 0712 8942 1016 045", "00005", "03007", "12894210160", "45"),
+        ("MZ59 0003 0108 0016 3671 0237 1", "0003", "0108", "00163671023", "71"),
+    ],
+)
+def test_iban_components_of_aspirational_countries(
+    value: str, bank_code: str, branch_code: str, account_code: str, national_checksum_digits: str
+) -> None:
+    iban = IBAN(value)
+    assert iban.bank_code == bank_code
+    assert iban.branch_code == branch_code
+    assert iban.account_code == account_code
+    assert iban.national_checksum_digits == national_checksum_digits
+
+
 def test_iban_properties_pl() -> None:
     iban = IBAN("PL66114010100000123400005678")
     assert iban.is_valid
@@ -319,6 +340,7 @@ def test_iban_properties_pl() -> None:
         (("IT", "43482", "DNNDKPHAGTIB", "07900"), "IT22K4348207900DNNDKPHAGTIB"),
         (("IT", "70000", "Mq8gyacBzEqP", "30810"), "IT39M7000030810MQ8GYACBZEQP"),
         (("IT", "76494", "2Sbpqelox4wG", "16460"), "IT87A76494164602SBPQELOX4WG"),
+        (("NO", "1204", "001234"), "NO9612040012344"),  # account series 00 (#356)
         (("PL", "11401010", "0000123400005678"), "PL66114010100000123400005678"),
         (("PL", "11401010", "123400005678"), "PL66114010100000123400005678"),
         (("PL", "11401010", "12340000"), "PL04114010100000000012340000"),
@@ -566,3 +588,19 @@ def test_deepcopy_allow_invalid(value: str) -> None:
     assert isinstance(copied, IBAN)
     assert copied == original
     assert not copied.is_valid
+
+
+def test_sepa_schemes() -> None:
+    # The schemes are the ones of the IBAN's BIC.
+    iban = IBAN("DE89370400440532013000")
+    assert iban.bic is not None
+    assert iban.sepa_schemes == iban.bic.sepa_schemes
+    assert SEPAScheme.CORE_DIRECT_DEBIT in iban.sepa_schemes
+
+
+def test_sepa_schemes_without_bic() -> None:
+    # The country takes part in SEPA, but the bank code is unknown, so the schemes are unknown.
+    iban = IBAN.generate("DE", bank_code="12345678", account_code="1")
+    assert iban.bic is None
+    assert iban.in_sepa_zone is True
+    assert iban.sepa_schemes == frozenset()

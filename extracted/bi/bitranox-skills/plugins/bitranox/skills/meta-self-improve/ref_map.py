@@ -25,6 +25,10 @@ FINAL level of BOTH ends, so a mutually-citing pair lifted together is clean whi
 away from a target left below is a `stranded-outbound`, and a fact moved below one of its citers
 is a `dangling-inbound` (a ref resolves only to the citer's own level or an ancestor). A `from`
 that is not where the fact sits now is a `stale-from` (the plan was made against an older tree).
+A fact the engine places by topic is not moved by a plan, whether it has one line or several: it
+is a `placed-by-topic` conflict (its levels follow the levels' topics, and a ref to it resolves
+through its body wherever they are). Any other fact with a line at several levels is a
+`duplicate-pointer` one. The map names its other levels as `also at`.
 
 Exit codes are format-independent: 0 every slug mapped cleanly, 1 at least one slug is unknown or
 has a dangling ref, 2 the map could not be built at all (no store under the root, or a level file
@@ -82,8 +86,39 @@ def _pointers(root: Path):
 
 
 def read_levels(root: Path) -> dict[str, str]:
-    """{canonical slug: level dir} for every pointer under `root`."""
-    return {canon(p.slug): str(level) for level, pointers in _pointers(root) for p in pointers}
+    """{canonical slug: level dir} for every pointer under `root`. A fact with a line at several
+    levels (placed by topic, or a duplicate) is given its FIRST level in path order;
+    `read_copies` has the rest."""
+    levels: dict[str, str] = {}
+    for level, pointers in _pointers(root):
+        for p in pointers:
+            levels.setdefault(canon(p.slug), str(level))
+    return levels
+
+
+def read_copies(root: Path) -> dict[str, list[str]]:
+    """{canonical slug: [every level dir holding a line of it]} for the slugs held at more than
+    one level, in path order."""
+    held: dict[str, list[str]] = {}
+    for level, pointers in _pointers(root):
+        for p in pointers:
+            held.setdefault(canon(p.slug), []).append(str(level))
+    return {slug: levels for slug, levels in held.items() if len(levels) > 1}
+
+
+def read_placed(root: Path, slugs) -> set[str]:
+    """The members of `slugs` the engine places by topic (reconcile's test, the engine's rule): a
+    topic-bound body with a title and description, with no pinned or legacy line at any level. Its
+    lines stand where the levels' topics put them, and a ref to it resolves through the central
+    body wherever they are. Callers pass slugs that have a line (the engine's rule needs one); a slug with one line
+    is judged like one with several. One body head per member of `slugs`."""
+    if not slugs:
+        return set()
+    # `_pointers` leaves legacy lines out, and a legacy line keeps a fact unplaced just as a pin
+    # does: the engine's own set, from the engine's walk.
+    fixed = ME._unplaceable_slugs(ME.curated_levels_under(root))  # noqa: SLF001
+    return {slug for slug in slugs
+            if _rmi._placed_by_topic(root, slug, lambda _anchor: fixed)}  # noqa: SLF001
 
 
 def read_hooks(root: Path) -> dict[str, str]:
@@ -141,6 +176,7 @@ def build(root: Path, slugs):
     Raises the engine's TreeWalkError when a level file or a fact body cannot be read or is not
     UTF-8, or a directory under the root cannot be listed."""
     levels = read_levels(root)
+    copies = read_copies(root)
     texts = _fact_texts(root, read_hooks(root))
     outbound, inbound = read_refs(root, texts=texts)
     prose = _rmi.prose_mentions(texts, set(levels))
@@ -162,6 +198,7 @@ def build(root: Path, slugs):
         entries.append({
             "slug": slug,
             "level": levels.get(slug),
+            "also_at": copies.get(slug, [])[1:],
             "unknown": False,
             "inbound": [{"slug": s, "level": levels.get(s)} for s in inbound.get(slug, [])],
             "outbound": outs,
@@ -210,10 +247,22 @@ def judge_moves(root: Path, moves: list[dict]):
     # read_moves resolves every target, so the levels must be resolved too: compared as given, a
     # relative or symlinked --root put every citer outside every resolved target.
     levels = {slug: str(Path(level).resolve()) for slug, level in read_levels(root).items()}
+    copies = {slug: [str(Path(level).resolve()) for level in held]
+              for slug, held in read_copies(root).items()}
+    # every moved slug is tested, not only one with several lines: the engine's move refuses a
+    # placed fact whatever its line count, so a one-line one reported clean here was then refused
+    placed = read_placed(root, set(copies) | {mv["slug"] for mv in moves if mv["slug"] in levels})
     outbound, inbound = read_refs(root)
     final = dict(levels)
     conflicts = []
     for mv in moves:
+        if mv["slug"] in copies or mv["slug"] in placed:
+            # the engine refuses to move a fact its topics place, and a move of a duplicate (one
+            # line per level) takes one line and leaves the other
+            kind = "placed-by-topic" if mv["slug"] in placed else "duplicate-pointer"
+            conflicts.append({"kind": kind, "slug": mv["slug"], "other": None,
+                              "slug_level": levels[mv["slug"]], "other_level": None})
+            continue
         cur = levels.get(mv["slug"])
         if cur is None:
             conflicts.append({"kind": "unknown", "slug": mv["slug"], "other": None,
@@ -225,19 +274,24 @@ def judge_moves(root: Path, moves: list[dict]):
         final[mv["slug"]] = mv["to"]
     for mv in moves:
         slug = mv["slug"]
-        if slug not in levels:
+        if slug not in levels or slug in copies or slug in placed:
             continue
         here = final[slug]
         for target in outbound.get(slug, []):
             there = final.get(target)
+            if target in placed:
+                continue                          # resolved through the central body, not a level
+            if any(_visible_from(copy, here) for copy in copies.get(target, ())):
+                continue                          # a duplicate: one of its lines is on this chain
             if there is not None and not _visible_from(there, here):
                 conflicts.append({"kind": "stranded-outbound", "slug": slug, "other": target,
                                   "slug_level": here, "other_level": there})
         for citer in inbound.get(slug, []):
-            there = final.get(citer)
-            if there is not None and not _visible_from(here, there):
-                conflicts.append({"kind": "dangling-inbound", "slug": slug, "other": citer,
-                                  "slug_level": here, "other_level": there})
+            # a citer with lines at several levels is read at each of them
+            for there in copies.get(citer) or [final.get(citer)]:
+                if there is not None and not _visible_from(here, there):
+                    conflicts.append({"kind": "dangling-inbound", "slug": slug, "other": citer,
+                                      "slug_level": here, "other_level": there})
     return conflicts, bool(conflicts)
 
 
@@ -259,6 +313,9 @@ def render(entries, out) -> None:
                   file=out)
             continue
         print("%s\n  level    : %s" % (entry["slug"], entry["level"] or "NO POINTER"), file=out)
+        if entry.get("also_at"):
+            print("  also at  : %s  (a line per level: placed by topic, or a duplicate "
+                  "--check-tree names)" % ", ".join(entry["also_at"]), file=out)
         print("  inbound  : %d  (a down-move is REFUSED while this is non-empty)"
               % len(entry["inbound"]), file=out)
         for ref in entry["inbound"]:

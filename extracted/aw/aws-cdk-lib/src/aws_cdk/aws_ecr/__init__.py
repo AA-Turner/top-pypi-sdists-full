@@ -6289,13 +6289,14 @@ class RepositoryProps:
             repository = ecr.Repository(self, "TestRepository",
                 repository_name="test-agent-runtime"
             )
+            
             agent_runtime_artifact = agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
             
-            # Explicitly using public network (this is the default)
-            runtime = agentcore.Runtime(self, "MyAgentRuntime",
-                runtime_name="myAgent",
+            agentcore.Runtime(self, "test-runtime",
+                runtime_name="test_runtime",
                 agent_runtime_artifact=agent_runtime_artifact,
-                network_configuration=agentcore.RuntimeNetworkConfiguration.using_public_network()
+                platform_version=agentcore.PlatformVersion.V2,
+                minimum_memory=cdk.Size.gibibytes(4)
             )
         '''
         if __debug__:
@@ -6529,17 +6530,17 @@ class Repository(
 
     Example::
 
-        repository = ecr.Repository(self, "TestRepository")
-        
-        runtime = agentcore.Runtime(self, "Runtime",
-            agent_runtime_artifact=agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
+        repository = ecr.Repository(self, "TestRepository",
+            repository_name="test-agent-runtime"
         )
         
-        logs.MetricFilter(self, "ToolErrors",
-            log_group=runtime.application_log_group,
-            filter_pattern=logs.FilterPattern.string_value("$.tool_status", "=", "error"),
-            metric_namespace="MyApp",
-            metric_name="ToolExecutionErrors"
+        agent_runtime_artifact = agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
+        
+        agentcore.Runtime(self, "test-runtime",
+            runtime_name="test_runtime",
+            agent_runtime_artifact=agent_runtime_artifact,
+            platform_version=agentcore.PlatformVersion.V2,
+            minimum_memory=cdk.Size.gibibytes(4)
         )
     '''
 

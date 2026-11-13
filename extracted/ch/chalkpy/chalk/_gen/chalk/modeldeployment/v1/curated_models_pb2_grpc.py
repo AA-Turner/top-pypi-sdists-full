@@ -125,3 +125,83 @@ class CuratedModelService(object):
             timeout,
             metadata,
         )
+
+
+class ServingRuntimeServiceStub(object):
+    """Separate from CuratedModelService so runtime resolution can ship independently
+    of the per-model curated deployment handlers.
+    """
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.ResolveServingRuntimeImage = channel.unary_unary(
+            "/chalk.modeldeployment.v1.ServingRuntimeService/ResolveServingRuntimeImage",
+            request_serializer=chalk_dot_modeldeployment_dot_v1_dot_curated__models__pb2.ResolveServingRuntimeImageRequest.SerializeToString,
+            response_deserializer=chalk_dot_modeldeployment_dot_v1_dot_curated__models__pb2.ResolveServingRuntimeImageResponse.FromString,
+        )
+
+
+class ServingRuntimeServiceServicer(object):
+    """Separate from CuratedModelService so runtime resolution can ship independently
+    of the per-model curated deployment handlers.
+    """
+
+    def ResolveServingRuntimeImage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+
+def add_ServingRuntimeServiceServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+        "ResolveServingRuntimeImage": grpc.unary_unary_rpc_method_handler(
+            servicer.ResolveServingRuntimeImage,
+            request_deserializer=chalk_dot_modeldeployment_dot_v1_dot_curated__models__pb2.ResolveServingRuntimeImageRequest.FromString,
+            response_serializer=chalk_dot_modeldeployment_dot_v1_dot_curated__models__pb2.ResolveServingRuntimeImageResponse.SerializeToString,
+        ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+        "chalk.modeldeployment.v1.ServingRuntimeService", rpc_method_handlers
+    )
+    server.add_generic_rpc_handlers((generic_handler,))
+
+
+# This class is part of an EXPERIMENTAL API.
+class ServingRuntimeService(object):
+    """Separate from CuratedModelService so runtime resolution can ship independently
+    of the per-model curated deployment handlers.
+    """
+
+    @staticmethod
+    def ResolveServingRuntimeImage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.modeldeployment.v1.ServingRuntimeService/ResolveServingRuntimeImage",
+            chalk_dot_modeldeployment_dot_v1_dot_curated__models__pb2.ResolveServingRuntimeImageRequest.SerializeToString,
+            chalk_dot_modeldeployment_dot_v1_dot_curated__models__pb2.ResolveServingRuntimeImageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )

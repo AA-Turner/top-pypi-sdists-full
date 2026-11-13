@@ -137,6 +137,104 @@ class AgentGoalReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_wellarchitected.AgentOrganizationalProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={"agent_organizational_profile_arn": "agentOrganizationalProfileArn"},
+)
+class AgentOrganizationalProfileReference:
+    def __init__(self, *, agent_organizational_profile_arn: builtins.str) -> None:
+        '''A reference to a AgentOrganizationalProfile resource.
+
+        :param agent_organizational_profile_arn: The Arn of the AgentOrganizationalProfile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_wellarchitected as interfaces_wellarchitected
+            
+            agent_organizational_profile_reference = interfaces_wellarchitected.AgentOrganizationalProfileReference(
+                agent_organizational_profile_arn="agentOrganizationalProfileArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8616e72f4a06177684ee07402c7521b627ed7940ba07a512e2a3e4a6ae0cb283)
+            check_type(argname="argument agent_organizational_profile_arn", value=agent_organizational_profile_arn, expected_type=type_hints["agent_organizational_profile_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_organizational_profile_arn": agent_organizational_profile_arn,
+        }
+
+    @builtins.property
+    def agent_organizational_profile_arn(self) -> builtins.str:
+        '''The Arn of the AgentOrganizationalProfile resource.'''
+        result = self._values.get("agent_organizational_profile_arn")
+        assert result is not None, "Required property 'agent_organizational_profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgentOrganizationalProfileReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_wellarchitected.AgentProfilePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"profile_arn": "profileArn"},
+)
+class AgentProfilePolicyReference:
+    def __init__(self, *, profile_arn: builtins.str) -> None:
+        '''A reference to a AgentProfilePolicy resource.
+
+        :param profile_arn: The ProfileArn of the AgentProfilePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_wellarchitected as interfaces_wellarchitected
+            
+            agent_profile_policy_reference = interfaces_wellarchitected.AgentProfilePolicyReference(
+                profile_arn="profileArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aefc421311dd4ed90d31b6fce6ddc71855794e2334dd5bcd29effef9cbb7afe8)
+            check_type(argname="argument profile_arn", value=profile_arn, expected_type=type_hints["profile_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "profile_arn": profile_arn,
+        }
+
+    @builtins.property
+    def profile_arn(self) -> builtins.str:
+        '''The ProfileArn of the AgentProfilePolicy resource.'''
+        result = self._values.get("profile_arn")
+        assert result is not None, "Required property 'profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgentProfilePolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_wellarchitected.AgentProfileReference",
     jsii_struct_bases=[],
     name_mapping={"agent_profile_arn": "agentProfileArn"},
@@ -275,6 +373,100 @@ class _IAgentGoalRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAgentGoalRef).__jsii_proxy_class__ = lambda : _IAgentGoalRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_wellarchitected.IAgentOrganizationalProfileRef"
+)
+class IAgentOrganizationalProfileRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AgentOrganizationalProfile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="agentOrganizationalProfileRef")
+    def agent_organizational_profile_ref(self) -> "AgentOrganizationalProfileReference":
+        '''(experimental) A reference to a AgentOrganizationalProfile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAgentOrganizationalProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AgentOrganizationalProfile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_wellarchitected.IAgentOrganizationalProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="agentOrganizationalProfileRef")
+    def agent_organizational_profile_ref(self) -> "AgentOrganizationalProfileReference":
+        '''(experimental) A reference to a AgentOrganizationalProfile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AgentOrganizationalProfileReference", jsii.get(self, "agentOrganizationalProfileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAgentOrganizationalProfileRef).__jsii_proxy_class__ = lambda : _IAgentOrganizationalProfileRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_wellarchitected.IAgentProfilePolicyRef"
+)
+class IAgentProfilePolicyRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AgentProfilePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="agentProfilePolicyRef")
+    def agent_profile_policy_ref(self) -> "AgentProfilePolicyReference":
+        '''(experimental) A reference to a AgentProfilePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAgentProfilePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AgentProfilePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_wellarchitected.IAgentProfilePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="agentProfilePolicyRef")
+    def agent_profile_policy_ref(self) -> "AgentProfilePolicyReference":
+        '''(experimental) A reference to a AgentProfilePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AgentProfilePolicyReference", jsii.get(self, "agentProfilePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAgentProfilePolicyRef).__jsii_proxy_class__ = lambda : _IAgentProfilePolicyRefProxy
 
 
 @jsii.interface(
@@ -705,9 +897,13 @@ class WorkloadReference:
 __all__ = [
     "AgentContextReference",
     "AgentGoalReference",
+    "AgentOrganizationalProfileReference",
+    "AgentProfilePolicyReference",
     "AgentProfileReference",
     "IAgentContextRef",
     "IAgentGoalRef",
+    "IAgentOrganizationalProfileRef",
+    "IAgentProfilePolicyRef",
     "IAgentProfileRef",
     "ILensRef",
     "IProfileRef",
@@ -731,6 +927,20 @@ def _typecheckingstub__2005652a4c7aeb4c9c766bde2753cbd872f80046ba3343f2baa92463a
 def _typecheckingstub__dc600cefd3fcbdb5270939e69bf2b3fcdb04992bfab764cbc3cd78d5f3ced5e0(
     *,
     agent_goal_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8616e72f4a06177684ee07402c7521b627ed7940ba07a512e2a3e4a6ae0cb283(
+    *,
+    agent_organizational_profile_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aefc421311dd4ed90d31b6fce6ddc71855794e2334dd5bcd29effef9cbb7afe8(
+    *,
+    profile_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -770,5 +980,5 @@ def _typecheckingstub__b80aadace37defea5bb38980b5834ceb8b9a78873d0957dc8eeea4651
     """Type checking stubs"""
     pass
 
-for cls in [IAgentContextRef, IAgentGoalRef, IAgentProfileRef, ILensRef, IProfileRef, IReviewTemplateRef, IWorkloadRef]:
+for cls in [IAgentContextRef, IAgentGoalRef, IAgentOrganizationalProfileRef, IAgentProfilePolicyRef, IAgentProfileRef, ILensRef, IProfileRef, IReviewTemplateRef, IWorkloadRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

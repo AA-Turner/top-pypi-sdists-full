@@ -9,6 +9,11 @@ from typing import Any, Dict, Optional, Protocol, TypeVar
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from dashscope._logging import (
+    get_logger,
+    request_id_for_log,
+    request_id_from_headers,
+)
 from dashscope.errors import (
     error_from_business_code,
     error_from_status,
@@ -61,6 +66,26 @@ class ResponseBase(BaseModel):
         if self.code:
             self.is_error = True
         return self
+
+    @property
+    def diagnosis(self):
+        """Structured local fix guidance for a non-raising error envelope.
+
+        The ``raise_on_error=False`` counterpart of ``DashScopeError.diagnosis``:
+        when the SDK filled ``code``/``message`` instead of raising, this
+        matches the same offline rule table and returns the guidance (or
+        ``None`` for a success, or when no rule matched). Imported lazily so
+        successful responses pay nothing and never load the devkit package.
+        """
+        if not self.is_error:
+            return None
+        from dashscope.devkit.diagnosis import diagnose
+
+        return diagnose(
+            status_code=self.status_code,
+            code=self.code,
+            message=self.message,
+        )
 
 
 class JobStatus(ResponseBase):
@@ -119,8 +144,16 @@ def with_headers(model: _M, response: Any) -> _M:
     have no HTTP envelope to copy and keep the empty default; SSE
     streams expose theirs via ``Stream.headers`` and
     ``ChatStream.get_final_message()``.
+
+    Resources on the ``APIResponse`` path (``transport.request_api``) get
+    this applied for free by ``APIResponse.parse``; websocket-sourced
+    models, which have no ``APIResponse``, still call it directly.
     """
     model.headers = dict(response.headers)
+    if hasattr(model, "request_id") and not model.request_id:
+        request_id = request_id_from_headers(response.headers)
+        if request_id is not None:
+            model.request_id = request_id
     return model
 
 
@@ -166,7 +199,7 @@ def response_body(
     request_id = (
         body.get("request_id")
         or output.get("request_id")
-        or response.headers.get("x-request-id")
+        or request_id_from_headers(response.headers)
     )
     error = None
     if not success:
@@ -182,9 +215,20 @@ def response_body(
             body=raw,
             headers=response.headers,
         )
-    if error is not None and raise_on_error:
+    if error is not None:
         error.request_id = request_id
-        raise error
+        get_logger("response").error(
+            "HTTP service error: status=%s, code=%s, request_id=%s",
+            response.status_code,
+            error.code,
+            request_id_for_log(
+                body.get("request_id"),
+                output.get("request_id"),
+                request_id_from_headers(response.headers),
+            ),
+        )
+        if raise_on_error:
+            raise error
     body = {**body, "status_code": response.status_code}
     if request_id is not None:
         body["request_id"] = request_id

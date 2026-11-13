@@ -6,11 +6,11 @@ from typing import get_args
 
 from pyrit.models import ChatMessageRole, Message, MessagePiece, PromptDataType
 
-#: Roles a scorer reads unless it declares otherwise. ``simulated_assistant`` is opt-in
+#: Roles a scorer reads unless it declares otherwise. Simulated response roles are opt-in
 #: because a prepended turn is fabricated history rather than something the target said,
 #: and a scorer that judges the target must not mistake one for the other.
 DEFAULT_SUPPORTED_ROLES: tuple[ChatMessageRole, ...] = tuple(
-    role for role in get_args(ChatMessageRole) if role != "simulated_assistant"
+    role for role in get_args(ChatMessageRole) if role not in {"simulated_assistant", "simulated_tool"}
 )
 
 
@@ -43,8 +43,8 @@ class ScorerPromptValidator:
             required_metadata (Sequence[str] | None): Metadata keys that must be present in message pieces.
                 Defaults to empty list.
             supported_roles (Sequence[ChatMessageRole] | None): Message roles that the scorer reads. Roles are
-                compared against the stored role, so ``simulated_assistant`` must be listed to read prepended
-                turns. Defaults to every role except ``simulated_assistant``.
+                compared against the stored role, so simulated roles must be listed to read injected
+                responses. Defaults to every role except ``simulated_assistant`` and ``simulated_tool``.
             max_pieces_in_response (int | None): Maximum number of pieces allowed in a response.
                 Defaults to None (no limit).
             max_text_length (int | None): Maximum character length for text data type pieces.
@@ -54,7 +54,8 @@ class ScorerPromptValidator:
             raise_on_no_valid_pieces (bool | None): Whether to raise ValueError when no pieces are valid.
                 Defaults to False, allowing scorers to return ``[]`` for non-applicable evidence.
                 Set to True to raise an exception instead.
-            is_objective_required (bool): Whether an objective must be provided for scoring. Defaults to False.
+            is_objective_required (bool): Infer ``MatchesObjective`` on an undeclared message scorer.
+                The scorer validates that condition before acquiring evidence. Defaults to False.
         """
         if supported_data_types:
             self._supported_data_types = supported_data_types
@@ -77,19 +78,25 @@ class ScorerPromptValidator:
 
     @property
     def is_objective_required(self) -> bool:
-        """Whether the scorer uses the objective as a required criterion."""
+        """
+        Whether a scorer that declares no ``CONDITION_TYPE`` matches the objective.
+
+        A scorer class's own ``CONDITION_TYPE`` takes precedence; this flag only lets a
+        configured instance of an undeclared scorer require ``MatchesObjective``.
+        """
         return self._is_objective_required
 
     def validate(self, message: Message, objective: str | None) -> None:
         """
-        Validate a message and objective against configured requirements.
+        Validate message evidence against configured requirements.
 
         Args:
             message (Message): The message to validate.
-            objective (str | None): The objective string, if required.
+            objective (str | None): Compatibility parameter, retained for custom validator overrides.
+                Objective requirements are checked by the scorer, not by this validator.
 
         Raises:
-            ValueError: If validation fails due to unsupported pieces, exceeding max pieces, or missing objective.
+            ValueError: If validation fails due to unsupported pieces or exceeding max pieces.
         """
         valid_pieces_count = 0
         for piece in message.message_pieces:
@@ -118,9 +125,6 @@ class ScorerPromptValidator:
                 f"Message has {len(message.message_pieces)} pieces, "
                 f"exceeding the limit of {self._max_pieces_in_response}."
             )
-
-        if self._is_objective_required and not objective:
-            raise ValueError("Objective is required but not provided.")
 
     def is_role_supported(self, message_piece: MessagePiece) -> bool:
         """

@@ -33,6 +33,8 @@ class BillingCustomLineItemsTests(unittest.IsolatedAsyncioTestCase):
                 "subtotal": 17,
                 "total": 17,
                 "currency": "usd",
+                "immediate_invoice": {"type": "none", "issue_method": None, "plan_activates": "now"},
+                "plan_activates": "now",
                 "incoming": [],
                 "outgoing": [],
                 "intent": "none",

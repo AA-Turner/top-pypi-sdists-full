@@ -1,0 +1,13 @@
+import pytest
+
+pytestmark = pytest.mark.vcr
+
+
+def test_edit(server):
+    assert not server.TrackOpens
+    server.edit(TrackOpens=True)
+    assert server.TrackOpens
+
+
+def test_str(server):
+    assert (f"{server}") == "Server: example.com (1)"

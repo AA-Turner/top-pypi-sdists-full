@@ -247,7 +247,7 @@ class Events(BaseSDK):
         entity_id: Optional[str] = None,
         group_by: Optional[str] = None,
         range: Optional[models.AggregateEventsRange] = None,
-        bin_size: Optional[models.BinSize] = "day",
+        bin_size: Optional[models.AggregateEventsBinSize] = "day",
         custom_range: Optional[
             Union[
                 models.AggregateEventsCustomRange,
@@ -379,7 +379,7 @@ class Events(BaseSDK):
         entity_id: Optional[str] = None,
         group_by: Optional[str] = None,
         range: Optional[models.AggregateEventsRange] = None,
-        bin_size: Optional[models.BinSize] = "day",
+        bin_size: Optional[models.AggregateEventsBinSize] = "day",
         custom_range: Optional[
             Union[
                 models.AggregateEventsCustomRange,
@@ -500,3 +500,199 @@ class Events(BaseSDK):
             )
 
         raise errors.AutumnDefaultError("Unexpected response received", http_res)
+
+    def query(
+        self,
+        *,
+        sql: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: Optional[str] = None,
+        timeout_ms: Optional[int] = None,
+        http_headers: Optional[Mapping[str, str]] = None,
+    ) -> models.QueryEventsResponse:
+        r"""Query events in SQL
+
+        Run a read-only ClickHouse SQL query over your usage events and rollups. Scoped to your organization and environment. SETTINGS clauses are not allowed. Streams compressed newline-delimited JSON; see the [events SQL guide](/documentation/query-events-with-sql).
+
+        :param sql: Read-only ClickHouse SQL over usage events and rollups, scoped to your organization and environment. event_name is usually the feature ID you tracked; there is no feature_id column. SETTINGS clauses are not allowed.
+        :param retries: Override the default retry configuration for this method
+        :param server_url: Override the default server URL for this method
+        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
+        :param http_headers: Additional headers to set or replace on requests.
+        """
+        base_url = None
+        url_variables = None
+        if timeout_ms is None:
+            timeout_ms = self.sdk_configuration.timeout_ms
+
+        if server_url is not None:
+            base_url = server_url
+        else:
+            base_url = self._get_url(base_url, url_variables)
+
+        request = models.EventsQueryParams(
+            sql=sql,
+        )
+
+        req = self._build_request(
+            method="POST",
+            path="/v1/events.query",
+            base_url=base_url,
+            url_variables=url_variables,
+            request=request,
+            request_body_required=True,
+            request_has_path_params=False,
+            request_has_query_params=True,
+            user_agent_header="user-agent",
+            accept_header_value="application/x-ndjson",
+            http_headers=http_headers,
+            _globals=models.QueryEventsGlobals(
+                x_api_version=self.sdk_configuration.globals.x_api_version,
+            ),
+            security=self.sdk_configuration.security,
+            get_serialized_body=lambda: utils.serialize_request_body(
+                request, False, False, "json", models.EventsQueryParams
+            ),
+            allow_empty_value=None,
+            timeout_ms=timeout_ms,
+        )
+
+        if retries == UNSET:
+            if self.sdk_configuration.retry_config is not UNSET:
+                retries = self.sdk_configuration.retry_config
+
+        retry_config = None
+        if isinstance(retries, utils.RetryConfig):
+            retry_config = (retries, ["429", "500", "502", "503", "504"])
+
+        http_res = self.do_request(
+            hook_ctx=HookContext(
+                config=self.sdk_configuration,
+                base_url=base_url or "",
+                operation_id="queryEvents",
+                oauth2_scopes=None,
+                security_source=self.sdk_configuration.security,
+            ),
+            request=req,
+            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
+            stream=True,
+            retry_config=retry_config,
+        )
+
+        if utils.match_response(http_res, "200", "application/x-ndjson"):
+            return models.QueryEventsResponse(
+                result=http_res, headers=utils.get_response_headers(http_res.headers)
+            )
+        if utils.match_response(http_res, "4XX", "*"):
+            http_res_text = utils.stream_to_text(http_res)
+            raise errors.AutumnDefaultError(
+                "API error occurred", http_res, http_res_text
+            )
+        if utils.match_response(http_res, "5XX", "*"):
+            http_res_text = utils.stream_to_text(http_res)
+            raise errors.AutumnDefaultError(
+                "API error occurred", http_res, http_res_text
+            )
+
+        http_res_text = utils.stream_to_text(http_res)
+        raise errors.AutumnDefaultError(
+            "Unexpected response received", http_res, http_res_text
+        )
+
+    async def query_async(
+        self,
+        *,
+        sql: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: Optional[str] = None,
+        timeout_ms: Optional[int] = None,
+        http_headers: Optional[Mapping[str, str]] = None,
+    ) -> models.QueryEventsResponse:
+        r"""Query events in SQL
+
+        Run a read-only ClickHouse SQL query over your usage events and rollups. Scoped to your organization and environment. SETTINGS clauses are not allowed. Streams compressed newline-delimited JSON; see the [events SQL guide](/documentation/query-events-with-sql).
+
+        :param sql: Read-only ClickHouse SQL over usage events and rollups, scoped to your organization and environment. event_name is usually the feature ID you tracked; there is no feature_id column. SETTINGS clauses are not allowed.
+        :param retries: Override the default retry configuration for this method
+        :param server_url: Override the default server URL for this method
+        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
+        :param http_headers: Additional headers to set or replace on requests.
+        """
+        base_url = None
+        url_variables = None
+        if timeout_ms is None:
+            timeout_ms = self.sdk_configuration.timeout_ms
+
+        if server_url is not None:
+            base_url = server_url
+        else:
+            base_url = self._get_url(base_url, url_variables)
+
+        request = models.EventsQueryParams(
+            sql=sql,
+        )
+
+        req = self._build_request_async(
+            method="POST",
+            path="/v1/events.query",
+            base_url=base_url,
+            url_variables=url_variables,
+            request=request,
+            request_body_required=True,
+            request_has_path_params=False,
+            request_has_query_params=True,
+            user_agent_header="user-agent",
+            accept_header_value="application/x-ndjson",
+            http_headers=http_headers,
+            _globals=models.QueryEventsGlobals(
+                x_api_version=self.sdk_configuration.globals.x_api_version,
+            ),
+            security=self.sdk_configuration.security,
+            get_serialized_body=lambda: utils.serialize_request_body(
+                request, False, False, "json", models.EventsQueryParams
+            ),
+            allow_empty_value=None,
+            timeout_ms=timeout_ms,
+        )
+
+        if retries == UNSET:
+            if self.sdk_configuration.retry_config is not UNSET:
+                retries = self.sdk_configuration.retry_config
+
+        retry_config = None
+        if isinstance(retries, utils.RetryConfig):
+            retry_config = (retries, ["429", "500", "502", "503", "504"])
+
+        http_res = await self.do_request_async(
+            hook_ctx=HookContext(
+                config=self.sdk_configuration,
+                base_url=base_url or "",
+                operation_id="queryEvents",
+                oauth2_scopes=None,
+                security_source=self.sdk_configuration.security,
+            ),
+            request=req,
+            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
+            stream=True,
+            retry_config=retry_config,
+        )
+
+        if utils.match_response(http_res, "200", "application/x-ndjson"):
+            return models.QueryEventsResponse(
+                result=http_res, headers=utils.get_response_headers(http_res.headers)
+            )
+        if utils.match_response(http_res, "4XX", "*"):
+            http_res_text = await utils.stream_to_text_async(http_res)
+            raise errors.AutumnDefaultError(
+                "API error occurred", http_res, http_res_text
+            )
+        if utils.match_response(http_res, "5XX", "*"):
+            http_res_text = await utils.stream_to_text_async(http_res)
+            raise errors.AutumnDefaultError(
+                "API error occurred", http_res, http_res_text
+            )
+
+        http_res_text = await utils.stream_to_text_async(http_res)
+        raise errors.AutumnDefaultError(
+            "Unexpected response received", http_res, http_res_text
+        )

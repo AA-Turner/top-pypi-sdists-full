@@ -8,8 +8,13 @@
 import typing as t
 
 import typing_extensions as te
+from pydantic import Field
 
-from atproto_client.models import base, string_formats
+from atproto_client.models import string_formats
+
+if t.TYPE_CHECKING:
+    from atproto_client.models.unknown_type import UnknownInputType
+from atproto_client.models import base
 
 
 class Data(base.DataModelBase):
@@ -18,14 +23,26 @@ class Data(base.DataModelBase):
     subject: (
         string_formats.Uri
     )  #: Subject DID (account-level reports) or AT-URI (record-level reports) whose reports should be closed.
+    action_event_id: te.Annotated[t.Optional[int], Field(ge=1)] = (
+        None  #: Optional existing moderation event that closes reports. It must target the exact subject or its owning account; account-wide closure requires an account event. The event is linked to each closed report and may predate the report. The link does not imply the action is still in effect.
+    )
+    excluded_report_types: t.Optional[t.List[str]] = (
+        None  #: Reports of these types (fully qualified reason NSIDs) are excluded from closure and left unchanged. When omitted or empty, no report types are excluded.
+    )
+    include_all_owned: t.Optional[bool] = (
+        False  #: If true, also close reports on all subjects owned by the account, including records, messages, and conversations. Only valid when subject is an account DID.
+    )
     internal_note: t.Optional[str] = (
         None  #: Optional moderator-only note recorded on each close activity. Not visible to reporters.
     )
     is_automated: t.Optional[bool] = (
         False  #: Set true when this action is triggered by an automated process. Defaults to false.
     )
+    meta: t.Optional['UnknownInputType'] = (
+        None  #: Optional metadata for the report activities. Lifecycle and resolution fields are controlled by the service.
+    )
     report_types: t.Optional[t.List[str]] = (
-        None  #: If specified, only reports of the given report types (fully qualified reason NSIDs) are closed. When omitted, all non-closed reports on the subject are targeted.
+        None  #: If nonempty, only reports of the given report types (fully qualified reason NSIDs) are closed. When omitted or empty, all eligible reports in the requested subject scope are targeted, except excludedReportTypes. Assigned and escalated reports are always excluded.
     )
 
 
@@ -33,15 +50,27 @@ class DataDict(t.TypedDict):
     subject: (
         string_formats.Uri
     )  #: Subject DID (account-level reports) or AT-URI (record-level reports) whose reports should be closed.
+    action_event_id: te.NotRequired[
+        t.Optional[int]
+    ]  #: Optional existing moderation event that closes reports. It must target the exact subject or its owning account; account-wide closure requires an account event. The event is linked to each closed report and may predate the report. The link does not imply the action is still in effect.
+    excluded_report_types: te.NotRequired[
+        t.Optional[t.List[str]]
+    ]  #: Reports of these types (fully qualified reason NSIDs) are excluded from closure and left unchanged. When omitted or empty, no report types are excluded.
+    include_all_owned: te.NotRequired[
+        t.Optional[bool]
+    ]  #: If true, also close reports on all subjects owned by the account, including records, messages, and conversations. Only valid when subject is an account DID.
     internal_note: te.NotRequired[
         t.Optional[str]
     ]  #: Optional moderator-only note recorded on each close activity. Not visible to reporters.
     is_automated: te.NotRequired[
         t.Optional[bool]
     ]  #: Set true when this action is triggered by an automated process. Defaults to false.
+    meta: te.NotRequired[
+        t.Optional['UnknownInputType']
+    ]  #: Optional metadata for the report activities. Lifecycle and resolution fields are controlled by the service.
     report_types: te.NotRequired[
         t.Optional[t.List[str]]
-    ]  #: If specified, only reports of the given report types (fully qualified reason NSIDs) are closed. When omitted, all non-closed reports on the subject are targeted.
+    ]  #: If nonempty, only reports of the given report types (fully qualified reason NSIDs) are closed. When omitted or empty, all eligible reports in the requested subject scope are targeted, except excludedReportTypes. Assigned and escalated reports are always excluded.
 
 
 class Response(base.ResponseModelBase):

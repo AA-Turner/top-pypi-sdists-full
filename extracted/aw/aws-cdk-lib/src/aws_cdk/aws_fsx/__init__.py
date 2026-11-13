@@ -343,8 +343,6 @@ class CfnBackup(
         
         cfn_backup = fsx.CfnBackup(self, "MyCfnBackup",
             file_system_id="fileSystemId",
-        
-            # the properties below are optional
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -357,7 +355,7 @@ class CfnBackup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        file_system_id: builtins.str,
+        file_system_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::FSx::Backup``.
@@ -519,12 +517,12 @@ class CfnBackup(
 
     @builtins.property
     @jsii.member(jsii_name="fileSystemId")
-    def file_system_id(self) -> builtins.str:
+    def file_system_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the file system to back up.'''
-        return typing.cast(builtins.str, jsii.get(self, "fileSystemId"))
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "fileSystemId"))
 
     @file_system_id.setter
-    def file_system_id(self, value: builtins.str) -> None:
+    def file_system_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__55f9a9276c7baf7570ddc8e1afc7c01c7badf8430ddfc4888ed2b3b5d0e1f785)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -556,7 +554,7 @@ class CfnBackupProps:
     def __init__(
         self,
         *,
-        file_system_id: builtins.str,
+        file_system_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnBackup``.
@@ -576,8 +574,6 @@ class CfnBackupProps:
             
             cfn_backup_props = fsx.CfnBackupProps(
                 file_system_id="fileSystemId",
-            
-                # the properties below are optional
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -588,21 +584,20 @@ class CfnBackupProps:
             type_hints = cached_type_hints(_typecheckingstub__641796a18683e869138904002c3cb1c67680cde8bde1c7f1c10a9421468fd8f2)
             check_type(argname="argument file_system_id", value=file_system_id, expected_type=type_hints["file_system_id"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "file_system_id": file_system_id,
-        }
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if file_system_id is not None:
+            self._values["file_system_id"] = file_system_id
         if tags is not None:
             self._values["tags"] = tags
 
     @builtins.property
-    def file_system_id(self) -> builtins.str:
+    def file_system_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the file system to back up.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-backup.html#cfn-fsx-backup-filesystemid
         '''
         result = self._values.get("file_system_id")
-        assert result is not None, "Required property 'file_system_id' is missing"
-        return typing.cast(builtins.str, result)
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
@@ -11728,7 +11723,7 @@ def _typecheckingstub__26dfe3ea364b9a93927d902214c276884d1ca4860a889c892b012975a
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    file_system_id: builtins.str,
+    file_system_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11767,7 +11762,7 @@ def _typecheckingstub__62a9fcf53a103b30e6f51918218fed8446a9ccc1b4352e5c7dc6f974d
     pass
 
 def _typecheckingstub__55f9a9276c7baf7570ddc8e1afc7c01c7badf8430ddfc4888ed2b3b5d0e1f785(
-    value: builtins.str,
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11780,7 +11775,7 @@ def _typecheckingstub__e548506a383c06ad73d13db4f63ecf8995017492e16c79d51b28ff41b
 
 def _typecheckingstub__641796a18683e869138904002c3cb1c67680cde8bde1c7f1c10a9421468fd8f2(
     *,
-    file_system_id: builtins.str,
+    file_system_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

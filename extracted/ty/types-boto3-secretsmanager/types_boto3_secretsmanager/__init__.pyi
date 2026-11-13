@@ -11,6 +11,7 @@ Usage::
     from boto3.session import Session
     from types_boto3_secretsmanager import (
         Client,
+        ListResourcePoliciesPaginator,
         ListSecretsPaginator,
         SecretsManagerClient,
     )
@@ -18,13 +19,19 @@ Usage::
     session = Session()
     client: SecretsManagerClient = session.client("secretsmanager")
 
+    list_resource_policies_paginator: ListResourcePoliciesPaginator = client.get_paginator("list_resource_policies")
     list_secrets_paginator: ListSecretsPaginator = client.get_paginator("list_secrets")
     ```
 """
 
 from .client import SecretsManagerClient
-from .paginator import ListSecretsPaginator
+from .paginator import ListResourcePoliciesPaginator, ListSecretsPaginator
 
 Client = SecretsManagerClient
 
-__all__ = ("Client", "ListSecretsPaginator", "SecretsManagerClient")
+__all__ = (
+    "Client",
+    "ListResourcePoliciesPaginator",
+    "ListSecretsPaginator",
+    "SecretsManagerClient",
+)

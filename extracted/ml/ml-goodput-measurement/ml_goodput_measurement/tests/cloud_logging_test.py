@@ -1,12 +1,21 @@
 """Tests for the _CloudLogger class."""
 import datetime
 import logging
+import threading
+import time
+import types
 from unittest import mock
 
 from absl.testing import absltest
 from ml_goodput_measurement.src import goodput
 
 _CloudLogger = goodput._CloudLogger
+
+
+def _log_entry(payload, timestamp, insert_id):
+  return types.SimpleNamespace(
+      payload=payload, timestamp=timestamp, insert_id=insert_id
+  )
 
 
 class CloudLoggerTest(absltest.TestCase):
@@ -144,6 +153,102 @@ class CloudLoggerTest(absltest.TestCase):
     )
 
 
+class CloudLoggerReadNewEntriesTest(absltest.TestCase):
+  """`read_new_entries` re-checks an overlap window and de-duplicates by id."""
+
+  def setUp(self):
+    super().setUp()
+    self.cursor_ts = datetime.datetime(
+        2026, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc
+    )
+    self.end_time = self.cursor_ts + datetime.timedelta(seconds=60)
+
+  def _make_logger(self, mock_client_cls, entries):
+    mock_client_cls.return_value.project = 'test-project-id'
+    logger = _CloudLogger('test-job', 'test-log')
+    logger.logger.list_entries.return_value = entries
+    return logger
+
+  def _passed_filter(self, logger):
+    return logger.logger.list_entries.call_args.kwargs['filter_']
+
+  @mock.patch('google.cloud.logging.Client')
+  def test_overlap_window_has_no_insert_id_tiebreak(self, mock_client_cls):
+    logger = self._make_logger(mock_client_cls, [])
+
+    logger.read_new_entries(
+        (self.cursor_ts, 'id-9'), self.end_time, 300.0, set()
+    )
+
+    passed_filter = self._passed_filter(logger)
+    window_start = self.cursor_ts - datetime.timedelta(seconds=300)
+    self.assertIn(f'timestamp>"{window_start.isoformat()}"', passed_filter)
+    self.assertIn(f'timestamp<="{self.end_time.isoformat()}"', passed_filter)
+    self.assertNotIn('insertId', passed_filter)
+
+  @mock.patch('google.cloud.logging.Client')
+  def test_zero_overlap_keeps_insert_id_tiebreak(self, mock_client_cls):
+    logger = self._make_logger(mock_client_cls, [])
+
+    logger.read_new_entries((self.cursor_ts, 'id-9'), self.end_time, 0.0, set())
+
+    passed_filter = self._passed_filter(logger)
+    self.assertIn(f'timestamp > "{self.cursor_ts.isoformat()}"', passed_filter)
+    self.assertIn('insertId > "id-9"', passed_filter)
+
+  @mock.patch('google.cloud.logging.Client')
+  def test_drops_known_ids_and_never_moves_cursor_backward(
+      self, mock_client_cls
+  ):
+    late_ts = self.cursor_ts - datetime.timedelta(seconds=10)
+    newer_ts = self.cursor_ts + datetime.timedelta(seconds=5)
+    entries = [
+        _log_entry({'late': 1}, late_ts, 'id-late'),
+        _log_entry({'cursor': 2}, self.cursor_ts, 'id-9'),
+        _log_entry({'known': 3}, self.cursor_ts, 'id-known'),
+        _log_entry({'new': 4}, newer_ts, 'id-new'),
+    ]
+    logger = self._make_logger(mock_client_cls, entries)
+
+    payloads, cursor, entry_ids = logger.read_new_entries(
+        (self.cursor_ts, 'id-9'), self.end_time, 300.0, {'id-known'}
+    )
+
+    self.assertEqual(payloads, [{'late': 1}, {'new': 4}])
+    self.assertEqual(cursor, (newer_ts, 'id-new'))
+    self.assertEqual(entry_ids, [('id-late', late_ts), ('id-new', newer_ts)])
+
+    # A read that only finds a late entry leaves the cursor where it was.
+    logger.logger.list_entries.return_value = entries[:1]
+    payloads, cursor, _ = logger.read_new_entries(
+        (self.cursor_ts, 'id-9'), self.end_time, 300.0, set()
+    )
+    self.assertEqual(payloads, [{'late': 1}])
+    self.assertEqual(cursor, (self.cursor_ts, 'id-9'))
+
+  @mock.patch('google.cloud.logging.Client')
+  def test_without_cursor_reads_retention_window(self, mock_client_cls):
+    logger = self._make_logger(
+        mock_client_cls,
+        [_log_entry({'job_start_time': 1.0}, self.cursor_ts, 'id-1')],
+    )
+
+    payloads, cursor, entry_ids = logger.read_new_entries(
+        None, self.end_time, 0.0, ()
+    )
+
+    passed_filter = self._passed_filter(logger)
+    expected_start = self.end_time - goodput._CLOUD_LOGGING_DEFAULT_RETENTION
+    self.assertIn(f'timestamp>"{expected_start.isoformat()}"', passed_filter)
+    self.assertEqual(payloads, [{'job_start_time': 1.0}])
+    self.assertEqual(cursor, (self.cursor_ts, 'id-1'))
+    self.assertEqual(entry_ids, [('id-1', self.cursor_ts)])
+    self.assertEqual(
+        logger.job_start_time,
+        datetime.datetime.fromtimestamp(1.0, tz=datetime.timezone.utc),
+    )
+
+
 class CloudLoggerAsyncWritesTest(absltest.TestCase):
   """Cloud Logging writes are dispatched via CloudLoggingHandler."""
 
@@ -187,6 +292,57 @@ class CloudLoggerAsyncWritesTest(absltest.TestCase):
       mock_flush.assert_called_once()
 
   @mock.patch('google.cloud.logging.Client')
+  def test_flush_with_timeout_returns_true_when_handler_completes(
+      self, mock_client_cls
+  ):
+    mock_client_cls.return_value.project = 'p'
+    logger = _CloudLogger(self.job_name, self.log_name)
+    with mock.patch.object(logger._async_handler, 'flush') as mock_flush:
+      self.assertTrue(logger.flush(timeout_s=5))
+      mock_flush.assert_called_once()
+
+  @mock.patch('google.cloud.logging.Client')
+  def test_flush_with_timeout_gives_up_when_handler_blocks(
+      self, mock_client_cls
+  ):
+    mock_client_cls.return_value.project = 'p'
+    logger = _CloudLogger(self.job_name, self.log_name)
+    release = threading.Event()
+    with mock.patch.object(
+        logger._async_handler, 'flush', side_effect=release.wait
+    ):
+      with self.assertLogs(goodput.logger, level='WARNING') as logs:
+        start_time = time.monotonic()
+        self.assertFalse(logger.flush(timeout_s=0.05))
+        elapsed = time.monotonic() - start_time
+    release.set()
+    self.assertLess(elapsed, 1)
+    self.assertLen(logs.output, 1)
+    self.assertIn('0.05', logs.output[0])
+
+  @mock.patch('google.cloud.logging.Client')
+  def test_flush_without_timeout_blocks_until_handler_completes(
+      self, mock_client_cls
+  ):
+    mock_client_cls.return_value.project = 'p'
+    logger = _CloudLogger(self.job_name, self.log_name)
+    release = threading.Event()
+    results = []
+    with mock.patch.object(
+        logger._async_handler, 'flush', side_effect=release.wait
+    ):
+      flush_thread = threading.Thread(
+          target=lambda: results.append(logger.flush())
+      )
+      flush_thread.start()
+      flush_thread.join(timeout=0.2)
+      self.assertTrue(flush_thread.is_alive())
+      release.set()
+      flush_thread.join(timeout=5)
+    self.assertFalse(flush_thread.is_alive())
+    self.assertEqual(results, [True])
+
+  @mock.patch('google.cloud.logging.Client')
   def test_two_instances_same_log_name_do_not_share_handlers(
       self, mock_client_cls
   ):
@@ -228,13 +384,26 @@ class GoodputRecorderFlushTest(absltest.TestCase):
       recorder.flush()
       mock_flush.assert_called_once()
 
+  @mock.patch('google.cloud.logging.Client')
+  def test_flush_forwards_timeout_and_result(self, mock_client_cls):
+    mock_client_cls.return_value.project = 'p'
+    recorder = goodput.GoodputRecorder(
+        'test-job', 'test-log', logging_enabled=True
+    )
+    with mock.patch.object(
+        recorder._cloud_logger, 'flush', return_value=False
+    ) as mock_flush:
+      self.assertFalse(recorder.flush(timeout_s=2.5))
+      mock_flush.assert_called_once_with(timeout_s=2.5)
+
   def test_flush_is_noop_when_logging_disabled(self):
     recorder = goodput.GoodputRecorder(
         'test-job', 'test-log', logging_enabled=False
     )
     self.assertIsNone(recorder._cloud_logger)
-    # Should not raise.
-    recorder.flush()
+    # Nothing to drain, so it reports success without raising.
+    self.assertTrue(recorder.flush())
+    self.assertTrue(recorder.flush(timeout_s=0.01))
 
 
 if __name__ == '__main__':

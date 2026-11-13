@@ -13,33 +13,57 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
-from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
-from chalk._gen.chalk.container.v1 import service_pb2 as chalk_dot_container_dot_v1_dot_service__pb2
+from chalk._gen.chalk.auth.v1 import (
+    permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2,
+)
+from chalk._gen.chalk.container.v1 import (
+    service_pb2 as chalk_dot_container_dot_v1_dot_service__pb2,
+)
 from chalk._gen.chalk.flags.v1 import flags_pb2 as chalk_dot_flags_dot_v1_dot_flags__pb2
-from chalk._gen.chalk.models.v1 import model_artifact_pb2 as chalk_dot_models_dot_v1_dot_model__artifact__pb2
-from chalk._gen.chalk.scalinggroup.v1 import service_pb2 as chalk_dot_scalinggroup_dot_v1_dot_service__pb2
+from chalk._gen.chalk.models.v1 import (
+    model_artifact_pb2 as chalk_dot_models_dot_v1_dot_model__artifact__pb2,
+)
+from chalk._gen.chalk.scalinggroup.v1 import (
+    service_pb2 as chalk_dot_scalinggroup_dot_v1_dot_service__pb2,
+)
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n-chalk/modeldeployment/v1/curated_models.proto\x12\x18\x63halk.modeldeployment.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a chalk/container/v1/service.proto\x1a\x1a\x63halk/flags/v1/flags.proto\x1a$chalk/models/v1/model_artifact.proto\x1a#chalk/scalinggroup/v1/service.proto"\xc1\x03\n\x0c\x43uratedModel\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12!\n\x0c\x64isplay_name\x18\x02 \x01(\tR\x0b\x64isplayName\x12 \n\x0b\x64\x65scription\x18\x03 \x01(\tR\x0b\x64\x65scription\x12!\n\x0cmodel_family\x18\x04 \x01(\tR\x0bmodelFamily\x12\x12\n\x04task\x18\x05 \x01(\tR\x04task\x12\x1f\n\x0bmodel_image\x18\x06 \x01(\tR\nmodelImage\x12\x18\n\x07handler\x18\x07 \x01(\tR\x07handler\x12L\n\x11\x64\x65\x66\x61ult_signature\x18\x08 \x01(\x0b\x32\x1f.chalk.models.v1.ModelSignatureR\x10\x64\x65\x66\x61ultSignature\x12K\n\x0f\x64\x65\x66\x61ult_scaling\x18\t \x01(\x0b\x32".chalk.scalinggroup.v1.ScalingSpecR\x0e\x64\x65\x66\x61ultScaling\x12O\n\x11\x64\x65\x66\x61ult_resources\x18\n \x01(\x0b\x32".chalk.container.v1.ResourceLimitsR\x10\x64\x65\x66\x61ultResources"\x1a\n\x18ListCuratedModelsRequest"[\n\x19ListCuratedModelsResponse\x12>\n\x06models\x18\x01 \x03(\x0b\x32&.chalk.modeldeployment.v1.CuratedModelR\x06models"\xef\x03\n\x19\x44\x65ployCuratedModelRequest\x12(\n\x10\x63urated_model_id\x18\x01 \x01(\tR\x0e\x63uratedModelId\x12,\n\x12scaling_group_name\x18\x02 \x01(\tR\x10scalingGroupName\x12\x15\n\x03gpu\x18\x03 \x01(\tH\x00R\x03gpu\x88\x01\x01\x12&\n\x0cmin_replicas\x18\x04 \x01(\x05H\x01R\x0bminReplicas\x88\x01\x01\x12&\n\x0cmax_replicas\x18\x05 \x01(\x05H\x02R\x0bmaxReplicas\x88\x01\x01\x12N\n!target_cpu_utilization_percentage\x18\x06 \x01(\x05H\x03R\x1etargetCpuUtilizationPercentage\x88\x01\x01\x12,\n\x0f\x65nable_thinking\x18\x07 \x01(\x08H\x04R\x0e\x65nableThinking\x88\x01\x01\x12"\n\nmax_tokens\x18\x08 \x01(\x05H\x05R\tmaxTokens\x88\x01\x01\x42\x06\n\x04_gpuB\x0f\n\r_min_replicasB\x0f\n\r_max_replicasB$\n"_target_cpu_utilization_percentageB\x12\n\x10_enable_thinkingB\r\n\x0b_max_tokens"\xde\x01\n\x1a\x44\x65ployCuratedModelResponse\x12I\n\x0emodel_artifact\x18\x01 \x01(\x0b\x32".chalk.models.v1.ModelArtifactSpecR\rmodelArtifact\x12#\n\rmodel_version\x18\x02 \x01(\x04R\x0cmodelVersion\x12P\n\rscaling_group\x18\x03 \x01(\x0b\x32+.chalk.scalinggroup.v1.ScalingGroupResponseR\x0cscalingGroup2\xce\x03\n\x13\x43uratedModelService\x12\xd8\x01\n\x11ListCuratedModels\x12\x32.chalk.modeldeployment.v1.ListCuratedModelsRequest\x1a\x33.chalk.modeldeployment.v1.ListCuratedModelsResponse"Z\x80}\x0b\x92\xd3\x0eS\n\x16model_registry_enabled\x12\x39This action is not enabled. Please contact Chalk Support.\x12\xdb\x01\n\x12\x44\x65ployCuratedModel\x12\x33.chalk.modeldeployment.v1.DeployCuratedModelRequest\x1a\x34.chalk.modeldeployment.v1.DeployCuratedModelResponse"Z\x80}\x0c\x92\xd3\x0eS\n\x16model_registry_enabled\x12\x39This action is not enabled. Please contact Chalk Support.B\xda\x01\n\x1c\x63om.chalk.modeldeployment.v1B\x12\x43uratedModelsProtoP\x01Z$modeldeployment/v1;modeldeploymentv1\xa2\x02\x03\x43MX\xaa\x02\x18\x43halk.Modeldeployment.V1\xca\x02\x18\x43halk\\Modeldeployment\\V1\xe2\x02$Chalk\\Modeldeployment\\V1\\GPBMetadata\xea\x02\x1a\x43halk::Modeldeployment::V1b\x06proto3'
+    b'\n-chalk/modeldeployment/v1/curated_models.proto\x12\x18\x63halk.modeldeployment.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a chalk/container/v1/service.proto\x1a\x1a\x63halk/flags/v1/flags.proto\x1a$chalk/models/v1/model_artifact.proto\x1a#chalk/scalinggroup/v1/service.proto"\xc1\x03\n\x0c\x43uratedModel\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12!\n\x0c\x64isplay_name\x18\x02 \x01(\tR\x0b\x64isplayName\x12 \n\x0b\x64\x65scription\x18\x03 \x01(\tR\x0b\x64\x65scription\x12!\n\x0cmodel_family\x18\x04 \x01(\tR\x0bmodelFamily\x12\x12\n\x04task\x18\x05 \x01(\tR\x04task\x12\x1f\n\x0bmodel_image\x18\x06 \x01(\tR\nmodelImage\x12\x18\n\x07handler\x18\x07 \x01(\tR\x07handler\x12L\n\x11\x64\x65\x66\x61ult_signature\x18\x08 \x01(\x0b\x32\x1f.chalk.models.v1.ModelSignatureR\x10\x64\x65\x66\x61ultSignature\x12K\n\x0f\x64\x65\x66\x61ult_scaling\x18\t \x01(\x0b\x32".chalk.scalinggroup.v1.ScalingSpecR\x0e\x64\x65\x66\x61ultScaling\x12O\n\x11\x64\x65\x66\x61ult_resources\x18\n \x01(\x0b\x32".chalk.container.v1.ResourceLimitsR\x10\x64\x65\x66\x61ultResources"\x1a\n\x18ListCuratedModelsRequest"[\n\x19ListCuratedModelsResponse\x12>\n\x06models\x18\x01 \x03(\x0b\x32&.chalk.modeldeployment.v1.CuratedModelR\x06models"\xcd\x04\n\x19\x44\x65ployCuratedModelRequest\x12(\n\x10\x63urated_model_id\x18\x01 \x01(\tR\x0e\x63uratedModelId\x12,\n\x12scaling_group_name\x18\x02 \x01(\tR\x10scalingGroupName\x12\x15\n\x03gpu\x18\x03 \x01(\tH\x00R\x03gpu\x88\x01\x01\x12&\n\x0cmin_replicas\x18\x04 \x01(\x05H\x01R\x0bminReplicas\x88\x01\x01\x12&\n\x0cmax_replicas\x18\x05 \x01(\x05H\x02R\x0bmaxReplicas\x88\x01\x01\x12N\n!target_cpu_utilization_percentage\x18\x06 \x01(\x05H\x03R\x1etargetCpuUtilizationPercentage\x88\x01\x01\x12,\n\x0f\x65nable_thinking\x18\x07 \x01(\x08H\x04R\x0e\x65nableThinking\x88\x01\x01\x12"\n\nmax_tokens\x18\x08 \x01(\x05H\x05R\tmaxTokens\x88\x01\x01\x12J\n\rcompute_class\x18\t \x01(\x0e\x32 .chalk.container.v1.ComputeClassH\x06R\x0c\x63omputeClass\x88\x01\x01\x42\x06\n\x04_gpuB\x0f\n\r_min_replicasB\x0f\n\r_max_replicasB$\n"_target_cpu_utilization_percentageB\x12\n\x10_enable_thinkingB\r\n\x0b_max_tokensB\x10\n\x0e_compute_class"\xde\x01\n\x1a\x44\x65ployCuratedModelResponse\x12I\n\x0emodel_artifact\x18\x01 \x01(\x0b\x32".chalk.models.v1.ModelArtifactSpecR\rmodelArtifact\x12#\n\rmodel_version\x18\x02 \x01(\x04R\x0cmodelVersion\x12P\n\rscaling_group\x18\x03 \x01(\x0b\x32+.chalk.scalinggroup.v1.ScalingGroupResponseR\x0cscalingGroup"\xb4\x01\n!ResolveServingRuntimeImageRequest\x12?\n\x06\x65ngine\x18\x01 \x01(\x0e\x32\'.chalk.modeldeployment.v1.ServingEngineR\x06\x65ngine\x12N\n\x0b\x61\x63\x63\x65lerator\x18\x02 \x01(\x0e\x32,.chalk.modeldeployment.v1.ServingAcceleratorR\x0b\x61\x63\x63\x65lerator"\xd2\x01\n"ResolveServingRuntimeImageResponse\x12\x1b\n\timage_ref\x18\x01 \x01(\tR\x08imageRef\x12?\n\x06\x65ngine\x18\x02 \x01(\x0e\x32\'.chalk.modeldeployment.v1.ServingEngineR\x06\x65ngine\x12N\n\x0b\x61\x63\x63\x65lerator\x18\x03 \x01(\x0e\x32,.chalk.modeldeployment.v1.ServingAcceleratorR\x0b\x61\x63\x63\x65lerator*c\n\rServingEngine\x12\x1e\n\x1aSERVING_ENGINE_UNSPECIFIED\x10\x00\x12\x17\n\x13SERVING_ENGINE_VLLM\x10\x01\x12\x19\n\x15SERVING_ENGINE_SGLANG\x10\x02*u\n\x12ServingAccelerator\x12#\n\x1fSERVING_ACCELERATOR_UNSPECIFIED\x10\x00\x12\x1c\n\x18SERVING_ACCELERATOR_CUDA\x10\x01\x12\x1c\n\x18SERVING_ACCELERATOR_ROCM\x10\x02\x32\xd6\x03\n\x13\x43uratedModelService\x12\xdc\x01\n\x11ListCuratedModels\x12\x32.chalk.modeldeployment.v1.ListCuratedModelsRequest\x1a\x33.chalk.modeldeployment.v1.ListCuratedModelsResponse"^\x80}4\x92}\x01\x0b\x92\xd3\x0eS\n\x16model_registry_enabled\x12\x39This action is not enabled. Please contact Chalk Support.\x12\xdf\x01\n\x12\x44\x65ployCuratedModel\x12\x33.chalk.modeldeployment.v1.DeployCuratedModelRequest\x1a\x34.chalk.modeldeployment.v1.DeployCuratedModelResponse"^\x80}5\x92}\x01\x0c\x92\xd3\x0eS\n\x16model_registry_enabled\x12\x39This action is not enabled. Please contact Chalk Support.2\x8d\x02\n\x15ServingRuntimeService\x12\xf3\x01\n\x1aResolveServingRuntimeImage\x12;.chalk.modeldeployment.v1.ResolveServingRuntimeImageRequest\x1a<.chalk.modeldeployment.v1.ResolveServingRuntimeImageResponse"Z\x80}\x0b\x92\xd3\x0eS\n\x16model_registry_enabled\x12\x39This action is not enabled. Please contact Chalk Support.B\xda\x01\n\x1c\x63om.chalk.modeldeployment.v1B\x12\x43uratedModelsProtoP\x01Z$modeldeployment/v1;modeldeploymentv1\xa2\x02\x03\x43MX\xaa\x02\x18\x43halk.Modeldeployment.V1\xca\x02\x18\x43halk\\Modeldeployment\\V1\xe2\x02$Chalk\\Modeldeployment\\V1\\GPBMetadata\xea\x02\x1a\x43halk::Modeldeployment::V1b\x06proto3'
 )
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
-_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, "chalk.modeldeployment.v1.curated_models_pb2", _globals)
+_builder.BuildTopDescriptorsAndMessages(
+    DESCRIPTOR, "chalk.modeldeployment.v1.curated_models_pb2", _globals
+)
 if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["DESCRIPTOR"]._options = None
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\034com.chalk.modeldeployment.v1B\022CuratedModelsProtoP\001Z$modeldeployment/v1;modeldeploymentv1\242\002\003CMX\252\002\030Chalk.Modeldeployment.V1\312\002\030Chalk\\Modeldeployment\\V1\342\002$Chalk\\Modeldeployment\\V1\\GPBMetadata\352\002\032Chalk::Modeldeployment::V1"
-    _globals["_CURATEDMODELSERVICE"].methods_by_name["ListCuratedModels"]._options = None
     _globals["_CURATEDMODELSERVICE"].methods_by_name[
         "ListCuratedModels"
-    ]._serialized_options = b"\200}\013\222\323\016S\n\026model_registry_enabled\0229This action is not enabled. Please contact Chalk Support."
-    _globals["_CURATEDMODELSERVICE"].methods_by_name["DeployCuratedModel"]._options = None
+    ]._options = None
+    _globals["_CURATEDMODELSERVICE"].methods_by_name[
+        "ListCuratedModels"
+    ]._serialized_options = b"\200}4\222}\001\013\222\323\016S\n\026model_registry_enabled\0229This action is not enabled. Please contact Chalk Support."
     _globals["_CURATEDMODELSERVICE"].methods_by_name[
         "DeployCuratedModel"
-    ]._serialized_options = b"\200}\014\222\323\016S\n\026model_registry_enabled\0229This action is not enabled. Please contact Chalk Support."
+    ]._options = None
+    _globals["_CURATEDMODELSERVICE"].methods_by_name[
+        "DeployCuratedModel"
+    ]._serialized_options = b"\200}5\222}\001\014\222\323\016S\n\026model_registry_enabled\0229This action is not enabled. Please contact Chalk Support."
+    _globals["_SERVINGRUNTIMESERVICE"].methods_by_name[
+        "ResolveServingRuntimeImage"
+    ]._options = None
+    _globals["_SERVINGRUNTIMESERVICE"].methods_by_name[
+        "ResolveServingRuntimeImage"
+    ]._serialized_options = b"\200}\013\222\323\016S\n\026model_registry_enabled\0229This action is not enabled. Please contact Chalk Support."
+    _globals["_SERVINGENGINE"]._serialized_start = 2031
+    _globals["_SERVINGENGINE"]._serialized_end = 2130
+    _globals["_SERVINGACCELERATOR"]._serialized_start = 2132
+    _globals["_SERVINGACCELERATOR"]._serialized_end = 2249
     _globals["_CURATEDMODEL"]._serialized_start = 246
     _globals["_CURATEDMODEL"]._serialized_end = 695
     _globals["_LISTCURATEDMODELSREQUEST"]._serialized_start = 697
@@ -47,9 +71,15 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_LISTCURATEDMODELSRESPONSE"]._serialized_start = 725
     _globals["_LISTCURATEDMODELSRESPONSE"]._serialized_end = 816
     _globals["_DEPLOYCURATEDMODELREQUEST"]._serialized_start = 819
-    _globals["_DEPLOYCURATEDMODELREQUEST"]._serialized_end = 1314
-    _globals["_DEPLOYCURATEDMODELRESPONSE"]._serialized_start = 1317
-    _globals["_DEPLOYCURATEDMODELRESPONSE"]._serialized_end = 1539
-    _globals["_CURATEDMODELSERVICE"]._serialized_start = 1542
-    _globals["_CURATEDMODELSERVICE"]._serialized_end = 2004
+    _globals["_DEPLOYCURATEDMODELREQUEST"]._serialized_end = 1408
+    _globals["_DEPLOYCURATEDMODELRESPONSE"]._serialized_start = 1411
+    _globals["_DEPLOYCURATEDMODELRESPONSE"]._serialized_end = 1633
+    _globals["_RESOLVESERVINGRUNTIMEIMAGEREQUEST"]._serialized_start = 1636
+    _globals["_RESOLVESERVINGRUNTIMEIMAGEREQUEST"]._serialized_end = 1816
+    _globals["_RESOLVESERVINGRUNTIMEIMAGERESPONSE"]._serialized_start = 1819
+    _globals["_RESOLVESERVINGRUNTIMEIMAGERESPONSE"]._serialized_end = 2029
+    _globals["_CURATEDMODELSERVICE"]._serialized_start = 2252
+    _globals["_CURATEDMODELSERVICE"]._serialized_end = 2722
+    _globals["_SERVINGRUNTIMESERVICE"]._serialized_start = 2725
+    _globals["_SERVINGRUNTIMESERVICE"]._serialized_end = 2994
 # @@protoc_insertion_point(module_scope)

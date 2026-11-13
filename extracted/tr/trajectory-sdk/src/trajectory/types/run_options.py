@@ -8,7 +8,7 @@ from trajectory._models import BaseModel
 from trajectory.types.priority_aggregation import PriorityAggregation
 from trajectory.types.priority_trait import PriorityTrait
 
-TrainingAlgorithm: TypeAlias = Literal["gspo", "grpo", "importance_sampling", "stable_reinforce"]
+TrainingAlgorithm: TypeAlias = Literal["gspo", "grpo", "importance_sampling", "score_centering"]
 
 
 class RunOptions(BaseModel):

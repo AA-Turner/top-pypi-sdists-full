@@ -98,8 +98,8 @@ def _compute_std(values: list[float]) -> float | None:
 
 def summarize_tokens(arrays: Mapping[str, object]) -> dict[str, float]:
     """Per-sample summaries as sortable columns: entropy, logprob difference (inference vs
-    trainer), importance ratio, advantage and return. Over loss-masked tokens when a mask fits;
-    a summary with no data is left out."""
+    trainer), importance ratio, advantage and return, over loss-masked tokens when a mask fits, and
+    `masked_tokens` (the mask's ones) when a mask is given; a summary with no data is left out."""
     mask = _to_numbers(arrays.get("loss_mask"))
     entropy = _pick_masked(arrays.get("entropy"), mask)
     ref_entropy = _pick_masked(arrays.get("ref_entropy"), mask)
@@ -125,6 +125,8 @@ def summarize_tokens(arrays: Mapping[str, object]) -> dict[str, float]:
         "advantage_mean": _compute_mean(advantages),
         "advantage_std": _compute_std(advantages),
         "return_mean": _compute_mean(returns),
+        # What the means above averaged over, so they combine token-weighted (`wmean:token_stats.<name>`).
+        "masked_tokens": int(sum(1 for keep in mask if keep)) if mask else None,
     }
     return {name: value for name, value in summary.items() if value is not None}
 

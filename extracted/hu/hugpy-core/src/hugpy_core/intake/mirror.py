@@ -27,10 +27,15 @@ logger = logging.getLogger("hugpy_core.intake")
 
 STATE_TABLES = ("gpu_state", "host_state", "cpu_state", "residents", "models", "gguf_projection_facts",
                 "cuda_context_facts", "tf_structure", "tf_measure_facts", "kv_structure", "ctx_probe_facts",
-                "projector_facts", "load_estimates")
+                "projector_facts", "load_estimates",
+                # the wrapper's engine database (fitevict 0062, 0063; core sql/052)
+                "engines", "engine_baselines", "engine_model_factors", "engine_alignment", "engine_stage_order")
 # Incoming wrapper table names remain stable. Core retains per-worker disk
 # observations under an explicit name; public `models` is the fleet dossier.
 MIRROR_TABLES = {"models": "worker_model_copies"}
+# Tables whose `worker` column names something other than the box (engine_alignment: Discovery's label
+# for the record). It is kept as probe_worker, and `worker` is always the box the row came from.
+RELABEL_WORKER = {"engine_alignment": "probe_worker"}
 # log table -> rows that can still change (re-read until they settle).
 # call_log: a row is non-terminal while call_state is NULL (just inserted),
 # 'pending' (accepted, not yet running) or 'running' (prefill/decode in flight);
@@ -48,7 +53,11 @@ LOG_TABLES = {
     "resource_log": None,
     "evictions": "released_at IS NULL",
     "operator_actions": "done_at IS NULL",
+    "load_runs": "ended_at IS NULL",
+    "call_stages": None,
 }
+# What a wrapper that does not say otherwise can serve: asking it for any other table is a 400.
+BASE_LOG_TABLES = ("call_log", "resource_log", "evictions", "operator_actions")
 # the box keeps these as core's copies (core -> box); core's own tables are the truth
 NOT_MIRRORED = ("pair_settings", "model_quant_facts", "env_profiles", "api_keys")
 
@@ -136,6 +145,10 @@ def convert(v: Any, typ: str) -> Any:
         return json.dumps(without_nul(v))
     if typ in ("text", "character varying") and isinstance(v, str):
         return without_nul(v)
+    # A number in a text column (kv_structure.kv_seqs): as text, or it differs from the stored row every
+    # pass, rewriting it and firing the facts trigger each time.
+    if typ in ("text", "character varying") and isinstance(v, (int, float)) and not isinstance(v, bool):
+        return str(v)
     if typ in ("integer", "bigint", "smallint") and isinstance(v, float) and v.is_integer():
         return int(v)
     return v
@@ -250,6 +263,8 @@ def _apply_table(conn, cols: Columns, worker: str, t: str, snap: List[dict]) -> 
     """One snapshot table: rows that changed are upserted, rows the box no longer has
     are deleted — and nothing is written when nothing changed."""
     types, key = cols.types[t], cols.pk[t]
+    if t in RELABEL_WORKER:
+        snap = [{**r, RELABEL_WORKER[t]: r.get("worker"), "worker": worker} for r in snap]
     rows = [r for r in snap if (r.get("worker") or worker) == worker]
     names, values = _rows_for(t, rows, types, worker)
     if values and not all(k in names for k in key):
@@ -303,6 +318,12 @@ def apply_log(conn, cols: Columns, worker: str, table: str, rows: List[dict], st
     return len(changed)
 
 
+def log_tables(state: dict) -> List[str]:
+    """The log tables to follow on this box: what its state says it serves, else the original four."""
+    served = state.get("cursor_tables") or BASE_LOG_TABLES
+    return [t for t in LOG_TABLES if t in served]
+
+
 def cursor(conn, worker: str, table: str, store_id: str = "") -> int:
     """Resume only the current source store; historical store rows are retained."""
     open_rows = LOG_TABLES.get(table)
@@ -316,4 +337,4 @@ def cursor(conn, worker: str, table: str, store_id: str = "") -> int:
     return int(r[0]) if r and r[0] is not None else 0
 
 
-__all__ = ["Columns", "apply_state", "apply_log", "cursor", "convert", "STATE_TABLES", "LOG_TABLES"]
+__all__ = ["Columns", "apply_state", "apply_log", "cursor", "log_tables", "convert", "STATE_TABLES", "LOG_TABLES"]

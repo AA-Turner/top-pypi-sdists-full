@@ -38,6 +38,8 @@ class TemplateSite(AppwriteModel):
         VCS (Version Control System) branch version (tag).
     variables : List[TemplateVariable]
         Site variables.
+    scopes : List[Any]
+        Site scopes.
     """
 
     key: str = Field(..., alias='key')
@@ -53,6 +55,7 @@ class TemplateSite(AppwriteModel):
     providerowner: str = Field(..., alias='providerOwner')
     providerversion: str = Field(..., alias='providerVersion')
     variables: List[TemplateVariable] = Field(..., alias='variables')
+    scopes: List[Any] = Field(..., alias='scopes')
 
     @model_validator(mode='before')
     @classmethod
@@ -85,4 +88,6 @@ class TemplateSite(AppwriteModel):
             data['providerVersion'] = ''
         if 'variables' not in data:
             data['variables'] = []
+        if 'scopes' not in data:
+            data['scopes'] = []
         return data

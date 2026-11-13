@@ -217,6 +217,7 @@ fn every_registered_rule_produces_a_plan_consistent_with_its_own_metadata() {
                 &source,
                 &LineIndex::new(&source),
                 &Default::default(),
+                None,
                 10,
             )
             .unwrap_or_else(|| {
@@ -378,6 +379,7 @@ fn spliceable_plan_reports_the_measured_reduction() {
             is_module: true,
             active: &RuleSet::default(),
             function: None,
+            bindings: None,
             newline: "\n",
         },
     );
@@ -416,6 +418,7 @@ fn unparseable_splice_measures_to_none() {
         applicability: Applicability::MachineApplicable,
         description: String::new(),
         spliceable: true,
+        insertions: Vec::new(),
     });
 
     let index = LineIndex::new(source);
@@ -444,6 +447,7 @@ fn context<'a>(
         is_module: function.is_none(),
         active: ALL_RULES.get_or_init(RuleSet::default),
         function,
+        bindings: None,
         newline: "\n",
     }
 }
@@ -456,6 +460,7 @@ fn function_plan(line_start: u64, line_end: u64, current: u64, replacement: &str
         applicability: Applicability::MachineApplicable,
         description: String::new(),
         spliceable: true,
+        insertions: Vec::new(),
     });
     plan
 }
@@ -567,6 +572,7 @@ fn no_op_splice_measures_zero() {
         applicability: Applicability::MachineApplicable,
         description: String::new(),
         spliceable: true,
+        insertions: Vec::new(),
     });
 
     let index = LineIndex::new(source);
@@ -587,6 +593,7 @@ fn no_op_splice_measures_zero() {
 fn inactive_rules_never_produce_plans() {
     let registry = RuleRegistry::new();
     let ids = registry.registered_ids();
+    let known = registry.registered_rules();
 
     for rule_id in ids.iter() {
         let (region, source) = fixture_for(rule_id);
@@ -604,14 +611,15 @@ fn inactive_rules_never_produce_plans() {
                         is_module: true,
                         active,
                         function: None,
+                        bindings: None,
                         newline: "\n",
                     },
                 )
                 .0
         };
 
-        let all = build(&RuleSet::resolve(&[], &[], &ids).0);
-        let without = build(&RuleSet::resolve(&[], std::slice::from_ref(rule_id), &ids).0);
+        let all = build(&RuleSet::resolve(&[], &[], &known).0);
+        let without = build(&RuleSet::resolve(&[], std::slice::from_ref(rule_id), &known).0);
 
         assert!(
             all.iter().any(|plan| plan.rule_id == *rule_id),
@@ -627,7 +635,7 @@ fn inactive_rules_never_produce_plans() {
 #[test]
 fn inactive_rule_never_shadows_an_active_rule() {
     let registry = RuleRegistry::new();
-    let ids = registry.registered_ids();
+    let known = registry.registered_rules();
     let (c001_region, source) = fixture_for("C001");
     let (c007_region, _) = fixture_for("C007");
     let regions = vec![c001_region, c007_region];
@@ -644,17 +652,18 @@ fn inactive_rule_never_shadows_an_active_rule() {
                     is_module: true,
                     active,
                     function: None,
+                    bindings: None,
                     newline: "\n",
                 },
             )
             .0
     };
 
-    let all = build(&RuleSet::resolve(&[], &[], &ids).0);
+    let all = build(&RuleSet::resolve(&[], &[], &known).0);
     assert!(all.iter().any(|plan| plan.rule_id == "C007"));
     assert!(!all.iter().any(|plan| plan.rule_id == "C001"));
 
-    let without = build(&RuleSet::resolve(&[], &["C007".to_string()], &ids).0);
+    let without = build(&RuleSet::resolve(&[], &["C007".to_string()], &known).0);
     assert!(!without.iter().any(|plan| plan.rule_id == "C007"));
     assert!(
         without.iter().any(|plan| plan.rule_id == "C001"),
@@ -697,4 +706,19 @@ fn rule_applicability_tiers_are_pinned() {
     pinned_ids.sort();
     seen.sort();
     assert_eq!(seen, pinned_ids);
+}
+
+#[test]
+fn metadata_matches_ids_trimmed_and_case_insensitively() {
+    let registry = RuleRegistry::new();
+
+    for id in registry.registered_ids() {
+        let spelled = format!(" {} ", id.to_ascii_lowercase());
+        let meta = registry
+            .metadata(&spelled)
+            .unwrap_or_else(|| panic!("no metadata for {spelled:?}"));
+        assert_eq!(meta.id, id);
+    }
+    assert!(registry.metadata("C999").is_none());
+    assert!(registry.metadata("").is_none());
 }

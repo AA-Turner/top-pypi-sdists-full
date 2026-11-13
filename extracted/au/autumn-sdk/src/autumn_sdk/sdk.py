@@ -8,7 +8,6 @@ from .utils.retries import RetryConfig
 from autumn_sdk import errors, models, utils
 from autumn_sdk._hooks import HookContext, SDKHooks
 from autumn_sdk._hooks.edge_hook import edge_client_of
-from autumn_sdk.models import internal
 from autumn_sdk.types import BaseModel, OptionalNullable, UNSET
 from autumn_sdk.utils.unmarshal_json_response import unmarshal_json_response
 import httpx
@@ -28,6 +27,9 @@ from typing import (
 import weakref
 
 if TYPE_CHECKING:
+    from autumn_sdk.accounts import Accounts
+    from autumn_sdk.analytics import Analytics
+    from autumn_sdk.approval_rules import ApprovalRules
     from autumn_sdk.balances import Balances
     from autumn_sdk.billing import Billing
     from autumn_sdk.customers import Customers
@@ -47,6 +49,7 @@ if TYPE_CHECKING:
 
 
 class Autumn(BaseSDK):
+    accounts: "Accounts"
     customers: "Customers"
     plans: "Plans"
     features: "Features"
@@ -54,6 +57,7 @@ class Autumn(BaseSDK):
     balances: "Balances"
     events: "Events"
     logs: "Logs"
+    analytics: "Analytics"
     invoices: "Invoices"
     licenses: "Licenses"
     entities: "Entities"
@@ -63,7 +67,9 @@ class Autumn(BaseSDK):
     keys: "Keys"
     sandboxes: "Sandboxes"
     webhooks: "Webhooks"
+    approval_rules: "ApprovalRules"
     _sub_sdk_map = {
+        "accounts": ("autumn_sdk.accounts", "Accounts"),
         "customers": ("autumn_sdk.customers", "Customers"),
         "plans": ("autumn_sdk.plans", "Plans"),
         "features": ("autumn_sdk.features", "Features"),
@@ -71,6 +77,7 @@ class Autumn(BaseSDK):
         "balances": ("autumn_sdk.balances", "Balances"),
         "events": ("autumn_sdk.events", "Events"),
         "logs": ("autumn_sdk.logs", "Logs"),
+        "analytics": ("autumn_sdk.analytics", "Analytics"),
         "invoices": ("autumn_sdk.invoices", "Invoices"),
         "licenses": ("autumn_sdk.licenses", "Licenses"),
         "entities": ("autumn_sdk.entities", "Entities"),
@@ -80,6 +87,7 @@ class Autumn(BaseSDK):
         "keys": ("autumn_sdk.keys", "Keys"),
         "sandboxes": ("autumn_sdk.sandboxes", "Sandboxes"),
         "webhooks": ("autumn_sdk.webhooks", "Webhooks"),
+        "approval_rules": ("autumn_sdk.approval_rules", "ApprovalRules"),
     }
 
     def __init__(
@@ -150,7 +158,7 @@ class Autumn(BaseSDK):
         _x_api_version = utils.get_global_from_env(x_api_version, "X_API_VERSION", str)
         _fail_open = utils.get_global_from_env(fail_open, "FAIL_OPEN", bool)
         _resolved_globals = {"x_api_version": _x_api_version, "fail_open": _fail_open}
-        _globals = internal.Globals(
+        _globals = models.internal.Globals(
             **{key: value for key, value in _resolved_globals.items() if value is not None}
         )
 

@@ -123,6 +123,12 @@ def setup_worker() -> None:
         watch_agent_loop_import()  # an agent loop worker's loops are live samples (rl-next W37)
     except Exception as exc:  # noqa: BLE001 -- fail open: the loops run unrecorded
         logger.warning("Probe could not watch verl's agent loops in this Ray worker; verl continues: %s", exc)
+    try:
+        from .training import install_worker_training
+
+        install_worker_training()  # an actor worker's per-sample training metrics (T3)
+    except Exception as exc:  # noqa: BLE001 -- fail open: the worker trains unrecorded
+        logger.warning("Probe could not watch verl's training worker in this Ray worker; verl continues: %s", exc)
     if next_hook := os.environ.get(NEXT_SETUP_HOOK_ENV):
         module, _, name = next_hook.rpartition(".")
         getattr(importlib.import_module(module), name)()

@@ -52,6 +52,8 @@ from .paginator import (
 from .type_defs import (
     AcceptMarketplaceRegistrationInputTypeDef,
     AssociateIamRoleToResourceInputTypeDef,
+    AssociateVirtualMachinesToCloudVmClusterInputTypeDef,
+    AssociateVirtualMachinesToCloudVmClusterOutputTypeDef,
     AssociateVirtualMachinesToExadbVmClusterInputTypeDef,
     AssociateVirtualMachinesToExadbVmClusterOutputTypeDef,
     CreateAutonomousDatabaseBackupInputTypeDef,
@@ -84,6 +86,8 @@ from .type_defs import (
     DeleteOdbNetworkInputTypeDef,
     DeleteOdbPeeringConnectionInputTypeDef,
     DisassociateIamRoleFromResourceInputTypeDef,
+    DisassociateVirtualMachinesFromCloudVmClusterInputTypeDef,
+    DisassociateVirtualMachinesFromCloudVmClusterOutputTypeDef,
     DisassociateVirtualMachinesFromExadbVmClusterInputTypeDef,
     DisassociateVirtualMachinesFromExadbVmClusterOutputTypeDef,
     FailoverAutonomousDatabaseInputTypeDef,
@@ -184,8 +188,14 @@ from .type_defs import (
     UpdateAutonomousDatabaseBackupOutputTypeDef,
     UpdateAutonomousDatabaseInputTypeDef,
     UpdateAutonomousDatabaseOutputTypeDef,
+    UpdateCloudAutonomousVmClusterInputTypeDef,
+    UpdateCloudAutonomousVmClusterOutputTypeDef,
     UpdateCloudExadataInfrastructureInputTypeDef,
     UpdateCloudExadataInfrastructureOutputTypeDef,
+    UpdateCloudExadataInfrastructureStorageCapacityInputTypeDef,
+    UpdateCloudExadataInfrastructureStorageCapacityOutputTypeDef,
+    UpdateCloudVmClusterInputTypeDef,
+    UpdateCloudVmClusterOutputTypeDef,
     UpdateExadbVmClusterInputTypeDef,
     UpdateExadbVmClusterOutputTypeDef,
     UpdateExascaleCloudExadataInfrastructureInputTypeDef,
@@ -275,6 +285,16 @@ class OdbClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/associate_iam_role_to_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#associate_iam_role_to_resource)
+        """
+
+    def associate_virtual_machines_to_cloud_vm_cluster(
+        self, **kwargs: Unpack[AssociateVirtualMachinesToCloudVmClusterInputTypeDef]
+    ) -> AssociateVirtualMachinesToCloudVmClusterOutputTypeDef:
+        """
+        Adds virtual machines to the specified VM cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/associate_virtual_machines_to_cloud_vm_cluster.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#associate_virtual_machines_to_cloud_vm_cluster)
         """
 
     def associate_virtual_machines_to_exadb_vm_cluster(
@@ -485,6 +505,16 @@ class OdbClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/disassociate_iam_role_from_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#disassociate_iam_role_from_resource)
+        """
+
+    def disassociate_virtual_machines_from_cloud_vm_cluster(
+        self, **kwargs: Unpack[DisassociateVirtualMachinesFromCloudVmClusterInputTypeDef]
+    ) -> DisassociateVirtualMachinesFromCloudVmClusterOutputTypeDef:
+        """
+        Removes virtual machines from the specified VM cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/disassociate_virtual_machines_from_cloud_vm_cluster.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#disassociate_virtual_machines_from_cloud_vm_cluster)
         """
 
     def disassociate_virtual_machines_from_exadb_vm_cluster(
@@ -1007,6 +1037,16 @@ class OdbClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#update_autonomous_database_backup)
         """
 
+    def update_cloud_autonomous_vm_cluster(
+        self, **kwargs: Unpack[UpdateCloudAutonomousVmClusterInputTypeDef]
+    ) -> UpdateCloudAutonomousVmClusterOutputTypeDef:
+        """
+        Updates the properties of the specified Autonomous VM cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/update_cloud_autonomous_vm_cluster.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#update_cloud_autonomous_vm_cluster)
+        """
+
     def update_cloud_exadata_infrastructure(
         self, **kwargs: Unpack[UpdateCloudExadataInfrastructureInputTypeDef]
     ) -> UpdateCloudExadataInfrastructureOutputTypeDef:
@@ -1015,6 +1055,26 @@ class OdbClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/update_cloud_exadata_infrastructure.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#update_cloud_exadata_infrastructure)
+        """
+
+    def update_cloud_exadata_infrastructure_storage_capacity(
+        self, **kwargs: Unpack[UpdateCloudExadataInfrastructureStorageCapacityInputTypeDef]
+    ) -> UpdateCloudExadataInfrastructureStorageCapacityOutputTypeDef:
+        """
+        Adds storage capacity to the specified Exadata infrastructure.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/update_cloud_exadata_infrastructure_storage_capacity.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#update_cloud_exadata_infrastructure_storage_capacity)
+        """
+
+    def update_cloud_vm_cluster(
+        self, **kwargs: Unpack[UpdateCloudVmClusterInputTypeDef]
+    ) -> UpdateCloudVmClusterOutputTypeDef:
+        """
+        Updates the properties of the specified VM cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/update_cloud_vm_cluster.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#update_cloud_vm_cluster)
         """
 
     def update_exadb_vm_cluster(

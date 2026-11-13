@@ -148,6 +148,63 @@ class AthenaReaderTest(unittest.TestCase):
         self.assertEqual(rows, [[1], [2]])
 
 
+class AthenaDescribeRowsTest(unittest.TestCase):
+    """Athena engine v3's DESCRIBE: 3 metadata columns, one tab-separated cell per row."""
+
+    META = _athena_meta(("col_name", "string"), ("data_type", "string"), ("comment", "string"))
+
+    def _rows(self, *cells, meta=None):
+        page = {"ResultSet": {**(meta or self.META), "Rows": [_athena_row(*c) for c in cells]}}
+        columns, chunks, _total = read_athena_result(
+            _FakeAthenaClient([page]), "q-describe", skip_header=False
+        )
+        return columns, [r for chunk in chunks for r in chunk]
+
+    def test_tab_separated_cells_become_columns(self):
+        columns, rows = self._rows(
+            ("order_id            \tint                 \t",),
+            ("amount              \tdecimal(10,2)       \ttotal in USD",),
+        )
+        self.assertEqual(columns, ["col_name", "data_type", "comment"])
+        self.assertEqual(
+            rows, [["order_id", "int", None], ["amount", "decimal(10,2)", "total in USD"]]
+        )
+
+    def test_partition_section_and_blank_rows_are_padded(self):
+        _columns, rows = self._rows(
+            ("region              \tstring              \t",),
+            ("",),
+            ("# Partition Information",),
+            ("# col_name            \tdata_type           \tcomment             ",),
+            ("region              \tstring              \t",),
+        )
+        self.assertEqual(
+            rows,
+            [
+                ["region", "string", None],
+                ["", None, None],
+                ["# Partition Information", None, None],
+                ["# col_name", "data_type", "comment"],
+                ["region", "string", None],
+            ],
+        )
+        self.assertTrue(all(len(row) == 3 for row in rows))
+
+    def test_extra_tabs_stay_in_the_last_field(self):
+        _columns, rows = self._rows(("c\tstring\ta\tb",))
+        self.assertEqual(rows, [["c", "string", "a\tb"]])
+
+    def test_multi_cell_rows_are_unchanged(self):
+        meta = _athena_meta(("a", "varchar"), ("b", "varchar"))
+        _columns, rows = self._rows(("x\ty", "z"), meta=meta)
+        self.assertEqual(rows, [["x\ty", "z"]])
+
+    def test_single_column_results_keep_their_tabs(self):
+        meta = _athena_meta(("s", "varchar"))
+        _columns, rows = self._rows(("x\ty",), meta=meta)
+        self.assertEqual(rows, [["x\ty"]])
+
+
 class RedshiftReaderTest(unittest.TestCase):
     def _cols(self):
         return [{"name": "id", "typeName": "int4"}, {"name": "name", "typeName": "varchar"}]

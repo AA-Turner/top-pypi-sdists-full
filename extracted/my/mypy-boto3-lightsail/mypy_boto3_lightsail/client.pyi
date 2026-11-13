@@ -61,6 +61,8 @@ from .type_defs import (
     AttachLoadBalancerTlsCertificateResultTypeDef,
     AttachStaticIpRequestTypeDef,
     AttachStaticIpResultTypeDef,
+    CheckSubdomainAvailabilityRequestTypeDef,
+    CheckSubdomainAvailabilityResultTypeDef,
     CloseInstancePublicPortsRequestTypeDef,
     CloseInstancePublicPortsResultTypeDef,
     ContainerServicesListResultTypeDef,
@@ -113,6 +115,8 @@ from .type_defs import (
     CreateRelationalDatabaseResultTypeDef,
     CreateRelationalDatabaseSnapshotRequestTypeDef,
     CreateRelationalDatabaseSnapshotResultTypeDef,
+    CreateSubdomainRequestTypeDef,
+    CreateSubdomainResultTypeDef,
     DeleteAlarmRequestTypeDef,
     DeleteAlarmResultTypeDef,
     DeleteAutoSnapshotRequestTypeDef,
@@ -153,6 +157,8 @@ from .type_defs import (
     DeleteRelationalDatabaseResultTypeDef,
     DeleteRelationalDatabaseSnapshotRequestTypeDef,
     DeleteRelationalDatabaseSnapshotResultTypeDef,
+    DeleteSubdomainRequestTypeDef,
+    DeleteSubdomainResultTypeDef,
     DetachCertificateFromDistributionRequestTypeDef,
     DetachCertificateFromDistributionResultTypeDef,
     DetachDiskRequestTypeDef,
@@ -295,6 +301,8 @@ from .type_defs import (
     GetStaticIpResultTypeDef,
     GetStaticIpsRequestTypeDef,
     GetStaticIpsResultTypeDef,
+    GetSubdomainsRequestTypeDef,
+    GetSubdomainsResultTypeDef,
     ImportKeyPairRequestTypeDef,
     ImportKeyPairResultTypeDef,
     IsVpcPeeredResultTypeDef,
@@ -362,6 +370,8 @@ from .type_defs import (
     UpdateRelationalDatabaseParametersResultTypeDef,
     UpdateRelationalDatabaseRequestTypeDef,
     UpdateRelationalDatabaseResultTypeDef,
+    UpdateSubdomainAssociationRequestTypeDef,
+    UpdateSubdomainAssociationResultTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -475,6 +485,16 @@ class LightsailClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lightsail/client/attach_static_ip.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lightsail/client/#attach_static_ip)
+        """
+
+    def check_subdomain_availability(
+        self, **kwargs: Unpack[CheckSubdomainAvailabilityRequestTypeDef]
+    ) -> CheckSubdomainAvailabilityResultTypeDef:
+        """
+        Checks whether a Lightsail subdomain is available to create.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lightsail/client/check_subdomain_availability.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lightsail/client/#check_subdomain_availability)
         """
 
     def close_instance_public_ports(
@@ -745,6 +765,17 @@ class LightsailClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lightsail/client/#create_relational_database_snapshot)
         """
 
+    def create_subdomain(
+        self, **kwargs: Unpack[CreateSubdomainRequestTypeDef]
+    ) -> CreateSubdomainResultTypeDef:
+        """
+        Creates a Lightsail subdomain, such as <code>mysite</code>, with the web
+        address <code>mysite.amazonlightsail.com</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lightsail/client/create_subdomain.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lightsail/client/#create_subdomain)
+        """
+
     def delete_alarm(self, **kwargs: Unpack[DeleteAlarmRequestTypeDef]) -> DeleteAlarmResultTypeDef:
         """
         Deletes an alarm.
@@ -952,6 +983,16 @@ class LightsailClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lightsail/client/delete_relational_database_snapshot.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lightsail/client/#delete_relational_database_snapshot)
+        """
+
+    def delete_subdomain(
+        self, **kwargs: Unpack[DeleteSubdomainRequestTypeDef]
+    ) -> DeleteSubdomainResultTypeDef:
+        """
+        Deletes a Lightsail subdomain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lightsail/client/delete_subdomain.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lightsail/client/#delete_subdomain)
         """
 
     def detach_certificate_from_distribution(
@@ -1693,6 +1734,16 @@ class LightsailClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lightsail/client/#get_static_ips)
         """
 
+    def get_subdomains(
+        self, **kwargs: Unpack[GetSubdomainsRequestTypeDef]
+    ) -> GetSubdomainsResultTypeDef:
+        """
+        Returns information about one or more of your Lightsail subdomains.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lightsail/client/get_subdomains.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lightsail/client/#get_subdomains)
+        """
+
     def import_key_pair(
         self, **kwargs: Unpack[ImportKeyPairRequestTypeDef]
     ) -> ImportKeyPairResultTypeDef:
@@ -2043,6 +2094,17 @@ class LightsailClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lightsail/client/update_relational_database_parameters.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lightsail/client/#update_relational_database_parameters)
+        """
+
+    def update_subdomain_association(
+        self, **kwargs: Unpack[UpdateSubdomainAssociationRequestTypeDef]
+    ) -> UpdateSubdomainAssociationResultTypeDef:
+        """
+        Associates a Lightsail subdomain with a resource, disassociates it from a
+        resource, or moves it from one resource to another resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lightsail/client/update_subdomain_association.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lightsail/client/#update_subdomain_association)
         """
 
     @overload  # type: ignore[override]

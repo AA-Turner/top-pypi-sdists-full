@@ -1,5 +1,6 @@
 """`run.samples`: one producer's RL samples on a run (log, score, seal, commit, plan, weights, in-flight
-attempts, compute phases), journaled to the outbox and sent as `/samples/batch`. Never raises."""
+attempts, compute phases), journaled to the outbox and sent as `/samples/batch`; per-sample metrics (`points/`) as
+`/samples/points`. Never raises."""
 
 from __future__ import annotations
 
@@ -15,20 +16,25 @@ from ....foundation.safe_warn import safe_warn as _diagnostics
 from ...routes import WriteOp, path_for
 from .attempts import AttemptBeats
 from .barrier import wait_for_last_seals
-from .bundles import TEXT_ARTIFACT_KIND, Bundle, Bundles, SealedBundle, get_artifact_kind
+from .bundles import Bundle, Bundles, SealedBundle, get_artifact_kind
 from .phases import SPANS_MAX, Phase, build_phase_spans
-from .prepare import PartPreparer, PendingBlob, PreparedPart
+from .points import PointWriter
+from .prepare import PartPreparer, PendingBlob, PreparedPart, upload_spill
 from ....generated.samples import MAX_ACTIVITY_CHARS, AttemptKind, AttemptOutcome, AttemptProgress, PartRole
-from ....generated.samples.capture import MAX_REFUSAL_CHARS
+from ....generated.samples.capture import MAX_REFUSAL_CHARS, CaptureField
 from .wire import (
     MAX_LOG_TAIL_BYTES,
+    PLAN_CAPTURE_FIELD,
     PLAN_FIELD,
     PLAN_FIELDS,
     BatchList,
     cut_tail,
+    get_known_turn_capture,
     measure_bytes,
+    strip_turn_capture,
     to_wire_item,
     to_wire_plan,
+    warn_turn_capture,
 )
 
 if TYPE_CHECKING:
@@ -68,7 +74,9 @@ class RunSamples:
         self._lock = threading.RLock()
         folder = Path(_get_spool_folder(run)) / "sample-bundles" / str(run.id) / _SAFE_NAME.sub("_", producer)
         self._bundles = Bundles(folder, upload=self._upload_bundle)
-        self._preparer = PartPreparer(self._bundles, scrub=_scrub_text, upload_text=self._upload_text)
+        self._preparer = PartPreparer(self._bundles, scrub=_scrub_text, upload_text=self._upload_text,
+                                      is_turn_capture_supported=self._is_turn_capture_supported,
+                                      warn_stripped=self._warn_turn_capture)  # fmt: skip
         self._beats = AttemptBeats(send_held=self._send_held_beat)
         #: The view whose live side (held samples, handlers, the command listener) this one shares.
         self._root = root or self
@@ -85,6 +93,7 @@ class RunSamples:
         self._views: dict[str, RunSamples] = {}
         #: Why this producer refuses each kind it cannot do (`refuse`), sent whole each time (`PlanIn.refusals`).
         self._refusals: dict[str, str] = {}
+        self._points: PointWriter | None = None
 
     def as_producer(self, producer: str) -> RunSamples:
         """The same run's samples written as another producer (a trainer beside a rollout)."""
@@ -283,6 +292,53 @@ class RunSamples:
         return self._guard("live_url", open_route) or upstream
 
     # -- step control ----------------------------------------------------------------------------
+    # -- per-sample metrics (points/) ------------------------------------------------------------
+    def log_metrics(
+        self,
+        sample_key: str,
+        metrics: Mapping[str, Any],
+        *,
+        step: int,
+        update: int | None = None,
+        split: str | None = None,
+        weights: float | Mapping[str, float] | None = None,
+        agg: str | Mapping[str, str] | None = None,
+        **bookkeeping: Any,
+    ) -> None:
+        """Any metrics of one sample at ``step``, like `run.log` (nested dicts flatten to `/` keys, `agg` keeps its
+        first declaration per run and key), with a weight per value (one for all, or by key; default 1): what the
+        value averages over, usually the sample's trained tokens, so step and run totals are exact. Inside an
+        optimizer update pass ``update`` (train), in an eval pass ``split="eval"`` and `eval_pass`; either may carry
+        the loss bookkeeping (`token_count`, `mask_sha256`, `loss_sum`, `normalizer`, `scale`, `contribution`,
+        `contribution_source`, `weights_version`, `optimizer_step`) and the row's place (`rank`, `micro_batch`, the
+        call ordinal every process shares, `occurrence`, `fragment`, `fragments_expected`: an additive value is
+        each fragment's own, a non-additive one fragment 0's only), and `role="critic"` for a critic's value loss (its
+        own keys; default the actor). Sent to its own route. Never raises."""
+        self._guard("log_metrics", lambda: self._get_points().log_metrics(
+            sample_key, metrics, step=step, update=update, split=split, weights=weights, agg=agg,
+            fields=bookkeeping))  # fmt: skip
+
+    def log_metrics_many(self, rows: Iterable[Mapping[str, Any]]) -> int:
+        """Several `log_metrics` rows at once (a hook's whole micro-batch, `RowSummary.to_row`): each a mapping of
+        `sample_key`, `metrics`, `step` and that call's other arguments. Returns how many went. Never raises."""
+        return self._guard("log_metrics_many", lambda: self._get_points().log_metrics_many(rows)) or 0
+
+    def log_update(self, step: int, update: int | None = None, *, level: str = "update", **fields: Any) -> None:
+        """One optimizer update's own record (`UpdateIn`), or an eval pass's (no ``update``; `split="eval"`,
+        `eval_pass`): the whole pass (``level="update"``, rank 0: `ranks_expected`, `updates_in_step`, `reduction`,
+        `reported_loss`, `batch_terms`, `applied` from the framework's own skip flag, `skipped_reason`, `normalizer`
+        and `scale` for rows that sent only `loss_sum`, `denominators` by key, `metrics` such as lr and gradient
+        norm), a rank (`micro_batches_expected`, `rows_expected`) or a micro-batch (`micro_batch`, `reported_loss`,
+        `batch_terms`, `scale`, `normalizer`, `rows`); `role="critic"` for a critic's pass (default the actor). Never
+        raises."""
+        self._guard("log_update", lambda: self._get_points().log_update(step, update, level=level, fields=fields))
+
+    def _get_points(self) -> PointWriter:
+        with self._lock:
+            if self._points is None:
+                self._points = PointWriter(self)
+            return self._points
+
     def seal(self, step: int, *, sent: int | None = None, dropped: Mapping[str, int] | None = None) -> None:
         """This producer is done with ``step``: the final samples it sent (counted here unless
         given), drops it only counted (by reason), and the step's bundles, closed and uploaded."""
@@ -296,7 +352,8 @@ class RunSamples:
     def plan(self, **fields: Any) -> None:
         """A change to what the run expects (`PlanIn`): `expected_steps`, `producers`, `reward_max`,
         `max_staleness`, and the owner's terminal manifest `final_step` + `is_closed` (`closed`
-        works too). Only the fields given change."""
+        works too). `unsupported={field: why}` declares the capture fields (`CaptureField`) this producer's framework
+        cannot give a sample, replacing its earlier map. Only the fields given change."""
         if "closed" in fields:
             fields.setdefault("is_closed", fields.pop("closed"))
         unknown = sorted(set(fields) - set(PLAN_FIELDS))
@@ -307,6 +364,13 @@ class RunSamples:
         def send() -> None:
             if unknown:
                 raise ValueError(f"plan() takes {', '.join(PLAN_FIELDS)}; not {', '.join(unknown)}")
+            if "unsupported" in plan:
+                given = dict(plan["unsupported"])
+                plan["unsupported"] = self._take_unsupported(given)
+                if given and not plan["unsupported"]:
+                    del plan["unsupported"]  # every entry invalid: never sent as {}, which would clear the map
+                elif not self._is_turn_capture_supported():
+                    self._warn_turn_capture([PLAN_CAPTURE_FIELD])
             if plan:
                 self._write_op({}, plan=to_wire_plan(plan))
 
@@ -362,6 +426,34 @@ class RunSamples:
             self._guard("commands", live.check_commands_seq, seq)
 
     # -- inside ----------------------------------------------------------------------------------
+    def _is_turn_capture_supported(self) -> bool:
+        """What this process already knows of the server's `samples_turn_capture`; unknown is "yes". Never asks: the
+        send-time gate decides (`wire.gate_turn_capture`, D7), so `log()` does no network I/O."""
+        return get_known_turn_capture(self._run._client) is not False
+
+    def _warn_turn_capture(self, names: list[str]) -> None:
+        """Once per field and process: a server known not to store them; the send takes them off (D7)."""
+        warn_turn_capture(names, was_sent=False)
+
+    def _take_unsupported(self, given: Any) -> dict[str, str]:
+        """`plan(unsupported=)`'s valid entries (a `CaptureField` and a reason); the rest left out with one warning,
+        never the whole plan."""
+        kept: dict[str, str] = {}
+        left_out: list[str] = []
+        for name, why in dict(given).items():
+            reason = " ".join(str(why or "").split())[:MAX_REFUSAL_CHARS]
+            if str(name) in {field.value for field in CaptureField} and reason:
+                kept[str(name)] = reason
+            else:
+                left_out.append(str(name))
+        if left_out and "plan unsupported" not in self._warned:
+            self._warned.add("plan unsupported")
+            _diagnostics.warn(
+                f"probe: run.samples.plan(unsupported=) left out {', '.join(left_out)}: each entry is a capture field "
+                f"({', '.join(field.value for field in CaptureField)}) with a reason. The other entries were sent."
+            )
+        return kept
+
     def _guard(self, what: str, call, *args):
         try:
             return call(*args)
@@ -588,7 +680,7 @@ class RunSamples:
         for name, values in lists.items():
             for item in values or ():
                 try:
-                    wire, model = to_wire_item(BatchList(name), item)
+                    wire, model = self._to_wire_item(BatchList(name), item)
                 except Exception as exc:  # noqa: BLE001 -- one bad item never costs the rest
                     self._record_failure(f"log {name}" if name != BatchList.SAMPLES else "log", exc)
                     continue
@@ -596,6 +688,30 @@ class RunSamples:
                     self._count_part_sent(model)
                 checked.append((str(name), wire))
         return checked
+
+    def _to_wire_item(self, name: BatchList, item: dict) -> tuple[dict, Any]:
+        """`to_wire_item`; a part the turn capture fields alone make invalid goes without them (A3: the new fields
+        never cost the sample, its reward included), warned once naming them. Raises what the check raised."""
+        try:
+            return to_wire_item(name, item)
+        except Exception as first:
+            if name != BatchList.SAMPLES:
+                raise
+            trial = dict(item)
+            names = strip_turn_capture(trial)
+            if not names:
+                raise
+            try:
+                wire_model = to_wire_item(name, trial)
+            except Exception:  # noqa: BLE001 -- still invalid without them: the first error is the one to tell
+                raise first from None
+        if "turn capture invalid" not in self._warned:
+            self._warned.add("turn capture invalid")
+            _diagnostics.warn(
+                f"probe: a sample's {', '.join(names)} did not fit the sample contract, so the sample was sent "
+                "without them (its reward and the rest kept). Later ones are not shown."
+            )
+        return wire_model
 
     def _count_part_sent(self, part) -> None:
         """A final part counts toward its seal step; a finished attempt's held beat is dropped."""
@@ -666,14 +782,7 @@ class RunSamples:
         )
 
     def _upload_text(self, path: Path, sha256: str, size: int) -> None:
-        self._run.log_artifact(
-            f"sample-text-{sha256[:16]}.txt",
-            path=str(path),
-            kind=TEXT_ARTIFACT_KIND,
-            content_type="text/plain",
-            meta={"sample_blob": {"sha256": sha256, "size_bytes": size}},
-            strict=False,
-        )
+        upload_spill(self._run, (path, sha256, size))
 
 
 def _to_iso(value: datetime | str | None) -> str | None:

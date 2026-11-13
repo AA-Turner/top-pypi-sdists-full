@@ -16,6 +16,7 @@ class WriteOp(StrEnum):
     STEPS = "steps"  # POST /v1/runs/{run}/steps: one step record; many go as one /steps/batch
     SPANS = "spans"  # POST /v1/runs/{run}/spans: NULs in span text are escaped, not refused
     SAMPLES = "samples"  # POST /v1/runs/{run}/samples/batch: RL samples, seals, plans; many ops go as one
+    SAMPLE_POINTS = "sample_points"  # POST /v1/runs/{run}/samples/points: per-sample metrics; never merged with SAMPLES
     RUN_PATCH = "run_patch"  # PATCH /v1/runs/{run}: the run's row; a terminal status closes it
     WRITER_RELEASE = "writer_release"  # POST /v1/runs/{run}/writers/{session}/release: closes a `leases` run
     INGEST_RUNS = "ingest_runs"  # /ingest/v1/runs: a batch of runs with their spans
@@ -24,12 +25,14 @@ class WriteOp(StrEnum):
 
 
 #: The run writes a writer may build with `path_for`: their path is the run id and nothing else.
-BUILDABLE = frozenset({WriteOp.METRICS, WriteOp.STEPS, WriteOp.SPANS, WriteOp.SAMPLES, WriteOp.RUN_PATCH})
+BUILDABLE = frozenset({WriteOp.METRICS, WriteOp.STEPS, WriteOp.SPANS, WriteOp.SAMPLES, WriteOp.SAMPLE_POINTS,
+                       WriteOp.RUN_PATCH})
 _SUFFIX = {
     WriteOp.METRICS: "/metrics",
     WriteOp.STEPS: "/steps",
     WriteOp.SPANS: "/spans",
     WriteOp.SAMPLES: "/samples/batch",
+    WriteOp.SAMPLE_POINTS: "/samples/points",
     WriteOp.RUN_PATCH: "",
 }
 _RUN_POSTS = {"metrics": WriteOp.METRICS, "steps": WriteOp.STEPS, "spans": WriteOp.SPANS}
@@ -65,6 +68,8 @@ def classify(method: str, path: str | None) -> Route:
             op = _RUN_POSTS[tail[0]]
         elif verb == "POST" and tail == ["samples", "batch"]:
             op = WriteOp.SAMPLES
+        elif verb == "POST" and tail == ["samples", "points"]:
+            op = WriteOp.SAMPLE_POINTS
         elif verb == "POST" and len(tail) == 3 and tail[0] == "writers" and tail[1] and tail[2] == "release":
             op = WriteOp.WRITER_RELEASE
         else:

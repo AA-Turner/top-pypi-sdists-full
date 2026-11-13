@@ -45,7 +45,8 @@ from . import Interpolator, Interpolate, Sentinel
 from .linear import InterpolatorLinear
 from .continuous import InterpolatorContinuous
 from ..spaces.srgb_linear import XYZ_TO_RGB
-from typing import Any, Mapping, Iterable, TYPE_CHECKING
+from collections.abc import Mapping, Iterable
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from .. import Color

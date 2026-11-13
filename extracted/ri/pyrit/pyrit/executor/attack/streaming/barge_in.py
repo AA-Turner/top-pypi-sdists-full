@@ -10,20 +10,20 @@ import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from pyrit.common.apply_defaults import REQUIRED_VALUE, apply_defaults
+from pyrit.common import REQUIRED_VALUE, apply_defaults
 from pyrit.executor.attack.component.conversation_manager import ConversationManager
+from pyrit.executor.attack.core import AttackParamsT
 from pyrit.executor.attack.core.attack_config import AttackConverterConfig
-from pyrit.executor.attack.core.attack_parameters import AttackParameters, AttackParamsT
+from pyrit.executor.attack.core.attack_parameters import AttackParameters
 from pyrit.executor.attack.core.attack_strategy import AttackContext, AttackStrategy
 from pyrit.models import (
+    AtomicAttackIdentifier,
     AttackOutcome,
     AttackResult,
     Message,
 )
-from pyrit.models.identifiers.atomic_attack_identifier import AtomicAttackIdentifier
 from pyrit.prompt_normalizer import PromptNormalizer
-from pyrit.prompt_target.common.target_capabilities import CapabilityName
-from pyrit.prompt_target.common.target_requirements import TargetRequirements
+from pyrit.prompt_target import CapabilityName, TargetRequirements
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -139,7 +139,8 @@ class BargeInAttack(AttackStrategy["BargeInAttackContext[Any]", AttackResult]):
         if not context.conversation_id:
             context.conversation_id = str(uuid.uuid4())
         existing_message_ids = {
-            message.get_piece().id for message in self._conversation_manager.get_conversation(context.conversation_id)
+            message.get_piece().id
+            for message in (await self._conversation_manager.get_conversation_async(context.conversation_id))
         }
         await self._conversation_manager.initialize_context_async(
             context=context,
@@ -148,7 +149,7 @@ class BargeInAttack(AttackStrategy["BargeInAttackContext[Any]", AttackResult]):
             request_converters=self._request_converters,
             prepended_conversation_config=self._prepended_conversation_config,
         )
-        persisted_messages = self._conversation_manager.get_conversation(context.conversation_id)
+        persisted_messages = await self._conversation_manager.get_conversation_async(context.conversation_id)
         context.prepended_conversation = [
             message for message in persisted_messages if message.get_piece().id not in existing_message_ids
         ]
@@ -218,7 +219,7 @@ class BargeInAttack(AttackStrategy["BargeInAttackContext[Any]", AttackResult]):
             objective=context.objective,
             atomic_attack_identifier=AtomicAttackIdentifier.build(attack_identifier=self.get_identifier()),
             last_response=(last_response.message_pieces[0] if last_response else None),
-            last_score=None,
+            automated_score=None,
             related_conversations=context.related_conversations,
             outcome=AttackOutcome.UNDETERMINED,
             outcome_reason=outcome_reason,

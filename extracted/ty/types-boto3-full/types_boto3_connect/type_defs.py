@@ -4004,6 +4004,8 @@ class IntegrationAssociationSummaryTypeDef(TypedDict):
     SourceApplicationUrl: NotRequired[str]
     SourceApplicationName: NotRequired[str]
     SourceType: NotRequired[SourceTypeType]
+    LastModifiedTime: NotRequired[datetime]
+    LastModifiedRegion: NotRequired[str]
 
 
 class TaskTemplateFieldIdentifierTypeDef(TypedDict):

@@ -1,21 +1,27 @@
 Metadata-Version: 2.4
 Name: pyrit
-Version: 1.1.0
+Version: 1.2.0
 Summary: The Python Risk Identification Tool for LLMs (PyRIT) is a library used to assess the robustness of LLMs
 Author-email: Microsoft AI Red Team <airedteam@microsoft.com>
 License-Expression: MIT
 Keywords: llm,ai-safety,ai-security,ai-red-team,ai-red-teaming,ai-robustness,ai-robustness-testing,ai-risk-assessment
 Classifier: Development Status :: 3 - Alpha
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.15,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-License-File: NOTICE.txt
+License-File: LICENSES/Apache-2.0.txt
+License-File: LICENSES/PromptInject-MIT.txt
+License-File: THIRD_PARTY_NOTICES.txt
+License-File: third_party/garak-provenance.json
+License-File: third_party/promptinject-provenance.json
 Requires-Dist: aiofiles<26,>=24
+Requires-Dist: aiohttp>=3.13.4
+Requires-Dist: aioodbc>=0.5.0
+Requires-Dist: aiosqlite>=0.21.0
 Requires-Dist: alembic>=1.16.0
 Requires-Dist: appdirs>=1.4.0
 Requires-Dist: art>=6.5.0
@@ -31,25 +37,31 @@ Requires-Dist: confusables>=1.2.0
 Requires-Dist: confusable-homoglyphs>=3.3.1
 Requires-Dist: ecoji>=0.1.1
 Requires-Dist: datasets>=4.8.0
-Requires-Dist: exceptiongroup>=1.2.0; python_version < "3.11"
 Requires-Dist: fastapi>=0.133.0
 Requires-Dist: httpx[http2]>=0.27.2
+Requires-Dist: httpx2<3,>=2.5.0
 Requires-Dist: jinja2>=3.1.6
+Requires-Dist: jsonschema>=4.25.1
+Requires-Dist: markdown-it-py<5,>=4.0.0
+Requires-Dist: mcp<3,>=2.2
 Requires-Dist: numpy>=1.26.0; python_version < "3.14"
 Requires-Dist: numpy>=2.3.0; python_version >= "3.14"
-Requires-Dist: openai>=2.2.0
+Requires-Dist: openai<4,>=3
 Requires-Dist: openpyxl>=3.1.5
+Requires-Dist: opentelemetry-sdk<2,>=1.36
 Requires-Dist: pillow>=12.2.0
-Requires-Dist: pydantic>=2.11.5
-Requires-Dist: PyJWT[crypto]>=2.8.0
+Requires-Dist: pydantic>=2.12.0
+Requires-Dist: PyJWT[crypto]>=2.15.0
 Requires-Dist: pyodbc>=5.1.0
 Requires-Dist: pypdf>=6.10.2
+Requires-Dist: pypinyin>=0.55.0
 Requires-Dist: python-docx>=1.1.0
 Requires-Dist: python-dotenv>=1.2.2
 Requires-Dist: reportlab>=4.4.4
+Requires-Dist: regex>=2024.11.6
 Requires-Dist: segno>=1.6.6
 Requires-Dist: scipy>=1.15.3
-Requires-Dist: SQLAlchemy>=2.0.41
+Requires-Dist: SQLAlchemy[asyncio]>=2.0.41
 Requires-Dist: starlette>=1.0.1
 Requires-Dist: termcolor>=2.4.0
 Requires-Dist: tenacity>=9.1.2
@@ -59,6 +71,7 @@ Requires-Dist: transformers>=5.0.0rc3
 Requires-Dist: treelib>=1.7.1
 Requires-Dist: uvicorn[standard]>=0.32.0
 Requires-Dist: websockets>=14.0
+Requires-Dist: wcwidth>=0.2.14
 Provides-Extra: huggingface
 Requires-Dist: sentencepiece>=0.2.0; extra == "huggingface"
 Requires-Dist: torch>=2.7.0; extra == "huggingface"
@@ -79,15 +92,21 @@ Requires-Dist: opencv-python>=4.11.0.86; extra == "opencv"
 Provides-Extra: speech
 Requires-Dist: azure-cognitiveservices-speech>=1.44.0; extra == "speech"
 Provides-Extra: litellm
-Requires-Dist: litellm<1.99.0,>=1.84.0; extra == "litellm"
+Requires-Dist: litellm>=1.104.2; extra == "litellm"
+Provides-Extra: github-copilot
+Requires-Dist: github-copilot-sdk<1.0.23,>=1.0.11; extra == "github-copilot"
+Provides-Extra: a2a
+Requires-Dist: a2a-sdk<2,>=1.1.5; extra == "a2a"
 Provides-Extra: all
+Requires-Dist: a2a-sdk<2,>=1.1.5; extra == "all"
 Requires-Dist: accelerate>=1.7.0; extra == "all"
 Requires-Dist: azure-ai-ml>=1.32.0; extra == "all"
 Requires-Dist: azure-cognitiveservices-speech>=1.44.0; extra == "all"
 Requires-Dist: flask>=3.1.3; extra == "all"
+Requires-Dist: github-copilot-sdk<1.0.23,>=1.0.11; extra == "all"
 Requires-Dist: ipykernel>=6.29.5; extra == "all"
 Requires-Dist: jupyter>=1.1.1; extra == "all"
-Requires-Dist: litellm<1.99.0,>=1.84.0; extra == "all"
+Requires-Dist: litellm>=1.104.2; extra == "all"
 Requires-Dist: ollama>=0.5.1; extra == "all"
 Requires-Dist: opencv-python>=4.11.0.86; extra == "all"
 Requires-Dist: playwright>=1.49.0; extra == "all"
@@ -97,21 +116,80 @@ Requires-Dist: spacy!=3.8.14,!=3.8.15,>=3.8.13; extra == "all"
 Requires-Dist: torch>=2.7.0; extra == "all"
 Dynamic: license-file
 
-<p align="center"><img src="https://raw.githubusercontent.com/microsoft/PyRIT/releases/v1.1.0/doc/roakey.png" width="150"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/microsoft/PyRIT/releases/v1.2.0/doc/roakey.png" width="150"></p>
 
-# Python Risk Identification Tool for generative AI (PyRIT)
+# PyRIT: AI red teaming for models and applications
 
-The Python Risk Identification Tool for generative AI (PyRIT) is an open source
-framework built to empower security professionals and engineers to proactively
-identify risks in generative AI systems.
+[![Code contributors](https://img.shields.io/github/contributors/microsoft/PyRIT?label=code%20contributors)](https://github.com/microsoft/PyRIT/graphs/contributors)
+[![PRs merged](https://img.shields.io/github/issues-search?query=repo%3Amicrosoft%2FPyRIT%20is%3Apr%20is%3Amerged&label=PRs%20merged)](https://github.com/microsoft/PyRIT/pulls?q=is%3Apr+is%3Amerged)
+[![Issues closed](https://img.shields.io/github/issues-closed/microsoft/PyRIT?label=issues%20closed)](https://github.com/microsoft/PyRIT/issues?q=is%3Aissue+is%3Aclosed)
 
-- Check out our [website](https://microsoft.github.io/PyRIT/) for more information
-  about how to use, install, or contribute to PyRIT.
-- Review our [security policy](https://github.com/microsoft/PyRIT/security/policy)
-  to report vulnerabilities privately through the Microsoft Security Response Center.
-- Visit our [Discord server](https://discord.gg/9fMpq3tc8u) to chat with the team and community.
+PyRIT (Python Risk Identification Tool for generative AI) is an open-source toolkit
+for finding security and safety weaknesses in generative AI systems through automated
+scans, adaptive multi-turn attacks, and human-led testing.
 
-## Trademarks and Citations
+Built by the Microsoft AI Red Team and an open-source community of contributors,
+PyRIT brings a command-line scanner, a graphical interface, and an extensible
+Python framework together in one toolkit.
+
+You do not need to be a Microsoft employee or an experienced red teamer to get involved.
+Join our [Discord community](https://discord.gg/9fMpq3tc8u) to ask questions, exchange
+techniques, share what you are building, and connect with maintainers and other users.
+
+Contributions include code, documentation, examples, bug reports, testing, and feedback
+from real-world use. Read the
+[contributor guide](https://microsoft.github.io/PyRIT/latest/contributing/readme/) and
+explore [issues labeled "help wanted"](https://github.com/microsoft/PyRIT/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22).
+
+**[Get started](https://microsoft.github.io/PyRIT/) |
+[Join Discord](https://discord.gg/9fMpq3tc8u) |
+[Read the whitepaper](https://commandline.microsoft.com/wp-content/uploads/2026/08/PyRIT_Whitepaper_2026.pdf)**
+
+## Explore PyRIT
+
+- **[Scanner](https://microsoft.github.io/PyRIT/latest/scanner/scanner/):**
+  Run repeatable assessments from the command line.
+- **[CoPyRIT GUI](https://microsoft.github.io/PyRIT/latest/gui/gui/):**
+  Explore AI systems interactively and review results in your browser.
+- **[Python framework](https://microsoft.github.io/PyRIT/latest/code/framework/):**
+  Compose and extend components to build custom red teaming workflows.
+
+Visit our [website](https://microsoft.github.io/PyRIT/) for installation, configuration,
+demos, and documentation. Use the version picker to match the docs to your installation;
+the guides above follow the latest development version.
+
+## Models and systems
+
+Connect to **OpenAI, Anthropic, Azure OpenAI, Microsoft Foundry, Azure Machine Learning,
+Google Gemini, Google Vertex AI, AWS Bedrock, Hugging Face, Ollama, Groq, OpenRouter,
+Cohere, and GitHub Copilot**.
+
+Use OpenAI-compatible APIs or built-in targets, or install the optional
+[LiteLLM adapter](https://github.com/microsoft/PyRIT/blob/main/pyrit/prompt_target/litellm_chat_target.py)
+for additional provider integrations. See the
+[provider configuration guide](https://microsoft.github.io/PyRIT/latest/getting-started/populating-secrets/)
+and [LiteLLM provider directory](https://docs.litellm.ai/docs/providers) for setup and more providers.
+Available features depend on the target and model.
+
+Test complete applications and other endpoints through
+[HTTP](https://microsoft.github.io/PyRIT/latest/code/targets/http-target/),
+[WebSockets](https://microsoft.github.io/PyRIT/latest/code/targets/websocket-target/),
+[browser automation with Playwright](https://microsoft.github.io/PyRIT/latest/code/targets/playwright-target/),
+or [custom targets](https://microsoft.github.io/PyRIT/latest/code/targets/custom-targets/).
+
+## Research and citation
+
+Read [PyRIT: Democratizing AI Red Teaming Through Open-Source Tooling](https://commandline.microsoft.com/wp-content/uploads/2026/08/PyRIT_Whitepaper_2026.pdf)
+for the design principles and real-world experience behind the toolkit.
+If you use PyRIT in your research, please cite the paper using
+[`CITATION.cff`](https://raw.githubusercontent.com/microsoft/PyRIT/releases/v1.2.0/CITATION.cff).
+
+## Security
+
+To report vulnerabilities in PyRIT privately through the Microsoft Security Response
+Center, follow our [security policy](https://github.com/microsoft/PyRIT/security/policy).
+
+## Trademarks
 
 This project may contain trademarks or logos for projects, products, or services.
 Authorized use of Microsoft trademarks or logos is subject to and must follow
@@ -120,5 +198,3 @@ Use of Microsoft trademarks or logos in modified versions of this project must
 not cause confusion or imply Microsoft sponsorship.
 Any use of third-party trademarks or logos are subject to those third-party's
 policies.
-
-If you use PyRIT in your research, please cite the tool itself following the [`CITATION.cff`](https://raw.githubusercontent.com/microsoft/PyRIT/releases/v1.1.0/CITATION.cff) file in the root of this repository.

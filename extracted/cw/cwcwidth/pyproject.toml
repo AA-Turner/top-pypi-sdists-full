@@ -1,27 +1,38 @@
 [build-system]
 requires = [
-  "setuptools >= 43",
+  "setuptools >= 77.0.3",
   "Cython >= 3.1",
 ]
 build-backend = "setuptools.build_meta"
 
-[tool.black]
-target_version = ["py311"]
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | \.hg
-  | \.eggs
-  | \.mypy_cache
-  | \.tox
-  | venv
-  | _build
-  | build
-  | dist
-  | docs
-)/
-'''
+[project]
+name = "cwcwidth"
+version = "0.1.13"
+description = "Python bindings for wc(s)width"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Sebastian Ramacher", email = "sebastian@ramacher.at" }]
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://github.com/sebastinas/cwcwidth"
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = false
 
 [tool.cibuildwheel]
 environment-pass = ["USE_LIMITED_API"]
+
+[tool.ruff]
+exclude = ["docs"]
+
+[tool.ruff.lint]
+ignore = ["EXE001"]

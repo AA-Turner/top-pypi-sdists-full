@@ -1,3 +1,3 @@
 __title__ = "composio-client"
 # Kept in sync with pyproject.toml by release-please (extra-files).
-__version__ = "2.1.31"  # x-release-please-version
+__version__ = "2.1.32"  # x-release-please-version

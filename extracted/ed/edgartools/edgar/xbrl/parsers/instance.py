@@ -7,27 +7,40 @@ units, footnotes, and entity information extraction.
 
 import math
 import re
-from datetime import datetime
+from datetime import date, datetime
 from decimal import MAX_EMAX, MIN_EMIN, ROUND_HALF_EVEN, Decimal, Inexact, InvalidOperation, localcontext
 from decimal import Context as DecimalContext
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Set, Union
+from xml.sax.saxutils import escape, quoteattr
 
 from lxml import etree as ET
 
 from edgar.core import log
-from edgar.dates import calculate_fiscal_year_for_label, fiscal_year_end_month
+from edgar.dates import calculate_fiscal_year_for_label, fiscal_year_end_month, normalize_period_boundary
 from edgar.xbrl.core import (
     INFINITE_PRECISION,
     NAMESPACES,
     classify_duration,
+    decimals_from_precision,
     duration_days,
+    expanded_measure_name,
     is_amendment_document_type,
     is_annual_document_type,
     is_quarterly_document_type,
+    unit_definition,
+)
+from edgar.xbrl.footnote_links import (
+    FOOTNOTE_ROLE,
+    collect_footnote_text,
+    fact_footnote_links,
+    inherited_lang,
+    inline_footnote_text,
+    is_fact_footnote_arcrole,
+    normalize_footnote_text,
 )
 from edgar.xbrl.models import Context, Fact, XBRLProcessingError
-from edgar.xmltools import xml_parser
+from edgar.xmltools import is_xsi_nil, xml_parser
 
 from .base import BaseParser
 
@@ -35,21 +48,6 @@ XLINK_NS = "{http://www.w3.org/1999/xlink}"
 LINKBASE_NS = "{http://www.xbrl.org/2003/linkbase}"
 XML_NS = "{http://www.w3.org/XML/1998/namespace}"
 IX_NS = "{http://www.xbrl.org/2013/inlineXBRL}"
-FACT_FOOTNOTE_ARCROLE = "http://www.xbrl.org/2003/arcrole/fact-footnote"
-FOOTNOTE_ROLE = "http://www.xbrl.org/2003/role/footnote"
-
-# Elements whose content is a block: a break belongs after them, or the last
-# word of one runs into the first word of the next.
-_BLOCK_ELEMENTS = frozenset({
-    'address', 'article', 'blockquote', 'br', 'div', 'dd', 'dl', 'dt',
-    'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3',
-    'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'pre',
-    'section', 'table', 'tbody', 'tfoot', 'thead', 'tr', 'ul',
-})
-
-# Cells sit side by side on one line, so they take a space rather than a break.
-_CELL_ELEMENTS = frozenset({'td', 'th'})
-
 XBRLI_NS = "{http://www.xbrl.org/2003/instance}"
 XSI_NS = "{http://www.w3.org/2001/XMLSchema-instance}"
 
@@ -77,14 +75,39 @@ _STRUCTURAL_ELEMENTS = frozenset({
 # co-registrant's, not the filer's (GH #1420, #1710).
 _ENTITY_AXES = ('dei:LegalEntityAxis', 'srt:ConsolidatedEntitiesAxis')
 
-# xsi:nil is a boolean: true/false or 1/0.
-_NIL_TRUE = frozenset({'true', '1'})
+
+def _parse_iso_date(value: Optional[str]) -> Optional[date]:
+    """A ``YYYY-MM-DD`` string as a date, or None when it is absent or not one."""
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value.strip(), '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
+
+# Axes whose member names the security a dei:TradingSymbol fact lists. Most
+# covers use StatementClassOfStockAxis; ExxonMobil's uses CapitalUnitsByClassAxis
+# (GH #1252).
+_CLASS_OF_STOCK_AXES = ('us-gaap:StatementClassOfStockAxis', 'us-gaap:CapitalUnitsByClassAxis')
+
+
+def _is_dei_fact(fact: Fact) -> bool:
+    return _dei_concept(fact.element_id) is not None
+
+
+def _dei_concept(element_id: str) -> Optional[str]:
+    """The local name of a DEI fact's concept ('TradingSymbol'), or None for any other fact."""
+    if element_id.startswith('dei:'):
+        return element_id.split(':', 1)[1]
+    if element_id.startswith('dei_'):
+        return element_id.split('_', 1)[1]
+    return None
 
 
 def _is_nil(element: ET.Element) -> bool:
-    """Whether an element is marked ``xsi:nil``."""
-    nil = element.get(f"{XSI_NS}nil")
-    return isinstance(nil, str) and nil.strip().lower() in _NIL_TRUE
+    """Whether an element is marked ``xsi:nil``: the rule the inline extractor shares."""
+    return is_xsi_nil(element)
 
 
 def _xbrli_child(element: ET.Element, local_name: str) -> Optional[ET.Element]:
@@ -282,6 +305,88 @@ def _fraction_item(element: ET.Element) -> Optional[tuple[str, Optional[float], 
     return _format_decimal(quotient), _fraction_numeric_value(quotient), True
 
 
+def _typed_member_value(child: ET.Element) -> str:
+    """
+    A typed dimension's value: the content of the typedMember's child.
+
+    Simple content is its stripped text (`2026-09-01`, `10:30`). Element-only
+    content is the child serialized as filed, so two contexts whose nested
+    values differ keep different values (XBRL Dimensions 1.0 section 3.1.4.4);
+    reading the empty text of such a child gave every context the child's tag
+    (gh #1761). A nil child has no value: it yields '' and its axis is
+    recorded in Context.nil_dimensions, rather than the child's tag, which
+    read as a member name (gh #1751). An empty non-nil child still yields the
+    child's tag, as before.
+    """
+    if _is_nil(child):
+        return ''
+    text = (child.text or '').strip()
+    if text:
+        return text
+    if any(isinstance(grandchild.tag, str) for grandchild in child):
+        return _serialize_element(child)
+    return child.tag
+
+
+def _prefixed_name(element: ET.Element, name: str) -> str:
+    """`{ns}local` as the document's own `prefix:local`, where it has one."""
+    qname = ET.QName(name)
+    if not qname.namespace:
+        return name
+    for prefix, uri in (element.nsmap or {}).items():
+        if uri == qname.namespace and prefix:
+            return f"{prefix}:{qname.localname}"
+    return qname.localname
+
+
+def _serialize_element(element: ET.Element) -> str:
+    """An element as compact XML: prefixed names, no namespace declarations."""
+    name = _prefixed_name(element, element.tag)
+    attributes = "".join(f" {_prefixed_name(element, key)}={quoteattr(value)}"
+                         for key, value in sorted(element.attrib.items()))
+    parts = [escape((element.text or '').strip())]
+    for child in element:
+        if isinstance(child.tag, str):
+            parts.append(_serialize_element(child))
+        parts.append(escape((child.tail or '').strip()))
+    return f"<{name}{attributes}>{''.join(parts)}</{name}>"
+
+
+def _read_measures(measure_elems: List[ET.Element]) -> tuple[List[str], List[Optional[str]]]:
+    """
+    The filed (lexical) measures of a unit part, and each one's expanded QName.
+
+    Lexical measures are stripped: a pretty-printed <measure> carries whitespace
+    that breaks every iso4217: prefix test downstream (GH #1704). Each QName is
+    resolved against its own element's in-scope namespaces, so the default
+    namespace and a local declaration both count; an undeclared prefix gives None.
+    """
+    measures: List[str] = []
+    names: List[Optional[str]] = []
+    for elem in measure_elems:
+        measure = (elem.text or '').strip()
+        if measure:
+            measures.append(measure)
+            names.append(expanded_measure_name(measure, elem.nsmap))
+    return measures, names
+
+
+def _definition_or_none(unit_id: Optional[str], numerator: List[Optional[str]], denominator: List[Optional[str]],
+                        lexical_numerator: List[str], lexical_denominator: List[str],
+                        divide: bool = False) -> Optional[Dict[str, Any]]:
+    """
+    A unit's common definition descriptor (GH #1747, #1746), or None when it has
+    no numerator, a division has no denominator (XBRL 2.1 section 4.8.3), or a
+    measure's prefix is undeclared. An unresolved unit is reported downstream as
+    unavailable, never guessed from its id.
+    """
+    if not numerator or (divide and not denominator) or None in numerator or None in denominator:
+        log.warning(f"XBRL unit '{unit_id}' has a measure that cannot be resolved; "
+                    f"statements report its unit as unavailable")
+        return None
+    return unit_definition(numerator, denominator, lexical_numerator, lexical_denominator)
+
+
 class InstanceParser(BaseParser):
     """Parser for XBRL instance documents."""
 
@@ -316,6 +421,15 @@ class InstanceParser(BaseParser):
 
         # DEI facts extracted during entity info processing
         self.dei_facts: Dict[str, Fact] = {}
+
+        # Every DEI fact in instance document order. self.facts cannot give that
+        # order: a duplicated fact's first copy is re-keyed, which moves it to
+        # where its second copy appears (GH #1252).
+        self.dei_facts_in_document_order: List[Fact] = []
+
+        # Dimension QNames seen on an xbrldi:typedMember. Shared with the
+        # definition parser by the coordinator, which replaces this set.
+        self.typed_dimensions: Set[str] = set()
 
     def _create_normalized_fact_key(self, element_id: str, context_ref: str, instance_id: Optional[int] = None) -> str:
         """
@@ -520,33 +634,42 @@ class InstanceParser(BaseParser):
                     # Get segment dimensions if present
                     segment_elem = entity_elem.find('.//{http://www.xbrl.org/2003/instance}segment')
                     if segment_elem is not None:
-                        self._read_dimension_members(segment_elem, context.dimensions)
+                        self._read_dimension_members(segment_elem, context)
 
                 # Dimensions may also sit in the context's scenario (XBRL Dimensions 1.0 §3.1.4.1);
                 # without them a scenario-qualified fact reads as the undimensioned total.
                 scenario_elem = context_elem.find('{http://www.xbrl.org/2003/instance}scenario')
                 if scenario_elem is not None:
-                    self._read_dimension_members(scenario_elem, context.dimensions)
+                    self._read_dimension_members(scenario_elem, context)
 
                 # Extract period information
                 period_elem = context_elem.find('.//{http://www.xbrl.org/2003/instance}period')
                 if period_elem is not None:
                     # Check for instant period
                     instant_elem = period_elem.find('.//{http://www.xbrl.org/2003/instance}instant')
-                    if instant_elem is not None and instant_elem.text:
+                    # Collapsed and folded onto the date-only spelling, so a
+                    # padded date or a whole-day dateTime keys the same
+                    # period as the plain date it equals (GH #1762).
+                    instant = normalize_period_boundary(
+                        instant_elem.text if instant_elem is not None else None, is_end=True)
+                    if instant:
                         context.period = {
                             'type': 'instant',
-                            'instant': instant_elem.text
+                            'instant': instant
                         }
 
                     # Check for duration period
                     start_elem = period_elem.find('.//{http://www.xbrl.org/2003/instance}startDate')
                     end_elem = period_elem.find('.//{http://www.xbrl.org/2003/instance}endDate')
-                    if start_elem is not None and end_elem is not None and start_elem.text and end_elem.text:
+                    start = normalize_period_boundary(
+                        start_elem.text if start_elem is not None else None, is_end=False)
+                    end = normalize_period_boundary(
+                        end_elem.text if end_elem is not None else None, is_end=True)
+                    if start and end:
                         context.period = {
                             'type': 'duration',
-                            'startDate': start_elem.text,
-                            'endDate': end_elem.text
+                            'startDate': start,
+                            'endDate': end
                         }
 
                     # Check for forever period
@@ -562,9 +685,9 @@ class InstanceParser(BaseParser):
         except Exception as e:
             raise XBRLProcessingError(f"Error extracting contexts: {str(e)}") from e
 
-    @staticmethod
-    def _read_dimension_members(container: ET.Element, dimensions: Dict[str, str]) -> None:
+    def _read_dimension_members(self, container: ET.Element, context: Context) -> None:
         """Read explicit and typed dimension members from a segment or scenario element."""
+        dimensions = context.dimensions
         for dim_elem in container.findall('.//{http://xbrl.org/2006/xbrldi}explicitMember'):
             dimension = dim_elem.get('dimension')
             value = dim_elem.text
@@ -573,15 +696,45 @@ class InstanceParser(BaseParser):
 
         for dim_elem in container.findall('.//{http://xbrl.org/2006/xbrldi}typedMember'):
             dimension = dim_elem.get('dimension')
-            if dimension:
-                # The typed dimension value is the text content of the first child element
-                for child in dim_elem:
-                    if child.text and child.text.strip():
-                        dimensions[dimension] = child.text.strip()
-                    else:
-                        # Fallback to tag if no text content
-                        dimensions[dimension] = child.tag
-                    break
+            if not dimension:
+                continue
+            # Only a typed dimension may carry a typedMember, so this is
+            # evidence of the dimension's kind even when its declaration lives
+            # in a taxonomy that is never loaded (gh #1234).
+            self.typed_dimensions.add(dimension)
+            child = next((c for c in dim_elem if isinstance(c.tag, str)), None)
+            if child is not None:
+                dimensions[dimension] = _typed_member_value(child)
+                if _is_nil(child) and dimension not in context.nil_dimensions:
+                    context.nil_dimensions.append(dimension)
+
+    @staticmethod
+    def _measure_unit(unit_elem: ET.Element) -> Optional[Dict[str, Any]]:
+        """
+        A unit without xbrli:divide: one measure, or the product of several.
+
+        Sibling measures are multiplied (XBRL 2.1 section 4.8.2, example 20:
+        square feet is feet x feet), and two units are equal only when their
+        measures are (section 4.10). A product therefore keeps every factor,
+        repeats included, as `{'type': 'product', 'measures': [...]}`. It has
+        no single `measure`, so nothing downstream reads USD x shares as a
+        currency amount (gh #1747).
+        """
+        # A measure is a CHILD of xbrli:unit per the spec, so a direct-child
+        # search is the precise test; the descendant search is kept as a
+        # fallback for filings that nest one.
+        measure_elems = unit_elem.findall(f'{XBRLI_NS}measure')
+        if not measure_elems:
+            measure_elems = unit_elem.findall(f'.//{XBRLI_NS}measure')[:1]
+        measures, names = _read_measures(measure_elems)
+        if not measures:
+            return None
+        if len(measures) == 1:
+            unit = {'type': 'simple', 'measure': measures[0]}
+        else:
+            unit = {'type': 'product', 'measures': measures}
+        unit['definition'] = _definition_or_none(unit_elem.get('id'), names, [], measures, [])
+        return unit
 
     def _extract_units(self, root: ET.Element) -> None:
         """Extract units from instance document."""
@@ -602,21 +755,9 @@ class InstanceParser(BaseParser):
                 # (edgartools-uetp).
                 divide_elem = unit_elem.find('.//{http://www.xbrl.org/2003/instance}divide')
                 if divide_elem is None:
-                    # A simple unit's measure is a CHILD of xbrli:unit per the
-                    # spec, so a direct-child search is the precise test; the
-                    # descendant search is kept as a fallback for filings that
-                    # nest it, which is safe now that divide is handled above.
-                    measure_elem = unit_elem.find('{http://www.xbrl.org/2003/instance}measure')
-                    if measure_elem is None:
-                        measure_elem = unit_elem.find('.//{http://www.xbrl.org/2003/instance}measure')
-                    # Strip: a pretty-printed <measure> carries whitespace that
-                    # breaks every iso4217: prefix test downstream (GH #1704).
-                    measure_text = (measure_elem.text or '').strip() if measure_elem is not None else ''
-                    if measure_text:
-                        self.units[unit_id] = {
-                            'type': 'simple',
-                            'measure': measure_text
-                        }
+                    unit = self._measure_unit(unit_elem)
+                    if unit is not None:
+                        self.units[unit_id] = unit
                     continue
 
                 if divide_elem is not None:
@@ -625,14 +766,17 @@ class InstanceParser(BaseParser):
                     denominator_elem = divide_elem.find('.//{http://www.xbrl.org/2003/instance}unitDenominator')
 
                     if numerator_elem is not None and denominator_elem is not None:
-                        # Get measures
-                        numerator_measures = [elem.text.strip() for elem in numerator_elem.findall('.//{http://www.xbrl.org/2003/instance}measure') if elem.text and elem.text.strip()]
-                        denominator_measures = [elem.text.strip() for elem in denominator_elem.findall('.//{http://www.xbrl.org/2003/instance}measure') if elem.text and elem.text.strip()]
-
+                        numerator_measures, numerator_names = _read_measures(
+                            numerator_elem.findall(f'.//{XBRLI_NS}measure'))
+                        denominator_measures, denominator_names = _read_measures(
+                            denominator_elem.findall(f'.//{XBRLI_NS}measure'))
                         self.units[unit_id] = {
                             'type': 'divide',
                             'numerator': numerator_measures,
-                            'denominator': denominator_measures
+                            'denominator': denominator_measures,
+                            'definition': _definition_or_none(
+                                unit_id, numerator_names, denominator_names,
+                                numerator_measures, denominator_measures, divide=True),
                         }
 
         except Exception as e:
@@ -715,6 +859,7 @@ class InstanceParser(BaseParser):
             fact_count = 0
             facts_dict = {}
             base_keys = {}
+            facts_in_order: List[Fact] = []
 
             def process_element(element):
                 """Process a single element as a potential fact."""
@@ -813,6 +958,17 @@ class InstanceParser(BaseParser):
                         except (ValueError, TypeError):
                             pass
 
+                # A fact may state its accuracy as @precision (significant
+                # digits) instead of @decimals; the two are exclusive. A
+                # consumer infers decimals from it (XBRL 2.1 §4.6.6) so the
+                # fact ranks and scales like any other. The attribute itself
+                # is kept on the fact (GH #1765).
+                precision = element.get('precision')
+                if decimals is None and precision is not None and unit_ref:
+                    inferred = decimals_from_precision(precision, value)
+                    # As a string, the form a filed @decimals arrives in.
+                    decimals = str(inferred) if inferred is not None else None
+
                 # Create base key for duplicate detection
                 base_key = self._create_normalized_fact_key(element_id, context_ref)
 
@@ -840,14 +996,19 @@ class InstanceParser(BaseParser):
                     value=value,
                     unit_ref=unit_ref,
                     decimals=decimals,
+                    precision=precision,
                     numeric_value=numeric_value,
                     instance_id=instance_id,
-                    fact_id=fact_id
+                    fact_id=fact_id,
+                    # The filer's nil marker, kept as source metadata; the
+                    # value and numeric_value above are unchanged (GH #1254).
+                    is_nil=_is_nil(element),
                 )
 
                 # Store fact with appropriate key
                 key = self._create_normalized_fact_key(element_id, context_ref, instance_id)
                 facts_dict[key] = fact
+                facts_in_order.append(fact)
                 fact_count += 1
 
             # Use lxml's optimized traversal methods
@@ -867,6 +1028,7 @@ class InstanceParser(BaseParser):
 
             # Update instance facts
             self.facts.update(facts_dict)
+            self.dei_facts_in_document_order = list(filter(_is_dei_fact, facts_in_order))
 
             log.debug(f"Extracted {fact_count} facts ({len(base_keys)} unique fact identifiers)")
 
@@ -922,6 +1084,12 @@ class InstanceParser(BaseParser):
                     from_ref = arc_elem.get(f'{XLINK_NS}from')
                     to_ref = arc_elem.get(f'{XLINK_NS}to')
                     if not from_ref or not to_ref:
+                        continue
+                    # Only a fact-footnote arc is an ordinary footnote. A
+                    # fact-explanatoryFact arc or a filer's own arcrole relates
+                    # them some other way; the inline readers already skip
+                    # these, and Fact.footnotes has no room for them (GH #1767).
+                    if not is_fact_footnote_arcrole(arc_elem.get(f'{XLINK_NS}arcrole')):
                         continue
 
                     # Fall back to the label when the arc names no locator —
@@ -999,19 +1167,12 @@ class InstanceParser(BaseParser):
             return 0
 
     @staticmethod
-    def _inline_footnote_links(root, footnotes_by_id: Dict[str, Any]) -> List[tuple]:
+    def _inline_footnote_links(root, footnote_ids) -> List[tuple]:
         """``(fact ids, footnote ids)`` for each fact-footnote ix:relationship."""
-        links: List[tuple] = []
-        for rel in root.iter(f'{IX_NS}relationship'):
-            # arcrole defaults to fact-footnote; any other arcrole
-            # (fact-explanatoryFact, ...) links facts to facts.
-            if rel.get('arcrole', FACT_FOOTNOTE_ARCROLE) != FACT_FOOTNOTE_ARCROLE:
-                continue
-            to_ids = [ref for ref in (rel.get('toRefs') or '').split() if ref in footnotes_by_id]
-            from_ids = (rel.get('fromRefs') or '').split()
-            if to_ids and from_ids:
-                links.append((from_ids, to_ids))
-        return links
+        return fact_footnote_links(
+            ((rel.get('arcrole'), rel.get('fromRefs'), rel.get('toRefs'))
+             for rel in root.iter(f'{IX_NS}relationship')),
+            footnote_ids)
 
     def _add_inline_footnotes(self, root, footnotes_by_id: Dict[str, Any]) -> Dict[str, str]:
         """Store each ix:footnote as a Footnote; returns ``{footnote id: storage key}``."""
@@ -1025,8 +1186,8 @@ class InstanceParser(BaseParser):
             key = self._footnote_storage_key(footnote_id)
             self.footnotes[key] = Footnote(
                 footnote_id=key,
-                text=self._inline_footnote_text(footnote_elem, continuations),
-                lang=self._inline_lang(footnote_elem),
+                text=inline_footnote_text(footnote_elem, continuations),
+                lang=inherited_lang(footnote_elem, f'{XML_NS}lang'),
                 role=footnote_elem.get('footnoteRole', FOOTNOTE_ROLE),
                 related_fact_ids=[]
             )
@@ -1045,35 +1206,6 @@ class InstanceParser(BaseParser):
                 for fact_id in from_ids:
                     self.footnotes[key].related_fact_ids.append(fact_id)
                     self._attach_footnote_to_fact(fact_id, key, first_fact_by_id)
-
-    def _inline_footnote_text(self, footnote_elem, continuations: Dict[str, Any]) -> str:
-        """
-        An ix:footnote's text, followed through its `continuedAt` chain.
-
-        A continuation carries on the same run of text, so it is joined with no
-        break -- the way SEC's extraction writes it into the footnoteLink.
-        """
-        parts: List[str] = []
-        self._collect_footnote_text(footnote_elem, parts)
-        seen = set()
-        next_id = footnote_elem.get('continuedAt')
-        while next_id and next_id not in seen and next_id in continuations:
-            seen.add(next_id)
-            continuation = continuations[next_id]
-            self._collect_footnote_text(continuation, parts)
-            next_id = continuation.get('continuedAt')
-        return self._normalize_footnote_text(parts)
-
-    @staticmethod
-    def _inline_lang(elem) -> str:
-        """The xml:lang in scope for an element, as XML inherits it from ancestors."""
-        node = elem
-        while node is not None:
-            lang = node.get(f'{XML_NS}lang')
-            if lang:
-                return lang
-            node = node.getparent()
-        return 'en-US'
 
     def _footnote_storage_key(self, label: str) -> str:
         """
@@ -1111,37 +1243,61 @@ class InstanceParser(BaseParser):
         word of the next.
         """
         parts: List[str] = []
-        self._collect_footnote_text(footnote_elem, parts)
-        return self._normalize_footnote_text(parts)
+        collect_footnote_text(footnote_elem, parts)
+        return normalize_footnote_text(parts)
 
-    @staticmethod
-    def _normalize_footnote_text(parts: List[str]) -> str:
-        """Collapse whitespace within each line and drop empty lines."""
-        lines = []
-        for raw_line in ''.join(parts).split('\n'):
-            line = ' '.join(raw_line.split())
-            if line:
-                lines.append(line)
-        return '\n'.join(lines)
+    def _max_instant_context_date(self) -> Optional[date]:
+        """The latest instant among all contexts, whatever the fact in it.
 
-    def _collect_footnote_text(self, node, parts: List[str]) -> None:
-        """Append this node's text, its children's, and their tails, in order."""
-        if node.text:
-            parts.append(node.text)
+        Usually the cover's share-count date, after the period end: Apple's
+        FY2023 10-K reports to 2023-09-30 and counts shares on 2023-10-20.
+        Until GH #1208 this was ``reporting_end_date``.
+        """
+        latest = None
+        for ctx in self.contexts.values():
+            period = getattr(ctx, 'period', {})
+            if period.get('type') != 'instant':
+                continue
+            instant = _parse_iso_date(period.get('instant'))
+            if instant is not None and (latest is None or instant > latest):
+                latest = instant
+        return latest
 
-        for child in node:
-            tag = child.tag
-            name = tag.rsplit('}', 1)[-1].lower() if isinstance(tag, str) else ''
 
-            self._collect_footnote_text(child, parts)
+    def _is_co_registrant_fact(self, fact: Fact) -> bool:
+        """Whether a fact's context names another legal entity on an entity axis (GH #1420, #1710)."""
+        context = self.contexts.get(fact.context_ref)
+        return context is not None and any(axis in context.dimensions for axis in _ENTITY_AXES)
 
-            if name in _BLOCK_ELEMENTS:
-                parts.append('\n')
-            elif name in _CELL_ELEMENTS:
-                parts.append(' ')
+    def _trading_symbols(self) -> List[Dict[str, Optional[str]]]:
+        """Every dei:TradingSymbol the filer reports, in instance document order.
 
-            if child.tail:
-                parts.append(child.tail)
+        A cover lists one symbol per registered security, each in a context
+        whose class-of-stock member names the security: JPMorgan's FY2023 10-K
+        lists ten, from JPM (common stock) to AMJB (an ETN guarantee). Each
+        entry is ``{'symbol', 'class_of_stock', 'context_ref'}``, where
+        ``class_of_stock`` is that member's QName, or None when the context has
+        none.
+
+        A co-registrant's symbols list another registrant's securities, and
+        are used only when the filer reports none, the same rule entity_info
+        applies to every DEI concept (GH #1420). A blank symbol is skipped.
+        The first entry is ``entity_info['ticker']`` (GH #1252).
+        """
+        own: List[Dict[str, Optional[str]]] = []
+        co_registrants: List[Dict[str, Optional[str]]] = []
+        for fact in self.dei_facts_in_document_order:
+            if _dei_concept(fact.element_id) != 'TradingSymbol' or not fact.value:
+                continue
+            context = self.contexts.get(fact.context_ref)
+            dimensions = context.dimensions if context is not None else {}
+            entry = {
+                'symbol': fact.value,
+                'class_of_stock': next((dimensions[axis] for axis in _CLASS_OF_STOCK_AXES if axis in dimensions), None),
+                'context_ref': fact.context_ref,
+            }
+            (co_registrants if self._is_co_registrant_fact(fact) else own).append(entry)
+        return own or co_registrants
 
     def _extract_entity_info(self) -> None:
         """Extract entity information from contexts and DEI facts."""
@@ -1170,15 +1326,10 @@ class InstanceParser(BaseParser):
             self.dei_facts: Dict[str, Fact] = {}
             co_registrant_facts: Dict[str, Fact] = {}
             for fact in self.facts.values():
-                eid = fact.element_id
-                if eid.startswith('dei:'):
-                    concept = eid.split(':', 1)[1]
-                elif eid.startswith('dei_'):
-                    concept = eid.split('_', 1)[1]
-                else:
+                concept = _dei_concept(fact.element_id)
+                if concept is None:
                     continue
-                context = self.contexts.get(fact.context_ref)
-                if context is not None and any(axis in context.dimensions for axis in _ENTITY_AXES):
+                if self._is_co_registrant_fact(fact):
                     co_registrant_facts[concept] = fact
                 else:
                     self.dei_facts[concept] = fact
@@ -1193,13 +1344,19 @@ class InstanceParser(BaseParser):
                         return f.value
                 return None
 
+            # The first of the filer's own symbols, in document order (GH #1252)
+            trading_symbols = self._trading_symbols()
+
             # Build entity_info preserving existing keys
             self.entity_info.update({
                 'entity_name':             get_dei('EntityRegistrantName'),
-                'ticker':                  get_dei('TradingSymbol'),
+                'ticker': trading_symbols[0]['symbol'] if trading_symbols else None,
+                'trading_symbols': trading_symbols,
                 'identifier':              identifier,
                 'document_type':           get_dei('DocumentType'),
-                'reporting_end_date':      None,
+                # The period the document reports on, as a date (GH #1208)
+                'reporting_end_date': _parse_iso_date(get_dei('DocumentPeriodEndDate')),
+                'max_instant_context_date': self._max_instant_context_date(),
                 'document_period_end_date':get_dei('DocumentPeriodEndDate'),
                 'fiscal_year':             get_dei('DocumentFiscalYearFocus','FiscalYearFocus','FiscalYear'),
                 'fiscal_period':           get_dei('DocumentFiscalPeriodFocus','FiscalPeriodFocus'),
@@ -1209,20 +1366,6 @@ class InstanceParser(BaseParser):
                 'quarterly_report':        False,
                 'amendment':               False,
             })
-
-            # Determine reporting_end_date from contexts
-            for ctx in self.contexts.values():
-                period = getattr(ctx, 'period', {})
-                if period.get('type') == 'instant':
-                    ds = period.get('instant')
-                    if ds:
-                        try:
-                            dt_obj = datetime.strptime(ds, '%Y-%m-%d').date()
-                            curr = self.entity_info['reporting_end_date']
-                            if curr is None or dt_obj > curr:
-                                self.entity_info['reporting_end_date'] = dt_obj
-                        except Exception:
-                            pass
 
             # Parse fiscal year end date into month/day
             fye = get_dei('CurrentFiscalYearEndDate','FiscalYearEnd')
@@ -1401,6 +1544,9 @@ class InstanceParser(BaseParser):
             elif period['type'] == 'instant':
                 date_obj = period['date_obj']
                 period['fiscal_year'] = _fiscal_year_for_date(date_obj, fy_end_month, fy_end_day)
+                fiscal_period = _fiscal_period_for_instant(date_obj, fy_end_month, fy_end_day)
+                if fiscal_period:
+                    period['fiscal_period'] = fiscal_period
 
 
 def _fiscal_year_for_date(d, fy_end_month: int, fy_end_day: int) -> int:
@@ -1417,6 +1563,26 @@ def _fiscal_year_for_date(d, fy_end_month: int, fy_end_day: int) -> int:
     treated as that month. The rule is shared with EntityFacts.
     """
     return calculate_fiscal_year_for_label(d, fiscal_year_end_month(fy_end_month, fy_end_day))
+
+def _fiscal_period_for_instant(d, fy_end_month: int, fy_end_day: int) -> Optional[str]:
+    """The fiscal period a balance-sheet date closes, or None if it closes none.
+
+    A date on the fiscal year end is 'FY', so a 10-K balance sheet matches its
+    income statement; a date on another quarter end is that quarter. Any other
+    date (a cover-page share count, a debt issue date) is not a period end and
+    gets None (GH #1897). A date in the first week of a month is the previous
+    month's 52/53-week end drifting over, as in _quarter_for_date.
+    """
+    month, day = d.month, d.day
+    if day <= 7:
+        month = 12 if month == 1 else month - 1
+    elif day < 24:
+        return None
+    offset = (month - fiscal_year_end_month(fy_end_month, fy_end_day)) % 12
+    if offset % 3:
+        return None
+    return 'FY' if offset == 0 else f"Q{offset // 3}"
+
 
 def _quarter_for_date(end_date, fy_end_month: int) -> str:
     """Determine the fiscal quarter (Q1-Q4) for a quarterly period end date.

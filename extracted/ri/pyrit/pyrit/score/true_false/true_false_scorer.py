@@ -5,8 +5,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from pyrit.models import Message, Score, ScoreStatus, UndeterminedScoreError
+from pyrit.models import Message, Score, ScoreStatus, ScoringExpectation, UndeterminedScoreError
 from pyrit.score.message_scorer import MessageScorer
+from pyrit.score.observation.execution import _merge_observation_ids
 from pyrit.score.scorer import Scorer
 from pyrit.score.true_false.true_false_score_aggregator import TrueFalseAggregatorFunc, TrueFalseScoreAggregator
 
@@ -131,8 +132,8 @@ class MessageTrueFalseScorer(TrueFalseScorer, MessageScorer):
         self,
         *,
         validator: ScorerPromptValidator,
-        score_aggregator: TrueFalseAggregatorFunc = TrueFalseScoreAggregator.OR,
         chat_target: PromptTarget | None = None,
+        score_aggregator: TrueFalseAggregatorFunc = TrueFalseScoreAggregator.OR,
         message_resolver: MessageScorableResolver | None = None,
     ) -> None:
         """
@@ -140,16 +141,15 @@ class MessageTrueFalseScorer(TrueFalseScorer, MessageScorer):
 
         Args:
             validator (ScorerPromptValidator): Custom validator.
+            chat_target (PromptTarget | None): Deprecated validation-only parameter, removed in 1.4.0.
             score_aggregator (TrueFalseAggregatorFunc): The aggregator function to use.
                 Defaults to TrueFalseScoreAggregator.OR.
-            chat_target (PromptTarget | None): Optional chat target used by the scorer,
-                forwarded to the base class for validation against ``TARGET_REQUIREMENTS``.
             message_resolver (MessageScorableResolver | None): Message evidence resolver.
         """
         super().__init__(
+            chat_target=chat_target,
             score_aggregator=score_aggregator,
             validator=validator,
-            chat_target=chat_target,
             message_resolver=message_resolver,
         )
 
@@ -168,7 +168,9 @@ class MessageTrueFalseScorer(TrueFalseScorer, MessageScorer):
         """
         return self._build_neutral_fallback_score(message=message, objective=objective, neutral_value="false")
 
-    async def _score_async(self, message: Message, *, objective: str | None = None) -> list[Score]:
+    async def _score_async(
+        self, message: Message, *, objective: str | None = None, expectation: ScoringExpectation | None = None
+    ) -> list[Score]:
         """
         Score the given request response asynchronously.
 
@@ -181,13 +183,14 @@ class MessageTrueFalseScorer(TrueFalseScorer, MessageScorer):
         Args:
             message (Message): The message to score.
             objective (str | None): The objective to evaluate against. Defaults to None.
+            expectation (ScoringExpectation | None): Complete criteria passed to each piece.
 
         Returns:
             list[Score]: ``[]`` when no applicable piece produces a score; otherwise, a list
                 containing one completed or undetermined aggregate score.
         """
         # Get individual scores for all supported pieces using base implementation logic
-        score_list = await MessageScorer._score_async(self, message, objective=objective)
+        score_list = await MessageScorer._score_async(self, message, objective=objective, expectation=expectation)
 
         if not score_list:
             return []
@@ -208,6 +211,8 @@ class MessageTrueFalseScorer(TrueFalseScorer, MessageScorer):
                 score_rationale=result.rationale,
                 scorer_class_identifier=self.get_identifier(),
                 message_piece_id=score_list[0].message_piece_id,
+                scorable=score_list[0].scorable,
+                observation_ids=_merge_observation_ids(scores=score_list),
                 objective=objective,
             )
         ]

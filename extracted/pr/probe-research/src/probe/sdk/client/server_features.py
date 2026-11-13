@@ -54,6 +54,15 @@ class ServerFeaturesMixin:
         other failure -- no credential, a 5xx, the network -- is "not enabled"
         THIS time and asked again next time, so one blip does not switch a
         long-lived process off for good."""
+        try:
+            return name in self._fetch_team_features()
+        except Exception:  # noqa: BLE001 -- unknown is not enabled, and not remembered
+            return False
+
+    def _fetch_team_features(self) -> frozenset[str]:
+        """``GET /v1/teams/features``'s listing, cached as :meth:`supports_team_feature` says.
+        Raises what the read raised on any other failure, remembering nothing: for a caller
+        that must tell "not on" from "could not ask"."""
         feats = getattr(self, "_team_features_cache", None)
         if feats is None:
             try:
@@ -61,10 +70,8 @@ class ServerFeaturesMixin:
                 feats = frozenset((data or {}).get("features") or ())
             except errors.NotFoundError:
                 feats = frozenset()
-            except Exception:  # noqa: BLE001 -- unknown is not enabled, and not remembered
-                return False
             self._team_features_cache = feats
-        return name in feats
+        return feats
 
     def _require_feature(self, name: str, message: str) -> None:
         """Preflight gate: refuse BEFORE any state changes, with the fix named.

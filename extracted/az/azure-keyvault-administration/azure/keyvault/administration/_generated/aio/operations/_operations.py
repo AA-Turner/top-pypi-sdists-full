@@ -32,15 +32,20 @@ from azure.core.tracing.decorator import distributed_trace
 from azure.core.tracing.decorator_async import distributed_trace_async
 from azure.core.utils import case_insensitive_dict
 
-from ... import models as _models
+from ... import models as _models, types as _types
 from ..._utils.model_base import SdkJSONEncoder, _deserialize, _failsafe_deserialize
 from ..._utils.serialization import Deserializer, Serializer
 from ..._utils.utils import ClientMixinABC
 from ..._validation import api_version_validation
 from ...operations._operations import (
+    build_key_vault_check_ekm_connection_request,
+    build_key_vault_create_ekm_connection_request,
+    build_key_vault_delete_ekm_connection_request,
     build_key_vault_full_backup_request,
     build_key_vault_full_backup_status_request,
     build_key_vault_full_restore_operation_request,
+    build_key_vault_get_ekm_certificate_request,
+    build_key_vault_get_ekm_connection_request,
     build_key_vault_get_setting_request,
     build_key_vault_get_settings_request,
     build_key_vault_pre_full_backup_request,
@@ -48,6 +53,7 @@ from ...operations._operations import (
     build_key_vault_restore_status_request,
     build_key_vault_selective_key_restore_operation_request,
     build_key_vault_selective_key_restore_status_request,
+    build_key_vault_update_ekm_connection_request,
     build_key_vault_update_setting_request,
     build_role_assignments_create_request,
     build_role_assignments_delete_request,
@@ -60,13 +66,12 @@ from ...operations._operations import (
 )
 from .._configuration import KeyVaultClientConfiguration
 
-JSON = MutableMapping[str, Any]
 T = TypeVar("T")
 ClsType = Optional[Callable[[PipelineResponse[HttpRequest, AsyncHttpResponse], T, dict[str, Any]], Any]]
 List = list
 
 
-class RoleDefinitionsOperations:
+class RoleDefinitionsOperations:  # pylint: disable=docstring-missing-param
     """
     .. warning::
         **DO NOT** instantiate this class directly.
@@ -188,7 +193,7 @@ class RoleDefinitionsOperations:
         self,
         scope: str,
         role_definition_name: str,
-        parameters: JSON,
+        parameters: _types.RoleDefinitionCreateParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -202,7 +207,8 @@ class RoleDefinitionsOperations:
          valid GUID. Required.
         :type role_definition_name: str
         :param parameters: Parameters for the role definition. Required.
-        :type parameters: JSON
+        :type parameters:
+         ~azure.keyvault.administration._generated.types.RoleDefinitionCreateParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -244,7 +250,7 @@ class RoleDefinitionsOperations:
         self,
         scope: str,
         role_definition_name: str,
-        parameters: Union[_models.RoleDefinitionCreateParameters, JSON, IO[bytes]],
+        parameters: Union[_models.RoleDefinitionCreateParameters, _types.RoleDefinitionCreateParameters, IO[bytes]],
         **kwargs: Any
     ) -> _models.RoleDefinition:
         """Creates or updates a custom role definition.
@@ -255,11 +261,11 @@ class RoleDefinitionsOperations:
         :param role_definition_name: The name of the role definition to create or update. It can be any
          valid GUID. Required.
         :type role_definition_name: str
-        :param parameters: Parameters for the role definition. Is one of the following types:
-         RoleDefinitionCreateParameters, JSON, IO[bytes] Required.
+        :param parameters: Parameters for the role definition. Is either a
+         RoleDefinitionCreateParameters type or a IO[bytes] type. Required.
         :type parameters:
-         ~azure.keyvault.administration._generated.models.RoleDefinitionCreateParameters or JSON or
-         IO[bytes]
+         ~azure.keyvault.administration._generated.models.RoleDefinitionCreateParameters or
+         ~azure.keyvault.administration._generated.types.RoleDefinitionCreateParameters or IO[bytes]
         :return: RoleDefinition. The RoleDefinition is compatible with MutableMapping
         :rtype: ~azure.keyvault.administration._generated.models.RoleDefinition
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -459,7 +465,10 @@ class RoleDefinitionsOperations:
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "vaultBaseUrl": self._serialize.url(
@@ -502,7 +511,7 @@ class RoleDefinitionsOperations:
         return AsyncItemPaged(get_next, extract_data)
 
 
-class RoleAssignmentsOperations:
+class RoleAssignmentsOperations:  # pylint: disable=docstring-missing-param
     """
     .. warning::
         **DO NOT** instantiate this class directly.
@@ -622,7 +631,7 @@ class RoleAssignmentsOperations:
         self,
         scope: str,
         role_assignment_name: str,
-        parameters: JSON,
+        parameters: _types.RoleAssignmentCreateParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -635,7 +644,8 @@ class RoleAssignmentsOperations:
          GUID. Required.
         :type role_assignment_name: str
         :param parameters: Parameters for the role assignment. Required.
-        :type parameters: JSON
+        :type parameters:
+         ~azure.keyvault.administration._generated.types.RoleAssignmentCreateParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -676,7 +686,7 @@ class RoleAssignmentsOperations:
         self,
         scope: str,
         role_assignment_name: str,
-        parameters: Union[_models.RoleAssignmentCreateParameters, JSON, IO[bytes]],
+        parameters: Union[_models.RoleAssignmentCreateParameters, _types.RoleAssignmentCreateParameters, IO[bytes]],
         **kwargs: Any
     ) -> _models.RoleAssignment:
         """Creates a role assignment.
@@ -686,11 +696,11 @@ class RoleAssignmentsOperations:
         :param role_assignment_name: The name of the role assignment to create. It can be any valid
          GUID. Required.
         :type role_assignment_name: str
-        :param parameters: Parameters for the role assignment. Is one of the following types:
-         RoleAssignmentCreateParameters, JSON, IO[bytes] Required.
+        :param parameters: Parameters for the role assignment. Is either a
+         RoleAssignmentCreateParameters type or a IO[bytes] type. Required.
         :type parameters:
-         ~azure.keyvault.administration._generated.models.RoleAssignmentCreateParameters or JSON or
-         IO[bytes]
+         ~azure.keyvault.administration._generated.models.RoleAssignmentCreateParameters or
+         ~azure.keyvault.administration._generated.types.RoleAssignmentCreateParameters or IO[bytes]
         :return: RoleAssignment. The RoleAssignment is compatible with MutableMapping
         :rtype: ~azure.keyvault.administration._generated.models.RoleAssignment
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -891,7 +901,10 @@ class RoleAssignmentsOperations:
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "vaultBaseUrl": self._serialize.url(
@@ -934,7 +947,7 @@ class RoleAssignmentsOperations:
         return AsyncItemPaged(get_next, extract_data)
 
 
-class _KeyVaultClientOperationsMixin(
+class _KeyVaultClientOperationsMixin(  # pylint: disable=too-many-public-methods
     ClientMixinABC[AsyncPipelineClient[HttpRequest, AsyncHttpResponse], KeyVaultClientConfiguration]
 ):
 
@@ -1006,7 +1019,9 @@ class _KeyVaultClientOperationsMixin(
         return deserialized  # type: ignore
 
     async def _full_backup_initial(
-        self, azure_storage_blob_container_uri: Union[_models.SASTokenParameter, JSON, IO[bytes]], **kwargs: Any
+        self,
+        azure_storage_blob_container_uri: Union[_models.SASTokenParameter, _types.SASTokenParameter, IO[bytes]],
+        **kwargs: Any
     ) -> AsyncIterator[bytes]:
         error_map: MutableMapping = {
             401: ClientAuthenticationError,
@@ -1103,14 +1118,19 @@ class _KeyVaultClientOperationsMixin(
 
     @overload
     async def begin_full_backup(
-        self, azure_storage_blob_container_uri: JSON, *, content_type: str = "application/json", **kwargs: Any
+        self,
+        azure_storage_blob_container_uri: _types.SASTokenParameter,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
     ) -> AsyncLROPoller[_models.FullBackupOperation]:
         """Creates a full backup using a user-provided SAS token to an Azure blob storage container.
 
         :param azure_storage_blob_container_uri: Azure blob shared access signature token pointing to a
          valid Azure blob container where full backup needs to be stored. This token needs to be valid
          for at least next 24 hours from the time of making this call. Required.
-        :type azure_storage_blob_container_uri: JSON
+        :type azure_storage_blob_container_uri:
+         ~azure.keyvault.administration._generated.types.SASTokenParameter
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -1143,16 +1163,19 @@ class _KeyVaultClientOperationsMixin(
 
     @distributed_trace_async
     async def begin_full_backup(
-        self, azure_storage_blob_container_uri: Union[_models.SASTokenParameter, JSON, IO[bytes]], **kwargs: Any
+        self,
+        azure_storage_blob_container_uri: Union[_models.SASTokenParameter, _types.SASTokenParameter, IO[bytes]],
+        **kwargs: Any
     ) -> AsyncLROPoller[_models.FullBackupOperation]:
         """Creates a full backup using a user-provided SAS token to an Azure blob storage container.
 
         :param azure_storage_blob_container_uri: Azure blob shared access signature token pointing to a
          valid Azure blob container where full backup needs to be stored. This token needs to be valid
-         for at least next 24 hours from the time of making this call. Is one of the following types:
-         SASTokenParameter, JSON, IO[bytes] Required.
+         for at least next 24 hours from the time of making this call. Is either a SASTokenParameter
+         type or a IO[bytes] type. Required.
         :type azure_storage_blob_container_uri:
-         ~azure.keyvault.administration._generated.models.SASTokenParameter or JSON or IO[bytes]
+         ~azure.keyvault.administration._generated.models.SASTokenParameter or
+         ~azure.keyvault.administration._generated.types.SASTokenParameter or IO[bytes]
         :return: An instance of AsyncLROPoller that returns FullBackupOperation. The
          FullBackupOperation is compatible with MutableMapping
         :rtype:
@@ -1221,11 +1244,21 @@ class _KeyVaultClientOperationsMixin(
     @api_version_validation(
         method_added_on="7.6-preview.2",
         params_added_on={"7.6-preview.2": ["api_version", "content_type", "accept"]},
-        api_versions_list=["7.6-preview.2", "7.6", "2025-06-01-preview", "2025-07-01"],
+        api_versions_list=[
+            "7.6-preview.2",
+            "7.6",
+            "2025-06-01-preview",
+            "2025-07-01",
+            "2026-01-01-preview",
+            "2026-03-01-preview",
+            "2026-04-01",
+        ],
     )
     async def _pre_full_backup_initial(
         self,
-        pre_backup_operation_parameters: Union[_models.PreBackupOperationParameters, JSON, IO[bytes]],
+        pre_backup_operation_parameters: Union[
+            _models.PreBackupOperationParameters, _types.PreBackupOperationParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> AsyncIterator[bytes]:
         error_map: MutableMapping = {
@@ -1322,13 +1355,18 @@ class _KeyVaultClientOperationsMixin(
 
     @overload
     async def begin_pre_full_backup(
-        self, pre_backup_operation_parameters: JSON, *, content_type: str = "application/json", **kwargs: Any
+        self,
+        pre_backup_operation_parameters: _types.PreBackupOperationParameters,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
     ) -> AsyncLROPoller[_models.FullBackupOperation]:
         """Pre-backup operation for checking whether the customer can perform a full backup operation.
 
         :param pre_backup_operation_parameters: Optional parameters to validate prior to performing a
          full backup operation. Required.
-        :type pre_backup_operation_parameters: JSON
+        :type pre_backup_operation_parameters:
+         ~azure.keyvault.administration._generated.types.PreBackupOperationParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -1362,21 +1400,31 @@ class _KeyVaultClientOperationsMixin(
     @api_version_validation(
         method_added_on="7.6-preview.2",
         params_added_on={"7.6-preview.2": ["api_version", "content_type", "accept"]},
-        api_versions_list=["7.6-preview.2", "7.6", "2025-06-01-preview", "2025-07-01"],
+        api_versions_list=[
+            "7.6-preview.2",
+            "7.6",
+            "2025-06-01-preview",
+            "2025-07-01",
+            "2026-01-01-preview",
+            "2026-03-01-preview",
+            "2026-04-01",
+        ],
     )
     async def begin_pre_full_backup(
         self,
-        pre_backup_operation_parameters: Union[_models.PreBackupOperationParameters, JSON, IO[bytes]],
+        pre_backup_operation_parameters: Union[
+            _models.PreBackupOperationParameters, _types.PreBackupOperationParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> AsyncLROPoller[_models.FullBackupOperation]:
         """Pre-backup operation for checking whether the customer can perform a full backup operation.
 
         :param pre_backup_operation_parameters: Optional parameters to validate prior to performing a
-         full backup operation. Is one of the following types: PreBackupOperationParameters, JSON,
-         IO[bytes] Required.
+         full backup operation. Is either a PreBackupOperationParameters type or a IO[bytes] type.
+         Required.
         :type pre_backup_operation_parameters:
-         ~azure.keyvault.administration._generated.models.PreBackupOperationParameters or JSON or
-         IO[bytes]
+         ~azure.keyvault.administration._generated.models.PreBackupOperationParameters or
+         ~azure.keyvault.administration._generated.types.PreBackupOperationParameters or IO[bytes]
         :return: An instance of AsyncLROPoller that returns FullBackupOperation. The
          FullBackupOperation is compatible with MutableMapping
         :rtype:
@@ -1510,7 +1558,9 @@ class _KeyVaultClientOperationsMixin(
         return deserialized  # type: ignore
 
     async def _full_restore_operation_initial(
-        self, restore_blob_details: Union[_models.RestoreOperationParameters, JSON, IO[bytes]], **kwargs: Any
+        self,
+        restore_blob_details: Union[_models.RestoreOperationParameters, _types.RestoreOperationParameters, IO[bytes]],
+        **kwargs: Any
     ) -> AsyncIterator[bytes]:
         error_map: MutableMapping = {
             401: ClientAuthenticationError,
@@ -1607,14 +1657,19 @@ class _KeyVaultClientOperationsMixin(
 
     @overload
     async def begin_full_restore_operation(
-        self, restore_blob_details: JSON, *, content_type: str = "application/json", **kwargs: Any
+        self,
+        restore_blob_details: _types.RestoreOperationParameters,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
     ) -> AsyncLROPoller[_models.RestoreOperation]:
         """Restores all key materials using the SAS token pointing to a previously stored Azure Blob
         storage backup folder.
 
         :param restore_blob_details: The Azure blob SAS token pointing to a folder where the previous
          successful full backup was stored. Required.
-        :type restore_blob_details: JSON
+        :type restore_blob_details:
+         ~azure.keyvault.administration._generated.types.RestoreOperationParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -1647,17 +1702,19 @@ class _KeyVaultClientOperationsMixin(
 
     @distributed_trace_async
     async def begin_full_restore_operation(
-        self, restore_blob_details: Union[_models.RestoreOperationParameters, JSON, IO[bytes]], **kwargs: Any
+        self,
+        restore_blob_details: Union[_models.RestoreOperationParameters, _types.RestoreOperationParameters, IO[bytes]],
+        **kwargs: Any
     ) -> AsyncLROPoller[_models.RestoreOperation]:
         """Restores all key materials using the SAS token pointing to a previously stored Azure Blob
         storage backup folder.
 
         :param restore_blob_details: The Azure blob SAS token pointing to a folder where the previous
-         successful full backup was stored. Is one of the following types: RestoreOperationParameters,
-         JSON, IO[bytes] Required.
+         successful full backup was stored. Is either a RestoreOperationParameters type or a IO[bytes]
+         type. Required.
         :type restore_blob_details:
-         ~azure.keyvault.administration._generated.models.RestoreOperationParameters or JSON or
-         IO[bytes]
+         ~azure.keyvault.administration._generated.models.RestoreOperationParameters or
+         ~azure.keyvault.administration._generated.types.RestoreOperationParameters or IO[bytes]
         :return: An instance of AsyncLROPoller that returns RestoreOperation. The RestoreOperation is
          compatible with MutableMapping
         :rtype:
@@ -1726,11 +1783,21 @@ class _KeyVaultClientOperationsMixin(
     @api_version_validation(
         method_added_on="7.6-preview.2",
         params_added_on={"7.6-preview.2": ["api_version", "content_type", "accept"]},
-        api_versions_list=["7.6-preview.2", "7.6", "2025-06-01-preview", "2025-07-01"],
+        api_versions_list=[
+            "7.6-preview.2",
+            "7.6",
+            "2025-06-01-preview",
+            "2025-07-01",
+            "2026-01-01-preview",
+            "2026-03-01-preview",
+            "2026-04-01",
+        ],
     )
     async def _pre_full_restore_operation_initial(
         self,
-        pre_restore_operation_parameters: Union[_models.PreRestoreOperationParameters, JSON, IO[bytes]],
+        pre_restore_operation_parameters: Union[
+            _models.PreRestoreOperationParameters, _types.PreRestoreOperationParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> AsyncIterator[bytes]:
         error_map: MutableMapping = {
@@ -1827,13 +1894,18 @@ class _KeyVaultClientOperationsMixin(
 
     @overload
     async def begin_pre_full_restore_operation(
-        self, pre_restore_operation_parameters: JSON, *, content_type: str = "application/json", **kwargs: Any
+        self,
+        pre_restore_operation_parameters: _types.PreRestoreOperationParameters,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
     ) -> AsyncLROPoller[_models.RestoreOperation]:
         """Pre-restore operation for checking whether the customer can perform a full restore operation.
 
         :param pre_restore_operation_parameters: Optional pre restore parameters to validate prior to
          performing a full restore operation. Required.
-        :type pre_restore_operation_parameters: JSON
+        :type pre_restore_operation_parameters:
+         ~azure.keyvault.administration._generated.types.PreRestoreOperationParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -1867,21 +1939,31 @@ class _KeyVaultClientOperationsMixin(
     @api_version_validation(
         method_added_on="7.6-preview.2",
         params_added_on={"7.6-preview.2": ["api_version", "content_type", "accept"]},
-        api_versions_list=["7.6-preview.2", "7.6", "2025-06-01-preview", "2025-07-01"],
+        api_versions_list=[
+            "7.6-preview.2",
+            "7.6",
+            "2025-06-01-preview",
+            "2025-07-01",
+            "2026-01-01-preview",
+            "2026-03-01-preview",
+            "2026-04-01",
+        ],
     )
     async def begin_pre_full_restore_operation(
         self,
-        pre_restore_operation_parameters: Union[_models.PreRestoreOperationParameters, JSON, IO[bytes]],
+        pre_restore_operation_parameters: Union[
+            _models.PreRestoreOperationParameters, _types.PreRestoreOperationParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> AsyncLROPoller[_models.RestoreOperation]:
         """Pre-restore operation for checking whether the customer can perform a full restore operation.
 
         :param pre_restore_operation_parameters: Optional pre restore parameters to validate prior to
-         performing a full restore operation. Is one of the following types:
-         PreRestoreOperationParameters, JSON, IO[bytes] Required.
+         performing a full restore operation. Is either a PreRestoreOperationParameters type or a
+         IO[bytes] type. Required.
         :type pre_restore_operation_parameters:
-         ~azure.keyvault.administration._generated.models.PreRestoreOperationParameters or JSON or
-         IO[bytes]
+         ~azure.keyvault.administration._generated.models.PreRestoreOperationParameters or
+         ~azure.keyvault.administration._generated.types.PreRestoreOperationParameters or IO[bytes]
         :return: An instance of AsyncLROPoller that returns RestoreOperation. The RestoreOperation is
          compatible with MutableMapping
         :rtype:
@@ -2018,7 +2100,9 @@ class _KeyVaultClientOperationsMixin(
     async def _selective_key_restore_operation_initial(
         self,
         key_name: str,
-        restore_blob_details: Union[_models.SelectiveKeyRestoreOperationParameters, JSON, IO[bytes]],
+        restore_blob_details: Union[
+            _models.SelectiveKeyRestoreOperationParameters, _types.SelectiveKeyRestoreOperationParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> AsyncIterator[bytes]:
         error_map: MutableMapping = {
@@ -2120,7 +2204,12 @@ class _KeyVaultClientOperationsMixin(
 
     @overload
     async def begin_selective_key_restore_operation(
-        self, key_name: str, restore_blob_details: JSON, *, content_type: str = "application/json", **kwargs: Any
+        self,
+        key_name: str,
+        restore_blob_details: _types.SelectiveKeyRestoreOperationParameters,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
     ) -> AsyncLROPoller[_models.SelectiveKeyRestoreOperation]:
         """Restores all key versions of a given key using user supplied SAS token pointing to a previously
         stored Azure Blob storage backup folder.
@@ -2129,7 +2218,8 @@ class _KeyVaultClientOperationsMixin(
         :type key_name: str
         :param restore_blob_details: The Azure blob SAS token pointing to a folder where the previous
          successful full backup was stored. Required.
-        :type restore_blob_details: JSON
+        :type restore_blob_details:
+         ~azure.keyvault.administration._generated.types.SelectiveKeyRestoreOperationParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -2166,7 +2256,9 @@ class _KeyVaultClientOperationsMixin(
     async def begin_selective_key_restore_operation(
         self,
         key_name: str,
-        restore_blob_details: Union[_models.SelectiveKeyRestoreOperationParameters, JSON, IO[bytes]],
+        restore_blob_details: Union[
+            _models.SelectiveKeyRestoreOperationParameters, _types.SelectiveKeyRestoreOperationParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> AsyncLROPoller[_models.SelectiveKeyRestoreOperation]:
         """Restores all key versions of a given key using user supplied SAS token pointing to a previously
@@ -2175,11 +2267,12 @@ class _KeyVaultClientOperationsMixin(
         :param key_name: The name of the key to be restored from the user supplied backup. Required.
         :type key_name: str
         :param restore_blob_details: The Azure blob SAS token pointing to a folder where the previous
-         successful full backup was stored. Is one of the following types:
-         SelectiveKeyRestoreOperationParameters, JSON, IO[bytes] Required.
+         successful full backup was stored. Is either a SelectiveKeyRestoreOperationParameters type or a
+         IO[bytes] type. Required.
         :type restore_blob_details:
-         ~azure.keyvault.administration._generated.models.SelectiveKeyRestoreOperationParameters or JSON
-         or IO[bytes]
+         ~azure.keyvault.administration._generated.models.SelectiveKeyRestoreOperationParameters or
+         ~azure.keyvault.administration._generated.types.SelectiveKeyRestoreOperationParameters or
+         IO[bytes]
         :return: An instance of AsyncLROPoller that returns SelectiveKeyRestoreOperation. The
          SelectiveKeyRestoreOperation is compatible with MutableMapping
         :rtype:
@@ -2275,7 +2368,12 @@ class _KeyVaultClientOperationsMixin(
 
     @overload
     async def update_setting(
-        self, setting_name: str, parameters: JSON, *, content_type: str = "application/json", **kwargs: Any
+        self,
+        setting_name: str,
+        parameters: _types.UpdateSettingRequest,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
     ) -> _models.Setting:
         """Updates key vault account setting, stores it, then returns the setting name and value to the
         client.
@@ -2286,7 +2384,7 @@ class _KeyVaultClientOperationsMixin(
          Required.
         :type setting_name: str
         :param parameters: The parameters to update an account setting. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.keyvault.administration._generated.types.UpdateSettingRequest
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -2319,7 +2417,10 @@ class _KeyVaultClientOperationsMixin(
 
     @distributed_trace_async
     async def update_setting(
-        self, setting_name: str, parameters: Union[_models.UpdateSettingRequest, JSON, IO[bytes]], **kwargs: Any
+        self,
+        setting_name: str,
+        parameters: Union[_models.UpdateSettingRequest, _types.UpdateSettingRequest, IO[bytes]],
+        **kwargs: Any
     ) -> _models.Setting:
         """Updates key vault account setting, stores it, then returns the setting name and value to the
         client.
@@ -2329,10 +2430,10 @@ class _KeyVaultClientOperationsMixin(
         :param setting_name: The name of the account setting. Must be a valid settings option.
          Required.
         :type setting_name: str
-        :param parameters: The parameters to update an account setting. Is one of the following types:
-         UpdateSettingRequest, JSON, IO[bytes] Required.
-        :type parameters: ~azure.keyvault.administration._generated.models.UpdateSettingRequest or JSON
-         or IO[bytes]
+        :param parameters: The parameters to update an account setting. Is either a
+         UpdateSettingRequest type or a IO[bytes] type. Required.
+        :type parameters: ~azure.keyvault.administration._generated.models.UpdateSettingRequest or
+         ~azure.keyvault.administration._generated.types.UpdateSettingRequest or IO[bytes]
         :return: Setting. The Setting is compatible with MutableMapping
         :rtype: ~azure.keyvault.administration._generated.models.Setting
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -2534,6 +2635,585 @@ class _KeyVaultClientOperationsMixin(
             deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.SettingsListResult, response.json())
+
+        if cls:
+            return cls(pipeline_response, deserialized, {})  # type: ignore
+
+        return deserialized  # type: ignore
+
+    @distributed_trace_async
+    @api_version_validation(
+        method_added_on="2026-01-01-preview",
+        params_added_on={"2026-01-01-preview": ["api_version", "accept"]},
+        api_versions_list=["2026-01-01-preview", "2026-03-01-preview", "2026-04-01"],
+    )
+    async def get_ekm_connection(self, **kwargs: Any) -> _models.EkmConnection:
+        """Gets the EKM connection.
+
+        The External Key Manager (EKM) Get operation returns EKM connection. This operation requires
+        ekm/read permission.
+
+        :return: EkmConnection. The EkmConnection is compatible with MutableMapping
+        :rtype: ~azure.keyvault.administration._generated.models.EkmConnection
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+        error_map: MutableMapping = {
+            401: ClientAuthenticationError,
+            404: ResourceNotFoundError,
+            409: ResourceExistsError,
+            304: ResourceNotModifiedError,
+        }
+        error_map.update(kwargs.pop("error_map", {}) or {})
+
+        _headers = kwargs.pop("headers", {}) or {}
+        _params = kwargs.pop("params", {}) or {}
+
+        cls: ClsType[_models.EkmConnection] = kwargs.pop("cls", None)
+
+        _request = build_key_vault_get_ekm_connection_request(
+            api_version=self._config.api_version,
+            headers=_headers,
+            params=_params,
+        )
+        path_format_arguments = {
+            "vaultBaseUrl": self._serialize.url(
+                "self._config.vault_base_url", self._config.vault_base_url, "str", skip_quote=True
+            ),
+        }
+        _request.url = self._client.format_url(_request.url, **path_format_arguments)
+
+        _decompress = kwargs.pop("decompress", True)
+        _stream = kwargs.pop("stream", False)
+        pipeline_response: PipelineResponse = await self._client._pipeline.run(  # type: ignore # pylint: disable=protected-access
+            _request, stream=_stream, **kwargs
+        )
+
+        response = pipeline_response.http_response
+
+        if response.status_code not in [200]:
+            if _stream:
+                try:
+                    await response.read()  # Load the body in memory and close the socket
+                except (StreamConsumedError, StreamClosedError):
+                    pass
+            map_error(status_code=response.status_code, response=response, error_map=error_map)
+            error = _failsafe_deserialize(
+                _models.KeyVaultError,
+                response,
+            )
+            raise HttpResponseError(response=response, model=error)
+
+        if _stream:
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
+        else:
+            deserialized = _deserialize(_models.EkmConnection, response.json())
+
+        if cls:
+            return cls(pipeline_response, deserialized, {})  # type: ignore
+
+        return deserialized  # type: ignore
+
+    @distributed_trace_async
+    @api_version_validation(
+        method_added_on="2026-01-01-preview",
+        params_added_on={"2026-01-01-preview": ["api_version", "accept"]},
+        api_versions_list=["2026-01-01-preview", "2026-03-01-preview", "2026-04-01"],
+    )
+    async def get_ekm_certificate(self, **kwargs: Any) -> _models.EkmProxyClientCertificateInfo:
+        """Gets the EKM proxy client certificate.
+
+        The External Key Manager (EKM) Certificate Get operation returns Proxy client certificate. This
+        operation requires ekm/read permission.
+
+        :return: EkmProxyClientCertificateInfo. The EkmProxyClientCertificateInfo is compatible with
+         MutableMapping
+        :rtype: ~azure.keyvault.administration._generated.models.EkmProxyClientCertificateInfo
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+        error_map: MutableMapping = {
+            401: ClientAuthenticationError,
+            404: ResourceNotFoundError,
+            409: ResourceExistsError,
+            304: ResourceNotModifiedError,
+        }
+        error_map.update(kwargs.pop("error_map", {}) or {})
+
+        _headers = kwargs.pop("headers", {}) or {}
+        _params = kwargs.pop("params", {}) or {}
+
+        cls: ClsType[_models.EkmProxyClientCertificateInfo] = kwargs.pop("cls", None)
+
+        _request = build_key_vault_get_ekm_certificate_request(
+            api_version=self._config.api_version,
+            headers=_headers,
+            params=_params,
+        )
+        path_format_arguments = {
+            "vaultBaseUrl": self._serialize.url(
+                "self._config.vault_base_url", self._config.vault_base_url, "str", skip_quote=True
+            ),
+        }
+        _request.url = self._client.format_url(_request.url, **path_format_arguments)
+
+        _decompress = kwargs.pop("decompress", True)
+        _stream = kwargs.pop("stream", False)
+        pipeline_response: PipelineResponse = await self._client._pipeline.run(  # type: ignore # pylint: disable=protected-access
+            _request, stream=_stream, **kwargs
+        )
+
+        response = pipeline_response.http_response
+
+        if response.status_code not in [200]:
+            if _stream:
+                try:
+                    await response.read()  # Load the body in memory and close the socket
+                except (StreamConsumedError, StreamClosedError):
+                    pass
+            map_error(status_code=response.status_code, response=response, error_map=error_map)
+            error = _failsafe_deserialize(
+                _models.KeyVaultError,
+                response,
+            )
+            raise HttpResponseError(response=response, model=error)
+
+        if _stream:
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
+        else:
+            deserialized = _deserialize(_models.EkmProxyClientCertificateInfo, response.json())
+
+        if cls:
+            return cls(pipeline_response, deserialized, {})  # type: ignore
+
+        return deserialized  # type: ignore
+
+    @distributed_trace_async
+    @api_version_validation(
+        method_added_on="2026-01-01-preview",
+        params_added_on={"2026-01-01-preview": ["api_version", "accept"]},
+        api_versions_list=["2026-01-01-preview", "2026-03-01-preview", "2026-04-01"],
+    )
+    async def check_ekm_connection(self, **kwargs: Any) -> _models.EkmProxyInfo:
+        """Checks the connectivity and authentication with the EKM proxy.
+
+        The External Key Manager (EKM) Check operation checks the connectivity and authentication with
+        the EKM proxy. This operation requires ekm/read permission.
+
+        :return: EkmProxyInfo. The EkmProxyInfo is compatible with MutableMapping
+        :rtype: ~azure.keyvault.administration._generated.models.EkmProxyInfo
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+        error_map: MutableMapping = {
+            401: ClientAuthenticationError,
+            404: ResourceNotFoundError,
+            409: ResourceExistsError,
+            304: ResourceNotModifiedError,
+        }
+        error_map.update(kwargs.pop("error_map", {}) or {})
+
+        _headers = kwargs.pop("headers", {}) or {}
+        _params = kwargs.pop("params", {}) or {}
+
+        cls: ClsType[_models.EkmProxyInfo] = kwargs.pop("cls", None)
+
+        _request = build_key_vault_check_ekm_connection_request(
+            api_version=self._config.api_version,
+            headers=_headers,
+            params=_params,
+        )
+        path_format_arguments = {
+            "vaultBaseUrl": self._serialize.url(
+                "self._config.vault_base_url", self._config.vault_base_url, "str", skip_quote=True
+            ),
+        }
+        _request.url = self._client.format_url(_request.url, **path_format_arguments)
+
+        _decompress = kwargs.pop("decompress", True)
+        _stream = kwargs.pop("stream", False)
+        pipeline_response: PipelineResponse = await self._client._pipeline.run(  # type: ignore # pylint: disable=protected-access
+            _request, stream=_stream, **kwargs
+        )
+
+        response = pipeline_response.http_response
+
+        if response.status_code not in [200]:
+            if _stream:
+                try:
+                    await response.read()  # Load the body in memory and close the socket
+                except (StreamConsumedError, StreamClosedError):
+                    pass
+            map_error(status_code=response.status_code, response=response, error_map=error_map)
+            error = _failsafe_deserialize(
+                _models.KeyVaultError,
+                response,
+            )
+            raise HttpResponseError(response=response, model=error)
+
+        if _stream:
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
+        else:
+            deserialized = _deserialize(_models.EkmProxyInfo, response.json())
+
+        if cls:
+            return cls(pipeline_response, deserialized, {})  # type: ignore
+
+        return deserialized  # type: ignore
+
+    @overload
+    async def create_ekm_connection(
+        self, ekm_connection: _models.EkmConnection, *, content_type: str = "application/json", **kwargs: Any
+    ) -> _models.EkmConnection:
+        """Creates the EKM connection.
+
+        The External Key Manager (EKM) sets up the EKM connection. If the EKM connection already
+        exists, this operation fails. This operation requires ekm/write permission.
+
+        :param ekm_connection: The ekmConnection to create. Required.
+        :type ekm_connection: ~azure.keyvault.administration._generated.models.EkmConnection
+        :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: EkmConnection. The EkmConnection is compatible with MutableMapping
+        :rtype: ~azure.keyvault.administration._generated.models.EkmConnection
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @overload
+    async def create_ekm_connection(
+        self, ekm_connection: _types.EkmConnection, *, content_type: str = "application/json", **kwargs: Any
+    ) -> _models.EkmConnection:
+        """Creates the EKM connection.
+
+        The External Key Manager (EKM) sets up the EKM connection. If the EKM connection already
+        exists, this operation fails. This operation requires ekm/write permission.
+
+        :param ekm_connection: The ekmConnection to create. Required.
+        :type ekm_connection: ~azure.keyvault.administration._generated.types.EkmConnection
+        :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: EkmConnection. The EkmConnection is compatible with MutableMapping
+        :rtype: ~azure.keyvault.administration._generated.models.EkmConnection
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @overload
+    async def create_ekm_connection(
+        self, ekm_connection: IO[bytes], *, content_type: str = "application/json", **kwargs: Any
+    ) -> _models.EkmConnection:
+        """Creates the EKM connection.
+
+        The External Key Manager (EKM) sets up the EKM connection. If the EKM connection already
+        exists, this operation fails. This operation requires ekm/write permission.
+
+        :param ekm_connection: The ekmConnection to create. Required.
+        :type ekm_connection: IO[bytes]
+        :keyword content_type: Body Parameter content-type. Content type parameter for binary body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: EkmConnection. The EkmConnection is compatible with MutableMapping
+        :rtype: ~azure.keyvault.administration._generated.models.EkmConnection
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @distributed_trace_async
+    @api_version_validation(
+        method_added_on="2026-01-01-preview",
+        params_added_on={"2026-01-01-preview": ["api_version", "content_type", "accept"]},
+        api_versions_list=["2026-01-01-preview", "2026-03-01-preview", "2026-04-01"],
+    )
+    async def create_ekm_connection(
+        self, ekm_connection: Union[_models.EkmConnection, _types.EkmConnection, IO[bytes]], **kwargs: Any
+    ) -> _models.EkmConnection:
+        """Creates the EKM connection.
+
+        The External Key Manager (EKM) sets up the EKM connection. If the EKM connection already
+        exists, this operation fails. This operation requires ekm/write permission.
+
+        :param ekm_connection: The ekmConnection to create. Is either a EkmConnection type or a
+         IO[bytes] type. Required.
+        :type ekm_connection: ~azure.keyvault.administration._generated.models.EkmConnection or
+         ~azure.keyvault.administration._generated.types.EkmConnection or IO[bytes]
+        :return: EkmConnection. The EkmConnection is compatible with MutableMapping
+        :rtype: ~azure.keyvault.administration._generated.models.EkmConnection
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+        error_map: MutableMapping = {
+            401: ClientAuthenticationError,
+            404: ResourceNotFoundError,
+            409: ResourceExistsError,
+            304: ResourceNotModifiedError,
+        }
+        error_map.update(kwargs.pop("error_map", {}) or {})
+
+        _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
+        _params = kwargs.pop("params", {}) or {}
+
+        content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
+        cls: ClsType[_models.EkmConnection] = kwargs.pop("cls", None)
+
+        content_type = content_type or "application/json"
+        _content = None
+        if isinstance(ekm_connection, (IOBase, bytes)):
+            _content = ekm_connection
+        else:
+            _content = json.dumps(ekm_connection, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+
+        _request = build_key_vault_create_ekm_connection_request(
+            content_type=content_type,
+            api_version=self._config.api_version,
+            content=_content,
+            headers=_headers,
+            params=_params,
+        )
+        path_format_arguments = {
+            "vaultBaseUrl": self._serialize.url(
+                "self._config.vault_base_url", self._config.vault_base_url, "str", skip_quote=True
+            ),
+        }
+        _request.url = self._client.format_url(_request.url, **path_format_arguments)
+
+        _decompress = kwargs.pop("decompress", True)
+        _stream = kwargs.pop("stream", False)
+        pipeline_response: PipelineResponse = await self._client._pipeline.run(  # type: ignore # pylint: disable=protected-access
+            _request, stream=_stream, **kwargs
+        )
+
+        response = pipeline_response.http_response
+
+        if response.status_code not in [200]:
+            if _stream:
+                try:
+                    await response.read()  # Load the body in memory and close the socket
+                except (StreamConsumedError, StreamClosedError):
+                    pass
+            map_error(status_code=response.status_code, response=response, error_map=error_map)
+            error = _failsafe_deserialize(
+                _models.KeyVaultError,
+                response,
+            )
+            raise HttpResponseError(response=response, model=error)
+
+        if _stream:
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
+        else:
+            deserialized = _deserialize(_models.EkmConnection, response.json())
+
+        if cls:
+            return cls(pipeline_response, deserialized, {})  # type: ignore
+
+        return deserialized  # type: ignore
+
+    @overload
+    async def update_ekm_connection(
+        self, ekm_connection: _models.EkmConnection, *, content_type: str = "application/json", **kwargs: Any
+    ) -> _models.EkmConnection:
+        """Updates the EKM connection.
+
+        The External Key Manager (EKM) updates the existing EKM connection. If the EKM connection does
+        not exist, this operation fails. This operation requires ekm/write permission.
+
+        :param ekm_connection: The ekmConnection to update. Required.
+        :type ekm_connection: ~azure.keyvault.administration._generated.models.EkmConnection
+        :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: EkmConnection. The EkmConnection is compatible with MutableMapping
+        :rtype: ~azure.keyvault.administration._generated.models.EkmConnection
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @overload
+    async def update_ekm_connection(
+        self, ekm_connection: _types.EkmConnection, *, content_type: str = "application/json", **kwargs: Any
+    ) -> _models.EkmConnection:
+        """Updates the EKM connection.
+
+        The External Key Manager (EKM) updates the existing EKM connection. If the EKM connection does
+        not exist, this operation fails. This operation requires ekm/write permission.
+
+        :param ekm_connection: The ekmConnection to update. Required.
+        :type ekm_connection: ~azure.keyvault.administration._generated.types.EkmConnection
+        :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: EkmConnection. The EkmConnection is compatible with MutableMapping
+        :rtype: ~azure.keyvault.administration._generated.models.EkmConnection
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @overload
+    async def update_ekm_connection(
+        self, ekm_connection: IO[bytes], *, content_type: str = "application/json", **kwargs: Any
+    ) -> _models.EkmConnection:
+        """Updates the EKM connection.
+
+        The External Key Manager (EKM) updates the existing EKM connection. If the EKM connection does
+        not exist, this operation fails. This operation requires ekm/write permission.
+
+        :param ekm_connection: The ekmConnection to update. Required.
+        :type ekm_connection: IO[bytes]
+        :keyword content_type: Body Parameter content-type. Content type parameter for binary body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: EkmConnection. The EkmConnection is compatible with MutableMapping
+        :rtype: ~azure.keyvault.administration._generated.models.EkmConnection
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @distributed_trace_async
+    @api_version_validation(
+        method_added_on="2026-01-01-preview",
+        params_added_on={"2026-01-01-preview": ["api_version", "content_type", "accept"]},
+        api_versions_list=["2026-01-01-preview", "2026-03-01-preview", "2026-04-01"],
+    )
+    async def update_ekm_connection(
+        self, ekm_connection: Union[_models.EkmConnection, _types.EkmConnection, IO[bytes]], **kwargs: Any
+    ) -> _models.EkmConnection:
+        """Updates the EKM connection.
+
+        The External Key Manager (EKM) updates the existing EKM connection. If the EKM connection does
+        not exist, this operation fails. This operation requires ekm/write permission.
+
+        :param ekm_connection: The ekmConnection to update. Is either a EkmConnection type or a
+         IO[bytes] type. Required.
+        :type ekm_connection: ~azure.keyvault.administration._generated.models.EkmConnection or
+         ~azure.keyvault.administration._generated.types.EkmConnection or IO[bytes]
+        :return: EkmConnection. The EkmConnection is compatible with MutableMapping
+        :rtype: ~azure.keyvault.administration._generated.models.EkmConnection
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+        error_map: MutableMapping = {
+            401: ClientAuthenticationError,
+            404: ResourceNotFoundError,
+            409: ResourceExistsError,
+            304: ResourceNotModifiedError,
+        }
+        error_map.update(kwargs.pop("error_map", {}) or {})
+
+        _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
+        _params = kwargs.pop("params", {}) or {}
+
+        content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
+        cls: ClsType[_models.EkmConnection] = kwargs.pop("cls", None)
+
+        content_type = content_type or "application/json"
+        _content = None
+        if isinstance(ekm_connection, (IOBase, bytes)):
+            _content = ekm_connection
+        else:
+            _content = json.dumps(ekm_connection, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+
+        _request = build_key_vault_update_ekm_connection_request(
+            content_type=content_type,
+            api_version=self._config.api_version,
+            content=_content,
+            headers=_headers,
+            params=_params,
+        )
+        path_format_arguments = {
+            "vaultBaseUrl": self._serialize.url(
+                "self._config.vault_base_url", self._config.vault_base_url, "str", skip_quote=True
+            ),
+        }
+        _request.url = self._client.format_url(_request.url, **path_format_arguments)
+
+        _decompress = kwargs.pop("decompress", True)
+        _stream = kwargs.pop("stream", False)
+        pipeline_response: PipelineResponse = await self._client._pipeline.run(  # type: ignore # pylint: disable=protected-access
+            _request, stream=_stream, **kwargs
+        )
+
+        response = pipeline_response.http_response
+
+        if response.status_code not in [200]:
+            if _stream:
+                try:
+                    await response.read()  # Load the body in memory and close the socket
+                except (StreamConsumedError, StreamClosedError):
+                    pass
+            map_error(status_code=response.status_code, response=response, error_map=error_map)
+            error = _failsafe_deserialize(
+                _models.KeyVaultError,
+                response,
+            )
+            raise HttpResponseError(response=response, model=error)
+
+        if _stream:
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
+        else:
+            deserialized = _deserialize(_models.EkmConnection, response.json())
+
+        if cls:
+            return cls(pipeline_response, deserialized, {})  # type: ignore
+
+        return deserialized  # type: ignore
+
+    @distributed_trace_async
+    @api_version_validation(
+        method_added_on="2026-01-01-preview",
+        params_added_on={"2026-01-01-preview": ["api_version", "accept"]},
+        api_versions_list=["2026-01-01-preview", "2026-03-01-preview", "2026-04-01"],
+    )
+    async def delete_ekm_connection(self, **kwargs: Any) -> _models.EkmConnection:
+        """Deletes the EKM connection.
+
+        The External Key Manager (EKM) deletes the existing EKM connection. If the EKM connection does
+        not already exists, this operation fails. This operation requires ekm/delete permission.
+
+        :return: EkmConnection. The EkmConnection is compatible with MutableMapping
+        :rtype: ~azure.keyvault.administration._generated.models.EkmConnection
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+        error_map: MutableMapping = {
+            401: ClientAuthenticationError,
+            404: ResourceNotFoundError,
+            409: ResourceExistsError,
+            304: ResourceNotModifiedError,
+        }
+        error_map.update(kwargs.pop("error_map", {}) or {})
+
+        _headers = kwargs.pop("headers", {}) or {}
+        _params = kwargs.pop("params", {}) or {}
+
+        cls: ClsType[_models.EkmConnection] = kwargs.pop("cls", None)
+
+        _request = build_key_vault_delete_ekm_connection_request(
+            api_version=self._config.api_version,
+            headers=_headers,
+            params=_params,
+        )
+        path_format_arguments = {
+            "vaultBaseUrl": self._serialize.url(
+                "self._config.vault_base_url", self._config.vault_base_url, "str", skip_quote=True
+            ),
+        }
+        _request.url = self._client.format_url(_request.url, **path_format_arguments)
+
+        _decompress = kwargs.pop("decompress", True)
+        _stream = kwargs.pop("stream", False)
+        pipeline_response: PipelineResponse = await self._client._pipeline.run(  # type: ignore # pylint: disable=protected-access
+            _request, stream=_stream, **kwargs
+        )
+
+        response = pipeline_response.http_response
+
+        if response.status_code not in [200]:
+            if _stream:
+                try:
+                    await response.read()  # Load the body in memory and close the socket
+                except (StreamConsumedError, StreamClosedError):
+                    pass
+            map_error(status_code=response.status_code, response=response, error_map=error_map)
+            error = _failsafe_deserialize(
+                _models.KeyVaultError,
+                response,
+            )
+            raise HttpResponseError(response=response, model=error)
+
+        if _stream:
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
+        else:
+            deserialized = _deserialize(_models.EkmConnection, response.json())
 
         if cls:
             return cls(pipeline_response, deserialized, {})  # type: ignore

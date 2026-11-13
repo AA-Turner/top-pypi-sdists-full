@@ -7,6 +7,20 @@ additional exceptions specific to OpenSearch operations.
 
 import functools
 
+# Execution context never renders the user's SQL into exception text: exceptions reach logs
+# and error reports. The OpenSearch error reason is kept as returned by the service, because
+# it is what tells the user why their query failed.
+_SQL_CONTEXT_KEYS = frozenset({"query", "sql"})
+
+
+def _format_execution_context(execution_context):
+    """Render execution context as "key: value" strings, leaving out SQL."""
+    return [
+        f"{key}: {value}"
+        for key, value in (execution_context or {}).items()
+        if key not in _SQL_CONTEXT_KEYS
+    ]
+
 
 # DB-API 2.0 Standard Exception Hierarchy
 class Error(Exception):
@@ -66,9 +80,7 @@ class OpenSearchConnectionError(OperationalError):
             details.append(f"Host: {self.host}")
         if self.port:
             details.append(f"Port: {self.port}")
-        if self.execution_context:
-            for key, value in self.execution_context.items():
-                details.append(f"{key}: {value}")
+        details.extend(_format_execution_context(self.execution_context))
 
         if details:
             return f"{base_msg} ({', '.join(details)})"
@@ -91,9 +103,7 @@ class AuthenticationError(OperationalError):
             details.append(f"Auth method: {self.auth_method}")
         if self.host:
             details.append(f"Host: {self.host}")
-        if self.execution_context:
-            for key, value in self.execution_context.items():
-                details.append(f"{key}: {value}")
+        details.extend(_format_execution_context(self.execution_context))
 
         if details:
             return f"{base_msg} ({', '.join(details)})"
@@ -116,9 +126,7 @@ class InvalidParameterError(ProgrammingError):
             details.append(f"Parameter: {self.parameter_name}")
         if self.parameter_value is not None:
             details.append(f"Value: {self.parameter_value}")
-        if self.execution_context:
-            for key, value in self.execution_context.items():
-                details.append(f"{key}: {value}")
+        details.extend(_format_execution_context(self.execution_context))
 
         if details:
             return f"{base_msg} ({', '.join(details)})"
@@ -149,9 +157,7 @@ class TransientError(OperationalError):
             details.append(f"Retry after: {self.retry_after}s")
         if self.attempt_count is not None and self.max_attempts is not None:
             details.append(f"Attempt: {self.attempt_count}/{self.max_attempts}")
-        if self.execution_context:
-            for key, value in self.execution_context.items():
-                details.append(f"{key}: {value}")
+        details.extend(_format_execution_context(self.execution_context))
 
         if details:
             return f"{base_msg} ({', '.join(details)})"
@@ -171,10 +177,6 @@ class QueryExecutionError(OperationalError):
         details = []
         if self.error_type:
             details.append(f"Error type: {self.error_type}")
-        if self.query:
-            # Truncate long queries
-            query_str = self.query[:100] + "..." if len(self.query) > 100 else self.query
-            details.append(f"Query: {query_str}")
 
         if details:
             return f"{base_msg} ({', '.join(details)})"

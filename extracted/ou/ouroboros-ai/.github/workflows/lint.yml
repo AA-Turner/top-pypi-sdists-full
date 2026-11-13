@@ -16,12 +16,12 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           version: "latest"
 
       - name: Set up Python
-        uses: actions/setup-python@v7.0.0
+        uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.12"
 
@@ -46,12 +46,12 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           version: "latest"
 
       - name: Set up Python
-        uses: actions/setup-python@v7.0.0
+        uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.12"
 
@@ -87,6 +87,37 @@ jobs:
       - name: Run tests
         run: bun test
         working-directory: src/ouroboros/opencode/plugin
+
+  console-page:
+    name: Console page
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        working-directory: gui
+
+      - name: Type check and build
+        run: bun run build
+        working-directory: gui
+
+      - name: Committed page matches its source
+        # `ouroboros gui` serves src/ouroboros/gui/static; rebuild it after editing gui/.
+        run: |
+          changes="$(git status --porcelain -- src/ouroboros/gui/static)"
+          if [ -n "$changes" ]; then
+            echo "Rebuild the console page (cd gui && bun run build) and commit:"
+            echo "$changes"
+            exit 1
+          fi
 
   native-tui:
     name: Native TUI (Rust)

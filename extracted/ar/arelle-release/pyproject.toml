@@ -38,7 +38,7 @@ dependencies = [
     'openpyxl>=3,<4',
     'pillow>=10,<14',
     'pyparsing>=3,<4',
-    'python-dateutil>=2,<4',
+    'python-dateutil>=2,<5',
     'regex',
     'truststore>=0,<1',
     'typing-extensions>=4,<5',
@@ -308,10 +308,6 @@ exclude = '''(?x)(
 # remove from list below as each module is updated with type hinting
 [[tool.mypy.overrides]]
 module = [
-    'arelle.DialogOpenArchive',
-    'arelle.Version',
-    'arelle.ViewFileTests',
-    'arelle.ViewWinTests',
     'arelle.archive.CustomLogger',
     'arelle.archive.LoadEFMvalidate',
     'arelle.archive.LoadSavePreLbCsv',
@@ -369,11 +365,7 @@ module = [
     'arelle.archive.plugin.validate.calc2',
     'arelle.archive.plugin.validateSchemaLxml',
     'arelle.archive.plugin.validateTableInfoset',
-    'arelle.examples.plugin.formulaSuiteConverter',
-    'arelle.examples.plugin.functionsCustom',
     'arelle.examples.plugin.hello_dolly',
-    'arelle.examples.plugin.rssSaveOim',
-    'arelle.formula.FormulaEvaluator',
     'arelle.plugin.CacheBuilder',
     'arelle.plugin.EdgarRendererAllReports',
     'arelle.plugin.SECCorrespondenceLoader',

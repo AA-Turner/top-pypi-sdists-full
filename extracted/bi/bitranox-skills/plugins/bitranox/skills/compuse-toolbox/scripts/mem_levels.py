@@ -24,7 +24,8 @@ Exit: 0 = listed, or the slug was found. 1 = the slug is at no level (a real "no
       works in a gate). 2 = could not answer: a missing root, a root that is not a tree anchor (no
       `.claude-memory/` there, so the body checks would be silently off), a level file or directory
       that could not be read (listed on stderr; a "no" over a partial read is not a "no"), the
-      engine's pointer parser (`hooks/uuid_store.py`) not importable, or an internal error.
+      engine's modules (`hooks/uuid_store.py`, `hooks/memory_engine.py`) not importable, or an
+      internal error.
 
 `--json` prints `{ok, command, data, skipped}` on every exit, 2 included; `ok` is false exactly
 when the exit is 2, so "no level holds it" (exit 1) is `ok: true`. Unreadable paths are listed in
@@ -39,6 +40,10 @@ sharded path `facts/<2 chars>/<uuid>.md`, exactly where the engine reads them. A
 `uuid:` pointer names is dangling like a flat one, and is listed as `<2 chars>/<uuid>` (a slug
 never holds a '/', so the two kinds cannot be confused).
 
+A slug at several levels is a duplicate pointer, unless the engine places it by topic (its body is
+bound to a topic and carries the title and description a line is built from, and no level pins
+it or holds a legacy `uuid:` line of it): such a fact has one line per level its topics place it at, listed as `placed by topic`.
+
 Read-only: it never writes to the store. Writes go through the engine (`memory_engine.py`).
 """
 
@@ -48,34 +53,38 @@ from pathlib import Path
 
 from _cli_envelope import EXIT_ERROR, EXIT_NO, EXIT_YES, EnvelopeArgumentParser, emit, guarded
 
-# The engine's pointer parser, from the plugin's hooks dir: scripts -> compuse-toolbox -> skills
-# -> bitranox. A private regex matched `](mem:x)` anywhere, so a pointer-shaped line in the prose
-# around the managed block counted as a fact at that level and hid a real dangling body. A failed
-# import is held rather than raised: its traceback exits 1, which is this tool's "no level holds
-# it", so main() refuses with 2 instead.
+# The engine's pointer parser and its test of a fact placed by topic, from the plugin's hooks dir:
+# scripts -> compuse-toolbox -> skills -> bitranox. A private regex matched `](mem:x)` anywhere, so
+# a pointer-shaped line in the prose around the managed block counted as a fact at that level and
+# hid a real dangling body; a private copy of the placement test drifts from the engine's the same
+# way. A failed import is held rather than raised: its traceback exits 1, which is this tool's "no
+# level holds it", so main() refuses with 2 instead.
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "hooks"))
 try:
+    import memory_engine  # noqa: E402
     import uuid_store  # noqa: E402
     _IMPORT_ERROR: ImportError | None = None
 except ImportError as _exc:
+    memory_engine = None  # type: ignore[assignment]
     uuid_store = None  # type: ignore[assignment]
     _IMPORT_ERROR = _exc
 
 LEVEL_FILE = "CLAUDE.local.md"
 STORE_DIR = ".claude-memory"
-PRUNE = {".git", "node_modules", ".venv", "__pycache__", "target"}
-# A venv is routinely named for its python or its project, so exact names cannot cover them:
-# `.venv-win`, `.venv-3.13`, `venv-<user>` and `venv_<project>` all occur on real trees. The
-# plugin vendors CLAUDE.local.md into site-packages, so an unpruned one turns a vendored copy
-# into an apparent memory level. srccount.py in this skill carries the same shapes, tested.
-PRUNE_PREFIXES = (".venv", "venv-", "venv_")
 
 __all__ = ["Report", "scan", "main"]
 
 
 def is_pruned_dir(name: str) -> bool:
-    """Whether a directory name is one a curated memory tree never keeps levels in."""
-    return name in PRUNE or name.startswith(PRUNE_PREFIXES)
+    """Whether a directory name is one a curated memory tree never keeps levels in.
+
+    The engine's rule alone (`uuid_store.is_non_level_dirname`: vendored and build dirs, every
+    virtualenv shape such as `.venv-win`, `venv-<user>` and `venv_<project>`, the store and the
+    migration backup beside it), so this tool and the engine report one level set. Without the
+    engine module main() already refuses; a direct call raises the import error it held."""
+    if uuid_store is None:
+        raise _IMPORT_ERROR or ImportError("uuid_store")
+    return uuid_store.is_non_level_dirname(name)
 
 
 @dataclass
@@ -85,6 +94,9 @@ class Report:
     root: Path
     levels: dict[str, list[str]] = field(default_factory=dict)
     duplicates: dict[str, list[str]] = field(default_factory=dict)
+    # slug -> levels, for a fact the engine places by topic: one line per level is how it is stored
+    placed: dict[str, list[str]] = field(default_factory=dict)
+    pinned: set[str] = field(default_factory=set)
     dangling: list[str] = field(default_factory=list)
     bodyless: list[str] = field(default_factory=list)
     # Level files or directories that could not be read. Any entry means every other answer may
@@ -105,6 +117,7 @@ class Report:
             "root": str(self.root),
             "levels": self.levels,
             "duplicates": self.duplicates,
+            "placed": self.placed,
             "dangling": self.dangling,
             "bodyless": self.bodyless,
             "unreadable": self.unreadable,
@@ -173,6 +186,7 @@ def _read_levels(root: Path, report: Report) -> None:
             continue
         pointers = _pointers_in(text)
         report.levels[rel] = [p.slug for p in pointers]
+        report.pinned.update(p.slug for p in pointers if p.pin)
         report.legacy.update({p.slug: p.uuid for p in pointers if p.legacy})
         report.legacy_uuids.update(p.uuid for p in pointers if p.legacy)
 
@@ -213,6 +227,21 @@ def _store_bodies(facts: Path, unreadable: list[str]) -> tuple[set[str], dict[st
     return flat, sharded
 
 
+def _bound_to_a_topic(root: Path, slug: str) -> bool:
+    """Whether the engine places `slug`'s lines by topic: the engine's own test
+    (`memory_engine._managed_topics`) on the head of the body it reads (`_read_body_head`), so the
+    two cannot disagree. A level that pins the fact is the caller's check. A body that is missing
+    or cannot be read is not judged placed: its lines at several levels stay duplicates. Reads the
+    head of the body only."""
+    if not uuid_store.is_valid_slug(slug):
+        return False
+    try:
+        head = memory_engine._read_body_head(uuid_store.body_path(root, slug))  # noqa: SLF001
+    except uuid_store.TreeWalkError:
+        return False
+    return head is not None and memory_engine._managed_topics(slug, head, ()) is not None  # noqa: SLF001
+
+
 def scan(root: str | Path) -> Report:
     """Read every curated level under `root`. Raises FileNotFoundError if the root is not there.
 
@@ -229,7 +258,13 @@ def scan(root: str | Path) -> Report:
     for lvl, slugs in report.levels.items():
         for s in slugs:
             pointed.setdefault(s, []).append(lvl)
-    report.duplicates = {s: sorted(l) for s, l in pointed.items() if len(set(l)) > 1}
+    several = {s: sorted(l) for s, l in pointed.items() if len(set(l)) > 1}
+    # The engine's rule (`memory_engine._unplaceable_slugs`): a pinned or legacy line anywhere
+    # keeps a fact from being placed, so its lines at several levels stay duplicates.
+    report.placed = {s: l for s, l in several.items()
+                     if s not in report.pinned and s not in report.legacy
+                     and _bound_to_a_topic(root, s)}
+    report.duplicates = {s: l for s, l in several.items() if s not in report.placed}
 
     bodies, sharded = _store_bodies(root / STORE_DIR / "facts", report.unreadable)
     report.dangling = sorted(bodies - set(pointed)) + sorted(
@@ -250,6 +285,8 @@ def _print_human(report: Report, out) -> None:
             print("          %s" % s, file=out)
     for slug, lvls in sorted(report.duplicates.items()):
         print("  ! duplicate pointer: %s at %s" % (slug, ", ".join(lvls)), file=out)
+    for slug, lvls in sorted(report.placed.items()):
+        print("  = placed by topic: %s at %s" % (slug, ", ".join(lvls)), file=out)
     for slug in report.dangling:
         print("  ~ dangling body (no pointer at any level): %s" % slug, file=out)
     for slug in report.bodyless:
@@ -335,8 +372,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--json", action="store_true", dest="as_json", help="machine-readable envelope")
     args = ap.parse_args(argv)
     if uuid_store is None:
-        return _fail("mem_levels: cannot import the engine's pointer parser (hooks/uuid_store.py): "
-                     "%s" % _IMPORT_ERROR, args.as_json)
+        return _fail("mem_levels: cannot import the engine's modules (hooks/uuid_store.py, "
+                     "hooks/memory_engine.py): %s" % _IMPORT_ERROR, args.as_json)
     return _run(args)
 
 

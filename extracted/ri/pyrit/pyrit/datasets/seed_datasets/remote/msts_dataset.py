@@ -21,7 +21,7 @@ from pyrit.models.harm_category import HarmCategory
 if TYPE_CHECKING:
     from PIL.Image import Image as PILImage
 
-    from pyrit.models.seeds.seed_group import SeedUnion
+    from pyrit.models import SeedUnion
 
 logger = logging.getLogger(__name__)
 
@@ -215,7 +215,7 @@ class _MSTSDataset(_RemoteDatasetLoader):
         return "msts"
 
     @override
-    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
+    async def _fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch MSTS examples and return as a SeedDataset.
 
@@ -368,10 +368,9 @@ class _MSTSDataset(_RemoteDatasetLoader):
         group_id = uuid.uuid4()
         subcategory_key = hazard_subcategory.strip().lower()
         if subcategory_key in self.HAZARD_SUBCATEGORY_ALIAS_OVERRIDES:
-            harm_categories = self._standardize_harm_categories(
-                hazard_subcategory,
-                alias_overrides=self.HAZARD_SUBCATEGORY_ALIAS_OVERRIDES,
-            )
+            # Read the mapping directly: "Suicide" and "Eating disorders" are also canonical
+            # names, and canonical names win over alias_overrides during standardization.
+            harm_categories = [category.name for category in self.HAZARD_SUBCATEGORY_ALIAS_OVERRIDES[subcategory_key]]
         else:
             harm_categories = self._standardize_harm_categories(
                 hazard_category,

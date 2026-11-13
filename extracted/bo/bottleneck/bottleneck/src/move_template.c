@@ -1,5 +1,6 @@
 // Copyright 2010-2019 Keith Goodman
 // Copyright 2019 Bottleneck Developers
+#include <stdlib.h>
 #include "bottleneck.h"
 #include "iterators.h"
 #include "move_median/move_median.h"
@@ -20,6 +21,7 @@
 
 #define INIT(dtype) \
     PyObject *y = PyArray_EMPTY(PyArray_NDIM(a), PyArray_SHAPE(a), dtype, 0); \
+    if (y == NULL) return NULL; \
     iter2 it; \
     init_iter2(&it, a, y, axis);
 
@@ -178,25 +180,33 @@ MOVE(move_mean, DTYPE0) {
             YI(DTYPE0) = count >= min_count ? asum / count : BN_NAN;
         }
         count_inv = 1.0 / count;
-        WHILE2 {
-            ai = AI(DTYPE0);
-            aold = AOLD(DTYPE0);
-            if (ai == ai) {
-                if (aold == aold) {
-                    asum += ai - aold;
-                } else {
-                    asum += ai;
-                    count++;
-                    count_inv = 1.0 / count;
-                }
-            } else {
-                if (aold == aold) {
-                    asum -= aold;
-                    count--;
-                    count_inv = 1.0 / count;
-                }
+        /* Special case for window=1: just copy the input value to avoid
+           floating-point errors from unnecessary arithmetic */
+        if (window == 1) {
+            WHILE2 {
+                YI(DTYPE0) = AI(DTYPE0);
             }
-            YI(DTYPE0) = count >= min_count ? asum * count_inv : BN_NAN;
+        } else {
+            WHILE2 {
+                ai = AI(DTYPE0);
+                aold = AOLD(DTYPE0);
+                if (ai == ai) {
+                    if (aold == aold) {
+                        asum += ai - aold;
+                    } else {
+                        asum += ai;
+                        count++;
+                        count_inv = 1.0 / count;
+                    }
+                } else {
+                    if (aold == aold) {
+                        asum -= aold;
+                        count--;
+                        count_inv = 1.0 / count;
+                    }
+                }
+                YI(DTYPE0) = count >= min_count ? asum * count_inv : BN_NAN;
+            }
         }
         NEXT2
     }
@@ -222,9 +232,17 @@ MOVE(move_mean, DTYPE0) {
             *(npy_DTYPE1*)(it.py + it.i * it.ystride) = (npy_DTYPE1)asum / (it.i + 1);
             it.i++;
         }
-        WHILE2 {
-            asum += AI(DTYPE0) - AOLD(DTYPE0);
-            YI(DTYPE1) = (npy_DTYPE1)asum * window_inv;
+        /* Special case for window=1: just copy the input value to avoid
+           floating-point errors from unnecessary arithmetic */
+        if (window == 1) {
+            WHILE2 {
+                YI(DTYPE1) = (npy_DTYPE1)AI(DTYPE0);
+            }
+        } else {
+            WHILE2 {
+                asum += AI(DTYPE0) - AOLD(DTYPE0);
+                YI(DTYPE1) = (npy_DTYPE1)asum * window_inv;
+            }
         }
         NEXT2
     }
@@ -546,6 +564,7 @@ MOVE(move_median, DTYPE0) {
     mm_handle *mm = mm_new_nan(window, min_count);
     INIT(NPY_DTYPE0)
     if (window == 1) {
+        Py_DECREF(y);
         mm_free(mm);
         return PyArray_Copy(a);
     }
@@ -581,6 +600,8 @@ MOVE(move_median, DTYPE0) {
     mm_handle *mm = mm_new(window, min_count);
     INIT(NPY_DTYPE1)
     if (window == 1) {
+        Py_DECREF(y);
+        mm_free(mm);
         return PyArray_CastToType(a,
                                   PyArray_DescrFromType(NPY_DTYPE1),
                                   PyArray_CHKFLAGS(a, NPY_ARRAY_F_CONTIGUOUS));
@@ -905,7 +926,7 @@ mover(char *name,
     /* convert to array if necessary */
     if (PyArray_Check(a_obj)) {
         a = (PyArrayObject *)a_obj;
-        Py_INCREF(a);
+        Py_INCREF((PyObject*)a);
     } else {
         a = (PyArrayObject *)PyArray_FROM_O(a_obj);
         if (a == NULL) {
@@ -915,7 +936,7 @@ mover(char *name,
 
     /* check for byte swapped input array */
     if (PyArray_ISBYTESWAPPED(a)) {
-        Py_DECREF(a);
+        Py_DECREF((PyObject *)a);
         return slow(name, args, kwds);
     }
 
@@ -1009,12 +1030,12 @@ mover(char *name,
         y = slow(name, args, kwds);
     }
 
-    Py_DECREF(a);
+    Py_DECREF((PyObject *)a);
 
     return y;
 
 error:
-    Py_DECREF(a);
+    Py_DECREF((PyObject *)a);
     return NULL;
 
 }

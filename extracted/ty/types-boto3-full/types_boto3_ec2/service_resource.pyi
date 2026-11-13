@@ -602,7 +602,9 @@ class ServiceResourceInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourceinstancescollection)
         """
 
-    def monitor(self, *, DryRun: bool = ...) -> list[MonitorInstancesResultTypeDef]:
+    def monitor(
+        self, *, MetricCategoryIds: Sequence[str] = ..., DryRun: bool = ...
+    ) -> list[MonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -653,7 +655,9 @@ class ServiceResourceInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourceinstancescollection)
         """
 
-    def unmonitor(self, *, DryRun: bool = ...) -> list[UnmonitorInstancesResultTypeDef]:
+    def unmonitor(
+        self, *, MetricCategoryIds: Sequence[str] = ..., DryRun: bool = ...
+    ) -> list[UnmonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1697,7 +1701,9 @@ class PlacementGroupInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#placementgroupinstances)
         """
 
-    def monitor(self, *, DryRun: bool = ...) -> list[MonitorInstancesResultTypeDef]:
+    def monitor(
+        self, *, MetricCategoryIds: Sequence[str] = ..., DryRun: bool = ...
+    ) -> list[MonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1748,7 +1754,9 @@ class PlacementGroupInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#placementgroupinstances)
         """
 
-    def unmonitor(self, *, DryRun: bool = ...) -> list[UnmonitorInstancesResultTypeDef]:
+    def unmonitor(
+        self, *, MetricCategoryIds: Sequence[str] = ..., DryRun: bool = ...
+    ) -> list[UnmonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1829,7 +1837,9 @@ class SubnetInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#subnetinstances)
         """
 
-    def monitor(self, *, DryRun: bool = ...) -> list[MonitorInstancesResultTypeDef]:
+    def monitor(
+        self, *, MetricCategoryIds: Sequence[str] = ..., DryRun: bool = ...
+    ) -> list[MonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1880,7 +1890,9 @@ class SubnetInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#subnetinstances)
         """
 
-    def unmonitor(self, *, DryRun: bool = ...) -> list[UnmonitorInstancesResultTypeDef]:
+    def unmonitor(
+        self, *, MetricCategoryIds: Sequence[str] = ..., DryRun: bool = ...
+    ) -> list[UnmonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2156,7 +2168,9 @@ class VpcInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#vpcinstances)
         """
 
-    def monitor(self, *, DryRun: bool = ...) -> list[MonitorInstancesResultTypeDef]:
+    def monitor(
+        self, *, MetricCategoryIds: Sequence[str] = ..., DryRun: bool = ...
+    ) -> list[MonitorInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2207,7 +2221,9 @@ class VpcInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#vpcinstances)
         """
 
-    def unmonitor(self, *, DryRun: bool = ...) -> list[UnmonitorInstancesResultTypeDef]:
+    def unmonitor(
+        self, *, MetricCategoryIds: Sequence[str] = ..., DryRun: bool = ...
+    ) -> list[UnmonitorInstancesResultTypeDef]:
         """
         Batch method.
 

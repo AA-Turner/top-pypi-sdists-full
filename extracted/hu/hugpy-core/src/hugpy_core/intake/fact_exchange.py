@@ -41,7 +41,13 @@ def sync(worker):
     with _lock:
         if now-_last.get(name,-60)<60:return
         _last[name]=now
-    document=get(worker,'/v1/facts/export',60)
+    try:
+        document=get(worker,'/v1/facts/export',60)
+    except RuntimeError as exc:
+        # A wrapper without the export has nothing to share; that is not a failure every minute.
+        if 'Worker HTTP 404' in str(exc):
+            return
+        raise
     pairs=document.get('pairs') or []
     if not pairs:return
     for target in registrations():

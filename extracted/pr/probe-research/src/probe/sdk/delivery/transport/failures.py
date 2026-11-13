@@ -90,16 +90,18 @@ class ErrorMappingMixin:
             # plus the notice ("in the trash since ..., Probe can restore it until ...").
             # The sentence is what a person or agent needs; the token alone says nothing.
             in_trash = detail == "in_trash"
+            trashed = (body.get("kind"), body.get("id")) if in_trash else (None, None)
             if in_trash and isinstance(body.get("message"), str):
                 detail = body["message"]
             # The flat shape's typed keys sit beside `detail`; the sentence is `detail` as read here.
             message = parse_server_message(resp.status_code, {**body, "detail": detail})
         except (json.JSONDecodeError, ValueError, AttributeError):
-            detail, in_trash = resp.text, False
+            detail, in_trash, trashed = resp.text, False, (None, None)
             message = parse_server_message(resp.status_code, resp.text)
         error = errors.error_for(resp.status_code, detail, server_message=message)
         if in_trash:
             error.in_trash = True
+            error.in_trash_kind, error.in_trash_id = (str(v) if v is not None else None for v in trashed)
         applied = resp.headers.get(_workspace_limit.APPLIED_HEADER)
         if applied and resp.status_code == 404:
             # The API answered under this computer's workspace limit: what was asked for may

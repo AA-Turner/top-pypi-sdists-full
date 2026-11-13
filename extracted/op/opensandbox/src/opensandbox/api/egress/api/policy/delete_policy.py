@@ -22,18 +22,26 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.policy_status_response import PolicyStatusResponse
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     *,
     body: list[str],
+    drop_established: bool | Unset = False,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
+
+    params: dict[str, Any] = {}
+
+    params["dropEstablished"] = drop_established
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
         "method": "delete",
         "url": "/policy",
+        "params": params,
     }
 
     _kwargs["json"] = body
@@ -64,6 +72,10 @@ def _parse_response(
         response_500 = response.text
         return response_500
 
+    if response.status_code == 501:
+        response_501 = response.text
+        return response_501
+
     if response.status_code == 503:
         response_503 = response.text
         return response_503
@@ -89,6 +101,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: list[str],
+    drop_established: bool | Unset = False,
 ) -> Response[PolicyStatusResponse | str]:
     r"""Delete egress rules
 
@@ -104,6 +117,7 @@ def sync_detailed(
       they have none.
 
     Args:
+        drop_established (bool | Unset):  Default: False.
         body (list[str]):  Example: ['bad.example.com', '*.blocked.org'].
 
     Raises:
@@ -116,6 +130,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         body=body,
+        drop_established=drop_established,
     )
 
     response = client.get_httpx_client().request(
@@ -129,6 +144,7 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     body: list[str],
+    drop_established: bool | Unset = False,
 ) -> PolicyStatusResponse | str | None:
     r"""Delete egress rules
 
@@ -144,6 +160,7 @@ def sync(
       they have none.
 
     Args:
+        drop_established (bool | Unset):  Default: False.
         body (list[str]):  Example: ['bad.example.com', '*.blocked.org'].
 
     Raises:
@@ -157,6 +174,7 @@ def sync(
     return sync_detailed(
         client=client,
         body=body,
+        drop_established=drop_established,
     ).parsed
 
 
@@ -164,6 +182,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: list[str],
+    drop_established: bool | Unset = False,
 ) -> Response[PolicyStatusResponse | str]:
     r"""Delete egress rules
 
@@ -179,6 +198,7 @@ async def asyncio_detailed(
       they have none.
 
     Args:
+        drop_established (bool | Unset):  Default: False.
         body (list[str]):  Example: ['bad.example.com', '*.blocked.org'].
 
     Raises:
@@ -191,6 +211,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         body=body,
+        drop_established=drop_established,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -202,6 +223,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: list[str],
+    drop_established: bool | Unset = False,
 ) -> PolicyStatusResponse | str | None:
     r"""Delete egress rules
 
@@ -217,6 +239,7 @@ async def asyncio(
       they have none.
 
     Args:
+        drop_established (bool | Unset):  Default: False.
         body (list[str]):  Example: ['bad.example.com', '*.blocked.org'].
 
     Raises:
@@ -231,5 +254,6 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             body=body,
+            drop_established=drop_established,
         )
     ).parsed

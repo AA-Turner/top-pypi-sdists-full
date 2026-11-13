@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from .balance import Balance, BalanceTypedDict
+from .creditdimension_union import CreditDimensionUnion, CreditDimensionUnionTypedDict
 from .customerexpand import CustomerExpand
 from .plan import Plan, PlanTypedDict
 from autumn_sdk.types import (
@@ -29,7 +30,7 @@ class GetCustomerGlobals(BaseModel):
         Optional[str],
         pydantic.Field(alias="x-api-version"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
-    ] = "2.5.0"
+    ] = "2.6.0"
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -141,6 +142,16 @@ class GetCustomerBalanceAllocation(BaseModel):
     r"""Complete list of entity allocations for this feature. Omitted entities release their shares."""
 
 
+GetCustomerAutoTopupLimitType2 = Union[
+    Literal[
+        "count",
+        "amount",
+    ],
+    UnrecognizedStr,
+]
+r"""What `limit` caps: the number of auto top-ups (`count`, default) or the total amount charged for them, in the customer's currency (`amount`)."""
+
+
 GetCustomerAutoTopupInterval2 = Union[
     Literal[
         "hour",
@@ -157,7 +168,9 @@ class GetCustomerPurchaseLimit2TypedDict(TypedDict):
     interval: GetCustomerAutoTopupInterval2
     r"""The time interval for the purchase limit window."""
     limit: float
-    r"""Maximum number of auto top-ups allowed within the interval."""
+    r"""Maximum allowed within the interval: a number of auto top-ups when limit_type is count, or a total charge (e.g. 500 for $500, pre-tax) when limit_type is amount."""
+    limit_type: NotRequired[GetCustomerAutoTopupLimitType2]
+    r"""What `limit` caps: the number of auto top-ups (`count`, default) or the total amount charged for them, in the customer's currency (`amount`)."""
     interval_count: NotRequired[float]
     r"""Number of intervals in the purchase limit window."""
 
@@ -167,14 +180,17 @@ class GetCustomerPurchaseLimit2(BaseModel):
     r"""The time interval for the purchase limit window."""
 
     limit: float
-    r"""Maximum number of auto top-ups allowed within the interval."""
+    r"""Maximum allowed within the interval: a number of auto top-ups when limit_type is count, or a total charge (e.g. 500 for $500, pre-tax) when limit_type is amount."""
+
+    limit_type: Optional[GetCustomerAutoTopupLimitType2] = None
+    r"""What `limit` caps: the number of auto top-ups (`count`, default) or the total amount charged for them, in the customer's currency (`amount`)."""
 
     interval_count: Optional[float] = 1
     r"""Number of intervals in the purchase limit window."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["interval_count"])
+        optional_fields = set(["limit_type", "interval_count"])
         serialized = handler(self)
         m = {}
 
@@ -189,6 +205,15 @@ class GetCustomerPurchaseLimit2(BaseModel):
         return m
 
 
+GetCustomerAutoTopupLimitType1 = Union[
+    Literal[
+        "count",
+        "amount",
+    ],
+    UnrecognizedStr,
+]
+
+
 GetCustomerAutoTopupInterval1 = Union[
     Literal[
         "hour",
@@ -201,19 +226,26 @@ GetCustomerAutoTopupInterval1 = Union[
 
 
 class GetCustomerPurchaseLimit1TypedDict(TypedDict):
+    limit_type: Nullable[GetCustomerAutoTopupLimitType1]
+    r"""What `limit` caps: `count` of auto top-ups or `amount` charged. Null when no purchase limit is configured."""
     interval: Nullable[GetCustomerAutoTopupInterval1]
     r"""The time interval for the purchase limit window. Null when no purchase limit is configured."""
     interval_count: Nullable[float]
     r"""Number of intervals in the purchase limit window. Null when no purchase limit is configured."""
     limit: Nullable[float]
-    r"""Maximum number of auto top-ups allowed within the interval. Null when no purchase limit is configured."""
+    r"""Maximum allowed within the interval (top-ups for count, charge for amount). Null when no purchase limit is configured."""
     count: float
     r"""Number of auto top-ups already consumed in the current window."""
+    amount: float
+    r"""Amount charged by auto top-ups in the current window, pre-tax, in the customer's currency."""
     next_reset_at: float
     r"""Unix ms timestamp when the current purchase window ends and the count resets."""
 
 
 class GetCustomerPurchaseLimit1(BaseModel):
+    limit_type: Nullable[GetCustomerAutoTopupLimitType1]
+    r"""What `limit` caps: `count` of auto top-ups or `amount` charged. Null when no purchase limit is configured."""
+
     interval: Nullable[GetCustomerAutoTopupInterval1]
     r"""The time interval for the purchase limit window. Null when no purchase limit is configured."""
 
@@ -221,10 +253,13 @@ class GetCustomerPurchaseLimit1(BaseModel):
     r"""Number of intervals in the purchase limit window. Null when no purchase limit is configured."""
 
     limit: Nullable[float]
-    r"""Maximum number of auto top-ups allowed within the interval. Null when no purchase limit is configured."""
+    r"""Maximum allowed within the interval (top-ups for count, charge for amount). Null when no purchase limit is configured."""
 
     count: float
     r"""Number of auto top-ups already consumed in the current window."""
+
+    amount: float
+    r"""Amount charged by auto top-ups in the current window, pre-tax, in the customer's currency."""
 
     next_reset_at: float
     r"""Unix ms timestamp when the current purchase window ends and the count resets."""
@@ -248,14 +283,14 @@ GetCustomerPurchaseLimitUnionTypedDict = TypeAliasType(
     "GetCustomerPurchaseLimitUnionTypedDict",
     Union[GetCustomerPurchaseLimit2TypedDict, GetCustomerPurchaseLimit1TypedDict],
 )
-r"""Optional rate limit to cap how often auto top-ups occur. Expand billing_controls.auto_topups.purchase_limit for a count of top ups and the next_reset_at."""
+r"""Optional rate limit to cap how often auto top-ups occur. Expand billing_controls.auto_topups.purchase_limit for the count of top ups, amount charged and the next_reset_at."""
 
 
 GetCustomerPurchaseLimitUnion = TypeAliasType(
     "GetCustomerPurchaseLimitUnion",
     Union[GetCustomerPurchaseLimit2, GetCustomerPurchaseLimit1],
 )
-r"""Optional rate limit to cap how often auto top-ups occur. Expand billing_controls.auto_topups.purchase_limit for a count of top ups and the next_reset_at."""
+r"""Optional rate limit to cap how often auto top-ups occur. Expand billing_controls.auto_topups.purchase_limit for the count of top ups, amount charged and the next_reset_at."""
 
 
 GetCustomerAutoTopupSource = Union[
@@ -278,7 +313,7 @@ class GetCustomerAutoTopupTypedDict(TypedDict):
     enabled: NotRequired[bool]
     r"""Whether auto top-up is enabled."""
     purchase_limit: NotRequired[GetCustomerPurchaseLimitUnionTypedDict]
-    r"""Optional rate limit to cap how often auto top-ups occur. Expand billing_controls.auto_topups.purchase_limit for a count of top ups and the next_reset_at."""
+    r"""Optional rate limit to cap how often auto top-ups occur. Expand billing_controls.auto_topups.purchase_limit for the count of top ups, amount charged and the next_reset_at."""
     invoice_mode: NotRequired[bool]
     r"""When true, auto top-up creates a send_invoice invoice instead of auto-charging."""
     source: NotRequired[GetCustomerAutoTopupSource]
@@ -299,7 +334,7 @@ class GetCustomerAutoTopup(BaseModel):
     r"""Whether auto top-up is enabled."""
 
     purchase_limit: Optional[GetCustomerPurchaseLimitUnion] = None
-    r"""Optional rate limit to cap how often auto top-ups occur. Expand billing_controls.auto_topups.purchase_limit for a count of top ups and the next_reset_at."""
+    r"""Optional rate limit to cap how often auto top-ups occur. Expand billing_controls.auto_topups.purchase_limit for the count of top ups, amount charged and the next_reset_at."""
 
     invoice_mode: Optional[bool] = None
     r"""When true, auto top-up creates a send_invoice invoice instead of auto-charging."""
@@ -324,7 +359,7 @@ class GetCustomerAutoTopup(BaseModel):
         return m
 
 
-GetCustomerLimitType = Union[
+GetCustomerSpendLimitLimitType = Union[
     Literal[
         "absolute",
         "usage_percentage",
@@ -349,7 +384,7 @@ class GetCustomerSpendLimitTypedDict(TypedDict):
     r"""Optional feature ID this spend limit applies to."""
     enabled: NotRequired[bool]
     r"""Whether the overage spend limit is enabled."""
-    limit_type: NotRequired[GetCustomerLimitType]
+    limit_type: NotRequired[GetCustomerSpendLimitLimitType]
     r"""How overage_limit is interpreted: an absolute overage cap (default) or a percentage of the main-plan allowance."""
     overage_limit: NotRequired[float]
     r"""Overage cap for the feature: absolute units, or a percent (e.g. 120) when limit_type is usage_percentage."""
@@ -366,7 +401,7 @@ class GetCustomerSpendLimit(BaseModel):
     enabled: Optional[bool] = False
     r"""Whether the overage spend limit is enabled."""
 
-    limit_type: Optional[GetCustomerLimitType] = None
+    limit_type: Optional[GetCustomerSpendLimitLimitType] = None
     r"""How overage_limit is interpreted: an absolute overage cap (default) or a percentage of the main-plan allowance."""
 
     overage_limit: Optional[float] = None
@@ -559,7 +594,7 @@ r"""Response-only: whether the entry is a customer-level override or inherited f
 
 class GetCustomerUsageAlertTypedDict(TypedDict):
     threshold: float
-    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage (0-100)."""
+    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage. remaining and remaining_percentage accept negative values with basis balance, to alert once the balance is overdrawn."""
     threshold_type: GetCustomerThresholdType
     r"""Whether the threshold is an absolute count or a percentage of the usage allowance or remaining balance."""
     feature_id: NotRequired[str]
@@ -578,7 +613,7 @@ class GetCustomerUsageAlertTypedDict(TypedDict):
 
 class GetCustomerUsageAlert(BaseModel):
     threshold: float
-    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage (0-100)."""
+    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage. remaining and remaining_percentage accept negative values with basis balance, to alert once the balance is overdrawn."""
 
     threshold_type: GetCustomerThresholdType
     r"""Whether the threshold is an absolute count or a percentage of the usage allowance or remaining balance."""
@@ -732,7 +767,7 @@ class GetCustomerBillingControls(BaseModel):
         return m
 
 
-GetCustomerStatus = Union[
+GetCustomerSubscriptionStatus = Union[
     Literal[
         "active",
         "scheduled",
@@ -761,7 +796,7 @@ class GetCustomerSubscriptionTypedDict(TypedDict):
     r"""Whether the plan was automatically enabled for the customer."""
     add_on: bool
     r"""Whether this is an add-on plan rather than a base subscription."""
-    status: GetCustomerStatus
+    status: GetCustomerSubscriptionStatus
     r"""Current status of the subscription."""
     past_due: bool
     r"""Whether the subscription has overdue payments."""
@@ -770,7 +805,7 @@ class GetCustomerSubscriptionTypedDict(TypedDict):
     expires_at: Nullable[float]
     r"""Timestamp when the subscription will expire, or null if no expiry set."""
     trial_ends_at: Nullable[float]
-    r"""Timestamp when the trial period ends, or null if not on trial."""
+    r"""When the trial ends or ended. Null if the subscription never had a trial. Compare with the current time to know whether it's still trialing."""
     started_at: float
     r"""Timestamp when the subscription started."""
     current_period_start: Nullable[float]
@@ -797,7 +832,7 @@ class GetCustomerSubscription(BaseModel):
     add_on: bool
     r"""Whether this is an add-on plan rather than a base subscription."""
 
-    status: GetCustomerStatus
+    status: GetCustomerSubscriptionStatus
     r"""Current status of the subscription."""
 
     past_due: bool
@@ -810,7 +845,7 @@ class GetCustomerSubscription(BaseModel):
     r"""Timestamp when the subscription will expire, or null if no expiry set."""
 
     trial_ends_at: Nullable[float]
-    r"""Timestamp when the trial period ends, or null if not on trial."""
+    r"""When the trial ends or ended. Null if the subscription never had a trial. Compare with the current time to know whether it's still trialing."""
 
     started_at: float
     r"""Timestamp when the subscription started."""
@@ -994,123 +1029,6 @@ GetCustomerCombine = Union[
 r"""How grants of this feature from several plans combine: 'sum' adds them up, 'max' / 'min' keep the highest / lowest grant among plan items with no price. Omitted when 'sum'."""
 
 
-class GetCustomerDimensions6TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-
-class GetCustomerDimensions6(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-GetCustomerDimensionsToEnum3 = Literal["inf",]
-
-
-GetCustomerDimensionsToUnion3TypedDict = TypeAliasType(
-    "GetCustomerDimensionsToUnion3TypedDict", Union[float, GetCustomerDimensionsToEnum3]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-GetCustomerDimensionsToUnion3 = TypeAliasType(
-    "GetCustomerDimensionsToUnion3", Union[float, GetCustomerDimensionsToEnum3]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-class GetCustomerDimensionsTier3TypedDict(TypedDict):
-    to: GetCustomerDimensionsToUnion3TypedDict
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class GetCustomerDimensionsTier3(BaseModel):
-    to: GetCustomerDimensionsToUnion3
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class GetCustomerDimensions5TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    tiers: List[GetCustomerDimensionsTier3TypedDict]
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-    tier_behavior: Literal["graduated"]
-
-
-class GetCustomerDimensions5(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    tiers: List[GetCustomerDimensionsTier3]
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    tier_behavior: Annotated[
-        Annotated[Literal["graduated"], AfterValidator(validate_const("graduated"))],
-        pydantic.Field(alias="tier_behavior"),
-    ] = "graduated"
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-GetCustomerDimensionsUnion3TypedDict = TypeAliasType(
-    "GetCustomerDimensionsUnion3TypedDict",
-    Union[GetCustomerDimensions6TypedDict, GetCustomerDimensions5TypedDict],
-)
-
-
-GetCustomerDimensionsUnion3 = TypeAliasType(
-    "GetCustomerDimensionsUnion3", Union[GetCustomerDimensions6, GetCustomerDimensions5]
-)
-
-
 class GetCustomerMultipliers3TypedDict(TypedDict):
     match: Dict[str, str]
     r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
@@ -1153,7 +1071,7 @@ class GetCustomerCreditSchema3TypedDict(TypedDict):
     metered_feature_id: Literal[""]
     billing_units: NotRequired[float]
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-    dimensions: NotRequired[Dict[str, GetCustomerDimensionsUnion3TypedDict]]
+    dimensions: NotRequired[Dict[str, CreditDimensionUnionTypedDict]]
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
     multipliers: NotRequired[Dict[str, GetCustomerMultipliers3TypedDict]]
     r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
@@ -1171,7 +1089,7 @@ class GetCustomerCreditSchema3(BaseModel):
     billing_units: Optional[float] = None
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
 
-    dimensions: Optional[Dict[str, GetCustomerDimensionsUnion3]] = None
+    dimensions: Optional[Dict[str, CreditDimensionUnion]] = None
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
 
     multipliers: Optional[Dict[str, GetCustomerMultipliers3]] = None
@@ -1192,123 +1110,6 @@ class GetCustomerCreditSchema3(BaseModel):
                     m[k] = val
 
         return m
-
-
-class GetCustomerDimensions4TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-
-class GetCustomerDimensions4(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-GetCustomerDimensionsToEnum2 = Literal["inf",]
-
-
-GetCustomerDimensionsToUnion2TypedDict = TypeAliasType(
-    "GetCustomerDimensionsToUnion2TypedDict", Union[float, GetCustomerDimensionsToEnum2]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-GetCustomerDimensionsToUnion2 = TypeAliasType(
-    "GetCustomerDimensionsToUnion2", Union[float, GetCustomerDimensionsToEnum2]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-class GetCustomerDimensionsTier2TypedDict(TypedDict):
-    to: GetCustomerDimensionsToUnion2TypedDict
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class GetCustomerDimensionsTier2(BaseModel):
-    to: GetCustomerDimensionsToUnion2
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class GetCustomerDimensions3TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    tiers: List[GetCustomerDimensionsTier2TypedDict]
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-    tier_behavior: Literal["graduated"]
-
-
-class GetCustomerDimensions3(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    tiers: List[GetCustomerDimensionsTier2]
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    tier_behavior: Annotated[
-        Annotated[Literal["graduated"], AfterValidator(validate_const("graduated"))],
-        pydantic.Field(alias="tier_behavior"),
-    ] = "graduated"
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-GetCustomerDimensionsUnion2TypedDict = TypeAliasType(
-    "GetCustomerDimensionsUnion2TypedDict",
-    Union[GetCustomerDimensions4TypedDict, GetCustomerDimensions3TypedDict],
-)
-
-
-GetCustomerDimensionsUnion2 = TypeAliasType(
-    "GetCustomerDimensionsUnion2", Union[GetCustomerDimensions4, GetCustomerDimensions3]
-)
 
 
 class GetCustomerMultipliers2TypedDict(TypedDict):
@@ -1354,7 +1155,7 @@ class GetCustomerCreditSchema2TypedDict(TypedDict):
     r"""Credits consumed per billing-unit group."""
     billing_units: NotRequired[float]
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-    dimensions: NotRequired[Dict[str, GetCustomerDimensionsUnion2TypedDict]]
+    dimensions: NotRequired[Dict[str, CreditDimensionUnionTypedDict]]
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
     multipliers: NotRequired[Dict[str, GetCustomerMultipliers2TypedDict]]
     r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
@@ -1370,7 +1171,7 @@ class GetCustomerCreditSchema2(BaseModel):
     billing_units: Optional[float] = None
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
 
-    dimensions: Optional[Dict[str, GetCustomerDimensionsUnion2]] = None
+    dimensions: Optional[Dict[str, CreditDimensionUnion]] = None
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
 
     multipliers: Optional[Dict[str, GetCustomerMultipliers2]] = None
@@ -1391,123 +1192,6 @@ class GetCustomerCreditSchema2(BaseModel):
                     m[k] = val
 
         return m
-
-
-class GetCustomerDimensions2TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-
-class GetCustomerDimensions2(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-GetCustomerDimensionsToEnum1 = Literal["inf",]
-
-
-GetCustomerDimensionsToUnion1TypedDict = TypeAliasType(
-    "GetCustomerDimensionsToUnion1TypedDict", Union[float, GetCustomerDimensionsToEnum1]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-GetCustomerDimensionsToUnion1 = TypeAliasType(
-    "GetCustomerDimensionsToUnion1", Union[float, GetCustomerDimensionsToEnum1]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-class GetCustomerDimensionsTier1TypedDict(TypedDict):
-    to: GetCustomerDimensionsToUnion1TypedDict
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class GetCustomerDimensionsTier1(BaseModel):
-    to: GetCustomerDimensionsToUnion1
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class GetCustomerDimensions1TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    tiers: List[GetCustomerDimensionsTier1TypedDict]
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-    tier_behavior: Literal["graduated"]
-
-
-class GetCustomerDimensions1(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    tiers: List[GetCustomerDimensionsTier1]
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    tier_behavior: Annotated[
-        Annotated[Literal["graduated"], AfterValidator(validate_const("graduated"))],
-        pydantic.Field(alias="tier_behavior"),
-    ] = "graduated"
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-GetCustomerDimensionsUnion1TypedDict = TypeAliasType(
-    "GetCustomerDimensionsUnion1TypedDict",
-    Union[GetCustomerDimensions2TypedDict, GetCustomerDimensions1TypedDict],
-)
-
-
-GetCustomerDimensionsUnion1 = TypeAliasType(
-    "GetCustomerDimensionsUnion1", Union[GetCustomerDimensions2, GetCustomerDimensions1]
-)
 
 
 class GetCustomerMultipliers1TypedDict(TypedDict):
@@ -1582,7 +1266,7 @@ class GetCustomerCreditSchema1TypedDict(TypedDict):
     tiers: List[GetCustomerTierTypedDict]
     billing_units: NotRequired[float]
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-    dimensions: NotRequired[Dict[str, GetCustomerDimensionsUnion1TypedDict]]
+    dimensions: NotRequired[Dict[str, CreditDimensionUnionTypedDict]]
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
     multipliers: NotRequired[Dict[str, GetCustomerMultipliers1TypedDict]]
     r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
@@ -1598,7 +1282,7 @@ class GetCustomerCreditSchema1(BaseModel):
     billing_units: Optional[float] = None
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
 
-    dimensions: Optional[Dict[str, GetCustomerDimensionsUnion1]] = None
+    dimensions: Optional[Dict[str, CreditDimensionUnion]] = None
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
 
     multipliers: Optional[Dict[str, GetCustomerMultipliers1]] = None
@@ -1950,6 +1634,17 @@ class GetCustomerFlags(BaseModel):
         return m
 
 
+GetCustomerRenewalIssueMethod = Union[
+    Literal[
+        "draft",
+        "finalize",
+        "send",
+    ],
+    UnrecognizedStr,
+]
+r"""How this customer's renewal invoices are issued when the subscription is invoiced (send_invoice). draft leaves the renewal invoice editable for manual review. finalize opens it without Stripe emailing, reminding or charging (auto_advance off). send lets Stripe finalize and email it as usual. invoice_mode.issue_method on attach only shapes the subscription's first invoice; renewals follow this."""
+
+
 class GetCustomerConfigTypedDict(TypedDict):
     r"""Configuration for the customer."""
 
@@ -1957,6 +1652,10 @@ class GetCustomerConfigTypedDict(TypedDict):
     r"""Whether to disable the shared customer-level pool for entities."""
     disable_overage_billing: NotRequired[bool]
     r"""Stops Autumn from posting usage-overage line items to Stripe for this customer. Check/track and balance resets still behave normally. When set, this overrides the organization-level disable_overage_billing setting."""
+    ignore_past_due: NotRequired[bool]
+    r"""Keeps this customer's plans working while past due: balances still reset, usage is not blocked and Stripe does not cancel the subscription. When set, this overrides each plan's ignore_past_due setting."""
+    renewal_issue_method: NotRequired[GetCustomerRenewalIssueMethod]
+    r"""How this customer's renewal invoices are issued when the subscription is invoiced (send_invoice). draft leaves the renewal invoice editable for manual review. finalize opens it without Stripe emailing, reminding or charging (auto_advance off). send lets Stripe finalize and email it as usual. invoice_mode.issue_method on attach only shapes the subscription's first invoice; renewals follow this."""
 
 
 class GetCustomerConfig(BaseModel):
@@ -1968,9 +1667,22 @@ class GetCustomerConfig(BaseModel):
     disable_overage_billing: Optional[bool] = None
     r"""Stops Autumn from posting usage-overage line items to Stripe for this customer. Check/track and balance resets still behave normally. When set, this overrides the organization-level disable_overage_billing setting."""
 
+    ignore_past_due: Optional[bool] = None
+    r"""Keeps this customer's plans working while past due: balances still reset, usage is not blocked and Stripe does not cancel the subscription. When set, this overrides each plan's ignore_past_due setting."""
+
+    renewal_issue_method: Optional[GetCustomerRenewalIssueMethod] = None
+    r"""How this customer's renewal invoices are issued when the subscription is invoiced (send_invoice). draft leaves the renewal invoice editable for manual review. finalize opens it without Stripe emailing, reminding or charging (auto_advance off). send lets Stripe finalize and email it as usual. invoice_mode.issue_method on attach only shapes the subscription's first invoice; renewals follow this."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["disable_pooled_balance", "disable_overage_billing"])
+        optional_fields = set(
+            [
+                "disable_pooled_balance",
+                "disable_overage_billing",
+                "ignore_past_due",
+                "renewal_issue_method",
+            ]
+        )
         serialized = handler(self)
         m = {}
 
@@ -2097,6 +1809,8 @@ r"""The billing processor that owns this invoice."""
 
 
 class GetCustomerInvoiceTypedDict(TypedDict):
+    id: str
+    r"""The Autumn invoice ID"""
     plan_ids: List[str]
     r"""Array of plan IDs included in this invoice"""
     stripe_id: str
@@ -2105,6 +1819,10 @@ class GetCustomerInvoiceTypedDict(TypedDict):
     r"""The status of the invoice"""
     total: float
     r"""The total amount of the invoice"""
+    amount_paid: Nullable[float]
+    r"""The amount paid on the invoice, in major currency units. Null on invoices recorded before amounts paid were tracked."""
+    refunded_amount: float
+    r"""The total amount refunded on the invoice, in major currency units"""
     currency: str
     r"""The currency code for the invoice"""
     created_at: float
@@ -2116,6 +1834,9 @@ class GetCustomerInvoiceTypedDict(TypedDict):
 
 
 class GetCustomerInvoice(BaseModel):
+    id: str
+    r"""The Autumn invoice ID"""
+
     plan_ids: List[str]
     r"""Array of plan IDs included in this invoice"""
 
@@ -2127,6 +1848,12 @@ class GetCustomerInvoice(BaseModel):
 
     total: float
     r"""The total amount of the invoice"""
+
+    amount_paid: Nullable[float]
+    r"""The amount paid on the invoice, in major currency units. Null on invoices recorded before amounts paid were tracked."""
+
+    refunded_amount: float
+    r"""The total amount refunded on the invoice, in major currency units"""
 
     currency: str
     r"""The currency code for the invoice"""
@@ -2143,7 +1870,7 @@ class GetCustomerInvoice(BaseModel):
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         optional_fields = set(["processor_type", "hosted_invoice_url"])
-        nullable_fields = set(["hosted_invoice_url"])
+        nullable_fields = set(["amount_paid", "hosted_invoice_url"])
         serialized = handler(self)
         m = {}
 
@@ -2164,6 +1891,51 @@ class GetCustomerInvoice(BaseModel):
                     m[k] = val
 
         return m
+
+
+GetCustomerInvoicePreviewStatus = Union[
+    Literal[
+        "complete",
+        "incomplete",
+        "requires_location",
+    ],
+    UnrecognizedStr,
+]
+r"""Calculation status. 'complete' when tax was calculated, 'incomplete' when the calculation errored, 'requires_location' when the customer has no billing address to tax against."""
+
+
+class GetCustomerTaxTypedDict(TypedDict):
+    r"""Tax the invoice will carry: the subscription's Stripe tax rates, or Stripe automatic tax when it is on for the subscription. Absent when the subscription is not taxed."""
+
+    total: float
+    r"""Total tax amount in major currency units."""
+    amount_inclusive: float
+    r"""Tax included in line item subtotals."""
+    amount_exclusive: float
+    r"""Tax added on top of subtotals."""
+    currency: str
+    r"""Three-letter currency code."""
+    status: GetCustomerInvoicePreviewStatus
+    r"""Calculation status. 'complete' when tax was calculated, 'incomplete' when the calculation errored, 'requires_location' when the customer has no billing address to tax against."""
+
+
+class GetCustomerTax(BaseModel):
+    r"""Tax the invoice will carry: the subscription's Stripe tax rates, or Stripe automatic tax when it is on for the subscription. Absent when the subscription is not taxed."""
+
+    total: float
+    r"""Total tax amount in major currency units."""
+
+    amount_inclusive: float
+    r"""Tax included in line item subtotals."""
+
+    amount_exclusive: float
+    r"""Tax added on top of subtotals."""
+
+    currency: str
+    r"""Three-letter currency code."""
+
+    status: GetCustomerInvoicePreviewStatus
+    r"""Calculation status. 'complete' when tax was calculated, 'incomplete' when the calculation errored, 'requires_location' when the customer has no billing address to tax against."""
 
 
 class GetCustomerInvoicePreviewDiscountTypedDict(TypedDict):
@@ -2303,9 +2075,11 @@ class GetCustomerInvoicePreviewTypedDict(TypedDict):
     subtotal: float
     r"""The total before discounts."""
     total: float
-    r"""The total after discounts."""
+    r"""The total after discounts, plus any tax added on top (see tax). Inclusive tax is already part of the line amounts."""
     line_items: List[GetCustomerLineItemTypedDict]
     r"""The line items this invoice will contain: usage accrued in the closing cycle, plus recurring charges for the opening cycle."""
+    tax: NotRequired[GetCustomerTaxTypedDict]
+    r"""Tax the invoice will carry: the subscription's Stripe tax rates, or Stripe automatic tax when it is on for the subscription. Absent when the subscription is not taxed."""
 
 
 class GetCustomerInvoicePreview(BaseModel):
@@ -2322,10 +2096,29 @@ class GetCustomerInvoicePreview(BaseModel):
     r"""The total before discounts."""
 
     total: float
-    r"""The total after discounts."""
+    r"""The total after discounts, plus any tax added on top (see tax). Inclusive tax is already part of the line amounts."""
 
     line_items: List[GetCustomerLineItem]
     r"""The line items this invoice will contain: usage accrued in the closing cycle, plus recurring charges for the opening cycle."""
+
+    tax: Optional[GetCustomerTax] = None
+    r"""Tax the invoice will carry: the subscription's Stripe tax rates, or Stripe automatic tax when it is on for the subscription. Absent when the subscription is not taxed."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["tax"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k, serialized.get(n))
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 GetCustomerEntityEnv = Union[
@@ -2957,19 +2750,7 @@ try:
 except NameError:
     pass
 try:
-    GetCustomerDimensions5.model_rebuild()
-except NameError:
-    pass
-try:
     GetCustomerCreditSchema3.model_rebuild()
-except NameError:
-    pass
-try:
-    GetCustomerDimensions3.model_rebuild()
-except NameError:
-    pass
-try:
-    GetCustomerDimensions1.model_rebuild()
 except NameError:
     pass
 try:

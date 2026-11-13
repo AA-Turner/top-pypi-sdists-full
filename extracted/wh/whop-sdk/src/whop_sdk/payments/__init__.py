@@ -20,6 +20,7 @@ if typing.TYPE_CHECKING:
         CreatePaymentsRequestPaymentMethod,
         CreatePaymentsRequestPaymentMethodCardPresent,
         CreatePaymentsRequestPaymentMethodCardPresentPlatform,
+        CreatePaymentsRequestPaymentMethodPaypal,
         CreatePaymentsRequestPaymentMethodType,
         CreatePaymentsRequestSetupFutureUsage,
         CreatePaymentsRequestShippingAddress,
@@ -59,6 +60,11 @@ if typing.TYPE_CHECKING:
         PostPaymentSucceededPayload,
         PostPaymentSucceededPayloadApiVersion,
         PostPaymentSucceededPayloadType,
+        PostShippingAddressChangedPayload,
+        PostShippingAddressChangedPayloadApiVersion,
+        PostShippingAddressChangedPayloadType,
+        PostShippingAddressChangedResponse,
+        PostShippingAddressChangedResponseDecline,
         SummaryPaymentsRequestBillingReasonsItem,
         SummaryPaymentsRequestGroupsItem,
         SummaryPaymentsRequestPaymentMethodsItem,
@@ -70,7 +76,7 @@ if typing.TYPE_CHECKING:
         SummaryPaymentsResponseGroupsSubstatus,
         UpdatePaymentsRequestShippingAddress,
     )
-    from . import direct
+    from . import direct, levels_rebate
     from .direct import (
         CreateDirectRequestBillingDetails,
         CreateDirectRequestBillingDetailsAddress,
@@ -119,6 +125,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreatePaymentsRequestPaymentMethod": ".types",
     "CreatePaymentsRequestPaymentMethodCardPresent": ".types",
     "CreatePaymentsRequestPaymentMethodCardPresentPlatform": ".types",
+    "CreatePaymentsRequestPaymentMethodPaypal": ".types",
     "CreatePaymentsRequestPaymentMethodType": ".types",
     "CreatePaymentsRequestSetupFutureUsage": ".types",
     "CreatePaymentsRequestShippingAddress": ".types",
@@ -158,6 +165,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PostPaymentSucceededPayload": ".types",
     "PostPaymentSucceededPayloadApiVersion": ".types",
     "PostPaymentSucceededPayloadType": ".types",
+    "PostShippingAddressChangedPayload": ".types",
+    "PostShippingAddressChangedPayloadApiVersion": ".types",
+    "PostShippingAddressChangedPayloadType": ".types",
+    "PostShippingAddressChangedResponse": ".types",
+    "PostShippingAddressChangedResponseDecline": ".types",
     "SummaryPaymentsRequestBillingReasonsItem": ".types",
     "SummaryPaymentsRequestGroupsItem": ".types",
     "SummaryPaymentsRequestPaymentMethodsItem": ".types",
@@ -169,6 +181,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SummaryPaymentsResponseGroupsSubstatus": ".types",
     "UpdatePaymentsRequestShippingAddress": ".types",
     "direct": ".direct",
+    "levels_rebate": ".levels_rebate",
 }
 
 
@@ -223,6 +236,7 @@ __all__ = [
     "CreatePaymentsRequestPaymentMethod",
     "CreatePaymentsRequestPaymentMethodCardPresent",
     "CreatePaymentsRequestPaymentMethodCardPresentPlatform",
+    "CreatePaymentsRequestPaymentMethodPaypal",
     "CreatePaymentsRequestPaymentMethodType",
     "CreatePaymentsRequestSetupFutureUsage",
     "CreatePaymentsRequestShippingAddress",
@@ -262,6 +276,11 @@ __all__ = [
     "PostPaymentSucceededPayload",
     "PostPaymentSucceededPayloadApiVersion",
     "PostPaymentSucceededPayloadType",
+    "PostShippingAddressChangedPayload",
+    "PostShippingAddressChangedPayloadApiVersion",
+    "PostShippingAddressChangedPayloadType",
+    "PostShippingAddressChangedResponse",
+    "PostShippingAddressChangedResponseDecline",
     "SummaryPaymentsRequestBillingReasonsItem",
     "SummaryPaymentsRequestGroupsItem",
     "SummaryPaymentsRequestPaymentMethodsItem",
@@ -273,4 +292,5 @@ __all__ = [
     "SummaryPaymentsResponseGroupsSubstatus",
     "UpdatePaymentsRequestShippingAddress",
     "direct",
+    "levels_rebate",
 ]

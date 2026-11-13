@@ -15,6 +15,7 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
+  from ..models.provider_status import ProviderStatus
   from ..models.rate_limit import RateLimit
 
 
@@ -82,6 +83,7 @@ class ForgeHealth:
                 failed read or one that gives no number. A block that has gone stale is dropped when the read fails. Rerun
                 failed checks is not offered for the forge, and the page shows this text where the button would be. Omitted when
                 rerunning works or the version could not be read.
+            provider_status (ProviderStatus | Unset):
      """
 
     forge: Forge
@@ -96,6 +98,7 @@ class ForgeHealth:
     rate_limit_rest: RateLimit | Unset = UNSET
     dependabot_commands_blocked: str | Unset = UNSET
     rerun_checks_blocked: str | Unset = UNSET
+    provider_status: ProviderStatus | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -103,6 +106,7 @@ class ForgeHealth:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.provider_status import ProviderStatus # noqa: PLC0415
         from ..models.rate_limit import RateLimit # noqa: PLC0415
         forge = self.forge.value
 
@@ -137,6 +141,10 @@ class ForgeHealth:
 
         rerun_checks_blocked = self.rerun_checks_blocked
 
+        provider_status: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.provider_status, Unset):
+            provider_status = self.provider_status.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -163,6 +171,8 @@ class ForgeHealth:
             field_dict["dependabotCommandsBlocked"] = dependabot_commands_blocked
         if rerun_checks_blocked is not UNSET:
             field_dict["rerunChecksBlocked"] = rerun_checks_blocked
+        if provider_status is not UNSET:
+            field_dict["providerStatus"] = provider_status
 
         return field_dict
 
@@ -170,6 +180,7 @@ class ForgeHealth:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.provider_status import ProviderStatus # noqa: PLC0415
         from ..models.rate_limit import RateLimit # noqa: PLC0415
         d = dict(src_dict)
         forge = Forge(d.pop("forge"))
@@ -231,6 +242,16 @@ class ForgeHealth:
 
         rerun_checks_blocked = d.pop("rerunChecksBlocked", UNSET)
 
+        _provider_status = d.pop("providerStatus", UNSET)
+        provider_status: ProviderStatus | Unset
+        if isinstance(_provider_status,  Unset):
+            provider_status = UNSET
+        else:
+            provider_status = ProviderStatus.from_dict(_provider_status)
+
+
+
+
         forge_health = cls(
             forge=forge,
             reachable=reachable,
@@ -244,6 +265,7 @@ class ForgeHealth:
             rate_limit_rest=rate_limit_rest,
             dependabot_commands_blocked=dependabot_commands_blocked,
             rerun_checks_blocked=rerun_checks_blocked,
+            provider_status=provider_status,
         )
 
 

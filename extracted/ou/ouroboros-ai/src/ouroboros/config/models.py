@@ -146,6 +146,7 @@ class LLMConfig(BaseModel, frozen=True):
         "dsh",
         "gjc",
         "zcode",
+        "megacode",
     ] = "claude_code"
     permission_mode: Literal["default", "acceptEdits", "bypassPermissions"] = "default"
     opencode_permission_mode: Literal["default", "acceptEdits", "bypassPermissions"] = "acceptEdits"
@@ -536,6 +537,8 @@ VALID_RUNTIME_BACKENDS = frozenset(
         "grok_build",
         "zcode",
         "zcode_cli",
+        "megacode",
+        "megacode_cli",
         "host",
         "host_dispatch",
     }
@@ -669,6 +672,9 @@ class OrchestratorConfig(BaseModel, frozen=True):
             - ~ expansion supported
             - None: Resolve from config/env or fall back to the macOS app-bundle
               default (or OUROBOROS_ZCODE_CLI_PATH)
+        megacode_cli_path: Path to the megacode harness CLI binary (``harness``).
+            Supports absolute paths and ~ expansion; None resolves from PATH at
+            runtime (or OUROBOROS_MEGACODE_CLI_PATH)
         default_max_turns: Default max turns for agent execution
         max_parallel_workers: Default maximum concurrent AC workers
         usage_limit_pause_hours: Default pause window for provider usage/quota limits
@@ -682,7 +688,9 @@ class OrchestratorConfig(BaseModel, frozen=True):
               clean
             - ``remove``: remove clean worktrees; delete the branch only when
               Git accepts a safe merged-branch deletion
-        worktree_lock_stale_after_minutes: Staleness threshold for task lock recovery
+        worktree_lock_stale_after_minutes: Legacy compatibility setting. Remote
+            task locks are retained regardless of heartbeat age because age alone
+            cannot prove the remote owner has exited.
         pm_snapshot_worktrees: Whether PM brownfield exploration reads from
             persistent detached worktrees pinned to the remote default branch
             (``origin/HEAD``) instead of the developer's live checkout. The
@@ -707,6 +715,7 @@ class OrchestratorConfig(BaseModel, frozen=True):
         "antigravity",
         "grok",
         "zcode",
+        "megacode",
         "host",
     ] = "claude"
     runtime_profile: RuntimeProfileConfig | None = None
@@ -739,6 +748,8 @@ class OrchestratorConfig(BaseModel, frozen=True):
     cli_path: str | None = None
     codex_cli_path: str | None = None
     copilot_cli_path: str | None = None
+    copilot_transport: Literal["cli", "acp"] = "cli"
+    copilot_acp_fallback: bool = True
     opencode_cli_path: str | None = None
     opencode_stdout_idle_timeout_seconds: float | None = Field(default=None, gt=0.0)
     hermes_cli_path: str | None = None
@@ -752,6 +763,7 @@ class OrchestratorConfig(BaseModel, frozen=True):
     grok_cli_path: str | None = None
     ourocode_cli_path: str | None = None
     zcode_cli_path: str | None = None
+    megacode_cli_path: str | None = None
     dsh_cli_path: str | None = None
     # dsh Cordis composition file passed to `dsh-acp-demo --config`. Not an
     # executable itself, but it names the plugins the Node process loads, so it
@@ -787,6 +799,7 @@ class OrchestratorConfig(BaseModel, frozen=True):
         "grok_cli_path",
         "ourocode_cli_path",
         "zcode_cli_path",
+        "megacode_cli_path",
         "dsh_cli_path",
         "dsh_config_path",
         "verify_bash_path",

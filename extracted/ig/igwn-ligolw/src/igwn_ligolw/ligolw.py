@@ -64,11 +64,8 @@ from . import types as ligolwtypes
 NameSpace = "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt"
 
 
-Header = (
-    """<?xml version='1.0' encoding='utf-8'?>
-<!DOCTYPE LIGO_LW SYSTEM "%s">"""
-    % NameSpace
-)
+Header = f"""<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE LIGO_LW SYSTEM "{NameSpace}">"""
 
 
 Indent = "\t"
@@ -164,7 +161,7 @@ class attributeproxy(property):
             except KeyError:
                 if default is not None:
                     return default
-                raise AttributeError("attribute '%s' is not set" % name)
+                raise AttributeError(f"attribute '{name}' is not set")
             return dec(val)
 
         def setter(self, value):
@@ -175,11 +172,11 @@ class attributeproxy(property):
 
         # construct a default documentation string if needed
         if doc is None:
-            doc = 'The "%s" attribute.' % name
+            doc = f'The "{name}" attribute.'
             if default is not None:
-                doc += '  Default is "%s" if not set.' % str(default)
+                doc += f'  Default is "{default!s}" if not set.'
         # initialize the property object
-        super(attributeproxy, self).__init__(
+        super().__init__(
             getter,
             (setter if enc is not None else None),
             (deleter if enc is not None else None),
@@ -242,12 +239,10 @@ class Element:
             self.attributes = attrs
         else:
             raise ElementError(
-                "%s element: invalid attribute(s) %s"
-                % (
+                "{} element: invalid attribute(s) {}".format(
                     self.tagName,
                     ", ".join(
-                        "'%s'" % key
-                        for key in set(attrs.keys()) - self.validattributes()
+                        f"'{key}'" for key in set(attrs.keys()) - self.validattributes()
                     ),
                 )
             )
@@ -258,17 +253,19 @@ class Element:
         """
         Generate the string for the element's start tag.
         """
-        return "%s<%s%s>" % (
+        return "{}<{}{}>".format(
             indent,
             self.tagName,
-            "".join(' %s="%s"' % keyvalue for keyvalue in self.attributes.items()),
+            "".join(
+                ' {}="{}"'.format(*keyvalue) for keyvalue in self.attributes.items()
+            ),
         )
 
     def end_tag(self, indent):
         """
         Generate the string for the element's end tag.
         """
-        return "%s</%s>" % (indent, self.tagName)
+        return f"{indent}</{self.tagName}>"
 
     def appendChild(self, child):
         """
@@ -414,9 +411,7 @@ class Element:
         fileobj.write("\n")
         for c in self.childNodes:
             if c.tagName not in self.validchildren:
-                raise ElementError(
-                    "invalid child %s for %s" % (c.tagName, self.tagName)
-                )
+                raise ElementError(f"invalid child {c.tagName} for {self.tagName}")
             c.write(fileobj, indent + Indent)
         if self.pcdata is not None:
             fileobj.write(xmlescape(self.pcdata))
@@ -432,7 +427,7 @@ class EmptyElement(Element):
 
     def appendData(self, content):
         if not content.isspace():
-            raise TypeError("%s does not hold text" % type(self))
+            raise TypeError(f"{type(self)} does not hold text")
 
 
 def WalkChildren(elem):
@@ -502,7 +497,7 @@ class LLWNameAttr(str):
         s = cls.enc_pattern % name
         # confirm invertiblity
         if cls(s) != name:
-            raise ValueError("invalid Name '%s'" % name)
+            raise ValueError(f"invalid Name '{name}'")
         return s
 
 
@@ -557,8 +552,9 @@ class LIGO_LW(EmptyElement):
             ]
         if len(elems) != 1:
             raise ValueError(
-                "document must contain exactly one %s element%s"
-                % (cls.tagName, (" named %s" % name if name is not None else ""))
+                "document must contain exactly one {} element{}".format(
+                    cls.tagName, (f" named {name}" if name is not None else "")
+                )
             )
         return elems[0]
 
@@ -667,9 +663,7 @@ class Param(Element):
         fileobj.write(self.start_tag(indent))
         for c in self.childNodes:
             if c.tagName not in self.validchildren:
-                raise ElementError(
-                    "invalid child %s for %s" % (c.tagName, self.tagName)
-                )
+                raise ElementError(f"invalid child {c.tagName} for {self.tagName}")
             c.write(fileobj, indent + Indent)
         if self.pcdata is not None:
             if self.Type == "yaml":
@@ -811,7 +805,7 @@ class Param(Element):
         elems = Param.getParamsByName(xmldoc, name)
         if len(elems) != 1:
             raise ValueError(
-                "document must contain exactly one %s Param" % cls.ParamName(name)
+                f"document must contain exactly one {cls.ParamName(name)} Param"
             )
         return elems[0]
 
@@ -842,9 +836,9 @@ class Stream(Element):
     Type = attributeproxy("Type", default="Local")
 
     def __init__(self, *args):
-        super(Stream, self).__init__(*args)
+        super().__init__(*args)
         if self.Type not in ("Remote", "Local"):
-            raise ElementError("invalid Type for Stream: '%s'" % self.Type)
+            raise ElementError(f"invalid Type for Stream: '{self.Type}'")
 
 
 class Table(EmptyElement, list):
@@ -1110,11 +1104,9 @@ class Table(EmptyElement, list):
         def __getstate__(self):
             if not hasattr(self, "__slots__"):
                 raise NotImplementedError
-            return dict(
-                (key, getattr(self, key))
-                for key in self.__slots__
-                if hasattr(self, key)
-            )
+            return {
+                key: getattr(self, key) for key in self.__slots__ if hasattr(self, key)
+            }
 
         def __setstate__(self, state):
             self.__init__(**state)
@@ -1358,7 +1350,7 @@ class Table(EmptyElement, list):
         elems = cls.getTablesByName(xmldoc, name)
         if len(elems) != 1:
             raise ValueError(
-                "document must contain exactly one %s Table" % cls.TableName(name)
+                f"document must contain exactly one {cls.TableName(name)} Table"
             )
         return elems[0]
 
@@ -1411,7 +1403,7 @@ class Table(EmptyElement, list):
         try:
             self.getColumnByName(name)
             # if we get here the Table already has that Column
-            raise ValueError("duplicate Column '%s'" % name)
+            raise ValueError(f"duplicate Column '{name}'")
         except KeyError:
             pass
         if name in self.validcolumns:
@@ -1419,8 +1411,8 @@ class Table(EmptyElement, list):
         elif Column.ColumnName(name) in self.validcolumns:
             coltype = self.validcolumns[Column.ColumnName(name)]
         else:
-            raise ElementError("invalid Column '%s' for Table '%s'" % (name, self.Name))
-        column = Column(AttributesImpl({"Name": "%s" % name, "Type": coltype}))
+            raise ElementError(f"invalid Column '{name}' for Table '{self.Name}'")
+        column = Column(AttributesImpl({"Name": f"{name}", "Type": coltype}))
         streams = self.getElementsByTagName(Stream.tagName)
         if streams:
             self.insertBefore(column, streams[0])
@@ -1483,19 +1475,17 @@ class Table(EmptyElement, list):
                     expected_type = self.validcolumns[child.getAttribute("Name")]
                 else:
                     raise ElementError(
-                        "invalid Column '%s' for Table '%s'" % (child.Name, self.Name)
+                        f"invalid Column '{child.Name}' for Table '{self.Name}'"
                     )
                 if expected_type != child.Type:
                     raise ElementError(
-                        "invalid type '%s' for Column '%s' in Table '%s', expected type '%s'"
-                        % (child.Type, child.Name, self.Name, expected_type)
+                        f"invalid type '{child.Type}' for Column '{child.Name}' in Table '{self.Name}', expected type '{expected_type}'"
                     )
             try:
                 ligolwtypes.ToPyType[child.Type]
             except KeyError:
                 raise ElementError(
-                    "unrecognized Type '%s' for Column '%s' in Table '%s'"
-                    % (child.Type, child.Name, self.Name)
+                    f"unrecognized Type '{child.Type}' for Column '{child.Name}' in Table '{self.Name}'"
                 )
             # since this is called after each child is
             # appeneded, the first failure occurs on the
@@ -1505,15 +1495,17 @@ class Table(EmptyElement, list):
             # Columns.  think about a better way
             if len(set(self.columnnames)) != len(self.columnnames):
                 raise ElementError(
-                    "duplicate Column '%s' in Table '%s'" % (child.Name, self.Name)
+                    f"duplicate Column '{child.Name}' in Table '{self.Name}'"
                 )
-        elif child.tagName == Stream.tagName:
+        elif child.tagName == Stream.tagName and child.getAttribute(
+            "Name"
+        ) != self.getAttribute("Name"):
             # require agreement of non-stripped strings
-            if child.getAttribute("Name") != self.getAttribute("Name"):
-                raise ElementError(
-                    "Stream Name '%s' does not match Table Name '%s'"
-                    % (child.getAttribute("Name"), self.getAttribute("Name"))
+            raise ElementError(
+                "Stream Name '{}' does not match Table Name '{}'".format(
+                    child.getAttribute("Name"), self.getAttribute("Name")
                 )
+            )
 
     def _end_of_columns(self):
         """
@@ -1528,7 +1520,7 @@ class Table(EmptyElement, list):
         Break internal references within the document tree rooted
         on this element to promote garbage collection.
         """
-        super(Table, self).unlink()
+        super().unlink()
         del self[:]
 
     def endElement(self):
@@ -1654,7 +1646,7 @@ class Table(EmptyElement, list):
         for i, old in enumerate(column):
             if old is None:
                 raise ValueError(
-                    "null row ID encountered in Table '%s', row %d" % (self.Name, i)
+                    f"null row ID encountered in Table '{self.Name}', row {i:d}"
                 )
             key = table_name, old
             if key in mapping:
@@ -1816,7 +1808,7 @@ class Column(EmptyElement):
             """
             table_name = cls.dec_pattern.match(name).group("Table")
             if table_name is None:
-                raise ValueError("table name not found in '%s'" % name)
+                raise ValueError(f"table name not found in '{name}'")
             return table_name
 
     Name = attributeproxy("Name", enc=ColumnName.enc, dec=ColumnName)
@@ -1831,10 +1823,12 @@ class Column(EmptyElement):
         """
         Generate the string for the element's start tag.
         """
-        return "%s<%s%s/>" % (
+        return "{}<{}{}/>".format(
             indent,
             self.tagName,
-            "".join(' %s="%s"' % keyvalue for keyvalue in self.attributes.items()),
+            "".join(
+                ' {}="{}"'.format(*keyvalue) for keyvalue in self.attributes.items()
+            ),
         )
 
     def end_tag(self, indent):
@@ -1928,8 +1922,9 @@ class Column(EmptyElement):
             dtype = ligolwtypes.ToNumPyType[self.Type]
         except KeyError as e:
             raise TypeError(
-                "cannot determine numpy dtype for Column '%s': %s"
-                % (self.getAttribute("Name"), e)
+                "cannot determine numpy dtype for Column '{}': {}".format(
+                    self.getAttribute("Name"), e
+                )
             )
         return numpy.fromiter(self, dtype=dtype)
 
@@ -1978,7 +1973,7 @@ class Column(EmptyElement):
             >>> y.column_name
             'event_id'
             """
-            return type(self)(super(Column.next_id, self).__add__(other))
+            return type(self)(super().__add__(other))
 
         @classmethod
         def type(cls, column_name):
@@ -2011,7 +2006,7 @@ class Column(EmptyElement):
             AttributeError: 'int' object has no attribute 'column_name'
             """
             return type(
-                str("next_%s" % column_name), (cls,), {"column_name": column_name}
+                str(f"next_{column_name}"), (cls,), {"column_name": column_name}
             )
 
 
@@ -2101,7 +2096,7 @@ class Array(EmptyElement):
         Delimiter = attributeproxy("Delimiter", default=" ")
 
         def __init__(self, *args):
-            super(Array.Stream, self).__init__(*args)
+            super().__init__(*args)
             if "Text" in self.Encoding:
                 self._stream_delegate = Array._TextStreamDelegate(self)
             elif "base64" in self.Encoding:
@@ -2161,8 +2156,7 @@ class Array(EmptyElement):
             self.appendData(self._stream.Delimiter)
             if self._index != len(self._array_view):
                 raise ValueError(
-                    "length of Stream (%d elements) does not match array size (%d elements)"
-                    % (self._index, len(self._array_view))
+                    f"length of Stream ({self._index:d} elements) does not match array size ({len(self._array_view):d} elements)"
                 )
             del self._array_view
             del self._index
@@ -2295,7 +2289,7 @@ class Array(EmptyElement):
         """
         Initialize a new Array element.
         """
-        super(Array, self).__init__(*args)
+        super().__init__(*args)
         self.array = None
 
     @property
@@ -2331,8 +2325,7 @@ class Array(EmptyElement):
         shape = tuple(c.n for c in self.getElementsByTagName(Dim.tagName))[::-1]
         if self.array is not None and self.array.shape != shape:
             raise ValueError(
-                "shape of Dim children not consistent with shape of .array:  %s != %s"
-                % (str(shape), str(self.array.shape))
+                f"shape of Dim children not consistent with shape of .array:  {shape!s} != {self.array.shape!s}"
             )
         return shape
 
@@ -2459,7 +2452,7 @@ class Array(EmptyElement):
         elems = cls.getArraysByName(xmldoc, name)
         if len(elems) != 1:
             raise ValueError(
-                "document must contain exactly one %s array" % cls.ArrayName(name)
+                f"document must contain exactly one {cls.ArrayName(name)} array"
             )
         return elems[0]
 
@@ -2483,7 +2476,7 @@ class Array(EmptyElement):
         Break internal references within the document tree rooted
         on this element to promote garbage collection.
         """
-        super(Array, self).unlink()
+        super().unlink()
         self.array = None
 
 
@@ -2606,9 +2599,9 @@ class Time(Element):
     Type = attributeproxy("Type", default="ISO-8601")
 
     def __init__(self, *args):
-        super(Time, self).__init__(*args)
+        super().__init__(*args)
         if self.Type not in ligolwtypes.TimeTypes:
-            raise ElementError("invalid Type for Time: '%s'" % self.Type)
+            raise ElementError(f"invalid Type for Time: '{self.Type}'")
 
     def endElement(self):
         if self.Type == "ISO-8601":
@@ -2635,7 +2628,7 @@ class Time(Element):
             elif self.Type == "GPS":
                 fileobj.write(xmlescape(str(self.pcdata)))
             elif self.Type == "Unix":
-                fileobj.write(xmlescape("%.16g" % self.pcdata))
+                fileobj.write(xmlescape(f"{self.pcdata:.16g}"))
             else:
                 # unsupported time type.  not impossible.
                 # assume correct thing to do is cast to
@@ -2697,12 +2690,11 @@ class Document(EmptyElement):
             LLWelem = self.childNodes[0]
         except IndexError:
             raise ValueError(
-                "empty document (must have %s element at top level)" % LIGO_LW.tagName
+                f"empty document (must have {LIGO_LW.tagName} element at top level)"
             )
         if LLWelem.tagName != LIGO_LW.tagName:
             raise ValueError(
-                "expected %s element at top level of document, found %s"
-                % (LIGO_LW.tagName, LLWelem.tagName)
+                f"expected {LIGO_LW.tagName} element at top level of document, found {LLWelem.tagName}"
             )
         return self
 
@@ -2758,7 +2750,7 @@ class Document(EmptyElement):
         for name, values in paramdict.items():
             # change the name back to the form it had on the command
             # line
-            name = "--%s" % name.replace("_", "-")
+            name = "--{}".format(name.replace("_", "-"))
 
             # skip options that aren't set;  ensure values is something
             # that can be iterated over even if there is only one value
@@ -2788,12 +2780,10 @@ class Document(EmptyElement):
         fileobj.write(Header)
         fileobj.write("\n")
         if xsl_file is not None:
-            fileobj.write('<?xml-stylesheet type="text/xsl" href="%s" ?>\n' % xsl_file)
+            fileobj.write(f'<?xml-stylesheet type="text/xsl" href="{xsl_file}" ?>\n')
         for c in self.childNodes:
             if c.tagName not in self.validchildren:
-                raise ElementError(
-                    "invalid child %s for %s" % (c.tagName, self.tagName)
-                )
+                raise ElementError(f"invalid child {c.tagName} for {self.tagName}")
             c.write(fileobj)
 
 
@@ -2806,7 +2796,7 @@ class Document(EmptyElement):
 #
 
 
-class LIGOLWContentHandler(sax.handler.ContentHandler, object):
+class LIGOLWContentHandler(sax.handler.ContentHandler):
     """
     ContentHandler class for parsing LIGO Light Weight documents with a
     SAX2-compliant parser.
@@ -2908,29 +2898,29 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
             start_handler = self._startElementHandlers[(uri, localname)]
         except KeyError:
             raise ElementError(
-                "unknown element %s for namespace %s" % (localname, uri or NameSpace)
+                f"unknown element {localname} for namespace {uri or NameSpace}"
             )
         attrs = AttributesImpl(
-            dict((attrs.getQNameByName(name), value) for name, value in attrs.items())
+            {attrs.getQNameByName(name): value for name, value in attrs.items()}
         )
         try:
             self.current = self.current.appendChild(start_handler(self.current, attrs))
         except Exception as e:
-            raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
+            raise type(e)(f"line {self._locator.getLineNumber():d}: {e!s}")
 
     def endElementNS(self, uri_localname, qname):
-        (uri, localname) = uri_localname
+        (_uri, _localname) = uri_localname
         try:
             self.current.endElement()
         except Exception as e:
-            raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
+            raise type(e)(f"line {self._locator.getLineNumber():d}: {e!s}")
         self.current = self.current.parentNode
 
     def characters(self, content):
         try:
             self.current.appendData(xmlunescape(content))
         except Exception as e:
-            raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
+            raise type(e)(f"line {self._locator.getLineNumber():d}: {e!s}")
 
 
 class PartialLIGOLWContentHandler(LIGOLWContentHandler):
@@ -2957,29 +2947,27 @@ class PartialLIGOLWContentHandler(LIGOLWContentHandler):
         evaluates to True, and the children of those elements, will
         be loaded.
         """
-        super(PartialLIGOLWContentHandler, self).__init__(document)
+        super().__init__(document)
         self.element_filter = element_filter
         self.depth = 0
 
     def startElementNS(self, uri_localname, qname, attrs):
         (uri, localname) = uri_localname
         filter_attrs = AttributesImpl(
-            dict((attrs.getQNameByName(name), value) for name, value in attrs.items())
+            {attrs.getQNameByName(name): value for name, value in attrs.items()}
         )
         if self.depth > 0 or self.element_filter(localname, filter_attrs):
-            super(PartialLIGOLWContentHandler, self).startElementNS(
-                (uri, localname), qname, attrs
-            )
+            super().startElementNS((uri, localname), qname, attrs)
             self.depth += 1
 
     def endElementNS(self, *args):
         if self.depth > 0:
             self.depth -= 1
-            super(PartialLIGOLWContentHandler, self).endElementNS(*args)
+            super().endElementNS(*args)
 
     def characters(self, content):
         if self.depth > 0:
-            super(PartialLIGOLWContentHandler, self).characters(content)
+            super().characters(content)
 
 
 class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
@@ -3006,31 +2994,29 @@ class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
         evaluates to False, and the children of those elements,
         will not be loaded.
         """
-        super(FilteringLIGOLWContentHandler, self).__init__(document)
+        super().__init__(document)
         self.element_filter = element_filter
         self.depth = 0
 
     def startElementNS(self, uri_localname, qname, attrs):
         (uri, localname) = uri_localname
         filter_attrs = AttributesImpl(
-            dict((attrs.getQNameByName(name), value) for name, value in attrs.items())
+            {attrs.getQNameByName(name): value for name, value in attrs.items()}
         )
         if self.depth == 0 and self.element_filter(localname, filter_attrs):
-            super(FilteringLIGOLWContentHandler, self).startElementNS(
-                (uri, localname), qname, attrs
-            )
+            super().startElementNS((uri, localname), qname, attrs)
         else:
             self.depth += 1
 
     def endElementNS(self, *args):
         if self.depth == 0:
-            super(FilteringLIGOLWContentHandler, self).endElementNS(*args)
+            super().endElementNS(*args)
         else:
             self.depth -= 1
 
     def characters(self, content):
         if self.depth == 0:
-            super(FilteringLIGOLWContentHandler, self).characters(content)
+            super().characters(content)
 
 
 #

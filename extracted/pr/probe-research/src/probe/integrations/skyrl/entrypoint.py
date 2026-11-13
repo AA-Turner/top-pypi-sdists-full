@@ -5,12 +5,14 @@ Ray. Line refs are `NovaSky-AI/SkyRL@d87004689e3a`."""
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import Any
 
 import ray
 
 from .. import _rl_owner
+from .training import add_setup_hook
 from .runs import (
     build_task_env, get_resume_folder, get_config, get_external_id, get_rewind_step, get_run_name, read_resume_step,
 )
@@ -41,7 +43,14 @@ def main() -> None:
     guard = _rl_owner.HookGuard("SkyRL")
     opened = guard.call("run open", _open_owner_run, train_config)
     run, is_owner = opened if opened else (None, False)
-    initialize_ray(train_config)
+    restore = None
+    if run is not None:  # the policy workers join as their own producers (per-sample metrics, T3)
+        restore = guard.call("the workers' setup hook", add_setup_hook, os.environ)
+    try:
+        initialize_ray(train_config)
+    finally:
+        if restore is not None:  # `ray.init` has read it: the driver's environment is left as it was
+            guard.call("the workers' setup hook", restore)
     final_step, status = None, "failed"
     try:
         # Task-level env vars merge into the job's (`initialize_ray`'s allowlist, `utils/utils.py:1357-1371`).

@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 # coding=utf-8
 # --------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
@@ -16,7 +17,127 @@ if TYPE_CHECKING:
     from .. import models as _models
 
 
-class FullBackupOperation(_Model):
+class EkmConnection(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
+    """A EkmConnection model object.
+
+    :ivar host: EKM proxy FQDN (Fully Qualified Domain Name). Only allowed characters are a-z, A-Z,
+     0-9, hyphen (-), dot (.), and colon (:). Required.
+    :vartype host: str
+    :ivar path_prefix: Optional path prefix for the EKM proxy (if any).
+    :vartype path_prefix: str
+    :ivar server_ca_certificates: The root CA certificate chain that issued the proxy server's
+     certificate. An array of certificates in the certificate chain, each in DER format and base64
+     encoded. Required.
+    :vartype server_ca_certificates: list[bytes]
+    :ivar server_subject_common_name: The subject common name of the server certificate of EKM
+     Proxy.
+    :vartype server_subject_common_name: str
+    """
+
+    host: str = rest_field(visibility=["read", "create", "update", "delete", "query"])
+    """EKM proxy FQDN (Fully Qualified Domain Name). Only allowed characters are a-z, A-Z, 0-9, hyphen
+     (-), dot (.), and colon (:). Required."""
+    path_prefix: Optional[str] = rest_field(visibility=["read", "create", "update", "delete", "query"])
+    """Optional path prefix for the EKM proxy (if any)."""
+    server_ca_certificates: list[bytes] = rest_field(
+        visibility=["read", "create", "update", "delete", "query"], format="base64"
+    )
+    """The root CA certificate chain that issued the proxy server's certificate. An array of
+     certificates in the certificate chain, each in DER format and base64 encoded. Required."""
+    server_subject_common_name: Optional[str] = rest_field(visibility=["read", "create", "update", "delete", "query"])
+    """The subject common name of the server certificate of EKM Proxy."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        host: str,
+        server_ca_certificates: list[bytes],
+        path_prefix: Optional[str] = None,
+        server_subject_common_name: Optional[str] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class EkmProxyClientCertificateInfo(_Model):
+    """EKM proxy client certificate information.
+
+    :ivar ca_certificates: The client root CA certificate chain to authenticate to the EKM proxy.
+     An array of certificates in the certificate chain, each in DER format and base64 encoded.
+     Required.
+    :vartype ca_certificates: list[bytes]
+    :ivar subject_common_name: The subject common name of the client certificate used to
+     authenticate to the EKM proxy. Required.
+    :vartype subject_common_name: str
+    """
+
+    ca_certificates: list[bytes] = rest_field(visibility=["read"], format="base64")
+    """The client root CA certificate chain to authenticate to the EKM proxy. An array of certificates
+     in the certificate chain, each in DER format and base64 encoded. Required."""
+    subject_common_name: str = rest_field(visibility=["read"])
+    """The subject common name of the client certificate used to authenticate to the EKM proxy.
+     Required."""
+
+
+class EkmProxyInfo(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
+    """EKM proxy information.
+
+    :ivar api_version: The highest version of proxy interface API supported by the EKM Proxy.
+     Required.
+    :vartype api_version: str
+    :ivar proxy_vendor: The name of the proxy vendor. Required.
+    :vartype proxy_vendor: str
+    :ivar proxy_name: The name of the proxy product and its version. Required.
+    :vartype proxy_name: str
+    :ivar ekm_vendor: The name of the EKM vendor. Required.
+    :vartype ekm_vendor: str
+    :ivar ekm_product: The name of the EKM product and its version. Required.
+    :vartype ekm_product: str
+    """
+
+    api_version: str = rest_field(visibility=["read", "create", "update", "delete", "query"])
+    """The highest version of proxy interface API supported by the EKM Proxy. Required."""
+    proxy_vendor: str = rest_field(visibility=["read", "create", "update", "delete", "query"])
+    """The name of the proxy vendor. Required."""
+    proxy_name: str = rest_field(visibility=["read", "create", "update", "delete", "query"])
+    """The name of the proxy product and its version. Required."""
+    ekm_vendor: str = rest_field(visibility=["read", "create", "update", "delete", "query"])
+    """The name of the EKM vendor. Required."""
+    ekm_product: str = rest_field(visibility=["read", "create", "update", "delete", "query"])
+    """The name of the EKM product and its version. Required."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        api_version: str,
+        proxy_vendor: str,
+        proxy_name: str,
+        ekm_vendor: str,
+        ekm_product: str,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class FullBackupOperation(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Full backup operation.
 
     :ivar status: Status of the backup operation. Known values are: "InProgress", "Succeeded",
@@ -119,7 +240,7 @@ class KeyVaultError(_Model):
     """The key vault server error."""
 
 
-class Permission(_Model):
+class Permission(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Role definition permissions.
 
     :ivar actions: Action permissions that are granted.
@@ -173,7 +294,7 @@ class Permission(_Model):
         super().__init__(*args, **kwargs)
 
 
-class PreBackupOperationParameters(_Model):
+class PreBackupOperationParameters(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The authentication method and location for the backup operation.
 
     :ivar storage_resource_uri: Azure Blob storage container Uri.
@@ -219,7 +340,7 @@ class PreBackupOperationParameters(_Model):
         super().__init__(*args, **kwargs)
 
 
-class PreRestoreOperationParameters(_Model):
+class PreRestoreOperationParameters(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The authentication method and location for the restore operation.
 
     :ivar sas_token_parameters: A user-provided SAS token to an Azure blob storage container.
@@ -258,7 +379,7 @@ class PreRestoreOperationParameters(_Model):
         super().__init__(*args, **kwargs)
 
 
-class RestoreOperation(_Model):
+class RestoreOperation(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Restore operation.
 
     :ivar status: Status of the restore operation. Known values are: "InProgress", "Succeeded",
@@ -323,7 +444,7 @@ class RestoreOperation(_Model):
         super().__init__(*args, **kwargs)
 
 
-class RestoreOperationParameters(_Model):
+class RestoreOperationParameters(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The authentication method and location for the restore operation.
 
     :ivar sas_token_parameters: A user-provided SAS token to an Azure blob storage container.
@@ -363,7 +484,7 @@ class RestoreOperationParameters(_Model):
         super().__init__(*args, **kwargs)
 
 
-class RoleAssignment(_Model):
+class RoleAssignment(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Role Assignments.
 
     :ivar id: The role assignment ID.
@@ -406,7 +527,7 @@ class RoleAssignment(_Model):
         super().__init__(*args, **kwargs)
 
 
-class RoleAssignmentCreateParameters(_Model):
+class RoleAssignmentCreateParameters(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Role assignment create parameters.
 
     :ivar properties: Role assignment properties. Required.
@@ -436,7 +557,7 @@ class RoleAssignmentCreateParameters(_Model):
         super().__init__(*args, **kwargs)
 
 
-class RoleAssignmentProperties(_Model):
+class RoleAssignmentProperties(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Role assignment properties.
 
     :ivar role_definition_id: The role definition ID used in the role assignment. Required.
@@ -473,7 +594,7 @@ class RoleAssignmentProperties(_Model):
         super().__init__(*args, **kwargs)
 
 
-class RoleAssignmentPropertiesWithScope(_Model):
+class RoleAssignmentPropertiesWithScope(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Role assignment properties with scope.
 
     :ivar scope: The role scope. Known values are: "/" and "/keys".
@@ -517,7 +638,7 @@ class RoleAssignmentPropertiesWithScope(_Model):
         super().__init__(*args, **kwargs)
 
 
-class RoleDefinition(_Model):
+class RoleDefinition(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Role definition.
 
     :ivar id: The role definition ID.
@@ -579,7 +700,7 @@ class RoleDefinition(_Model):
             super().__setattr__(key, value)
 
 
-class RoleDefinitionCreateParameters(_Model):
+class RoleDefinitionCreateParameters(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Role definition create parameters.
 
     :ivar properties: Role definition properties. Required.
@@ -609,7 +730,7 @@ class RoleDefinitionCreateParameters(_Model):
         super().__init__(*args, **kwargs)
 
 
-class RoleDefinitionProperties(_Model):
+class RoleDefinitionProperties(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Role definition properties.
 
     :ivar role_name: The role name.
@@ -664,7 +785,7 @@ class RoleDefinitionProperties(_Model):
         super().__init__(*args, **kwargs)
 
 
-class SASTokenParameter(_Model):
+class SASTokenParameter(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """An authentication method and location for the operation.
 
     :ivar storage_resource_uri: Azure Blob storage container Uri. Required.
@@ -710,7 +831,7 @@ class SASTokenParameter(_Model):
         super().__init__(*args, **kwargs)
 
 
-class SelectiveKeyRestoreOperation(_Model):
+class SelectiveKeyRestoreOperation(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Selective Key Restore operation.
 
     :ivar status: Status of the restore operation. Known values are: "InProgress", "Succeeded",
@@ -775,7 +896,7 @@ class SelectiveKeyRestoreOperation(_Model):
         super().__init__(*args, **kwargs)
 
 
-class SelectiveKeyRestoreOperationParameters(_Model):
+class SelectiveKeyRestoreOperationParameters(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The authentication method and location for the selective key restore operation.
 
     :ivar sas_token_parameters: A user-provided SAS token to an Azure blob storage container.
@@ -813,7 +934,7 @@ class SelectiveKeyRestoreOperationParameters(_Model):
         super().__init__(*args, **kwargs)
 
 
-class Setting(_Model):
+class Setting(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """A Key Vault account setting.
 
     :ivar name: The account setting to be updated. Required.
@@ -865,7 +986,7 @@ class SettingsListResult(_Model):
     """A response message containing a list of account settings with their associated value."""
 
 
-class UpdateSettingRequest(_Model):
+class UpdateSettingRequest(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The update settings request object.
 
     :ivar value: The value of the pool setting. Required.

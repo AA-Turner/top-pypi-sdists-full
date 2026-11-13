@@ -1,6 +1,7 @@
 """search: ranked retrieval across the corpora search_in names, collapsed per experiment, fitted whole to the budget."""
 
 from __future__ import annotations
+from datetime import datetime, timezone
 from typing import Any
 from ....sdk import errors
 from ...delivery import accounting
@@ -16,6 +17,7 @@ from ....shared.reads.search_contract import (
     EntityType,
     EnvelopeState,
     MissingMarker,
+    SearchSort,
     ToolCorpus,
     is_docs_only)
 from probe.mcp.tools.corpora.team import (
@@ -28,6 +30,7 @@ from probe.mcp.tools.corpora.team import (
 )
 from probe.mcp.tools.corpus import NON_BACKEND_CORPORA, _map_search_in
 from probe.mcp.tools.shaping.cursors import _join_cursor, _split_cursor
+from probe.mcp.tools.shaping.people import get_owner_echo
 from probe.mcp.tools.shaping.shaping import _fit_whole_results
 from probe.mcp.tools.view import _supported_views
 
@@ -61,6 +64,18 @@ def _echoes_project_scope(response: Any, project_id: str) -> bool:
     return str(response.get("project_id") or "") == str(project_id)
 
 
+def _get_written_at(row: Any) -> tuple[bool, datetime]:
+    """A hit's `updated_at` as a sort key, `(False, min)` when it has none or it does not parse."""
+    value = row.get("updated_at") if isinstance(row, dict) else None
+    try:
+        moment = datetime.fromisoformat(str(value).replace("Z", "+00:00")) if value else None
+    except ValueError:
+        moment = None
+    if moment is None:
+        return False, datetime.min.replace(tzinfo=timezone.utc)
+    return True, moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
 class SearchMixin:
     """Part of ResearchReadService: its methods run with `self` the ResearchReadService; compose() folds them into ResearchReadService."""
 
@@ -77,8 +92,15 @@ class SearchMixin:
         exclude_session: str | None = None,
         token_budget: int = 2000,
         semantic: bool = True,
+        owner: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        sort: str | None = None,
     ) -> dict:
         """Ranked retrieval across the lab.
+
+        `owner`, `since`, `until` and `sort="recent"` go to the backend as given (it matches the
+        person and reads the dates); who `owner` matched rides the answer as `owner_matched`.
 
         `semantic=False` is the keyword search: the exact channel plus BM25 over
         document text (`retrieval="keyword"` on the backend), with no model call
@@ -119,6 +141,23 @@ class SearchMixin:
             )
         # Read before `semantic` is rebound to the response section below.
         keyword = not semantic
+        # `relevance` is the backend's default: left off, so an unfiltered search's body is unchanged.
+        people = {
+            "owner": owner or None,
+            "since": since or None,
+            "until": until or None,
+            "sort": SearchSort.RECENT.value if sort == SearchSort.RECENT else None,
+        }
+        asked = [name for name, value in people.items() if value]
+        if asked and search_in and any(value in NON_BACKEND_CORPORA for value in search_in):
+            # Probe's docs have no owner or date: beside filtered team hits they would read as filtered too.
+            raise errors.ValidationError(
+                f"{', '.join(asked)} filter the team's own record; Probe's docs (search_in \"docs\") "
+                "have no owner or date. Take docs out of search_in, or leave the filters out.",
+                status=422,
+            )
+        if asked:
+            self.source.require_people_filters(asked, is_search=True)
         # Probe's docs are not the team's record and POST /v1/search does not hold them: they split off
         # HERE, before `_map_search_in` (NON_BACKEND_CORPORA). Docs alone never reach team search; mixed,
         # the team corpora are searched as ever and the docs ride beside them.
@@ -184,6 +223,7 @@ class SearchMixin:
                 # Omitted for a semantic search: its body stays byte-identical to earlier clients'.
                 retrieval=BackendRetrieval.KEYWORD.value if keyword_page else None,
                 include_semantic=False if keyword and not keyword_page else None,
+                **people,
             )
         exact = _section(response, Channel.EXACT)
         semantic = _section(response, Channel.SEMANTIC)
@@ -212,10 +252,15 @@ class SearchMixin:
             isinstance(raw_semantic, dict)
             and raw_semantic.get("retrieval") == BackendRetrieval.KEYWORD
         )
-        results = _interleave(
-            [_exact_result(row) for row in exact["results"]],
-            [_semantic_result(row, keyword=keyword_ran) for row in semantic["results"]],
+        merged = _interleave(
+            [(_exact_result(row), row) for row in exact["results"]],
+            [(_semantic_result(row, keyword=keyword_ran), row) for row in semantic["results"]],
         )
+        if people["sort"]:
+            # Newest first across BOTH channels (D16): a round-robin would put an old exact hit
+            # above a newer semantic one and cut the newer at `top_k`. Undated hits go last.
+            merged.sort(key=lambda pair: _get_written_at(pair[1]), reverse=True)
+        results = [hit for hit, _ in merged]
         if collapse == EntityType.EXPERIMENT:
             results = _collapse_experiments(results)
         # `top_k` is a TOTAL, so the merge applies it; both channels were asked for all of it.
@@ -247,6 +292,8 @@ class SearchMixin:
         def _payload(rows: list[dict], budget_note: dict | None) -> dict:
             data: dict[str, Any] = {
                 "query": query,
+                # Who `owner` matched, so a wrong match is seen (D4).
+                **get_owner_echo(response),
                 "collapse": collapse,
                 "results": rows,
                 "channels": {

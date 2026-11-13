@@ -198,12 +198,11 @@ class User(object):
         self.client = client
 
     def decode_jwt(self):
-        # algorithms is inert while verify_signature is off, but the platform
-        # signs secp256k1 keys as ES256K (RFC 8812) since TEAM-7013 — do not
-        # leave a stale ES256-only list for whoever turns verification on.
+        # algorithms is inert while verify_signature is off. The platform signs
+        # secp256k1 keys as ES256K (RFC 8812).
         return jwt.decode(
             self.client.token,
-            algorithms=["ES256", "ES256K"],
+            algorithms=["ES256K"],
             options={"verify_signature": False},
         )
 

@@ -63,7 +63,7 @@ __all__ = ["Texttable", "ArraySizeError"]
 
 __author__ = 'Gerome Fournier <jef(at)foutaise.org>'
 __license__ = 'MIT'
-__version__ = '1.7.2'
+__version__ = '1.7.3'
 __credits__ = """\
 Jeff Kowalczyk:
     - textwrap improved import
@@ -456,8 +456,12 @@ class Texttable:
         """
         if type(x) == int:
             return str(x)
-        else:
-            return str(int(round(cls._to_float(x))))
+        if isinstance(x, (unicode_type, bytes_type)):
+            try:
+                return str(int(x))
+            except ValueError:
+                pass
+        return str(int(round(cls._to_float(x))))
 
     @classmethod
     def _fmt_float(cls, x, **kw):

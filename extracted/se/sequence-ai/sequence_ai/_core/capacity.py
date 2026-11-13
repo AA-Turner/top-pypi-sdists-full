@@ -40,7 +40,8 @@ def count(value: Any) -> str:
 
 def held(in_use: Optional[Mapping[str, Any]]) -> str:
     """What the account's GPUs are doing: 'serving 6, evals 2, build checks 1' (a count it could not read says
-    'unknown'), and ', shells 1' while a benchmark's shell machine holds one. A deploy's build check and a shell hold their
+    'unknown'), ', shells 1' while a benchmark's shell machine holds one, and ', GPUs 2' while GPUs added by hand hold
+    theirs (in_use.gpu). A deploy's build check and a shell hold their
     cards while they run and the total counts them, so the parts name them too; an in_use without a build check (an eval's)
     leaves it out.
  
@@ -48,7 +49,8 @@ def held(in_use: Optional[Mapping[str, Any]]) -> str:
     u = in_use if isinstance(in_use, Mapping) else {}
     words = f"serving {count(u.get('serving'))}, evals {count(u.get('eval'))}"
     return (words + (f", build checks {count(u.get('build'))}" if "build" in u else "")
-            + (f", shells {count(u.get('shell'))}" if u.get("shell") else ""))
+            + (f", shells {count(u.get('shell'))}" if u.get("shell") else "")
+            + (f", GPUs {count(u.get('gpu'))}" if u.get("gpu") else ""))
 
 
 def _when(retry_after_s: Optional[float]) -> str:
@@ -116,10 +118,14 @@ def explain(details: Optional[Mapping[str, Any]], *, retry_after_s: Optional[flo
                     "lay it out on fewer cards.")
         need = f"this needs {count(requested)}" + (f", {count(short)} more than are free" if short else "")
 
+
+
         used = d.get("in_use") if isinstance(d.get("in_use"), Mapping) else {}
         wait_for = "an eval or a build check" if (used.get("build") or 0) > 0 else "an eval"
+        free = ("remove a GPU (`seq gpu remove`), stop a deployment," if (used.get("gpu") or 0) > 0
+                else "stop a deployment")
         then = (f"; {in_line} until enough free up." if queued
-                else f"; stop a deployment or wait for {wait_for} to finish, then try again.")
+                else f"; {free} or wait for {wait_for} to finish, then try again.")
         return f"Your account's {count(limit)} GPUs are in use ({held(d.get('in_use'))}) and {need}{then}"
     if reason == "gpu_busy":
         return ("Every GPU on the platform is busy right now (your account's limit is not the problem); "

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: x402
-Version: 2.27.0
+Version: 2.28.0
 Summary: x402 Payment Protocol SDK for Python
 Project-URL: Homepage, https://github.com/x402-foundation/x402
 Project-URL: Documentation, https://x402.org
@@ -23,6 +23,7 @@ Requires-Dist: nest-asyncio>=1.6.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: typing-extensions>=4.0.0
 Provides-Extra: all
+Requires-Dist: cbor2<6,>=5.6.5; extra == 'all'
 Requires-Dist: eth-abi>=5.0.0; extra == 'all'
 Requires-Dist: eth-account>=0.13.0; extra == 'all'
 Requires-Dist: eth-keys>=0.5.0; extra == 'all'
@@ -32,15 +33,25 @@ Requires-Dist: flask>=3.1.3; extra == 'all'
 Requires-Dist: httpx>=0.28.1; extra == 'all'
 Requires-Dist: idna>=3.15; extra == 'all'
 Requires-Dist: jsonschema>=4.0.0; extra == 'all'
+Requires-Dist: lzstring<2,>=1.0.4; extra == 'all'
 Requires-Dist: mcp<2,>=1.30.0; extra == 'all'
+Requires-Dist: pycardano<0.20,>=0.19.2; extra == 'all'
 Requires-Dist: pynacl>=1.5.0; extra == 'all'
 Requires-Dist: pytoniq-core>=0.1.36; extra == 'all'
 Requires-Dist: pytoniq>=0.1.39; extra == 'all'
 Requires-Dist: requests>=2.33.0; extra == 'all'
+Requires-Dist: rfc8785<1,>=0.1.4; extra == 'all'
 Requires-Dist: signinwithethereum>=5.0.1; extra == 'all'
 Requires-Dist: solders>=0.29.0; extra == 'all'
 Requires-Dist: starlette>=1.3.1; extra == 'all'
 Requires-Dist: web3>=7.15.0; extra == 'all'
+Provides-Extra: cardano
+Requires-Dist: cbor2<6,>=5.6.5; extra == 'cardano'
+Requires-Dist: httpx>=0.28.1; extra == 'cardano'
+Requires-Dist: lzstring<2,>=1.0.4; extra == 'cardano'
+Requires-Dist: pycardano<0.20,>=0.19.2; extra == 'cardano'
+Requires-Dist: pynacl>=1.5.0; extra == 'cardano'
+Requires-Dist: rfc8785<1,>=0.1.4; extra == 'cardano'
 Provides-Extra: clients
 Requires-Dist: httpx>=0.28.1; extra == 'clients'
 Requires-Dist: requests>=2.33.0; extra == 'clients'
@@ -65,14 +76,18 @@ Requires-Dist: httpx>=0.28.1; extra == 'httpx'
 Provides-Extra: mcp
 Requires-Dist: mcp<2,>=1.30.0; extra == 'mcp'
 Provides-Extra: mechanisms
+Requires-Dist: cbor2<6,>=5.6.5; extra == 'mechanisms'
 Requires-Dist: eth-abi>=5.0.0; extra == 'mechanisms'
 Requires-Dist: eth-account>=0.13.0; extra == 'mechanisms'
 Requires-Dist: eth-keys>=0.5.0; extra == 'mechanisms'
 Requires-Dist: eth-utils>=4.0.0; extra == 'mechanisms'
 Requires-Dist: httpx>=0.28.1; extra == 'mechanisms'
+Requires-Dist: lzstring<2,>=1.0.4; extra == 'mechanisms'
+Requires-Dist: pycardano<0.20,>=0.19.2; extra == 'mechanisms'
 Requires-Dist: pynacl>=1.5.0; extra == 'mechanisms'
 Requires-Dist: pytoniq-core>=0.1.36; extra == 'mechanisms'
 Requires-Dist: pytoniq>=0.1.39; extra == 'mechanisms'
+Requires-Dist: rfc8785<1,>=0.1.4; extra == 'mechanisms'
 Requires-Dist: solders>=0.29.0; extra == 'mechanisms'
 Requires-Dist: web3>=7.15.0; extra == 'mechanisms'
 Provides-Extra: requests
@@ -109,6 +124,7 @@ uv add x402[fastapi]    # FastAPI middleware
 uv add x402[flask]      # Flask middleware
 
 # Blockchain mechanisms (pick one or more)
+uv add x402[cardano]    # Cardano
 uv add x402[evm]        # EVM/Ethereum
 uv add x402[svm]        # Solana
 uv add x402[tvm]        # TON/TVM
@@ -414,6 +430,7 @@ client.register("eip155:8453", CustomScheme())
 ## Related Modules
 
 - `x402.http` - HTTP clients, middleware, and facilitator client
+- [`x402.mechanisms.cardano`](mechanisms/cardano/README.md) - Cardano payments, script locks, and Masumi escrow
 - `x402.mechanisms.evm` - EVM/Ethereum implementation
 - `x402.mechanisms.svm` - Solana implementation
 - `x402.mechanisms.tvm` - TON/TVM implementation

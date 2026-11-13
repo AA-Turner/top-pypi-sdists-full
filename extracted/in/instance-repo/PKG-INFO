@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instance-repo
-Version: 1.7.0
+Version: 1.7.1
 Summary: InstanceRepo SDK — 评测 Instance 统一存储客户端（SDK-only；控制面由 apiserver 承载）
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -14,7 +14,7 @@ Requires-Dist: coverage>=7; extra == "dev"
 
 # InstanceRepository Python SDK
 
-Python、Go、Java 主 SDK 源码版本均为 `1.7.0`（待发布）。Split create 可将初始 `run_type` 交给支持该能力的服务端原子写入，重复创建保留已有标签。具体兼容条件见下文。实际安装版本以获准制品库的发布记录为准。[三语言功能矩阵](../../docs/sdk/parity.md)。
+Python SDK 源码版本为 `1.7.1`，包含 Harbor 多步骤 push 的公网校验修复。Split create 可将初始 `run_type` 交给支持该能力的服务端原子写入，重复创建保留已有标签。具体兼容条件见下文。实际安装版本以获准制品库的发布记录为准。[三语言功能矩阵](../../docs/sdk/parity.md)。
 
 ## 安装与配置
 
@@ -58,7 +58,7 @@ def remove_metadata(repo: Repo, dataset: str, instance_id: str):
 
 旧服务端没有返回该能力标识时，SDK 保留 POST 后 PATCH 的兼容流程。此时重复创建仍可能更新标签。需要严格保持已有标签的调用方，必须先部署支持该契约的服务端。SDK 不通过 legacy 列表或 OSS 扫描判断本次是否新建。
 
-Python 版本升级通过 CR 合入后，可按 `.aoneci/release_pysdk.yaml` 使用 `pysdk/v1.7.0` tag 的现有发布流程。本次源码版本不表示制品已经发布。
+Python 版本升级通过 CR 合入后，可按 `.aoneci/release_pysdk.yaml` 使用 `pysdk/v1.7.1` tag 的现有发布流程。本次源码版本不表示制品已经发布。
 
 `instances.list_objects`返回文件/目录及`truncated`；不完整结果不能当完整目录。`compute_source_hash`与`list_content_hashes`用于变更检测；`push/push_many`的`skip_unchanged`不能替代内容校验或权限判定。
 

@@ -9204,7 +9204,7 @@ class CfnHubV2(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param network_scanning: Configuration for the Network Scanning opt-in feature of Security Hub V2. Network Scanning is available in the AWS commercial partition only; specifying this property in another partition, such as AWS GovCloud (US) or China, fails. This property is desired state: if you remove it from a stack that previously set it, the feature is disabled. If a stack has never set it, the feature is left as-is, so a stack that does not manage Network Scanning will not disable it. Network Scanning requires Security Hub V2 to be enabled in the same account and Region.
+        :param network_scanning: Configuration for the Network Scanning opt-in feature of Security Hub V2. Network Scanning is available in the AWS commercial and AWS GovCloud (US) partitions only; specifying this property in another partition, such as China, fails. This property is desired state: if you remove it from a stack that previously set it, the feature is disabled. If a stack has never set it, the feature is left as-is, so a stack that does not manage Network Scanning will not disable it. Network Scanning requires Security Hub V2 to be enabled in the same account and Region.
         :param tags: The tags to add to the hub V2 resource when you enable Security Hub CSPM.
         '''
         if __debug__:
@@ -9355,7 +9355,7 @@ class CfnHubV2(
         def __init__(self, *, status: builtins.str) -> None:
             '''Configuration for the Network Scanning opt-in feature of Security Hub V2.
 
-            Network Scanning is available in the AWS commercial partition only; specifying this property in another partition, such as AWS GovCloud (US) or China, fails. This property is desired state: if you remove it from a stack that previously set it, the feature is disabled. If a stack has never set it, the feature is left as-is, so a stack that does not manage Network Scanning will not disable it. Network Scanning requires Security Hub V2 to be enabled in the same account and Region.
+            Network Scanning is available in the AWS commercial and AWS GovCloud (US) partitions only; specifying this property in another partition, such as China, fails. This property is desired state: if you remove it from a stack that previously set it, the feature is disabled. If a stack has never set it, the feature is left as-is, so a stack that does not manage Network Scanning will not disable it. Network Scanning requires Security Hub V2 to be enabled in the same account and Region.
 
             :param status: Whether the Network Scanning feature is enabled for this account and Region.
 
@@ -9415,7 +9415,7 @@ class CfnHubV2Props:
     ) -> None:
         '''Properties for defining a ``CfnHubV2``.
 
-        :param network_scanning: Configuration for the Network Scanning opt-in feature of Security Hub V2. Network Scanning is available in the AWS commercial partition only; specifying this property in another partition, such as AWS GovCloud (US) or China, fails. This property is desired state: if you remove it from a stack that previously set it, the feature is disabled. If a stack has never set it, the feature is left as-is, so a stack that does not manage Network Scanning will not disable it. Network Scanning requires Security Hub V2 to be enabled in the same account and Region.
+        :param network_scanning: Configuration for the Network Scanning opt-in feature of Security Hub V2. Network Scanning is available in the AWS commercial and AWS GovCloud (US) partitions only; specifying this property in another partition, such as China, fails. This property is desired state: if you remove it from a stack that previously set it, the feature is disabled. If a stack has never set it, the feature is left as-is, so a stack that does not manage Network Scanning will not disable it. Network Scanning requires Security Hub V2 to be enabled in the same account and Region.
         :param tags: The tags to add to the hub V2 resource when you enable Security Hub CSPM.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hubv2.html
@@ -9452,7 +9452,7 @@ class CfnHubV2Props:
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHubV2.NetworkScanningProperty"]]:
         '''Configuration for the Network Scanning opt-in feature of Security Hub V2.
 
-        Network Scanning is available in the AWS commercial partition only; specifying this property in another partition, such as AWS GovCloud (US) or China, fails. This property is desired state: if you remove it from a stack that previously set it, the feature is disabled. If a stack has never set it, the feature is left as-is, so a stack that does not manage Network Scanning will not disable it. Network Scanning requires Security Hub V2 to be enabled in the same account and Region.
+        Network Scanning is available in the AWS commercial and AWS GovCloud (US) partitions only; specifying this property in another partition, such as China, fails. This property is desired state: if you remove it from a stack that previously set it, the feature is disabled. If a stack has never set it, the feature is left as-is, so a stack that does not manage Network Scanning will not disable it. Network Scanning requires Security Hub V2 to be enabled in the same account and Region.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hubv2.html#cfn-securityhub-hubv2-networkscanning
         '''

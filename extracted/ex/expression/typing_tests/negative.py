@@ -3,9 +3,24 @@
 from collections.abc import Awaitable, Callable
 from typing import Generic, Literal, TypeAlias, TypeVar, final
 
-from expression import Error, MailboxProcessor, Nothing, Option, Result, Some, TaggedUnion, apipe, case, tag
+from expression import (
+    Error,
+    MailboxProcessor,
+    Nothing,
+    Option,
+    Result,
+    Some,
+    TaggedUnion,
+    apipe,
+    case,
+    downcast,
+    tag,
+    try_downcast,
+    upcast,
+)
 from expression.collections import Block, Map, TypedArray
 from expression.extra import async_result
+from expression.extra.result import catch
 
 
 def unchecked(value: Option[int]) -> None:
@@ -144,3 +159,33 @@ async def integer_error(value: int) -> Result[str, int]:
 
 StringErrorBind = Callable[[Result[int, str]], Awaitable[Result[str, str]]]
 wrong_async_bind: StringErrorBind = async_result.bind(integer_error)  # type-error
+
+
+# Exception-catching decorators retain positional and keyword parameter types.
+
+
+def catch_source(value: int, *, suffix: str) -> str:
+    return f"{value}{suffix}"
+
+
+caught_direct = catch(catch_source, exception=ValueError)
+caught_decorated = catch(exception=ValueError)(catch_source)
+caught_direct("wrong", suffix="!")  # type-error
+caught_decorated(1, suffix=2)  # type-error
+caught_direct(1, "!")  # type-error
+caught_decorated(1)  # type-error
+catch(ValueError)  # type-error
+
+
+# Collection element types and summation projections remain checked.
+integers = TypedArray[int]([1, 2])
+integers[0] = "wrong"  # type-error
+integers[:] = ["wrong"]  # type-error
+integers["wrong"]  # type-error
+Block([1]).sum_by(str)  # type-error
+
+
+# Cast targets must be types, not instances.
+downcast(42, object())  # type-error
+try_downcast(42, object())  # type-error
+upcast(42, object())  # type-error

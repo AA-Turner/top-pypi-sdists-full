@@ -156,6 +156,14 @@ _OWN_FLAGS = {
     ("policy debug", "debug_other_episode"): "seq policy debug <name> --stop ends it, then run this again",
     ("deploy", "name_held"): "add --override to take it over, or give it another name with --name",
     ("deploy", "name_taken"): "give it another name with --name",
+
+    ("gpu save", "snapshot_exists"): "add --replace to take its place",
+    ("gpu save", "name_taken"): "give it another name with --name",
+    ("gpu save", "gpu_not_running"): "a GPU is saved once it runs: seq gpu list shows when it does",
+    ("gpu remove", "gpu_saving"): "add --force to remove it anyway: that snapshot is given up, and never billed",
+    ("gpu add", "snapshot_not_ready"): "seq gpu saved shows when it is ready",
+    ("gpu add", "snapshot_not_found"): "seq gpu saved lists your snapshots",
+    ("gpu saved", "snapshot_not_found"): "seq gpu saved lists your snapshots",
 }
 
 
@@ -198,7 +206,8 @@ def _report(exc: BaseException, command: str | None = None) -> int:
     spec = CODES.get(code)
     if getattr(exc, "request_id", None) and spec is not None and spec.status == 500:
         print(f"request_id: {exc.request_id}", file=sys.stderr)
-    return spec.exit_code if spec is not None else 1
+
+    return getattr(exc, "exit_code", None) or (spec.exit_code if spec is not None else 1)
 
 
 def _dispatch(args: argparse.Namespace) -> int:
@@ -520,21 +529,35 @@ def _cmd_robot(args: argparse.Namespace) -> int:
 
 
 def _cmd_gpu(args: argparse.Namespace) -> int:
-    """`seq gpu add | places | list | ssh | remove`: GPU machines you run yourself (seq/gpu_cli.py). `ssh` hands off
-    to the system ssh and returns its exit code; the rest read or write one gateway route."""
+    """`seq gpu add | places | list | history | logs | allow | ssh | save | saved | remove`: GPU machines you run yourself
+    (seq/gpu_cli.py). `ssh` hands off to the system ssh and returns its exit code; the rest read or write gateway routes."""
     from seq import gpu_cli
 
     sub = args.gpu_cmd
     if sub == "add":
-        return _cmd_platform(args, gpu_cli.gpu_add, args.place, args.gpu, args.count)
+        return _cmd_platform(args, gpu_cli.gpu_add, args.place, args.gpu, args.count, snapshot=args.snapshot,
+                             ports=args.ports, allow=args.allow, run=args.run, name=args.name,
+                             wait=not args.no_wait)
     if sub == "places":
         return _cmd_platform(args, gpu_cli.gpu_places, " ".join(args.text), args.limit)
     if sub == "list":
         return _cmd_platform(args, gpu_cli.gpu_list)
+    if sub == "history":
+        return _cmd_platform(args, gpu_cli.gpu_history, args.limit, args.cursor)
+    if sub == "allow":
+        return _cmd_platform(args, gpu_cli.gpu_allow, args.id, args.ranges)
     if sub == "ssh":
         return gpu_cli.gpu_ssh(args.id, args.command, do_print=args.ssh_print, base_url=args.base_url)
+    if sub == "save":
+        return _cmd_platform(args, gpu_cli.gpu_save, args.id, args.name, args.replace)
+    if sub == "saved":
+        if args.saved_cmd == "remove":
+            return _cmd_platform(args, gpu_cli.gpu_saved_remove, args.name)
+        return _cmd_platform(args, gpu_cli.gpu_saved)
     if sub == "remove":
-        return _cmd_platform(args, gpu_cli.gpu_remove, args.id)
+        return _cmd_platform(args, gpu_cli.gpu_remove, args.id, args.force)
+    if sub == "logs":
+        return _cmd_platform(args, gpu_cli.gpu_logs, args.id, since=args.since, follow=args.follow)
     raise InvalidRequest(f"seq gpu {args.gpu_cmd} is not a command; `seq gpu --help` lists them")
 
 

@@ -6,6 +6,7 @@ import pytest
 from flask import Flask
 
 from hugpy_core.calllog import call_record
+from hugpy_core.models import modeldb
 from hugpy_core.relay import internal
 from hugpy_core.web import routes
 
@@ -16,6 +17,8 @@ def service(monkeypatch):
     monkeypatch.setattr(internal, '_host_app', app)
     records, sent = [], []
     monkeypatch.setattr(call_record, 'write', lambda row: records.append(copy.deepcopy(row)))
+    # a route that answered is remembered in the model database
+    monkeypatch.setattr(modeldb, 'record_routed_allocation', lambda *args, **kwargs: True)
     monkeypatch.setattr(routes, 'pick', lambda *a, **k: {'id': 'worker-1', 'name': 'worker', 'url': 'http://worker'})
     monkeypatch.setattr(routes, 'worker_payload', lambda kw, worker: kw)
     def worker_stream(worker, payload):
@@ -89,11 +92,12 @@ def test_engine_sources_do_not_fetch_http_or_disk(service, monkeypatch):
 def test_hosted_media_uses_injected_executor_and_catalog(service, monkeypatch):
     from hugpy_media import host
     monkeypatch.setattr(host, '_executor', lambda **kw: internal.execute_prompt(caller='media', **kw))
-    monkeypatch.setattr(host, '_catalog', lambda: [{'id': 'model'}])
+    monkeypatch.setattr(host, '_catalog', lambda: [{'model_key': 'model', 'workers': ['worker-1']}])
     monkeypatch.setattr(host, '_central_catalog', lambda: [])
     from hugpy_media.imports import execute_prompt
     assert execute_prompt(task='text-generation', model='model', prompt='hi')['text'] == 'direct reply'
-    assert host.catalog_models() == [{'id': 'model'}]
+    # Media reads Core's in-process rows as it reads the HTTP model list: by id, with availability
+    assert [(row['id'], row['available']) for row in host.catalog_models()] == [('model', True)]
     assert host.central_models() == []
 
 
@@ -195,3 +199,32 @@ def test_direct_key_validation_has_same_scope_rules(service, monkeypatch, auth, 
     with internal.application().test_request_context(headers={'Authorization': auth}):
         response = internal.application().make_response(api_access.verify_use_key())
         assert response.status_code == (204 if allowed else 401)
+
+
+def test_hosted_media_selects_from_the_models_the_relay_can_route(service, monkeypatch):
+    from hugpy_core.relay import inference_catalog
+    from hugpy_core.web import native_fleet
+    unit = 'Qwen/Qwen2.5-3B-Instruct-GGUF::qwen2.5-3b-instruct-q4_k_m.gguf'
+    monkeypatch.setattr(native_fleet, 'models', lambda: [
+        {'model_key': unit, 'tasks': ['text-generation'], 'aliases': []},
+        {'model_key': 'Qwen/Qwen2.5-3B-Instruct-GGUF', 'tasks': ['text-generation'], 'aliases': []},
+        {'model_key': 'acme/Nobody-Has-This-GGUF', 'tasks': ['text-generation'], 'aliases': []}])
+    monkeypatch.setattr(routes.registry, 'all_workers', lambda: [
+        {'name': 'ae', 'models': [unit], 'loaded_models': [unit]}])
+    monkeypatch.setattr(routes.registry, 'is_online', lambda worker: True)
+    # the database behind the endpoint's other two reads
+    from hugpy_core.config import model_preferences
+    from hugpy_core.web import agent_sessions
+    monkeypatch.setattr(model_preferences, 'projection', lambda: {})
+    monkeypatch.setattr(agent_sessions, 'session_models', lambda: [])
+    rows = {row['id']: row for row in inference_catalog.media_models()}
+    assert rows[unit]['available'] and rows[unit]['loaded_on'] == ['ae']
+    # the repo-level name is served wherever one of its units is: the worker chooses the unit
+    assert rows['Qwen/Qwen2.5-3B-Instruct-GGUF']['available']
+    assert rows['Qwen/Qwen2.5-3B-Instruct-GGUF']['loaded_on'] == ['ae']
+    assert not rows['acme/Nobody-Has-This-GGUF']['available']            # a catalog entry no worker serves
+    # Video's picker reads the same list: the same names, the same facts
+    assert inference_catalog.text_models() == [
+        {'model': 'Qwen/Qwen2.5-3B-Instruct-GGUF', 'serving': True, 'held': True, 'state': 'serving'},
+        {'model': unit, 'serving': True, 'held': True, 'state': 'serving'},
+        {'model': 'acme/Nobody-Has-This-GGUF', 'serving': False, 'held': False, 'state': 'unknown'}]

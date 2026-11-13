@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: unifi-mcp-shared
-Version: 0.6.39
+Version: 0.6.40
 Summary: Shared MCP server patterns: permissions, confirmation, lazy loading, config
 Requires-Python: >=3.13
 Requires-Dist: anyio>=4.14.2

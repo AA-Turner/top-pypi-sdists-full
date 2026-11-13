@@ -46,6 +46,7 @@ from langgraph_api.event_streaming.session import (
 from langgraph_api.event_streaming.types import Subscription
 from langgraph_api.feature_flags import FF_V2_EVENT_STREAMING, PREFER_GRPC_CHECKPOINTER
 from langgraph_api.schema import MultitaskStrategy
+from langgraph_api.validation import sanitize_reserved_keys
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -792,12 +793,30 @@ class ThreadRunManager:
         if not capabilities.ok:
             raise ProtocolV2UnsupportedError(capabilities)
 
+        # Drop server-owned configurable and metadata keys before the run
+        # config is built, as the REST request parser does for its bodies.
+        sanitize_reserved_keys(params)
         config = params.get("config") if _is_record(params.get("config")) else {}
 
-        # ``input.respond`` checked its interrupts already and always resumes;
-        # the lookups below can wait seconds on a busy thread.
+        # The fork target arrives only via ``config.configurable.checkpoint_id``
+        # (the SDK folds its ergonomic ``forkFrom`` option into this field
+        # client-side, so there is a single way to provide it). Extract it
+        # here and map it onto the top-level ``checkpoint_id`` / ``checkpoint``
+        # fields of ``run_payload`` below: ``create_valid_run``, the shared
+        # run-creation path also used by the legacy REST run-create endpoints,
+        # reads the fork target from those fields (UUID-validating it and
+        # injecting it back into ``config.configurable``), so populating them is
+        # what makes the run replay from the requested checkpoint rather than
+        # the thread's latest state.
+        checkpoint_id = _checkpoint_id_from_run_start_config(params)
+
+        # Only a plain run.start needs the lookups below, which can wait seconds
+        # on a busy thread: ``input.respond`` checked its interrupts already and
+        # always resumes, and a fork starts a new run from its checkpoint
+        # whatever the thread's latest one waits on.
         force_resume = params.get("force_resume")
-        current_run = None if force_resume else await self._fetch_current_run()
+        infer_resume = not force_resume and checkpoint_id is None
+        current_run = await self._fetch_current_run() if infer_resume else None
 
         current_status = None
         if current_run is not None:
@@ -808,7 +827,7 @@ class ThreadRunManager:
             )
 
         has_interrupts = False
-        if params.get("input") is not None and not force_resume:
+        if params.get("input") is not None and infer_resume:
             has_interrupts = await self._has_pending_interrupts()
         if has_interrupts and not _keyed_by_interrupt_id(params["input"]):
             # One answer can't say which of several pending interrupts it is
@@ -836,18 +855,6 @@ class ThreadRunManager:
                 "thread_id": self._thread_id,
             },
         }
-
-        # The fork target arrives only via ``config.configurable.checkpoint_id``
-        # (the SDK folds its ergonomic ``forkFrom`` option into this field
-        # client-side, so there is a single way to provide it). Extract it
-        # here and map it onto the top-level ``checkpoint_id`` / ``checkpoint``
-        # fields of ``run_payload`` below: ``create_valid_run`` — the shared
-        # run-creation path also used by the legacy REST run-create endpoints —
-        # reads the fork target from those fields (UUID-validating it and
-        # injecting it back into ``config.configurable``), so populating them is
-        # what makes the run replay from the requested checkpoint rather than
-        # the thread's latest state.
-        checkpoint_id = _checkpoint_id_from_run_start_config(params)
 
         run_payload: dict[str, Any] = {
             "assistant_id": assistant_id,
@@ -1074,7 +1081,9 @@ class ThreadRunManager:
 
         try:
             async with connect() as conn:
-                result = await self._threads.get(conn, self._thread_id)
+                result = await self._threads.get(
+                    conn, self._thread_id, read_mask_paths=["metadata"]
+                )
                 thread = await anext(result) if hasattr(result, "__anext__") else result
         except Exception:
             return None
@@ -1175,12 +1184,14 @@ class ThreadRunManager:
         return None if thread is None else self._interrupt_ids(thread)
 
     async def _fetch_thread_row(self) -> dict[str, Any] | None:
-        """Return the durable thread row, or ``None`` if the fetch failed."""
+        """Return the row's status and interrupts, or ``None`` if the fetch failed."""
         from langgraph_runtime.database import connect  # noqa: PLC0415
 
         try:
             async with connect() as conn:
-                result = await self._threads.get(conn, self._thread_id)
+                result = await self._threads.get(
+                    conn, self._thread_id, read_mask_paths=["status", "interrupts"]
+                )
                 thread = await anext(result) if hasattr(result, "__anext__") else result
         except Exception as exc:
             logger.warning(
@@ -1215,7 +1226,9 @@ class ThreadRunManager:
 
         try:
             async with connect() as conn:
-                result = await self._threads.get(conn, self._thread_id)
+                result = await self._threads.get(
+                    conn, self._thread_id, read_mask_paths=["status"]
+                )
                 thread = await anext(result) if hasattr(result, "__anext__") else result
         except Exception:
             return None

@@ -191,6 +191,18 @@ class LeftRunning(KeyboardInterrupt):
                          + (f"; {stop}" if stop else ""))
 
 
+class GpuCancelled(LeftRunning):
+    """Ctrl-C while `seq gpu add` waited for its GPUs to run: those not running yet removed, unbilled, and said by their ids
+    - with any whose removal was not answered, and how to end it - where "cancelled" alone would name none.
+"""
+
+    def __init__(self, cancelled: list[str], not_cancelled: list[str]) -> None:
+        said = f"cancelled: {', '.join(cancelled)} - not billed" if cancelled else "cancelled"
+        if not_cancelled:
+            said += f"; not cancelled, still starting: {', '.join(not_cancelled)} - seq gpu remove <id> ends one"
+        KeyboardInterrupt.__init__(self, said)
+
+
 @contextmanager
 def following(what: str, limit_s: float | None, stop: str | None = None) -> Iterator[None]:
     """A command following a build: Ctrl-C in it is LeftRunning."""

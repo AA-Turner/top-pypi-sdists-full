@@ -2,7 +2,6 @@
 """
 import inspect
 import warnings
-from datetime import timedelta
 from functools import partial
 from typing import Callable
 from typing import Literal
@@ -11,8 +10,8 @@ from typing import overload
 from typing_extensions import ParamSpec
 from typing_extensions import Unpack
 
-from ..config import Config
 from .api import GPUSize
+from .lifecycle import zerogpu_mode_enabled
 from .types import DynamicDuration
 from .types import EmptyKwargs
 
@@ -95,7 +94,7 @@ def _GPU(
     size: GPUSize | None,
 ) -> Callable[P, R]:
 
-    if not Config.zero_gpu:
+    if not zerogpu_mode_enabled():
         return task
 
     from . import client

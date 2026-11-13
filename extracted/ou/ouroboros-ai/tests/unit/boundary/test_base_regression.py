@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import ast
+import asyncio
+from collections.abc import AsyncIterator
 from dataclasses import replace
+import gc
 import inspect
 from pathlib import Path
 import sys
+import tempfile
+import threading
 from typing import Any
 
 import pytest
@@ -23,7 +28,7 @@ from ouroboros.boundary.acceptance import (
 from ouroboros.boundary.base_regression import ArtifactCheckOutcome as Outcome
 from ouroboros.boundary.binding import CheckTier
 from ouroboros.boundary.check_env import pin_interpreter
-from ouroboros.boundary.tree import tree_digest
+from ouroboros.boundary.tree import changed_paths, tree_digest, tree_manifest
 
 BASE_FILES = [
     "pkg/__init__.py",
@@ -81,6 +86,61 @@ def test_a_package_init_selects_only_the_tests_that_import_the_package_itself() 
         "pkg/tests/test_relative.py",
         "pkg/tests/test_tree.py",
     )
+
+
+@pytest.mark.parametrize(
+    "changed",
+    [
+        ["pkg/export.py"],
+        ["pkg/__init__.py"],
+        ["src/_pytest/logging.py", "pkg/export.py"],
+        ["README.md"],
+        [],
+    ],
+)
+def test_a_kept_name_map_selects_what_a_fresh_call_selects_without_rereading(
+    changed: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    names: dict[str, frozenset[str]] = {}
+    warm = br.select_tests(BASE_FILES, ["pkg/export.py"], TEXT, names=names)
+    assert warm == br.select_tests(BASE_FILES, ["pkg/export.py"], TEXT)
+    assert set(names) == set(br.base_test_files(BASE_FILES))
+    parsed: list[str] = []
+    original = br.imported_names
+    monkeypatch.setattr(
+        br, "imported_names", lambda text, path: parsed.append(path) or original(text, path)
+    )
+
+    kept = br.select_tests(BASE_FILES, changed, TEXT, names=names)
+
+    assert parsed == []  # every base test file was read by the first call only
+    fresh = br.select_tests(BASE_FILES, changed, TEXT)
+    assert kept == fresh == _select_tests_before(BASE_FILES, changed, TEXT, parse=original)
+    # Without the map a call reads every test file again (none with no changed source).
+    assert len(parsed) == (len(names) if br.changed_sources(changed) else 0)
+
+
+def _select_tests_before(
+    base_paths: Any,
+    changed: Any,
+    read_base_text: Any = None,
+    *,
+    base_root: Path | None = None,
+    parse: Any,
+) -> tuple[str, ...]:
+    """``select_tests`` before it could keep a name map, verbatim: every call reads every file."""
+    tests = br.base_test_files(base_paths)
+    sources = br.changed_sources(changed)
+    selected: set[str] = set()
+    names: dict[str, frozenset[str]] = {}
+    for source in sources:
+        selected.update(br.paired_tests(tests, source))
+        for path in tests:
+            if path not in names:
+                names[path] = parse(br._text(path, read_base_text, base_root), path)
+            if br.imports_module(names[path], source):
+                selected.add(path)
+    return tuple(sorted(selected))
 
 
 def test_added_files_and_edited_tests_select_nothing() -> None:
@@ -319,6 +379,56 @@ async def test_the_base_runs_once_per_selection_across_attempts(
 
     assert first.outcome is again.outcome is repaired.outcome is Outcome.PASSED
     assert [call[0] for call in runner.calls] == ["base", "base", "candidate", "candidate"]
+
+
+async def test_the_base_test_files_are_parsed_once_across_candidates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    files = {
+        **BASE_TREE,
+        "calc/more.py": "def mul(a, b):\n    return a * b\n",
+        "calc/tests/test_more.py": "from calc.more import mul\n",
+        "calc/tests/test_patched.py": "import mock\n@mock.patch('calc.ops.add')\ndef test_p(a): ...\n",
+        "tests/test_readme.py": "import pathlib\n",
+    }
+    base = _tree(tmp_path / "base", files)
+    candidates = []
+    for name, (source, text) in {
+        "ops": ("calc/ops.py", "def add(a, b):\n    return a + b\n"),
+        "more": ("calc/more.py", "def mul(a, b):\n    return a ** b\n"),
+    }.items():
+        candidates.append(_tree(tmp_path / name, files))
+        (candidates[-1] / source).write_text(text)
+
+    async def passing(root: Path, *_args: Any, **_options: Any) -> Any:
+        return _run({})
+
+    monkeypatch.setattr(br, "_pytest", passing)
+    parsed: list[str] = []
+    original = br.imported_names
+    monkeypatch.setattr(
+        br, "imported_names", lambda text, path: parsed.append(path) or original(text, path)
+    )
+    checks = _checks(base)
+    base_manifest = tree_manifest(base)
+    tests = br.base_test_files(base_manifest)
+
+    selected, reads = [], []
+    for candidate in candidates:
+        parsed.clear()
+        regression, _worker = await checks.findings(candidate)
+        reads.append(len(parsed))
+        selected.append(regression.selected)
+        changed = changed_paths(base_manifest, tree_manifest(candidate))
+        assert regression.selected == _select_tests_before(
+            base_manifest, changed, base_root=base, parse=original
+        )
+
+    assert reads == [len(tests), 0]  # the second candidate reads no base test file
+    assert selected == [
+        ("calc/tests/test_ops.py", "calc/tests/test_patched.py"),
+        ("calc/tests/test_more.py",),
+    ]
 
 
 @pytest.mark.parametrize(
@@ -1673,3 +1783,263 @@ async def test_the_pytest_run_counts_only_a_second_observed_failure(
     regression, _worker = await _checks(base).findings(candidate)
 
     assert (regression.outcome, regression.failed) == (expected, failed)
+
+
+# --------------------------------------------------------------------------
+# Throwaway copies: removed off the event loop, and never while a copy still runs
+
+
+@pytest.fixture
+def private_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """The temp directory every throwaway copy of this test is made in."""
+    tmp = tmp_path / "tmp"
+    tmp.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp))
+    return tmp
+
+
+def _spy_cleanups(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, bool]]:
+    """Each ``TemporaryDirectory.cleanup``: its directory's prefix, and whether it ran on a loop."""
+    seen: list[tuple[str, bool]] = []
+    real = tempfile.TemporaryDirectory.cleanup
+
+    def cleanup(self: tempfile.TemporaryDirectory[str]) -> None:
+        try:
+            asyncio.get_running_loop()
+            on_loop = True
+        except RuntimeError:
+            on_loop = False
+        seen.append((Path(self.name).name.rsplit("-", 1)[0] + "-", on_loop))
+        real(self)
+
+    monkeypatch.setattr(tempfile.TemporaryDirectory, "cleanup", cleanup)
+    return seen
+
+
+REGRESSION_COPY = ("ouroboros-regression-", False)
+"""A regression run's copy, removed off the event loop."""
+
+
+async def test_the_pytest_runs_remove_their_copies_off_the_event_loop(
+    trees: tuple[Path, Path], private_tmp: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base, candidate = trees
+    (candidate / "calc/tests/test_new.py").write_text("def test_new():\n    pass\n")
+    # The added test file, then the base twice and the candidate.
+    monkeypatch.setattr(br, "_pytest", _Runner([_run(PASSING)] * 2, [_run(PASSING)] * 2))
+    cleanups = _spy_cleanups(monkeypatch)
+
+    regression, worker = await _checks(base).findings(candidate)
+
+    assert (regression.outcome, worker.outcome) == (Outcome.PASSED, Outcome.PASSED)
+    assert cleanups == [("ouroboros-worker-tests-", False), *[REGRESSION_COPY] * 3]
+    assert list(private_tmp.iterdir()) == []
+
+
+async def test_admission_and_command_runs_remove_their_copies_off_the_event_loop(
+    tmp_path: Path, private_tmp: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    files = {**BASE_TREE, "bin/test": ""}  # a project runner: an admitted command decides
+    base = _tree(tmp_path / "base", files)
+    candidate = _tree(tmp_path / "work", files)
+    (candidate / "calc/ops.py").write_text("def add(a, b):\n    return a + b\n")
+    # Admission (two base passes, a failing canary), the candidate's failure, its rerun.
+    script = [br.CommandRun(code) for code in (0, 0, 1, 1, 1)]
+
+    async def run(*_args: Any, **_kwargs: Any) -> Any:
+        return script.pop(0)
+
+    monkeypatch.setattr(br, "_run_command", run)
+    cleanups = _spy_cleanups(monkeypatch)
+    checks = br.ArtifactChecks(
+        base=base,
+        base_digest=tree_digest(base),
+        interpreter=pin_interpreter(sys.executable, "test"),
+        timeout_seconds=30,
+        constructor_command="python -m unittest {module}",
+    )
+
+    regression, _worker = await checks.findings(candidate)
+
+    assert (regression.outcome, regression.failed) == (Outcome.REJECTED, (TEST_FILE,))
+    assert cleanups == [("ouroboros-admission-", False)] * 3 + [REGRESSION_COPY]
+    assert list(private_tmp.iterdir()) == []
+
+
+async def test_a_run_that_raises_still_removes_its_copy_off_the_event_loop(
+    trees: tuple[Path, Path], private_tmp: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base, candidate = trees
+
+    async def runner(root: Path, *_args: Any, **_options: Any) -> Any:
+        if root.name == "candidate":
+            raise RuntimeError("the runner broke")
+        return _run(PASSING)
+
+    monkeypatch.setattr(br, "_pytest", runner)
+    cleanups = _spy_cleanups(monkeypatch)
+
+    regression, worker = await _checks(base).findings(candidate)
+
+    assert (regression.outcome, worker.outcome) == (Outcome.UNAVAILABLE,) * 2
+    assert cleanups == [REGRESSION_COPY] * 3
+    assert list(private_tmp.iterdir()) == []
+
+
+async def test_a_throwaway_directory_fails_as_a_temporary_directory_does(
+    private_tmp: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with pytest.raises(ValueError, match="body"):
+        async with br._throwaway("ouroboros-regression-") as work:
+            (Path(work) / "file").write_text("x")
+            raise ValueError("body")
+    assert list(private_tmp.iterdir()) == []
+
+    # A cleanup that fails: its error propagates, with the body's as its context.
+    real = tempfile.TemporaryDirectory.cleanup
+
+    def failing(self: tempfile.TemporaryDirectory[str]) -> None:
+        real(self)
+        raise PermissionError("cleanup")
+
+    monkeypatch.setattr(tempfile.TemporaryDirectory, "cleanup", failing)
+    with pytest.raises(PermissionError) as plain:
+        with tempfile.TemporaryDirectory(prefix="ouroboros-regression-"):
+            raise ValueError("body")
+    with pytest.raises(PermissionError) as throwaway:
+        async with br._throwaway("ouroboros-regression-"):
+            raise ValueError("body")
+    assert isinstance(plain.value.__context__, ValueError)
+    assert isinstance(throwaway.value.__context__, ValueError)
+    with pytest.raises(PermissionError):
+        async with br._throwaway("ouroboros-regression-"):
+            pass
+
+
+@pytest.fixture
+async def unretrieved() -> AsyncIterator[list[str]]:
+    """Messages the loop's exception handler receives ("Task exception was never retrieved")."""
+    seen: list[str] = []
+    loop = asyncio.get_running_loop()
+    previous = loop.get_exception_handler()
+    loop.set_exception_handler(lambda _loop, context: seen.append(context["message"]))
+    yield seen
+    loop.set_exception_handler(previous)
+
+
+async def _collected() -> None:
+    """Let every finished task be freed, so an unretrieved exception would be reported."""
+    await asyncio.sleep(0)
+    gc.collect()
+    await asyncio.sleep(0)
+
+
+@pytest.mark.parametrize("copy_fails", [False, True], ids=["copy_ends", "copy_raises"])
+async def test_a_cancelled_check_removes_its_copy_once_the_copy_has_ended(
+    trees: tuple[Path, Path],
+    private_tmp: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    unretrieved: list[str],
+    copy_fails: bool,
+) -> None:
+    base, candidate = trees
+    monkeypatch.setattr(br, "_pytest", _Runner([], []))  # never reached
+    entered, release, ended = threading.Event(), threading.Event(), threading.Event()
+    real_copy = br.copy_checkout
+
+    def copy(source: Path, destination: Path, **options: Any) -> None:
+        try:
+            entered.set()
+            release.wait(30)
+            real_copy(source, destination, **options)  # creates its parent if it is gone
+            if copy_fails:
+                raise OSError("the copy failed after the cancellation")
+        finally:
+            ended.set()
+
+    monkeypatch.setattr(br, "copy_checkout", copy)
+    cleanups = _spy_cleanups(monkeypatch)
+    task = asyncio.create_task(_checks(base).findings(candidate))
+    assert await asyncio.to_thread(entered.wait, 30)
+
+    task.cancel()
+    first, _ = await asyncio.wait({task}, timeout=0.2)
+    task.cancel()  # cancelled again: still waits for the copy
+    second, _ = await asyncio.wait({task}, timeout=0.2)
+    # The copy thread is blocked, so the cancelled check cannot have ended yet.
+    assert not first and not second and cleanups == []
+    release.set()
+    # The cancellation propagates, as from a cancelled ``to_thread``, whatever the copy did.
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert ended.is_set()  # the copy ended before its directory was removed
+    assert cleanups == [REGRESSION_COPY]
+    assert list(private_tmp.iterdir()) == []
+    del task
+    await _collected()
+    assert unretrieved == []
+
+
+@pytest.mark.parametrize("cleanup_fails", [False, True], ids=["cleanup_ends", "cleanup_raises"])
+async def test_a_cancellation_during_the_cleanup_waits_for_it_and_keeps_its_error(
+    private_tmp: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    unretrieved: list[str],
+    cleanup_fails: bool,
+) -> None:
+    entered, release = threading.Event(), threading.Event()
+    real = tempfile.TemporaryDirectory.cleanup
+
+    def blocked(self: tempfile.TemporaryDirectory[str]) -> None:
+        entered.set()
+        release.wait(30)
+        real(self)
+        if cleanup_fails:
+            raise PermissionError("cleanup")
+
+    monkeypatch.setattr(tempfile.TemporaryDirectory, "cleanup", blocked)
+
+    async def leave() -> None:
+        async with br._throwaway("ouroboros-regression-") as work:
+            (Path(work) / "file").write_text("x")
+
+    task = asyncio.create_task(leave())
+    assert await asyncio.to_thread(entered.wait, 30)
+    task.cancel()
+    first, _ = await asyncio.wait({task}, timeout=0.2)
+    task.cancel()
+    second, _ = await asyncio.wait({task}, timeout=0.2)
+    assert not first and not second  # the cleanup is still running
+    release.set()
+
+    if cleanup_fails:
+        # As from ``TemporaryDirectory.__exit__``: the cleanup error replaces
+        # the exception in flight, here the cancellation, which is its context.
+        with pytest.raises(PermissionError, match="cleanup") as raised:
+            await task
+        assert isinstance(raised.value.__context__, asyncio.CancelledError)
+    else:
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    assert list(private_tmp.iterdir()) == []
+    del task
+    await _collected()
+    assert unretrieved == []
+
+
+async def test_a_finished_thread_task_is_always_retrieved() -> None:
+    async def fails() -> None:
+        raise OSError("failed")
+
+    failing = asyncio.create_task(fails())
+    passing = asyncio.create_task(asyncio.sleep(0))
+    cancelled = asyncio.create_task(asyncio.sleep(30))
+    cancelled.cancel()
+
+    error = await br._outlived(failing)
+    assert isinstance(error, OSError)
+    assert await br._outlived(passing) is None
+    assert (
+        await br._outlived(cancelled) is None
+    )  # cancelled itself (loop teardown): nothing to raise

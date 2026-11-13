@@ -1976,6 +1976,80 @@ def passes_merge_gates(a, config, board, gh_ops: "GhOps | None" = None) -> bool:
     return not merge_gate_failures(a, config, board, gh_ops, stop_early=True)
 
 
+def scoped_review_block_reason_for_entry(
+    gate_entry: "QueuedMerge", config, board, gh_ops: "GhOps | None" = None,
+) -> str | None:
+    """``None`` unless *gate_entry* is blocked on EXACTLY the one shape
+    #3993 exists to recover: the review gate is the ONLY failing gate, and
+    the reason it fails is a prior ``approve`` (or ``request-changes``)
+    review that :func:`find_scoped_review_candidate` confirms was voided
+    ONLY by a DONE, chain-linked bounded leg
+    (:func:`only_bounded_fix_since_review` — a conflict-fix rebase, a
+    ci-fix, or an ordinary fix round).
+
+    Returns the (short, human-readable) block reason string when eligible —
+    the same wording :func:`merge_gate_failures` would report — so a caller
+    can both decide *whether* to enqueue a review-blocked row and record
+    *why* it's blocked on the resulting entry (``entry.error``), matching
+    what the ``coord merge`` (no ``--only``) auto-enqueue scan already does
+    for a visibly-``BLOCKED`` row (#1695).
+
+    Callers: :func:`enqueue_approved_work` (already has *gate_entry* built
+    via :func:`live_gate_entry`) and the ``coord merge --only`` retry path
+    in :mod:`coord.commands.merge` (via :func:`scoped_review_block_reason`,
+    which builds *gate_entry* from a raw board ``Assignment`` first). Having
+    both call through this one predicate keeps "is this row scoped-review
+    eligible" a single answer rather than two independently-maintained
+    ones (#2096).
+
+    ``None`` — meaning "not this path" — when:
+
+    - Every gate passes (nothing to recover from).
+    - More than one gate fails, or the one failing gate isn't ``review``
+      (a smoke/uat failure needs its own fix, not a scoped re-review).
+    - No prior approval was voided by a bounded fix at all — a fresh
+      review, never approved, still needs a FULL review, not a scoped one.
+    """
+    failures = merge_gate_failures(gate_entry, config, board, gh_ops)
+    if len(failures) != 1 or failures[0].gate != "review":
+        return None
+    prior_review = find_scoped_review_candidate(
+        gate_entry, board, gh_ops,
+        config=config,
+        verdicts=("approve", "request-changes"),
+    )
+    if prior_review is None:
+        return None
+    if not only_bounded_fix_since_review(gate_entry, board, prior_review):
+        return None
+    return failures[0].reason
+
+
+def scoped_review_block_reason(
+    a, config, board, gh_ops: "GhOps | None" = None,
+) -> str | None:
+    """Like :func:`scoped_review_block_reason_for_entry`, but for a raw work
+    ``Assignment`` *a* rather than an already-built ``QueuedMerge`` — builds
+    the live-anchored entry via :func:`live_gate_entry` first (mirroring
+    :func:`enqueue_approved_work`'s own construction) so a caller that only
+    has the board row, not a pre-built gate entry (``coord merge --only``'s
+    retry path), can ask the identical question.
+
+    ``None`` when *a*'s repo isn't configured, in addition to every ``None``
+    case :func:`scoped_review_block_reason_for_entry` covers.
+    """
+    from coord.branch_model import resolve_base_branch_for_issue_number  # noqa: PLC0415
+
+    repo_cfg = config.repo(a.repo_name)
+    if repo_cfg is None:
+        return None
+    target_branch = resolve_base_branch_for_issue_number(
+        repo_cfg, repo_cfg.github, getattr(a, "issue_number", 0),
+    )
+    gate_entry = live_gate_entry(a, repo_cfg.github, target_branch, gh_ops)
+    return scoped_review_block_reason_for_entry(gate_entry, config, board, gh_ops)
+
+
 # ── Smoke-verdict outcome kinds (#1640) ─────────────────────────────────────
 # The gate has always been a bool; #1640 splits the *failure* into the two
 # cases an operator has to act on differently:
@@ -5601,42 +5675,72 @@ def load_queue() -> list[QueuedMerge]:
     ]
 
 
+_MERGE_QUEUE_UPSERT_COLUMNS = (
+    "assignment_id", "repo_name", "repo_github", "branch",
+    "target_branch", "issue_number", "issue_title", "state",
+    "pr_number", "pr_url", "size", "last_attempt", "error", "enqueued_at",
+    "assignment_type", "required_gates", "ci_infra_reruns",
+    "ci_stale_reruns", "ci_flaky_reruns", "ci_flaky_pending",
+    "ci_unreadable_reruns", "ci_fix_dispatches",
+    "ci_fix_head_sha", "ci_fix_noop_streak",
+    "ci_fix_detail_sha", "ci_fix_detail_json",
+    "ci_seen_checks_sha", "ci_seen_check_names_json",
+    "ci_rerun_budget_sha",
+)
+
+
+def _merge_queue_upsert_params(item: QueuedMerge) -> tuple:
+    return (
+        item.assignment_id, item.repo_name, item.repo_github,
+        item.branch, item.target_branch, item.issue_number,
+        item.issue_title, item.state, item.pr_number, item.pr_url,
+        item.size, item.last_attempt, item.error, item.enqueued_at,
+        item.assignment_type, json.dumps(list(item.required_gates or [])),
+        item.ci_infra_reruns, item.ci_stale_reruns,
+        item.ci_flaky_reruns, item.ci_flaky_pending,
+        item.ci_unreadable_reruns, item.ci_fix_dispatches,
+        item.ci_fix_head_sha, item.ci_fix_noop_streak,
+        item.ci_fix_detail_sha, item.ci_fix_detail_json,
+        item.ci_seen_checks_sha, item.ci_seen_check_names_json,
+        item.ci_rerun_budget_sha,
+    )
+
+
 def save_queue(items: list[QueuedMerge]) -> None:
-    """Replace the entire merge queue in the database."""
+    """Upsert every entry in *items* into the merge queue, keyed on
+    ``assignment_id`` — insert a row that doesn't exist yet, update one that
+    does, never touch any other row.
+
+    The insert-vs-update decision is made by the database itself
+    (``INSERT ... ON CONFLICT (assignment_id) DO UPDATE``, via
+    :func:`coord.sql.upsert`, backed by the ``idx_merge_queue_assignment_id``
+    UNIQUE index) rather than by this call reading ``cursor.rowcount`` off a
+    separate UPDATE to decide whether to fall through to an INSERT. On the
+    shared, multi-threaded SQLite connection every ``get_connection()``
+    caller writes through, ``rowcount`` is ``sqlite3_changes()`` — a
+    per-connection value another thread's statement can overwrite in the
+    gap between this call's own statement and the read of it (see
+    ``coord.state.claim_review_post``'s #3668 comment for the mechanism) —
+    which could either skip inserting a genuinely new row or insert a
+    second row for one that already exists. A single atomic statement per
+    item has no such gap, on SQLite or Postgres.
+
+    Removing a row from the table entirely is not something a save can do
+    by omission — passing a shorter *items* list leaves the missing rows
+    exactly as they were. See :func:`drop_entry` / :func:`delete_entries`
+    for the explicit, audited way to do that.
+    """
+    if not items:
+        return
     conn = get_connection()
 
     def _write() -> None:
         with conn:
-            sql.execute(conn, "DELETE FROM merge_queue")
             for item in items:
-                sql.execute(
-                    conn,
-                    """INSERT INTO merge_queue (
-                        assignment_id, repo_name, repo_github, branch,
-                        target_branch, issue_number, issue_title, state,
-                        pr_number, pr_url, size, last_attempt, error, enqueued_at,
-                        assignment_type, required_gates, ci_infra_reruns,
-                        ci_stale_reruns, ci_flaky_reruns, ci_flaky_pending,
-                        ci_unreadable_reruns, ci_fix_dispatches,
-                        ci_fix_head_sha, ci_fix_noop_streak,
-                        ci_fix_detail_sha, ci_fix_detail_json,
-                        ci_seen_checks_sha, ci_seen_check_names_json,
-                        ci_rerun_budget_sha
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (
-                        item.assignment_id, item.repo_name, item.repo_github,
-                        item.branch, item.target_branch, item.issue_number,
-                        item.issue_title, item.state, item.pr_number, item.pr_url,
-                        item.size, item.last_attempt, item.error, item.enqueued_at,
-                        item.assignment_type, json.dumps(list(item.required_gates or [])),
-                        item.ci_infra_reruns, item.ci_stale_reruns,
-                        item.ci_flaky_reruns, item.ci_flaky_pending,
-                        item.ci_unreadable_reruns, item.ci_fix_dispatches,
-                        item.ci_fix_head_sha, item.ci_fix_noop_streak,
-                        item.ci_fix_detail_sha, item.ci_fix_detail_json,
-                        item.ci_seen_checks_sha, item.ci_seen_check_names_json,
-                        item.ci_rerun_budget_sha,
-                    ),
+                sql.upsert(
+                    conn, "merge_queue", _MERGE_QUEUE_UPSERT_COLUMNS,
+                    _merge_queue_upsert_params(item),
+                    conflict_columns=["assignment_id"],
                 )
 
     # #2802: ride out transient `database is locked` contention the same way
@@ -5644,6 +5748,126 @@ def save_queue(items: list[QueuedMerge]) -> None:
     # review-dispatch drain aborting mid-flight on lock contention with no
     # retry, stranding downstream queue rows behind it.
     retry_on_locked(_write)
+
+
+def rekey_entry(old_assignment_id: str, entry: "QueuedMerge") -> bool:
+    """Re-point the merge_queue row currently keyed to *old_assignment_id*
+    so it is keyed to ``entry.assignment_id`` instead, writing every other
+    field on *entry* too. Returns ``True`` when a row existed under
+    *old_assignment_id* at the start of this call (i.e. an actual rename
+    happened, as opposed to just upserting *entry* fresh).
+
+    :func:`save_queue` upserts by the item's CURRENT ``assignment_id`` — a
+    caller that changes ``assignment_id`` in place (a re-key, not an
+    ordinary field update) must say so explicitly by naming the row's OLD
+    key, or the upsert can't find the existing row under its old identity
+    and inserts a second one instead of renaming the first.
+    :func:`refresh_entry_assignment` is the one caller that re-keys (a
+    review-bounce fix taking over an entry originally keyed to the
+    pre-bounce work assignment).
+
+    Deletes whatever row sits under *old_assignment_id* (if any) and
+    upserts *entry* under its own key, in one transaction — rather than an
+    UPDATE whose success is read off ``cursor.rowcount``, which is
+    unreliable on the shared SQLite connection (see :func:`save_queue`'s
+    docstring). Deciding from a read-back instead means the result is
+    correct however a concurrent writer's rename or insert lands: if some
+    other call already created (or renamed another row into)
+    ``entry.assignment_id`` first, this call's delete still clears the
+    stale old-keyed row and its upsert still lands *entry*'s current
+    fields on the surviving row.
+    """
+    if old_assignment_id == entry.assignment_id:
+        save_queue([entry])
+        return True
+    conn = get_connection()
+    params = _merge_queue_upsert_params(entry)
+
+    def _write() -> bool:
+        with conn:
+            existed = sql.execute(
+                conn,
+                "SELECT 1 FROM merge_queue WHERE assignment_id = ?",
+                (old_assignment_id,),
+            ).fetchone() is not None
+            sql.execute(
+                conn,
+                "DELETE FROM merge_queue WHERE assignment_id = ?",
+                (old_assignment_id,),
+            )
+            sql.upsert(
+                conn, "merge_queue", _MERGE_QUEUE_UPSERT_COLUMNS, params,
+                conflict_columns=["assignment_id"],
+            )
+            return existed
+
+    return retry_on_locked(_write)
+
+
+def delete_entries(
+    entries: list["QueuedMerge"], *, reason: str, actor: str = "system"
+) -> int:
+    """Remove exactly the ``merge_queue`` rows for *entries*, by key, inside
+    one transaction — each deleted row gets its own ``queue_entry_removed``
+    audit row naming *reason*, best-effort (``record_audit`` swallows its
+    own failures, so a commit can land with no matching audit row).
+
+    The explicit, audited counterpart to :func:`save_queue`'s upsert-only
+    contract. A caller that genuinely wants rows gone (``coord merge
+    --drop``'s single-entry :func:`drop_entry`, :func:`
+    prune_stale_queue_entries`'s batch) must say so by key here rather than
+    by omitting rows from a ``save_queue`` list — a stale snapshot omits
+    rows it simply never saw, which silently drops them rather than
+    expressing a real removal intent.
+
+    An entry already gone by the time this runs (e.g. removed by a
+    concurrent writer) is not re-added and not double-counted — only rows
+    this call itself deletes are audited and counted in the return value.
+    Whether a row existed is decided by reading it back before the DELETE,
+    not from ``cursor.rowcount`` (unreliable on the shared SQLite
+    connection — see :func:`save_queue`'s docstring); a misread there would
+    mean a real removal goes unaudited, or a no-op gets logged as one.
+    """
+    if not entries:
+        return 0
+    conn = get_connection()
+    removed: list[QueuedMerge] = []
+
+    def _write() -> None:
+        removed.clear()  # reset so a retried attempt doesn't double-count
+        with conn:
+            for entry in entries:
+                existed = sql.execute(
+                    conn,
+                    "SELECT 1 FROM merge_queue WHERE assignment_id = ?",
+                    (entry.assignment_id,),
+                ).fetchone() is not None
+                sql.execute(
+                    conn,
+                    "DELETE FROM merge_queue WHERE assignment_id = ?",
+                    (entry.assignment_id,),
+                )
+                if existed:
+                    removed.append(entry)
+
+    retry_on_locked(_write)
+
+    for entry in removed:
+        record_audit(
+            tier="business",
+            category="merge_queue",
+            event_type="queue_entry_removed",
+            actor=actor,
+            summary=(
+                f"Removed merge-queue entry for {entry.repo_name}"
+                f"#{entry.issue_number} ({entry.branch}): {reason}"
+            ),
+            repo=entry.repo_name,
+            issue=entry.issue_number,
+            assignment_id=entry.assignment_id,
+            details={"reason": reason, "state": entry.state},
+        )
+    return len(removed)
 
 
 # ── Merged-history lookups (#1107 Part 3) ───────────────────────────────────
@@ -5930,8 +6154,33 @@ def enqueue_approved_work(config, board=None) -> list[str]:
         # can still be confirmed via `_gho` (already available in this
         # function for the terminal-state check below).
         gate_entry = live_gate_entry(a, repo_cfg.github, target_branch, _gho)
+        scoped_block_reason: str | None = None
         if not passes_merge_gates(gate_entry, config, board, gh_ops=_gho):
-            continue
+            # #3993: a review-gate failure that is actually a voided
+            # approval — a prior `approve`/`request-changes` the branch's
+            # patch-id has since moved past, under a DONE bounded fix
+            # (conflict-fix rebase, ci-fix, or ordinary fix round) — still
+            # needs an entry, in PENDING state with the block reason
+            # recorded on `entry.error`, so
+            # `coord.review.dispatch_scoped_reviews_for_queue`'s scan (which
+            # only ever looks at PENDING merge-queue entries) has a row to
+            # find and re-review. Without this, a drive whose only recovery
+            # path is `enqueue_approved_work` (the daemon tick, `coord
+            # notify`, the drive-queue tick, and the `--only` retry) can
+            # never create that entry — it refuses every gate-blocked row —
+            # and the voided approval is never re-checked (#1695's scan,
+            # which DOES enqueue a gate-blocked row, is a `coord merge`
+            # no-`--only` pass the drive never runs).
+            #
+            # Any other shape (smoke/uat failing, or a review gate with no
+            # prior approval to scope around) is still a hard skip here —
+            # that row needs a FULL review or a real fix, not an entry this
+            # function has no business creating.
+            scoped_block_reason = scoped_review_block_reason_for_entry(
+                gate_entry, config, board, gh_ops=_gho,
+            )
+            if scoped_block_reason is None:
+                continue
 
         # Gate 3: not already terminal on GitHub (merged / closed).  Fail OPEN
         # on transient gh errors so a network blip never blocks a real enqueue.
@@ -5953,6 +6202,7 @@ def enqueue_approved_work(config, board=None) -> list[str]:
             a,
             repo_github=repo_cfg.github,
             target_branch=target_branch,
+            error=scoped_block_reason,
         ):
             changed.append(aid)
 
@@ -5963,6 +6213,8 @@ def refresh_entry_assignment(
     assignment: Assignment,
     repo_github: str,
     target_branch: str,
+    *,
+    error: str | None = None,
 ) -> bool:
     """Ensure a PENDING queue entry exists for *assignment*'s branch and
     is keyed to *assignment*.
@@ -5980,6 +6232,16 @@ def refresh_entry_assignment(
       updated and any stale ``"review required"`` error is cleared.
     - If the entry is in a terminal state (MERGED, CONFLICT, etc.) it is
       left untouched.
+
+    *error* (#3993), when given, is stamped onto ``entry.error`` whether
+    the entry is freshly created or re-keyed — the block-reason string a
+    caller (:func:`scoped_review_block_reason_for_entry` /
+    :func:`scoped_review_block_reason`) already computed, so an entry
+    created for a row the review gate still blocks visibly records WHY
+    instead of reading as an ordinary clean PENDING row — the same
+    visibility #1695's ``coord merge`` auto-enqueue scan gives a
+    gate-blocked row. ``None`` (the default) preserves the pre-#3993
+    behaviour of an unset error on a fresh entry.
 
     Returns ``True`` when a change was made (entry created or updated).
     """
@@ -6022,6 +6284,7 @@ def refresh_entry_assignment(
             assignment_type=assignment.type,
             # #1213: snapshot the resolved gate list, same as enqueue().
             required_gates=list(assignment.required_gates or []),
+            error=error,
         )
         items.append(entry)
         save_queue(items)
@@ -6030,6 +6293,7 @@ def refresh_entry_assignment(
         return False  # already correct
     if existing.state != PENDING:
         return False  # don't touch terminal entries (MERGED, CONFLICT, etc.)
+    old_assignment_id = existing.assignment_id
     existing.assignment_id = assignment.assignment_id
     # #1077 (review round 1): do NOT overwrite existing.assignment_type here.
     # assignment_type is a structural property of the branch/issue pairing,
@@ -6047,7 +6311,17 @@ def refresh_entry_assignment(
     # Clear a stale "review required" error now that a fresh approval arrived.
     if existing.error == "review required but not approved":
         existing.error = None
-    save_queue(items)
+    # #3993: record the caller-supplied block reason even on a re-key — a
+    # row re-pointed at a new fix assignment can still be blocked (the
+    # scoped-review-eligible shape this function exists to make visible).
+    if error is not None:
+        existing.error = error
+    # #3992: this mutation changes the row's own key (assignment_id), not
+    # just a field on it — `rekey_entry` updates the row found under its
+    # OLD key rather than a plain `save_queue([existing])` upsert, which
+    # would match on the NEW key, find nothing, and insert a second row
+    # instead of renaming this one.
+    rekey_entry(old_assignment_id, existing)
     return True
 
 
@@ -6656,10 +6930,12 @@ def sweep_sibling_conflicts(
             # was built before the retry-sleep loop above (up to
             # ``(attempts - 1) * interval``, longer under real GitHub
             # latency), so by the time we get here it can be stale for every
-            # entry in the queue, not just the swept candidates. Building
-            # `by_id` from it and replacing the whole table would silently
-            # revert any concurrent writer's changes to unrelated rows made
-            # during that wait — exactly the convention this function's
+            # entry in the queue, not just the swept candidates. `save_queue`
+            # upserts every row it's handed, so saving `rows` (or a `by_id`
+            # built from it) rather than a *fresh* read merged with only the
+            # entries this call actually changed would overwrite any
+            # concurrent writer's changes to unrelated rows with this call's
+            # stale values of them — exactly the convention this function's
             # docstring promises to follow (mutate in place, override only
             # what changed, default everything else to the fresh read).
             by_id = {ev.entry.assignment_id: ev.entry for ev in out}
@@ -10811,16 +11087,18 @@ def drop_entry(assignment_id: str) -> bool:
     #1477: *assignment_id* is resolved via :func:`resolve_entry_key`, so the
     durable ``repo#issue`` form works here too — not just a raw assignment
     id, which can go stale across a drop + re-enqueue cycle.
+
+    #3992: routed through :func:`delete_entries` so a manual drop gets the
+    same ``queue_entry_removed`` audit row as :func:`prune_stale_queue_
+    entries`'s automatic one, instead of a bare, unaudited ``DELETE``.
     """
-    conn = get_connection()
     entry = resolve_entry_key(load_queue(), assignment_id)
     if entry is None:
         return False
-    with conn:
-        cursor = sql.execute(
-            conn, "DELETE FROM merge_queue WHERE assignment_id = ?", (entry.assignment_id,)
-        )
-    return cursor.rowcount > 0
+    return delete_entries(
+        [entry], reason="manual drop (`coord merge --drop` / TUI drop action)",
+        actor="user",
+    ) > 0
 
 
 def prune_stale_queue_entries(dry_run: bool = False) -> list["QueuedMerge"]:
@@ -10851,28 +11129,31 @@ def prune_stale_queue_entries(dry_run: bool = False) -> list["QueuedMerge"]:
 
     entries = load_queue()
     stale: list[QueuedMerge] = []
-    surviving: list[QueuedMerge] = []
+    closed_issue_stale: list[QueuedMerge] = []
+    merged_pr_stale: list[QueuedMerge] = []
 
     for entry in entries:
         if entry.state == MERGED:
-            surviving.append(entry)
             continue
 
-        is_stale = False
         if trust_issue_closed_for(entry.assignment_type) and github_ops.issue_is_closed(
             entry.repo_github, entry.issue_number
         ):
-            is_stale = True
-        elif entry.branch and github_ops.pr_is_merged(entry.repo_github, entry.branch):
-            is_stale = True
-
-        if is_stale:
             stale.append(entry)
-        else:
-            surviving.append(entry)
+            closed_issue_stale.append(entry)
+        elif entry.branch and github_ops.pr_is_merged(entry.repo_github, entry.branch):
+            stale.append(entry)
+            merged_pr_stale.append(entry)
 
-    if not dry_run and stale:
-        save_queue(surviving)
+    # #3992: removal is explicit and audited, keyed on exactly these rows —
+    # never a `save_queue` of "everything minus the stale ones", which would
+    # silently delete any row a concurrent writer inserted after `entries`
+    # was loaded above too.
+    if not dry_run:
+        if closed_issue_stale:
+            delete_entries(closed_issue_stale, reason="issue is closed")
+        if merged_pr_stale:
+            delete_entries(merged_pr_stale, reason="PR is already merged")
 
     return stale
 

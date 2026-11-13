@@ -1,6 +1,6 @@
 [package]
 name = "rumdl"
-version = "0.3.3"
+version = "0.3.4"
 edition = "2024"
 rust-version = "1.94.0"
 description = "A fast Markdown linter and formatter written in Rust"
@@ -36,18 +36,6 @@ codegen-units = 1    # One unit, so LTO sees everything. Fat LTO + 1 unit costs
                      # artifact size is worth more here than release build time;
                      # the dev profile is unaffected. Do not lower opt-level to
                      # shrink further: "s" costs 15% CPU and "z" costs 113%.
-
-[profile.profiling]
-inherits = "release"
-debug = true         # Keep debug symbols for profiling
-strip = false        # Don't strip symbols
-opt-level = 3        # Maximum optimization for realistic performance
-
-[profile.perf-test]
-inherits = "release"
-lto = false          # Disable LTO for faster compilation
-codegen-units = 16   # More parallel compilation
-opt-level = 3        # Optimize for speed (not size)
 
 # CodSpeed benchmarks (`make bench-codspeed`). Thin LTO keeps the eight bench
 # binaries buildable in CI; comparisons are between two builds of this same

@@ -13,6 +13,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from probe.generated.samples import TurnsSource
+
 #: A dataset column (it lands in `env_extras`, `generators/utils.py:597-598`) naming the task; else a prompt hash.
 TASK_KEY_COLUMN = "task_id"
 #: A dataset column holding the task's scenario as an object of named values.
@@ -199,6 +201,7 @@ class OutputMapper:
         if is_step_wise:  # the step's own reward rides its turn; the row is graded by its trajectory
             part["turns"] = [self._build_step_turn(response_ids, _pick(output, "loss_masks", row), reward,
                                                    is_graded=stop != "error")]
+            part["turns_source"] = TurnsSource.DECODED  # text Probe decoded from the step's tokens, not messages as sent
         elif token_rewards:
             part["extras"] = {"token_rewards": token_rewards}
         arrays = self._get_token_arrays(output, row, response_ids)

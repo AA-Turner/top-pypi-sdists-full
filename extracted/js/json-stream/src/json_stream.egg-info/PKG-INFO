@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json-stream
-Version: 2.5.2
+Version: 2.5.3
 Summary: Streaming JSON encoder and decoder
 Author-email: Jamie Cockburn <jamie_cockburn@hotmail.co.uk>
 License: Copyright (c) 2020 Jamie Cockburn
@@ -40,7 +40,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <4,>=3.5
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: <4,>=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: json-stream-rs-tokenizer>=0.4.17

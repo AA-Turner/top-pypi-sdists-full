@@ -127,7 +127,8 @@ class RuntimeOptions:
     requireInlineXbrl: bool = False
     roleTypesFile: Optional[str] = None
     rssReport: Optional[str] = None
-    rssReportCols: Optional[int] = None
+    # comma separated and can be any of these: Company Name, Accession Number, Form, Filing Date, CIK, Status, Period, Yr End, Results
+    rssReportCols: Optional[str] = None
     saveDeduplicatedInstance: Optional[bool] = None
     saveOIMToXMLReport: Optional[str] = None
     showEnvironment: Optional[bool] = None
@@ -137,9 +138,11 @@ class RuntimeOptions:
     statusPipe: Optional[str] = None
     renderedTableLinkbaseFile: Optional[str] = None
     tableFile: Optional[str] = None
+    taxonomyLang: Optional[str] = None
     taxonomyPackage: bool = False
     testReport: Optional[str] = None
-    testReportCols: Optional[int] = None
+    # comma separated and can be any of these: Index, Testcase, ID, Name, Reference, ReadMeFirst, Status, Expected, Actual
+    testReportCols: Optional[str] = None
     testcaseExpectedErrors: Optional[dict[str, list[str]]] = None
     testcaseFilters: Optional[list[str]] = None
     testcaseResultOptions: Optional[str] = None
@@ -197,6 +200,10 @@ class RuntimeOptions:
             if self.workOffline is not None and self.workOffline != workOffline:
                 raise RuntimeOptionsException("internetConnectivity conflicts with workOffline")
             self.workOffline = workOffline
+        if self.labelLang is not None:
+            if self.taxonomyLang is not None and self.taxonomyLang != self.labelLang:
+                raise RuntimeOptionsException("labelLang conflicts with taxonomyLang")
+            self.taxonomyLang = self.labelLang
         if pluginOptions:
             existingBaseOptions = sorted(
                 optionName

@@ -10,20 +10,19 @@ import time
 import traceback
 import uuid
 from abc import ABC
+from contextlib import asynccontextmanager, contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, assert_never, overload
 
-try:
-    from builtins import ExceptionGroup  # type: ignore[attr-defined,ty:unresolved-import]
-except ImportError:  # pragma: no cover - exercised only on 3.10
-    from exceptiongroup import ExceptionGroup  # type: ignore[no-redef,ty:unresolved-import]
-
+from pyrit.common.attack_result_scope import attack_result_id_scope
 from pyrit.common.logger import logger
-from pyrit.exceptions.retry_collector import (
+from pyrit.exceptions import (
     get_retry_collector,
 )
 from pyrit.executor.attack.core.attack_parameters import AttackParameters, AttackParamsT
+from pyrit.executor.attack.core.attack_scoring import prepare_attack_scoring
 from pyrit.executor.core import (
     Strategy,
     StrategyContext,
@@ -31,25 +30,33 @@ from pyrit.executor.core import (
     StrategyEventData,
     StrategyEventHandler,
 )
-from pyrit.memory.central_memory import CentralMemory
+from pyrit.memory import CentralMemory
 from pyrit.models import (
+    AtomicAttackIdentifier,
     AttackIdentifier,
     AttackOutcome,
     AttackResult,
+    AttackResultMetadata,
+    AttackResultRole,
+    AttackResultSelection,
     ComponentIdentifier,
     ConversationReference,
+    ConversationType,
     ConverterIdentifier,
     Identifiable,
     Message,
     Score,
     ScorerIdentifier,
+    ScoringExpectation,
     SeedPrompt,
     TargetIdentifier,
     UndeterminedScoreError,
 )
-from pyrit.prompt_target.common.target_requirements import TargetRequirements
+from pyrit.prompt_target import TargetRequirements
+from pyrit.score import AttemptObserver
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Callable, Collection, Generator
     from types import TracebackType
 
     from pyrit.executor.attack.component.prepended_conversation_config import (
@@ -59,16 +66,44 @@ if TYPE_CHECKING:
         PrependedHistorySendContext,
     )
     from pyrit.executor.attack.core.attack_config import (
+        AdversarialPromptRequirements,
         AttackAdversarialConfig,
         AttackScoringConfig,
     )
+    from pyrit.executor.attack.core.attack_executor import ActiveAttackExecution
     from pyrit.executor.attack.core.attack_result_attribution import AttackResultAttribution
     from pyrit.message_normalizer import MessageListNormalizer
-    from pyrit.prompt_target import PromptTarget
-    from pyrit.prompt_target.common.target_capabilities import CapabilityName
+    from pyrit.prompt_target import CapabilityName, PromptTarget
+    from pyrit.score import Scorer
 
 AttackStrategyContextT = TypeVar("AttackStrategyContextT", bound="AttackContext[Any]")
 AttackStrategyResultT = TypeVar("AttackStrategyResultT", bound="AttackResult")
+
+#: Operations that an enclosing execution or batch already admitted.
+_admitted_operation_ids: ContextVar[frozenset[uuid.UUID]] = ContextVar(
+    "pyrit_admitted_operation_ids", default=frozenset()
+)
+
+
+@contextmanager
+def _operation_admission_scope(operation_ids: Collection[uuid.UUID]) -> Generator[None, None, None]:
+    """
+    Treat these Operations as admitted for executions started within this scope.
+
+    Executions given an admitted Operation skip the existence check, so deleting it mid-run lets them finish
+    and save their results without it. Executions given any other Operation are still checked.
+
+    Args:
+        operation_ids (Collection[uuid.UUID]): The Operations to admit.
+
+    Yields:
+        None: Control returns to the caller with the Operations admitted.
+    """
+    token = _admitted_operation_ids.set(_admitted_operation_ids.get() | frozenset(operation_ids))
+    try:
+        yield
+    finally:
+        _admitted_operation_ids.reset(token)
 
 
 def attack_outcome_from_score(score: Score) -> AttackOutcome:
@@ -183,6 +218,14 @@ class AttackContext(StrategyContext, ABC, Generic[AttackParamsT]):
     _prepended_conversation_override: list[Message] | None = None
     _memory_labels_override: dict[str, str] | None = None
     _error_result_persistence_error: Exception | None = field(default=None, init=False, repr=False)
+    _error_result_metadata: dict[str, Any] = field(default_factory=dict, init=False, repr=False, compare=False)
+    _error_result_identifier_builder: Callable[[], AtomicAttackIdentifier] | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+    _persisted_attack_result_id: str | None = field(default=None, init=False, repr=False, compare=False)
+    _persist_attack_result: bool = field(default=True, init=False, repr=False, compare=False)
+    _objective_conversation_ids: dict[str, None] = field(default_factory=dict, init=False, repr=False, compare=False)
+    _current_objective_conversation_id: str | None = field(default=None, init=False, repr=False, compare=False)
     _objective_target_conversation_lifecycle: _ObjectiveTargetConversationLifecycle | None = field(
         default=None,
         init=False,
@@ -204,7 +247,55 @@ class AttackContext(StrategyContext, ABC, Generic[AttackParamsT]):
     # for ad-hoc/direct attack execution outside any orchestrator.
     _attribution: AttackResultAttribution | None = None
 
+    _atomic_attack_identifier: AtomicAttackIdentifier | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+    _result_metadata: dict[str, Any] = field(default_factory=dict, init=False, repr=False, compare=False)
+
+    # ID of the AttackResult this execution produces. Allocated when execution starts.
+    _attack_result_id: str | None = field(default=None, init=False, repr=False, compare=False)
+
+    # Role of the AttackResult this execution produces. Copied from the strategy's
+    # ``RESULT_ROLE`` when execution starts, so success and error results both carry it.
+    _result_role: AttackResultRole = field(
+        default=AttackResultRole.TARGET_FACING, init=False, repr=False, compare=False
+    )
+
+    _expectation: ScoringExpectation = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        """
+        Resolve scoring context and copy preparation-time conversation references.
+
+        Raises:
+            TypeError: If the expectation is not a ScoringExpectation or None.
+        """
+        expectation = getattr(self.params, "expectation", None)
+        ScoringExpectation.validate_type(expectation)
+        if expectation is None:
+            self._expectation = ScoringExpectation(objective=self.params.objective)
+        elif expectation.objective is None:
+            self._expectation = expectation.model_copy(update={"objective": self.params.objective})
+        else:
+            self._expectation = expectation
+        self.related_conversations.update(getattr(self.params, "source_conversations", ()))
+
     # Convenience properties that delegate to params or overrides
+    @property
+    def expectation(self) -> ScoringExpectation:
+        """The effective scoring question for this execution."""
+        return self._expectation
+
+    @property
+    def attack_result_id(self) -> str | None:
+        """
+        The ID of the result this execution produces, or None before execution starts.
+
+        Conversations created while the attack runs are linked to it through
+        ``Conversation.attack_result_id``.
+        """
+        return self._attack_result_id
+
     @property
     def objective(self) -> str:
         """Natural-language description of what the attack tries to achieve."""
@@ -269,6 +360,24 @@ class AttackContext(StrategyContext, ABC, Generic[AttackParamsT]):
         if lifecycle is None:
             return
         lifecycle.record_invocation(conversation_id=conversation_id)
+        self._objective_conversation_ids.setdefault(conversation_id, None)
+        self._current_objective_conversation_id = conversation_id
+
+    @property
+    def objective_conversation_ids(self) -> tuple[str, ...]:
+        """Objective conversations in first-invocation order."""
+        return tuple(self._objective_conversation_ids)
+
+    @property
+    def current_objective_conversation_id(self) -> str | None:
+        """The most recently invoked objective conversation, unless it has been pruned."""
+        current = self._current_objective_conversation_id
+        pruned = {
+            reference.conversation_id
+            for reference in self.related_conversations
+            if reference.conversation_type == ConversationType.PRUNED
+        }
+        return current if current not in pruned else None
 
 
 class _DefaultAttackStrategyEventHandler(StrategyEventHandler[AttackStrategyContextT, AttackStrategyResultT]):
@@ -364,6 +473,8 @@ class _DefaultAttackStrategyEventHandler(StrategyEventHandler[AttackStrategyCont
         end_time = time.perf_counter()
         execution_time_ms = int((end_time - event_data.context.start_time) * 1000)
         event_data.result.execution_time_ms = execution_time_ms
+        if event_data.context.attack_result_id is not None:
+            event_data.result.attack_result_id = event_data.context.attack_result_id
 
         # Attach collected retry events to the result
         collector = get_retry_collector()
@@ -373,7 +484,8 @@ class _DefaultAttackStrategyEventHandler(StrategyEventHandler[AttackStrategyCont
 
         # Stamp attribution onto the result before persistence so the
         # AttackResultEntry row records its lineage. Outside an orchestrator
-        # _attribution is None and both attribution fields stay None.
+        # _attribution is None, so only the result role is recorded.
+        event_data.result.related_conversations.update(event_data.context.related_conversations)
         self._apply_attribution(context=event_data.context, result=event_data.result)
         self._apply_targeted_harm_categories(context=event_data.context, result=event_data.result)
 
@@ -381,14 +493,55 @@ class _DefaultAttackStrategyEventHandler(StrategyEventHandler[AttackStrategyCont
 
         self._log_attack_outcome(event_data.result)
 
-    def _persist_result(self, *, result: AttackStrategyResultT) -> None:
+    async def _persist_result_async(self, *, result: AttackStrategyResultT) -> None:
         """
         Persist a completed attack result.
 
         Args:
             result (AttackStrategyResultT): The completed result to persist.
         """
-        self._memory.add_attack_results_to_memory(attack_results=[result])
+        await self._save_result_async(result=result)
+
+    async def _save_result_async(self, *, result: AttackResult) -> None:
+        """
+        Save an attack result, without its Operation if that Operation was deleted while the attack ran.
+
+        Args:
+            result (AttackResult): The result to save. Its Operation ID is cleared when the Operation is gone.
+
+        Raises:
+            LookupError: If the save fails for another missing reference.
+        """
+        try:
+            await self._memory.add_attack_results_to_memory_async(attack_results=[result])
+        except LookupError:
+            operation_id = result.operation_id
+            if operation_id is None or await self._memory.get_operations_async(operation_ids=[operation_id]):
+                raise
+            self._logger.warning(
+                "Operation %s was deleted while attack result %s ran; saving the result without an Operation.",
+                operation_id,
+                result.attack_result_id,
+            )
+            result.operation_id = None
+            await self._memory.add_attack_results_to_memory_async(attack_results=[result])
+
+    async def _confirm_result_persistence_async(
+        self, *, context: AttackStrategyContextT, attack_result_id: str
+    ) -> None:
+        """Confirm an uncertain write by its allocated ID without retrying persistence."""
+        try:
+            stored = await self._memory.get_attack_results_async(
+                attack_result_ids=[attack_result_id],
+                result_selection=AttackResultSelection.ALL_RESULTS,
+            )
+        except Exception:
+            self._logger.exception(
+                "Unable to confirm persisted attack result %s after a failed write", attack_result_id
+            )
+        else:
+            if any(result.attack_result_id == attack_result_id for result in stored):
+                context._persisted_attack_result_id = attack_result_id
 
     @staticmethod
     def _apply_attribution(
@@ -399,23 +552,33 @@ class _DefaultAttackStrategyEventHandler(StrategyEventHandler[AttackStrategyCont
         """
         Copy attribution from the AttackContext onto the AttackResult.
 
-        Reads ``context._attribution`` (an ``AttackResultAttribution`` set by
-        the AttackExecutor when an upstream orchestrator supplied a factory).
-        When present, writes ``attribution_parent_id`` and a fixed-schema
-        ``attribution_data`` dict onto the result so they round-trip into
-        ``AttackResultEntry``.
+        Always writes a fixed-schema ``attribution_data`` dict recording
+        ``result_role``, the producing strategy's ``RESULT_ROLE``, so standalone
+        results are classified too. When ``context._attribution`` (an
+        ``AttackResultAttribution`` set by the AttackExecutor when an upstream
+        orchestrator supplied a factory) is present, also writes
+        ``attribution_parent_id`` and the parent linkage fields so they
+        round-trip into ``AttackResultEntry``. Without it,
+        ``attribution_parent_id`` stays None.
 
         Args:
             context: The per-task AttackContext.
             result: The AttackResult that is about to be persisted.
         """
         attribution = context._attribution
+        result.operation_id = context.params.operation_id
+        if context._atomic_attack_identifier is not None:
+            result.atomic_attack_identifier = context._atomic_attack_identifier
+        result.metadata.update(context._result_metadata)
+        attribution_data = AttackResultMetadata(
+            result_role=context._result_role,
+            attempt_index=attribution.attempt_index if attribution is not None else None,
+        ).to_metadata()
         if attribution is None:
+            result.attribution_data = attribution_data
             return
         result.attribution_parent_id = attribution.parent_id
-        attribution_data: dict[str, Any] = {
-            "parent_collection": attribution.parent_collection,
-        }
+        attribution_data["parent_collection"] = attribution.parent_collection
         if attribution.parent_eval_hash is not None:
             attribution_data["parent_eval_hash"] = attribution.parent_eval_hash
         if attribution.seed_group_id is not None:
@@ -458,14 +621,35 @@ class _DefaultAttackStrategyEventHandler(StrategyEventHandler[AttackStrategyCont
 
         if result.outcome == AttackOutcome.SUCCESS:
             message = f"{attack_name} achieved the objective. {reason}"
+        elif result.outcome == AttackOutcome.FAILURE:
+            message = f"{attack_name} did not achieve the objective. {reason}"
         elif result.outcome == AttackOutcome.UNDETERMINED:
             message = f"{attack_name} outcome is undetermined. {reason}"
         elif result.outcome == AttackOutcome.ERROR:
             message = f"{attack_name} failed with an error. {reason}"
         else:
-            message = f"{attack_name} did not achieve the objective. {reason}"
+            assert_never(result.outcome)
 
         self._logger.info(message)
+
+    def _build_error_result_identifier(self, *, context: AttackStrategyContextT) -> AtomicAttackIdentifier | None:
+        """
+        Build the attack identity for an error result, if the strategy provided one.
+
+        Args:
+            context (AttackStrategyContextT): The failed attack's context.
+
+        Returns:
+            AtomicAttackIdentifier | None: The identity, or None if it cannot be built.
+                Build failures are logged, and the error result is saved without an identity.
+        """
+        if context._error_result_identifier_builder is None:
+            return None
+        try:
+            return context._error_result_identifier_builder()
+        except Exception:
+            self._logger.warning("Could not build the attack identifier for the error result.", exc_info=True)
+            return None
 
     async def _on_error_async(
         self, event_data: StrategyEventData[AttackStrategyContextT, AttackStrategyResultT]
@@ -484,6 +668,9 @@ class _DefaultAttackStrategyEventHandler(StrategyEventHandler[AttackStrategyCont
         context = event_data.context
         if not error or not context:
             return
+        if not context._persist_attack_result:
+            self._logger.error(f"Attack failed with {type(error).__name__}: {error}")
+            return
 
         # Collect retry events (visible via inherited ContextVar copy)
         collector = get_retry_collector()
@@ -498,8 +685,10 @@ class _DefaultAttackStrategyEventHandler(StrategyEventHandler[AttackStrategyCont
         error_result = AttackResult(
             conversation_id=conversation_id,
             objective=context.objective,
+            attack_result_id=context.attack_result_id or str(uuid.uuid4()),
             outcome=AttackOutcome.ERROR,
             outcome_reason=f"Exception: {type(error).__name__}: {str(error)}",
+            atomic_attack_identifier=self._build_error_result_identifier(context=context),
             labels=context.memory_labels,
             related_conversations=context.related_conversations,
             error_message=str(error),
@@ -507,6 +696,7 @@ class _DefaultAttackStrategyEventHandler(StrategyEventHandler[AttackStrategyCont
             error_traceback="".join(traceback.format_exception(type(error), error, error.__traceback__)),
             retry_events=retry_events,
             total_retries=len(retry_events),
+            metadata=dict(context._error_result_metadata),
         )
 
         end_time = time.perf_counter()
@@ -519,9 +709,14 @@ class _DefaultAttackStrategyEventHandler(StrategyEventHandler[AttackStrategyCont
         self._apply_targeted_harm_categories(context=context, result=error_result)
 
         try:
-            self._memory.add_attack_results_to_memory(attack_results=[error_result])
+            await self._save_result_async(result=error_result)
         except Exception as persistence_error:
             context._error_result_persistence_error = persistence_error
+            await self._confirm_result_persistence_async(
+                context=context, attack_result_id=error_result.attack_result_id
+            )
+        else:
+            context._persisted_attack_result_id = error_result.attack_result_id
 
         self._logger.error(f"Attack failed with {type(error).__name__}: {error}")
 
@@ -540,6 +735,44 @@ class AttackStrategy(Strategy[AttackStrategyContextT, AttackStrategyResultT], Id
     #: Capability requirements placed on ``objective_target``. Subclasses
     #: override to declare what the attack needs. Validated in ``__init__``.
     TARGET_REQUIREMENTS: ClassVar[TargetRequirements] = TargetRequirements()
+    #: A fixed execution-input contract for attacks that do not expose ``params_type``.
+    FIXED_PARAMS_TYPE: ClassVar[type[AttackParameters] | None] = None
+
+    #: Named prompt slots, template parameters, and defaults consumed by the attack.
+    ADVERSARIAL_PROMPT_REQUIREMENTS: ClassVar[AdversarialPromptRequirements | None] = None
+
+    #: Compound attacks set this when children own outcome scoring and expectation validation.
+    #: No scoring configuration alone does not imply delegation.
+    DELEGATES_SCORING: ClassVar[bool] = False
+
+    #: What this strategy's persisted results represent. Compound attacks that only coordinate
+    #: child attacks, and never call the objective target themselves, set ``ORCHESTRATION``.
+    RESULT_ROLE: ClassVar[AttackResultRole] = AttackResultRole.TARGET_FACING
+
+    @classmethod
+    def get_adversarial_prompt_requirements(cls) -> AdversarialPromptRequirements:
+        """
+        Get the prompt contract declared by an adversarial attack.
+
+        Returns:
+            AdversarialPromptRequirements: The attack's shared construction and preflight contract.
+
+        Raises:
+            ValueError: If the attack does not declare named prompt support.
+        """
+        requirements = cls.ADVERSARIAL_PROMPT_REQUIREMENTS
+        if requirements is None:
+            raise ValueError(f"{cls.__name__} does not declare named adversarial prompt support.")
+        return requirements
+
+    @classmethod
+    def validate_constructor_parameters(cls, params: dict[str, Any]) -> None:
+        """
+        Validate configuration independent of execution inputs.
+
+        Subclasses reuse their constructor checks here for deferred registry construction.
+        Validators must not construct components, perform I/O, or require execution targets or scorers.
+        """
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """
@@ -549,7 +782,7 @@ class AttackStrategy(Strategy[AttackStrategyContextT, AttackStrategyResultT], Id
         """
         super().__init_subclass__(**kwargs)
         # Local import to avoid a circular dependency at package init time.
-        from pyrit.common.brick_contract import enforce_keyword_only_init
+        from pyrit.common import enforce_keyword_only_init
 
         enforce_keyword_only_init(cls, base_name="AttackStrategy")
 
@@ -583,6 +816,8 @@ class AttackStrategy(Strategy[AttackStrategyContextT, AttackStrategyResultT], Id
             logger=logger,
         )
         self._default_event_handler = event_handler
+        # TODO(PyRIT 1.4): Remove with Operation name attribution from GLOBAL_MEMORY_LABELS.
+        self._global_operation_name = self._memory_labels.pop("operation", None)
         # Local import avoids the component package's import cycle through attack config.
         from pyrit.executor.attack.component.prepended_conversation_config import (
             PrependedConversationConfig,
@@ -590,7 +825,7 @@ class AttackStrategy(Strategy[AttackStrategyContextT, AttackStrategyResultT], Id
 
         type(self).TARGET_REQUIREMENTS.validate(target=objective_target)
         self._objective_target = objective_target
-        self._params_type = params_type
+        self._params_type = self.FIXED_PARAMS_TYPE or params_type
         self._prepended_conversation_config = prepended_conversation_config or PrependedConversationConfig()
         # Guard so subclasses that set converters before calling super() aren't clobbered
         if not hasattr(self, "_request_converters"):
@@ -659,6 +894,12 @@ class AttackStrategy(Strategy[AttackStrategyContextT, AttackStrategyResultT], Id
                 scoring_config.objective_scorer.get_identifier()
             )
 
+        # Disabled feedback changes what the adversarial chat sees, so it must change the eval hash.
+        # Enabled feedback is the default and is omitted to keep existing hashes stable.
+        use_score_as_feedback: bool | None = None
+        if scoring_config is not None and not scoring_config.use_score_as_feedback:
+            use_score_as_feedback = False
+
         # Add adversarial chat target and its effective prompts if present. The adversarial
         # target becomes a child (filtered to model params by the eval rule), while the
         # effective system/seed prompts land on the attack-strategy node so they are included
@@ -668,11 +909,15 @@ class AttackStrategy(Strategy[AttackStrategyContextT, AttackStrategyResultT], Id
         adversarial_chat: TargetIdentifier | None = None
         adversarial_system_prompt: str | None = None
         adversarial_seed_prompt: str | None = None
+        adversarial_prompt_template: str | None = None
         adversarial_config = self.get_attack_adversarial_config()
         if adversarial_config is not None and getattr(adversarial_config, "target", None) is not None:
             adversarial_chat = TargetIdentifier.from_component_identifier(adversarial_config.target.get_identifier())
             adversarial_system_prompt = self._extract_adversarial_prompt_text(adversarial_config.system_prompt)
             adversarial_seed_prompt = self._extract_adversarial_prompt_text(adversarial_config.first_message)
+            adversarial_prompt_template = self._extract_adversarial_prompt_text(
+                adversarial_config.adversarial_prompt_template
+            )
 
         # Add request converter identifiers if present
         request_converters: list[ConverterIdentifier] | None = None
@@ -703,6 +948,8 @@ class AttackStrategy(Strategy[AttackStrategyContextT, AttackStrategyResultT], Id
             response_converters=response_converters,
             adversarial_system_prompt=adversarial_system_prompt,
             adversarial_seed_prompt=adversarial_seed_prompt,
+            adversarial_prompt_template=adversarial_prompt_template,
+            use_score_as_feedback=use_score_as_feedback,
         )
 
     @staticmethod
@@ -752,6 +999,11 @@ class AttackStrategy(Strategy[AttackStrategyContextT, AttackStrategyResultT], Id
             PromptTarget: The target system being attacked.
         """
         return self._objective_target
+
+    @property
+    def active_executions(self) -> tuple[ActiveAttackExecution, ...]:
+        """Child execution observations, supplied by compound strategies."""
+        return ()
 
     def get_attack_scoring_config(self) -> AttackScoringConfig | None:
         """
@@ -804,15 +1056,31 @@ class AttackStrategy(Strategy[AttackStrategyContextT, AttackStrategyResultT], Id
             ExceptionGroup: If attack execution and recording its error result both fail.
         """
         context._error_result_persistence_error = None
+        context._error_result_metadata.clear()
+        context._persisted_attack_result_id = None
+        context._objective_conversation_ids.clear()
+        context._current_objective_conversation_id = None
+        await self._resolve_operation_async(context=context)
+        self._validate_scoring_expectation(context=context)
+        context._error_result_identifier_builder = lambda: AtomicAttackIdentifier.build(
+            attack_identifier=self.get_identifier()
+        )
+        context._attack_result_id = str(uuid.uuid4())
+        context._result_role = self.RESULT_ROLE
         lifecycle = _ObjectiveTargetConversationLifecycle(
             objective_target=self._objective_target,
             logger=self._logger,
         )
         context._objective_target_conversation_lifecycle = lifecycle
+        admitted = {context.params.operation_id} if context.params.operation_id is not None else set()
         try:
             async with lifecycle:
                 try:
-                    result = await super().execute_with_context_async(context=context)
+                    with (
+                        attack_result_id_scope(attack_result_id=context._attack_result_id),
+                        _operation_admission_scope(admitted),
+                    ):
+                        result = await super().execute_with_context_async(context=context)
                 except Exception as attack_error:
                     persistence_error = context._error_result_persistence_error
                     if persistence_error is not None:
@@ -823,18 +1091,208 @@ class AttackStrategy(Strategy[AttackStrategyContextT, AttackStrategyResultT], Id
                     raise
         finally:
             context._objective_target_conversation_lifecycle = None
+            context._error_result_identifier_builder = None
 
-        self._default_event_handler._persist_result(result=result)
+        if context._persist_attack_result:
+            try:
+                await self._default_event_handler._persist_result_async(result=result)
+            except Exception:
+                await self._default_event_handler._confirm_result_persistence_async(
+                    context=context, attack_result_id=result.attack_result_id
+                )
+                raise
+            context._persisted_attack_result_id = result.attack_result_id
         return result
+
+    async def _resolve_operation_async(self, *, context: AttackStrategyContextT) -> None:
+        """
+        Resolve the execution's saved Operation before setup, accepting deprecated Operation names.
+
+        An explicit ID wins, and a ``memory_labels["operation"]`` name is then removed. Otherwise the name,
+        or one from ``GLOBAL_MEMORY_LABELS``, stays in the labels so prompts and the result keep it, and
+        links the execution to the saved Operation with that name when one exists. Executions attributed
+        by a parent, such as a scenario, keep the labels and ID the parent resolved. An ID that an enclosing
+        execution or batch already admitted is not checked again, so a mid-run deletion doesn't stop the run.
+
+        Raises:
+            ValueError: If the ID is malformed.
+            LookupError: If the ID does not belong to a saved Operation.
+        """
+        labels = context.memory_labels
+        # TODO(PyRIT 1.4): Remove name handling with Operation name attribution; keep only the ID check.
+        operation_name = labels.get("operation")
+        operation_id = context.params.operation_id
+        if context._attribution is not None:
+            if operation_id is not None:
+                operation_name = None
+        elif operation_id is not None:
+            if operation_name is not None:
+                context.memory_labels = {key: value for key, value in labels.items() if key != "operation"}
+        elif operation_name is None and self._global_operation_name is not None:
+            operation_name = self._global_operation_name
+            context.memory_labels = {**labels, "operation": operation_name}
+        if operation_id is not None and operation_id in _admitted_operation_ids.get():
+            return
+        resolved = await CentralMemory.get_memory_instance().resolve_operation_id_async(
+            operation_id=operation_id, operation_name=operation_name
+        )
+        if resolved != operation_id:
+            context.params = dataclasses.replace(context.params, operation_id=resolved)
+
+    @asynccontextmanager
+    async def _admit_saved_operations_async(
+        self, *, operation_ids: Collection[uuid.UUID]
+    ) -> AsyncGenerator[None, None]:
+        """
+        Admit the given Operations that exist now for every execution started within this scope.
+
+        A batch admitted this way runs to completion if one of its Operations is deleted midway, and saves the
+        remaining results without it. Operations that don't exist when the scope opens are not admitted, so
+        executions given them are still rejected.
+
+        Args:
+            operation_ids (Collection[uuid.UUID]): The Operations the batch's executions refer to.
+
+        Yields:
+            None: Control returns to the caller with the saved Operations admitted.
+        """
+        pending = set(operation_ids) - _admitted_operation_ids.get()
+        memory = CentralMemory.get_memory_instance()
+        saved = (
+            {operation.id for operation in await memory.get_operations_async(operation_ids=list(pending))}
+            if pending
+            else set()
+        )
+        with _operation_admission_scope(saved):
+            yield
+
+    @asynccontextmanager
+    async def _execution_context_async(self, context: AttackStrategyContextT) -> AsyncGenerator[None, None]:
+        """
+        Set up the attempt, then observe it until it ends.
+
+        Scorers that observe evidence across an attempt record their baselines after setup and
+        before the attack sends anything. Starting inside the strategy's execution keeps a
+        failure to start within its error handling, so the attempt's error result is recorded
+        under its allocated ID like any other failure. Every observer is stopped when the attempt
+        ends, whatever the outcome.
+
+        Args:
+            context (AttackStrategyContextT): The attack execution context, with its
+                ``attack_result_id`` already allocated.
+
+        Yields:
+            None: Control returns to the strategy once observation has started.
+
+        Raises:
+            ValueError: If the attempt has no allocated ``attack_result_id``.
+        """
+        async with super()._execution_context_async(context):
+            attempt_id = context._attack_result_id
+            if attempt_id is None:
+                raise ValueError("An attempt must have its attack_result_id allocated before it is observed.")
+            started: list[AttemptObserver] = []
+            try:
+                for scorer, expectation in self._attempt_observers(context=context):
+                    started.append(scorer)
+                    await scorer.start_observing_async(attempt_id=attempt_id, expectation=expectation)
+                yield
+            finally:
+                self._stop_observers(observers=started, attempt_id=attempt_id)
+
+    def _stop_observers(self, *, observers: list[AttemptObserver], attempt_id: str) -> None:
+        """
+        Stop every observer, reporting failures without replacing the attempt's outcome.
+
+        Each observer is stopped once, even when one stop fails, so a failing observer cannot
+        leave another holding the attempt's state or replace the error, cancellation, or result
+        already in flight.
+
+        Args:
+            observers (list[AttemptObserver]): The observers that were asked to start.
+            attempt_id (str): The attempt being released.
+        """
+        stopped: set[int] = set()
+        for observer in observers:
+            if id(observer) in stopped:
+                continue
+            stopped.add(id(observer))
+            try:
+                observer.stop_observing(attempt_id=attempt_id)
+            except Exception as error:  # noqa: BLE001 - cleanup must not replace the attack outcome
+                self._logger.warning(
+                    "Failed to stop %s observing attempt %s: %s",
+                    type(observer).__name__,
+                    attempt_id,
+                    error,
+                )
+
+    def _attempt_observers(
+        self, *, context: AttackStrategyContextT
+    ) -> list[tuple[AttemptObserver, ScoringExpectation]]:
+        """
+        Pair each scorer that observes across an attempt with the expectation routed to it.
+
+        Wrapped scorers are included: each child is paired with the expectation its wrapper
+        routes to it, so wrapping a scorer does not change whether it observes the attempt.
+
+        Returns:
+            list[tuple[AttemptObserver, ScoringExpectation]]: Observing scorers and their expectations.
+        """
+        if self.DELEGATES_SCORING:
+            return []
+        scoring_config = self.get_attack_scoring_config()
+        if scoring_config is None:
+            return []
+        prepared = prepare_attack_scoring(
+            objective_scorer=scoring_config.objective_scorer,
+            auxiliary_scorers=scoring_config.auxiliary_scorers,
+            expectation=context.expectation,
+        )
+        pending: list[tuple[Scorer | None, ScoringExpectation | None]] = [
+            (scoring_config.objective_scorer, prepared.objective_expectation),
+            *zip(prepared.auxiliary_scorers, prepared.auxiliary_expectations, strict=True),
+        ]
+        observers: list[tuple[AttemptObserver, ScoringExpectation]] = []
+        while pending:
+            scorer, expectation = pending.pop(0)
+            if scorer is None or expectation is None:
+                continue
+            if isinstance(scorer, AttemptObserver):
+                observers.append((scorer, expectation))
+            pending.extend(scorer._get_child_expectations(expectation=expectation))
+        return observers
+
+    def _validate_scoring_expectation(self, *, context: AttackStrategyContextT) -> None:
+        """Check execution criteria before setup unless child attacks own scoring."""
+        if self.DELEGATES_SCORING:
+            return
+        scoring_config = self.get_attack_scoring_config()
+        auxiliary_scorers = scoring_config.auxiliary_scorers if scoring_config is not None else []
+        prepared = prepare_attack_scoring(
+            objective_scorer=scoring_config.objective_scorer if scoring_config is not None else None,
+            auxiliary_scorers=auxiliary_scorers,
+            expectation=context.expectation,
+        )
+        applied = {id(scorer) for scorer in prepared.auxiliary_scorers}
+        skipped = [type(scorer).__name__ for scorer in auxiliary_scorers if id(scorer) not in applied]
+        if skipped:
+            logger.warning(
+                "Auxiliary scorer(s) %s will not run: the expectation lacks a condition they require.",
+                ", ".join(skipped),
+            )
 
     @overload
     async def execute_async(
         self,
         *,
         objective: str,
+        expectation: ScoringExpectation | None = None,
         next_message: Message | None = None,
         prepended_conversation: list[Message] | None = None,
         memory_labels: dict[str, str] | None = None,
+        operation_id: uuid.UUID | None = None,
+        persist_attack_result: bool = True,
         **kwargs: Any,
     ) -> AttackStrategyResultT: ...
 
@@ -852,23 +1310,32 @@ class AttackStrategy(Strategy[AttackStrategyContextT, AttackStrategyResultT], Id
         Execute the attack strategy asynchronously with the provided parameters.
 
         This method provides a stable contract for all attacks. The signature includes
-        all standard parameters (objective, next_message, prepended_conversation, memory_labels).
+        all standard parameters (objective, expectation, next_message, prepended_conversation, memory_labels).
         Attacks that don't accept certain parameters will raise ValueError if those
         parameters are provided.
 
         Args:
             objective (str): The objective of the attack.
+            expectation (ScoringExpectation | None): Per-execution scoring criteria. Missing scoring
+                context defaults to the attack objective without changing supplied conditions.
             next_message (Message | None): Message to send to the target.
             prepended_conversation (list[Message] | None): Conversation to prepend.
             memory_labels (dict[str, str] | None): Memory labels for the attack context.
+            persist_attack_result (bool): Whether to persist the completed or error attack result.
+                Messages produced during execution are persisted independently.
             **kwargs: Additional context-specific parameters (conversation_id, metadata, etc.).
 
         Returns:
             AttackStrategyResultT: The result of the attack execution.
 
         Raises:
+            TypeError: If ``persist_attack_result`` is not a boolean.
             ValueError: If required parameters are missing or if unsupported parameters are provided.
         """
+        persist_attack_result = kwargs.pop("persist_attack_result", True)
+        if not isinstance(persist_attack_result, bool):
+            raise TypeError("persist_attack_result must be a bool")
+
         # Get valid field names for params and context
         params_fields = {f.name for f in dataclasses.fields(self._params_type)}
         context_fields = {f.name for f in dataclasses.fields(self._context_type)} - {"params"}
@@ -907,5 +1374,6 @@ class AttackStrategy(Strategy[AttackStrategyContextT, AttackStrategyResultT], Id
         # Note: We use cast here because the type checker doesn't know that _context_type
         # (which is AttackContext or a subclass) always accepts 'params' as a keyword argument.
         context = self._context_type(params=params, **context_kwargs)
+        context._persist_attack_result = persist_attack_result
 
         return await self.execute_with_context_async(context=context)

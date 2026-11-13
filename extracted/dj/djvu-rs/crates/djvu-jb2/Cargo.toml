@@ -1,8 +1,8 @@
 [package]
 name = "djvu-jb2"
-version = "0.44.1"
+version = "0.45.0"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.89"
 license = "MIT"
 description = "Pure-Rust DjVu JB2 bilevel image decoder"
 repository = "https://github.com/matyushkin/djvu-rs"
@@ -15,11 +15,11 @@ readme = "README.md"
 [dependencies]
 thiserror = "2"
 rayon = { version = "1", optional = true }
-djvu-zp = { version = "0.44.1", path = "../djvu-zp", default-features = false }
-djvu-bitmap = { version = "0.44.1", path = "../djvu-bitmap", default-features = false }
+djvu-zp = { version = "0.45.0", path = "../djvu-zp", default-features = false }
+djvu-bitmap = { version = "0.45.0", path = "../djvu-bitmap", default-features = false }
 
 [dev-dependencies]
-djvu-iff = { version = "0.44.1", path = "../djvu-iff" }
+djvu-iff = { version = "0.45.0", path = "../djvu-iff" }
 
 [features]
 default = ["std"]

@@ -205,8 +205,10 @@ def adopt_harness_process_session() -> dict[str, str]:
     process AND everything it starts (a training script, a launcher forwarding
     the session to a remote job) resolve it the ordinary way. The markers of
     other agents that P inherited (Kimi run from a Claude Code or pi shell) are
-    dropped: P is the agent driving this process. Runs once per
-    process. Never raises. Returns what it set ({} when nothing)."""
+    dropped: P is the agent driving this process. With two agents' variables
+    set and no record (a Codex started from a Claude Code shell), the nearest
+    agent above this process keeps its own and the others' are dropped, when the
+    walk is sure (`_find_nearest_agent_env`). Runs once per process. Never raises. Returns what it set ({} when nothing)."""
     global _ADOPTED
     if _ADOPTED:
         return {}
@@ -227,54 +229,121 @@ def harness_process_env(
     """What `adopt_harness_process_session` changes in `environ`, the
     environment of the process whose ancestry is walked from `pid` (default:
     this process's parent): `({session variable: id}, variables to drop)`, or
-    None when no harness process names a session for it. Never raises. The one
-    rule, also for another process than this one (the Probe service's caller,
-    `session_env_of_process`)."""
+    None when nothing changes. Never raises. The one rule, also for another
+    process than this one (the Probe service's caller, `session_env_of_process`):
+    a session a harness process recorded (Kimi Code), else, when two or more
+    agents' variables are set, the nearest of those agents above the process,
+    when the walk is sure."""
     try:
         from probe.foundation.harness_registry import get_registry
-        from probe.sdk import session_marker
 
         registry = get_registry()
-        recorded = [h for h in registry.all() if h.process_title]
-        if not recorded:
-            return None
-        stop_titles = tuple(h.binary for h in registry.all() if h.binary and not h.process_title)
-        found = session_marker.harness_process(pid=pid, stop_titles=stop_titles)
-        if found is None:
-            return None
-        harness = registry.find(found[0])
-        if harness is None or not harness.session_env:
-            return None
-        inherited = session_marker.process_environ(found[2])
-        carried = environ.get(harness.session_env)
-        # A session this process already carries, set below the harness process
-        # (a job adopted it earlier), stays: a TUI's /new must not reassign the
-        # job's later children. One the harness process itself inherited (a new
-        # Kimi started from inside such a job) is stale.
-        if carried and (inherited is None or inherited.get(harness.session_env) != carried):
-            return None
-        others = tuple(
-            key
-            for other in registry.all()
-            if other.id != harness.id
-            for key in (*other.detect_env, *((other.session_env,) if other.session_env else ()))
-        )
-        # Another agent's marker that the harness process itself did not have
-        # was set below it: a nearer agent (pi run inside Kimi) owns this process.
-        if inherited is not None and any(
-            environ.get(key) and inherited.get(key) != environ.get(key) for key in others
-        ):
-            return None
-        return {harness.session_env: found[1]}, others
+        recorded = _find_recorded_session_env(environ, registry, pid)
+        if recorded is not None:
+            return recorded
+        return _find_nearest_agent_env(environ, registry, pid)
     except Exception:  # noqa: BLE001 -- attribution must never break a command
         return None
+
+
+def _get_agent_keys(harness) -> tuple[str, ...]:
+    """The variables that say a process runs under `harness` (registry row)."""
+    return (*harness.detect_env, *((harness.session_env,) if harness.session_env else ()))
+
+
+def _find_recorded_session_env(environ, registry, pid):
+    """`harness_process_env` for a harness that records its process (Kimi Code)."""
+    from probe.sdk import session_marker
+
+    if not any(h.process_title for h in registry.all()):
+        return None
+    stop_titles = tuple(h.binary for h in registry.all() if h.binary and not h.process_title)
+    found = session_marker.harness_process(pid=pid, stop_titles=stop_titles)
+    if found is None:
+        return None
+    harness = registry.find(found[0])
+    if harness is None or not harness.session_env:
+        return None
+    inherited = session_marker.process_environ(found[2])
+    carried = environ.get(harness.session_env)
+    # A session this process already carries, set below the harness process
+    # (a job adopted it earlier), stays: a TUI's /new must not reassign the
+    # job's later children. One the harness process itself inherited (a new
+    # Kimi started from inside such a job) is stale.
+    if carried and (inherited is None or inherited.get(harness.session_env) != carried):
+        return None
+    others = tuple(key for other in registry.all() if other.id != harness.id for key in _get_agent_keys(other))
+    # Another agent's marker that the harness process itself did not have
+    # was set below it: a nearer agent (pi run inside Kimi) owns this process.
+    if inherited is not None and any(
+        environ.get(key) and inherited.get(key) != environ.get(key) for key in others
+    ):
+        return None
+    return {harness.session_env: found[1]}, others
+
+
+def _find_nearest_agent_env(environ, registry, pid):
+    """`harness_process_env` when two or more agents' variables are set: one agent
+    started inside another (Codex from a Claude Code shell) or markers inherited
+    from an outer shell (a tmux server started there). The variables alone cannot
+    say which is inner, so the nearest of them above the process wins and the
+    others' variables go. A winner with no id of its own names no session: never
+    the outer agent's.
+
+    An agent that exports its own pid (the registry's `pid_env`, `CLAUDE_PID`) is
+    that process whatever its title (Claude Code run as `node .../cli.js`). When
+    every process up to the machine's pid 1 was read, another agent is among them
+    and that pid is not, its variables came from elsewhere (a tmux server started
+    from its shell) and go too. Seeing no agent at all proves nothing: a detached
+    job (`nohup`) hangs off pid 1 whoever started it.
+
+    Otherwise only a sure answer changes anything, and `session_agent_from_env`'s
+    order stands:
+    - the winner's own environment (Linux) must hold the others' values: one set
+      below it means a nearer agent the walk could not name (pi can show as
+      `node .../cli.js`);
+    - unreadable (macOS), each other agent must be found above it, unless the
+      winner is a sandbox's namespace init (nothing above it is visible)."""
+    from probe.sdk import session_marker
+
+    present = [h for h in registry.all() if any(environ.get(key) for key in _get_agent_keys(h))]
+    if len(present) < 2:
+        return None
+    names = {h.id: tuple(name for name in (h.binary, h.process_title) if name) for h in present}
+    own_pid = {}
+    for harness in present:
+        raw = environ.get(harness.pid_env) if harness.pid_env else None
+        if raw and raw.isascii() and raw.isdigit() and int(raw) > 1:
+            own_pid[harness.id] = int(raw)
+    found, complete = session_marker.find_agent_ancestors(
+        names, pid=pid, pids={number: agent for agent, number in own_pid.items()})
+    above = {at for _agent, at, _sandbox in found}
+    stale = {agent for agent, number in own_pid.items()
+             if complete and number not in above and agent not in {a for a, *_ in found}
+             and any(other != agent for other, *_ in found)}
+    fallback = ({}, tuple(key for h in present if h.id in stale for key in _get_agent_keys(h))) if stale else None
+    live = [h for h in present if h.id not in stale]
+    found = [entry for entry in found if entry[0] not in stale]
+    if len(live) < 2 or not found:
+        return fallback
+    nearest, at, sandbox = found[0]
+    others = [h for h in live if h.id != nearest]
+    launched = session_marker.process_environ(at)
+    if launched is not None:
+        keys = [key for h in others for key in _get_agent_keys(h)]
+        if any(environ.get(key) and environ.get(key) != launched.get(key) for key in keys):
+            return fallback
+    elif not sandbox and not all(any(agent == h.id for agent, *_ in found[1:]) for h in others):
+        return fallback
+    return {}, tuple(key for other in registry.all() if other.id != nearest for key in _get_agent_keys(other))
 
 
 def session_env_of_process(pid: int) -> dict[str, str]:
     """`{session variable: id}` naming the coding-agent session another process
     `pid` runs in, as that process's own `probe` would resolve it: its
     environment (Linux /proc; none elsewhere), the harness-process marker found
-    from it upward (Kimi Code), then `session_agent_from_env`'s precedence. {}
+    from it upward (Kimi Code) or the nearest of two agents whose variables it
+    carries, then `session_agent_from_env`'s precedence. {}
     when none. Never raises. For the Probe service's caller: the service hands
     its pid to the child that answers it (`probe.core.run desktop`)."""
     try:

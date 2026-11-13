@@ -13,6 +13,7 @@ from .trade_order_type import TradeOrderType
 from .trade_side import TradeSide
 from .trade_status import TradeStatus
 from .trade_status_detail import TradeStatusDetail
+from .trade_step import TradeStep
 from .trade_type import TradeType
 
 
@@ -24,12 +25,12 @@ class Trade(UniversalBaseModel):
 
     amount: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The USDT0 that a deposit, or an order short of trading balance, sends from the wallet, or the USDC that a withdraw sends back, in native units, as a decimal string. A withdraw of `all` shows what it sent once it finishes. `null` otherwise.
+    The USDT0 that a deposit, a spot buy, or a perpetual order short of trading balance, sends from the wallet, or the USDC that a withdraw sends back, in native units, as a decimal string. A withdraw of `all` shows what it sent once it finishes. `null` otherwise.
     """
 
     average_price: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The average fill price of the order, in USD, as a decimal string. `null` when it is not known.
+    The average fill price of the order, in USD, as a decimal string. For spot, the price the swap was quoted at. `null` when it is not known.
     """
 
     client_order_id: typing.Optional[str] = pydantic.Field(default=None)
@@ -47,6 +48,11 @@ class Trade(UniversalBaseModel):
     When the trade was created, as an ISO 8601 timestamp.
     """
 
+    external_order_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    ID Whop sends to the exchange with this trade's order, so the exchange's order updates can be matched to the trade. On Hyperliquid, the order's `cloid` reported in `orderUpdates`, a `0x`-prefixed 32-character hex string. Not the caller's `client_order_id`. `null` for a deposit or withdraw.
+    """
+
     failure_code: typing.Optional[TradeFailureCode] = pydantic.Field(default=None)
     """
     Why the trade failed, or `null`.
@@ -54,7 +60,7 @@ class Trade(UniversalBaseModel):
 
     filled_size: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The size the order filled, in units of the market, as a decimal string. `null` until it fills.
+    The size the order filled, in units of the market, as a decimal string. For a spot buy, the amount the swap was quoted to deliver. `null` until it fills.
     """
 
     funds_location: typing.Optional[TradeFundsLocation] = pydantic.Field(default=None)
@@ -79,7 +85,7 @@ class Trade(UniversalBaseModel):
 
     market: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The market, for example `BTC` for a perpetual or `HYPE/USDC` for spot. `null` for a deposit or withdraw.
+    The market, for example `BTC` for a perpetual or `XAUT` for spot. `null` for a deposit or withdraw.
     """
 
     metadata: typing.Dict[str, typing.Any] = pydantic.Field()
@@ -90,12 +96,17 @@ class Trade(UniversalBaseModel):
     object: TradeObject
     order_type: typing.Optional[TradeOrderType] = pydantic.Field(default=None)
     """
-    `market` or `limit` for an order. `null` otherwise.
+    `market`, `limit`, `take_profit` or `stop_loss` for an order. `null` otherwise.
+    """
+
+    parent_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    For a take-profit or stop-loss sent with an order, that order's trade, prefixed `tint_`. `null` otherwise.
     """
 
     price: typing.Optional[Money] = pydantic.Field(default=None)
     """
-    The limit price of the order in USD. A market order's price is the mid price moved by `slippage_bps`. `null` for other types.
+    The limit price of the order in USD. A market order's price is the mid price moved by `slippage_bps`; a take-profit or stop-loss's is the worst price its market order may fill at once triggered. `null` for other types.
     """
 
     reduce_only: typing.Optional[bool] = pydantic.Field(default=None)
@@ -123,9 +134,19 @@ class Trade(UniversalBaseModel):
     `partial_fill` when the order filled only part of its size. `null` otherwise.
     """
 
+    step: typing.Optional[TradeStep] = pydantic.Field(default=None)
+    """
+    What a live trade is doing now: `depositing` while the wallet's USDT0 is being sent to the bridge, `landing` once sent and until it reaches the trading balance, `placing` while the order or close is with the venue, `withdrawing` while USDC heads back to the wallet, `returning` while money an unfilled order bridged in goes back. A spot order is `quoting` while the swap is priced, `swapping` while it runs onchain, and `crediting` until the new balance shows in the wallet. `null` once the trade is no longer pending or processing.
+    """
+
+    trigger_price: typing.Optional[Money] = pydantic.Field(default=None)
+    """
+    The price in USD at which a take-profit or stop-loss sends its market order. `null` for other orders and types.
+    """
+
     type: TradeType = pydantic.Field()
     """
-    `order` places one order from the trading balance. `deposit` bridges USDT0 from the wallet to the trading balance. `withdraw` sends USDC from the trading balance back to the wallet. `close` closes the whole position in one market with a market reduce-only order; when the account is then flat, a `withdraw` trade sends the trading balance back to the wallet.
+    `order` places one order: a perpetual order trades from the trading balance, a spot order swaps between USDT0 and the asset in the wallet. `deposit` bridges USDT0 from the wallet to the trading balance. `withdraw` sends USDC from the trading balance back to the wallet. `close` closes the whole position in one market with a market reduce-only order; when the account is then flat, a `withdraw` trade sends the trading balance back to the wallet.
     """
 
     updated_at: str = pydantic.Field()

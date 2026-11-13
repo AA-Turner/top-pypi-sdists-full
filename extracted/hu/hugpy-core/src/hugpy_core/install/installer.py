@@ -52,8 +52,8 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-from fitevict.cli import installer as W          # the wrapper's installer: shared helpers
-from fitevict.cli.installer import InstallError, Plan, execute, port_free, probe_host, read_env, render_env, \
+# the plan/step helpers this installer shares with the wrapper's (lifted from fitevict's: hugpy_core/lifted)
+from hugpy_core.lifted.install_plan import InstallError, Plan, execute, port_free, probe_host, read_env, render_env, \
     write_file
 
 from hugpy_core.imports import constants as _C
@@ -723,8 +723,10 @@ def status(args) -> dict:
                        "port": dbs.get("port"), "ready": dbs.get("ready"), "unit": dbs.get("unit"),
                        "core_db": core.get(_C.ENV_CORE_DB), "core_schema": core.get(ENV_CORE_SCHEMA),
                        "toolserver_db": ts.get("SOLCATCHER_POSTGRESQL_NAME")}
-    wl = W.layout("user")
-    out["wrapper"] = one("hugpy-wrapper", wl.unit_path,
+    # the per-user wrapper's unit, where its own installer puts it (~/.config/systemd/user)
+    wrapper_unit = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
+                                "systemd", "user", "hugpy-wrapper.service")
+    out["wrapper"] = one("hugpy-wrapper", wrapper_unit,
                          url(wr.get("FITEVICT_HOST", "127.0.0.1"), int(wr[WRAPPER_PORT_ENV]))
                          if wr.get(WRAPPER_PORT_ENV) else None, "/health")
     out["router"] = one("hugpy-router", os.path.join(lay.unit_dir, "hugpy-router.service"),

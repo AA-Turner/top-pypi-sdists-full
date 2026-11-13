@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunk_hugpy_ui=self.webpackChunk_hugpy_ui||[]).push([[7089],{7089(e,u,c){c.d(u,{createArchitectureServices:()=>h.S});var h=c(5796);c(4954)}}]);

@@ -72,3 +72,71 @@ def observe_span_attrs_builder(
         return {"file.open.path": abs_file_path, "file.open.flags": str_flags}
 
     return SpanType.FileOpenCreate, observe_span_attrs, skip_check
+
+
+def _str_mode_permissions(flags: str, is_dbm: bool) -> tuple[str, ...]:
+    if is_dbm:
+        # https://docs.python.org/3/library/dbm.html#dbm.open
+        flags = flags[:1]
+        if flags == "r":
+            return ("file-read",)
+        if flags == "w":
+            return ("file-read", "file-write")
+        if flags in ("c", "n"):
+            return ("file-read", "file-create", "file-write")
+        return ()
+    permissions: list[str] = []
+    if "r" in flags or "+" in flags:
+        permissions.append("file-read")
+    if "w" in flags or "a" in flags or "x" in flags:
+        # w, a and x may all create the file. We can't know whether it already exists
+        # without an extra syscall, so we report create for any mode that can.
+        permissions.append("file-create")
+        permissions.append("file-write")
+    elif "+" in flags:
+        permissions.append("file-write")
+    return tuple(permissions)
+
+
+def _int_flags_permissions(flags: int) -> tuple[str, ...]:
+    permissions: list[str] = []
+    access_mode = flags & (os.O_RDONLY | os.O_WRONLY | os.O_RDWR)
+    if access_mode in (os.O_RDONLY, os.O_RDWR):
+        permissions.append("file-read")
+    if flags & os.O_CREAT:
+        permissions.append("file-create")
+    if access_mode in (os.O_WRONLY, os.O_RDWR) or flags & os.O_TRUNC:
+        permissions.append("file-write")
+    return tuple(permissions)
+
+
+def shield_permissions_builder(
+    event_dict: EventDict,
+) -> Callable[[Mapping[str, object]], tuple[str, ...]]:
+    """
+    Builds a function that maps the arguments of an open call to the CVE shield
+    permissions (capabilities) it uses: file-create, file-read and/or file-write,
+    depending on the open mode/flags.
+    """
+    file_param_location = event_dict.get("file", "")
+    flags_param_location = event_dict.get("flags", "")
+    is_dbm = event_dict.get("dbm", False)
+
+    if not file_param_location or not flags_param_location:
+        raise ValueError(
+            "Event must specify both 'file' and 'flags' parameter locations."
+        )
+
+    def shield_permissions(args: Mapping[str, object]) -> tuple[str, ...]:
+        file_path = args.get(file_param_location, "")
+        # opening a file descriptor doesn't access any new file
+        if not file_path or isinstance(file_path, int):
+            return ()
+        flags = args.get(flags_param_location, "")
+        if isinstance(flags, int):
+            return _int_flags_permissions(flags)
+        if isinstance(flags, str):
+            return _str_mode_permissions(flags, is_dbm)
+        return ()
+
+    return shield_permissions

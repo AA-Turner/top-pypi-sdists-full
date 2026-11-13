@@ -3,9 +3,12 @@
 
 import abc
 import logging
-from collections.abc import Mapping
-from typing import Any, ClassVar, Literal, final
+from collections.abc import Mapping, Sequence
+from typing import Any, ClassVar, final
 
+from pyrit.common import AuthMode, print_deprecation_message
+from pyrit.common.async_compatibility import legacy_sync_override
+from pyrit.common.attack_result_scope import get_current_attack_result_id
 from pyrit.memory import CentralMemory, MemoryInterface
 from pyrit.message_normalizer import MessageListNormalizer
 from pyrit.models import (
@@ -15,8 +18,12 @@ from pyrit.models import (
     JsonResponseConfig,
     Message,
     MessagePiece,
+    RequestTraceContext,
     TargetIdentifier,
+    WebSearchConfig,
+    WebSearchMode,
 )
+from pyrit.models.messages.tool_content import validate_tool_conversation
 from pyrit.prompt_target.common.target_capabilities import (
     CapabilityName,
     TargetCapabilities,
@@ -25,15 +32,13 @@ from pyrit.prompt_target.common.target_capabilities import (
 from pyrit.prompt_target.common.target_configuration import TargetConfiguration
 from pyrit.prompt_target.common.target_history import filter_non_replayable_messages
 from pyrit.prompt_target.common.target_send_context import TargetSendContext
+from pyrit.prompt_target.common.target_trace_config import TargetTraceConfig, target_trace_context
 
 logger = logging.getLogger(__name__)
 
-# Authentication modes a target can expose to the create-target catalog / API.
-# ``api_key`` passes a key (from params or the target's env var); ``identity``
-# omits the key so the target authenticates itself via an ambient Azure identity
-# (e.g. minting a Microsoft Entra ID token for its own endpoint, or falling back
-# to ``DefaultAzureCredential``).
-AuthMode = Literal["api_key", "identity"]
+# ``AuthMode`` is imported above (and re-exported from this module for backward
+# compatibility); it is canonically defined in ``pyrit.common.auth_mode`` so
+# ``pyrit.auth`` resolvers can consume it without depending on the target layer.
 
 
 class PromptTarget(Identifiable):
@@ -62,6 +67,8 @@ class PromptTarget(Identifiable):
     # Per-instance overrides are also possible via the ``custom_configuration``
     # constructor parameter, which takes precedence over the class-level value.
     _DEFAULT_CONFIGURATION: TargetConfiguration = TargetConfiguration(capabilities=TargetCapabilities())
+    _DEFAULT_TRACE_ENABLED: ClassVar[bool] = False
+    _SUPPORTS_TOOL_CALL_HISTORY: ClassVar[bool] = False
 
     # Declarative auth facts consumed by the create-target service and catalog.
     # Kept off ``TargetCapabilities`` (auth is a construction/credential axis, not
@@ -72,9 +79,35 @@ class PromptTarget(Identifiable):
     #
     # ``supported_auth_modes`` lists the auth modes the create-target API accepts
     # for this type. Base default is api-key only; targets that can authenticate
-    # via an ambient Azure identity when given no key (e.g. OpenAI, Azure ML,
-    # Azure Blob Storage, Prompt Shield) override this to add ``"identity"``.
+    # via an ambient Azure identity (e.g. OpenAI, Azure ML, Azure Blob Storage,
+    # Prompt Shield) override this to add ``"identity"``, and OpenAI targets also
+    # add ``"none"`` for OpenAI-compatible servers that need no key.
     supported_auth_modes: ClassVar[tuple[AuthMode, ...]] = ("api_key",)
+
+    # Targets that upload files from the machine running PyRIT name the constructor parameter that
+    # confines those uploads. The create-target API sets it to the folder the server operator
+    # configured and does not let callers choose it.
+    upload_directory_parameter: ClassVar[str | None] = None
+
+    # Path parameters callers may set through the API, when creating a target or overriding a saved
+    # one, such as a folder the target's own session works in. The upload folder above is not one,
+    # since the server sets it. The API rejects every other parameter that can name a file or folder
+    # on the server; direct Python use is unaffected.
+    caller_path_parameters: ClassVar[frozenset[str]] = frozenset()
+
+    # Targets whose construction can run model repository code name the boolean constructor
+    # parameter that enables it (e.g. ``"trust_remote_code"``). The create-target API builds
+    # them only for an administrator when that parameter resolves true; direct Python use is
+    # unaffected.
+    code_execution_parameter: ClassVar[str | None] = None
+
+    # Targets that can authenticate with this server's own stored credentials (e.g. an ambient
+    # managed identity) name the constructor parameter a caller supplies to use their own
+    # credential instead (e.g. ``"sas_token"``). When a caller does not supply it, the
+    # create-target API builds the target only for an administrator, so a non-administrator
+    # cannot point the server's credentials at a caller-chosen resource; direct Python use is
+    # unaffected.
+    server_credential_parameter: ClassVar[str | None] = None
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         """
@@ -89,9 +122,43 @@ class PromptTarget(Identifiable):
         """
         super().__init_subclass__(**kwargs)
         # Local import to avoid a circular dependency at package init time.
-        from pyrit.common.brick_contract import enforce_keyword_only_init
+        from pyrit.common import enforce_keyword_only_init
 
         enforce_keyword_only_init(cls, base_name="PromptTarget")
+
+    @classmethod
+    def get_auth_mode_parameters(cls, *, auth_mode: AuthMode) -> dict[str, object]:
+        """
+        Translate request-level authentication intent into constructor parameters.
+
+        Targets that must retain explicit auth intent override this hook. Most
+        targets infer authentication from their credential parameters and need no
+        additional constructor input.
+
+        Args:
+            auth_mode (AuthMode): Authentication mode selected by the caller.
+
+        Returns:
+            dict[str, object]: Additional constructor parameters.
+        """
+        return {}
+
+    @classmethod
+    def _validate_auth_mode(cls, auth_mode: AuthMode | None) -> None:
+        """
+        Reject an authentication mode this target type does not support.
+
+        Args:
+            auth_mode (AuthMode | None): Authentication mode selected by the caller, or None for the default.
+
+        Raises:
+            ValueError: If ``auth_mode`` is set and is not one of ``supported_auth_modes``.
+        """
+        if auth_mode is not None and auth_mode not in cls.supported_auth_modes:
+            raise ValueError(
+                f"{cls.__name__} does not support auth_mode={auth_mode!r}. "
+                f"Use one of: {', '.join(cls.supported_auth_modes)}."
+            )
 
     def __init__(
         self,
@@ -102,6 +169,7 @@ class PromptTarget(Identifiable):
         model_name: str = "",
         underlying_model: str | None = None,
         custom_configuration: TargetConfiguration | None = None,
+        trace_config: TargetTraceConfig | None = None,
     ) -> None:
         """
         Initialize the PromptTarget.
@@ -119,6 +187,7 @@ class PromptTarget(Identifiable):
                 for this target instance. Useful for targets whose capabilities depend on deployment
                 configuration (e.g., Playwright, HTTP). If None, uses the class-level
                 ``_DEFAULT_CONFIGURATION``. Defaults to None.
+            trace_config: Request tracing configuration. Defaults to the target's tracing policy.
         """
         self._memory = CentralMemory.get_memory_instance()
         self._verbose = verbose
@@ -126,14 +195,104 @@ class PromptTarget(Identifiable):
         self._endpoint = endpoint
         self._model_name = model_name
         self._underlying_model = underlying_model
+        self._trace_config = trace_config or TargetTraceConfig(enabled=self._DEFAULT_TRACE_ENABLED)
         self._configuration = (
             custom_configuration
             if custom_configuration is not None
             else type(self).get_default_configuration(self._underlying_model)
         )
+        if custom_configuration is None and underlying_model is None and self._SUPPORTS_TOOL_CALL_HISTORY:
+            known = get_known_capabilities(model_name)
+            if known is not None:
+                self.apply_capabilities(
+                    capabilities=self.capabilities.model_copy(
+                        update={
+                            "input_modalities": self.capabilities.input_modalities
+                            | frozenset(
+                                combo
+                                for combo in known.input_modalities
+                                if combo & {"function_call", "function_call_output"}
+                            )
+                        }
+                    )
+                )
 
         if self._verbose:
             logging.basicConfig(level=logging.INFO)
+
+    def validate_history(self, messages: Sequence[Message]) -> None:
+        """
+        Check history data types and tool payloads without sending or changing history.
+
+        This checks native input support, not normalization policy. Empty histories
+        and histories ending with an assistant message or unanswered call are permitted.
+        It does not load media or validate a future request.
+
+        Args:
+            messages: Complete ordered history to replay.
+
+        Raises:
+            ValueError: An effective data type is unsupported or tool history is invalid.
+        """
+        supported = set(self.capabilities.supported_input_modalities)
+        unsupported = {
+            piece.converted_value_data_type for message in messages for piece in message.message_pieces
+        } - supported
+        if unsupported:
+            raise ValueError(f"The target does not support these history data types: {', '.join(sorted(unsupported))}.")
+        self.validate_tool_history(messages)
+
+    def validate_tool_history(self, messages: Sequence[Message]) -> None:
+        """
+        Check stored tool history without sending, normalizing, or retrieving media.
+
+        Empty histories and histories ending with an unanswered call are permitted.
+        Targets extend this check with provider-specific payload constraints.
+        Callers check capability requirements separately before replaying a draft.
+
+        Args:
+            messages: Complete ordered history, including calls for any results.
+
+        Raises:
+            ValueError: Tool content, roles, or call/result links are invalid.
+        """
+        validate_tool_conversation(messages)
+
+    def validate_web_search_config(self, config: WebSearchConfig) -> None:
+        """
+        Check whether this adapter can enforce a request's search policy.
+
+        Args:
+            config (WebSearchConfig): Requested target-hosted search policy.
+
+        Raises:
+            ValueError: If search is required, or a search-enabled adapter cannot disable it.
+        """
+        if config.mode == WebSearchMode.DEFAULT:
+            return
+        if config.mode == WebSearchMode.DISABLED and not self.capabilities.supports_web_search:
+            return
+        raise ValueError(
+            f"{type(self).__name__} cannot enforce web search mode {config.mode.value!r}. "
+            "Use an adapter that implements this policy and declares supports_web_search."
+        )
+
+    def validate_history_replay(self) -> None:
+        """
+        Check configuration support for initializing a new conversation from stored history.
+
+        Native editable history or an explicit history adapter is sufficient.
+        Targets with a provider-specific restoration path can override this check.
+        This does not validate message content or guarantee that a live session exists.
+
+        Raises:
+            ValueError: If neither native support nor a configured history adapter is available.
+        """
+        if not self.configuration.includes(
+            capability=CapabilityName.MULTI_TURN
+        ) and self.configuration.pipeline.has_normalizer_for(capability=CapabilityName.MULTI_TURN):
+            return
+        self.configuration.ensure_can_handle(capability=CapabilityName.EDITABLE_HISTORY)
 
     @final
     async def send_prompt_async(
@@ -168,7 +327,12 @@ class PromptTarget(Identifiable):
         Raises:
             ValueError: If the message or normalized conversation are empty.
         """
+        for piece in message.message_pieces:
+            piece.prompt_metadata.pop(RequestTraceContext.METADATA_KEY, None)
+            piece.prompt_metadata[RequestTraceContext.REQUEST_METADATA_KEY] = 1
         message.validate()
+        web_search_config = self._get_web_search_config(message)
+        self.validate_web_search_config(web_search_config)
         conversation_id = message.get_piece().conversation_id or ""
         if send_context and send_context.conversation_id != conversation_id:
             raise ValueError("Target send context conversation_id does not match the current request conversation_id.")
@@ -184,10 +348,22 @@ class PromptTarget(Identifiable):
             )
             if not normalized_conversation:
                 raise ValueError("Normalization pipeline returned an empty conversation. Cannot send an empty request.")
+            if self._get_web_search_config(normalized_conversation[-1]) != web_search_config:
+                raise ValueError("Normalization changed the request's web search policy.")
             self._validate_request(normalized_conversation=normalized_conversation)
-            if send_context:
-                send_context.mark_target_invoked()
-            response = await self._send_prompt_to_target_async(normalized_conversation=normalized_conversation)
+            with target_trace_context(
+                config=self._trace_config, request=message, normalized_request=normalized_conversation[-1]
+            ):
+                if send_context:
+                    send_context.mark_target_invoked()
+                response = await self._send_prompt_to_target_async(normalized_conversation=normalized_conversation)
+            for response_message in response:
+                for piece in response_message.message_pieces:
+                    piece.prompt_metadata = {
+                        key: value
+                        for key, value in piece.prompt_metadata.items()
+                        if key not in (RequestTraceContext.METADATA_KEY, RequestTraceContext.REQUEST_METADATA_KEY)
+                    }
             send_succeeded = True
             return response
         finally:
@@ -232,6 +408,18 @@ class PromptTarget(Identifiable):
         custom_configuration_message = (
             "If your target does support this, set the custom_configuration parameter accordingly."
         )
+        supported_types_flat = {t for combo in self.capabilities.input_modalities for t in combo}
+        for turn in normalized_conversation:
+            for piece in turn.message_pieces:
+                piece_type = piece.converted_value_data_type
+                if (
+                    piece_type in {"function_call", "function_call_output", "tool_call"}
+                    and piece_type not in supported_types_flat
+                ):
+                    raise ValueError(
+                        f"This target does not support tool-history modality '{piece_type}'. "
+                        f"{custom_configuration_message}"
+                    )
         if not self.configuration.includes(capability=CapabilityName.MULTI_MESSAGE_PIECES) and n_pieces != 1:
             raise ValueError(
                 f"This target only supports a single message piece. Received: {n_pieces} pieces. "
@@ -240,7 +428,6 @@ class PromptTarget(Identifiable):
 
         for piece in message.message_pieces:
             piece_type = piece.converted_value_data_type
-            supported_types_flat = {t for combo in self.capabilities.input_modalities for t in combo}
             if piece_type not in supported_types_flat:
                 supported_types = ", ".join(sorted(supported_types_flat))
                 raise ValueError(
@@ -250,6 +437,17 @@ class PromptTarget(Identifiable):
 
         if not self.configuration.includes(capability=CapabilityName.MULTI_TURN) and len(normalized_conversation) > 1:
             raise ValueError(f"This target only supports a single turn conversation. {custom_configuration_message}")
+
+    @staticmethod
+    def _get_web_search_config(message: Message) -> WebSearchConfig:
+        configs = {
+            WebSearchConfig.from_metadata(metadata=piece.prompt_metadata)
+            for piece in message.message_pieces
+            if WebSearchConfig.METADATA_KEY in piece.prompt_metadata
+        }
+        if len(configs) > 1:
+            raise ValueError("Message pieces have conflicting web search policies.")
+        return next(iter(configs), WebSearchConfig())
 
     async def _get_normalized_conversation_async(
         self,
@@ -283,7 +481,9 @@ class PromptTarget(Identifiable):
         """
         conversation_id = message.message_pieces[0].conversation_id
         persisted_messages = (
-            list(self._memory.get_conversation_messages(conversation_id=conversation_id)) if conversation_id else []
+            list(await self._memory.get_conversation_messages_async(conversation_id=conversation_id))
+            if conversation_id
+            else []
         )
         persisted_messages = filter_non_replayable_messages(messages=persisted_messages)
         conversation = send_context.select_history(messages=persisted_messages) if send_context else persisted_messages
@@ -334,13 +534,21 @@ class PromptTarget(Identifiable):
             conversation_id (str): The conversation id to attach the prompt to.
 
         Raises:
-            ValueError: If the target does not support multi-turn or editable history.
+            ValueError: If the target does not support multi-turn conversations, or
+                supports neither editable history nor native system prompts.
             RuntimeError: If the conversation already has messages.
         """
-        if not self.capabilities.supports_multi_turn or not self.capabilities.supports_editable_history:
+        print_deprecation_message(
+            old_item="PromptTarget.set_system_prompt",
+            new_item="PromptTarget.set_system_prompt_async",
+            removed_in="1.4.0",
+        )
+        if not self.capabilities.supports_multi_turn or not (
+            self.capabilities.supports_editable_history or self.capabilities.supports_system_prompt
+        ):
             raise ValueError(
                 f"Target {type(self).__name__} does not support setting a system prompt. "
-                "It must support both multi-turn conversations and editable history."
+                "It must support multi-turn conversations and either editable history or native system prompts."
             )
 
         messages = self._memory.get_conversation_messages(conversation_id=conversation_id)
@@ -349,7 +557,11 @@ class PromptTarget(Identifiable):
             raise RuntimeError("Conversation already exists, system prompt needs to be set at the beginning")
 
         self._memory.add_conversation_to_memory(
-            conversation=Conversation(conversation_id=conversation_id, target_identifier=self.get_identifier())
+            conversation=Conversation(
+                conversation_id=conversation_id,
+                target_identifier=self.get_identifier(),
+                attack_result_id=get_current_attack_result_id(),
+            )
         )
         self._memory.add_message_to_memory(
             request=MessagePiece(
@@ -358,6 +570,71 @@ class PromptTarget(Identifiable):
                 original_value=system_prompt,
                 converted_value=system_prompt,
             ).to_message(),
+        )
+
+    @legacy_sync_override(lambda: PromptTarget.set_system_prompt)
+    async def set_system_prompt_async(
+        self,
+        *,
+        system_prompt: str,
+        conversation_id: str,
+    ) -> None:
+        """
+        Inject a system prompt into memory for the given conversation.
+
+        Writes a ``system``-role message so the target's normalization pipeline
+        (or the target itself, when it natively supports system prompts) will
+        pick it up on the next ``send_prompt_async`` call.
+
+        If the target does not natively support system prompts, whether this
+        call is ultimately honored depends on the target's
+        ``CapabilityHandlingPolicy``:
+
+        * ``ADAPT`` — the normalization pipeline (e.g. system squash) will
+          fold the system message into user content on the wire.
+        * ``RAISE`` — the first send after the system prompt is set will
+          raise, because the pipeline cannot adapt the missing capability.
+
+        Args:
+            system_prompt (str): The system prompt text to set.
+            conversation_id (str): The conversation id to attach the prompt to.
+
+        Raises:
+            ValueError: If the target does not support multi-turn conversations, or
+                supports neither editable history nor native system prompts.
+            RuntimeError: If the conversation already has messages.
+        """
+        if not self.capabilities.supports_multi_turn or not (
+            self.capabilities.supports_editable_history or self.capabilities.supports_system_prompt
+        ):
+            raise ValueError(
+                f"Target {type(self).__name__} does not support setting a system prompt. "
+                "It must support multi-turn conversations and either editable history or native system prompts."
+            )
+
+        messages = await self._memory.get_conversation_messages_async(conversation_id=conversation_id)
+
+        if messages:
+            raise RuntimeError("Conversation already exists, system prompt needs to be set at the beginning")
+
+        (
+            await self._memory.add_conversation_to_memory_async(
+                conversation=Conversation(
+                    conversation_id=conversation_id,
+                    target_identifier=self.get_identifier(),
+                    attack_result_id=get_current_attack_result_id(),
+                )
+            )
+        )
+        (
+            await self._memory.add_message_to_memory_async(
+                request=MessagePiece(
+                    role="system",
+                    conversation_id=conversation_id,
+                    original_value=system_prompt,
+                    converted_value=system_prompt,
+                ).to_message()
+            )
         )
 
     async def reset_conversation_async(self, *, conversation_id: str) -> None:
@@ -382,7 +659,19 @@ class PromptTarget(Identifiable):
         """
         Dispose database engine to release database connections and resources.
         """
+        print_deprecation_message(
+            old_item="PromptTarget.dispose_db_engine",
+            new_item="PromptTarget.dispose_db_engine_async",
+            removed_in="1.4.0",
+        )
         self._memory.dispose_engine()
+
+    @legacy_sync_override(lambda: PromptTarget.dispose_db_engine)
+    async def dispose_db_engine_async(self) -> None:
+        """
+        Dispose database engine to release database connections and resources.
+        """
+        (await self._memory.dispose_engine_async())
 
     def _create_identifier(
         self,
@@ -490,7 +779,18 @@ class PromptTarget(Identifiable):
         if underlying_model:
             known = get_known_capabilities(underlying_model)
             if known is not None:
-                return TargetConfiguration(capabilities=known)
+                return TargetConfiguration(
+                    capabilities=known.model_copy(
+                        update={
+                            "input_modalities": frozenset(
+                                combo
+                                for combo in known.input_modalities
+                                if cls._SUPPORTS_TOOL_CALL_HISTORY
+                                or not combo & {"function_call", "function_call_output"}
+                            )
+                        }
+                    )
+                )
             logger.info(
                 "No known capabilities for model '%s'. Falling back to %s._DEFAULT_CONFIGURATION.",
                 underlying_model,

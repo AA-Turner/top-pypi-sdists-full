@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
 
 import structlog
+from google.protobuf import field_mask_pb2
 from google.protobuf.empty_pb2 import Empty  # ty: ignore[unresolved-import]
 from grpc import StatusCode
 from grpc.aio import EOF, AioRpcError
@@ -62,16 +63,24 @@ from langgraph_api.grpc.ops import (
     grpc_error_guard,
     transform_grpc_error_event,
 )
+from langgraph_api.priority_settings import (
+    assign_priority_settings,
+    get_priority_callback,
+)
 from langgraph_api.serde import (
     json_dumpb,
     json_dumpb_optional,
     json_loads_optional,
 )
 from langgraph_api.utils import get_auth_ctx
+from langgraph_api.utils.cache import LRUCache
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Sequence
+    from datetime import datetime
 
+    from langgraph_api.grpc.client import GrpcClient
+    from langgraph_api.priority_settings import PriorityCallback
     from langgraph_api.schema import (
         IfNotExists,
         MetadataInput,
@@ -79,6 +88,7 @@ if TYPE_CHECKING:
         PoolStats,
         QueueStats,
         Run,
+        RunCancelProgress,
         RunSelectField,
         RunStatus,
     )
@@ -98,6 +108,27 @@ RUN_STATUS_TO_PB = {
 }
 
 RUN_STATUS_FROM_PB = {v: k for k, v in RUN_STATUS_TO_PB.items()}
+
+# Threads this process has seen with priority settings. Settings never change once written,
+# so a run on one of these threads needs no read before its create. A deleted thread's id
+# can come back as a thread without settings: deletes in this process clear their entries,
+# and entries expire so the rest (other replicas, core's TTL sweep, a run that read the
+# thread before its delete) age out.
+_THREADS_WITH_PRIORITY_SETTINGS: LRUCache[bool] = LRUCache(max_size=10_000, ttl=5 * 60)
+
+
+async def forget_deleted_thread(thread_id: str) -> None:
+    """Clears a deleted thread, by its canonical id, from the threads with settings."""
+    # LRUCache has no delete: rewritten with a zero TTL, the entry expires at its next read.
+    # A thread this process never cached gets no entry, which would push out a live one.
+    if await _THREADS_WITH_PRIORITY_SETTINGS.get(thread_id):
+        _THREADS_WITH_PRIORITY_SETTINGS.set(thread_id, True, ttl=0)
+
+
+def forget_all_threads() -> None:
+    """Clears the threads with settings, for a delete whose thread ids core doesn't return."""
+    _THREADS_WITH_PRIORITY_SETTINGS.clear()
+
 
 CANCEL_STATUS_TO_PB = {
     "pending": pb.CancelRunStatus.CANCEL_RUN_STATUS_PENDING,
@@ -390,6 +421,7 @@ def proto_to_run(proto_run: pb.Run) -> Run:
         "cancel_reason": proto_run.cancel_reason
         if proto_run.HasField("cancel_reason")
         else None,
+        "priority": proto_run.priority,
     }
 
 
@@ -437,6 +469,94 @@ def _filter_run_fields(run: Run, select: list[RunSelectField] | None) -> dict[st
     if not select:
         return run
     return {field: run[field] for field in select if field in run}
+
+
+def _thread_metadata_after_run(
+    stored: dict | None, assistant: pb.Assistant, metadata: dict, kwargs: dict
+) -> dict:
+    """The thread's metadata as the run leaves it. stored is the thread's metadata, or
+    None when the run creates the thread.
+
+    This copies core's mergeThreadMetadata (core/internal/persistence/repos/runs_repo.go),
+    which builds the same map inside the create. The priority callback runs before the
+    create, so the map is built here too. Change both together: if they differ, the
+    callback sets a thread's priority from metadata the thread doesn't hold. Order
+    matters: on a new thread the config's metadata wins over the run's, and the ids win
+    over both.
+    """
+    ids = {"graph_id": assistant.graph_id, "assistant_id": assistant.assistant_id}
+    if stored is not None:
+        return {**stored, **ids}
+    config_metadata = (kwargs.get("config") or {}).get("metadata") or {}
+    return {**ids, **metadata, **config_metadata, **ids}
+
+
+async def _priority_settings_for_first_run(
+    client: GrpcClient,
+    callback: PriorityCallback,
+    *,
+    thread_id: UUID | None,
+    if_not_exists: IfNotExists,
+    assistant_id: UUID,
+    thread_filters: list[pb.AuthFilter] | None,
+    assistant_filters: list[pb.AuthFilter],
+    metadata: dict,
+    kwargs: dict,
+) -> pb.PrioritySettings | None:
+    """The priority callback's result for a run whose thread has no settings yet.
+
+    None when the thread has settings, which every later run takes, or when core will
+    reject the run because its thread or assistant doesn't exist.
+    """
+    stored_metadata = None
+    if thread_id is not None:
+        key = str(thread_id)
+        if await _THREADS_WITH_PRIORITY_SETTINGS.get(key):
+            return None
+        try:
+            thread = await client.threads.Get(
+                pb.GetThreadRequest(
+                    thread_id=pb.UUID(value=key),
+                    filters=thread_filters,
+                    read_mask=field_mask_pb2.FieldMask(paths=["metadata"]),
+                )
+            )
+        except AioRpcError as e:
+            if e.code() != StatusCode.NOT_FOUND:
+                raise
+            if if_not_exists != "create":
+                return None
+        else:
+            if thread.HasField("priority"):
+                _THREADS_WITH_PRIORITY_SETTINGS.set(key, True)
+                return None
+            stored_metadata = json_loads_optional(thread.metadata.value) or {}
+
+    try:
+        assistant = await client.assistants.Get(
+            pb.GetAssistantRequest(
+                assistant_id=str(assistant_id), filters=assistant_filters
+            )
+        )
+    except AioRpcError as e:
+        if e.code() != StatusCode.NOT_FOUND:
+            raise
+        return None
+    settings = await assign_priority_settings(
+        callback,
+        thread_id=str(thread_id) if thread_id is not None else None,
+        thread_metadata=_thread_metadata_after_run(
+            stored_metadata, assistant, metadata, kwargs
+        ),
+        assistant_id=assistant.assistant_id,
+        graph_id=assistant.graph_id,
+        assistant_metadata=json_loads_optional(assistant.metadata_json) or {},
+        run_metadata=metadata,
+        run_kwargs=kwargs,
+    )
+    return pb.PrioritySettings(
+        priority=settings["priority"], fairness_group=settings["fairness_group"]
+    )
 
 
 @grpc_error_guard
@@ -679,7 +799,34 @@ class Runs(Authenticated):
             request_kwargs["encryption_context"] = enc_ctx
 
         client = await get_shared_client()
+        priority_callback = get_priority_callback()
+        settings = None
+        if priority_callback is not None:
+            request_kwargs["priority_callback"] = True
+            settings = await _priority_settings_for_first_run(
+                client,
+                priority_callback,
+                thread_id=thread_id,
+                if_not_exists=if_not_exists,
+                assistant_id=assistant_id,
+                thread_filters=auth_filters,
+                assistant_filters=assistant_auth_filters,
+                metadata=metadata,
+                kwargs=kwargs,
+            )
+            if settings is not None:
+                request_kwargs["priority_settings"] = settings
+
         response = await client.runs.Create(pb.CreateRunRequest(**request_kwargs))
+        if (
+            settings is not None
+            and thread_id is not None
+            and response.runs[0].run_id.value == str(run_id)
+        ):
+            # Core created this run, so it wrote these settings on the thread, or kept a
+            # concurrent first run's. An answer with only the thread's in-flight runs
+            # comes before the write.
+            _THREADS_WITH_PRIORITY_SETTINGS.set(str(thread_id), True)
 
         async def generate_result():
             for run in response.runs:
@@ -756,12 +903,31 @@ class Runs(Authenticated):
         await client.runs.Cancel(pb.CancelRunRequest(**request_kwargs))
 
     @staticmethod
+    async def cancel_accepted_before(
+        conn,
+        accepted_before: datetime,
+        *,
+        reason: str,
+    ) -> RunCancelProgress:
+        """Applies no auth filters, so only the operator route may call it."""
+        client = await get_shared_client()
+        response = await client.runs.CancelAcceptedBefore(
+            pb.CancelAcceptedBeforeRequest(
+                accepted_before=accepted_before, reason=reason
+            )
+        )
+        return {
+            "not_yet_reached": response.not_yet_reached,
+            "finishing": response.finishing,
+        }
+
+    @staticmethod
     async def stats(conn) -> QueueStats:
         """Get queue statistics (not exposed via API, no auth)."""
         client = await get_shared_client()
         response = await client.runs.Stats(Empty())
 
-        return {
+        stats: QueueStats = {
             "n_pending": response.n_pending,
             "n_running": response.n_running,
             "pending_runs_wait_time_max_secs": (
@@ -780,6 +946,28 @@ class Runs(Authenticated):
                 else None
             ),
         }
+        # Core lists levels only on a deployment with a priority callback, the one source
+        # of levels; a deployment without one reports no per-level metrics.
+        if response.by_priority:
+            stats["by_priority"] = [
+                {
+                    "priority": level.priority,
+                    "n_startable": level.n_startable,
+                    "startable_runs_wait_time_max_secs": (
+                        level.startable_runs_wait_time_max_secs
+                        if level.HasField("startable_runs_wait_time_max_secs")
+                        else None
+                    ),
+                    "startable_runs_wait_time_med_secs": (
+                        level.startable_runs_wait_time_med_secs
+                        if level.HasField("startable_runs_wait_time_med_secs")
+                        else None
+                    ),
+                    "n_running": level.n_running,
+                }
+                for level in response.by_priority
+            ]
+        return stats
 
     @staticmethod
     @grpc_error_guard
@@ -799,11 +987,14 @@ class Runs(Authenticated):
             }
         if response.HasField("redis"):
             r = response.redis
-            out["redis"] = {
+            redis_stats: dict[str, int] = {
                 "idle_connections": r.idle_connections,
                 "in_use_connections": r.in_use_connections,
-                "max_connections": r.max_connections,
             }
+            # Cluster omits max — proto3 zero is indistinguishable from unset.
+            if r.max_connections:
+                redis_stats["max_connections"] = r.max_connections
+            out["redis"] = redis_stats
         return out
 
     @staticmethod
@@ -1202,6 +1393,13 @@ class Runs(Authenticated):
                         grpc_code=e.code().name,
                     )
                     raise
+            except asyncio.CancelledError:
+                logger.info(
+                    "Run cancelled, will not signal done",
+                    run_id=run_id,
+                    thread_id=thread_id,
+                )
+                raise
             except BaseException:
                 logger.exception(
                     "Non-retriable exception when marking run as done",

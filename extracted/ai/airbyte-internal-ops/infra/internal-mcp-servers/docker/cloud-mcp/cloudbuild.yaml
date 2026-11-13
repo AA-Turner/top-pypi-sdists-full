@@ -1,0 +1,25 @@
+steps:
+  - name: gcr.io/cloud-builders/curl
+    args:
+      - --fail
+      - --show-error
+      - --location
+      - --retry
+      - '5'
+      - --retry-max-time
+      - '60'
+      - --max-time
+      - '30'
+      - --output
+      - pylock.toml
+      - https://github.com/airbytehq/PyAirbyte/releases/download/v${_PYAIRBYTE_VERSION}/pylock.toml
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --build-arg
+      - PYAIRBYTE_REQUIREMENT=airbyte==${_PYAIRBYTE_VERSION}
+      - --tag
+      - ${_IMAGE}
+      - .
+images:
+  - ${_IMAGE}

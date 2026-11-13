@@ -21,8 +21,7 @@ import os
 import sys
 import time
 import uuid
-from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -38,11 +37,20 @@ from test.asynchronous import AsyncIntegrationTest, AsyncPyMongoTestCase, unitte
 from test.asynchronous.unified_format import generate_test_classes, get_test_path
 from test.utils_shared import AllowListEventListener, OvertCommandListener
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
 _IS_SYNC = False
 
 pytestmark = pytest.mark.search_index
 
 _NAME = "test-search-index"
+_WAIT_TIMEOUT_SECS = 10 * 60
+
+
+def _is_search_index_management_unavailable(exc: OperationFailure) -> bool:
+    """Return True for transient search index management errors."""
+    return exc.code == 125 and "Error connecting to Search Index Management service" in str(exc)
 
 
 class TestCreateSearchIndex(AsyncIntegrationTest):
@@ -101,29 +109,51 @@ class SearchIndexIntegrationBase(AsyncPyMongoTestCase):
         # Create a collection with the "create" command using a randomly generated name (referred to as ``coll0``).
         self.coll0 = await self.db.create_collection(f"col{uuid.uuid4()}")
 
+    async def _poll(self, check, timeout_msg):
+        """Call ``check`` every 5 seconds until it returns a non-None value.
+
+        Transient search index management errors are retried until the timeout.
+        """
+        start = time.monotonic()
+        last_exc = None
+        while True:
+            try:
+                result = await check()
+                if result is not None:
+                    return result
+            except OperationFailure as exc:
+                if not _is_search_index_management_unavailable(exc):
+                    raise
+                last_exc = exc
+            if time.monotonic() - start > _WAIT_TIMEOUT_SECS:
+                raise TimeoutError(timeout_msg) from last_exc
+            await asyncio.sleep(5)
+
     async def wait_for_ready(self, coll, name=_NAME, predicate=None):
         """Wait for a search index to be ready."""
-        indices: list[Mapping[str, Any]] = []
         if predicate is None:
             predicate = lambda index: index.get("queryable") is True
 
-        while True:
+        async def check():
             indices = await (await coll.list_search_indexes(name)).to_list()
             if len(indices) and predicate(indices[0]):
                 return indices[0]
-            await asyncio.sleep(5)
+
+        return await self._poll(check, "Timed out waiting for index to be ready")
 
     async def drop_and_wait(self, coll, name):
         """Drop a search index and wait for it to be dropped."""
-        await coll.drop_search_index(name)
-        start = time.time()
-        while True:
-            indices = await (await coll.list_search_indexes(name)).to_list()
-            if not indices:
-                return
-            if (time.time() - start) / 60 > 5:
-                raise TimeoutError("Timed out waiting for index deletion")
-            await asyncio.sleep(5)
+
+        async def drop():
+            await coll.drop_search_index(name)
+            return True
+
+        async def check():
+            if not await (await coll.list_search_indexes(name)).to_list():
+                return True
+
+        await self._poll(drop, "Timed out dropping index")
+        await self._poll(check, "Timed out waiting for index deletion")
 
 
 class TestSearchIndexIntegration(SearchIndexIntegrationBase):
@@ -154,7 +184,6 @@ class TestSearchIndexProse(SearchIndexIntegrationBase):
     @flaky(reason="PYTHON-6056", affects_cpython_linux=True)
     async def test_case_1(self):
         """Driver can successfully create and list search indexes."""
-
         # Create a new search index on ``self.coll0`` with the ``createSearchIndex`` helper.  Use the following definition:
         model = {"name": _NAME, "definition": {"mappings": {"dynamic": False}}}
         resp = await self.coll0.create_search_index(model)
@@ -174,7 +203,6 @@ class TestSearchIndexProse(SearchIndexIntegrationBase):
     @flaky(reason="PYTHON-6056", affects_cpython_linux=True)
     async def test_case_2(self):
         """Driver can successfully create multiple indexes in batch."""
-
         # Create two new search indexes on ``self.coll0`` with the ``createSearchIndexes`` helper.
         name1 = "test-search-index-1"
         name2 = "test-search-index-2"
@@ -209,7 +237,6 @@ class TestSearchIndexProse(SearchIndexIntegrationBase):
     @flaky(reason="PYTHON-6056", affects_cpython_linux=True)
     async def test_case_3(self):
         """Driver can successfully drop search indexes."""
-
         # Create a new search index on ``self.coll0``.
         model = {"name": _NAME, "definition": {"mappings": {"dynamic": False}}}
         resp = await self.coll0.create_search_index(model)
@@ -222,22 +249,12 @@ class TestSearchIndexProse(SearchIndexIntegrationBase):
         await self.wait_for_ready(self.coll0)
 
         # Run a ``dropSearchIndex`` on ``self.coll0``, using ``test-search-index`` for the name.
-        await self.coll0.drop_search_index(_NAME)
-
         # Run ``self.coll0.listSearchIndexes()`` repeatedly every 5 seconds until ``listSearchIndexes`` returns an empty array.
-        t0 = time.time()
-        while True:
-            indices = await (await self.coll0.list_search_indexes()).to_list()
-            if not indices:
-                break
-            if (time.time() - t0) / 60 > 5:
-                raise TimeoutError("Timed out waiting for index deletion")
-            await asyncio.sleep(5)
+        await self.drop_and_wait(self.coll0, _NAME)
 
     @flaky(reason="PYTHON-6056", affects_cpython_linux=True)
     async def test_case_4(self):
         """Driver can update a search index."""
-
         # Create a new search index on ``self.coll0``.
         model = {"name": _NAME, "definition": {"mappings": {"dynamic": False}}}
         resp = await self.coll0.create_search_index(model)
@@ -278,7 +295,6 @@ class TestSearchIndexProse(SearchIndexIntegrationBase):
     @flaky(reason="PYTHON-6056", affects_cpython_linux=True)
     async def test_case_6(self):
         """Driver can successfully create and list search indexes with non-default readConcern and writeConcern."""
-
         # Apply a write concern ``WriteConcern(w=1)`` and a read concern with ``ReadConcern(level="majority")`` to ``self.coll0``.
         coll0 = self.coll0.with_options(
             write_concern=WriteConcern(w="1"), read_concern=ReadConcern(level="majority")
@@ -304,7 +320,6 @@ class TestSearchIndexProse(SearchIndexIntegrationBase):
     @flaky(reason="PYTHON-6056", affects_cpython_linux=True)
     async def test_case_7(self):
         """Driver handles index types."""
-
         # Use these search and vector search definitions for indexes.
         search_definition = {"mappings": {"dynamic": False}}
         vector_search_definition = {

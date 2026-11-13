@@ -1,14 +1,15 @@
 """Test reduce functions."""
 
-import warnings
 import traceback
+import warnings
 
 import numpy as np
-from numpy.testing import assert_equal, assert_raises, assert_array_almost_equal
+import pytest
+from numpy.testing import assert_array_almost_equal, assert_equal, assert_raises
 
 import bottleneck as bn
-from .util import arrays, array_order, DTYPES
-import pytest
+
+from .util import DTYPES, array_order, arrays
 
 
 @pytest.mark.parametrize("func", bn.get_functions("reduce"), ids=lambda x: x.__name__)
@@ -22,7 +23,7 @@ def unit_maker(func, decimal=5, skip_dtype=("nansum", "ss")):
     fmt = "\nfunc %s | input %s (%s) | shape %s | axis %s | order %s\n"
     fmt += "\nInput array:\n%s\n"
     name = func.__name__
-    func0 = eval("bn.slow.%s" % name)
+    func0 = eval(f"bn.slow.{name}")
     for i, a in enumerate(arrays(name)):
         if a.ndim == 0:
             axes = [None]  # numpy can't handle e.g. np.nanmean(9, axis=-1)
@@ -64,7 +65,7 @@ def unit_maker(func, decimal=5, skip_dtype=("nansum", "ss")):
                         fmt2 = "\nbn.%s ran\nbn.slow.%s raised\n\n%s"
                     msg = fmt2 % (name, name, traceback.format_exc())
                     err_msg += msg
-                    assert False, err_msg
+                    assert False, err_msg  # noqa: B011
                 assert_array_almost_equal(actual, desired, decimal, err_msg)
                 err_msg += "\n dtype mismatch %s %s"
                 if name not in skip_dtype:
@@ -88,13 +89,13 @@ def unit_maker_argparse(func, decimal=5):
     """test argument parsing."""
 
     name = func.__name__
-    func0 = eval("bn.slow.%s" % name)
+    func0 = eval(f"bn.slow.{name}")
 
     a = np.array([1.0, 2, 3])
 
-    fmt = "\n%s" % func
+    fmt = f"\n{func}"
     fmt += "%s\n"
-    fmt += "\nInput array:\n%s\n" % a
+    fmt += f"\nInput array:\n{a}\n"
 
     actual = func(a)
     desired = func0(a)
@@ -203,6 +204,29 @@ def test_nanstd_issue60():
     with np.errstate(invalid="ignore"):
         s = bn.slow.nanstd([[1, np.nan], [np.nan, 1]], axis=0, ddof=1)
     assert_equal(f, s, err_msg="issue #60 regression")
+
+
+@pytest.mark.parametrize(
+    "a",
+    (
+        # issue #381 (C-contiguous branch)
+        np.zeros((1, 500, 2)).transpose(1, 2, 0),
+        # issue #393 (F-contiguous branch)
+        np.arange(1 * 192 * 121, dtype=np.float64)
+        .reshape(1, 192, 121)
+        .transpose(0, 2, 1),
+    ),
+    ids=("C-contiguous", "F-contiguous"),
+)
+def test_reduce_all_size_one_stride(a):
+    """reduce-all regression test (issues #381, #393)
+
+    A transposed view whose size-1 axis carries a large stride used to make
+    init_iter_all pick that stride as the flat element stride and iterate off
+    the buffer (garbage on the C-contiguous branch, segfault on the
+    F-contiguous branch).
+    """
+    assert_equal(bn.nanmax(a), bn.slow.nanmax(a))
 
 
 def test_nanvar_issue60():

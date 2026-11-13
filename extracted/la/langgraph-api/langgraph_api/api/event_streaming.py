@@ -330,7 +330,7 @@ async def _thread_events(request: Request) -> Response:
         finally:
             await manager.close()
 
-    return EventSourceResponse(body_iter())
+    return EventSourceResponse(body_iter(), on_close=manager.close)
 
 
 # ---------------------------------------------------------------------------

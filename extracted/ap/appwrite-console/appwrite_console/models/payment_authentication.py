@@ -25,7 +25,7 @@ class PaymentAuthentication(AppwriteModel):
     """
 
     message: str = Field(..., alias='message')
-    clientsecret: str = Field(..., alias='clientSecret')
+    clientsecret: str = Field(..., alias='clientSecret', json_schema_extra={'format': 'password'})
     organizationid: str = Field(..., alias='organizationId')
     invoiceid: str = Field(..., alias='invoiceId')
     addonid: str = Field(..., alias='addonId')

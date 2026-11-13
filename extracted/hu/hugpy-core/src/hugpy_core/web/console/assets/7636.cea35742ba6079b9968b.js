@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunk_hugpy_ui=self.webpackChunk_hugpy_ui||[]).push([[7636],{7636(e,u,s){s.d(u,{createCynefinServices:()=>c.t});var c=s(3279);s(4954)}}]);

@@ -22,14 +22,18 @@ from datetime import datetime
 from typing import Union
 
 from .literals import (
+    ActionPriorityType,
     AdminStatusType,
+    AnalysisTypeType,
     AssociationModeType,
+    AttackPhaseNameType,
     AutoEnableMembersType,
     ClusterStatusType,
     ConfidenceLevelType,
     ConfidenceType,
     ContentPolicyFilterActionType,
     ContentPolicyFilterTypeType,
+    CorrelationReasonType,
     CoverageFilterCriterionKeyType,
     CoverageSortKeyType,
     CoverageStatisticsTypeType,
@@ -37,6 +41,7 @@ from .literals import (
     CriterionKeyType,
     DataSourceStatusType,
     DataSourceType,
+    DefenseTacticType,
     DetectionRuleConfigurationStatusType,
     DetectionRuleDataSourceType,
     DetectionRuleFilterConditionType,
@@ -45,12 +50,17 @@ from .literals import (
     DetectorFeatureResultType,
     DetectorFeatureType,
     DetectorStatusType,
+    DispositionType,
+    DistributionDimensionType,
     EbsSnapshotPreservationType,
     EcsClusterStatusType,
     EcsLaunchTypeType,
     FeatureAdditionalConfigurationType,
     FeatureStatusType,
     FeedbackType,
+    FetchCriterionConditionType,
+    FetchTypeType,
+    FetchVerdictType,
     FilterActionType,
     FilterFieldNameType,
     FindingPublishingFrequencyType,
@@ -60,8 +70,13 @@ from .literals import (
     GuardrailActionType,
     GuardrailSourceType,
     IndicatorTypeType,
+    InvestigationDetectorFeatureType,
+    InvestigationFilterCriterionKeyType,
+    InvestigationIndicatorTypeType,
+    InvestigationResourceTypeType,
     InvestigationSortFieldType,
     InvestigationStatusType,
+    InvestigationTypeType,
     IpSetFormatType,
     IpSetStatusType,
     KubernetesResourcesTypesType,
@@ -74,6 +89,7 @@ from .literals import (
     ManagementTypeType,
     MfaStatusType,
     NetworkDirectionType,
+    ObservationTypeType,
     OrderByType,
     OrgFeatureAdditionalConfigurationType,
     OrgFeatureStatusType,
@@ -84,6 +100,8 @@ from .literals import (
     PublicAclIgnoreBehaviorType,
     PublicBucketRestrictBehaviorType,
     PublishingStatusType,
+    RecommendationCategoryType,
+    RecordTypeType,
     ResourceTypeType,
     RiskLevelType,
     ScanCategoryType,
@@ -93,10 +111,13 @@ from .literals import (
     ScanStatusType,
     ScanTypeType,
     SignalTypeType,
+    SummaryFormatType,
+    ThreatConfidenceType,
     ThreatEntitySetFormatType,
     ThreatEntitySetStatusType,
     ThreatIntelSetFormatType,
     ThreatIntelSetStatusType,
+    TimeGranularityType,
     TriggerTypeType,
     TrustedEntitySetFormatType,
     TrustedEntitySetStatusType,
@@ -116,30 +137,41 @@ __all__ = (
     "AccessControlListTypeDef",
     "AccessKeyDetailsTypeDef",
     "AccessKeyTypeDef",
+    "AccountAffectedResourceTypeDef",
+    "AccountAnalysisTypeDef",
     "AccountDetailTypeDef",
     "AccountFreeTrialInfoTypeDef",
     "AccountLevelPermissionsTypeDef",
+    "AccountOverviewTypeDef",
     "AccountStatisticsTypeDef",
+    "AccountSummaryTypeDef",
     "AccountTypeDef",
     "ActionTypeDef",
     "ActivityTypeDef",
+    "ActivityWindowTypeDef",
     "ActorProcessTypeDef",
     "ActorTypeDef",
     "AdditionalInfoTypeDef",
     "AddonDetailsTypeDef",
     "AdminAccountTypeDef",
     "AdministratorTypeDef",
+    "AffectedResourceTypeDef",
     "AgentDetailsTypeDef",
+    "AnalysisRecordTypeDef",
     "AnomalyObjectTypeDef",
     "AnomalyTypeDef",
     "AnomalyUnusualTypeDef",
     "ApiCallTypeDef",
+    "ArchiveDistributionTypeDef",
     "ArchiveFindingsRequestTypeDef",
     "AssociationDetailTypeDef",
     "AssociationSummaryTypeDef",
+    "AttackPhaseTypeDef",
+    "AttackTypeDef",
     "AutonomousSystemTypeDef",
     "AutoscalingAutoScalingGroupTypeDef",
     "AwsApiCallActionTypeDef",
+    "BaselineTypeDef",
     "BedrockGuardrailDetailsTypeDef",
     "BedrockGuardrailResourceTypeDef",
     "BedrockGuardrailTypeDef",
@@ -157,6 +189,9 @@ __all__ = (
     "ContainerTypeDef",
     "ContentPolicyFilterTypeDef",
     "ContinuousScanDetailsTypeDef",
+    "CorrelatedFindingTypeDef",
+    "CountermeasureActionTypeDef",
+    "CountermeasureTypeDef",
     "CountryTypeDef",
     "CoverageEc2InstanceDetailsTypeDef",
     "CoverageEcsClusterDetailsTypeDef",
@@ -229,6 +264,7 @@ __all__ = (
     "DescribePublishingDestinationResponseTypeDef",
     "DestinationPropertiesTypeDef",
     "DestinationTypeDef",
+    "DetectionCoverageTypeDef",
     "DetectionRuleEc2RequirementsTypeDef",
     "DetectionRuleEcsFargateRequirementsTypeDef",
     "DetectionRuleEksRequirementsTypeDef",
@@ -247,6 +283,8 @@ __all__ = (
     "DisassociateFromMasterAccountRequestTypeDef",
     "DisassociateMembersRequestTypeDef",
     "DisassociateMembersResponseTypeDef",
+    "DistributionTypeDef",
+    "DnsContextTypeDef",
     "DnsRequestActionTypeDef",
     "DomainDetailsTypeDef",
     "EbsSnapshotDetailsTypeDef",
@@ -268,17 +306,29 @@ __all__ = (
     "EksClusterTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EnableOrganizationAdminAccountRequestTypeDef",
+    "EnrichmentTypeDef",
     "EvidenceTypeDef",
     "FargateDetailsTypeDef",
+    "FetchCriterionTypeDef",
+    "FetchQueryTypeDef",
+    "FetchRecordTypeDef",
+    "FetchResultTypeDef",
+    "FetchTimeWindowTypeDef",
     "FilterConditionTypeDef",
     "FilterCriteriaTypeDef",
     "FilterCriterionTypeDef",
     "FindingCriteriaOutputTypeDef",
     "FindingCriteriaTypeDef",
     "FindingCriteriaUnionTypeDef",
+    "FindingDetailTypeDef",
+    "FindingReferenceTypeDef",
     "FindingStatisticsTypeDef",
+    "FindingTypeClassificationTypeDef",
+    "FindingTypeCountTypeDef",
     "FindingTypeDef",
+    "FindingTypeDocumentationTypeDef",
     "FindingTypeStatisticsTypeDef",
+    "FindingsSummaryTypeDef",
     "FlowLogsConfigurationResultTypeDef",
     "FreeTrialFeatureConfigurationResultTypeDef",
     "GeoLocationTypeDef",
@@ -337,16 +387,37 @@ __all__ = (
     "IncrementalScanDetailsTypeDef",
     "IndicatorTypeDef",
     "InstanceDetailsTypeDef",
+    "InvestigationAccountAnalysisTypeDef",
+    "InvestigationActorTypeDef",
+    "InvestigationDetectorFeatureConfigurationTypeDef",
+    "InvestigationEc2InstanceTypeDef",
+    "InvestigationEcsClusterTypeDef",
+    "InvestigationEksClusterTypeDef",
+    "InvestigationFilterConditionTypeDef",
+    "InvestigationFilterCriteriaTypeDef",
+    "InvestigationIndicatorTypeDef",
+    "InvestigationKubernetesWorkloadTypeDef",
+    "InvestigationMalwareScanTypeDef",
     "InvestigationMetadataTypeDef",
+    "InvestigationRecordTypeDef",
+    "InvestigationResourceDataTypeDef",
+    "InvestigationResourceTypeDef",
+    "InvestigationScopeTypeDef",
     "InvestigationSortCriteriaTypeDef",
+    "InvestigationSummaryDataTypeDef",
     "InvestigationSummaryTypeDef",
+    "InvestigationThreatAssessmentTypeDef",
     "InvestigationTypeDef",
     "InvitationTypeDef",
     "InviteMembersRequestTypeDef",
     "InviteMembersResponseTypeDef",
     "ItemDetailsTypeDef",
     "ItemPathTypeDef",
+    "KeyObservationsTypeDef",
+    "KubernetesActivityTypeDef",
+    "KubernetesAnomalyTypeDef",
     "KubernetesApiCallActionTypeDef",
+    "KubernetesApiCallTypeDef",
     "KubernetesAuditLogsConfigurationResultTypeDef",
     "KubernetesAuditLogsConfigurationTypeDef",
     "KubernetesConfigurationResultTypeDef",
@@ -354,12 +425,14 @@ __all__ = (
     "KubernetesDataSourceFreeTrialTypeDef",
     "KubernetesDetailsTypeDef",
     "KubernetesPermissionCheckedDetailsTypeDef",
+    "KubernetesPolicyViolationTypeDef",
     "KubernetesRoleBindingDetailsTypeDef",
     "KubernetesRoleDetailsTypeDef",
     "KubernetesUserDetailsTypeDef",
     "KubernetesWorkloadDetailsTypeDef",
     "KubernetesWorkloadTypeDef",
     "LambdaDetailsTypeDef",
+    "LambdaFunctionTypeDef",
     "LineageObjectTypeDef",
     "ListCoverageRequestPaginateTypeDef",
     "ListCoverageRequestTypeDef",
@@ -385,6 +458,9 @@ __all__ = (
     "ListIPSetsRequestPaginateTypeDef",
     "ListIPSetsRequestTypeDef",
     "ListIPSetsResponseTypeDef",
+    "ListInvestigationRecordsRequestPaginateTypeDef",
+    "ListInvestigationRecordsRequestTypeDef",
+    "ListInvestigationRecordsResponseTypeDef",
     "ListInvestigationsRequestPaginateTypeDef",
     "ListInvestigationsRequestTypeDef",
     "ListInvestigationsResponseTypeDef",
@@ -430,22 +506,33 @@ __all__ = (
     "MalwareProtectionPlanTaggingActionTypeDef",
     "MalwareScanDetailsTypeDef",
     "MalwareScanTypeDef",
+    "MalwareThreatTypeDef",
     "MasterTypeDef",
+    "MemberAccountRankingTypeDef",
     "MemberAdditionalConfigurationResultTypeDef",
     "MemberAdditionalConfigurationTypeDef",
     "MemberDataSourceConfigurationTypeDef",
     "MemberFeaturesConfigurationResultTypeDef",
     "MemberFeaturesConfigurationTypeDef",
     "MemberTypeDef",
+    "MetadataRecordTypeDef",
     "ModelDetailTypeDef",
+    "NetworkActivityTypeDef",
+    "NetworkAnomalyTypeDef",
     "NetworkConnectionActionTypeDef",
     "NetworkConnectionTypeDef",
+    "NetworkCountsTypeDef",
     "NetworkEndpointTypeDef",
     "NetworkGeoLocationTypeDef",
     "NetworkInterfaceTypeDef",
+    "NetworkPortsTypeDef",
+    "NetworkTrafficTypeDef",
+    "ObservationRecordTypeDef",
     "ObservationsTypeDef",
+    "ObservedFindingTypeTypeDef",
     "OrganizationAdditionalConfigurationResultTypeDef",
     "OrganizationAdditionalConfigurationTypeDef",
+    "OrganizationAnalysisTypeDef",
     "OrganizationDataSourceConfigurationsResultTypeDef",
     "OrganizationDataSourceConfigurationsTypeDef",
     "OrganizationDetailsTypeDef",
@@ -455,6 +542,7 @@ __all__ = (
     "OrganizationFeatureConfigurationTypeDef",
     "OrganizationFeatureStatisticsAdditionalConfigurationTypeDef",
     "OrganizationFeatureStatisticsTypeDef",
+    "OrganizationFindingsSummaryTypeDef",
     "OrganizationKubernetesAuditLogsConfigurationResultTypeDef",
     "OrganizationKubernetesAuditLogsConfigurationTypeDef",
     "OrganizationKubernetesConfigurationResultTypeDef",
@@ -474,21 +562,32 @@ __all__ = (
     "PortProbeDetailTypeDef",
     "PrivateIpAddressDetailsTypeDef",
     "ProcessDetailsTypeDef",
+    "ProcessTypeDef",
     "ProductCodeTypeDef",
     "ProductTypeDef",
+    "ProtectionPlanTypeDef",
     "PublicAccessConfigurationTypeDef",
     "PublicAccessTypeDef",
+    "QueryTimeWindowTypeDef",
     "RdsDbInstanceDetailsTypeDef",
+    "RdsDbInstanceTypeDef",
     "RdsDbUserDetailsTypeDef",
+    "RdsDbUserTypeDef",
     "RdsLimitlessDbDetailsTypeDef",
+    "RdsLoginActivityTypeDef",
     "RdsLoginAttemptActionTypeDef",
+    "RecommendationTypeDef",
     "RecoveryPointDetailsTypeDef",
     "RecoveryPointTypeDef",
+    "RelatedFindingsTypeDef",
     "RemoteAccountDetailsTypeDef",
     "RemoteIpDetailsTypeDef",
     "RemotePortDetailsTypeDef",
+    "RepresentativeFindingTypeDef",
+    "ReputationTypeDef",
     "ResourceDataTypeDef",
     "ResourceDetailsTypeDef",
+    "ResourceDistributionTypeDef",
     "ResourceStatisticsTypeDef",
     "ResourceTypeDef",
     "ResourceV2TypeDef",
@@ -498,6 +597,9 @@ __all__ = (
     "RuleSummaryTypeDef",
     "RuntimeContextTypeDef",
     "RuntimeDetailsTypeDef",
+    "RuntimeSignalsTypeDef",
+    "S3ActivityTypeDef",
+    "S3AnalysisTypeDef",
     "S3BucketDetailTypeDef",
     "S3BucketTypeDef",
     "S3LogsConfigurationResultTypeDef",
@@ -532,7 +634,11 @@ __all__ = (
     "ServiceAdditionalInfoTypeDef",
     "ServiceTypeDef",
     "SessionTypeDef",
+    "SeverityBreakdownTypeDef",
     "SeverityStatisticsTypeDef",
+    "SharedBehaviorTypeDef",
+    "SharedResourceTypeDef",
+    "SignalGroupTypeDef",
     "SignalTypeDef",
     "SortCriteriaTypeDef",
     "StartMalwareScanConfigurationTypeDef",
@@ -542,15 +648,23 @@ __all__ = (
     "StartMonitoringMembersResponseTypeDef",
     "StopMonitoringMembersRequestTypeDef",
     "StopMonitoringMembersResponseTypeDef",
+    "SupportingDataTypeDef",
+    "TacticCoverageTypeDef",
     "TagResourceRequestTypeDef",
     "TagTypeDef",
+    "TechniqueCoverageTypeDef",
+    "ThreatAssessmentTypeDef",
     "ThreatDetectedByNameTypeDef",
     "ThreatIntelligenceDetailTypeDef",
+    "ThreatReferenceTypeDef",
     "ThreatTypeDef",
     "ThreatsDetectedItemCountTypeDef",
+    "TimeWindowGroupTypeDef",
     "TimestampTypeDef",
     "TotalTypeDef",
+    "TrendTypeDef",
     "TriggerDetailsTypeDef",
+    "TypeDistributionTypeDef",
     "UnarchiveFindingsRequestTypeDef",
     "UnprocessedAccountTypeDef",
     "UnprocessedDataSourcesResultTypeDef",
@@ -619,6 +733,16 @@ class AccessKeyTypeDef(TypedDict):
     UserType: NotRequired[str]
 
 
+AccountAffectedResourceTypeDef = TypedDict(
+    "AccountAffectedResourceTypeDef",
+    {
+        "Identifier": NotRequired[str],
+        "Type": NotRequired[InvestigationResourceTypeType],
+        "FindingCount": NotRequired[int],
+    },
+)
+
+
 class AccountDetailTypeDef(TypedDict):
     AccountId: str
     Email: str
@@ -636,10 +760,23 @@ class BlockPublicAccessTypeDef(TypedDict):
     BlockPublicPolicy: NotRequired[bool]
 
 
+class MemberAccountRankingTypeDef(TypedDict):
+    Rank: NotRequired[int]
+    AccountId: NotRequired[str]
+    FindingCount: NotRequired[int]
+    RiskLevel: NotRequired[RiskLevelType]
+    RiskRationale: NotRequired[str]
+
+
 class AccountStatisticsTypeDef(TypedDict):
     AccountId: NotRequired[str]
     LastGeneratedAt: NotRequired[datetime]
     TotalFindings: NotRequired[int]
+
+
+class AccountSummaryTypeDef(TypedDict):
+    AccountId: NotRequired[str]
+    FindingCount: NotRequired[int]
 
 
 class AccountTypeDef(TypedDict):
@@ -687,6 +824,11 @@ class ApiCallTypeDef(TypedDict):
     UserAgent: NotRequired[str]
 
 
+class ActivityWindowTypeDef(TypedDict):
+    FirstSeenAt: NotRequired[datetime]
+    LastSeenAt: NotRequired[datetime]
+
+
 class ActorProcessTypeDef(TypedDict):
     Name: str
     Path: str
@@ -722,8 +864,51 @@ class AdministratorTypeDef(TypedDict):
     InvitedAt: NotRequired[str]
 
 
+AffectedResourceTypeDef = TypedDict(
+    "AffectedResourceTypeDef",
+    {
+        "Identifier": NotRequired[str],
+        "Type": NotRequired[InvestigationResourceTypeType],
+        "Arn": NotRequired[str],
+    },
+)
+
+
 class AgentDetailsTypeDef(TypedDict):
     Version: NotRequired[str]
+
+
+InvestigationIndicatorTypeDef = TypedDict(
+    "InvestigationIndicatorTypeDef",
+    {
+        "Value": str,
+        "Type": NotRequired[InvestigationIndicatorTypeType],
+    },
+)
+
+
+class KubernetesPolicyViolationTypeDef(TypedDict):
+    ViolationType: NotRequired[str]
+    AffectedResource: NotRequired[str]
+    Subject: NotRequired[str]
+    GrantedAccess: NotRequired[str]
+    ExposureVector: NotRequired[str]
+    MisconfigurationImpact: NotRequired[str]
+
+
+class S3AnalysisTypeDef(TypedDict):
+    FindingSubtype: NotRequired[str]
+    EffectivePermission: NotRequired[str]
+    BlockPublicAccessSettings: NotRequired[str]
+    Exposure: NotRequired[str]
+    UserAgent: NotRequired[str]
+    UserAgentClassification: NotRequired[str]
+    SourceIp: NotRequired[str]
+    IpReputation: NotRequired[str]
+    ActorAssessment: NotRequired[str]
+    S3ApiActivity: NotRequired[str]
+    SourceContext: NotRequired[str]
+    AuthorizationAssessment: NotRequired[str]
 
 
 ObservationsTypeDef = TypedDict(
@@ -733,6 +918,13 @@ ObservationsTypeDef = TypedDict(
         "Number": NotRequired[list[int]],
     },
 )
+
+
+class ArchiveDistributionTypeDef(TypedDict):
+    ArchivedCount: NotRequired[int]
+    UnarchivedCount: NotRequired[int]
+    ArchivedPercentage: NotRequired[float]
+    UnarchivedPercentage: NotRequired[float]
 
 
 class ArchiveFindingsRequestTypeDef(TypedDict):
@@ -761,6 +953,16 @@ class AssociationSummaryTypeDef(TypedDict):
     ExpiresAt: NotRequired[datetime]
 
 
+class FindingReferenceTypeDef(TypedDict):
+    FindingType: NotRequired[str]
+    Uid: NotRequired[str]
+
+
+class ThreatReferenceTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Uid: NotRequired[str]
+
+
 class AutonomousSystemTypeDef(TypedDict):
     Name: str
     Number: int
@@ -778,6 +980,14 @@ class RemoteAccountDetailsTypeDef(TypedDict):
     AccountId: NotRequired[str]
     Affiliated: NotRequired[bool]
     AwsServiceName: NotRequired[str]
+
+
+class FindingTypeClassificationTypeDef(TypedDict):
+    FindingType: NotRequired[str]
+    Classification: NotRequired[str]
+    Count: NotRequired[int]
+    Percentage: NotRequired[float]
+    Description: NotRequired[str]
 
 
 class BedrockGuardrailTypeDef(TypedDict):
@@ -879,6 +1089,16 @@ class VolumeMountTypeDef(TypedDict):
 
 
 TimestampTypeDef = Union[datetime, str]
+
+
+class SharedBehaviorTypeDef(TypedDict):
+    Path: NotRequired[str]
+    Value: NotRequired[str]
+
+
+class SharedResourceTypeDef(TypedDict):
+    ResourceType: NotRequired[str]
+    Identifier: NotRequired[str]
 
 
 class CountryTypeDef(TypedDict):
@@ -1126,6 +1346,11 @@ class DestinationTypeDef(TypedDict):
     Status: PublishingStatusType
 
 
+class ProtectionPlanTypeDef(TypedDict):
+    Name: NotRequired[InvestigationDetectorFeatureType]
+    Status: NotRequired[FeatureStatusType]
+
+
 class DetectionRuleEc2RequirementsTypeDef(TypedDict):
     MinAgentVersion: NotRequired[str]
 
@@ -1193,6 +1418,38 @@ class DisassociateFromMasterAccountRequestTypeDef(TypedDict):
 class DisassociateMembersRequestTypeDef(TypedDict):
     DetectorId: str
     AccountIds: Sequence[str]
+
+
+class FindingTypeCountTypeDef(TypedDict):
+    FindingType: NotRequired[str]
+    Count: NotRequired[int]
+
+
+class ResourceDistributionTypeDef(TypedDict):
+    ResourceType: NotRequired[str]
+    Identifier: NotRequired[str]
+    Count: NotRequired[int]
+
+
+class SeverityBreakdownTypeDef(TypedDict):
+    Critical: NotRequired[int]
+    High: NotRequired[int]
+    Medium: NotRequired[int]
+    Low: NotRequired[int]
+    Info: NotRequired[int]
+
+
+class TypeDistributionTypeDef(TypedDict):
+    FindingType: NotRequired[str]
+    Count: NotRequired[int]
+    Percentage: NotRequired[float]
+    DominantSeverity: NotRequired[str]
+
+
+class DnsContextTypeDef(TypedDict):
+    DomainSuffix: NotRequired[str]
+    OtherDomains: NotRequired[str]
+    ResolverHistory: NotRequired[str]
 
 
 class EbsSnapshotDetailsTypeDef(TypedDict):
@@ -1284,10 +1541,43 @@ class EnableOrganizationAdminAccountRequestTypeDef(TypedDict):
     AdminAccountId: str
 
 
+class EnrichmentTypeDef(TypedDict):
+    CountryName: NotRequired[str]
+    AsnOrg: NotRequired[str]
+    ThreatListName: NotRequired[str]
+    ThreatName: NotRequired[str]
+
+
 class ThreatIntelligenceDetailTypeDef(TypedDict):
     ThreatListName: NotRequired[str]
     ThreatNames: NotRequired[list[str]]
     ThreatFileSha256: NotRequired[str]
+
+
+class FetchCriterionTypeDef(TypedDict):
+    Field: str
+    Condition: FetchCriterionConditionType
+    Values: NotRequired[list[str]]
+
+
+class FetchTimeWindowTypeDef(TypedDict):
+    StartedAt: NotRequired[datetime]
+    DurationInMinutes: NotRequired[int]
+
+
+class FindingTypeDocumentationTypeDef(TypedDict):
+    Description: NotRequired[str]
+    Severity: NotRequired[str]
+    Feature: NotRequired[str]
+    FullDescription: NotRequired[str]
+    Remediation: NotRequired[str]
+    LearnMoreLinks: NotRequired[list[str]]
+
+
+class InvestigationDetectorFeatureConfigurationTypeDef(TypedDict):
+    Name: NotRequired[InvestigationDetectorFeatureType]
+    Status: NotRequired[FeatureStatusType]
+    UpdatedAt: NotRequired[datetime]
 
 
 class FilterConditionTypeDef(TypedDict):
@@ -1314,6 +1604,12 @@ class SeverityStatisticsTypeDef(TypedDict):
     LastGeneratedAt: NotRequired[datetime]
     Severity: NotRequired[float]
     TotalFindings: NotRequired[int]
+
+
+class TimeWindowGroupTypeDef(TypedDict):
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    FindingCount: NotRequired[int]
 
 
 class GeoLocationTypeDef(TypedDict):
@@ -1356,6 +1652,7 @@ class GetIPSetRequestTypeDef(TypedDict):
 class GetInvestigationRequestTypeDef(TypedDict):
     DetectorId: str
     InvestigationId: str
+    SummaryFormat: NotRequired[SummaryFormatType]
 
 
 class GetMalwareProtectionPlanRequestTypeDef(TypedDict):
@@ -1463,14 +1760,115 @@ class IndicatorTypeDef(TypedDict):
     Title: NotRequired[str]
 
 
+class InvestigationActorTypeDef(TypedDict):
+    AccessKeyId: NotRequired[str]
+    PrincipalId: NotRequired[str]
+    UserName: NotRequired[str]
+    UserType: NotRequired[str]
+    UserAgent: NotRequired[str]
+
+
+class InvestigationEc2InstanceTypeDef(TypedDict):
+    InstanceId: NotRequired[str]
+    InstanceType: NotRequired[str]
+    InstanceState: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
+    PrivateIpAddress: NotRequired[str]
+    PublicIp: NotRequired[str]
+    VpcId: NotRequired[str]
+    SubnetId: NotRequired[str]
+    ImageId: NotRequired[str]
+    LaunchedAt: NotRequired[datetime]
+
+
+class InvestigationEcsClusterTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Arn: NotRequired[str]
+    Status: NotRequired[str]
+
+
+class InvestigationEksClusterTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Arn: NotRequired[str]
+    Status: NotRequired[str]
+    VpcId: NotRequired[str]
+
+
+class InvestigationFilterConditionTypeDef(TypedDict):
+    Equals: NotRequired[Sequence[str]]
+    NotEquals: NotRequired[Sequence[str]]
+
+
+class InvestigationKubernetesWorkloadTypeDef(TypedDict):
+    WorkloadType: NotRequired[str]
+    WorkloadName: NotRequired[str]
+    Containers: NotRequired[str]
+    Volumes: NotRequired[str]
+    SecurityContext: NotRequired[str]
+
+
+class MalwareThreatTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Severity: NotRequired[str]
+    InfectedFileCount: NotRequired[int]
+    SampleFiles: NotRequired[str]
+
+
 class ProductTypeDef(TypedDict):
     Name: str
     Feature: NotRequired[str]
 
 
+class LambdaFunctionTypeDef(TypedDict):
+    FunctionName: NotRequired[str]
+    FunctionArn: NotRequired[str]
+    FunctionVersion: NotRequired[str]
+    Role: NotRequired[str]
+    Description: NotRequired[str]
+    RevisionId: NotRequired[str]
+    UpdatedAt: NotRequired[datetime]
+    VpcConfigurationSummary: NotRequired[str]
+
+
+class RdsDbInstanceTypeDef(TypedDict):
+    DbInstanceIdentifier: NotRequired[str]
+    DbClusterIdentifier: NotRequired[str]
+    DbInstanceArn: NotRequired[str]
+    DbiResourceId: NotRequired[str]
+    Engine: NotRequired[str]
+    EngineVersion: NotRequired[str]
+
+
+class RdsDbUserTypeDef(TypedDict):
+    User: NotRequired[str]
+    Application: NotRequired[str]
+    Database: NotRequired[str]
+    AuthMethod: NotRequired[str]
+    Ssl: NotRequired[str]
+
+
+class QueryTimeWindowTypeDef(TypedDict):
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+
+
 class InvestigationSortCriteriaTypeDef(TypedDict):
     AttributeName: NotRequired[InvestigationSortFieldType]
     OrderBy: NotRequired[OrderByType]
+
+
+class KeyObservationsTypeDef(TypedDict):
+    Title: NotRequired[str]
+    Narrative: NotRequired[str]
+    Observations: NotRequired[list[str]]
+
+
+class RecommendationTypeDef(TypedDict):
+    Title: NotRequired[str]
+    Rationale: NotRequired[str]
+    Category: NotRequired[RecommendationCategoryType]
+    Priority: NotRequired[ActionPriorityType]
+    CliCommands: NotRequired[list[str]]
 
 
 class InvestigationSummaryTypeDef(TypedDict):
@@ -1480,9 +1878,18 @@ class InvestigationSummaryTypeDef(TypedDict):
     RiskLevel: NotRequired[RiskLevelType]
     Confidence: NotRequired[ConfidenceType]
     Title: NotRequired[str]
+    InvestigationType: NotRequired[InvestigationTypeType]
+    FindingId: NotRequired[str]
     AccountId: NotRequired[str]
+    AdminAccountId: NotRequired[str]
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
+
+
+class ReputationTypeDef(TypedDict):
+    FindingTimeDisposition: NotRequired[str]
+    CurrentDisposition: NotRequired[str]
+    ReputationComparison: NotRequired[str]
 
 
 class InvitationTypeDef(TypedDict):
@@ -1502,6 +1909,29 @@ class InviteMembersRequestTypeDef(TypedDict):
 class ItemPathTypeDef(TypedDict):
     NestedItemPath: NotRequired[str]
     Hash: NotRequired[str]
+
+
+class KubernetesAnomalyTypeDef(TypedDict):
+    UnusualBehavior: NotRequired[str]
+    BaselineContext: NotRequired[str]
+    AnomalyScore: NotRequired[str]
+    TrainingPeriod: NotRequired[str]
+
+
+class KubernetesApiCallTypeDef(TypedDict):
+    ClusterName: NotRequired[str]
+    Username: NotRequired[str]
+    UserGroups: NotRequired[str]
+    UserId: NotRequired[str]
+    Verb: NotRequired[str]
+    ResourceType: NotRequired[str]
+    ResourceName: NotRequired[str]
+    Namespace: NotRequired[str]
+    RequestUri: NotRequired[str]
+    StatusCode: NotRequired[int]
+    SourceIps: NotRequired[str]
+    UserAgent: NotRequired[str]
+    EventCount: NotRequired[int]
 
 
 class KubernetesAuditLogsConfigurationResultTypeDef(TypedDict):
@@ -1572,6 +2002,14 @@ class ListFiltersRequestTypeDef(TypedDict):
 
 class ListIPSetsRequestTypeDef(TypedDict):
     DetectorId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListInvestigationRecordsRequestTypeDef(TypedDict):
+    DetectorId: str
+    InvestigationId: str
+    RecordTypes: NotRequired[Sequence[RecordTypeType]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
@@ -1677,8 +2115,44 @@ class MemberAdditionalConfigurationTypeDef(TypedDict):
     Status: NotRequired[FeatureStatusType]
 
 
+class MetadataRecordTypeDef(TypedDict):
+    TotalTimeMilliseconds: NotRequired[int]
+
+
 class ModelDetailTypeDef(TypedDict):
     ModelId: NotRequired[str]
+
+
+class NetworkAnomalyTypeDef(TypedDict):
+    BaselineBytes: NotRequired[str]
+    Deviation: NotRequired[str]
+    ProfileAgeDays: NotRequired[int]
+    RemoteService: NotRequired[str]
+    RemoteRegion: NotRequired[str]
+    Duration: NotRequired[str]
+    ResetRatio: NotRequired[str]
+    TargetHostCount: NotRequired[int]
+
+
+class NetworkCountsTypeDef(TypedDict):
+    RequestCount: NotRequired[int]
+    TotalAttempts: NotRequired[int]
+    SuspiciousAttempts: NotRequired[int]
+    ResetAttempts: NotRequired[int]
+
+
+class NetworkPortsTypeDef(TypedDict):
+    TargetPort: NotRequired[str]
+    RemotePort: NotRequired[str]
+    ResolverPort: NotRequired[str]
+    Ports: NotRequired[str]
+    PortsUsed: NotRequired[str]
+    PortCount: NotRequired[int]
+
+
+class NetworkTrafficTypeDef(TypedDict):
+    BytesSent: NotRequired[int]
+    BytesReceived: NotRequired[int]
 
 
 class RemotePortDetailsTypeDef(TypedDict):
@@ -1695,6 +2169,15 @@ class NetworkGeoLocationTypeDef(TypedDict):
     Country: str
     Latitude: float
     Longitude: float
+
+
+class RepresentativeFindingTypeDef(TypedDict):
+    ResourceType: NotRequired[str]
+    Identifier: NotRequired[str]
+    FindingId: NotRequired[str]
+    FindingCount: NotRequired[int]
+    RiskLevel: NotRequired[RiskLevelType]
+    RiskRationale: NotRequired[str]
 
 
 class OrganizationAdditionalConfigurationResultTypeDef(TypedDict):
@@ -1779,6 +2262,12 @@ class ResourceDetailsTypeDef(TypedDict):
 
 class RuleDefinitionTypeDef(TypedDict):
     Expression: str
+
+
+class SignalGroupTypeDef(TypedDict):
+    FindingType: NotRequired[str]
+    Severity: NotRequired[float]
+    Count: NotRequired[int]
 
 
 class S3ObjectDetailTypeDef(TypedDict):
@@ -1935,6 +2424,18 @@ class AccountLevelPermissionsTypeDef(TypedDict):
     BlockPublicAccess: NotRequired[BlockPublicAccessTypeDef]
 
 
+class AccountOverviewTypeDef(TypedDict):
+    AccountId: NotRequired[str]
+    AccountStatus: NotRequired[str]
+    DetectorId: NotRequired[str]
+    Region: NotRequired[str]
+    DelegatedAdminAccountId: NotRequired[str]
+    TotalMemberAccounts: NotRequired[int]
+    TotalFindings: NotRequired[int]
+    AffectedAccountCount: NotRequired[int]
+    AccountRankings: NotRequired[list[MemberAccountRankingTypeDef]]
+
+
 UserTypeDef = TypedDict(
     "UserTypeDef",
     {
@@ -1954,6 +2455,15 @@ ActivityTypeDef = TypedDict(
 )
 
 
+class FindingDetailTypeDef(TypedDict):
+    FindingId: NotRequired[str]
+    FindingType: NotRequired[str]
+    Severity: NotRequired[str]
+    AccountId: NotRequired[str]
+    Region: NotRequired[str]
+    ActivityWindow: NotRequired[ActivityWindowTypeDef]
+
+
 class ItemDetailsTypeDef(TypedDict):
     ResourceArn: NotRequired[str]
     ItemPath: NotRequired[str]
@@ -1969,6 +2479,18 @@ class CoverageEksClusterDetailsTypeDef(TypedDict):
     ManagementType: NotRequired[ManagementTypeType]
 
 
+class CountermeasureActionTypeDef(TypedDict):
+    Title: NotRequired[str]
+    Description: NotRequired[str]
+    Priority: NotRequired[ActionPriorityType]
+    DefenseTechnique: NotRequired[str]
+    Mitigates: NotRequired[list[str]]
+    CliCommands: NotRequired[list[str]]
+    DispositionId: NotRequired[int]
+    Disposition: NotRequired[DispositionType]
+    AffectedResources: NotRequired[list[AffectedResourceTypeDef]]
+
+
 class CoverageEc2InstanceDetailsTypeDef(TypedDict):
     InstanceId: NotRequired[str]
     InstanceType: NotRequired[str]
@@ -1981,6 +2503,33 @@ class AnomalyObjectTypeDef(TypedDict):
     ProfileType: NotRequired[ProfileTypeType]
     ProfileSubtype: NotRequired[ProfileSubtypeType]
     Observations: NotRequired[ObservationsTypeDef]
+
+
+class ProcessTypeDef(TypedDict):
+    Uuid: str
+    Name: NotRequired[str]
+    Path: NotRequired[str]
+    ParentUuid: NotRequired[str]
+    Findings: NotRequired[list[FindingReferenceTypeDef]]
+
+
+class AttackTypeDef(TypedDict):
+    Tactic: NotRequired[ThreatReferenceTypeDef]
+    Technique: NotRequired[ThreatReferenceTypeDef]
+    Findings: NotRequired[list[FindingReferenceTypeDef]]
+    Version: NotRequired[str]
+
+
+class TechniqueCoverageTypeDef(TypedDict):
+    Technique: NotRequired[ThreatReferenceTypeDef]
+    FindingCount: NotRequired[int]
+    FindingTypes: NotRequired[list[str]]
+
+
+class BaselineTypeDef(TypedDict):
+    TotalFindings: NotRequired[int]
+    BaselineFindings: NotRequired[list[FindingTypeClassificationTypeDef]]
+    AnomalousFindings: NotRequired[list[FindingTypeClassificationTypeDef]]
 
 
 class BedrockGuardrailDetailsTypeDef(TypedDict):
@@ -2019,6 +2568,23 @@ class ContainerTypeDef(TypedDict):
 class ContinuousScanDetailsTypeDef(TypedDict):
     EndTime: TimestampTypeDef
     StartTime: NotRequired[TimestampTypeDef]
+
+
+class CorrelatedFindingTypeDef(TypedDict):
+    FindingType: NotRequired[str]
+    Count: NotRequired[int]
+    SeverityMax: NotRequired[float]
+    CorrelationReasons: NotRequired[list[CorrelationReasonType]]
+    FindingIds: NotRequired[list[str]]
+    SharedResources: NotRequired[list[SharedResourceTypeDef]]
+    SharedBehaviors: NotRequired[list[SharedBehaviorTypeDef]]
+
+
+class ObservedFindingTypeTypeDef(TypedDict):
+    FindingType: NotRequired[str]
+    Count: NotRequired[int]
+    SeverityMax: NotRequired[float]
+    SharedResources: NotRequired[list[SharedResourceTypeDef]]
 
 
 class CoverageEcsClusterDetailsTypeDef(TypedDict):
@@ -2327,6 +2893,13 @@ class ListIPSetsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListInvestigationRecordsRequestPaginateTypeDef(TypedDict):
+    DetectorId: str
+    InvestigationId: str
+    RecordTypes: NotRequired[Sequence[RecordTypeType]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListInvitationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -2366,6 +2939,13 @@ class ListPublishingDestinationsResponseTypeDef(TypedDict):
     Destinations: list[DestinationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class DetectionCoverageTypeDef(TypedDict):
+    ProtectionPlans: NotRequired[list[ProtectionPlanTypeDef]]
+    FoundationalDataSources: NotRequired[list[InvestigationDetectorFeatureType]]
+    CoverageGaps: NotRequired[str]
+    KeyObservation: NotRequired[str]
 
 
 class DetectionRuleRuntimePlatformsTypeDef(TypedDict):
@@ -2493,8 +3073,36 @@ class RdsLimitlessDbDetailsTypeDef(TypedDict):
     Tags: NotRequired[list[TagTypeDef]]
 
 
+class RdsLoginActivityTypeDef(TypedDict):
+    Outcome: NotRequired[str]
+    Rate: NotRequired[str]
+    AnomalyContext: NotRequired[str]
+    LoginCount: NotRequired[int]
+    ActivityWindow: NotRequired[ActivityWindowTypeDef]
+    Enrichment: NotRequired[EnrichmentTypeDef]
+
+
 class EvidenceTypeDef(TypedDict):
     ThreatIntelligenceDetails: NotRequired[list[ThreatIntelligenceDetailTypeDef]]
+
+
+class FetchQueryTypeDef(TypedDict):
+    Criteria: NotRequired[list[FetchCriterionTypeDef]]
+    TimeWindow: NotRequired[FetchTimeWindowTypeDef]
+    RowLimit: NotRequired[int]
+    AccountId: NotRequired[str]
+    Indicator: NotRequired[str]
+    IndicatorType: NotRequired[InvestigationIndicatorTypeType]
+    FindingType: NotRequired[str]
+    FindingId: NotRequired[str]
+
+
+class FetchResultTypeDef(TypedDict):
+    ItemIds: NotRequired[list[str]]
+    TotalCount: NotRequired[int]
+    Features: NotRequired[list[InvestigationDetectorFeatureConfigurationTypeDef]]
+    Verdict: NotRequired[FetchVerdictType]
+    Documentation: NotRequired[FindingTypeDocumentationTypeDef]
 
 
 class FilterCriterionTypeDef(TypedDict):
@@ -2514,6 +3122,30 @@ class FindingStatisticsTypeDef(TypedDict):
     GroupedByFindingType: NotRequired[list[FindingTypeStatisticsTypeDef]]
     GroupedByResource: NotRequired[list[ResourceStatisticsTypeDef]]
     GroupedBySeverity: NotRequired[list[SeverityStatisticsTypeDef]]
+
+
+class FindingsSummaryTypeDef(TypedDict):
+    TotalFindings: NotRequired[int]
+    SeverityBreakdown: NotRequired[SeverityBreakdownTypeDef]
+    TopFindingTypes: NotRequired[list[FindingTypeCountTypeDef]]
+    ByTimeWindow: NotRequired[list[TimeWindowGroupTypeDef]]
+
+
+class OrganizationFindingsSummaryTypeDef(TypedDict):
+    TotalFindings: NotRequired[int]
+    SeverityBreakdown: NotRequired[SeverityBreakdownTypeDef]
+    TopFindingTypes: NotRequired[list[FindingTypeCountTypeDef]]
+    ByTimeWindow: NotRequired[list[TimeWindowGroupTypeDef]]
+    TotalAccountCount: NotRequired[int]
+    AffectedAccountCount: NotRequired[int]
+
+
+class TrendTypeDef(TypedDict):
+    Granularity: NotRequired[TimeGranularityType]
+    StartedAt: NotRequired[datetime]
+    EndedAt: NotRequired[datetime]
+    TotalFindings: NotRequired[int]
+    ByTimeWindow: NotRequired[list[TimeWindowGroupTypeDef]]
 
 
 class GetMasterAccountResponseTypeDef(TypedDict):
@@ -2560,22 +3192,66 @@ class MalwareProtectionFindingsScanConfigurationTypeDef(TypedDict):
     IncrementalScanDetails: NotRequired[IncrementalScanDetailsTypeDef]
 
 
+class S3ActivityTypeDef(TypedDict):
+    Api: NotRequired[str]
+    AffectedBucket: NotRequired[str]
+    OtherS3Activity: NotRequired[str]
+    NonS3Activity: NotRequired[str]
+    SessionAssessment: NotRequired[str]
+    EventCount: NotRequired[int]
+    Actor: NotRequired[InvestigationActorTypeDef]
+    SourceIp: NotRequired[str]
+    Enrichment: NotRequired[EnrichmentTypeDef]
+    ActivityWindow: NotRequired[ActivityWindowTypeDef]
+
+
+class InvestigationFilterCriteriaTypeDef(TypedDict):
+    Criterion: NotRequired[
+        Mapping[InvestigationFilterCriterionKeyType, InvestigationFilterConditionTypeDef]
+    ]
+
+
+class InvestigationMalwareScanTypeDef(TypedDict):
+    ScanId: NotRequired[str]
+    ScanType: NotRequired[MalwareProtectionScanTypeType]
+    ScanCategory: NotRequired[ScanCategoryType]
+    TriggerFindingId: NotRequired[str]
+    EngineSources: NotRequired[str]
+    ScanStartedAt: NotRequired[datetime]
+    ScanCompletedAt: NotRequired[datetime]
+    FilesScanned: NotRequired[int]
+    GigabytesScanned: NotRequired[float]
+    VolumesScanned: NotRequired[int]
+    InfectedFileCount: NotRequired[int]
+    ResourceType: NotRequired[str]
+    ResourceIdentifier: NotRequired[str]
+    HighestSeverity: NotRequired[str]
+    HighestSeverityThreatName: NotRequired[str]
+    UniqueThreatCount: NotRequired[int]
+    TotalInfectedItems: NotRequired[int]
+    Threats: NotRequired[list[MalwareThreatTypeDef]]
+
+
 class InvestigationMetadataTypeDef(TypedDict):
     Version: str
     Product: ProductTypeDef
 
 
-class ListInvestigationsRequestPaginateTypeDef(TypedDict):
-    DetectorId: str
-    SortCriteria: NotRequired[InvestigationSortCriteriaTypeDef]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+class InvestigationResourceDataTypeDef(TypedDict):
+    Ec2Instance: NotRequired[InvestigationEc2InstanceTypeDef]
+    LambdaFunction: NotRequired[LambdaFunctionTypeDef]
+    RdsDbInstance: NotRequired[RdsDbInstanceTypeDef]
+    RdsDbUser: NotRequired[RdsDbUserTypeDef]
+    EksCluster: NotRequired[InvestigationEksClusterTypeDef]
+    EcsCluster: NotRequired[InvestigationEcsClusterTypeDef]
 
 
-class ListInvestigationsRequestTypeDef(TypedDict):
-    DetectorId: str
-    SortCriteria: NotRequired[InvestigationSortCriteriaTypeDef]
-    MaxResults: NotRequired[int]
-    NextToken: NotRequired[str]
+class InvestigationScopeTypeDef(TypedDict):
+    InvestigationType: NotRequired[InvestigationTypeType]
+    FindingId: NotRequired[str]
+    AccountId: NotRequired[str]
+    AdminAccountId: NotRequired[str]
+    QueryTimeWindow: NotRequired[QueryTimeWindowTypeDef]
 
 
 class ListInvestigationsResponseTypeDef(TypedDict):
@@ -2584,10 +3260,28 @@ class ListInvestigationsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class InvestigationThreatAssessmentTypeDef(TypedDict):
+    Reputation: NotRequired[ReputationTypeDef]
+    ThreatConfidence: NotRequired[ThreatConfidenceType]
+    Classification: NotRequired[str]
+    Assessment: NotRequired[str]
+    AuthenticationContext: NotRequired[str]
+    RdsControlPlaneActivity: NotRequired[str]
+    IpAccountActivity: NotRequired[str]
+    CredentialCompromise: NotRequired[str]
+
+
 class ListInvitationsResponseTypeDef(TypedDict):
     Invitations: list[InvitationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class KubernetesActivityTypeDef(TypedDict):
+    ApiCall: NotRequired[KubernetesApiCallTypeDef]
+    Anomaly: NotRequired[KubernetesAnomalyTypeDef]
+    Workload: NotRequired[InvestigationKubernetesWorkloadTypeDef]
+    Enrichment: NotRequired[EnrichmentTypeDef]
 
 
 class KubernetesConfigurationResultTypeDef(TypedDict):
@@ -2652,6 +3346,24 @@ class MemberFeaturesConfigurationTypeDef(TypedDict):
     Name: NotRequired[OrgFeatureType]
     Status: NotRequired[FeatureStatusType]
     AdditionalConfiguration: NotRequired[Sequence[MemberAdditionalConfigurationTypeDef]]
+
+
+NetworkActivityTypeDef = TypedDict(
+    "NetworkActivityTypeDef",
+    {
+        "Protocol": NotRequired[str],
+        "Direction": NotRequired[str],
+        "Method": NotRequired[str],
+        "Blocked": NotRequired[str],
+        "Platform": NotRequired[str],
+        "Ports": NotRequired[NetworkPortsTypeDef],
+        "Traffic": NotRequired[NetworkTrafficTypeDef],
+        "Anomaly": NotRequired[NetworkAnomalyTypeDef],
+        "Dns": NotRequired[DnsContextTypeDef],
+        "Counts": NotRequired[NetworkCountsTypeDef],
+        "Enrichment": NotRequired[EnrichmentTypeDef],
+    },
+)
 
 
 class NetworkEndpointTypeDef(TypedDict):
@@ -2731,6 +3443,11 @@ class RecoveryPointDetailsTypeDef(TypedDict):
 class ScanConfigurationRecoveryPointTypeDef(TypedDict):
     BackupVaultName: NotRequired[str]
     ContinuousScanDetails: NotRequired[ScanConfigurationContinuousScanDetailsTypeDef]
+
+
+class RuntimeSignalsTypeDef(TypedDict):
+    SignalGroups: NotRequired[list[SignalGroupTypeDef]]
+    KeyObservation: NotRequired[str]
 
 
 class SendObjectMalwareScanRequestTypeDef(TypedDict):
@@ -2845,8 +3562,27 @@ class ThreatTypeDef(TypedDict):
     ItemDetails: NotRequired[list[ItemDetailsTypeDef]]
 
 
+class CountermeasureTypeDef(TypedDict):
+    DefenseTactic: NotRequired[DefenseTacticType]
+    Actions: NotRequired[list[CountermeasureActionTypeDef]]
+    Description: NotRequired[str]
+
+
 class AnomalyUnusualTypeDef(TypedDict):
     Behavior: NotRequired[dict[str, dict[str, AnomalyObjectTypeDef]]]
+
+
+class AttackPhaseTypeDef(TypedDict):
+    Phase: NotRequired[AttackPhaseNameType]
+    Description: NotRequired[str]
+    Attacks: NotRequired[list[AttackTypeDef]]
+
+
+class TacticCoverageTypeDef(TypedDict):
+    Phase: NotRequired[AttackPhaseNameType]
+    FindingCount: NotRequired[int]
+    FindingTypes: NotRequired[list[str]]
+    Techniques: NotRequired[list[TechniqueCoverageTypeDef]]
 
 
 class PermissionConfigurationTypeDef(TypedDict):
@@ -2873,6 +3609,11 @@ FindingCriteriaUnionTypeDef = Union[FindingCriteriaTypeDef, FindingCriteriaOutpu
 class RecoveryPointTypeDef(TypedDict):
     BackupVaultName: str
     ContinuousScanDetails: NotRequired[ContinuousScanDetailsTypeDef]
+
+
+class RelatedFindingsTypeDef(TypedDict):
+    Correlated: NotRequired[list[CorrelatedFindingTypeDef]]
+    Observed: NotRequired[list[ObservedFindingTypeTypeDef]]
 
 
 class CoverageResourceDetailsTypeDef(TypedDict):
@@ -2945,6 +3686,12 @@ class LambdaDetailsTypeDef(TypedDict):
     Tags: NotRequired[list[TagTypeDef]]
 
 
+class FetchRecordTypeDef(TypedDict):
+    FetchType: FetchTypeType
+    Query: NotRequired[FetchQueryTypeDef]
+    Result: NotRequired[FetchResultTypeDef]
+
+
 class FilterCriteriaTypeDef(TypedDict):
     FilterCriterion: NotRequired[Sequence[FilterCriterionTypeDef]]
 
@@ -2957,6 +3704,16 @@ class GetFindingsStatisticsResponseTypeDef(TypedDict):
     FindingStatistics: FindingStatisticsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class OrganizationAnalysisTypeDef(TypedDict):
+    FindingsSummary: NotRequired[OrganizationFindingsSummaryTypeDef]
+    AccountBreakdown: NotRequired[list[AccountSummaryTypeDef]]
+
+
+class InvestigationAccountAnalysisTypeDef(TypedDict):
+    Trend: NotRequired[TrendTypeDef]
+    Baseline: NotRequired[BaselineTypeDef]
 
 
 class EcsTaskDetailsTypeDef(TypedDict):
@@ -2990,20 +3747,26 @@ KubernetesWorkloadDetailsTypeDef = TypedDict(
 )
 
 
-class InvestigationTypeDef(TypedDict):
-    InvestigationId: str
-    Status: InvestigationStatusType
-    TriggerPrompt: str
-    TriggeredBy: str
-    Metadata: NotRequired[InvestigationMetadataTypeDef]
-    Cloud: NotRequired[CloudDetailsTypeDef]
-    RiskLevel: NotRequired[RiskLevelType]
-    Risk: NotRequired[str]
-    Confidence: NotRequired[ConfidenceType]
-    Summary: NotRequired[str]
-    StartTime: NotRequired[datetime]
-    EndTime: NotRequired[datetime]
-    Error: NotRequired[str]
+class ListInvestigationsRequestPaginateTypeDef(TypedDict):
+    DetectorId: str
+    FilterCriteria: NotRequired[InvestigationFilterCriteriaTypeDef]
+    SortCriteria: NotRequired[InvestigationSortCriteriaTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListInvestigationsRequestTypeDef(TypedDict):
+    DetectorId: str
+    FilterCriteria: NotRequired[InvestigationFilterCriteriaTypeDef]
+    SortCriteria: NotRequired[InvestigationSortCriteriaTypeDef]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class InvestigationResourceTypeDef(TypedDict):
+    Uid: str
+    ResourceType: InvestigationResourceTypeType
+    Name: NotRequired[str]
+    Data: NotRequired[InvestigationResourceDataTypeDef]
 
 
 RuntimeContextTypeDef = TypedDict(
@@ -3222,6 +3985,28 @@ class AnomalyTypeDef(TypedDict):
     Unusual: NotRequired[AnomalyUnusualTypeDef]
 
 
+class ThreatAssessmentTypeDef(TypedDict):
+    AttackProgression: NotRequired[list[AttackPhaseTypeDef]]
+    ThreatActorProfile: NotRequired[str]
+
+
+class AccountAnalysisTypeDef(TypedDict):
+    FindingsSummary: NotRequired[FindingsSummaryTypeDef]
+    TacticCoverage: NotRequired[list[TacticCoverageTypeDef]]
+    AffectedResources: NotRequired[list[AccountAffectedResourceTypeDef]]
+
+
+class DistributionTypeDef(TypedDict):
+    Dimension: DistributionDimensionType
+    TotalFindings: NotRequired[int]
+    SeverityBreakdown: NotRequired[SeverityBreakdownTypeDef]
+    FindingTypes: NotRequired[list[TypeDistributionTypeDef]]
+    TopFindingTypes: NotRequired[list[FindingTypeCountTypeDef]]
+    Resources: NotRequired[list[ResourceDistributionTypeDef]]
+    AttackVectors: NotRequired[list[TacticCoverageTypeDef]]
+    Archive: NotRequired[ArchiveDistributionTypeDef]
+
+
 class PublicAccessTypeDef(TypedDict):
     PermissionConfiguration: NotRequired[PermissionConfigurationTypeDef]
     EffectivePermission: NotRequired[str]
@@ -3381,6 +4166,16 @@ class ListMalwareScansRequestTypeDef(TypedDict):
     SortCriteria: NotRequired[SortCriteriaTypeDef]
 
 
+class AnalysisRecordTypeDef(TypedDict):
+    AnalysisType: AnalysisTypeType
+    ThreatAssessment: NotRequired[InvestigationThreatAssessmentTypeDef]
+    KubernetesPolicyViolation: NotRequired[KubernetesPolicyViolationTypeDef]
+    S3Analysis: NotRequired[S3AnalysisTypeDef]
+    Processes: NotRequired[list[ProcessTypeDef]]
+    AccountAnalysis: NotRequired[InvestigationAccountAnalysisTypeDef]
+    Indicators: NotRequired[list[InvestigationIndicatorTypeDef]]
+
+
 class EcsClusterDetailsTypeDef(TypedDict):
     Name: NotRequired[str]
     Arn: NotRequired[str]
@@ -3395,11 +4190,6 @@ class EcsClusterDetailsTypeDef(TypedDict):
 class KubernetesDetailsTypeDef(TypedDict):
     KubernetesUserDetails: NotRequired[KubernetesUserDetailsTypeDef]
     KubernetesWorkloadDetails: NotRequired[KubernetesWorkloadDetailsTypeDef]
-
-
-class GetInvestigationResponseTypeDef(TypedDict):
-    Investigation: InvestigationTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class RuntimeDetailsTypeDef(TypedDict):
@@ -3511,6 +4301,35 @@ class GetMalwareScanResponseTypeDef(TypedDict):
     ScanCompletedAt: datetime
     ScanResultDetails: GetMalwareScanResultDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class InvestigationSummaryDataTypeDef(TypedDict):
+    FindingType: NotRequired[str]
+    ThreatAssessment: NotRequired[ThreatAssessmentTypeDef]
+    Countermeasures: NotRequired[list[CountermeasureTypeDef]]
+    AccountAnalysis: NotRequired[AccountAnalysisTypeDef]
+    OrganizationAnalysis: NotRequired[OrganizationAnalysisTypeDef]
+    KeyObservations: NotRequired[KeyObservationsTypeDef]
+    Recommendations: NotRequired[list[RecommendationTypeDef]]
+
+
+class ObservationRecordTypeDef(TypedDict):
+    ObservationType: ObservationTypeType
+    FindingDetail: NotRequired[FindingDetailTypeDef]
+    Resource: NotRequired[InvestigationResourceTypeDef]
+    NetworkActivity: NotRequired[NetworkActivityTypeDef]
+    RdsLoginActivity: NotRequired[RdsLoginActivityTypeDef]
+    S3Activity: NotRequired[S3ActivityTypeDef]
+    KubernetesActivity: NotRequired[KubernetesActivityTypeDef]
+    MalwareScan: NotRequired[InvestigationMalwareScanTypeDef]
+    RelatedFindings: NotRequired[RelatedFindingsTypeDef]
+    DetectionCoverage: NotRequired[DetectionCoverageTypeDef]
+    AccountOverview: NotRequired[AccountOverviewTypeDef]
+    Recommendations: NotRequired[list[RecommendationTypeDef]]
+    RuntimeSignals: NotRequired[RuntimeSignalsTypeDef]
+    Distribution: NotRequired[DistributionTypeDef]
+    RepresentativeResources: NotRequired[list[RepresentativeFindingTypeDef]]
+    Indicators: NotRequired[list[InvestigationIndicatorTypeDef]]
 
 
 S3BucketDetailTypeDef = TypedDict(
@@ -3645,6 +4464,31 @@ class GetUsageStatisticsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class InvestigationTypeDef(TypedDict):
+    InvestigationId: str
+    Status: InvestigationStatusType
+    TriggerPrompt: str
+    TriggeredBy: str
+    Metadata: NotRequired[InvestigationMetadataTypeDef]
+    Cloud: NotRequired[CloudDetailsTypeDef]
+    RiskLevel: NotRequired[RiskLevelType]
+    Risk: NotRequired[str]
+    Confidence: NotRequired[ConfidenceType]
+    Summary: NotRequired[str]
+    SummaryData: NotRequired[InvestigationSummaryDataTypeDef]
+    Scope: NotRequired[InvestigationScopeTypeDef]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    Error: NotRequired[str]
+
+
+class SupportingDataTypeDef(TypedDict):
+    Fetch: NotRequired[FetchRecordTypeDef]
+    Analysis: NotRequired[AnalysisRecordTypeDef]
+    Observation: NotRequired[ObservationRecordTypeDef]
+    Metadata: NotRequired[MetadataRecordTypeDef]
+
+
 class ResourceTypeDef(TypedDict):
     AccessKeyDetails: NotRequired[AccessKeyDetailsTypeDef]
     S3BucketDetails: NotRequired[list[S3BucketDetailTypeDef]]
@@ -3679,6 +4523,24 @@ DetectionTypeDef = TypedDict(
         "Sequence": NotRequired[SequenceTypeDef],
     },
 )
+
+
+class GetInvestigationResponseTypeDef(TypedDict):
+    Investigation: InvestigationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+InvestigationRecordTypeDef = TypedDict(
+    "InvestigationRecordTypeDef",
+    {
+        "RecordId": str,
+        "Type": RecordTypeType,
+        "Title": str,
+        "CreatedAt": datetime,
+        "Narrative": NotRequired[str],
+        "SupportingData": NotRequired[SupportingDataTypeDef],
+    },
+)
 ServiceTypeDef = TypedDict(
     "ServiceTypeDef",
     {
@@ -3700,6 +4562,16 @@ ServiceTypeDef = TypedDict(
         "MalwareScanDetails": NotRequired[MalwareScanDetailsTypeDef],
     },
 )
+
+
+class ListInvestigationRecordsResponseTypeDef(TypedDict):
+    InvestigationId: str
+    Status: InvestigationStatusType
+    Records: list[InvestigationRecordTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 FindingTypeDef = TypedDict(
     "FindingTypeDef",
     {

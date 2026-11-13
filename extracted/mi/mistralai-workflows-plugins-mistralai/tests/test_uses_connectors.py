@@ -254,6 +254,17 @@ class TestConnectorRunAs:
         with pytest.raises(ValueError):
             connector("slack", run_as="nope")  # type: ignore[arg-type]
 
+    @pytest.mark.parametrize(
+        "build",
+        [
+            pytest.param(lambda: connector("slack", run_as="executor"), id="connector"),
+            pytest.param(lambda: ToolCallClient("slack", run_as="executor"), id="tool_call_client"),
+        ],
+    )
+    def test_executor_run_as_is_rejected(self, build) -> None:
+        with pytest.raises(ValueError, match="SDK clients only"):
+            build()
+
     def test_deployment_run_as_with_credentials_name_allowed(self) -> None:
         slot = connector("slack", run_as="deployment", credentials_name="my-token")
         assert slot.run_as.value == "deployment"

@@ -6,9 +6,12 @@ Deviation.
 """
 
 import bisect
+from collections.abc import Collection
 import datetime
 import functools
 import logging
+import math
+import os
 import threading
 from typing import Any, Callable, Optional, Union
 
@@ -16,6 +19,7 @@ from ml_goodput_measurement.src import checkpoint_badput_calculator
 from ml_goodput_measurement.src import goodput_cache
 from ml_goodput_measurement.src import goodput_exclusion
 from ml_goodput_measurement.src import goodput_utils
+from scipy import stats
 
 
 get_timestamp_from_log_entry = goodput_utils.get_timestamp_from_log_entry
@@ -66,7 +70,40 @@ _STARTUP_COMPILATION_WINDOW = 5
 _CLOUD_LOGGING_PAGE_SIZE = 1000000
 _CLOUD_LOGGING_DEFAULT_RETENTION = datetime.timedelta(days=7)
 
+# Incremental reads re-check this many seconds before the cursor for entries
+# that became queryable late, and stop this many seconds before the query time.
+DEFAULT_READ_OVERLAP_SECONDS = 300.0
+DEFAULT_READ_LAG_SECONDS = 0.0
+_READ_OVERLAP_SECONDS_ENV = 'ML_GOODPUT_READ_OVERLAP_SECONDS'
+_READ_LAG_SECONDS_ENV = 'ML_GOODPUT_READ_LAG_SECONDS'
+
 logger = logging.getLogger(__name__)
+
+
+def _seconds_from_env(name: str, default: float) -> float:
+  """Reads a number of seconds from the environment.
+
+  Args:
+    name: Name of the environment variable.
+    default: Value to use when the variable is unset or invalid.
+
+  Returns:
+    The variable's value, or `default` when it is unset or not a finite,
+    non-negative number (which is logged as a warning).
+  """
+  value = os.environ.get(name)
+  if value is None:
+    return default
+  try:
+    seconds = float(value)
+  except ValueError:
+    seconds = -1.0
+  if not math.isfinite(seconds) or seconds < 0.0:
+    logger.warning(
+        'Ignoring invalid %s=%r; using %s seconds.', name, value, default
+    )
+    return default
+  return seconds
 
 
 def _custom_sync_lookup(
@@ -198,9 +235,29 @@ class _CloudLogger:
       return
     self._async_logger.info(entry)
 
-  def flush(self) -> None:
-    """Block until every entry enqueued so far has been committed."""
-    self._async_handler.flush()
+  def flush(self, timeout_s: Optional[float] = None) -> bool:
+    """Blocks until every entry enqueued so far has been committed.
+
+    With `timeout_s`, waits at most that long and returns False (after one
+    warning) if the handler flush has not finished; None waits indefinitely.
+    """
+    if timeout_s is None:
+      self._async_handler.flush()
+      return True
+    flush_thread = threading.Thread(
+        target=self._async_handler.flush, daemon=True
+    )
+    flush_thread.start()
+    flush_thread.join(timeout_s)
+    if flush_thread.is_alive():
+      logger.warning(
+          'Cloud Logging flush for job %s did not finish within %s seconds;'
+          ' pending entries continue uploading in the background.',
+          self.job_name,
+          timeout_s,
+      )
+      return False
+    return True
 
   def _get_filter_msg(
       self,
@@ -330,6 +387,77 @@ class _CloudLogger:
     self._update_job_start_time(entry_payload)
     return entry_payload, (current_last_entry_ts, current_last_entry_id)
 
+  def read_new_entries(
+      self,
+      last_entry_info: Optional[tuple[datetime.datetime, str]],
+      end_time: Optional[datetime.datetime],
+      overlap_seconds: float,
+      known_entry_ids: Collection[str],
+  ) -> tuple[
+      list[Any],
+      tuple[Optional[datetime.datetime], Optional[str]],
+      list[tuple[str, datetime.datetime]],
+  ]:
+    """Reads the entries logged up to `end_time` that were not read before.
+
+    Entries become queryable some time after their timestamp: the recorder
+    stamps them client-side and uploads them in batches, Orbax writes through
+    its own logger, and ingestion itself can lag. A read bounded by
+    `timestamp > cursor` therefore skips such entries for good. This read
+    starts `overlap_seconds` before the cursor and drops entries whose insertId
+    is in `known_entry_ids`, so a late entry is returned exactly once.
+
+    Args:
+      last_entry_info: `(timestamp, insert_id)` of the newest entry read so
+        far, or None to read everything within the retention period.
+      end_time: Inclusive upper bound of the query window, or None for the
+        current time.
+      overlap_seconds: How far before the cursor to re-check for late entries.
+        With 0 the read starts right after the cursor, as before.
+      known_entry_ids: insertIds already in the cache; such entries are
+        dropped.
+
+    Returns:
+      A tuple of the new entry payloads in ascending timestamp order, the
+      cursor `(timestamp, insert_id)` advanced to the newest entry seen (it
+      never moves backward because of a late entry), and `(insert_id,
+      timestamp)` for every returned entry.
+    """
+    import google.cloud.logging  # pylint: disable=g-import-not-at-top
+
+    if last_entry_info is not None and overlap_seconds > 0:
+      window_start = last_entry_info[0] - datetime.timedelta(
+          seconds=overlap_seconds
+      )
+      filter_msg = self._get_filter_msg(window_start, end_time)
+    else:
+      filter_msg = self._get_filter_msg(None, end_time, last_entry_info)
+    entries = self.logger.list_entries(
+        filter_=filter_msg,
+        order_by=google.cloud.logging.ASCENDING,
+        page_size=_CLOUD_LOGGING_PAGE_SIZE,
+    )
+
+    cursor_ts, cursor_id = last_entry_info or (None, None)
+    payloads = []
+    entry_ids = []
+    for entry in entries:
+      if (
+          entry.insert_id in known_entry_ids
+          or (entry.timestamp, entry.insert_id) == last_entry_info
+      ):
+        continue
+      payloads.append(entry.payload)
+      entry_ids.append((entry.insert_id, entry.timestamp))
+      if cursor_ts is None or (entry.timestamp, entry.insert_id) > (
+          cursor_ts,
+          cursor_id or '',
+      ):
+        cursor_ts, cursor_id = entry.timestamp, entry.insert_id
+
+    self._update_job_start_time(payloads)
+    return payloads, (cursor_ts, cursor_id), entry_ids
+
 
 class GoodputRecorder:
   """The Goodput recorder class, responsible for recording Goodput metrics from the user application.
@@ -385,15 +513,15 @@ class GoodputRecorder:
           background_max_latency_s=background_max_latency_s,
       )
 
-  def flush(self) -> None:
-    """Block until pending async writes from this recorder have committed.
+  def flush(self, timeout_s: Optional[float] = None) -> bool:
+    """Blocks until pending async writes from this recorder have committed.
 
-    Use for strict read-after-write fencing (unit tests, end-of-training
-    finalization, hand-off to another process).
+    Use for strict read-after-write fencing. Returns True once committed (or
+    if logging is disabled); with `timeout_s`, returns False if it elapses.
     """
     if self._cloud_logger is None:
-      return
-    self._cloud_logger.flush()
+      return True
+    return self._cloud_logger.flush(timeout_s=timeout_s)
 
   def record_step_start_time(
       self, step: int, start_time: Optional[datetime.datetime] = None
@@ -652,6 +780,10 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
       max_logs_retention_period: Optional[datetime.timedelta] = None,
       gcs_path: Optional[str] = None,
       cache_dir: str = '/tmp',
+      *,
+      min_step_time: float = 1.0,
+      read_overlap_seconds: float = DEFAULT_READ_OVERLAP_SECONDS,
+      read_lag_seconds: float = DEFAULT_READ_LAG_SECONDS,
   ):
     """GoodputCalculator constructor.
 
@@ -664,9 +796,25 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
         Logging entries.
       gcs_path: Optional GCS path to sync the cache to.
       cache_dir: Local directory to store the cache files.
+      min_step_time: Shortest step time, in seconds, taken into account when
+        computing the ideal step time. Pass 0.0 for workloads with sub-second
+        steps.
+      read_overlap_seconds: How far before the last entry read each incremental
+        Cloud Logging read starts again, to pick up entries that became
+        queryable late. Overridden by `ML_GOODPUT_READ_OVERLAP_SECONDS`.
+      read_lag_seconds: How far before the query time each read stops, leaving
+        the newest entries for the next read. Overridden by
+        `ML_GOODPUT_READ_LAG_SECONDS`.
     """
     self.job_name = job_name
     self.using_pathways = using_pathways
+    self._min_step_time = min_step_time
+    self._read_overlap_seconds = _seconds_from_env(
+        _READ_OVERLAP_SECONDS_ENV, read_overlap_seconds
+    )
+    self._read_lag_seconds = _seconds_from_env(
+        _READ_LAG_SECONDS_ENV, read_lag_seconds
+    )
     self._interval_cache = []
     self._last_interval_entry_info: Optional[
         tuple[datetime.datetime, str]
@@ -685,6 +833,7 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
         job_name=job_name,
         gcs_path=gcs_path,
         cache_dir=cache_dir,
+        read_overlap_seconds=self._read_overlap_seconds,
     )
     self._goodput_cache_lock = threading.Lock()
     self._interval_entries = []
@@ -700,6 +849,14 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
     """Syncs the underlying cache files to GCS."""
     with self._goodput_cache_lock:
       self._goodput_cache.sync_to_gcs()
+
+  def has_job_end_entry(self) -> bool:
+    """Returns whether a `job_end_time` entry has been fetched into the cache.
+
+    Only inspects the cache; it never queries Cloud Logging.
+    """
+    with self._goodput_cache_lock:
+      return self._goodput_cache.get_job_end_time() is not None
 
   def _get_total_productive_and_unproductive_time(
       self, new_entries: list[dict[str, Any]]
@@ -940,6 +1097,94 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
         ).values()
     )
 
+  @staticmethod
+  def _extract_restore_intervals(
+      entries: list[Any],
+  ) -> list[tuple[float, float]]:
+    """Extracts `(start_time, end_time)` intervals of checkpoint restores.
+
+    Restore entries are grouped by `(step, is_local)` and, within a group, by
+    occurrence: entries whose restore window overlaps the previous one are the
+    same restore logged by several workers and are averaged, matching
+    `CheckpointBadputCalculator`; a later non-overlapping entry (the same step
+    restored again after another restart) is a separate interval. Entries
+    without a `checkpoint_manager_start_time` cannot be placed in time and are
+    skipped.
+
+    Args:
+      entries: A list of Cloud Logging entry payloads.
+
+    Returns:
+      A list of `(restore_start_time, restore_end_time)` tuples.
+    """
+    grouped_restores: dict[tuple[str, bool], list[tuple[float, float]]] = {}
+    for entry in entries:
+      if not isinstance(entry, dict):
+        continue
+      if entry.get('event_type') not in ('restore', 'emergency_restore'):
+        continue
+      restore_start_time = entry.get('checkpoint_manager_start_time')
+      restore_duration = float(
+          entry.get('checkpoint_manager_duration_secs') or 0.0
+      )
+      if restore_start_time is None or restore_duration <= 0.0:
+        continue
+      is_local = not str(entry.get('directory', '')).startswith('gs://')
+      restore_key = (str(entry.get('step')), is_local)
+      grouped_restores.setdefault(restore_key, []).append(
+          (float(restore_start_time), restore_duration)
+      )
+    restore_intervals = []
+    for items in grouped_restores.values():
+      occurrences: list[list[tuple[float, float]]] = []
+      for start, duration in sorted(items):
+        if occurrences and start < max(s + d for s, d in occurrences[-1]):
+          occurrences[-1].append((start, duration))
+        else:
+          occurrences.append([(start, duration)])
+      for occurrence in occurrences:
+        avg_start_time = sum(start for start, _ in occurrence) / len(occurrence)
+        avg_duration = sum(duration for _, duration in occurrence) / len(
+            occurrence
+        )
+        restore_intervals.append((avg_start_time, avg_start_time + avg_duration))
+    return restore_intervals
+
+  @staticmethod
+  def _total_overlap(
+      intervals: list[tuple[float, float]],
+      other_intervals: list[tuple[float, float]],
+  ) -> float:
+    """Returns the total seconds of overlap between two lists of intervals."""
+    total = 0.0
+    for start, end in intervals:
+      for other_start, other_end in other_intervals:
+        total += max(0.0, min(end, other_end) - max(start, other_start))
+    return total
+
+  @staticmethod
+  def _subtract_intervals(
+      intervals: list[tuple[float, float]],
+      other_intervals: list[tuple[float, float]],
+  ) -> list[tuple[float, float]]:
+    """Returns the parts of `intervals` not covered by `other_intervals`."""
+    result = []
+    for start, end in intervals:
+      pieces = [(start, end)]
+      for other_start, other_end in other_intervals:
+        remaining = []
+        for piece_start, piece_end in pieces:
+          if other_end <= piece_start or other_start >= piece_end:
+            remaining.append((piece_start, piece_end))
+            continue
+          if piece_start < other_start:
+            remaining.append((piece_start, other_start))
+          if other_end < piece_end:
+            remaining.append((other_end, piece_end))
+        pieces = remaining
+      result.extend(pieces)
+    return result
+
   def _compute_segment_startup_overhead(
       self, step_times: list[float], min_step: int
   ) -> float:
@@ -947,9 +1192,13 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
 
     Uses the current segment's step times to establish a steady-state baseline
     when `len(step_times) > 1`, or falls back to prior segments' historical step
-    times when a post-restart segment has only 1 completed step. Also updates
-    `self._historical_step_times` for the compilation step to exclude the
-    startup overhead.
+    times when a post-restart segment has only 1 completed step. Within the
+    first `_STARTUP_COMPILATION_WINDOW` steps, every step exceeding the baseline
+    by more than 3 MADs is charged, as is the slowest step whenever it exceeds
+    the baseline, so backends that compile or warm up over several leading
+    steps (e.g. PyTorch/XLA) are fully accounted for. Also updates
+    `self._historical_step_times` for each charged step to exclude its startup
+    overhead.
 
     Args:
       step_times: List of completed step durations (with custom sync and
@@ -964,8 +1213,6 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
     if steps_in_segment == 0:
       return 0.0
 
-    # Attribute the maximum excess step time in the startup window to program
-    # startup.
     startup_window = min(_STARTUP_COMPILATION_WINDOW, steps_in_segment)
     prior_step_times = [
         duration
@@ -973,32 +1220,38 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
         if step_idx < min_step or step_idx >= min_step + steps_in_segment
     ]
     if steps_in_segment > 1:
-      baseline_step_time = compute_baseline_step_time(step_times)
+      reference_step_times = step_times
     elif prior_step_times:
       # When a post-restart segment has only 1 completed step before another
       # disruption, use prior segments' historical step times as the baseline so
       # compilation overhead on that single step is not miscounted as goodput.
-      baseline_step_time = compute_baseline_step_time(prior_step_times)
+      reference_step_times = prior_step_times
     else:
-      baseline_step_time = step_times[0]
+      return 0.0
 
-    compilation_step_offset = max(
+    baseline_step_time = compute_baseline_step_time(reference_step_times)
+    anomaly_threshold = baseline_step_time + 3 * float(
+        stats.median_abs_deviation(reference_step_times)
+    )
+    slowest_step_offset = max(
         range(startup_window), key=lambda i: step_times[i]
     )
-    has_reference_baseline = steps_in_segment > 1 or bool(prior_step_times)
-    startup_extra_time = (
-        max(0.0, step_times[compilation_step_offset] - baseline_step_time)
-        if has_reference_baseline
-        else 0.0
-    )
 
-    # Adjust the compilation step's historical time to exclude startup overhead.
-    compilation_step = min_step + compilation_step_offset
-    if (
-        startup_extra_time > 0.0
-        and compilation_step in self._historical_step_times
-    ):
-      self._historical_step_times[compilation_step] -= startup_extra_time
+    # Attribute the excess time of every anomalous step in the startup window,
+    # and always of the slowest one, to program startup.
+    startup_extra_time = 0.0
+    for step_offset in range(startup_window):
+      step_extra_time = step_times[step_offset] - baseline_step_time
+      if step_extra_time <= 0.0 or (
+          step_offset != slowest_step_offset
+          and step_times[step_offset] <= anomaly_threshold
+      ):
+        continue
+      startup_extra_time += step_extra_time
+      # Adjust the step's historical time to exclude its startup overhead.
+      step = min_step + step_offset
+      if step in self._historical_step_times:
+        self._historical_step_times[step] -= step_extra_time
 
     return startup_extra_time
 
@@ -1366,6 +1619,7 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
     job_end_time = None
     tpu_init_start_time = None
     training_prep_start_time = None
+    training_prep_intervals: list[tuple[float, float]] = []
     data_loading_start_time = None
     tpu_initialization_badput = 0.0
     training_prep_badput = 0.0
@@ -1607,6 +1861,9 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
           _TRAINING_PREPARATION_END_TIME in payload
           and training_prep_start_time is not None
       ):
+        training_prep_intervals.append(
+            (training_prep_start_time, payload[_TRAINING_PREPARATION_END_TIME])
+        )
         training_prep_badput += (
             payload[_TRAINING_PREPARATION_END_TIME] - training_prep_start_time
         )
@@ -1652,12 +1909,23 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
     checkpoint_manager_restore_badput = (
         checkpoint_manager_restore_stats.total_checkpoint_manager_time
     )
+    # A checkpoint restore performed inside a training preparation interval is
+    # already counted as restore badput, so it leaves the training prep bucket.
+    restore_in_training_prep = min(
+        self._total_overlap(
+            training_prep_intervals,
+            self._extract_restore_intervals(entries_to_process),
+        ),
+        checkpoint_manager_restore_badput,
+    )
 
     # Populate some Badput buckets in total_unproductive_time.
     total_unproductive_time[BadputType.TPU_INITIALIZATION] = (
         tpu_initialization_badput
     )
-    total_unproductive_time[BadputType.TRAINING_PREP] = training_prep_badput
+    total_unproductive_time[BadputType.TRAINING_PREP] = max(
+        0.0, training_prep_badput - restore_in_training_prep
+    )
 
     # Populate async data loading badput.
     async_data_loading_badput = (
@@ -1794,35 +2062,53 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
     return 0.0
 
   def _fetch_new_entries(self, query_time: datetime.datetime) -> list[Any]:
-    """Thread-safe helper function to update and return new log entries."""
-    new_entries = []
-    current_last_entry_info = None
-    with self._goodput_cache_lock:
-      if not self._goodput_cache.is_cache_empty():
-        cached_last_entry_info = self._goodput_cache.get_last_entry_info()
-        if cached_last_entry_info:
-          cached_last_entry_ts, _ = cached_last_entry_info
-          if (
-              cached_last_entry_ts is not None
-              and query_time <= cached_last_entry_ts
-          ):
-            return []
+    """Thread-safe helper function to update and return new log entries.
 
-          new_entries, current_last_entry_info = (
-              self._cloud_logger.read_cloud_logging_entries(
-                  start_time=cached_last_entry_ts,
-                  end_time=query_time,
-                  last_entry_info=cached_last_entry_info,
-              )
-          )
+    An incremental read stops `read_lag_seconds` before `query_time` and starts
+    `read_overlap_seconds` before the cursor (capped by the cache to the window
+    whose insertIds it knows), so entries that became queryable late are still
+    picked up, exactly once; see `_CloudLogger.read_new_entries`.
+
+    Args:
+      query_time: The time at which the query is being made.
+
+    Returns:
+      The entries appended to the cache by this read.
+    """
+    with self._goodput_cache_lock:
+      last_entry_info = self._goodput_cache.get_last_entry_info()
+      if last_entry_info is None and not self._goodput_cache.is_cache_empty():
+        logger.warning(
+            'The cached timeline for job %s has no read cursor; discarding it'
+            ' and reading all entries again from Cloud Logging.',
+            self.job_name,
+        )
+        self._goodput_cache.clear_cache()
+
+      if last_entry_info is None or self._goodput_cache.is_cache_empty():
+        # First read of this cache: everything within the retention period up
+        # to now, as before. The next read's overlap covers late entries.
+        new_entries, current_last_entry_info, entry_ids = (
+            self._cloud_logger.read_new_entries(None, None, 0.0, ())
+        )
       else:
-        new_entries, current_last_entry_info = (
-            self._cloud_logger.read_cloud_logging_entries()
+        end_time = query_time - datetime.timedelta(
+            seconds=self._read_lag_seconds
+        )
+        if end_time <= last_entry_info[0]:
+          return []
+        new_entries, current_last_entry_info, entry_ids = (
+            self._cloud_logger.read_new_entries(
+                last_entry_info,
+                end_time,
+                self._goodput_cache.get_read_overlap_seconds(),
+                self._goodput_cache.get_recent_entry_ids(),
+            )
         )
 
       # Update the cache with the new log entries.
       self._goodput_cache.update_cached_entries(
-          new_entries, current_last_entry_info
+          new_entries, current_last_entry_info, entry_ids
       )
       return new_entries
 
@@ -2190,9 +2476,10 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
   def _get_step_times(self, entries: list[Any]) -> dict[int, float]:
     """Computes per-step execution durations from log entries.
 
-    Excludes synchronous checkpoint save blocking durations and breaks step
-    pairings across job or elastic restarts so recovery downtime does not
-    pollute `ideal_step_time` or `step_time_deviation`.
+    Excludes custom badput events (such as evaluation) that fall entirely
+    within a step and synchronous checkpoint save blocking durations, and
+    breaks step pairings across job or elastic restarts so recovery downtime
+    does not pollute `ideal_step_time` or `step_time_deviation`.
 
     Args:
       entries: List of raw or `(timestamp, payload)` cached log entries.
@@ -2200,7 +2487,7 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
     Returns:
       Dictionary mapping step count (`int`) to execution duration (`float`).
     """
-    normalized_entries = []
+    normalized_entries: list[dict[str, Any]] = []
     for item in entries:
       if (
           isinstance(item, tuple)
@@ -2208,18 +2495,18 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
           and isinstance(item[1], dict)
       ):
         normalized_entries.append(item[1])
-      else:
+      elif isinstance(item, dict):
         normalized_entries.append(item)
 
     save_events = self._extract_checkpoint_save_events(normalized_entries)
+    custom_syncs_in_window = _custom_sync_lookup(
+        self._extract_custom_sync_intervals(normalized_entries)
+    )
     step_times = {}
     previous_step_start_time = None
     previous_step_count = None
 
     for payload in normalized_entries:
-      if not isinstance(payload, dict):
-        continue
-
       # When a restart occurs after `previous_step_start_time`, do not pair
       # `previous_step_count` directly with the post-restart step timestamp.
       restart_event = self._get_restart_event(payload)
@@ -2245,6 +2532,13 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
             and step_count == previous_step_count + 1
         ):
           step_delta = step_start_time - previous_step_start_time
+          custom_sync_in_step = sum(
+              sync_end - sync_start
+              for sync_start, sync_end, _ in custom_syncs_in_window(
+                  previous_step_start_time, step_start_time
+              )
+          )
+          step_delta = max(0.0, step_delta - custom_sync_in_step)
           checkpoint_save_in_step = (
               self._get_checkpoint_save_duration_in_window(
                   save_events,
@@ -2300,7 +2594,9 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
     ideal_step_time = (
         configured_ideal_step_time
         if configured_ideal_step_time is not None
-        else compute_ideal_step_time(list(step_times.values()))
+        else compute_ideal_step_time(
+            list(step_times.values()), min_step_time=self._min_step_time
+        )
     )
     if not ideal_step_time:
       raise ValueError(

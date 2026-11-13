@@ -13,6 +13,7 @@ from ...artifact.storage_handlers import multipart as _multipart
 from ...capture import outputs as _outputs
 from ..launch import preempt as _preempt
 from ...delivery.journal.flusher import flush_journal
+from ...delivery.outbox.waiter.outcome import SET_ASIDE_WHY
 
 #: `probe_finish.outbox` of a SIGTERM's close sent ahead of its writes (H2): the service goes too.
 SERVICE_STOPS_WITH_JOB = "service_stops_with_job"
@@ -159,18 +160,18 @@ class CloseMixin:
                 stuck=stuck, wait=wait, wait_limit=wait_limit, deadline=deadline,
             )
         with deadline_scope(drain_deadline):
-            pending, dead, delivered, auth_blocked = self._drain_until(
+            pending, dead, set_aside, delivered, auth_blocked = self._drain_until(
                 drain_deadline, strict=strict
             )
         self._settle_uploads_still_running(drain_deadline)
         undelivered = len(pending) + len(stuck)
         if strict:
             # Raised with the run lock still held: a run that refuses to close is still open.
-            self._raise_if_writes_outstanding(dead, undelivered, auth_blocked, timeout)
-        accounting = self._count_close_accounting(dead)
+            self._raise_if_writes_outstanding(dead, undelivered, auth_blocked, timeout, set_aside=set_aside)
+        accounting = self._count_close_accounting(dead, set_aside=len(set_aside))
         if verdict_sent:
             return self._close_after_verdict(
-                accounting, undelivered, delivered, auth_blocked, timeout, dead=dead
+                accounting, undelivered, delivered, auth_blocked, timeout, dead=dead, set_aside=set_aside
             )
         with deadline_scope(deadline):
             lost_with = self._preempted_outbox_goes_with_machine() if undelivered else None
@@ -255,14 +256,19 @@ class CloseMixin:
             )
 
     def _raise_if_writes_outstanding(
-        self, dead: list, undelivered: int, auth_blocked: bool, timeout: float
+        self, dead: list, undelivered: int, auth_blocked: bool, timeout: float, *, set_aside: list = ()
     ) -> None:
-        """A strict close refuses while any write is dead-lettered or undelivered."""
+        """A strict close refuses while any write is dead-lettered, refused for good or undelivered."""
         if dead:
             raise errors.RosError(
                 f"run {self.id} not closed: {len(dead)} outbox op(s) are "
                 "dead-lettered — waiting cannot heal a permanent rejection; see "
                 "`probe outbox status`, then `probe outbox retry`"
+            )
+        if set_aside:
+            raise errors.RosError(
+                f"run {self.id} not closed: the server refuses {len(set_aside)} of its write(s) for good "
+                f"({SET_ASIDE_WHY}); there is nothing to retry"
             )
         if undelivered:
             raise errors.RosError(
@@ -275,12 +281,15 @@ class CloseMixin:
                 + " — see `probe outbox status`, fix or `probe outbox retry`, then finish again"
             )
 
-    def _count_close_accounting(self, dead: list) -> dict[str, Any]:
+    def _count_close_accounting(self, dead: list, *, set_aside: int = 0) -> dict[str, Any]:
         """What the record must say about data that will never arrive (plan 0.1/0.2): dead
-        letters, dropped writes, and the writes sent directly. The first two are warned AFTER the close."""
+        letters, writes refused for good (``set_aside``: nothing retries them), dropped writes, and
+        the writes sent directly. All but the last are warned AFTER the close."""
         accounting: dict[str, Any] = {}
         if dead:
             accounting["dead_lettered"] = len(dead)
+        if set_aside:
+            accounting["set_aside"] = set_aside
         dropped = max(
             0, int(getattr(self._client, "dropped_writes", 0) or 0) - self._dropped_baseline
         )
@@ -346,7 +355,8 @@ class CloseMixin:
         if is_verdict_sent or not left:
             return None
         accounting = self._count_close_accounting(
-            journal.run_ops(self.id).failed() + journal.run_ops_elsewhere(self.id).failed()
+            journal.run_ops(self.id).get_refused() + journal.run_ops_elsewhere(self.id).get_refused(),
+            set_aside=queued.set_aside,
         )
         lost_with = self._preempted_outbox_goes_with_machine()
         warning = None if lost_with else (
@@ -438,6 +448,15 @@ class CloseMixin:
                 + ". See `probe outbox status`, then `probe outbox retry`.",
                 stacklevel=5,
             )
+        set_aside = accounting.get("set_aside")
+        if set_aside:
+            _diagnostics.warn(
+                f"probe: the server refuses {set_aside} of run {self.id}'s writes for good "
+                f"({SET_ASIDE_WHY}); there is nothing to retry; "
+                + where.format(key="probe_finish.set_aside", n=set_aside)
+                + ". See `probe outbox status`.",
+                stacklevel=5,
+            )
         dropped = accounting.get("dropped_writes")
         if dropped:
             _diagnostics.warn(
@@ -459,6 +478,7 @@ class CloseMixin:
         timeout: float,
         *,
         dead: list | None = None,
+        set_aside: list | None = None,
     ):
         """The end of a close whose verdict `set_status` had already sent.
 
@@ -486,15 +506,25 @@ class CloseMixin:
         verdict = self._closed_status
         if terminal is not None and terminal[0] == "failed":
             # The dead letter IS the close; only the rest is data it lost.
-            data_dead = [p for p in (dead or []) if p != terminal[1]]
-            if data_dead:
-                accounting["dead_lettered"] = len(data_dead)
+            for key, paths in (("dead_lettered", dead), ("set_aside", set_aside)):
+                data_lost = [p for p in (paths or []) if p != terminal[1]]
+                if data_lost:
+                    accounting[key] = len(data_lost)
+                else:
+                    accounting.pop(key, None)
+            if terminal[1] in (set_aside or []):
+                # Refused for good (the run in the trash, a newer attempt owning it): no retry sends it.
+                why = (
+                    f": the server refuses it for good ({SET_ASIDE_WHY}); "
+                    "there is nothing to retry (`probe outbox status`)."
+                )
             else:
-                accounting.pop("dead_lettered", None)
+                why = (
+                    " and dead-lettered — see `probe outbox status`, then `probe outbox retry`. "
+                    "The server will close the run when it goes quiet."
+                )
             _diagnostics.warn(
-                f"probe: run {self.id} not closed: the terminal status was rejected and "
-                "dead-lettered — see `probe outbox status`, then `probe outbox retry`. "
-                "The server will close the run when it goes quiet.",
+                f"probe: run {self.id} not closed: the terminal status was rejected{why}",
                 stacklevel=5,
             )
             if undelivered:

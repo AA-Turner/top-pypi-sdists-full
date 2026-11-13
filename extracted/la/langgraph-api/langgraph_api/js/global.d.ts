@@ -4,6 +4,7 @@ declare namespace NodeJS {
     LANGGRAPH_UI?: string;
     LANGGRAPH_UI_CONFIG?: string;
     LANGGRAPH_AUTH?: string;
+    LANGGRAPH_JS_REMOTE_SOCKET?: string;
     PORT: string;
   }
 }

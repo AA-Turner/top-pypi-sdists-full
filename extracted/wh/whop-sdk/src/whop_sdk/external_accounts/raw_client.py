@@ -11,17 +11,19 @@ from ..core.pagination import AsyncPager, SyncPager
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
+from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.bad_request_error import BadRequestError
 from ..errors.conflict_error import ConflictError
 from ..errors.forbidden_error import ForbiddenError
 from ..errors.not_found_error import NotFoundError
+from ..errors.service_unavailable_error import ServiceUnavailableError
 from ..errors.too_many_requests_error import TooManyRequestsError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..types.external_account import ExternalAccount
+from ..types.v1error_response import V1ErrorResponse
 from .types.connect_external_accounts_request_platform import ConnectExternalAccountsRequestPlatform
-from .types.connect_external_accounts_request_scopes_item import ConnectExternalAccountsRequestScopesItem
 from .types.connect_external_accounts_response import ConnectExternalAccountsResponse
-from .types.create_external_accounts_request_platform import CreateExternalAccountsRequestPlatform
+from .types.create_external_accounts_request_body import CreateExternalAccountsRequestBody
 from .types.delete_external_accounts_response import DeleteExternalAccountsResponse
 from .types.list_external_accounts_request_direction import ListExternalAccountsRequestDirection
 from .types.list_external_accounts_request_order import ListExternalAccountsRequestOrder
@@ -70,7 +72,7 @@ class RawExternalAccountsClient:
             The User that the external accounts are connected to. Provide either this or account_id.
 
         platform : typing.Optional[ListExternalAccountsRequestPlatform]
-            Only return external accounts for the platform that is specified.
+            Only return external accounts for the platform that is specified. An `aimerce` account is returned only with this filter, which requires the `company:manage_checkout` scope instead of `social_account:read`.
 
         trust_level : typing.Optional[ListExternalAccountsRequestTrustLevel]
             Only return external accounts linked with this trust level, such as `oauth` for accounts connected through OAuth.
@@ -190,26 +192,14 @@ class RawExternalAccountsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def create(
-        self,
-        *,
-        platform: CreateExternalAccountsRequestPlatform,
-        account_id: typing.Optional[str] = OMIT,
-        api_key: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request: CreateExternalAccountsRequestBody, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[ExternalAccount]:
         """
-        Creates or returns a Whop-managed Facebook page or TikTok account for an account, or connects the account's existing Klaviyo account with a private API key.
+        Creates or returns a Whop-managed TikTok account for an account, or connects the account's existing Klaviyo account with a private API key. Whop no longer creates Facebook pages.
 
         Parameters
         ----------
-        platform : CreateExternalAccountsRequestPlatform
-            The platform to create the external account on. `facebook` requires the account's `banner_image`, `logo`, and `description`, and `tiktok` requires its `logo`; configure them with [Update Account](/api-reference/beta/accounts/update-account). The account is returned before the platform has created it — its `id` is usable right away, and the rest of the profile fills in once provisioning finishes. `klaviyo` connects the account's existing Klaviyo account with the `api_key` you pass.
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) to create the external account for. An account-scoped API key may omit this to default to its own account. Account API keys cannot update their own account's branding through Update Account; use a user-authenticated path.
-
-        api_key : typing.Optional[str]
-            A private API key for the account on the platform. Required for `klaviyo`, which needs read access to Accounts; not accepted for other platforms. Whop checks the key with the platform before connecting and never returns it.
+        request : CreateExternalAccountsRequestBody
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -223,14 +213,9 @@ class RawExternalAccountsClient:
             "external_accounts",
             base_url=self._client_wrapper.get_environment().api,
             method="POST",
-            json={
-                "account_id": account_id,
-                "api_key": api_key,
-                "platform": platform,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=CreateExternalAccountsRequestBody, direction="write"
+            ),
             request_options=request_options,
             omit=OMIT,
         )
@@ -277,6 +262,17 @@ class RawExternalAccountsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -292,7 +288,6 @@ class RawExternalAccountsClient:
         platform: ConnectExternalAccountsRequestPlatform,
         redirect_url: str,
         account_id: typing.Optional[str] = OMIT,
-        scopes: typing.Optional[typing.Sequence[ConnectExternalAccountsRequestScopesItem]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ConnectExternalAccountsResponse]:
         """
@@ -301,16 +296,13 @@ class RawExternalAccountsClient:
         Parameters
         ----------
         platform : ConnectExternalAccountsRequestPlatform
-            The platform to connect the external account on. Use `meta_business` to connect Meta Business assets, which is how Facebook Pages and Instagram accounts are connected — there is no separate `instagram` value. Use `tiktok` for TikTok accounts, `snapchat` for Snapchat Public Profiles, `linkedin` to connect the authenticated user’s LinkedIn profile, `youtube` to connect their YouTube channel, or `x` to connect their X profile. Use `quickbooks` to connect the account’s QuickBooks Online company: pass `account_id`, omit `scopes`, and the user picks the company in QuickBooks.
+            The platform to connect the external account on. Use `tiktok` to connect the authenticated user’s TikTok profile, `linkedin` for their LinkedIn profile, `youtube` for their YouTube channel, or `x` for their X profile. Use `quickbooks` to connect the account’s QuickBooks Online company: pass `account_id`, and the user picks the company in QuickBooks.
 
         redirect_url : str
             Where to send the user once they finish connecting their accounts. Must be an `https` URL on whop.com; any other host is rejected. On success, the user is redirected with an `external_account_connected` query param naming the platform; if the connection fails, with an `external_account_error` query param instead. The same values also arrive as `social_account_connected` / `social_account_error`.
 
         account_id : typing.Optional[str]
             The Account (biz_ identifier) to connect the external account for. An account-scoped API key may omit this to default to its own account. Omit for user profile connections.
-
-        scopes : typing.Optional[typing.Sequence[ConnectExternalAccountsRequestScopesItem]]
-            The connection purpose. For `meta_business` and `snapchat`, `advertise` is required and connects company advertising assets. For `linkedin`, `youtube`, and `x`, omit scopes to connect the authenticated user’s profile; advertising is not supported. For `tiktok`, omit scopes to connect the authenticated user’s profile, or pass `advertise` to connect company advertising assets. For `quickbooks`, omit scopes; the connection belongs to the account in `account_id`. Profile connections still request the platform permissions needed to read the profile.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -328,7 +320,6 @@ class RawExternalAccountsClient:
                 "account_id": account_id,
                 "platform": platform,
                 "redirect_url": redirect_url,
-                "scopes": scopes,
             },
             headers={
                 "content-type": "application/json",
@@ -662,7 +653,7 @@ class AsyncRawExternalAccountsClient:
             The User that the external accounts are connected to. Provide either this or account_id.
 
         platform : typing.Optional[ListExternalAccountsRequestPlatform]
-            Only return external accounts for the platform that is specified.
+            Only return external accounts for the platform that is specified. An `aimerce` account is returned only with this filter, which requires the `company:manage_checkout` scope instead of `social_account:read`.
 
         trust_level : typing.Optional[ListExternalAccountsRequestTrustLevel]
             Only return external accounts linked with this trust level, such as `oauth` for accounts connected through OAuth.
@@ -785,26 +776,14 @@ class AsyncRawExternalAccountsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def create(
-        self,
-        *,
-        platform: CreateExternalAccountsRequestPlatform,
-        account_id: typing.Optional[str] = OMIT,
-        api_key: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request: CreateExternalAccountsRequestBody, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ExternalAccount]:
         """
-        Creates or returns a Whop-managed Facebook page or TikTok account for an account, or connects the account's existing Klaviyo account with a private API key.
+        Creates or returns a Whop-managed TikTok account for an account, or connects the account's existing Klaviyo account with a private API key. Whop no longer creates Facebook pages.
 
         Parameters
         ----------
-        platform : CreateExternalAccountsRequestPlatform
-            The platform to create the external account on. `facebook` requires the account's `banner_image`, `logo`, and `description`, and `tiktok` requires its `logo`; configure them with [Update Account](/api-reference/beta/accounts/update-account). The account is returned before the platform has created it — its `id` is usable right away, and the rest of the profile fills in once provisioning finishes. `klaviyo` connects the account's existing Klaviyo account with the `api_key` you pass.
-
-        account_id : typing.Optional[str]
-            The Account (biz_ identifier) to create the external account for. An account-scoped API key may omit this to default to its own account. Account API keys cannot update their own account's branding through Update Account; use a user-authenticated path.
-
-        api_key : typing.Optional[str]
-            A private API key for the account on the platform. Required for `klaviyo`, which needs read access to Accounts; not accepted for other platforms. Whop checks the key with the platform before connecting and never returns it.
+        request : CreateExternalAccountsRequestBody
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -818,14 +797,9 @@ class AsyncRawExternalAccountsClient:
             "external_accounts",
             base_url=self._client_wrapper.get_environment().api,
             method="POST",
-            json={
-                "account_id": account_id,
-                "api_key": api_key,
-                "platform": platform,
-            },
-            headers={
-                "content-type": "application/json",
-            },
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=CreateExternalAccountsRequestBody, direction="write"
+            ),
             request_options=request_options,
             omit=OMIT,
         )
@@ -872,6 +846,17 @@ class AsyncRawExternalAccountsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -887,7 +872,6 @@ class AsyncRawExternalAccountsClient:
         platform: ConnectExternalAccountsRequestPlatform,
         redirect_url: str,
         account_id: typing.Optional[str] = OMIT,
-        scopes: typing.Optional[typing.Sequence[ConnectExternalAccountsRequestScopesItem]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ConnectExternalAccountsResponse]:
         """
@@ -896,16 +880,13 @@ class AsyncRawExternalAccountsClient:
         Parameters
         ----------
         platform : ConnectExternalAccountsRequestPlatform
-            The platform to connect the external account on. Use `meta_business` to connect Meta Business assets, which is how Facebook Pages and Instagram accounts are connected — there is no separate `instagram` value. Use `tiktok` for TikTok accounts, `snapchat` for Snapchat Public Profiles, `linkedin` to connect the authenticated user’s LinkedIn profile, `youtube` to connect their YouTube channel, or `x` to connect their X profile. Use `quickbooks` to connect the account’s QuickBooks Online company: pass `account_id`, omit `scopes`, and the user picks the company in QuickBooks.
+            The platform to connect the external account on. Use `tiktok` to connect the authenticated user’s TikTok profile, `linkedin` for their LinkedIn profile, `youtube` for their YouTube channel, or `x` for their X profile. Use `quickbooks` to connect the account’s QuickBooks Online company: pass `account_id`, and the user picks the company in QuickBooks.
 
         redirect_url : str
             Where to send the user once they finish connecting their accounts. Must be an `https` URL on whop.com; any other host is rejected. On success, the user is redirected with an `external_account_connected` query param naming the platform; if the connection fails, with an `external_account_error` query param instead. The same values also arrive as `social_account_connected` / `social_account_error`.
 
         account_id : typing.Optional[str]
             The Account (biz_ identifier) to connect the external account for. An account-scoped API key may omit this to default to its own account. Omit for user profile connections.
-
-        scopes : typing.Optional[typing.Sequence[ConnectExternalAccountsRequestScopesItem]]
-            The connection purpose. For `meta_business` and `snapchat`, `advertise` is required and connects company advertising assets. For `linkedin`, `youtube`, and `x`, omit scopes to connect the authenticated user’s profile; advertising is not supported. For `tiktok`, omit scopes to connect the authenticated user’s profile, or pass `advertise` to connect company advertising assets. For `quickbooks`, omit scopes; the connection belongs to the account in `account_id`. Profile connections still request the platform permissions needed to read the profile.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -923,7 +904,6 @@ class AsyncRawExternalAccountsClient:
                 "account_id": account_id,
                 "platform": platform,
                 "redirect_url": redirect_url,
-                "scopes": scopes,
             },
             headers={
                 "content-type": "application/json",

@@ -2729,8 +2729,8 @@ class TradierOrderProperties(QuantConnect.Orders.OrderProperties):
         ...
 
 
-class InteractiveBrokersFixOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Contains additional properties and settings for an order submitted to Fix Interactive Brokers"""
+class InteractiveBrokersOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Contains additional properties and settings for an order submitted to Interactive Brokers"""
 
     @property
     def account(self) -> str:
@@ -2740,6 +2740,62 @@ class InteractiveBrokersFixOrderProperties(QuantConnect.Orders.OrderProperties):
     @account.setter
     def account(self, value: str) -> None:
         ...
+
+    @property
+    def fa_group(self) -> str:
+        """The account group for the order (only used by Financial Advisors)"""
+        ...
+
+    @fa_group.setter
+    def fa_group(self, value: str) -> None:
+        ...
+
+    @property
+    def fa_method(self) -> str:
+        """
+        The allocation method for the account group order (only used by Financial Advisors)
+        Supported allocation methods are: Equal, NetLiq, AvailableEquity, PctChange
+        """
+        ...
+
+    @fa_method.setter
+    def fa_method(self, value: str) -> None:
+        ...
+
+    @property
+    def fa_percentage(self) -> int:
+        """The percentage for the percent change method (only used by Financial Advisors)"""
+        ...
+
+    @fa_percentage.setter
+    def fa_percentage(self, value: int) -> None:
+        ...
+
+    @property
+    def fa_profile(self) -> str:
+        """The allocation profile to be used for the order (only used by Financial Advisors)"""
+        ...
+
+    @fa_profile.setter
+    def fa_profile(self, value: str) -> None:
+        ...
+
+    @property
+    def outside_regular_trading_hours(self) -> bool:
+        """If set to true, allows orders to also trigger or fill outside of regular trading hours."""
+        ...
+
+    @outside_regular_trading_hours.setter
+    def outside_regular_trading_hours(self, value: bool) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
+        """Returns a new instance clone of this object"""
+        ...
+
+
+class InteractiveBrokersFixOrderProperties(QuantConnect.Orders.InteractiveBrokersOrderProperties):
+    """Contains additional properties and settings for an order submitted to Fix Interactive Brokers"""
 
 
 class IndiaOrderProperties(QuantConnect.Orders.OrderProperties):
@@ -4189,71 +4245,6 @@ class OrderJsonConverter:
         :param value: The value.
         :param serializer: The calling serializer.
         """
-        ...
-
-
-class InteractiveBrokersOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Contains additional properties and settings for an order submitted to Interactive Brokers"""
-
-    @property
-    def account(self) -> str:
-        """The linked account for which to submit the order (only used by Financial Advisors)"""
-        ...
-
-    @account.setter
-    def account(self, value: str) -> None:
-        ...
-
-    @property
-    def fa_group(self) -> str:
-        """The account group for the order (only used by Financial Advisors)"""
-        ...
-
-    @fa_group.setter
-    def fa_group(self, value: str) -> None:
-        ...
-
-    @property
-    def fa_method(self) -> str:
-        """
-        The allocation method for the account group order (only used by Financial Advisors)
-        Supported allocation methods are: Equal, NetLiq, AvailableEquity, PctChange
-        """
-        ...
-
-    @fa_method.setter
-    def fa_method(self, value: str) -> None:
-        ...
-
-    @property
-    def fa_percentage(self) -> int:
-        """The percentage for the percent change method (only used by Financial Advisors)"""
-        ...
-
-    @fa_percentage.setter
-    def fa_percentage(self, value: int) -> None:
-        ...
-
-    @property
-    def fa_profile(self) -> str:
-        """The allocation profile to be used for the order (only used by Financial Advisors)"""
-        ...
-
-    @fa_profile.setter
-    def fa_profile(self, value: str) -> None:
-        ...
-
-    @property
-    def outside_regular_trading_hours(self) -> bool:
-        """If set to true, allows orders to also trigger or fill outside of regular trading hours."""
-        ...
-
-    @outside_regular_trading_hours.setter
-    def outside_regular_trading_hours(self, value: bool) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
-        """Returns a new instance clone of this object"""
         ...
 
 

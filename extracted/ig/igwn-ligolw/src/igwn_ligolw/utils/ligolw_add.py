@@ -51,7 +51,7 @@ def url2path(url):
     If url identifies a file on the local host, return the path to the
     file otherwise raise ValueError.
     """
-    scheme, host, path, nul, nul, nul = urllib.parse.urlparse(url)
+    scheme, host, path, _, _, _ = urllib.parse.urlparse(url)
     if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
         return path
     raise ValueError(url)
@@ -66,7 +66,7 @@ def remove_input(urls, preserves, verbose=False):
         if any(os.path.samefile(path, preserve) for preserve in preserves):
             continue
         if verbose:
-            sys.stderr.write('removing "%s" ...\n' % path)
+            sys.stderr.write(f'removing "{path}" ...\n')
         try:
             os.remove(path)
         except OSError:
@@ -133,7 +133,7 @@ def merge_compatible_tables(elem):
     That is, merge all SnglBurstTables that have the same columns into
     a single table, etc..
     """
-    for name in ligolw.Table.TableByName.keys():
+    for name in ligolw.Table.TableByName:
         tables = ligolw.Table.getTablesByName(elem, name)
         if tables:
             dest = tables.pop(0)
@@ -145,8 +145,7 @@ def merge_compatible_tables(elem):
                 if compare_table_cols(dest, src):
                     # but they have different columns
                     raise ValueError(
-                        "document contains %s tables with incompatible columns"
-                        % dest.Name
+                        f"document contains {dest.Name} tables with incompatible columns"
                     )
                 # and the have the same columns
                 # copy src rows to dest
@@ -186,7 +185,7 @@ def ligolw_add(xmldoc, urls, non_lsc_tables_ok=False, verbose=False, **kwargs):
     # Input
     for n, url in enumerate(urls, 1):
         if verbose:
-            sys.stderr.write("%d/%d:" % (n, len(urls)))
+            sys.stderr.write(f"{n}/{len(urls)}:")
         ligolw_utils.load_url(url, xmldoc=xmldoc, verbose=verbose, **kwargs)
 
     # ID reassignment

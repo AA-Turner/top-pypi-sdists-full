@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sequence-ai
-Version: 0.59.4
+Version: 0.59.6
 Summary: The inference and benchmark platform for physical AI: deploy a robot policy, run it on your robot, score it.
 Project-URL: Homepage, https://generalsequences.com
 Project-URL: Documentation, https://generalsequences.com/docs/
@@ -1500,8 +1500,9 @@ import sequence_ai
 
 sequence_ai.gpu.places("san fr")     # [{"name": "San Francisco", ..., "lon": -122.4194, "also": None}, ...]
 gpus_user = sequence_ai.gpu.add(place="San Francisco, CA", gpu="L4", count=2)
-sequence_ai.gpu.list()
+sequence_ai.gpu.list()                # those live, each by the place you gave
 sequence_ai.gpu.remove(gpus_user[0]["id"])
+sequence_ai.gpu.history(limit=20)     # those over, the one ended last first
 ```
 
 ```
@@ -1510,18 +1511,22 @@ seq gpu add --place "San Francisco, CA" --gpu L4 --count 2
 seq gpu list
 seq gpu ssh <id>
 seq gpu remove <id>
+seq gpu history
 ```
 
-`place` is the exact spot you want it near — a city (`"San Francisco, CA"`) or a lat,lon (`"37.77,-122.42"`); the
-platform opens each machine on the nearest place it can get the card, and `list` shows which region it landed in. You
-never pick a region, and a `--count` over 1 is all-or-nothing. `seq gpu places <words>` (`sequence_ai.gpu.places`) lists
-the cities whose name or another name they go by starts with the words, the largest first, each with its latitude and
-longitude — either is a `place` — as the console's City list does; a city found by another name says it (`also`:
-`seq gpu places paris` lists Warsaw `(as Paris of the North)`), and a state or a country after a comma narrows them
-(`"Springfield, IL"`). `seq gpu ssh <id>` sends your `~/.ssh` public key
+`place` is the exact spot you want it near, in the United States — a US city (`"San Francisco, CA"`) or a lat,lon in the
+US (`"37.77,-122.42"`); a place outside the US is refused, naming the US cities of its name. The platform opens each
+machine on the nearest place it can get the card; `list` shows each by the place you gave, as you gave it, and only
+those live — `seq gpu history` (`sequence_ai.gpu.history`) lists those over, kept 30 days, a page at a time. You never
+pick a region, and a `--count` over 1 is all-or-nothing. `seq gpu places <words>` (`sequence_ai.gpu.places`) lists the US cities whose
+name or another name they go by starts with the words, the largest first, each with its latitude and longitude — either
+is a `place` — as the console's City list does; a city found by another name says it (`also`: `seq gpu places big apple`
+lists New York City `(as Big Apple)`), and a state after a comma narrows them (`"Springfield, IL"`). `seq gpu ssh <id>`
+sends your `~/.ssh` public key
 (making an ed25519 key if you have none), which the platform signs into a certificate for that one machine, and hands
 off to the system `ssh` as root; a command after `--` (`seq gpu ssh <id> -- nvidia-smi`) runs once instead of opening a
-shell. The certificate is passed with `-o CertificateFile=` from a temporary file, so nothing is written into your
+shell. The certificate is passed with `-o CertificateFile=` from a temporary file and the machine's host key kept in a
+file of that GPU's own under `~/.config/sequences`, which `seq gpu remove` deletes, so nothing is written into your
 `~/.ssh`.
 
 For VS Code Remote-SSH or a persistent `ssh`, run `seq gpu ssh <id> --print`: it keeps the certificate under

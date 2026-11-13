@@ -94,8 +94,7 @@ def _build_rationale(scores: list[Score], *, aggregate_description: str) -> tupl
         rationale = scores[0].score_rationale or ""
     else:
         description = aggregate_description
-        # Only include scores with non-empty rationales
-        rationale_parts = [format_score_for_rationale(s) for s in scores if s.score_rationale]
+        rationale_parts = [format_score_for_rationale(s) for s in scores]
         rationale = "\n".join(rationale_parts) if rationale_parts else ""
 
     return description, rationale
@@ -334,7 +333,8 @@ def _create_aggregator_by_category(
 
         return results
 
-    aggregator.__name__ = f"{name}_by_category_"
+    # The all-categories variants return one result, so they need a name (and identity) of their own.
+    aggregator.__name__ = f"{name}_by_category_" if group_by_category else f"{name}_all_categories_"
     return aggregator
 
 

@@ -16,6 +16,8 @@ from .weights import WeightVersion
 MAX_PREVIEW_BYTES = 4 * 1024
 #: `stats --measure mean:reward_parts.<name>` and the like: the mean of one numeric field.
 MEAN_OF_PREFIX = "mean:"
+#: `stats --measure wmean:token_stats.<name>`: a per-sample token mean weighted by its `masked_tokens`.
+WMEAN_OF_PREFIX = "wmean:"
 #: `--by scenario.<key>` and `--where scenario.<key>=<value>`.
 SCENARIO_PREFIX = "scenario."
 

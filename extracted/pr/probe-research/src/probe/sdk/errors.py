@@ -35,6 +35,11 @@ class RosError(Exception):
     #: detail itself is the notice sentence by then, so this is how a caller
     #: tells "in the trash" from any other 410 (`client_too_old` included).
     in_trash: bool = False
+    #: That notice's ``kind`` (run, group, experiment, project) and ``id``: WHICH thing is in the
+    #: trash, never only the one asked for (a run's create resolving a trashed project). None
+    #: without a notice, or from a server whose notice names neither.
+    in_trash_kind: str | None = None
+    in_trash_id: str | None = None
     #: The workspace uuid the API limited this request to when it answered 404 (its
     #: `X-Probe-Workspace-Limit-Applied` echo): the thing may exist outside it. The
     #: transport sets it and says so in the message.

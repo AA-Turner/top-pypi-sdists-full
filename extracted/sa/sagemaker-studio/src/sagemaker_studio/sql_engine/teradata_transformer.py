@@ -14,6 +14,8 @@ except ImportError:
 
 
 class TeraDataTransformer(DatabaseTransformer):
+    # No row limit: Teradata limits with "SELECT TOP n", which has no trailing position.
+
     @classmethod
     def get_dialect(cls) -> Optional[str]:
         return "teradata"

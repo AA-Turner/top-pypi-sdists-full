@@ -251,6 +251,10 @@ class AsyncRemotePolicy:
         self._target_key = connection.session.target_key
         # The server-confirmed hardware tier; "fast" only when the session echoed it.
         self.speed = getattr(connection.session, "speed", None) or "standard"
+        # Praxis-1 (experimental): the engine this session asked for (None when it didn't),
+        # and why standard serves it when it does ("unavailable").
+        self.engine = getattr(connection.session, "engine", None)
+        self.engine_reason = getattr(connection.session, "engine_reason", None)
         self.resolved_optimization_config = connection.session.resolved_optimization_config
         # A base whose sessions carry their robot (π0.5's deployments): the robot the
         # deployment serves; every observation is checked against it before it is sent.
@@ -1475,6 +1479,8 @@ class RemotePolicy:
         self.region = async_policy.region
         self._target_key = getattr(async_policy, "_target_key", None)
         self.speed = getattr(async_policy, "speed", "standard")
+        self.engine = getattr(async_policy, "engine", None)
+        self.engine_reason = getattr(async_policy, "engine_reason", None)
         self.action_hz = getattr(async_policy, "action_hz", None)
         self.native_action_hz = getattr(async_policy, "native_action_hz", None)
         self.chunk_size = getattr(async_policy, "chunk_size", None)
@@ -2451,6 +2457,7 @@ async def aconnect(
     calibration: RequestedCalibration | None = "auto",
     region: RegionPreference = "auto",
     region_fallback: bool | None = None,
+    engine: str | None = None,
     provider: ProviderPreference | None = None,
     speed: SpeedPreference | None = None,
     idle_timeout: int = DEFAULT_CONNECT_IDLE_TIMEOUT_S,
@@ -2474,6 +2481,7 @@ async def aconnect(
         calibration=calibration,
         region=region,
         **({"region_fallback": region_fallback} if region_fallback is not None else {}),
+        **({"engine": engine} if engine is not None else {}),
         provider=provider,
         speed=speed,
         idle_timeout=idle_timeout,
@@ -2500,6 +2508,7 @@ def connect(
     calibration: RequestedCalibration | None = "auto",
     region: RegionPreference = "auto",
     region_fallback: bool | None = None,
+    engine: str | None = None,
     provider: ProviderPreference | None = None,
     speed: SpeedPreference | None = None,
     idle_timeout: int = DEFAULT_CONNECT_IDLE_TIMEOUT_S,
@@ -2526,6 +2535,7 @@ def connect(
                 calibration=calibration,
                 region=region,
                 **({"region_fallback": region_fallback} if region_fallback is not None else {}),
+                **({"engine": engine} if engine is not None else {}),
                 provider=provider,
                 speed=speed,
                 idle_timeout=idle_timeout,

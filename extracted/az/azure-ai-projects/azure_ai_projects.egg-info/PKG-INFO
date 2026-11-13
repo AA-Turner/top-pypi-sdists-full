@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: azure-ai-projects
-Version: 2.10.0
-Summary: Microsoft Corporation Azure AI Projects Client Library for Python
+Version: 2.11.0
+Summary: Microsoft Corporation Azure Ai Projects Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
 Project-URL: repository, https://aka.ms/azsdk/azure-ai-projects-v2/python/code
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -35,7 +36,7 @@ The AI Projects client library is part of the Microsoft Foundry SDK, and provide
 resources in your [Microsoft Foundry](https://ai.azure.com/) Project. Use it to:
 
 * **Create and run Agents** using methods on the `.agents` client property. This includes **Hosted Agents**, which let you run your own containerized agent runtime while using Microsoft Foundry for managed hosting and scaling.
-* **Build and run Voice Agents (preview)** for real-time, speech-to-speech conversational AI, reachable over a WebSocket (`.beta.voice_agents.realtime`) or telephony (`.beta.voice_agents.telephony`), with persisted conversation transcripts and audio through `.beta.voice_agents.conversations`.
+* **Build and run Voice Agents** for real-time, speech-to-speech conversational AI, reachable over a WebSocket (`.voice_agents.realtime`) or telephony (`.voice_agents.telephony`), with persisted conversation transcripts and audio through `.voice_agents.conversations`. Generate agents from a prompt with `.agents.create_from_prompt()`. These generally available features do not require preview opt-in.
 * **Enhance Agents with specialized tools and toolbox tools** such as:
   * Agent-to-Agent (A2A)
   * Azure AI Search
@@ -73,8 +74,29 @@ resources in your [Microsoft Foundry](https://ai.azure.com/) Project. Use it to:
 * **Run Red Team scans (preview)** to identify risks associated with your generative AI application, using `.beta.red_teams` operations.
 * **Create and manage routines (preview)** that execute triggered actions based on configured conditions, using `.beta.routines` operations.
 * **Manage skills (preview)** as reusable capabilities that can be included in toolboxes and agents, using `.beta.skills` operations.
+* **Analyze agent traces** using `.agent_insight_monitors` operations to create monitors, run analyses, and manage insights.
 
 **Important:** This stable package includes Preview features. Preview features available through stable methods require setting `allow_preview=True` when constructing the client, while Preview features exposed via the .beta sub-clients do not. Preview features may change or be removed in future versions and are not recommended for production use.
+
+Voice Agents includes both generally available APIs and preview features:
+
+| Voice Agents feature | Scope and client path |
+|---|---|
+| Realtime sessions and stored conversation/audio readback | GA: `.voice_agents.realtime` and `.voice_agents.conversations`; no preview opt-in |
+| Generate a voice agent from a prompt | GA: `.agents.create_from_prompt()`; no automatic preview header |
+| Teams Phone Extensibility and Twilio telephony | GA: `.voice_agents.telephony`; no preview opt-in |
+| SIP, inline subagent handoff, and post-call delivery | Preview options on GA operations; set `allow_preview=True` |
+| GPT-Live sessions and stored Live conversations | Preview: `.beta.voice_agents.live` and `.beta.voice_agents.live_conversations`; creating a GPT-Live definition also requires `allow_preview=True` |
+| Outbound campaigns | Preview: `.beta.voice_agents.telephony`; operations automatically include the required preview header |
+
+GA generation, conversation operations, and telephony reads do not automatically send preview headers,
+even when the client has `allow_preview=True`. That setting enables opt-in on conditional telephony
+writes for SIP; caller-supplied headers are preserved.
+
+Realtime uses `Realtime`, `RealtimeConnection`, and `RealtimeConnectionManager` from
+`azure.ai.projects.operations`. Their asynchronous counterparts are `AsyncRealtime`,
+`AsyncRealtimeConnection`, and `AsyncRealtimeConnectionManager` from `azure.ai.projects.aio.operations`.
+These GA types do not have `Beta` aliases.
 
 The client library uses version `v1` of the Microsoft Foundry [data plane REST APIs](https://aka.ms/azsdk/azure-ai-projects-v2/api-reference-v1).
 
@@ -206,7 +228,7 @@ The table below lists the operation groups supported by the client library, with
 | Topic | Foundry documentation | Samples folder |
 |---|---|---|
 | Agents (create, run, stream) | [Agents overview](https://learn.microsoft.com/azure/foundry/agents/overview) | `samples/agents/` |
-| Agent Insights (preview) | | [On-demand analysis and scheduled monitors](https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/ai/azure-ai-projects/samples/agent_insights) |
+| Agent Insights | | [On-demand analysis and scheduled monitors](https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/ai/azure-ai-projects/samples/agent_insights) |
 | Hosted agents | [Hosted agents concepts](https://learn.microsoft.com/azure/foundry/agents/concepts/hosted-agents), [Deploy your first hosted agent](https://learn.microsoft.com/azure/foundry/agents/quickstarts/quickstart-hosted-agent) | `samples/hosted_agents/` |
 | Agents tools | [Tool catalog](https://learn.microsoft.com/azure/foundry/agents/concepts/tool-catalog) | `samples/agents/tools/` |
 | Agents optimization | [Prompt optimizer](https://learn.microsoft.com/azure/foundry/observability/how-to/prompt-optimizer), [Agent optimizer overview](https://learn.microsoft.com/azure/foundry/agents/concepts/agent-optimizer-overview) | `samples/agents/optimization/` |
@@ -226,18 +248,17 @@ The table below lists the operation groups supported by the client library, with
 | Sessions | [Manage hosted sessions](https://learn.microsoft.com/azure/foundry/agents/how-to/manage-hosted-sessions?pivots=python) | `samples/hosted_agents/` |
 | Skills (preview) | | `samples/skills/` |
 | Toolboxes | [Curate intent-based toolbox in Foundry](https://learn.microsoft.com/azure/foundry/agents/how-to/tools/toolbox?pivots=python) | `samples/hosted_agents/`, `samples/toolboxes/` |
-| Voice agents (preview) | | `samples/agents/voice/` |
+| Voice agents | | [Voice Agents samples](https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/ai/azure-ai-projects/samples/agents/voice) |
 
-### Voice Agent realtime transport (preview)
+### Voice Agent realtime transport
 
-Select the connection transport with the optional `transport` keyword. The SDK constructs the wire
-query internally; callers do not need to put the transport in `extra_query`. Omitting the option
-preserves the service's default WebSocket behavior.
+Use `project_client.voice_agents.realtime` for agents created with `VoiceAgentDefinition`.
+Connections use WebSocket by default. You can also select the transport explicitly:
 
 ```python
 from azure.ai.projects.models import VoiceAgentTransport
 
-with project_client.beta.voice_agents.realtime.connect(
+with project_client.voice_agents.realtime.connect(
     agent_name="my-voice-agent",
     transport=VoiceAgentTransport.WEBSOCKET,
 ) as connection:
@@ -247,16 +268,97 @@ with project_client.beta.voice_agents.realtime.connect(
 The asynchronous client uses the same keyword:
 
 ```python
-async with async_project_client.beta.voice_agents.realtime.connect(
+async with async_project_client.voice_agents.realtime.connect(
     agent_name="my-voice-agent",
     transport=VoiceAgentTransport.WEBSOCKET,
 ) as connection:
     print("Voice Agent connection is ready.")
 ```
 
-`VoiceAgentTransport.WEBRTC` selects WebRTC signaling over the WebSocket. The application must manage
-the peer connection, media, and SDP offer/answer exchange using `rtc.call.sdp.create` and
-`rtc.call.sdp.created` events. Selecting this value does not automatically create a WebRTC media client.
+Use `transport`, not `extra_query`, to select a transport. `VoiceAgentTransport.WEBRTC` enables
+WebRTC signaling over the WebSocket, but your app must handle the peer connection, audio/video,
+and SDP offer/answer exchange (`rtc.call.sdp.create` and `rtc.call.sdp.created`).
+
+Start with the [text conversation sample](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/samples/agents/voice/sample_voice_agent_realtime_text_conversation_async.py)
+or [microphone sample](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/samples/agents/voice/sample_voice_agent_realtime_audio_conversation_async.py).
+The [async interruption sample](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/samples/agents/voice/sample_voice_agent_realtime_interruption_async.py)
+cancels a spoken response and confirms truncation over the WebSocket.
+It requires no audio devices: because it plays no audio, it reports zero heard milliseconds.
+A real player must report its actual playback position.
+The separate [sync REST example](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/samples/agents/voice/sample_voice_agent_read_generated_audio.py)
+reads an existing generated-audio artifact and optionally saves it to a new output file.
+It requires the stored item ID from REST and a deployment that persists unheard audio.
+
+### Voice Agent campaigns (preview)
+
+The [campaign sample](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/samples/agents/voice/sample_voice_agent_campaign.py)
+create an outbound campaign scheduled for the next day, wait for preparation, then cancel
+and delete the sample campaign. They use `.beta.voice_agents.telephony` and the SDK's
+automatic long-running-operation polling, including operation-guarded final reads and
+conditional cancellation/deletion with fresh ETags.
+
+Use an existing voice agent, an outbound-capable telephony connection, and phone numbers
+you have permission to use. Creation authorizes dialing; if execution is interrupted before
+cancellation, the campaign may place calls at its scheduled time. The samples preserve the
+existing agent and connection.
+
+### Voice Agent GPT-Live (preview)
+
+Use `.beta.voice_agents.live` for GPT-Live sessions and `.beta.voice_agents.live_conversations`
+for their stored conversations. Realtime uses separate clients and agent definitions.
+
+**Get started**
+
+1. Install the sample dependencies:
+
+```powershell
+pip install "azure-ai-projects[voice]" azure-identity python-dotenv
+```
+
+2. Set `FOUNDRY_PROJECT_ENDPOINT` and `FOUNDRY_VOICE_AGENT_MODEL` in your environment or `.env`.
+   The model value must be your GPT-Live **deployment name**, not a model catalog ID.
+3. Choose an example below and follow its `USAGE` instructions. Samples authenticate with
+   `DefaultAzureCredential` and opt in to preview features.
+
+**Choose an example**
+
+| Task | Example | Additional settings |
+|---|---|---|
+| Open, update, and close a session | [Async connection](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/samples/agents/voice/sample_voice_agent_live_connection_async.py) | None |
+| Send text messages | [Async text](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/samples/agents/voice/sample_voice_agent_live_text_conversation_async.py) | `FOUNDRY_MODEL_NAME` for the Responses backend |
+| Run a local function tool | [Async function tool](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/samples/agents/voice/sample_voice_agent_live_function_tool_async.py) | `FOUNDRY_MODEL_NAME` for the Responses backend |
+| Ask a same-project prompt agent a spoken question | [Async managed agent](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/samples/agents/voice/sample_voice_agent_live_managed_agent_async.py) | `FOUNDRY_MODEL_NAME` for the prompt agent |
+| Send a WAV file or use a microphone | [Async audio](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/samples/agents/voice/sample_voice_agent_live_audio_conversation_async.py) | None; a spoken question is included |
+| Read a stored conversation and download audio | [Sync REST readback](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/samples/agents/voice/sample_voice_agent_live_read_conversation.py) | Optional existing conversation and agent IDs |
+
+**Inputs and cleanup**
+
+- Audio examples use the included `audio/question.wav`; no input-path setting or audio device
+  is needed. It asks, "What is two plus two? Please ask the backend agent to answer my question."
+  To use your own **PCM16, mono, 24-kHz WAV**, set `FOUNDRY_VOICE_AUDIO_INPUT_PATH`.
+  The managed-agent example accepts up to 30 seconds and creates both agents in the same project.
+  For microphone mode, install `pyaudio` and set `USE_MICROPHONE = True`.
+- For multiple text turns, set `TEXT_PROMPTS` in the text example. The examples delete only
+  resources they create; existing agents and conversations are never changed by REST readback.
+- To read an existing stored conversation, set `FOUNDRY_VOICE_AGENT_NAME` and
+  `FOUNDRY_VOICE_CONVERSATION_ID`. Use the ID from `session.started.conversation_id`, not
+  `session.id`, after a session with `store=True`. Without an ID, the REST example creates
+  and cleans up its own greeting conversation.
+- Audio is not saved by default. `SAVE_AUDIO = True` saves replies in the audio example;
+  REST downloads use a unique temporary folder. These files contain conversation content;
+  remove them when finished. Customer-storage (BYOS) audio requires your own storage credentials.
+
+**Session notes**
+
+- Wait for `session.started` before sending commands. Foundry starts the session automatically.
+  To finish, send `session.close` and wait for `session.closed`; Live has no `response.cancel`.
+- Keep input audio paced while waiting for context updates. The connection example sends
+  silent frames for this purpose; it needs no microphone.
+- Responses commands require a Responses backend. Foundry handles managed-agent delegation;
+  the client must not answer those requests itself. Session updates cannot change the saved
+  delegation target, frontend model, or audio format.
+- Printed backend text is not proof that speech finished. Audio examples wait for three
+  quiet seconds, so a long pause can end capture early. Unsupported REST routes return HTTP 404.
 
 ## Client-side tracing
 
@@ -324,7 +426,8 @@ openai_logger.setLevel(logging.DEBUG)
 openai_logger.propagate = False
 openai_logger.addHandler(handler)
 
-# Optional: Voice Agent WebSocket transport logger.
+# Optional: Voice Agent Realtime WebSocket transport logger.
+# For GPT Live, use "azure.ai.projects.live" instead.
 voice_logger = logging.getLogger("azure.ai.projects.realtime")
 voice_logger.setLevel(logging.DEBUG)
 voice_logger.propagate = False
@@ -378,6 +481,97 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 
 # Release History
 
+## 2.11.0 (2026-11-13)
+
+### Features Added
+
+* Voice Agents are generally available through `.voice_agents.realtime`, `.voice_agents.conversations`, and the existing binding, call, transfer-target, and call-job operations on `.voice_agents.telephony`. Agent generation is now available through `.agents.create_from_prompt()`. GPT Live, inline subagent handoff, SIP, post-call delivery, and campaigns remain in preview.
+* External Agents are generally available. Creating agents with `ExternalAgentDefinition` no longer requires `allow_preview=True`.
+* Agent Insights are generally available through `.agent_insight_monitors`, with `AgentInsightPriorities`, `AgentInsightPrioritiesRead`, `AgentInsightRunInputs`, and `AgentInsightSummary`.
+* Added skill optimization through `SkillOptimizationConfiguration`, with trace-based learning, skill references, optional evaluation, and typed execution, validation, and result models. Added `AgentTracesOptimizationContext`, `SkillReferencesOptimizationContext`, and `SkillOptimizationEvaluationConfiguration`.
+* Added optimization trace selection through `AgentOptimizationFixedTraceWindow`, `AgentOptimizationTraceIdsTraceWindow`, and `AgentOptimizationAppInsightsTraceConnectionConfiguration`.
+* Added `.agents.download_optimization_job_file()` and `AgentOptimizationCandidateFile` for downloading optimization artifacts. Added optional `error`, `execution_summary`, `files`, and `resolved_context` properties on `AgentOptimizationCandidate`, and `AgentOptimizationCandidateStatus.SKIPPED`.
+* Added shared `JobStatus.SKIPPED` for Agent Insights runs, agent optimization, data generation, evaluator generation, and telephony campaign operations. Agent optimization job and Agent Insights run status filters also accept this value.
+* Added quality and safety rubric generation through `EvaluatorGenerationCategory`, Boolean and Likert scoring through `RubricScoring` and `RubricScoringMode`, and optional `Dimension.allowed` and read-only `Dimension.generated_weight`. `Dimension.weight` is now optional.
+* Added optional `category`, `dimensions`, `pass_threshold`, and `scoring` properties on `EvaluatorGenerationInputs` and `EvaluatorGenerationJob`. `EvaluatorGenerationInputs.model` is now optional for safety generation. Added optional `TracesEvaluatorGenerationJobSource.trace_ids` and `RubricBasedEvaluatorDefinition.scoring`.
+* Added preview `.beta.evaluators.list_diagnostics()` for evaluator publication lineage and diagnostics, with actor, change, and health metric models.
+* Added optional `EndpointBasedEvaluatorDefinition.schema_version` and `EndpointEvaluatorSchemaVersion` for selecting an endpoint evaluator contract version.
+* Added scheduled dataset and trace evaluations through `DatasetEvaluationRuleAction` and `TraceEvaluationRuleAction`. `EvaluationRule` now exposes optional `schedule`, `provisioning_status`, and `error` properties, and `EvaluationRuleEventType` includes `TIMER_TRIGGER`.
+* Added typed evaluation input sources for JSONL, CSV, stored completions, target completions, conversation simulation, and agent traces, including `CreateEvalJsonlRunDataSource`, `CsvEvalRunDataSource`, `TargetCompletionEvalRunDataSource`, `UserConversationSimulationEvalRunDataSource`, `TraceSourceEvalRunDataSource`, and `TraceSourcePreviewEvalRunDataSource`. Evaluation-rule annotations and the `DatasetEvaluationSource` and `TraceEvaluationSource` unions use these model names; wire discriminator values are unchanged.
+* Added `DataGenerationJobType.CONVERSATIONS`, `UserConversationSimulationDefaultConfiguration`, and optional `TracesDataGenerationJobConfiguration.generate_test_case_rubric`. `DataGenerationJobResult.warnings` now exposes `DataGenerationWarning` and `DataGenerationWarningCode`.
+* `DailyRecurrenceSchedule.hours` is now optional; when omitted, the service uses the current UTC hour at schedule creation.
+* Added optional `MCPToolboxTool.request_header_bindings`, with `MCPToolboxRequestHeaderBinding` and `MCPToolboxRequestHeaderBindingSource`, for forwarding client-supplied headers to an MCP server.
+* Added preview GPT Live sessions through `.beta.voice_agents.live.connect()` and `VoiceAgentLiveDefinition`, with typed configuration, session updates, text and audio input, lifecycle and usage events, and Responses backend tools.
+* Added GPT Live delegation through `VoiceAgentLiveResponsesDelegation`, `VoiceAgentLiveClientDelegation`, and `VoiceAgentLiveManagedAgentDelegation` for Responses backends, application-managed work, and same-project prompt agents.
+* Added `.beta.voice_agents.live_conversations` for managing stored Live conversations and retrieving conversation items and audio.
+* Added optional preview `VoiceAgentDefinition.post_call` with `VoiceAgentPostCallConfig`, `VoiceAgentEventGridPostCallDestination`, and `VoiceAgentRoutinePostCallDestination` for post-call transcript and optional audio delivery.
+* Added preview SIP telephony through `TelephonyProvider.SIP`, `SipTelephonyBinding`, and `SipTelephonyBindingListItem`. Added optional `UpdateTelephonyBindingRequest.allowed_calling_numbers`.
+* Added `.voice_agents.telephony.list_call_jobs()` and `.voice_agents.telephony.delete_call_job()`.
+* Added preview outbound campaign operations on `.beta.voice_agents.telephony`, including long-running creation, cancellation, and deletion, listing and retrieval, validation errors, operation status, and ETag match conditions.
+* Added campaign configuration, scheduling, and progress models, including `TelephonyCampaign`, `TelephonyRecipient`, `ImmediateSchedule`, `AtTimeSchedule`, `PerRecipientSchedule`, and `TelephonyCampaignProgress`. Added optional `TelephonyCampaignDatasetReference.version` and read-only `TelephonyCallJob.campaign_name`.
+* Added preview inline Voice Agent subagents and handoff through `VoiceAgentInlineSubagentConfig`, `InlineVoiceSubagent`, and `VoiceAgentHandoffPolicy`, with handoff lifecycle events and optional `VoiceAgentSessionResponseConfig.handoff`.
+* Added Voice Agent system tools `VoiceAgentTransferSystemTool`, `VoiceAgentSendDtmfSystemTool`, `VoiceAgentSendSmsSystemTool`, `VoiceAgentCollectDtmfSystemTool`, `VoiceAgentCollectSmsSystemTool`, `VoiceAgentDigitRecognitionSystemTool`, and `VoiceAgentLanguageDetectionSystemTool`, with transfer targets and routing models. Added optional `VoiceAgentSystemTool.timeout`.
+* Added realtime system-tool items, argument-streaming events, and input-collection events through `VoiceAgentSystemToolItem`, `VoiceAgentServerEventSystemToolArgumentsDelta`, `VoiceAgentServerEventSystemToolArgumentsDone`, and `VoiceAgentServerEventInputCollectionStatus`.
+* Added `VoiceAgentBaseDefinition`, `VoiceAgentVoiceConfig`, and `VoiceAgentSubProtocol` for shared Realtime and Live configuration, with voice-specific tool, greeting, conversation-engine, and event-discriminator enums.
+* Added optional `MisalignmentErrorDetailsResource.review_target` and `RealtimeResponseStatusDetailsError.message`.
+* Expanded known-value annotations on `ImageGenTool.model` for the `gpt-image-2.5-sunburst` and `gpt-image-2.5-flare` families and on `ImageGenTool.quality` for `xhigh` and `max`.
+* Added explicit recursive typing for nested `CompoundFilter` instances in `CompoundFilter.filters`, while retaining support for arbitrary values.
+
+### Breaking Changes
+
+Breaking changes in beta methods:
+
+* Moved `.beta.agents.create_from_prompt()` to `.agents.create_from_prompt()`, and `.beta.voice_agents.realtime`, `.beta.voice_agents.conversations`, and the existing binding, call, transfer-target, and call-job operations on `.beta.voice_agents.telephony` to `.voice_agents`. GPT Live and campaign management remain under `.beta.voice_agents`.
+* Renamed argument `telephony_binding` to `binding` on the promoted `.voice_agents.telephony.create_binding()` method. Its typed body now accepts `TelephonyBinding` instead of `CreateTelephonyBindingRequest`.
+* Renamed argument `body` to `job` on the promoted `.voice_agents.telephony.create_call_job()` method. Its typed body now accepts `TelephonyCallJobCreate` instead of `CreateTelephonyCallJobRequest`.
+* Removed the `status` filter from the promoted `.voice_agents.telephony.list_bindings()` method.
+* Moved `.beta.agent_insight_monitors` to `.agent_insight_monitors`, and renamed `BetaAgentInsightMonitorsOperations` to `AgentInsightMonitorsOperations`.
+* Agent Insights `create()`, `update()`, `begin_create_run()`, and `update_insight()` now accept flattened keyword arguments or JSON bodies instead of typed request models. Positional body arguments `monitor`, `run`, and `update` are now named `body`.
+* Renamed Agent Insights `list_insights()` filters `category`, `severity`, and `status` to `categories`, `severities`, and `statuses`, respectively; they now accept lists instead of single values.
+
+Breaking changes in beta classes:
+
+* Renamed `BetaRealtime`, `BetaRealtimeConnection`, and `BetaRealtimeConnectionManager` to `Realtime`, `RealtimeConnection`, and `RealtimeConnectionManager`, respectively, with corresponding asynchronous class renames. The old exports were removed.
+* Removed `AgentInsightMonitorCreate`, `AgentInsightMonitorUpdate`, `AgentInsightRunCreate`, and `AgentInsightUpdate`; use flattened operation arguments or JSON bodies. `AgentInsightRun.inputs` now uses `AgentInsightRunInputs`.
+* Removed `AgentInsightOverviewSource`, `AgentInsightsOverview`, `AgentInsightsOverviewOverride`, and `AgentInsightMonitor.overview`. Use `AgentInsightMonitor.agent_summary` and `priorities`.
+* Removed `CreateTelephonyBindingRequest`, `CreateTeamsPhoneExtensibilityTelephonyBindingRequest`, and `CreateTwilioTelephonyBindingRequest`. Use `TelephonyBinding`, `TeamsPhoneExtensibilityTelephonyBinding`, and `TwilioTelephonyBinding`, respectively.
+* Renamed `CreateTelephonyCallJobRequest` to `TelephonyCallJobCreate` and `TelephonyOutboundFixedIntervalRetryPolicy` to `FixedIntervalRetryPolicy`.
+* Removed `TelephonyOutboundDestination` and `TelephonyOutboundDestinationType`; use `TelephonyAddress` and `TelephonyAddressType`. Call-job `source` and `destination` now use `TelephonyAddress`; `source` no longer accepts a plain string.
+* Removed `TelephonyTransferDestination`, `PSTNTelephonyTransferDestination`, `SipTelephonyTransferDestination`, `TeamsTelephonyTransferDestination`, and `TelephonyTransferDestinationKind`. `TelephonyTransferTarget.destination` now uses `TelephonyAddress`, with `PhoneNumber`, `SipAddress`, and `TeamsAddress` variants. The discriminator is `type` instead of `kind`, and the PSTN value is `phone_number` instead of `pstn`.
+* Removed `TelephonyBindingStatus` and the `status` property from bindings, binding list items, their provider-specific subclasses, and `UpdateTelephonyBindingRequest`.
+* `TelephonyBinding.id` and `incoming_call_url` are now read-only. Removed `TelephonyCallJob.object`; its service-managed identity, status, cancellation, retry, revision, and timestamp properties are now read-only.
+* `VoiceAgentSubagentConfig` is now a polymorphic base requiring `subagent_type` instead of `subagents`. Use `VoiceAgentDelegateSubagentConfig` for referenced agents or `VoiceAgentInlineSubagentConfig` for inline subagents.
+* Renamed `VoiceAgentSubagent.invoke_timeout_seconds` to `invoke_timeout`. The wire name is unchanged.
+* `VoiceAgentResponseCreateParams.input` now uses dedicated response-input models instead of `RealtimeConversationItem`.
+* Constructor argument `timestamp_type` on `VoiceAgentServerEventResponseAudioTimestampDelta` is now required; use `VoiceAgentAudioTimestampType.WORD`. Constructor arguments `left` and `right` on `VoiceRecordingChannelLayout` are now required; use `VoiceAudioRole.USER` and `VoiceAudioRole.AGENT`.
+* Renamed `VoiceAgentInputTranscriptionModel.GPT4_O_TRANSCRIBE`, `GPT4_O_MINI_TRANSCRIBE`, `GPT4_O_TRANSCRIBE_DIARIZE`, and `WHISPER1` to `GPT_4_O_TRANSCRIBE`, `GPT_4_O_MINI_TRANSCRIBE`, `GPT_4_O_TRANSCRIBE_DIARIZE`, and `WHISPER_1`, respectively. Wire values are unchanged.
+
+### Bugs Fixed
+
+* Fixed the GPT Live sample helper to enforce the overall event-wait deadline when sending silence audio. Stalled audio sends are now cancelled and raise `TimeoutError` instead of hanging indefinitely.
+
+### Dependency update
+
+* Added Python 3.15 to the package's supported-version classifiers. The minimum Python version remains 3.10.
+
+### Sample updates
+
+* Added `sample_voice_agent_campaign.py` demonstrating future-scheduled outbound campaign creation, polling, cancellation, and deletion.
+* Added `sample_voice_agent_live_read_conversation.py` demonstrating stored GPT Live conversation, transcript, and audio retrieval.
+* Added `sample_voice_agent_read_generated_audio.py` demonstrating retrieval of generated audio from an interrupted Realtime reply.
+* Added GPT Live examples demonstrating session lifecycle and settings updates, text and audio conversations, function tools, and same-project managed-agent delegation, with shared audio and event helpers.
+* Added a Realtime interruption example demonstrating response cancellation and conversation-item truncation.
+* Added `sample_dataset_generation_job_traces_for_evaluation_with_test_case_rubric.py` demonstrating evaluation-dataset generation with test-case rubric dimensions from agent conversation traces.
+* Added `sample_audio_conversation_evaluation.py` demonstrating grading existing voice conversations with built-in audio evaluators.
+* Added `sample_voice_agent_simulation_evaluation.py` demonstrating simulated voice conversations graded with audio evaluators.
+* Added `sample_dataset_evaluation_rule.py` demonstrating scheduled evaluation against a fixed query dataset, and `sample_trace_evaluation_rule.py` demonstrating scheduled evaluation of Application Insights traces.
+* Added `sample_endpoint_evaluator.py` demonstrating endpoint-evaluator registration through a project connection and inline-data evaluation, and `sample_endpoint_evaluator_schema_0_0_1.py` demonstrating the older endpoint contract. Removed the separate API-key and Entra ID samples after consolidating their scenarios.
+* Updated rubric examples for Likert, Boolean, and safety scoring, pass thresholds, allowed dimension values, and generated weights.
+* Updated Agent Insights examples for the GA client and flattened operation arguments, and External Agent and Voice Agent examples for GA paths and preview opt-in requirements.
+* Updated optimization polling examples to handle skipped jobs as terminal outcomes with no optimization result.
+* Updated Realtime audio, conversation, logging, and configuration examples. Consolidated the synchronous Realtime text-conversation example into the asynchronous example, moved the function-tool example to an asynchronous sample, and removed the separate basic asynchronous Voice Agent sample.
+* Updated installation instructions in samples added or modified for this release to require `azure-ai-projects>=2.11.0`, and refreshed the datasets and evaluations sample READMEs.
+
 ## 2.10.0 (2026-10-30)
 
 ### Features Added
@@ -419,6 +613,7 @@ Breaking changes in preview classes:
 
 ### Sample updates
 
+* Added sync/async recorded-conversation and voice-agent simulation evaluation samples using built-in audio evaluators, distinct target/simulator/judge configuration, and bounded polling with cleanup.
 * Added `sample_log_from_voice_agent.py` in `samples/logs`, demonstrating Voice Agent realtime diagnostics through the `azure.ai.projects.realtime` logger without OpenTelemetry setup.
 * Fixed the realtime audio conversation sample to enable input transcription, count only successfully sent audio payloads, and finish pending capture sends before printing transfer totals.
 * Fixed the conversation deletion snippet to handle the API's no-content response.

@@ -15,7 +15,7 @@ import tempfile
 from urllib.parse import urlsplit
 
 from werkzeug.wrappers import Request, Response
-from fitevict.serve.auth import parse
+from hugpy_core.lifted.key_auth import parse
 from hugpy_core.router.observability import store as routing
 
 CREATOR = "guest-pass"
@@ -34,7 +34,7 @@ READ = {
     "/api/video/prompt/assist/models", "/api/movie/presets",
 }
 RUN = {
-    "/v1/chat/completions", "/api/prompt", "/api/media/upload", "/api/uploads",
+    "/v1/chat/completions", "/api/prompt", "/api/media/upload", "/api/uploads", "/api/video/upload",
     "/api/media/analyze", "/api/media/transcribe", "/api/media/summarize",
     "/api/media/keywords", "/api/media/embed", "/api/media/similarity",
     "/api/media/vision", "/api/media/imagine", "/api/media/extract",
@@ -317,7 +317,7 @@ class GuestAccess:
                 encoded = json.dumps(payload).encode()
                 spool.seek(0); spool.truncate(); spool.write(encoded); spool.seek(0)
                 env["CONTENT_LENGTH"] = str(len(encoded))
-            if path.rstrip("/") in ("/api/media/upload", "/api/uploads"):
+            if path.rstrip("/") in ("/api/media/upload", "/api/uploads", "/api/video/upload"):
                 valid = valid and body_req.form.get("sid") == sid
             body_req.close()
             spool.seek(0)

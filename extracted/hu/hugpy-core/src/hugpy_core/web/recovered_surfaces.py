@@ -77,7 +77,10 @@ def _live_capabilities():
 def api_version():
     from importlib.metadata import version
     return {"ok": True, "api": 1, "service": "hugpy-core",
-            "capabilities": ["routing-workers-v1"],
+            # live-api-v1: this Core answers /live-api/<section>/... itself (web/ui.py LIVE_SECTIONS)
+            # live-api-fleet-v1: that door also carries fleet (workers, models, catalog) and
+            #   agent/register for a use key (web/ui.py LIVE_USE_ROUTES)
+            "capabilities": ["routing-workers-v1", "live-api-v1", "live-api-fleet-v1"],
             "version": version("hugpy-core")}
 
 
@@ -309,7 +312,7 @@ def fleet_catalog(view=None, **_):
 
 
 def fleet_catalog_model(key, records=None, offset=0, **_):
-    """One catalog model; ``?records=wrapper.<table>`` pages that source table's rows."""
+    """One catalog model; ``?records=discovery.<api view>`` pages that view's rows."""
     from hugpy_core.models import catalog_live
     try:
         result = catalog_live.model(key, records=records or None, offset=max(0, int(offset or 0)))
@@ -318,11 +321,37 @@ def fleet_catalog_model(key, records=None, offset=0, **_):
     return result if result is not None else _error("Unknown model", 404)
 
 
+def _discovered_central_drives() -> list:
+    from hugpy_core import discovery
+    from hugpy_core.registry import central_store
+    try:
+        declared = discovery.central_drives()
+    except Exception:  # noqa: BLE001 — no discovery export on this host
+        return []
+    held = central_store.discovered()
+    result = []
+    for drive in declared:
+        base = (drive.get("root") or "").rstrip("/")
+        mine = [row for row in held if row["dir"].startswith(base + "/") and not row["missing"]]
+        result.append({"path": base, "max_bytes": drive.get("model_budget_bytes"),
+                       "fs_total": drive.get("capacity_bytes"), "fs_free": drive.get("free_bytes"),
+                       "held_bytes": sum(row["bytes"] for row in mine), "room": drive.get("budget_remaining_bytes"),
+                       "copies": len(mine), "verified": 0, "unhashed": len(mine),
+                       "unhashed_bytes": sum(row["bytes"] for row in mine),
+                       "models": sorted(row["model_key"] for row in mine), "real_path": os.path.realpath(base)})
+    return result
+
+
 def central_drives():
     from hugpy_core.web.native_fleet import central_copies
+    declared = drives.declared_drives()
+    if not declared:
+        # No drive declared in this Core: discovery owns the central drive's declaration and its
+        # measurements, and knows what is on it.
+        return {"drives": _discovered_central_drives(), "source": "discovery"}
     copies = central_copies()
     result = []
-    for drive in drives.declared_drives():
+    for drive in declared:
         mine = [c for c in copies if c["drive"] == drive["path"]]
         result.append({**drives.drive_usage(drive, sum(int(c.get("bytes") or 0) for c in mine)),
                        "copies": len(mine),

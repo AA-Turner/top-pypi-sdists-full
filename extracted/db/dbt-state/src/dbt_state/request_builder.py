@@ -371,14 +371,17 @@ class RequestBuilder:
             node_config
         )
         if compare_selected_columns and not speculative:
-            # traversal_result.seen_tables contains the all the upstream tables that this model
-            # depends on, plus the ones that are only reachable through view definitions
-            # we remove the ones that have already been handled by this run, because those
-            # already have schemas stored in state that the server can use
-            edge_tables = traversal_result.seen_tables - self._node_resolution.selected_target_fqns
-
-            if target_table is not None:
-                edge_tables.discard(target_table)
+            # traversal_result.seen_tables contains all the upstream tables that this model
+            # depends on, plus the ones that are only reachable through view definitions.
+            # We remove the ones built by this run, because those already have schemas stored
+            # in state that the server can use. This node's own target is an exception: it's in
+            # seen_tables only when the compiled SQL reads it (`{{ this }}`, e.g. inside
+            # `is_incremental()`), and impact analysis needs its schema to hash the
+            # self-reference. If it doesn't exist yet, get_schemas returns None for it and it's
+            # filtered out of table_schemas.
+            edge_tables = traversal_result.seen_tables - (
+                self._node_resolution.selected_target_fqns - {target_table}
+            )
 
             if edge_tables:
                 self._prefetcher.await_prefetch_schemas()
@@ -393,6 +396,18 @@ class RequestBuilder:
                     for name, columns in self._adapter_ext.get_schemas(edge_tables).items()
                     if columns is not None
                 ]
+
+        # Lets the server hash a first run's target like a FULL build. Microbatch is excluded:
+        # its batches build on each other, and the relation cache may not yet see a target an
+        # earlier batch created
+        target_table_missing = (
+            compare_selected_columns
+            and not speculative
+            and target_table is not None
+            and execution_type != shared_models.ModelExecutionType.FULL
+            and microbatch_window is None
+            and self._is_target_table_missing(node)
+        )
 
         dependency_kinds = (
             self._node_resolution.dependency_kinds_by_fqn if compare_selected_columns else {}
@@ -464,6 +479,7 @@ class RequestBuilder:
             defer_enabled=self._node_resolution.defer_enabled,
             table_schemas=table_schemas,
             compare_selected_columns=compare_selected_columns,
+            target_table_missing=target_table_missing,
         ), last_modified_duration_ms
 
     def build_clone_request(
@@ -568,6 +584,25 @@ class RequestBuilder:
                 if execution_type == "merge" and not getattr(node.config, "unique_key", None):
                     execution_type = "append"
         return execution_type.upper()
+
+    def _is_target_table_missing(self, node: ModelOrSnapshotOrTestNode) -> bool:
+        """Whether dbt's relation cache confirms the node's target doesn't exist yet.
+
+        A failed lookup counts as existing, since a missing target lets the server leave the
+        target's own timestamp out of its edge node data hash.
+        """
+        try:
+            return (
+                self._adapter_ext.adapter.get_relation(
+                    database=node.database, schema=node.schema, identifier=node.identifier
+                )
+                is None
+            )
+        except Exception as e:
+            events.fire_debug_event(
+                "Failed to look up target relation for node {}: {}", node.unique_id, str(e)
+            )
+            return False
 
     @property
     def clone_chain_depth_limit(self) -> t.Optional[int]:

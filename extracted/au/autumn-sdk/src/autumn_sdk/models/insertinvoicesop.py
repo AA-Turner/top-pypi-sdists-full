@@ -25,7 +25,7 @@ class InsertInvoicesGlobals(BaseModel):
         Optional[str],
         pydantic.Field(alias="x-api-version"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
-    ] = "2.5.0"
+    ] = "2.6.0"
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -176,6 +176,8 @@ r"""The billing processor that owns this invoice."""
 
 
 class InsertInvoicesInvoiceResponseTypedDict(TypedDict):
+    id: str
+    r"""The Autumn invoice ID"""
     plan_ids: List[str]
     r"""Array of plan IDs included in this invoice"""
     stripe_id: str
@@ -184,18 +186,16 @@ class InsertInvoicesInvoiceResponseTypedDict(TypedDict):
     r"""The status of the invoice"""
     total: float
     r"""The total amount of the invoice"""
+    amount_paid: Nullable[float]
+    r"""The amount paid on the invoice, in major currency units. Null on invoices recorded before amounts paid were tracked."""
+    refunded_amount: float
+    r"""The total amount refunded on the invoice, in major currency units"""
     currency: str
     r"""The currency code for the invoice"""
     created_at: float
     r"""Timestamp when the invoice was created"""
-    id: str
-    r"""The Autumn invoice ID."""
     customer_id: str
     r"""The customer this invoice belongs to."""
-    amount_paid: Nullable[float]
-    r"""The amount paid in major currency units."""
-    refunded_amount: float
-    r"""The refunded amount in major currency units."""
     processor_type: NotRequired[InsertInvoicesProcessorTypeResponse]
     r"""The billing processor that owns this invoice."""
     hosted_invoice_url: NotRequired[Nullable[str]]
@@ -203,6 +203,9 @@ class InsertInvoicesInvoiceResponseTypedDict(TypedDict):
 
 
 class InsertInvoicesInvoiceResponse(BaseModel):
+    id: str
+    r"""The Autumn invoice ID"""
+
     plan_ids: List[str]
     r"""Array of plan IDs included in this invoice"""
 
@@ -215,23 +218,20 @@ class InsertInvoicesInvoiceResponse(BaseModel):
     total: float
     r"""The total amount of the invoice"""
 
+    amount_paid: Nullable[float]
+    r"""The amount paid on the invoice, in major currency units. Null on invoices recorded before amounts paid were tracked."""
+
+    refunded_amount: float
+    r"""The total amount refunded on the invoice, in major currency units"""
+
     currency: str
     r"""The currency code for the invoice"""
 
     created_at: float
     r"""Timestamp when the invoice was created"""
 
-    id: str
-    r"""The Autumn invoice ID."""
-
     customer_id: str
     r"""The customer this invoice belongs to."""
-
-    amount_paid: Nullable[float]
-    r"""The amount paid in major currency units."""
-
-    refunded_amount: float
-    r"""The refunded amount in major currency units."""
 
     processor_type: Optional[InsertInvoicesProcessorTypeResponse] = "stripe"
     r"""The billing processor that owns this invoice."""
@@ -242,7 +242,7 @@ class InsertInvoicesInvoiceResponse(BaseModel):
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         optional_fields = set(["processor_type", "hosted_invoice_url"])
-        nullable_fields = set(["hosted_invoice_url", "amount_paid"])
+        nullable_fields = set(["amount_paid", "hosted_invoice_url"])
         serialized = handler(self)
         m = {}
 

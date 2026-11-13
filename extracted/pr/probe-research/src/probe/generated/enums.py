@@ -1349,6 +1349,16 @@ class RunStatus(StrEnum):
     untracked = 'untracked'
 
 
+class RunType(StrEnum):
+    """
+    What a run is, as its creator declares it (0495). Training and evaluation are phases inside a run, not types.
+    RL presentation (RL workspace, Rollouts, Compute timeline, Trials) follows `RL`; DESIGN.md (run.py).
+    """
+
+    general = 'general'
+    rl = 'rl'
+
+
 class ObservedBy(StrEnum):
     output_helper = 'output_helper'
     node_agent = 'node_agent'

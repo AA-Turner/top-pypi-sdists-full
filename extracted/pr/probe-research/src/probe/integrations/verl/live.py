@@ -10,16 +10,15 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import contextlib
 import contextvars
 import functools
 import hashlib
-import importlib.abc
 import itertools
 import json
 import logging
 import os
 import socket
-import sys
 import threading
 from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
@@ -29,6 +28,8 @@ from probe.generated.samples import AttemptPhase
 
 from .._live import LiveAttempts, refuse_commands
 from .rows import LIVE_KEY_FIELD, STOP_REASON_FIELD, TASK_KEY_FIELD, Split, get_scenario
+from .tool_loop import ROLLOUT_EVAL_FIELD, ROLLOUT_FIELD, open_recording, watch_tool_loop_imports
+from .wrapping import guard, guard_async, is_wrapped, make_install, set_wrapped
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +45,6 @@ RUN_LOOP = "_run_agent_loop"
 #: Scores a finished loop's outputs (`agent_loop.py:1055`); both postprocesses call it, legacy `:910`, V1
 #: `v1/agent_loop_tq.py:165`.
 COMPUTE_SCORE = "_compute_score"
-#: Marks a wrap Probe put on, so a second install never wraps it again.
-WRAP_MARK = "__probe_live__"
 #: How long an agent loop waits for its process to join the run (once per process, off the event loop) before it runs
 #: unrecorded; the worker's construction starts the join, so it is normally done long before the first loop.
 START_WAIT_SECONDS = 5.0
@@ -56,11 +55,14 @@ START_WAIT_SECONDS = 5.0
 class _Loop:
     """One agent loop as its wraps see it: its live key (None when unrecorded), whether it validates, and the stop
     reason of its newest model call (`TokenOutput.stop_reason`, `workers/rollout/replica.py:41`). One object per loop,
-    so a task the loop starts (a copied context) writes to it too."""
+    so a task the loop starts (a copied context) writes to it too. A recorded loop also holds its capture
+    (`tool_loop.LoopRecording`) and, once scored, the stamp it carries (`""` for none)."""
 
     key: str | None
     is_validate: bool
     stop_reason: str | None = None
+    recording: Any = None
+    rollout: str = ""
 
 
 _LOOP: contextvars.ContextVar[_Loop | None] = contextvars.ContextVar("probe_verl_loop", default=None)
@@ -85,6 +87,7 @@ class VerlLive:
     """One AgentLoopWorker process's live samples."""
 
     def __init__(self, run: Any) -> None:
+        self.run = run
         samples = run.samples.as_producer(ROLLOUT_PRODUCER)
         refuse_commands(samples, COMMAND_REFUSAL)
         self.attempts = LiveAttempts(samples)
@@ -159,14 +162,14 @@ class VerlLive:
             key = loop.key if loop is not None else None
             if key is None or not attempts.is_open(key):
                 output = await generate(*args, **kwargs)
-                _guard(_keep_stop_reason, loop, output)
+                guard(_keep_stop_reason, loop, output)
                 return output
             number = turns.get(key, 0) + 1
             attempts.send_progress([key], phase=AttemptPhase.GENERATING, turns=number - 1, activity=f"model call {number}")
             output = await generate(*args, **kwargs)
-            _guard(_keep_stop_reason, loop, output)
+            guard(_keep_stop_reason, loop, output)
             turns[key] = number
-            _guard(self._record_version, output)
+            guard(self._record_version, output)
             attempts.send_progress([key], phase=AttemptPhase.ENVIRONMENT, turns=number,
                                    activity=f"model replied ({getattr(output, 'stop_reason', None) or 'done'})")
             return output
@@ -220,7 +223,7 @@ def wrap_agent_loop_worker(cls: type) -> bool:
     starts the process's join. Once per class; on the class that defines them, before Ray builds an actor class from it
     (Ray's copies then call the wraps)."""
     original = cls.__dict__.get(RUN_LOOP)
-    if not callable(original) or getattr(original, WRAP_MARK, False):
+    if not callable(original) or is_wrapped(original):
         return False
     init = cls.__dict__.get("__init__")
     if callable(init):
@@ -228,62 +231,75 @@ def wrap_agent_loop_worker(cls: type) -> bool:
         @functools.wraps(init)
         def __init__(self: Any, *args: Any, **kwargs: Any) -> None:
             init(self, *args, **kwargs)
-            _guard(start_live)  # a worker is made long before its first loop: the join is done by then
+            guard(start_live)  # a worker is made long before its first loop: the join is done by then
 
         setattr(cls, "__init__", __init__)
 
     @functools.wraps(original)
     async def _run_agent_loop(self: Any, *args: Any, **kwargs: Any) -> Any:
-        live = await _guard_async(get_live)
+        live = await guard_async(get_live)
         trajectory = kwargs.get("trajectory", args[1] if len(args) > 1 else None)
         is_live = live is not None and isinstance(trajectory, Mapping)
-        key = _guard(live.start_loop, self, trajectory, kwargs) if is_live else None
+        key = guard(live.start_loop, self, trajectory, kwargs) if is_live else None
         is_validate = bool(trajectory.get("validate")) if isinstance(trajectory, Mapping) else False
-        token = _LOOP.set(_Loop(key, is_validate))
+        recording = guard(open_recording, live.run, key) if key is not None else None
+        token = _LOOP.set(_Loop(key, is_validate, recording=recording))
         try:
-            output = await original(self, *args, **kwargs)
+            with recording.enter() if recording is not None else contextlib.nullcontext():
+                output = await original(self, *args, **kwargs)
         except BaseException as exc:
             if key is not None:
-                _guard(live.end_error, key, exc)
+                guard(live.end_error, key, exc)
             raise
         finally:
             _LOOP.reset(token)
         if key is not None:
-            _guard(live.end_loop, key, output)
+            guard(live.end_loop, key, output)
         return output
 
-    setattr(_run_agent_loop, WRAP_MARK, True)
-    setattr(cls, RUN_LOOP, _run_agent_loop)
+    set_wrapped(cls, RUN_LOOP, _run_agent_loop)
     score = cls.__dict__.get(COMPUTE_SCORE)
-    if callable(score) and not getattr(score, WRAP_MARK, False):
+    if callable(score) and not is_wrapped(score):
 
         @functools.wraps(score)
         async def _compute_score(self: Any, outputs: Any, *args: Any, **kwargs: Any) -> Any:
+            loop = _LOOP.get()
+            recording = loop.recording if loop is not None else None
+            if recording is not None:
+                guard(recording.stamp_handle, self, outputs)
             result = await score(self, outputs, *args, **kwargs)
-            _guard(stamp_output, outputs, _LOOP.get())
+            if recording is not None:
+                loop.rollout = await guard_async(recording.finish, outputs) or ""
+            guard(stamp_output, outputs, loop)
             return result
 
-        setattr(_compute_score, WRAP_MARK, True)
-        setattr(cls, COMPUTE_SCORE, _compute_score)
+        set_wrapped(cls, COMPUTE_SCORE, _compute_score)
     return True
+
+
+_install = make_install(WORKER_CLASS, wrap_agent_loop_worker)
 
 
 def stamp_output(outputs: Any, loop: _Loop | None) -> None:
     """After verl scored a loop (`agent_loop.py:1055-1117`): its last output carries the engine's stop reason and, in
-    a validation loop, its live key and stop reason in `reward_extra_info` too. Every loop is stamped, `""` when there is none: the legacy postprocess reads each
-    `reward_extra_info` key of the batch's first row from every row (`agent_loop.py:1196-1199`), so a key on one row
-    and not another would raise there."""
+    a validation loop, its live key, stop reason and capture (`ROLLOUT_EVAL_FIELD`) in `reward_extra_info` too; a
+    training loop's capture rides `extra_fields` (`ROLLOUT_FIELD`). Every validation loop is stamped, `""` when there
+    is none: the legacy postprocess reads each `reward_extra_info` key of the batch's first row from every row
+    (`agent_loop.py:1196-1199`), so a key on one row and not another would raise there."""
     if loop is None or not outputs:
         return
     extra = getattr(outputs[-1], "extra_fields", None)
     if not isinstance(extra, MutableMapping):
         return
     extra[STOP_REASON_FIELD] = loop.stop_reason or ""
+    if loop.rollout and not loop.is_validate:
+        extra[ROLLOUT_FIELD] = loop.rollout
     if loop.is_validate:  # V1's `_validate` hands on only `reward_extra_info` (`v1/trainer_base.py:1131-1145`)
         info = extra.setdefault("reward_extra_info", {})
         if isinstance(info, MutableMapping):
             info[LIVE_KEY_FIELD] = loop.key or ""
             info[STOP_REASON_FIELD] = loop.stop_reason or ""
+            info[ROLLOUT_EVAL_FIELD] = loop.rollout or ""
 
 
 def _keep_stop_reason(loop: _Loop | None, output: Any) -> None:
@@ -293,73 +309,13 @@ def _keep_stop_reason(loop: _Loop | None, output: Any) -> None:
 
 
 def watch_agent_loop_import() -> None:
-    """Wrap `AgentLoopWorker` the moment its module loads in this process (now, when it already has). Ray's setup
-    hook calls it in every worker: the finder looks at one module name and costs nothing else."""
-    module = sys.modules.get(AGENT_LOOP_MODULE)
-    if module is not None:
-        _install(module)
-        return
-    if not any(isinstance(finder, _AgentLoopFinder) for finder in sys.meta_path):
-        sys.meta_path.insert(0, _AgentLoopFinder())
+    """Wrap `AgentLoopWorker` the moment its module loads in this process (now, when it already has), and the tool
+    loop, its parser and the reward worker (`tool_loop`). Ray's setup hook calls it in every worker: each finder looks
+    at one module name and costs nothing else."""
+    from probe.sdk.run.samples.points import watch_import
 
-
-def _install(module: Any) -> None:
-    cls = getattr(module, WORKER_CLASS, None)
-    if isinstance(cls, type):
-        wrap_agent_loop_worker(cls)
-
-
-class _AgentLoopFinder(importlib.abc.MetaPathFinder):
-    """Finds nothing itself: for the agent loop module it hands back the real spec with a loader that wraps the
-    worker class once the module has run."""
-
-    def find_spec(self, fullname: str, path: Any, target: Any = None) -> Any:
-        if fullname != AGENT_LOOP_MODULE:
-            return None
-        try:
-            for finder in sys.meta_path:  # whichever finder owns verl here (a path, an editable install's finder)
-                find = getattr(finder, "find_spec", None) if finder is not self else None
-                spec = find(fullname, path, target) if callable(find) else None
-                if spec is not None and spec.loader is not None:
-                    spec.loader = _WrappingLoader(spec.loader)
-                    return spec
-        except Exception as exc:  # noqa: BLE001 -- fail open: Python's own import goes on, unwatched
-            logger.warning("Probe could not watch verl's agent loops; verl continues: %s", exc)
-        return None
-
-
-class _WrappingLoader(importlib.abc.Loader):
-    def __init__(self, loader: Any) -> None:
-        self._loader = loader
-
-    def create_module(self, spec: Any) -> Any:
-        return self._loader.create_module(spec)
-
-    def exec_module(self, module: Any) -> None:
-        self._loader.exec_module(module)
-        try:
-            _install(module)
-        except Exception as exc:  # noqa: BLE001 -- fail open: the loops run unrecorded
-            logger.warning("Probe could not watch verl's agent loops; verl continues: %s", exc)
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._loader, name)
-
-
-def _guard(call: Any, *args: Any) -> Any:
-    try:
-        return call(*args)
-    except Exception as exc:  # noqa: BLE001 -- fail open: a loop Probe cannot record still runs
-        logger.debug("probe: a verl live sample was not recorded (%s: %s)", type(exc).__name__, exc)
-        return None
-
-
-async def _guard_async(call: Any, *args: Any) -> Any:
-    try:
-        return await call(*args)
-    except Exception as exc:  # noqa: BLE001 -- fail open: a loop Probe cannot record still runs
-        logger.debug("probe: a verl live sample was not recorded (%s: %s)", type(exc).__name__, exc)
-        return None
+    watch_import(AGENT_LOOP_MODULE, _install, framework="verl")
+    watch_tool_loop_imports()
 
 
 def _as_step(*values: Any) -> int | None:

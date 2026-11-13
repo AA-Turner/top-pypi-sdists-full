@@ -151,8 +151,8 @@ class TestGetAuthMethodDescription:
     def test_basic_auth_description(self, mock_init, mock_validate, auth_params):
         client = OpenSearchClient(auth_params)
         desc = client._get_auth_method_description()
-        assert "basic auth" in desc
-        assert "admin" in desc
+        assert desc == "basic auth"
+        assert "admin" not in desc
 
     @patch(
         "sagemaker_studio.sql_engine._sqlalchemy_opensearch.dbapi.client.OpenSearchClient._validate_connection"
@@ -163,8 +163,8 @@ class TestGetAuthMethodDescription:
     def test_api_key_description(self, mock_init, mock_validate, api_key_params):
         client = OpenSearchClient(api_key_params)
         desc = client._get_auth_method_description()
-        assert "API key" in desc
-        assert "myid" in desc
+        assert desc == "API key"
+        assert "myid" not in desc
 
     @patch(
         "sagemaker_studio.sql_engine._sqlalchemy_opensearch.dbapi.client.OpenSearchClient._validate_connection"
@@ -367,3 +367,69 @@ class TestCreateClient:
     def test_returns_client_instance(self, mock_init, mock_validate, default_params):
         client = create_client(default_params)
         assert isinstance(client, OpenSearchClient)
+
+
+class TestOpenSearchLoggerPinning:
+    """opensearch-py loggers must not run at DEBUG, which logs request and response bodies (SQL and result rows)."""
+
+    def test_debug_loggers_are_raised_to_info(self):
+        import logging
+
+        from sagemaker_studio.sql_engine._sqlalchemy_opensearch.dbapi.client import (
+            _OPENSEARCH_LOGGERS,
+            _pin_opensearch_loggers,
+        )
+
+        saved = {n: logging.getLogger(n).level for n in _OPENSEARCH_LOGGERS}
+        try:
+            for name in _OPENSEARCH_LOGGERS:
+                logging.getLogger(name).setLevel(logging.DEBUG)
+            _pin_opensearch_loggers()
+            for name in _OPENSEARCH_LOGGERS:
+                assert logging.getLogger(name).getEffectiveLevel() >= logging.INFO
+        finally:
+            for name, level in saved.items():
+                logging.getLogger(name).setLevel(level)
+
+    def test_higher_levels_are_left_alone(self):
+        import logging
+
+        from sagemaker_studio.sql_engine._sqlalchemy_opensearch.dbapi.client import (
+            _OPENSEARCH_LOGGERS,
+            _pin_opensearch_loggers,
+        )
+
+        saved = {n: logging.getLogger(n).level for n in _OPENSEARCH_LOGGERS}
+        try:
+            for name in _OPENSEARCH_LOGGERS:
+                logging.getLogger(name).setLevel(logging.ERROR)
+            _pin_opensearch_loggers()
+            for name in _OPENSEARCH_LOGGERS:
+                assert logging.getLogger(name).level == logging.ERROR
+        finally:
+            for name, level in saved.items():
+                logging.getLogger(name).setLevel(level)
+
+    def test_inherited_levels_stay_pinned_when_root_drops_to_debug(self):
+        import logging
+
+        from sagemaker_studio.sql_engine._sqlalchemy_opensearch.dbapi.client import (
+            _OPENSEARCH_LOGGERS,
+            _pin_opensearch_loggers,
+        )
+
+        root = logging.getLogger()
+        saved_root = root.level
+        saved = {n: logging.getLogger(n).level for n in _OPENSEARCH_LOGGERS}
+        try:
+            root.setLevel(logging.WARNING)
+            for name in _OPENSEARCH_LOGGERS:
+                logging.getLogger(name).setLevel(logging.NOTSET)
+            _pin_opensearch_loggers()
+            root.setLevel(logging.DEBUG)
+            for name in _OPENSEARCH_LOGGERS:
+                assert logging.getLogger(name).getEffectiveLevel() >= logging.INFO
+        finally:
+            root.setLevel(saved_root)
+            for name, level in saved.items():
+                logging.getLogger(name).setLevel(level)

@@ -140,6 +140,28 @@ class TestZopePageTemplates:
                 strict=True
             )
 
+    def test_case_on_same_element_as_switch_raises_language_error(self):
+        from chameleon.exc import LanguageError
+
+        with pytest.raises(LanguageError) as excinfo:
+            self.from_string(
+                '''<span tal:switch="1" tal:case="1">text</span>''',
+                strict=True
+            )
+
+        assert "same element" in str(excinfo.value)
+
+    def test_unknown_expression_type_raises_expression_error(self):
+        from chameleon.exc import ExpressionError
+
+        with pytest.raises(ExpressionError) as excinfo:
+            self.from_string(
+                '''<div tal:content="nocall: some_var">text</div>''',
+                strict=True
+            )
+
+        assert "Unknown expression type: 'nocall'." in str(excinfo.value)
+
     def test_syntax_error_in_non_strict_mode(self):
         from chameleon.exc import ExpressionError
 
@@ -455,6 +477,26 @@ class TestZopePageTemplates:
 
         exc = create_formatted_exception(Difficult(), Difficult, str)
         assert exc.args == ()
+
+    def test_create_formatted_exception_unicode_error(self):
+        from chameleon.utils import create_formatted_exception
+
+        try:
+            "æøå".encode("utf-8").decode("ascii")
+        except UnicodeDecodeError as exc:
+            inner = exc
+
+        from chameleon.exc import ExceptionFormatter
+        exc = create_formatted_exception(inner, type(inner), str)
+
+        error = "expression", 1, 1, "", exc
+        formatter = ExceptionFormatter([error], {}, {}, repr)
+        exc = create_formatted_exception(
+            NameError('abc'), NameError, formatter
+        )
+
+        formatted = str(exc)
+        assert formatted.startswith(type(inner).__name__)
 
     def test_error_handler_makes_safe_copy(self):
         calls = []

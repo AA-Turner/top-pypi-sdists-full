@@ -13362,6 +13362,20 @@ class CfnReplicationInstance(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForReplicationInstance")
+    @builtins.classmethod
+    def arn_for_replication_instance(
+        cls,
+        resource: "_aws_dms_c75cb9b8.IReplicationInstanceRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e3ad071f892e096dcb6de73db5b258d0958f46162d49d4c89834f9c3166c2c29)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReplicationInstance", [resource]))
+
     @jsii.member(jsii_name="isCfnReplicationInstance")
     @builtins.classmethod
     def is_cfn_replication_instance(cls, x: typing.Any) -> builtins.bool:
@@ -13412,6 +13426,15 @@ class CfnReplicationInstance(
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReplicationInstanceArn")
+    def attr_replication_instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the replication instance.
+
+        :cloudformationAttribute: ReplicationInstanceArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrReplicationInstanceArn"))
 
     @builtins.property
     @jsii.member(jsii_name="attrReplicationInstancePrivateIpAddresses")
@@ -16640,6 +16663,12 @@ def _typecheckingstub__77ad0bed39c8ffa41b7998189a1d03defd3bc9e64d11468a83ada78f3
     resource_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3ad071f892e096dcb6de73db5b258d0958f46162d49d4c89834f9c3166c2c29(
+    resource: _aws_dms_c75cb9b8.IReplicationInstanceRef,
 ) -> None:
     """Type checking stubs"""
     pass

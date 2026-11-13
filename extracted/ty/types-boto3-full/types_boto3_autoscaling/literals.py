@@ -153,6 +153,7 @@ MetricStatisticType = Literal["Average", "Maximum", "Minimum", "SampleCount", "S
 MetricTypeType = Literal[
     "ALBRequestCountPerTarget",
     "ASGAverageCPUUtilization",
+    "ASGAverageCPUUtilizationHighResolution",
     "ASGAverageNetworkIn",
     "ASGAverageNetworkOut",
 ]

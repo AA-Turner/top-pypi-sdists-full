@@ -18,7 +18,8 @@ import math
 import sys
 from argparse import ArgumentParser, Namespace, RawDescriptionHelpFormatter
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast, get_args, get_origin
+from typing import TYPE_CHECKING, Any, assert_never, cast, get_args, get_origin
+from uuid import UUID
 
 import aiofiles
 
@@ -27,10 +28,12 @@ from pyrit.cli._cli_args import (
     ARG_HELP,
     _parse_initializer_arg,
     add_results_arguments,
+    build_dataset_request_fields,
     build_parameters_from_api,
-    collapse_dataset_filters,
     non_negative_int,
     parse_dataset_filter,
+    parse_dataset_limit,
+    parse_dataset_source,
     positive_int,
     validate_log_level_argparse,
 )
@@ -38,12 +41,11 @@ from pyrit.cli._cli_args import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from pyrit.models import Parameter
     from pyrit.models.catalog import (
-        RegisteredScenario,
         RunScenarioRequest,
         ScenarioRunSummary,
     )
-    from pyrit.models.parameter import Parameter
 
 
 def _is_read_timeout(exc: BaseException) -> bool:
@@ -240,7 +242,9 @@ def _build_client_parent() -> ArgumentParser:
     """
     parser = ArgumentParser(add_help=False)
     group = parser.add_argument_group("server options")
-    group.add_argument("--request-timeout", type=float, default=None, help=_REQUEST_TIMEOUT_HELP)
+    group.add_argument(
+        "--request-timeout", type=_positive_finite_float, default=None, metavar="SECONDS", help=_REQUEST_TIMEOUT_HELP
+    )
     group.add_argument("--start-server", action="store_true", help=_START_SERVER_HELP)
     group.add_argument(
         "--startup-timeout", type=_positive_finite_float, default=None, metavar="SECONDS", help=_STARTUP_TIMEOUT_HELP
@@ -311,8 +315,24 @@ def _add_run_arguments(*, parser: ArgumentParser, scenario_params: list[Paramete
     parser.add_argument("--max-concurrency", type=positive_int, help=ARG_HELP["max_concurrency"])
     parser.add_argument("--max-retries", type=non_negative_int, help=ARG_HELP["max_retries"])
     parser.add_argument("--memory-labels", type=str, help=ARG_HELP["memory_labels"])
+    parser.add_argument("--operation-id", type=UUID, help="Saved Operation UUID (see list-operations)")
     parser.add_argument("--dataset-names", type=str, nargs="+", help=ARG_HELP["dataset_names"])
-    parser.add_argument("--max-dataset-size", type=positive_int, help=ARG_HELP["max_dataset_size"])
+    parser.add_argument("--max-dataset-size", type=parse_dataset_limit, help=ARG_HELP["max_dataset_size"])
+    parser.add_argument(
+        "--datasets",
+        type=parse_dataset_source,
+        nargs="+",
+        help="Ordered dataset names with optional :N or :all source caps",
+    )
+    parser.add_argument(
+        "--max-per-dataset", type=parse_dataset_limit, help="Default source cap; use all for no source cap"
+    )
+    parser.add_argument("--max-total", type=parse_dataset_limit, help="Combined attack-group cap")
+    parser.add_argument(
+        "--dataset-fetch",
+        choices=["never", "if_missing", "always"],
+        help="Dataset preparation policy; omission keeps scenario settings. always replaces stored data.",
+    )
     parser.add_argument(
         "--dataset-filters",
         type=parse_dataset_filter,
@@ -331,6 +351,7 @@ _LIST_VERBS: dict[str, str] = {
     "list-targets": "List all available targets",
     "list-converters": "List all registered converter instances",
     "list-datasets": "List all available datasets",
+    "list-operations": "List saved Operations and their UUIDs",
 }
 
 
@@ -460,7 +481,7 @@ def _scenario_value_coercer(*, name: str, annotation: Any) -> Callable[[Any], An
     if annotation is None or annotation is str:
         return None
 
-    from pyrit.models.parameter import Parameter
+    from pyrit.models import Parameter
 
     element_param = Parameter(name=name, description="", param_type=annotation)
 
@@ -563,7 +584,7 @@ _LEGACY_COMMAND_FLAGS: dict[str, str] = {
 
 def _warn_legacy(*, old: str, new: str) -> None:
     """Warn (visibly and via ``DeprecationWarning``) about a legacy ``pyrit_scan`` invocation."""
-    from pyrit.common.deprecation import print_deprecation_message
+    from pyrit.common import print_deprecation_message
 
     print_deprecation_message(old_item=f"pyrit_scan {old}", new_item=f"pyrit_scan {new}", removed_in="1.3.0")
     # DeprecationWarning is suppressed by default in a CLI, so also print a visible note.
@@ -796,6 +817,8 @@ async def _handle_list_commands_async(*, client: Any, parsed_args: Namespace) ->
         _output.print_initializer_list(items=await client.list_initializers_async())
     elif command == "list-targets":
         _output.print_target_list(items=await client.list_targets_async())
+    elif command == "list-operations":
+        _output.print_operation_list(items=await client.list_operations_async())
     elif command == "list-datasets":
         resp = await client.list_datasets_async()
         _output.print_dataset_list(items=resp.get("items", []))
@@ -820,7 +843,7 @@ async def _handle_add_initializer_async(*, client: Any, parsed_args: Namespace) 
             print(f"Error: File not found: {script_path}")
             return 1
         try:
-            async with aiofiles.open(script_path) as script_file:
+            async with aiofiles.open(script_path, encoding="utf-8") as script_file:
                 script_content = await script_file.read()
             await client.register_initializer_async(
                 name=script_path.stem,
@@ -844,14 +867,29 @@ async def _handle_results_async(*, client: Any, parsed_args: Namespace) -> int:
     from pyrit.cli._cli_args import ScenarioResultView
     from pyrit.cli._results import (
         apply_view_limit_policy,
-        build_attacks_table_payload,
-        build_conversations_payload_async,
+        resolve_output_sink,
         resolve_view,
+        warn_if_view_ignored_by_html,
     )
+    from pyrit.output import output_scenario_attacks_async
 
     scenario_result_id = parsed_args.scenario_result_id
     view = resolve_view(view=parsed_args.view)
-    limit = apply_view_limit_policy(view=view, limit=parsed_args.limit, attack_result_ids=parsed_args.attack_result_ids)
+    fmt = parsed_args.format
+    # html always renders a complete report and ignores the default heavy-view cap,
+    # so skip the limit policy (and its warning) for it.
+    if fmt == "html":
+        warn_if_view_ignored_by_html(view=parsed_args.view)
+        limit = parsed_args.limit
+    else:
+        limit = apply_view_limit_policy(
+            view=view, limit=parsed_args.limit, attack_result_ids=parsed_args.attack_result_ids
+        )
+    try:
+        sink = resolve_output_sink(output_path=parsed_args.output, output_format=fmt)
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        return 1
 
     try:
         result = await client.get_scenario_run_results_async(scenario_result_id=scenario_result_id)
@@ -859,33 +897,54 @@ async def _handle_results_async(*, client: Any, parsed_args: Namespace) -> int:
         _print_cli_exception(exc=exc)
         return 1
 
-    if view is ScenarioResultView.OVERVIEW:
-        await _output.print_scenario_result_async(result=result)
-        return 0
-
-    if view in (ScenarioResultView.ATTACKS, ScenarioResultView.FULL):
-        attacks_payload = build_attacks_table_payload(
-            result=result,
-            scenario_result_id=scenario_result_id,
-            attack_result_ids=parsed_args.attack_result_ids,
-            limit=limit,
-        )
-        _output.print_attacks_table(payload=attacks_payload)
-        if view is ScenarioResultView.ATTACKS:
-            return 0
-
     try:
-        conversations_payload = await build_conversations_payload_async(
-            result=result,
-            client=client,
-            scenario_result_id=scenario_result_id,
-            attack_result_ids=parsed_args.attack_result_ids,
-            limit=limit,
-        )
+        if fmt == "html":
+            # html is always the full report regardless of --view; a file report should be
+            # complete, so honor only an explicit --limit (no default heavy-view cap).
+            await _output.print_full_async(
+                result=result,
+                client=client,
+                scenario_result_id=scenario_result_id,
+                format="html",
+                sink=sink,
+                attack_result_ids=parsed_args.attack_result_ids,
+                limit=parsed_args.limit,
+            )
+        elif view is ScenarioResultView.OVERVIEW:
+            await _output.print_scenario_result_async(result=result, format=fmt, sink=sink)
+        elif view is ScenarioResultView.ATTACKS:
+            await output_scenario_attacks_async(
+                result,
+                attack_result_ids=parsed_args.attack_result_ids,
+                limit=limit,
+                format=fmt,
+                sink=sink,
+            )
+        elif view is ScenarioResultView.FULL:
+            await _output.print_full_async(
+                result=result,
+                client=client,
+                scenario_result_id=scenario_result_id,
+                format=fmt,
+                sink=sink,
+                attack_result_ids=parsed_args.attack_result_ids,
+                limit=limit,
+            )
+        elif view is ScenarioResultView.CONVERSATIONS:
+            await _output.print_conversations_async(
+                result=result,
+                client=client,
+                scenario_result_id=scenario_result_id,
+                format=fmt,
+                sink=sink,
+                attack_result_ids=parsed_args.attack_result_ids,
+                limit=limit,
+            )
+        else:
+            assert_never(view)
     except Exception as exc:
         _print_cli_exception(exc=exc)
         return 1
-    _output.print_conversations(payload=conversations_payload)
     return 0
 
 
@@ -970,14 +1029,11 @@ def _build_run_request(*, parsed_args: Namespace, scenario_name: str) -> RunScen
         kwargs["max_concurrency"] = parsed_args.max_concurrency
     if parsed_args.max_retries is not None:
         kwargs["max_retries"] = parsed_args.max_retries
-    if parsed_args.dataset_names:
-        kwargs["dataset_names"] = parsed_args.dataset_names
-    if parsed_args.max_dataset_size is not None:
-        kwargs["max_dataset_size"] = parsed_args.max_dataset_size
-    if parsed_args.dataset_filters:
-        kwargs["dataset_filters"] = collapse_dataset_filters(parsed_args.dataset_filters)
+    kwargs.update(build_dataset_request_fields(vars(parsed_args)))
     if parsed_args.memory_labels:
         kwargs["labels"] = parse_memory_labels(json_string=parsed_args.memory_labels)
+    if getattr(parsed_args, "operation_id", None) is not None:
+        kwargs["operation_id"] = parsed_args.operation_id
 
     scenario_params = _extract_scenario_args(parsed=parsed_args)
     if scenario_params:
@@ -990,7 +1046,6 @@ async def _poll_until_terminal_async(
     *,
     client: Any,
     scenario_result_id: str,
-    total_techniques: int,
 ) -> ScenarioRunSummary:
     """
     Poll the server until the run reaches a terminal status.
@@ -1007,7 +1062,7 @@ async def _poll_until_terminal_async(
     while True:
         run: ScenarioRunSummary = await client.get_scenario_run_async(scenario_result_id=scenario_result_id)
         _output.print_scenario_retry_warnings(run=run, seen_attack_ids=seen_retry_attack_ids)
-        _output.print_scenario_run_progress(run=run, total_techniques=total_techniques)
+        _output.print_scenario_run_progress(run=run)
         if run.status in terminal_states:
             return run
         await asyncio.sleep(0.5)
@@ -1017,7 +1072,6 @@ async def _run_scenario_async(
     *,
     client: Any,
     parsed_args: Namespace,
-    scenario_meta: RegisteredScenario,
 ) -> int:
     """
     Start a scenario run, poll for completion, and print results.
@@ -1026,12 +1080,16 @@ async def _run_scenario_async(
         int: Exit code (``0`` if the run completed successfully, ``1`` otherwise).
     """
     from pyrit.cli import _output
+    from pyrit.cli.api_client import CompatibilityError
     from pyrit.models import ScenarioRunState
 
     scenario_name = parsed_args.scenario_name
-    request = _build_run_request(parsed_args=parsed_args, scenario_name=scenario_name)
+    try:
+        request = _build_run_request(parsed_args=parsed_args, scenario_name=scenario_name)
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        return 1
 
-    total_techniques = len(request.techniques or scenario_meta.all_techniques or [])
     print(f"\nRunning scenario: {scenario_name}")
     sys.stdout.flush()
 
@@ -1055,15 +1113,20 @@ async def _run_scenario_async(
         run = await _poll_until_terminal_async(
             client=client,
             scenario_result_id=scenario_result_id,
-            total_techniques=total_techniques,
         )
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, asyncio.CancelledError):
         print("\n\nCancelling scenario run...")
+        cancellation_task = asyncio.create_task(client.cancel_scenario_run_async(scenario_result_id=scenario_result_id))
         try:
-            await client.cancel_scenario_run_async(scenario_result_id=scenario_result_id)
-            print("Scenario run cancelled.")
+            await asyncio.shield(cancellation_task)
+            print("Cancellation request sent to server.")
         except Exception:
             print("Warning: could not cancel scenario run on server.")
+        return 1
+
+    except CompatibilityError as exc:
+        _print_cli_exception(exc=exc)
+        print("Polling stopped; the server run may still be active.")
         return 1
 
     if run.status == ScenarioRunState.COMPLETED:
@@ -1110,7 +1173,7 @@ async def _handle_run_async(*, client: Any, parsed_args: Namespace) -> int:
     if reparsed is None:
         return 1
 
-    return await _run_scenario_async(client=client, parsed_args=reparsed, scenario_meta=scenario_meta)
+    return await _run_scenario_async(client=client, parsed_args=reparsed)
 
 
 #: Post-client verbs, each a uniform ``(*, client, parsed_args) -> int`` handler. Reached

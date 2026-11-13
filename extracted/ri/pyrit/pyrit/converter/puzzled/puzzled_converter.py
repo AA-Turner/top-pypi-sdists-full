@@ -4,8 +4,8 @@
 import asyncio
 import json
 import pathlib
-import random
 import uuid
+from typing import assert_never
 
 from pyrit.common.path import CONVERTER_SEED_PROMPT_PATH
 from pyrit.converter.converter import Converter, ConverterResult
@@ -17,8 +17,7 @@ from pyrit.converter.puzzled.puzzle_builders import (
     build_word_search,
     crossword_symbol_map,
 )
-from pyrit.exceptions import EmptyResponseException
-from pyrit.exceptions.exceptions_helpers import remove_markdown_json
+from pyrit.exceptions import EmptyResponseException, remove_markdown_json
 from pyrit.models import ComponentIdentifier, Message, MessagePiece, PromptDataType, SeedPrompt
 from pyrit.prompt_target import CHAT_TARGET_REQUIREMENTS, PromptTarget
 
@@ -69,6 +68,10 @@ class PuzzledConverter(Converter):
         - ``crossword``: shared letters across the masked words are replaced by symbols the model
           must deduce.
 
+    Each puzzle uses the same letter units as its clues: canonically equivalent spellings
+    are normalized, and combining marks stay attached to their letters during encoding.
+    Alphanumeric tokens, underscores, and words containing joiners are not partially masked.
+
     Keyword selection uses spaCy's ``en_core_web_sm`` model when it is installed and degrades to a
     length-based heuristic when it is not, so the converter has no hard dependency on spaCy. Run
     ``python -m spacy download en_core_web_sm`` to enable the paper's part-of-speech-aware
@@ -102,7 +105,8 @@ class PuzzledConverter(Converter):
             essential_words (list[str] | None): Sensitive words to prefer when selecting what to
                 mask. When omitted, words are chosen automatically.
             seed (int | None): Seed for the puzzle randomness (word-search placement and anagram
-                shuffling). Pass an int for reproducible output; leave as None for fresh randomness.
+                shuffling). Pass an int for reproducible output; leave as None to inherit the root
+                configured by ``initialize_pyrit_async(seed=...)``.
             converter_target (PromptTarget | None): Optional chat model used to generate the paper's
                 "indirect semantic description" clue for each masked word. When omitted, each clue is
                 the deterministic length-and-part-of-speech clue only.
@@ -188,13 +192,15 @@ class PuzzledConverter(Converter):
         if puzzle_type is PuzzleType.CROSSWORD and not crossword_symbol_map(words):
             puzzle_type = PuzzleType.ANAGRAM
 
-        rng = random.Random(self._seed)
+        rng = self._get_random_generator(stream="puzzle")
         if puzzle_type is PuzzleType.WORD_SEARCH:
             puzzle_body = build_word_search(words, rng)
         elif puzzle_type is PuzzleType.ANAGRAM:
             puzzle_body = build_anagram(words, rng)
-        else:
+        elif puzzle_type is PuzzleType.CROSSWORD:
             puzzle_body = build_crossword(words)
+        else:
+            assert_never(puzzle_type)
 
         semantics = await self._semantic_clues_async(words)
         clues = "\n".join(self._clue_line(masked, semantics) for masked in mask_result.masked_words)

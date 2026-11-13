@@ -13,6 +13,8 @@ Praxis-1's worker reports, in ``runtime_metadata.server``:
   neighbour).
 - ``ik_retries`` and ``ik_misses``: target rows the joint solver had to retry from home, and
   rows it left more than 1 mm or 0.5 degrees off.
+- ``engine`` and ``engine_reason`` (DSL-429, experimental): the engine that served the answer,
+  and why standard served a lightning session's, which each ``ActionChunkResult`` carries.
 
 ``record_server_report`` adds them to the session's ``runtime_stats``, where the CLI's summary
 and a trace read them.
@@ -45,6 +47,16 @@ def real_rows(chunk: Any) -> int | None:
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         return None
     return value
+
+
+def answer_engine(chunk: Any) -> tuple[str | None, str | None]:
+    """The engine that served an answer and why standard did for a lightning session, where
+    its server reports them, else (None, None)."""
+    server = server_report(chunk)
+    engine, reason = server.get("engine"), server.get("engine_reason")
+    if not isinstance(engine, str):
+        return None, None
+    return engine, reason if isinstance(reason, str) else None
 
 
 def _count(value: Any) -> int:

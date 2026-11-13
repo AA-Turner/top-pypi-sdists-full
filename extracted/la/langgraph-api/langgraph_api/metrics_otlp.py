@@ -164,6 +164,9 @@ COUNTER_RUN_CANCELED_BY_REQUEST = def_counter(
 COUNTER_RUN_FAILED_RETRIABLE = def_counter(
     "run_failed_retriable_counter", METRIC_TIER_CRITICAL
 )
+# Legacy single-process terminal-failure counter (internal / DD OTLP).
+# Multi-process emits the public Go twin run_failed_terminal_counter instead;
+# Go also dual-emits this name for continuity.
 COUNTER_RUN_FAILED_AFTER_RETRY = def_counter(
     "run_failed_after_retry_counter", METRIC_TIER_CRITICAL
 )
@@ -280,6 +283,42 @@ GAUGE_NUM_RUNNING_RUNS = def_gauge(
     METRIC_TIER_INFO,
     lsd_web_metric=True,
     description="The number of runs currently running.",
+)
+# One series per priority level, labelled "priority" with the level as text, over the runs
+# that can start: each thread's oldest pending run that is due, on threads with nothing
+# running (num_pending_runs also counts delayed and blocked runs). Recorded only on a
+# deployment with a priority callback.
+GAUGE_NUM_STARTABLE_RUNS = def_gauge(
+    "num_startable_runs",
+    METRIC_TIER_INFO,
+    lsd_web_metric=True,
+    description="The number of runs that can start now, by priority level.",
+)
+GAUGE_STARTABLE_RUNS_WAIT_TIME_MAX = def_gauge(
+    "startable_runs_wait_time_max",
+    METRIC_TIER_INFO,
+    lsd_web_metric=True,
+    description=(
+        "The longest wait of a run that can start, since it was due, by priority level,"
+        " in seconds."
+    ),
+)
+GAUGE_STARTABLE_RUNS_WAIT_TIME_MED = def_gauge(
+    "startable_runs_wait_time_med",
+    METRIC_TIER_INFO,
+    lsd_web_metric=True,
+    description=(
+        "The median wait of runs that can start, since they were due, by priority level,"
+        " in seconds."
+    ),
+)
+# A separate name from num_running_runs, whose readers take max() across series and
+# would get one level instead of the total.
+GAUGE_NUM_RUNNING_RUNS_BY_PRIORITY = def_gauge(
+    "num_running_runs_by_priority",
+    METRIC_TIER_INFO,
+    lsd_web_metric=True,
+    description="The number of runs currently running, by priority level.",
 )
 GAUGE_PG_POOL_MAX = def_gauge(
     "pg_pool_max",
@@ -561,7 +600,16 @@ class OTelMetricsReporter:
                     # global prometheus_client REGISTRY, which the /metrics
                     # endpoint serves via generate_latest() (see api/meta.py).
                     # Prometheus serves only Deployment-UI metrics.
-                    readers.append(_LSDPrometheusReader())
+                    # Multi-process merges Go's public registry (which owns
+                    # target_info); disable Python's twin so scrapes stay unique.
+                    readers.append(
+                        _LSDPrometheusReader(
+                            disable_target_info=(
+                                config.DISPATCH_MODE
+                                == config.DispatchMode.MULTI_PROCESS
+                            )
+                        )
+                    )
                     self._prom_enabled = True
 
                 if not readers:

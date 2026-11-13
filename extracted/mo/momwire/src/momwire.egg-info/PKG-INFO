@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: momwire
-Version: 0.90.0
+Version: 0.91.0
 Summary: A pure-Python method-of-moments antenna simulator with optional C++ accelerators
 Author-email: "Steven M. Burns" <smburns47@gmail.com>
 Project-URL: Homepage, https://github.com/stevenmburns/momwire
@@ -201,6 +201,11 @@ Solvers — see [Solvers](#solvers) above for what distinguishes them:
 Results and control:
 
 - `PortSolution` — a solved port network's currents, voltages and Z.
+- `PortSites` — the configured ports plus point ports that move along one
+  wire against one factorisation, with ∂Y/∂x (`BSplineSolver.port_sites`,
+  momwire#1915).
+- `terminate_ports` — a Y matrix with some ports terminated in series loads,
+  e.g. a load at a `PortSites` position seen from the feed.
 - `DistributedRLC` — a wire's per-metre series or parallel RLC (NEC's `LD 2`
   / `LD 3`), the `distributed_rlc` kwarg every loading family takes beside
   `wire_conductivity` and the insulation pair.
@@ -412,6 +417,18 @@ Under SimNEC or EZNEC, set it on the command line that starts the program,
 so the engine inherits it: `MOMWIRE_TIMES=1 <the command that starts
 SimNEC>`. The keys are described in the docs site's
 [momwire.dev/reference/standalone/](https://momwire.dev/reference/standalone/#where-the-time-goes).
+
+### The ill-conditioning check (`MOMWIRE_CONDITION_CHECK=1`)
+
+The sinusoidal and pulse solves warn, with scipy's `LinAlgWarning`, when a
+matrix is so close to singular that the currents are numerical noise. That
+needs LAPACK's condition estimate (gecon). It costs about five single-threaded
+passes over the factors, about 1 s of the ELT whip's 13 frequencies at 4,392
+segments, so it does not run on every solve. A free screen on the
+factorization's pivots runs instead, and the estimate is taken only when the
+pivots look near-singular. Set `MOMWIRE_CONDITION_CHECK=1` to take the
+estimate on every solve. Neither changes a result. The B-spline and
+Sinusoidal-Galerkin solves never run it.
 
 ### The same answer with or without AVX-512
 

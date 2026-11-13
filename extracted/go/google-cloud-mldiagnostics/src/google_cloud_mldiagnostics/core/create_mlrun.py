@@ -87,6 +87,7 @@ def initialize_mlrun(
     workload_id: str | None = None,
     namespace: str | None = None,
     workload_details: Mapping[str, Any] | None = None,
+    workload_kind: str | None = None,
 ) -> mlrun_types.MLRun:
   """Initializes a new ML run.
 
@@ -122,6 +123,9 @@ def initialize_mlrun(
       namespace: Optional Kubernetes namespace for self-hosted runs.
       workload_details: Optional user-injected dictionary of workload details
         (e.g., GKE workload metadata such as id, kind, namespace, cluster).
+      workload_kind: Optional workload kind for self-hosted runs, such as a
+        Kubernetes controller kind (e.g. `JobSet`) or
+        `mlrun_types.SLURM_WORKLOAD_KIND`.
 
   Returns:
       The initialized ML run object. It may be mutated (e.g., its name
@@ -147,6 +151,10 @@ def initialize_mlrun(
   self_contained = bool(base_url)
 
   if not self_contained:
+    if region is None and isinstance(workload_details, Mapping):
+      cluster_path = workload_details.get("cluster")
+      if isinstance(cluster_path, str) and "/" in cluster_path:
+        region = gcp.extract_region_from_location(cluster_path)
     if region is None:
       region = gcp.get_instance_region()
     gcp.validate_region(region)
@@ -167,6 +175,11 @@ def initialize_mlrun(
   if self_contained:
     orchestrator = mlrun_types.Orchestrator.NONE
     workload_details = {"id": workload_id}
+    if namespace:
+      workload_details["namespace"] = namespace
+    normalized_kind = mlrun_types.normalize_k8s_workload_kind(workload_kind)
+    if normalized_kind:
+      workload_details["kind"] = normalized_kind
   else:
     orchestrator = orchestrator_utils.detect_orchestrator()
     if (

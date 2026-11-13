@@ -76,6 +76,43 @@ def build_bytearray_join_patch(orig_method, patch_policy):
     return wrap_and_watermark(orig_method, bytearray_join_patch)
 
 
+def propagate_bytearray_append(
+    policy_node, target, source, pre_append_len, self_obj, ret, args, kwargs
+):
+    with scope.contrast_scope():
+        try:
+            if (context := contrast.CONTEXT.get()) is None or stop_propagation(context):
+                return
+
+            if source is None:
+                return
+
+            source_properties = get_properties(source)
+            if source_properties is not None and source_properties.tags:
+                target_properties = track_string(target)
+                if target_properties is not None:
+                    copy_tags_to_offset(
+                        target_properties, source_properties.tags, pre_append_len
+                    )
+
+            target_properties = get_properties(target)
+            if target_properties is not None and target_properties.tags:
+                parents = get_parents(policy_node, self_obj, ret, args, kwargs)
+                target_properties.build_event(
+                    policy_node,
+                    target,
+                    self_obj,
+                    ret,
+                    args,
+                    kwargs,
+                    parents,
+                    None,
+                )
+                context.propagation_count += 1
+        except Exception as ex:
+            logger.debug("failed to propagate bytearray append", exc_info=ex)
+
+
 def build_bytearray_extend_patch(orig_method, patch_policy):
     policy_node = patch_policy.propagator_nodes[0]
 
@@ -88,40 +125,16 @@ def build_bytearray_extend_patch(orig_method, patch_policy):
 
         result = wrapped(*args, **kwargs)
 
-        with scope.contrast_scope():
-            try:
-                if (context := contrast.CONTEXT.get()) is None or stop_propagation(
-                    context
-                ):
-                    return result
-
-                if source is None:
-                    return result
-
-                source_properties = get_properties(source)
-                if source_properties is not None and source_properties.tags:
-                    target_properties = track_string(instance)
-                    if target_properties is not None:
-                        copy_tags_to_offset(
-                            target_properties, source_properties.tags, pre_extend_len
-                        )
-
-                target_properties = get_properties(instance)
-                if target_properties is not None and target_properties.tags:
-                    parents = get_parents(policy_node, instance, result, args, kwargs)
-                    target_properties.build_event(
-                        policy_node,
-                        result,
-                        instance,
-                        result,
-                        args,
-                        kwargs,
-                        parents,
-                        None,
-                    )
-                    context.propagation_count += 1
-            except Exception as ex:
-                logger.debug("failed to propagate bytearray.extend", exc_info=ex)
+        propagate_bytearray_append(
+            policy_node,
+            instance,
+            source,
+            pre_extend_len,
+            instance,
+            result,
+            args,
+            kwargs,
+        )
 
         return result
 

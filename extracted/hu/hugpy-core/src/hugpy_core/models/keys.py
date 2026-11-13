@@ -16,6 +16,14 @@ def model_key_forms(model_key: Any) -> set[str]:
         return set()
     raw = str(model_key).strip()
     forms = {raw, raw.lower()}
+    # A native-wrapper unit id is ``key::variation``: the id names the model
+    # ``key`` served through one of its files, so the head's forms are the
+    # model's. A bare-key request therefore matches any advertised variation;
+    # the exact id still matches first in serveable_match.
+    if "::" in raw:
+        head = raw.split("::", 1)[0].strip()
+        if head:
+            forms |= model_key_forms(head)
     tail = raw.split("/")[-1]
     forms.add(tail)
     forms.add(tail.lower())

@@ -607,31 +607,34 @@ class ApiImpl:
     ) -> None:
         if vehicle.location_latitude and vehicle.location_longitude:
             if (
-                vehicle.geocode
-                and vehicle.location_latitude == vehicle._geocode_latitude
+                vehicle.location_latitude == vehicle._geocode_latitude
                 and vehicle.location_longitude == vehicle._geocode_longitude
             ):  # previous coordinates are the same, so keep last valid vehicle.geocode
                 _LOGGER.debug(f"{DOMAIN} - Keeping last geocode location")
             elif GEO_LOCATION_PROVIDERS[provider] == OPENSTREETMAP:
-                email_parameter = ""
+                params: dict[str, str | float | int] = {
+                    "lat": vehicle.location_latitude,
+                    "lon": vehicle.location_longitude,
+                    "format": "json",
+                    "addressdetails": 1,
+                    "zoom": 18,
+                }
                 if use_email is True:
-                    email_parameter = "&email=" + token.username
-
-                url = (
-                    "https://nominatim.openstreetmap.org/reverse?lat="
-                    + str(vehicle.location_latitude)
-                    + "&lon="
-                    + str(vehicle.location_longitude)
-                    + "&format=json&addressdetails=1&zoom=18"
-                    + email_parameter
-                )
+                    params["email"] = token.username
                 headers = {"user-agent": "curl/7.81.0"}
-                response = requests.get(url, headers=headers, timeout=(5, 15))
+                response = requests.get(
+                    "https://nominatim.openstreetmap.org/reverse",
+                    params=params,
+                    headers=headers,
+                    timeout=(5, 15),
+                )
                 try:
                     response = response.json()
                 except JSONDecodeError:
                     _LOGGER.warning(f"{DOMAIN} - failed geocode openstreetmap")
                     vehicle.geocode = None
+                    vehicle._geocode_latitude = None
+                    vehicle._geocode_longitude = None
                 else:
                     vehicle.geocode = (
                         get_child_value(response, "display_name"),
@@ -660,6 +663,8 @@ class ApiImpl:
                     except Exception as ex:
                         _LOGGER.warning(f"{DOMAIN} - failed geocode Google: {ex}")
                         vehicle.geocode = None
+                        vehicle._geocode_latitude = None
+                        vehicle._geocode_longitude = None
 
     def lock_action(
         self, token: Token, vehicle: Vehicle, action: VEHICLE_LOCK_ACTION

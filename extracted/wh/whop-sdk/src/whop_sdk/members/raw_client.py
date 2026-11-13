@@ -12,6 +12,7 @@ from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..errors.bad_request_error import BadRequestError
+from ..errors.conflict_error import ConflictError
 from ..errors.forbidden_error import ForbiddenError
 from ..errors.not_found_error import NotFoundError
 from ..errors.unauthorized_error import UnauthorizedError
@@ -23,7 +24,11 @@ from .types.list_members_request_most_recent_actions_item import ListMembersRequ
 from .types.list_members_request_order import ListMembersRequestOrder
 from .types.list_members_request_status import ListMembersRequestStatus
 from .types.list_members_response import ListMembersResponse
+from .types.update_members_request_unsubscribe_status import UpdateMembersRequestUnsubscribeStatus
 from pydantic import ValidationError
+
+# this is used as the default value for optional parameters
+OMIT = typing.cast(typing.Any, ...)
 
 
 class RawMembersClient:
@@ -55,6 +60,7 @@ class RawMembersClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
+        include_total_count: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Member, ListMembersResponse]:
         """
@@ -99,7 +105,7 @@ class RawMembersClient:
             Only members who joined before this ISO 8601 timestamp.
 
         order : typing.Optional[ListMembersRequestOrder]
-            Sort field. `most_recent_action_at` places members without one first when ascending and last when descending.
+            Sort field. `most_recent_action_at` and `last_activity_at` place members without one first when ascending and last when descending.
 
         direction : typing.Optional[ListMembersRequestDirection]
             Sort direction.
@@ -115,6 +121,9 @@ class RawMembersClient:
 
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
+
+        include_total_count : typing.Optional[bool]
+            Set to `true` to return the number of matching results in `page_info.total_count`. Send `first=0` as well to return the count without any results.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -147,6 +156,7 @@ class RawMembersClient:
                 "after": after,
                 "last": last,
                 "before": before,
+                "include_total_count": include_total_count,
             },
             request_options=request_options,
         )
@@ -184,6 +194,7 @@ class RawMembersClient:
                         after=_parsed_next,
                         last=last,
                         before=before,
+                        include_total_count=include_total_count,
                         request_options=request_options,
                     )
                 return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
@@ -293,6 +304,177 @@ class RawMembersClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def update(
+        self,
+        id: str,
+        *,
+        name: typing.Optional[str] = OMIT,
+        unsubscribe_status: typing.Optional[UpdateMembersRequestUnsubscribeStatus] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[Member]:
+        """
+        Updates a member. The account can update `name`, the customer name its invoices show for this member; it doesn't change the user's Whop profile. The member can update `unsubscribe_status`, with a credential for their own user that holds `user:notifications:update`, to unsubscribe from the account's marketing communications or resubscribe. Each sends only its own field.
+
+        Parameters
+        ----------
+        id : str
+            Member ID (`mber_` tag).
+
+        name : typing.Optional[str]
+            The customer name to show on this member's invoices, at most 255 bytes. Leading and trailing spaces are trimmed. `null` or a blank string clears it, so invoices show the user's own name again.
+
+        unsubscribe_status : typing.Optional[UpdateMembersRequestUnsubscribeStatus]
+            `unsubscribed` to stop the account's marketing communications, or `null` to resubscribe. Only the member can set it.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[Member]
+            member resubscribed from their own session
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"members/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
+            method="PATCH",
+            json={
+                "name": name,
+                "unsubscribe_status": unsubscribe_status,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Member,
+                    parse_obj_as(
+                        type_=Member,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def unsubscribe(
+        self, id: str, *, token: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[None]:
+        """
+        Unsubscribes a member from the account's marketing communications with the token from their unsubscribe link. Inboxes post here directly for one-click unsubscribe (RFC 8058).
+
+        Parameters
+        ----------
+        id : str
+            The member to unsubscribe, prefixed `mber_`.
+
+        token : str
+            The token from the member's unsubscribe link.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[None]
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"members/{encode_path_param(id)}/unsubscribe",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            params={
+                "token": token,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return HttpResponse(response=_response, data=None)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
 
 class AsyncRawMembersClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -323,6 +505,7 @@ class AsyncRawMembersClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
+        include_total_count: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Member, ListMembersResponse]:
         """
@@ -367,7 +550,7 @@ class AsyncRawMembersClient:
             Only members who joined before this ISO 8601 timestamp.
 
         order : typing.Optional[ListMembersRequestOrder]
-            Sort field. `most_recent_action_at` places members without one first when ascending and last when descending.
+            Sort field. `most_recent_action_at` and `last_activity_at` place members without one first when ascending and last when descending.
 
         direction : typing.Optional[ListMembersRequestDirection]
             Sort direction.
@@ -383,6 +566,9 @@ class AsyncRawMembersClient:
 
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
+
+        include_total_count : typing.Optional[bool]
+            Set to `true` to return the number of matching results in `page_info.total_count`. Send `first=0` as well to return the count without any results.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -415,6 +601,7 @@ class AsyncRawMembersClient:
                 "after": after,
                 "last": last,
                 "before": before,
+                "include_total_count": include_total_count,
             },
             request_options=request_options,
         )
@@ -454,6 +641,7 @@ class AsyncRawMembersClient:
                             after=_parsed_next,
                             last=last,
                             before=before,
+                            include_total_count=include_total_count,
                             request_options=request_options,
                         )
 
@@ -548,6 +736,177 @@ class AsyncRawMembersClient:
                 )
             if _response.status_code == 404:
                 raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def update(
+        self,
+        id: str,
+        *,
+        name: typing.Optional[str] = OMIT,
+        unsubscribe_status: typing.Optional[UpdateMembersRequestUnsubscribeStatus] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[Member]:
+        """
+        Updates a member. The account can update `name`, the customer name its invoices show for this member; it doesn't change the user's Whop profile. The member can update `unsubscribe_status`, with a credential for their own user that holds `user:notifications:update`, to unsubscribe from the account's marketing communications or resubscribe. Each sends only its own field.
+
+        Parameters
+        ----------
+        id : str
+            Member ID (`mber_` tag).
+
+        name : typing.Optional[str]
+            The customer name to show on this member's invoices, at most 255 bytes. Leading and trailing spaces are trimmed. `null` or a blank string clears it, so invoices show the user's own name again.
+
+        unsubscribe_status : typing.Optional[UpdateMembersRequestUnsubscribeStatus]
+            `unsubscribed` to stop the account's marketing communications, or `null` to resubscribe. Only the member can set it.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[Member]
+            member resubscribed from their own session
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"members/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
+            method="PATCH",
+            json={
+                "name": name,
+                "unsubscribe_status": unsubscribe_status,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Member,
+                    parse_obj_as(
+                        type_=Member,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def unsubscribe(
+        self, id: str, *, token: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[None]:
+        """
+        Unsubscribes a member from the account's marketing communications with the token from their unsubscribe link. Inboxes post here directly for one-click unsubscribe (RFC 8058).
+
+        Parameters
+        ----------
+        id : str
+            The member to unsubscribe, prefixed `mber_`.
+
+        token : str
+            The token from the member's unsubscribe link.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[None]
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"members/{encode_path_param(id)}/unsubscribe",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            params={
+                "token": token,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return AsyncHttpResponse(response=_response, data=None)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,

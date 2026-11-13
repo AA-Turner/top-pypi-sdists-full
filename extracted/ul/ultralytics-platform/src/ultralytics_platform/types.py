@@ -1403,6 +1403,70 @@ DatasetsCreateResponse = TypedDict(
 )
 
 
+DatasetsImportLabelStudioResponseImportedItem = TypedDict(
+    "DatasetsImportLabelStudioResponseImportedItem",
+    {"projectId": int, "projectName": str, "datasetId": str, "slug": str},
+)
+
+
+DatasetsImportLabelStudioResponseFailedItem = TypedDict(
+    "DatasetsImportLabelStudioResponseFailedItem", {"projectId": int, "projectName": str, "error": str}
+)
+
+
+DatasetsImportLabelStudioResponseSkippedItem = TypedDict(
+    "DatasetsImportLabelStudioResponseSkippedItem", {"projectId": int, "projectName": str}
+)
+
+
+DatasetsImportLabelStudioResponse = TypedDict(
+    "DatasetsImportLabelStudioResponse",
+    {
+        "imported": list[DatasetsImportLabelStudioResponseImportedItem],
+        "failed": list[DatasetsImportLabelStudioResponseFailedItem],
+        "skipped": list[DatasetsImportLabelStudioResponseSkippedItem],
+    },
+)
+
+
+DatasetsPreviewLabelStudioResponseNewDatasetsItem = TypedDict(
+    "DatasetsPreviewLabelStudioResponseNewDatasetsItem",
+    {
+        "projectId": int,
+        "projectName": str,
+        "task": Literal["detect", "segment", "semantic", "depth", "classify", "pose", "obb"],
+        "imageCount": int,
+    },
+)
+
+
+DatasetsPreviewLabelStudioResponseImportedDatasetsItem = TypedDict(
+    "DatasetsPreviewLabelStudioResponseImportedDatasetsItem",
+    {
+        "projectId": int,
+        "projectName": str,
+        "task": Literal["detect", "segment", "semantic", "depth", "classify", "pose", "obb"],
+        "imageCount": int,
+    },
+)
+
+
+DatasetsPreviewLabelStudioResponseStorage = TypedDict(
+    "DatasetsPreviewLabelStudioResponseStorage", {"usedBytes": float, "limitBytes": float, "hasEnoughStorage": bool}
+)
+
+
+DatasetsPreviewLabelStudioResponse = TypedDict(
+    "DatasetsPreviewLabelStudioResponse",
+    {
+        "newDatasets": list[DatasetsPreviewLabelStudioResponseNewDatasetsItem],
+        "importedDatasets": list[DatasetsPreviewLabelStudioResponseImportedDatasetsItem],
+        "unsupportedCount": int,
+        "storage": DatasetsPreviewLabelStudioResponseStorage,
+    },
+)
+
+
 DatasetsImportRoboflowResponseImportedItem = TypedDict(
     "DatasetsImportRoboflowResponseImportedItem",
     {"projectId": str, "projectName": str, "version": int, "datasetId": str, "slug": str},
@@ -1933,6 +1997,91 @@ ExploreSearchResponseDatasetsItem = TypedDict(
 )
 
 
+ExploreSearchResponseModelsItemFile = TypedDict("ExploreSearchResponseModelsItemFile", {"size": NotRequired[float]})
+
+
+ExploreSearchResponseModelsItemDatasetSplits = TypedDict(
+    "ExploreSearchResponseModelsItemDatasetSplits", {"train": int, "val": int, "test": int, "labeled": int}
+)
+
+
+ExploreSearchResponseModelsItemDatasetSampleImagesItemLabelsItem = TypedDict(
+    "ExploreSearchResponseModelsItemDatasetSampleImagesItemLabelsItem",
+    {
+        "classId": int,
+        "bbox": NotRequired[list[Any]],
+        "segments": NotRequired[list[float]],
+        "keypoints": NotRequired[list[float]],
+        "obb": NotRequired[list[Any]],
+        "skeletonId": NotRequired[str],
+    },
+)
+
+
+ExploreSearchResponseModelsItemDatasetSampleImagesItem = TypedDict(
+    "ExploreSearchResponseModelsItemDatasetSampleImagesItem",
+    {
+        "url": str,
+        "imageUrl": NotRequired[str],
+        "width": float,
+        "height": float,
+        "labels": NotRequired[list[ExploreSearchResponseModelsItemDatasetSampleImagesItemLabelsItem]],
+    },
+)
+
+
+ExploreSearchResponseModelsItemDataset = TypedDict(
+    "ExploreSearchResponseModelsItemDataset",
+    {
+        "id": str,
+        "dataset": str,
+        "name": str,
+        "description": NotRequired[str],
+        "owner": str,
+        "visibility": Literal["public", "private"],
+        "imageCount": int,
+        "classCount": NotRequired[int],
+        "classNames": NotRequired[list[str]],
+        "classColors": NotRequired[dict[str, str]],
+        "task": Literal["detect", "segment", "semantic", "depth", "classify", "pose", "obb"],
+        "totalBytes": NotRequired[float],
+        "tags": NotRequired[list[str]],
+        "splits": NotRequired[ExploreSearchResponseModelsItemDatasetSplits],
+        "kptShape": NotRequired[list[Any]],
+        "starCount": int,
+        "sampleImages": list[ExploreSearchResponseModelsItemDatasetSampleImagesItem],
+        "userImageUrl": NotRequired[str],
+        "updatedAt": str,
+    },
+)
+
+
+ExploreSearchResponseModelsItem = TypedDict(
+    "ExploreSearchResponseModelsItem",
+    {
+        "id": str,
+        "model": str,
+        "name": str,
+        "owner": str,
+        "project": str,
+        "projectName": str,
+        "projectIconColor": NotRequired[str],
+        "projectIconLetter": NotRequired[str],
+        "projectIconImage": NotRequired[str],
+        "task": NotRequired[Literal["detect", "segment", "semantic", "depth", "classify", "pose", "obb"]],
+        "metrics": NotRequired[dict[str, float]],
+        "classNames": NotRequired[list[str]],
+        "classCount": int,
+        "epochs": NotRequired[float],
+        "file": NotRequired[ExploreSearchResponseModelsItemFile],
+        "starCount": int,
+        "dataset": NotRequired[ExploreSearchResponseModelsItemDataset],
+        "userImageUrl": NotRequired[str],
+        "createdAt": NotRequired[str],
+    },
+)
+
+
 ExploreSearchResponseImagesItemDataset = TypedDict(
     "ExploreSearchResponseImagesItemDataset",
     {
@@ -1992,6 +2141,7 @@ ExploreSearchResponse = TypedDict(
     {
         "projects": list[ExploreSearchResponseProjectsItem],
         "datasets": list[ExploreSearchResponseDatasetsItem],
+        "models": NotRequired[list[ExploreSearchResponseModelsItem]],
         "images": NotRequired[list[ExploreSearchResponseImagesItem]],
         "hasMore": bool,
     },
@@ -2076,6 +2226,93 @@ ExploreSearchByImageResponseDatasetsItem = TypedDict(
 )
 
 
+ExploreSearchByImageResponseModelsItemFile = TypedDict(
+    "ExploreSearchByImageResponseModelsItemFile", {"size": NotRequired[float]}
+)
+
+
+ExploreSearchByImageResponseModelsItemDatasetSplits = TypedDict(
+    "ExploreSearchByImageResponseModelsItemDatasetSplits", {"train": int, "val": int, "test": int, "labeled": int}
+)
+
+
+ExploreSearchByImageResponseModelsItemDatasetSampleImagesItemLabelsItem = TypedDict(
+    "ExploreSearchByImageResponseModelsItemDatasetSampleImagesItemLabelsItem",
+    {
+        "classId": int,
+        "bbox": NotRequired[list[Any]],
+        "segments": NotRequired[list[float]],
+        "keypoints": NotRequired[list[float]],
+        "obb": NotRequired[list[Any]],
+        "skeletonId": NotRequired[str],
+    },
+)
+
+
+ExploreSearchByImageResponseModelsItemDatasetSampleImagesItem = TypedDict(
+    "ExploreSearchByImageResponseModelsItemDatasetSampleImagesItem",
+    {
+        "url": str,
+        "imageUrl": NotRequired[str],
+        "width": float,
+        "height": float,
+        "labels": NotRequired[list[ExploreSearchByImageResponseModelsItemDatasetSampleImagesItemLabelsItem]],
+    },
+)
+
+
+ExploreSearchByImageResponseModelsItemDataset = TypedDict(
+    "ExploreSearchByImageResponseModelsItemDataset",
+    {
+        "id": str,
+        "dataset": str,
+        "name": str,
+        "description": NotRequired[str],
+        "owner": str,
+        "visibility": Literal["public", "private"],
+        "imageCount": int,
+        "classCount": NotRequired[int],
+        "classNames": NotRequired[list[str]],
+        "classColors": NotRequired[dict[str, str]],
+        "task": Literal["detect", "segment", "semantic", "depth", "classify", "pose", "obb"],
+        "totalBytes": NotRequired[float],
+        "tags": NotRequired[list[str]],
+        "splits": NotRequired[ExploreSearchByImageResponseModelsItemDatasetSplits],
+        "kptShape": NotRequired[list[Any]],
+        "starCount": int,
+        "sampleImages": list[ExploreSearchByImageResponseModelsItemDatasetSampleImagesItem],
+        "userImageUrl": NotRequired[str],
+        "updatedAt": str,
+    },
+)
+
+
+ExploreSearchByImageResponseModelsItem = TypedDict(
+    "ExploreSearchByImageResponseModelsItem",
+    {
+        "id": str,
+        "model": str,
+        "name": str,
+        "owner": str,
+        "project": str,
+        "projectName": str,
+        "projectIconColor": NotRequired[str],
+        "projectIconLetter": NotRequired[str],
+        "projectIconImage": NotRequired[str],
+        "task": NotRequired[Literal["detect", "segment", "semantic", "depth", "classify", "pose", "obb"]],
+        "metrics": NotRequired[dict[str, float]],
+        "classNames": NotRequired[list[str]],
+        "classCount": int,
+        "epochs": NotRequired[float],
+        "file": NotRequired[ExploreSearchByImageResponseModelsItemFile],
+        "starCount": int,
+        "dataset": NotRequired[ExploreSearchByImageResponseModelsItemDataset],
+        "userImageUrl": NotRequired[str],
+        "createdAt": NotRequired[str],
+    },
+)
+
+
 ExploreSearchByImageResponseImagesItemDataset = TypedDict(
     "ExploreSearchByImageResponseImagesItemDataset",
     {
@@ -2135,6 +2372,7 @@ ExploreSearchByImageResponse = TypedDict(
     {
         "projects": list[ExploreSearchByImageResponseProjectsItem],
         "datasets": list[ExploreSearchByImageResponseDatasetsItem],
+        "models": NotRequired[list[ExploreSearchByImageResponseModelsItem]],
         "images": NotRequired[list[ExploreSearchByImageResponseImagesItem]],
         "hasMore": bool,
         "vector": NotRequired[str],

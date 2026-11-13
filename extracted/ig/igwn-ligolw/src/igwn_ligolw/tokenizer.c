@@ -109,39 +109,30 @@ static int type_ready_and_add(PyObject *module, const char *name, PyTypeObject *
 "various data storage units."
 
 
+static int m_exec(PyObject *module) {
+	if(type_ready_and_add(module, "Tokenizer", &ligolw_Tokenizer_Type) < 0) return -1;
+	if(type_ready_and_add(module, "RowBuilder", &ligolw_RowBuilder_Type) < 0) return -1;
+	if(type_ready_and_add(module, "RowDumper", &ligolw_RowDumper_Type) < 0) return -1;
+	return 0;
+}
+
+
+static PyModuleDef moduledef = {
+	.m_base = PyModuleDef_HEAD_INIT,
+	.m_name = MODULE_NAME,
+	.m_doc = MODULE_DOC,
+	.m_slots = (PyModuleDef_Slot []) {
+		{Py_mod_exec, m_exec},
+#if PY_VERSION_HEX >= 0x030D0000
+		{Py_mod_gil, Py_MOD_GIL_NOT_USED},
+#endif
+		{/* terminal element, all NULL */},
+	},
+};
+
+
 PyMODINIT_FUNC PyInit_tokenizer(void); /* Silence -Wmissing-prototypes */
 PyMODINIT_FUNC PyInit_tokenizer(void)
 {
-	/*
-	 * Create the module.
-	 */
-
-	static PyModuleDef moduledef = {
-		PyModuleDef_HEAD_INIT,
-		MODULE_NAME, MODULE_DOC, -1, NULL
-	};
-	PyObject *module = PyModule_Create(&moduledef);
-	if(!module)
-		goto error;
-
-	/*
-	 * Initialize the classes and add to module
-	 */
-
-	if(type_ready_and_add(module, "Tokenizer", &ligolw_Tokenizer_Type) < 0)
-		goto error;
-	if(type_ready_and_add(module, "RowBuilder", &ligolw_RowBuilder_Type) < 0)
-		goto error;
-	if(type_ready_and_add(module, "RowDumper", &ligolw_RowDumper_Type) < 0)
-		goto error;
-
-	/*
-	 * Done.
-	 */
-
-	return module;
-
-error:
-	Py_XDECREF(module);
-	return NULL;
+	return PyModuleDef_Init(&moduledef);
 }

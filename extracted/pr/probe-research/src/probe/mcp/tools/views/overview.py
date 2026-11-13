@@ -77,6 +77,8 @@ def _summary_version_number(value: Any) -> int | None:
 
 #: What a panes row keeps beside its recipe summary: never `html` (up to 300k characters each).
 _PANE_FIELDS = ("slug", "title", "position", "updated_at")
+#: What the panes view says of a project's canvas preview (read only; `probe pane preview show`).
+_PREVIEW_FIELDS = ("state", "set_via", "is_explicit", "updated_at")
 
 
 def _summarize_recipe(recipe: Any) -> dict[str, Any]:
@@ -164,10 +166,15 @@ class OverviewViewsMixin:
 
     def _list_panes(self, kind: str, entity: dict) -> _ViewData:
         """The panes on a project's or experiment's page, first to last: slug, title, place, what each
-        recipe reads and the page it is on. No HTML: `probe pane get <scope> <slug> --out DIR` writes it."""
+        recipe reads and the page it is on; a project's canvas preview (`preview`: its state and who
+        chose it, and `is_preview` on the chosen row). No HTML: `probe pane get <scope> <slug> --out DIR`
+        writes it."""
         page_url = links.entity_url(kind, str(entity["id"]), api_base_url=self._api_base_url)
+        answer = self.source.fetch_panes(str(entity["id"]))
+        preview = answer.get("preview") if isinstance(answer.get("preview"), dict) else None
+        chosen = (preview.get("pane") or {}).get("slug") if preview and isinstance(preview.get("pane"), dict) else None
         rows = []
-        for pane in self.source.fetch_panes(str(entity["id"])):
+        for pane in answer.get("panes") or []:
             if not isinstance(pane, dict):
                 continue
             row = {key: pane[key] for key in _PANE_FIELDS if pane.get(key) is not None}
@@ -175,8 +182,11 @@ class OverviewViewsMixin:
             url = pane.get("url") or page_url
             if url:
                 row["url"] = url
+            if chosen is not None and pane.get("slug") == chosen:
+                row["is_preview"] = True
             rows.append(row)
-        return _ViewData(rows=rows, rows_key="panes")
+        payload = {"preview": {key: preview.get(key) for key in _PREVIEW_FIELDS}} if preview else {}
+        return _ViewData(payload=payload, rows=rows, rows_key="panes")
 
     def _view_project_summary_history(self, entity: dict, request: _Req) -> _ViewData:
         return self._summary_history(EntityType.PROJECT, entity, request)

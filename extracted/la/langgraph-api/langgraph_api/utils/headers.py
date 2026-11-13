@@ -8,6 +8,8 @@ from collections.abc import Mapping
 import orjson
 import structlog
 
+from langgraph_api.validation import RESERVED_CONFIGURABLE_KEYS
+
 logger = structlog.stdlib.get_logger(__name__)
 
 LANGSMITH_METADATA = "langsmith-metadata"
@@ -145,6 +147,9 @@ def should_include_header(key: str) -> bool:
         or key == "x-tenant-id"
         or key == "authorization"
     ):
+        return False
+    # Server-owned configurable keys are never taken from a request header.
+    if key in RESERVED_CONFIGURABLE_KEYS:
         return False
 
     include_patterns, exclude_patterns = get_header_patterns("configurable_headers")

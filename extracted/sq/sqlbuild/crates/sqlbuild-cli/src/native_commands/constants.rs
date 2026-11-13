@@ -55,9 +55,6 @@ pub(crate) const SKILL_FILES_HEADER: &str = "Updated SQLBuild skill files:\n";
 pub(crate) const RULE_SELECTOR_REQUIRED: &str = "A rule code or family prefix is required";
 /// `run_rules_command`'s exit status for a missing or unknown rule.
 pub(crate) const RULES_USAGE_EXIT_CODE: i32 = 2;
-pub(crate) const LEGACY_PROJECT_CONFIG_FILENAME: &str = "sqlbuild_project.yml";
-pub(crate) const LOCAL_CONFIG_FILENAME: &str = "sqlbuild_local.toml";
-pub(crate) const LEGACY_LOCAL_CONFIG_FILENAME: &str = "sqlbuild_local.yml";
 /// The class Python's last-resort log handler names for a user error.
 pub(crate) const USER_ERROR_CLASS: &str = "sqlbuild._native.CliUserError";
 pub(crate) const INIT_FAILURE_PREFIX: &str = "sqb init: ";
@@ -95,6 +92,8 @@ pub(crate) const SENSOR_EVALUATION_SECONDS: u64 = 30;
 pub(crate) const SENSOR_RESULT_BYTES: u64 = 1_048_576;
 /// Read timeout, and the delay before retrying a failed page of an unfinished synchronization.
 pub(crate) const METADATA_POLL_SECONDS: u64 = 30;
+/// A metadata reader that ignores end of input this long after a synchronization is killed.
+pub(crate) const METADATA_READER_CLOSE_SECONDS: u64 = 5;
 /// How often an idle location asks the server, never the warehouse, whether a run ended.
 pub(crate) const METADATA_SYNC_CHECK_SECONDS: u64 = 5;
 /// Full key-set reconciliation is independent of the incremental poll and overlap window.

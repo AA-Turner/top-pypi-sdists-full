@@ -3,6 +3,20 @@ import numpy
 import kernels
 
 def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_1():
+	outstarts = [123, 123]
+	outstops = [123, 123]
+	distincts = [0, -1, 2, -1, -1, 5]
+	lendistincts = 6
+	outlength = 2
+	funcPy = getattr(kernels, 'awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64')
+	funcPy(outstarts = outstarts,outstops = outstops,distincts = distincts,lendistincts = lendistincts,outlength = outlength)
+	pytest_outstarts = [0, 3]
+	pytest_outstops = [3, 6]
+	assert outstarts == pytest_outstarts
+	assert outstops == pytest_outstops
+
+
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_2():
 	outstarts = []
 	outstops = []
 	distincts = []
@@ -16,7 +30,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_1():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_2():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_3():
 	outstarts = [123]
 	outstops = [123]
 	distincts = []
@@ -30,7 +44,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_2():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_3():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_4():
 	outstarts = [123, 123, 123]
 	outstops = [123, 123, 123]
 	distincts = [0, 0, 0, 0, 0, -1, -1, -1, -1, -1, 2, 2, 2, 2, 2]
@@ -44,7 +58,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_3():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_4():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_5():
 	outstarts = [123, 123, 123]
 	outstops = [123, 123, 123]
 	distincts = [0, 0, 0, 0, 0, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1]
@@ -58,7 +72,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_4():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_5():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_6():
 	outstarts = [123]
 	outstops = [123]
 	distincts = [0, 0]
@@ -72,7 +86,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_5():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_6():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_7():
 	outstarts = [123]
 	outstops = [123]
 	distincts = [0, 0, 0]
@@ -86,7 +100,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_6():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_7():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_8():
 	outstarts = [123, 123]
 	outstops = [123, 123]
 	distincts = [0, 0, 0, 1, 1, -1]
@@ -100,7 +114,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_7():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_8():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_9():
 	outstarts = [123, 123]
 	outstops = [123, 123]
 	distincts = [0, 0, 0, 1, 1, 1]
@@ -114,7 +128,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_8():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_9():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_10():
 	outstarts = [123, 123, 123]
 	outstops = [123, 123, 123]
 	distincts = [0, 0, 0, 1, 1, -1, 2, -1, -1]
@@ -128,7 +142,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_9():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_10():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_11():
 	outstarts = [123, 123, 123, 123]
 	outstops = [123, 123, 123, 123]
 	distincts = [0, 0, 0, 1, -1, -1, 2, 1, -1, 3, -1, -1]
@@ -142,7 +156,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_10():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_11():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_12():
 	outstarts = [123, 123, 123, 123]
 	outstops = [123, 123, 123, 123]
 	distincts = [0, 0, -1, 1, -1, -1, -1, -1, -1, 2, 1, 0]
@@ -156,7 +170,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_11():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_12():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_13():
 	outstarts = [123]
 	outstops = [123]
 	distincts = [0, 0, 0, 0]
@@ -170,7 +184,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_12():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_13():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_14():
 	outstarts = [123, 123]
 	outstops = [123, 123]
 	distincts = [0, 0, 0, -1, 1, 1, 1, 0]
@@ -184,7 +198,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_13():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_14():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_15():
 	outstarts = [123]
 	outstops = [123]
 	distincts = [0, 0, 0, 0, 0]
@@ -198,7 +212,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_14():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_15():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_16():
 	outstarts = [123, 123, 123]
 	outstops = [123, 123, 123]
 	distincts = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, -1]
@@ -212,7 +226,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_15():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_16():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_17():
 	outstarts = [123, 123, 123]
 	outstops = [123, 123, 123]
 	distincts = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]
@@ -226,7 +240,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_16():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_17():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_18():
 	outstarts = [123, 123, 123]
 	outstops = [123, 123, 123]
 	distincts = [0, 0, 0, 0, 0, 1, -1, -1, -1, -1, 2, 1, 1, 1, 1]
@@ -240,7 +254,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_17():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_18():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_19():
 	outstarts = [123, 123, 123]
 	outstops = [123, 123, 123]
 	distincts = [0, 0, 0, 0, 0, 1, 1, 1, 1, -1, 2, 2, 2, 2, 1]
@@ -254,7 +268,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_18():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_19():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_20():
 	outstarts = [123, 123, 123]
 	outstops = [123, 123, 123]
 	distincts = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1]
@@ -268,7 +282,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_19():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_20():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_21():
 	outstarts = [123, 123]
 	outstops = [123, 123]
 	distincts = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
@@ -282,7 +296,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_20():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_21():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_22():
 	outstarts = [123, 123, 123]
 	outstops = [123, 123, 123]
 	distincts = [0, 0, 0, -1, -1, -1, 1, 1, -1]
@@ -296,7 +310,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_21():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_22():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_23():
 	outstarts = [123, 123, 123]
 	outstops = [123, 123, 123]
 	distincts = [0, 0, 0, -1, -1, -1, 1, 1, 1]
@@ -310,7 +324,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_22():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_23():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_24():
 	outstarts = [123, 123, 123, 123]
 	outstops = [123, 123, 123, 123]
 	distincts = [0, 0, -1, -1, -1, -1, 1, -1, -1, 2, 1, 0]
@@ -324,7 +338,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_23():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_24():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_25():
 	outstarts = [123, 123, 123, 123]
 	outstops = [123, 123, 123, 123]
 	distincts = [0, 0, -1, -1, -1, -1, -1, -1, -1, 1, 1, 0]
@@ -338,7 +352,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_24():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_25():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_26():
 	outstarts = [123, 123, 123, 123]
 	outstops = [123, 123, 123, 123]
 	distincts = [0, 0, 0, -1, -1, -1, -1, -1, -1, 1, 1, 1]
@@ -352,7 +366,7 @@ def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_25():
 	assert outstops == pytest_outstops
 
 
-def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_26():
+def test_awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64_27():
 	outstarts = [123]
 	outstops = [123]
 	distincts = []

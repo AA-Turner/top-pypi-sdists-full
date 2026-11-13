@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dagster
-Version: 1.13.29
+Version: 1.13.30
 Summary: Dagster is an orchestration platform for the development, production, and observation of data assets.
 Project-URL: Homepage, https://dagster.io
 Project-URL: GitHub, https://github.com/dagster-io/dagster
@@ -23,13 +23,13 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: System :: Monitoring
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.15,>=3.11
 Requires-Dist: alembic!=1.11.0,!=1.6.3,!=1.7.0,>=1.2.1
 Requires-Dist: antlr4-python3-runtime<4.14
 Requires-Dist: click<9.0,>=5.0
 Requires-Dist: coloredlogs<=14.0,>=6.1
-Requires-Dist: dagster-pipes==1.13.29
-Requires-Dist: dagster-shared==1.13.29
+Requires-Dist: dagster-pipes==1.13.30
+Requires-Dist: dagster-shared==1.13.30
 Requires-Dist: docstring-parser
 Requires-Dist: filelock
 Requires-Dist: grpcio-health-checking!=1.82.0,>=1.44.0; python_version < '3.13'
@@ -37,8 +37,7 @@ Requires-Dist: grpcio-health-checking!=1.82.0,>=1.66.2; python_version >= '3.13'
 Requires-Dist: grpcio>=1.44.0; python_version < '3.13'
 Requires-Dist: grpcio>=1.66.2; python_version >= '3.13'
 Requires-Dist: jinja2
-Requires-Dist: protobuf<8,>=3.20.0; python_version < '3.11'
-Requires-Dist: protobuf<8,>=4; python_version >= '3.11'
+Requires-Dist: protobuf<8,>=4
 Requires-Dist: psutil>=1.0; platform_system == 'Windows'
 Requires-Dist: python-dotenv
 Requires-Dist: pytz

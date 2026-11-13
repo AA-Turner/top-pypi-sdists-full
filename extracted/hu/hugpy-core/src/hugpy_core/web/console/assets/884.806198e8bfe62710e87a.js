@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunk_hugpy_ui=self.webpackChunk_hugpy_ui||[]).push([[884],{884(e,u,p){p.d(u,{createTreemapServices:()=>s.d});var s=p(6527);p(4954)}}]);

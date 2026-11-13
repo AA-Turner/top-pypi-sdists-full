@@ -276,6 +276,7 @@ from .literals import (
     M3u8TimedMetadataBehaviorType,
     MaintenanceDayType,
     MediaConnectRouterOutputEncryptionTypeType,
+    MediaPackageV2CaptionLanguageSettingType,
     MotionGraphicsInsertionType,
     Mp2CodingModeType,
     Mpeg2AdaptiveQuantizationType,
@@ -4988,6 +4989,7 @@ class MediaPackageV2GroupSettingsOutputTypeDef(TypedDict):
     TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
     AdditionalDestinations: NotRequired[list[MediaPackageAdditionalDestinationsTypeDef]]
     WatermarkingSettings: NotRequired[MediaPackageV2WatermarkingSettingsOutputTypeDef]
+    CaptionLanguageSetting: NotRequired[MediaPackageV2CaptionLanguageSettingType]
 
 class MediaPackageV2GroupSettingsTypeDef(TypedDict):
     CaptionLanguageMappings: NotRequired[Sequence[CaptionLanguageMappingTypeDef]]
@@ -5002,6 +5004,7 @@ class MediaPackageV2GroupSettingsTypeDef(TypedDict):
     TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
     AdditionalDestinations: NotRequired[Sequence[MediaPackageAdditionalDestinationsTypeDef]]
     WatermarkingSettings: NotRequired[MediaPackageV2WatermarkingSettingsTypeDef]
+    CaptionLanguageSetting: NotRequired[MediaPackageV2CaptionLanguageSettingType]
 
 class AudioPreMixerSettingsOutputTypeDef(TypedDict):
     AudioNormalizationSettings: NotRequired[AudioNormalizationSettingsTypeDef]

@@ -8,6 +8,7 @@ from ....shared.reads.search_contract import (
     ChannelError,
     EntityType,
     MatchMode)
+from probe.mcp.tools.shaping.people import to_people_cards
 
 
 #: How much of the engine's rationale a card carries. Long enough for a reason,
@@ -146,6 +147,9 @@ def _exact_result(row: dict) -> dict:
         )
         if row.get(key) is not None
     }
+    people = to_people_cards(row.get("people"), show_id=False)
+    if people:
+        card["people"] = people
     resource = None
     if entity_type == EntityType.EXPERIMENT:
         resource = f"research://experiments/{entity_id}/card"
@@ -254,6 +258,10 @@ def _semantic_result(row: dict, *, keyword: bool = False) -> dict:
     author = _read_github_author(row)
     if author:
         card["author"] = author
+    # Who made it, creator first, then whoever wrote its notes (people and time filters D5).
+    people = to_people_cards(row.get("people"), show_id=False)
+    if people:
+        card["people"] = people
     return {
         "entity_type": kind or EntityType.DOCUMENT,
         **({"id": entity_id} if kind else {}),

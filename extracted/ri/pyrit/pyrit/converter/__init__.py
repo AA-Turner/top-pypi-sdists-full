@@ -60,6 +60,7 @@ if TYPE_CHECKING:
     from pyrit.converter.emoji_converter import EmojiConverter
     from pyrit.converter.first_letter_converter import FirstLetterConverter
     from pyrit.converter.flip_converter import FlipConverter
+    from pyrit.converter.grid_composite_converter import GridCompositeConverter
     from pyrit.converter.image_color_saturation_converter import ImageColorSaturationConverter
     from pyrit.converter.image_compression_converter import ImageCompressionConverter
     from pyrit.converter.image_overlay_converter import ImageOverlayConverter
@@ -71,6 +72,10 @@ if TYPE_CHECKING:
     from pyrit.converter.json_string_converter import JsonStringConverter
     from pyrit.converter.leetspeak_converter import LeetspeakConverter
     from pyrit.converter.llm_generic_text_converter import LLMGenericTextConverter
+    from pyrit.converter.lsb_image_stego_converter import (
+        LSBImageStegoConverter,
+        LSBImageStegoDecodeConverter,
+    )
     from pyrit.converter.malicious_question_generator_converter import MaliciousQuestionGeneratorConverter
     from pyrit.converter.math_obfuscation_converter import MathObfuscationConverter
     from pyrit.converter.math_prompt_converter import MathPromptConverter
@@ -80,12 +85,15 @@ if TYPE_CHECKING:
     from pyrit.converter.noise_converter import NoiseConverter
     from pyrit.converter.pdf_converter import PDFConverter
     from pyrit.converter.persuasion_converter import PersuasionConverter
+    from pyrit.converter.pinyin_converter import PinyinConverter
     from pyrit.converter.policy_puppetry_converter import PolicyPuppetryConverter, PolicyPuppetryTemplate
+    from pyrit.converter.prompt_template_converter import PromptTemplateConverter
     from pyrit.converter.puzzled import PuzzledConverter, PuzzleType
     from pyrit.converter.qr_code_converter import QRCodeConverter
     from pyrit.converter.random_capital_letters_converter import RandomCapitalLettersConverter
     from pyrit.converter.random_translation_converter import RandomTranslationConverter
     from pyrit.converter.repeat_token_converter import RepeatTokenConverter
+    from pyrit.converter.role_play_tool_call_converter import RolePlayToolCallConverter
     from pyrit.converter.rot13_converter import ROT13Converter
     from pyrit.converter.sata_masking_converter import SATA_TASK_TEMPLATE, SATAMaskingConverter
     from pyrit.converter.scientific_translation_converter import ScientificTranslationConverter
@@ -181,6 +189,7 @@ _LAZY_EXPORTS: dict[str, str | tuple[str, str | None]] = {
     "EmojiConverter": "pyrit.converter.emoji_converter",
     "FirstLetterConverter": "pyrit.converter.first_letter_converter",
     "FlipConverter": "pyrit.converter.flip_converter",
+    "GridCompositeConverter": "pyrit.converter.grid_composite_converter",
     "ImageColorSaturationConverter": "pyrit.converter.image_color_saturation_converter",
     "ImageCompressionConverter": "pyrit.converter.image_compression_converter",
     "ImageOverlayConverter": "pyrit.converter.image_overlay_converter",
@@ -194,6 +203,8 @@ _LAZY_EXPORTS: dict[str, str | tuple[str, str | None]] = {
     "KeywordSelectionStrategy": "pyrit.converter.text_selection_strategy",
     "LeetspeakConverter": "pyrit.converter.leetspeak_converter",
     "LLMGenericTextConverter": "pyrit.converter.llm_generic_text_converter",
+    "LSBImageStegoConverter": "pyrit.converter.lsb_image_stego_converter",
+    "LSBImageStegoDecodeConverter": "pyrit.converter.lsb_image_stego_converter",
     "MaliciousQuestionGeneratorConverter": "pyrit.converter.malicious_question_generator_converter",
     "MathObfuscationConverter": "pyrit.converter.math_obfuscation_converter",
     "MathPromptConverter": "pyrit.converter.math_prompt_converter",
@@ -203,9 +214,11 @@ _LAZY_EXPORTS: dict[str, str | tuple[str, str | None]] = {
     "NoiseConverter": "pyrit.converter.noise_converter",
     "PDFConverter": "pyrit.converter.pdf_converter",
     "PersuasionConverter": "pyrit.converter.persuasion_converter",
+    "PinyinConverter": "pyrit.converter.pinyin_converter",
     "PolicyPuppetryConverter": "pyrit.converter.policy_puppetry_converter",
     "PolicyPuppetryTemplate": "pyrit.converter.policy_puppetry_converter",
     "PositionSelectionStrategy": "pyrit.converter.text_selection_strategy",
+    "PromptTemplateConverter": "pyrit.converter.prompt_template_converter",
     "Converter": "pyrit.converter.converter",
     "ProportionSelectionStrategy": "pyrit.converter.text_selection_strategy",
     "PuzzleType": "pyrit.converter.puzzled",
@@ -217,6 +230,7 @@ _LAZY_EXPORTS: dict[str, str | tuple[str, str | None]] = {
     "RangeSelectionStrategy": "pyrit.converter.text_selection_strategy",
     "RegexSelectionStrategy": "pyrit.converter.text_selection_strategy",
     "RepeatTokenConverter": "pyrit.converter.repeat_token_converter",
+    "RolePlayToolCallConverter": "pyrit.converter.role_play_tool_call_converter",
     "SATA_TASK_TEMPLATE": "pyrit.converter.sata_masking_converter",
     "SATAMaskingConverter": "pyrit.converter.sata_masking_converter",
     "ScientificTranslationConverter": "pyrit.converter.scientific_translation_converter",

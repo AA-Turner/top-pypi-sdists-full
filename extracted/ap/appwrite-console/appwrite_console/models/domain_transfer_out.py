@@ -14,7 +14,7 @@ class DomainTransferOut(AppwriteModel):
         Domain transfer authorization code.
     """
 
-    authcode: str = Field(..., alias='authCode')
+    authcode: str = Field(..., alias='authCode', json_schema_extra={'format': 'password'})
 
     @model_validator(mode='before')
     @classmethod

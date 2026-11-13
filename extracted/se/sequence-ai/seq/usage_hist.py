@@ -35,8 +35,9 @@ WHO_MOST = 40
 
 
 
+
 _KIND = {"serving": "policy workers", "eval": "evals", "check": "build checks", "weights": "weight copies",
-         "build": "builds", "shell": "shells"}
+         "build": "builds", "shell": "shells", "gpu": "GPUs"}
 
 CSV_COLUMNS = ("start", "group", "card_hours", "cost_usd")
 

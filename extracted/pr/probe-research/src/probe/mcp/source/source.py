@@ -11,6 +11,7 @@ from probe.mcp.source.catalog import CatalogReadsMixin
 from probe.mcp.source.documents import DocumentReadsMixin
 from probe.mcp.source.entities import EntityReadsMixin
 from probe.mcp.source.lineage import LineageReadsMixin
+from probe.mcp.source.people import PeopleFilters, PeopleReadsMixin
 from probe.mcp.source.projects import ProjectReadsMixin
 from probe.mcp.source.runs import RunReadsMixin
 from probe.mcp.source.search import SearchReadsMixin
@@ -41,6 +42,7 @@ class ResearchOSSource(
     ProjectReadsMixin,
     DocumentReadsMixin,
     SessionReadsMixin,
+    PeopleReadsMixin,
 ):
     """Read authoritative structured data through Probe APIs.
 
@@ -129,6 +131,7 @@ class ResearchOSSource(
         subprojects_cursor: str | None = None,
         continuation_handles: bool | None = None,
         exclude_origin_session: str | None = None,
+        filters: PeopleFilters = PeopleFilters(),
     ) -> dict:
         """GET /v1/browse, raising CapabilityUnavailable on a backend without it.
 
@@ -149,11 +152,13 @@ class ResearchOSSource(
                 subprojects_cursor=subprojects_cursor,
                 continuation_handles=continuation_handles,
                 exclude_origin_session=exclude_origin_session,
+                **filters.to_query(),
             )
         except errors.NotFoundError:
             # A scoped 404 means the SCOPE was not found on a backend that has
-            # the route; only an unscoped 404 proves the route is missing.
-            if scope is not None:
+            # the route; only an unscoped 404 proves the route is missing. An
+            # `owner` no teammate matched is such a scope.
+            if scope is not None or filters.owner:
                 raise
             raise self._browse_unavailable() from None
         return response

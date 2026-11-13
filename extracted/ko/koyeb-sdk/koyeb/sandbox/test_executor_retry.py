@@ -286,5 +286,118 @@ class TestRunNotRetried(unittest.TestCase):
         self.assertEqual(handler.calls, 2)
 
 
+_SSE_DONE = (
+    b'data: {"stream": "stdout", "data": "hi"}\n\ndata: {"code": 0, "error": false}\n\n'
+)
+_EVENTS = [{"stream": "stdout", "data": "hi"}, {"code": 0, "error": False}]
+
+
+def _connect_error(request):
+    raise httpx.ConnectError("refused", request=request)
+
+
+class _CutSyncStream(httpx.SyncByteStream):
+    """Sends one output line, then the connection drops."""
+
+    def __iter__(self):
+        yield b'data: {"stream": "stdout", "data": "hi"}\n\n'
+        raise httpx.ReadError("connection reset")
+
+
+class _CutAsyncStream(httpx.AsyncByteStream):
+    async def __aiter__(self):
+        yield b'data: {"stream": "stdout", "data": "hi"}\n\n'
+        raise httpx.ReadError("connection reset")
+
+
+async def _collect(agen):
+    return [event async for event in agen]
+
+
+class TestRunStreamingConnectRetry(unittest.TestCase):
+    """/run_streaming starts a command too: like /run, only a failed connect
+    (the request never left the client) is sent again, never once a response
+    has started."""
+
+    def test_connect_error_retried(self):
+        handler = _ScriptedHandler(
+            [_connect_error, _ScriptedHandler.response(200, content=_SSE_DONE)]
+        )
+        client, handler = _make_sync_client(handler)
+        with patch("koyeb.sandbox.executor_client.time.sleep") as sleep:
+            events = list(client.run_streaming("echo hi"))
+        self.assertEqual(events, _EVENTS)
+        self.assertEqual(handler.calls, 2)
+        self.assertEqual([c.args[0] for c in sleep.call_args_list], [1.0])
+
+    def test_connect_error_exhausted(self):
+        handler = _ScriptedHandler([_connect_error] * 4)
+        client, handler = _make_sync_client(handler)
+        with patch("koyeb.sandbox.executor_client.time.sleep") as sleep:
+            with self.assertRaises(SandboxError):
+                list(client.run_streaming("echo hi"))
+        self.assertEqual(handler.calls, 4)
+        self.assertEqual([c.args[0] for c in sleep.call_args_list], [1.0, 2.0, 4.0])
+
+    def test_connect_retry_stays_within_timeout(self):
+        handler = _ScriptedHandler([_connect_error] * 4)
+        client, handler = _make_sync_client(handler)
+        with patch("koyeb.sandbox.executor_client.time.sleep") as sleep:
+            with self.assertRaises(SandboxError):
+                list(client.run_streaming("echo hi", timeout=0.5))
+        self.assertEqual(handler.calls, 1)
+        sleep.assert_not_called()
+
+    def test_dropped_stream_sent_once(self):
+        handler = _ScriptedHandler(
+            [lambda request: httpx.Response(200, stream=_CutSyncStream())] * 4
+        )
+        client, handler = _make_sync_client(handler)
+        events = []
+        with patch("koyeb.sandbox.executor_client.time.sleep"):
+            with self.assertRaises(SandboxError):
+                for event in client.run_streaming("echo hi"):
+                    events.append(event)
+        self.assertEqual(events, _EVENTS[:1])
+        self.assertEqual(handler.calls, 1)
+
+    def test_5xx_sent_once(self):
+        handler = _ScriptedHandler([_ScriptedHandler.response(502)] * 4)
+        client, handler = _make_sync_client(handler)
+        with patch("koyeb.sandbox.executor_client.time.sleep"):
+            with self.assertRaises(SandboxServiceError):
+                list(client.run_streaming("echo hi"))
+        self.assertEqual(handler.calls, 1)
+
+    def test_async_connect_error_retried(self):
+        handler = _ScriptedHandler(
+            [_connect_error, _ScriptedHandler.response(200, content=_SSE_DONE)]
+        )
+        client, handler = _make_async_client(handler)
+
+        async def run():
+            with patch("koyeb.sandbox.executor_client.asyncio.sleep") as sleep:
+                return await _collect(client.run_streaming("echo hi")), sleep
+
+        events, sleep = asyncio.run(run())
+        self.assertEqual(events, _EVENTS)
+        self.assertEqual(handler.calls, 2)
+        self.assertEqual([c.args[0] for c in sleep.call_args_list], [1.0])
+
+    def test_async_dropped_stream_sent_once(self):
+        handler = _ScriptedHandler(
+            [lambda request: httpx.Response(200, stream=_CutAsyncStream())] * 4
+        )
+        client, handler = _make_async_client(handler)
+
+        async def run():
+            with patch("koyeb.sandbox.executor_client.asyncio.sleep"):
+                return await _collect(client.run_streaming("echo hi"))
+
+        with self.assertRaises(SandboxError):
+            asyncio.run(run())
+        self.assertEqual(handler.calls, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

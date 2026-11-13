@@ -24,3 +24,16 @@ debian_test:
   variables: !reference [.system_test, variables]
   script: !reference [.system_test, script]
   artifacts: !reference [.system_test, artifacts]
+
+# FIXME: debian:testing currently ships a systemd whose postinst fails
+# ("Failed to enable units: Protocol driver not attached" /
+# "Cannot open '/etc/machine-id': Protocol driver not attached") when it
+# gets pulled in as a dependency inside an unprivileged container, which
+# breaks the apt-get bootstrap before our tests even run. This is an
+# upstream Debian systemd packaging issue, not something in this repo.
+# See:
+#   http://www.mail-archive.com/pkg-systemd-maintainers@alioth-lists.debian.net/msg11680.html
+#   https://lists.debian.org/debian-ssh/2026/04/msg00010.html
+# Remove once that's fixed upstream.
+debian_test_testing:
+  allow_failure: true

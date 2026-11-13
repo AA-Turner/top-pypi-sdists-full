@@ -39,6 +39,9 @@ bucket = s3.Bucket(self, "MyEncryptedBucket",
 
 # you can access the encryption key:
 assert(bucket.encryption_key instanceof kms.Key)
+
+# and inspect the effective encryption mode:
+assert(bucket.encryption == s3.BucketEncryption.KMS)
 ```
 
 You can also supply your own key:
@@ -71,7 +74,10 @@ bucket = s3.Bucket(self, "Buck",
 )
 
 assert(bucket.encryption_key == null)
+assert(bucket.encryption == s3.BucketEncryption.KMS_MANAGED)
 ```
+
+The `encryption` property reports the default encryption mode that S3 applies to new objects in the bucket. For buckets defined in the CDK app it is read from the typed `bucketEncryption` property of the underlying `CfnBucket`, so it includes changes made by assigning that property through an escape hatch (`cfnBucket.bucketEncryption = { ... }`). Raw overrides made with `addPropertyOverride()` or `addOverride()` are merged into the template only when it is rendered, so they are not reflected in `encryption`. S3 applies SSE-S3 to every bucket that has no default encryption rule ([docs](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucket-encryption.html)), so such a bucket reports `S3_MANAGED` and `UNENCRYPTED` is never returned. A KMS or DSSE rule without a key ID uses the AWS managed key `aws/s3` and reports `KMS_MANAGED` or `DSSE_MANAGED`. The property is `undefined` when the configuration is unresolved at synthesis time, uses an algorithm CDK does not model, or belongs to an imported bucket that does not specify `BucketAttributes.encryption`.
 
 Enable DSSE encryption:
 
@@ -1596,6 +1602,7 @@ class BucketAccessControl(enum.Enum):
         "bucket_regional_domain_name": "bucketRegionalDomainName",
         "bucket_website_new_url_format": "bucketWebsiteNewUrlFormat",
         "bucket_website_url": "bucketWebsiteUrl",
+        "encryption": "encryption",
         "encryption_key": "encryptionKey",
         "is_website": "isWebsite",
         "notifications_handler_role": "notificationsHandlerRole",
@@ -1614,6 +1621,7 @@ class BucketAttributes:
         bucket_regional_domain_name: typing.Optional[builtins.str] = None,
         bucket_website_new_url_format: typing.Optional[builtins.bool] = None,
         bucket_website_url: typing.Optional[builtins.str] = None,
+        encryption: typing.Optional["BucketEncryption"] = None,
         encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         is_website: typing.Optional[builtins.bool] = None,
         notifications_handler_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
@@ -1629,6 +1637,7 @@ class BucketAttributes:
         :param bucket_regional_domain_name: The regional domain name of the specified bucket.
         :param bucket_website_new_url_format: (deprecated) Force the format of the website URL of the bucket. This should be true for regions launched since 2014. Default: - inferred from available region information, ``false`` otherwise
         :param bucket_website_url: The website URL of the bucket (if static web hosting is enabled). Default: - Inferred from bucket name and region
+        :param encryption: The default server-side encryption mode of the imported bucket. ``UNENCRYPTED`` is reported as ``S3_MANAGED``, because S3 applies SSE-S3 to every bucket that has no default encryption rule. Default: - the encryption mode of the imported bucket is unknown
         :param encryption_key: KMS encryption key associated with this bucket. Default: - no encryption key
         :param is_website: If this bucket has been configured for static website hosting. Default: false
         :param notifications_handler_role: The role to be used by the notifications handler. Default: - a new role will be created.
@@ -1660,6 +1669,7 @@ class BucketAttributes:
             check_type(argname="argument bucket_regional_domain_name", value=bucket_regional_domain_name, expected_type=type_hints["bucket_regional_domain_name"])
             check_type(argname="argument bucket_website_new_url_format", value=bucket_website_new_url_format, expected_type=type_hints["bucket_website_new_url_format"])
             check_type(argname="argument bucket_website_url", value=bucket_website_url, expected_type=type_hints["bucket_website_url"])
+            check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
             check_type(argname="argument is_website", value=is_website, expected_type=type_hints["is_website"])
             check_type(argname="argument notifications_handler_role", value=notifications_handler_role, expected_type=type_hints["notifications_handler_role"])
@@ -1681,6 +1691,8 @@ class BucketAttributes:
             self._values["bucket_website_new_url_format"] = bucket_website_new_url_format
         if bucket_website_url is not None:
             self._values["bucket_website_url"] = bucket_website_url
+        if encryption is not None:
+            self._values["encryption"] = encryption
         if encryption_key is not None:
             self._values["encryption_key"] = encryption_key
         if is_website is not None:
@@ -1770,6 +1782,18 @@ class BucketAttributes:
         '''
         result = self._values.get("bucket_website_url")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encryption(self) -> typing.Optional["BucketEncryption"]:
+        '''The default server-side encryption mode of the imported bucket.
+
+        ``UNENCRYPTED`` is reported as ``S3_MANAGED``, because S3 applies SSE-S3 to every bucket
+        that has no default encryption rule.
+
+        :default: - the encryption mode of the imported bucket is unknown
+        '''
+        result = self._values.get("encryption")
+        return typing.cast(typing.Optional["BucketEncryption"], result)
 
     @builtins.property
     def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
@@ -19092,6 +19116,24 @@ class IBucket(
         ...
 
     @builtins.property
+    @jsii.member(jsii_name="encryption")
+    def encryption(self) -> typing.Optional["BucketEncryption"]:
+        '''The default server-side encryption mode that S3 applies to new objects in this bucket.
+
+        For a bucket defined in this app, the mode is derived from the typed ``bucketEncryption``
+        property of the underlying ``CfnBucket``, so it includes changes made by assigning that
+        property through an escape hatch. Raw overrides made with ``addPropertyOverride()`` or
+        ``addOverride()`` are applied only when the template is rendered and are not reflected
+        here.
+
+        S3 applies SSE-S3 to every bucket that has no default encryption rule, so such a
+        bucket reports ``S3_MANAGED`` and ``UNENCRYPTED`` is never returned.
+
+        :default: - undefined when the mode cannot be determined at synthesis time, or for an imported bucket that does not specify it
+        '''
+        ...
+
+    @builtins.property
     @jsii.member(jsii_name="encryptionKey")
     def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''Optional KMS encryption key associated with this bucket.'''
@@ -19660,6 +19702,24 @@ class _IBucketProxy(
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "bucketWebsiteUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="encryption")
+    def encryption(self) -> typing.Optional["BucketEncryption"]:
+        '''The default server-side encryption mode that S3 applies to new objects in this bucket.
+
+        For a bucket defined in this app, the mode is derived from the typed ``bucketEncryption``
+        property of the underlying ``CfnBucket``, so it includes changes made by assigning that
+        property through an escape hatch. Raw overrides made with ``addPropertyOverride()`` or
+        ``addOverride()`` are applied only when the template is rendered and are not reflected
+        here.
+
+        S3 applies SSE-S3 to every bucket that has no default encryption rule, so such a
+        bucket reports ``S3_MANAGED`` and ``UNENCRYPTED`` is never returned.
+
+        :default: - undefined when the mode cannot be determined at synthesis time, or for an imported bucket that does not specify it
+        '''
+        return typing.cast(typing.Optional["BucketEncryption"], jsii.get(self, "encryption"))
 
     @builtins.property
     @jsii.member(jsii_name="encryptionKey")
@@ -23711,6 +23771,15 @@ class BucketBase(
         return typing.cast("BucketGrants", jsii.get(self, "grants"))
 
     @builtins.property
+    @jsii.member(jsii_name="encryption")
+    def encryption(self) -> typing.Optional["BucketEncryption"]:
+        '''The default server-side encryption mode that S3 applies to new objects in this bucket.
+
+        ``UNENCRYPTED`` is never returned; see ``IBucket.encryption``.
+        '''
+        return typing.cast(typing.Optional["BucketEncryption"], jsii.get(self, "encryption"))
+
+    @builtins.property
     @jsii.member(jsii_name="encryptionKey")
     @abc.abstractmethod
     def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
@@ -24131,6 +24200,7 @@ class Bucket(
         bucket_regional_domain_name: typing.Optional[builtins.str] = None,
         bucket_website_new_url_format: typing.Optional[builtins.bool] = None,
         bucket_website_url: typing.Optional[builtins.str] = None,
+        encryption: typing.Optional["BucketEncryption"] = None,
         encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         is_website: typing.Optional[builtins.bool] = None,
         notifications_handler_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
@@ -24148,6 +24218,7 @@ class Bucket(
         :param bucket_regional_domain_name: The regional domain name of the specified bucket.
         :param bucket_website_new_url_format: (deprecated) Force the format of the website URL of the bucket. This should be true for regions launched since 2014. Default: - inferred from available region information, ``false`` otherwise
         :param bucket_website_url: The website URL of the bucket (if static web hosting is enabled). Default: - Inferred from bucket name and region
+        :param encryption: The default server-side encryption mode of the imported bucket. ``UNENCRYPTED`` is reported as ``S3_MANAGED``, because S3 applies SSE-S3 to every bucket that has no default encryption rule. Default: - the encryption mode of the imported bucket is unknown
         :param encryption_key: KMS encryption key associated with this bucket. Default: - no encryption key
         :param is_website: If this bucket has been configured for static website hosting. Default: false
         :param notifications_handler_role: The role to be used by the notifications handler. Default: - a new role will be created.
@@ -24166,6 +24237,7 @@ class Bucket(
             bucket_regional_domain_name=bucket_regional_domain_name,
             bucket_website_new_url_format=bucket_website_new_url_format,
             bucket_website_url=bucket_website_url,
+            encryption=encryption,
             encryption_key=encryption_key,
             is_website=is_website,
             notifications_handler_role=notifications_handler_role,
@@ -24415,6 +24487,15 @@ class Bucket(
         return typing.cast(builtins.str, jsii.get(self, "bucketWebsiteUrl"))
 
     @builtins.property
+    @jsii.member(jsii_name="encryption")
+    def encryption(self) -> typing.Optional["BucketEncryption"]:
+        '''The default server-side encryption mode that S3 applies to new objects in this bucket.
+
+        ``UNENCRYPTED`` is never returned; see ``IBucket.encryption``.
+        '''
+        return typing.cast(typing.Optional["BucketEncryption"], jsii.get(self, "encryption"))
+
+    @builtins.property
     @jsii.member(jsii_name="encryptionKey")
     def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''Optional KMS encryption key associated with this bucket.'''
@@ -24636,6 +24717,7 @@ def _typecheckingstub__59c6740ee33c114a2242cf5d785c7eb7be508681dd83101b211e8bfd4
     bucket_regional_domain_name: typing.Optional[builtins.str] = None,
     bucket_website_new_url_format: typing.Optional[builtins.bool] = None,
     bucket_website_url: typing.Optional[builtins.str] = None,
+    encryption: typing.Optional[BucketEncryption] = None,
     encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     is_website: typing.Optional[builtins.bool] = None,
     notifications_handler_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
@@ -27279,6 +27361,7 @@ def _typecheckingstub__96f800df332b471dd60202bb54d4f05c76b25493e694bebeddde28369
     bucket_regional_domain_name: typing.Optional[builtins.str] = None,
     bucket_website_new_url_format: typing.Optional[builtins.bool] = None,
     bucket_website_url: typing.Optional[builtins.str] = None,
+    encryption: typing.Optional[BucketEncryption] = None,
     encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     is_website: typing.Optional[builtins.bool] = None,
     notifications_handler_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,

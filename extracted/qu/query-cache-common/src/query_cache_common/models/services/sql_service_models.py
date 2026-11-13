@@ -62,6 +62,9 @@ class SubmitEnrichedSQLRequest(BaseSerDeModel):
     defer_enabled: bool = False
     table_schemas: t.List[shared_models.TableSchema] = field(default_factory=list)
     compare_selected_columns: bool = False
+    # Set only when the client confirmed the target doesn't exist yet, as opposed to its
+    # last modified timestamp being unavailable
+    target_table_missing: bool = False
 
 
 @proto_dataclass(sql_service_pb2.ReadyToExecuteResponse)

@@ -40,7 +40,7 @@ class DomainPurchase(AppwriteModel):
     domain: str = Field(..., alias='domain')
     organizationid: str = Field(..., alias='organizationId')
     status: DomainPurchaseStatus = Field(..., alias='status')
-    clientsecret: str = Field(..., alias='clientSecret')
+    clientsecret: str = Field(..., alias='clientSecret', json_schema_extra={'format': 'password'})
     amount: float = Field(..., alias='amount')
     currency: str = Field(..., alias='currency')
 

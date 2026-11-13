@@ -51,6 +51,19 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_INSTANCE_WAIT_TIMEOUT = 60  # seconds
 DEFAULT_POLL_INTERVAL = 0.5  # seconds
+# Most sandboxes turn HEALTHY within seconds: wait_ready() polls fast for that
+# long so it sees HEALTHY ~0.1s after it happens, not up to poll_interval later.
+FAST_POLL_INTERVAL = 0.1  # seconds
+FAST_POLL_WINDOW = 10.0  # seconds after wait_ready() starts
+
+
+def _next_poll_interval(elapsed: float, current: float, poll_interval: float) -> float:
+    """Interval before wait_ready()'s next check: FAST_POLL_INTERVAL during
+    the first FAST_POLL_WINDOW seconds, then doubling up to poll_interval."""
+    if elapsed < FAST_POLL_WINDOW:
+        return min(FAST_POLL_INTERVAL, poll_interval)
+    return min(current * 2, poll_interval)
+
 
 if TYPE_CHECKING:
     from .exec import AsyncSandboxExecutor, SandboxExecutor
@@ -880,7 +893,8 @@ class Sandbox:
         First waits for the deployment status to become HEALTHY, then polls the
         sandbox health endpoint to confirm the executor is responsive.
 
-        Starts polling at 0.1s intervals, doubling each time up to poll_interval.
+        Polls every 0.1s for the first 10s, then doubles the interval each
+        time up to poll_interval.
 
         Args:
             timeout: Maximum time to wait in seconds
@@ -893,7 +907,7 @@ class Sandbox:
             poll_interval = self.poll_interval
         start_time = time.time()
         deployment_healthy = False
-        current_interval = 0.1
+        current_interval = min(FAST_POLL_INTERVAL, poll_interval)
 
         while time.time() - start_time < timeout:
             # First, wait for the deployment to be healthy before sending traffic
@@ -901,7 +915,9 @@ class Sandbox:
                 deployment_healthy = self._is_deployment_healthy()
                 if not deployment_healthy:
                     time.sleep(current_interval)
-                    current_interval = min(current_interval * 2, poll_interval)
+                    current_interval = _next_poll_interval(
+                        time.time() - start_time, current_interval, poll_interval
+                    )
                     continue
 
             # Deployment is already confirmed healthy above, skip redundant
@@ -910,7 +926,9 @@ class Sandbox:
                 return True
 
             time.sleep(current_interval)
-            current_interval = min(current_interval * 2, poll_interval)
+            current_interval = _next_poll_interval(
+                time.time() - start_time, current_interval, poll_interval
+            )
 
         return False
 
@@ -1120,6 +1138,7 @@ class Sandbox:
     def _get_conn_info(self) -> ConnectionInfo:
         """
         Internal method to get the parameters needed to connect to the sandbox.
+        KOYEB_SANDBOX_GATEWAY_URL, when set, replaces the gateway URL.
 
         Returns:
             ConnectionInfo: the information needed to connect to the sandbox
@@ -1133,6 +1152,11 @@ class Sandbox:
                 "Sandbox URL is not available (the sandbox may no longer exist)"
             )
         sandbox_url, routing_key = url
+        gateway_url = os.getenv("KOYEB_SANDBOX_GATEWAY_URL")
+        if gateway_url:
+            # Full override of the gateway the API advertises, like
+            # KOYEB_API_HOST for the API (e.g. an in-cluster Service).
+            sandbox_url = f"{gateway_url.rstrip('/')}/koyeb-sandbox"
         return ConnectionInfo(sandbox_url, routing_key, self.sandbox_secret)
 
     def _get_client(self) -> "SandboxClient":  # type: ignore[name-defined]
@@ -1943,7 +1967,8 @@ class AsyncSandbox(Sandbox):
         First waits for the deployment status to become HEALTHY, then polls the
         sandbox health endpoint to confirm the executor is responsive.
 
-        Starts polling at 0.1s intervals, doubling each time up to poll_interval.
+        Polls every 0.1s for the first 10s, then doubles the interval each
+        time up to poll_interval.
 
         Args:
             timeout: Maximum time to wait in seconds
@@ -1956,14 +1981,16 @@ class AsyncSandbox(Sandbox):
             poll_interval = self.poll_interval
         start_time = time.time()
         deployment_healthy = False
-        current_interval = 0.1
+        current_interval = min(FAST_POLL_INTERVAL, poll_interval)
 
         while time.time() - start_time < timeout:
             if not deployment_healthy:
                 deployment_healthy = await self._async_is_deployment_healthy()
                 if not deployment_healthy:
                     await asyncio.sleep(current_interval)
-                    current_interval = min(current_interval * 2, poll_interval)
+                    current_interval = _next_poll_interval(
+                        time.time() - start_time, current_interval, poll_interval
+                    )
                     continue
 
             is_healthy = await self._async_check_executor_health()
@@ -1971,7 +1998,9 @@ class AsyncSandbox(Sandbox):
                 return True
 
             await asyncio.sleep(current_interval)
-            current_interval = min(current_interval * 2, poll_interval)
+            current_interval = _next_poll_interval(
+                time.time() - start_time, current_interval, poll_interval
+            )
 
         return False
 

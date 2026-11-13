@@ -3369,11 +3369,14 @@ class TestServeTransport:
         assert mock_fastmcp_cls.call_args.args == (adapter,)
         assert mock_fastmcp_cls.call_args.kwargs["version"] == __version__
         extensions = mock_fastmcp_cls.call_args.kwargs["extensions"]
-        assert len(extensions) == 1
-        assert extensions[0].identifier == "io.ouroboros/subagents"
-        assert extensions[0].settings()["undeclaredBehavior"] == (
+        by_id = {extension.identifier: extension for extension in extensions}
+        assert set(by_id) == {"io.ouroboros/subagents", "io.ouroboros/question-delivery"}
+        assert by_id["io.ouroboros/subagents"].settings()["undeclaredBehavior"] == (
             "parallel_preferred_sequential_fallback"
         )
+        assert by_id["io.ouroboros/question-delivery"].settings()["modes"] == [
+            "question_only_degraded"
+        ]
         mock_instance.run_sse_async.assert_awaited_once()
         run_args = mock_instance.run_sse_async.await_args.kwargs
         assert run_args["host"] == "127.0.0.1"
@@ -4591,7 +4594,8 @@ class TestCreateOuroborosServerCwdFallback:
             "ouroboros.mcp.tools.brownfield_handler.BrownfieldHandler": _mock_handler(
                 "ouroboros_brownfield"
             ),
-            "ouroboros.mcp.tools.qa.QAHandler": _mock_handler("ouroboros_qa"),
+            "ouroboros.mcp.tools.qa_background.QAHandler": _mock_handler("ouroboros_qa"),
+            "ouroboros.mcp.tools.qa_background.StartQAHandler": _mock_handler("ouroboros_start_qa"),
             "ouroboros.mcp.tools.registry.ToolRegistry": MagicMock(),
             "ouroboros.config.get_clarification_model": MagicMock(return_value="test-model"),
             "ouroboros.config.get_semantic_model": MagicMock(return_value="test-model"),
@@ -4688,7 +4692,8 @@ class TestCreateOuroborosServerOpenCodeMode:
             "ouroboros_ralph": "ouroboros.mcp.tools.definitions.RalphHandler",
             "ouroboros_start_ralph": "ouroboros.mcp.tools.definitions.StartRalphHandler",
             "ouroboros_pm_interview": "ouroboros.mcp.tools.fanout_composition.PMInterviewHandler",
-            "ouroboros_qa": "ouroboros.mcp.tools.qa.QAHandler",
+            "ouroboros_qa": "ouroboros.mcp.tools.qa_background.QAHandler",
+            "ouroboros_start_qa": "ouroboros.mcp.tools.qa_background.StartQAHandler",
         }
 
         def _simple_mock_handler(name: str) -> type:
@@ -4891,7 +4896,10 @@ class TestCreateOuroborosServerBrownfieldStore:
                 "ouroboros_pm_interview"
             ),
             "ouroboros.mcp.tools.brownfield_handler.BrownfieldHandler": _BrownfieldHandler,
-            "ouroboros.mcp.tools.qa.QAHandler": _simple_mock_handler("ouroboros_qa"),
+            "ouroboros.mcp.tools.qa_background.QAHandler": _simple_mock_handler("ouroboros_qa"),
+            "ouroboros.mcp.tools.qa_background.StartQAHandler": _simple_mock_handler(
+                "ouroboros_start_qa"
+            ),
             "ouroboros.mcp.tools.registry.ToolRegistry": MagicMock(),
             "ouroboros.config.get_opencode_mode": MagicMock(return_value="subprocess"),
             "ouroboros.config.get_clarification_model": MagicMock(return_value="test-model"),

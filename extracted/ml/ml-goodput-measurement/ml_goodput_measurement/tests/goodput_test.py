@@ -3,10 +3,12 @@
 import dataclasses
 from dataclasses import asdict
 import datetime
+import os
 import random
 import threading
 import time
 from typing import Optional
+from unittest import mock
 
 from ml_goodput_measurement.src import goodput
 from ml_goodput_measurement.src import goodput_utils
@@ -47,39 +49,70 @@ _TEST_ANOMALOUS_STEP_TIME = datetime.timedelta(seconds=30)
 _TEST_CUSTOM_BADPUT_TIME = datetime.timedelta(seconds=10)
 
 
+def _to_aware(dt):
+  return (
+      dt.replace(tzinfo=datetime.timezone.utc)
+      if dt is not None and dt.tzinfo is None
+      else dt
+  )
+
+
 class MockCloudLogger:
 
   def __init__(self, job_name, logger_name):
     self.job_name = job_name
     self.logger_name = logger_name
     self.entries = []
+    self.insert_ids = []
     self.last_entry_info = None
 
   def write_cloud_logging_entry(self, entry):
     timestamp = get_timestamp_from_log_entry(entry)
     if timestamp is not None:
       self.entries.append((timestamp, entry))
+      self.insert_ids.append(f'insert-id-{len(self.entries)}')
       self.last_entry_info = (timestamp, timestamp)
 
   def read_cloud_logging_entries(
       self, start_time=None, end_time=None, last_entry_info=None
   ):
-
-    def to_aware(dt):
-      return (
-          dt.replace(tzinfo=datetime.timezone.utc)
-          if dt is not None and dt.tzinfo is None
-          else dt
-      )
-
-    start_time = to_aware(start_time)
-    end_time = to_aware(end_time)
+    start_time = _to_aware(start_time)
+    end_time = _to_aware(end_time)
     return [
         entry
         for timestamp, entry in self.entries
-        if (start_time is None or to_aware(timestamp) > start_time)
-        and (end_time is None or to_aware(timestamp) <= end_time)
+        if (start_time is None or _to_aware(timestamp) > start_time)
+        and (end_time is None or _to_aware(timestamp) <= end_time)
     ], self.last_entry_info
+
+  def read_new_entries(
+      self, last_entry_info, end_time, overlap_seconds, known_entry_ids
+  ):
+    """Mirrors `_CloudLogger.read_new_entries` over the in-memory entries."""
+    cursor_ts, cursor_id = last_entry_info or (None, None)
+    window_start = None
+    if cursor_ts is not None:
+      window_start = _to_aware(cursor_ts) - datetime.timedelta(
+          seconds=overlap_seconds
+      )
+    end_time = _to_aware(end_time)
+    payloads = []
+    entry_ids = []
+    for (timestamp, entry), insert_id in sorted(
+        zip(self.entries, self.insert_ids), key=lambda item: item[0][0]
+    ):
+      timestamp = _to_aware(timestamp)
+      if window_start is not None and timestamp <= window_start:
+        continue
+      if end_time is not None and timestamp > end_time:
+        continue
+      if insert_id in known_entry_ids:
+        continue
+      payloads.append(entry)
+      entry_ids.append((insert_id, timestamp))
+      if cursor_ts is None or timestamp > cursor_ts:
+        cursor_ts, cursor_id = timestamp, insert_id
+    return payloads, (cursor_ts, cursor_id), entry_ids
 
 
 @dataclasses.dataclass
@@ -320,6 +353,19 @@ class GoodputTest(googletest.TestCase):
     )
     self.assertEqual(computed_goodput, expected_goodput)
     self.assertEqual(total_steps, _TEST_TOTAL_STEPS - 1)
+
+  def test_has_job_end_entry(self):
+    """Test that has_job_end_entry reflects only entries fetched into the cache."""
+    self.goodput_recorder.record_job_start_time(_TEST_JOB_START_TIME)
+    self.goodput_recorder.record_step_start_time(0, _TEST_STEP_START_TIME)
+    self.goodput_calculator.get_job_goodput()
+    self.assertFalse(self.goodput_calculator.has_job_end_entry())
+
+    self.goodput_recorder.record_job_end_time(_TEST_JOB_END_TIME)
+    # Written but not fetched yet: the check must not query Cloud Logging.
+    self.assertFalse(self.goodput_calculator.has_job_end_entry())
+    self.goodput_calculator.get_job_goodput()
+    self.assertTrue(self.goodput_calculator.has_job_end_entry())
 
   def test_goodput_with_startup_badput(self):
     """Test function to validate goodput with startup badput."""
@@ -1398,6 +1444,135 @@ class BadputTest(googletest.TestCase):
     )
     self.assertAlmostEqual(interval_goodput, expected_goodput, delta=0.1)
 
+  def test_badput_calculator_program_startup_multiple_slow_steps(self):
+    """Validates startup badput when several leading steps are slow."""
+    job_start_time = datetime.datetime(
+        2026, 8, 27, 19, 0, 0, tzinfo=datetime.timezone.utc
+    )
+    self.goodput_recorder.record_job_start_time(job_start_time)
+
+    # Steps 0 and 1 both carry compilation/warm-up overhead, as on asynchronous
+    # backends such as PyTorch/XLA.
+    step_extra_times = {
+        0: datetime.timedelta(seconds=20),
+        1: datetime.timedelta(seconds=8),
+    }
+    total_steps = 10
+    step_start_time = job_start_time
+    for step in range(total_steps):
+      self.goodput_recorder.record_step_start_time(step, step_start_time)
+      step_start_time += _TEST_STEP_TIME + step_extra_times.get(
+          step, datetime.timedelta()
+      )
+    job_end_time = step_start_time
+    self.goodput_recorder.record_job_end_time(job_end_time)
+    total_time = (job_end_time - job_start_time).total_seconds()
+
+    computed_goodput, computed_badput_breakdown, _ = (
+        self.goodput_calculator.get_job_goodput(include_badput_breakdown=True)
+    )
+
+    expected_startup_secs = sum(
+        extra.total_seconds() for extra in step_extra_times.values()
+    )
+    expected_productive_secs = (_TEST_STEP_TIME * total_steps).total_seconds()
+    self.assertAlmostEqual(
+        computed_badput_breakdown[BadputType.PROGRAM_STARTUP],
+        expected_startup_secs / total_time * 100,
+        delta=0.1,
+    )
+    self.assertAlmostEqual(
+        computed_goodput, expected_productive_secs / total_time * 100, delta=0.1
+    )
+    total_badput = sum(
+        sum(value.values()) if isinstance(value, dict) else value
+        for badput_type, value in computed_badput_breakdown.items()
+        if badput_type != BadputType.DATA_LOADING_ASYNC
+    )
+    self.assertAlmostEqual(computed_goodput + total_badput, 100.0, delta=0.1)
+    for step in step_extra_times:
+      self.assertAlmostEqual(
+          self.goodput_calculator._historical_step_times[step],
+          _TEST_STEP_TIME.total_seconds(),
+          delta=0.01,
+      )
+
+  def _compute_startup_overhead(
+      self,
+      step_times: list[float],
+      min_step: int = 0,
+      prior_step_times: Optional[dict[int, float]] = None,
+  ) -> float:
+    """Seeds `_historical_step_times` like the caller and computes overhead."""
+    historical_step_times = dict(prior_step_times or {})
+    historical_step_times.update(
+        {min_step + i: step_time for i, step_time in enumerate(step_times)}
+    )
+    self.goodput_calculator._historical_step_times = historical_step_times
+    return self.goodput_calculator._compute_segment_startup_overhead(
+        step_times, min_step
+    )
+
+  def test_compute_segment_startup_overhead_charges_all_anomalous_steps(self):
+    """Validates every anomalous step in the startup window is charged."""
+    step_times = [30.0, 12.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+    startup_extra_time = self._compute_startup_overhead(step_times, min_step=10)
+    self.assertAlmostEqual(startup_extra_time, 40.0)
+    historical_step_times = self.goodput_calculator._historical_step_times
+    self.assertAlmostEqual(historical_step_times[10], 1.0)
+    self.assertAlmostEqual(historical_step_times[11], 1.0)
+    self.assertAlmostEqual(historical_step_times[12], 1.0)
+
+  def test_compute_segment_startup_overhead_skips_non_anomalous_steps(self):
+    """Validates steps above the baseline but within 3 MADs are not charged."""
+    # Baseline (lower median) is 4.0 and MAD is 1.0, so only 30.0 is anomalous.
+    step_times = [30.0, 4.0, 3.0, 5.0, 3.0, 4.0, 3.0, 5.0, 3.0]
+    startup_extra_time = self._compute_startup_overhead(step_times)
+    self.assertAlmostEqual(startup_extra_time, 26.0)
+    historical_step_times = self.goodput_calculator._historical_step_times
+    self.assertAlmostEqual(historical_step_times[0], 4.0)
+    self.assertAlmostEqual(historical_step_times[3], 5.0)
+
+  def test_compute_segment_startup_overhead_always_charges_slowest_step(self):
+    """Validates the slowest step in the window is always charged."""
+    self.assertAlmostEqual(
+        self._compute_startup_overhead([20.0, 1.0, 1.0, 1.0, 1.0, 1.0]), 19.0
+    )
+    self.assertAlmostEqual(
+        self.goodput_calculator._historical_step_times[0], 1.0
+    )
+    # Baseline is 3.0 and MAD is 1.0, so 5.0 is within 3 MADs but still charged.
+    self.assertAlmostEqual(self._compute_startup_overhead([5.0, 3.0]), 2.0)
+    self.assertAlmostEqual(
+        self.goodput_calculator._historical_step_times[0], 3.0
+    )
+
+  def test_compute_segment_startup_overhead_ignores_steps_after_window(self):
+    """Validates slow steps beyond the startup window are not charged."""
+    step_times = [1.0] * 5 + [30.0] + [1.0] * 4
+    self.assertAlmostEqual(self._compute_startup_overhead(step_times), 0.0)
+    self.assertAlmostEqual(
+        self.goodput_calculator._historical_step_times[5], 30.0
+    )
+
+  def test_compute_segment_startup_overhead_single_step_segment(self):
+    """Validates a 1-step segment is charged against prior history only."""
+    prior_step_times = {0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0}
+    startup_extra_time = self._compute_startup_overhead(
+        [25.0], min_step=10, prior_step_times=prior_step_times
+    )
+    self.assertAlmostEqual(startup_extra_time, 24.0)
+    self.assertAlmostEqual(
+        self.goodput_calculator._historical_step_times[10], 1.0
+    )
+    # Without prior history there is no reference baseline.
+    self.assertAlmostEqual(
+        self._compute_startup_overhead([25.0], min_step=10), 0.0
+    )
+    self.assertAlmostEqual(
+        self.goodput_calculator._historical_step_times[10], 25.0
+    )
+
   def test_badput_calculator_wasted_progress_and_disruptions(self):
     """Validate computation of badput due to wasted progress and disruptions."""
 
@@ -1912,6 +2087,226 @@ class BadputTest(googletest.TestCase):
         expect_badput_due_to_checkpointing_restore,
     )
 
+  def _record_training_prep_and_steps(self, job_start_time):
+    """Records a 20s training preparation, a 2s gap and five 3s steps (37s)."""
+    self.goodput_recorder.record_job_start_time(job_start_time)
+    self.goodput_recorder.record_training_preparation_start_time(job_start_time)
+    self.goodput_recorder.record_training_preparation_end_time(
+        job_start_time + datetime.timedelta(seconds=20)
+    )
+    step_start_time = job_start_time + datetime.timedelta(seconds=22)
+    for step in range(_TEST_TOTAL_STEPS):
+      self.goodput_recorder.record_step_start_time(step, step_start_time)
+      step_start_time += _TEST_STEP_TIME
+    self.goodput_recorder.record_job_end_time(step_start_time)
+    return (step_start_time - job_start_time).total_seconds()
+
+  def _write_restore_entry(
+      self, start_time, duration_secs, include_manager_start_time=True
+  ):
+    """Writes a persistent checkpoint restore entry for step 0."""
+    restore_stats = MockRestoreStepStatistics(
+        step=0,
+        event_type='restore',
+        directory='gs://bucket/path',
+        checkpointer_start_time=start_time.timestamp(),
+        checkpointer_duration_secs=duration_secs,
+        checkpoint_manager_start_time=(
+            start_time.timestamp() if include_manager_start_time else None
+        ),
+        checkpoint_manager_duration_secs=duration_secs,
+    )
+    self.mock_cloud_logger.write_cloud_logging_entry(asdict(restore_stats))
+
+  def _get_badput_breakdown_total(self, goodput_pct, breakdown):
+    """Sums Goodput and all blocking badput buckets (as percentages)."""
+    total = goodput_pct
+    for badput_type, value in breakdown.items():
+      if badput_type == BadputType.DATA_LOADING_ASYNC:
+        continue
+      total += sum(value.values()) if isinstance(value, dict) else value
+    return total
+
+  def test_checkpoint_restore_inside_training_prep_not_double_counted(self):
+    """Validates restore time inside training preparation is counted once."""
+    job_start_time = datetime.datetime(
+        2026, 8, 27, 19, 0, 0, tzinfo=datetime.timezone.utc
+    )
+    total_time = self._record_training_prep_and_steps(job_start_time)
+    # 8s restore fully inside the 20s training preparation interval.
+    self._write_restore_entry(
+        job_start_time + datetime.timedelta(seconds=5), 8.0
+    )
+
+    goodput_pct, breakdown, _ = self.goodput_calculator.get_job_goodput(
+        include_badput_breakdown=True
+    )
+    self.assertAlmostEqual(
+        breakdown[BadputType.TRAINING_PREP],
+        (12.0 / total_time) * 100,
+        delta=0.1,
+    )
+    self.assertAlmostEqual(
+        breakdown[BadputType.UNPRODUCTIVE_CHECKPOINT_RESTORE_TIME],
+        (8.0 / total_time) * 100,
+        delta=0.1,
+    )
+    self.assertAlmostEqual(
+        self._get_badput_breakdown_total(goodput_pct, breakdown),
+        100.0,
+        delta=0.1,
+    )
+
+  def test_checkpoint_restore_outside_training_prep_unchanged(self):
+    """Validates a restore after training preparation leaves both buckets."""
+    job_start_time = datetime.datetime(
+        2026, 8, 27, 19, 0, 0, tzinfo=datetime.timezone.utc
+    )
+    total_time = self._record_training_prep_and_steps(job_start_time)
+    # 2s restore in the gap between training preparation and Step 0.
+    self._write_restore_entry(
+        job_start_time + datetime.timedelta(seconds=20), 2.0
+    )
+
+    goodput_pct, breakdown, _ = self.goodput_calculator.get_job_goodput(
+        include_badput_breakdown=True
+    )
+    self.assertAlmostEqual(
+        breakdown[BadputType.TRAINING_PREP],
+        (20.0 / total_time) * 100,
+        delta=0.1,
+    )
+    self.assertAlmostEqual(
+        breakdown[BadputType.UNPRODUCTIVE_CHECKPOINT_RESTORE_TIME],
+        (2.0 / total_time) * 100,
+        delta=0.1,
+    )
+    self.assertAlmostEqual(
+        self._get_badput_breakdown_total(goodput_pct, breakdown),
+        100.0,
+        delta=0.1,
+    )
+
+  def test_checkpoint_restore_partially_inside_training_prep(self):
+    """Validates only the overlapping restore time leaves training prep."""
+    job_start_time = datetime.datetime(
+        2026, 8, 27, 19, 0, 0, tzinfo=datetime.timezone.utc
+    )
+    total_time = self._record_training_prep_and_steps(job_start_time)
+    # 6s restore: 4s inside training preparation, 2s in the gap after it.
+    self._write_restore_entry(
+        job_start_time + datetime.timedelta(seconds=16), 6.0
+    )
+
+    goodput_pct, breakdown, _ = self.goodput_calculator.get_job_goodput(
+        include_badput_breakdown=True
+    )
+    self.assertAlmostEqual(
+        breakdown[BadputType.TRAINING_PREP],
+        (16.0 / total_time) * 100,
+        delta=0.1,
+    )
+    self.assertAlmostEqual(
+        breakdown[BadputType.UNPRODUCTIVE_CHECKPOINT_RESTORE_TIME],
+        (6.0 / total_time) * 100,
+        delta=0.1,
+    )
+    self.assertAlmostEqual(
+        self._get_badput_breakdown_total(goodput_pct, breakdown),
+        100.0,
+        delta=0.1,
+    )
+
+  def test_checkpoint_restore_without_start_time_keeps_training_prep(self):
+    """Validates a restore with no start time is not subtracted from prep."""
+    job_start_time = datetime.datetime(
+        2026, 8, 27, 19, 0, 0, tzinfo=datetime.timezone.utc
+    )
+    total_time = self._record_training_prep_and_steps(job_start_time)
+    self._write_restore_entry(
+        job_start_time + datetime.timedelta(seconds=5),
+        8.0,
+        include_manager_start_time=False,
+    )
+
+    _, breakdown, _ = self.goodput_calculator.get_job_goodput(
+        include_badput_breakdown=True
+    )
+    self.assertAlmostEqual(
+        breakdown[BadputType.TRAINING_PREP],
+        (20.0 / total_time) * 100,
+        delta=0.1,
+    )
+    self.assertAlmostEqual(
+        breakdown[BadputType.UNPRODUCTIVE_CHECKPOINT_RESTORE_TIME],
+        (8.0 / total_time) * 100,
+        delta=0.1,
+    )
+
+  def test_checkpoint_restore_multi_worker_inside_training_prep(self):
+    """Validates a restore logged by two workers is subtracted from prep once."""
+    job_start_time = datetime.datetime(
+        2026, 8, 27, 19, 0, 0, tzinfo=datetime.timezone.utc
+    )
+    total_time = self._record_training_prep_and_steps(job_start_time)
+    # Two workers log the same Step 0 restore (6s and 10s, averaged to 8s).
+    for worker_restore_duration in (6.0, 10.0):
+      self._write_restore_entry(
+          job_start_time + datetime.timedelta(seconds=5),
+          worker_restore_duration,
+      )
+
+    goodput_pct, breakdown, _ = self.goodput_calculator.get_job_goodput(
+        include_badput_breakdown=True
+    )
+    self.assertAlmostEqual(
+        breakdown[BadputType.UNPRODUCTIVE_CHECKPOINT_RESTORE_TIME],
+        (8.0 / total_time) * 100,
+        delta=0.1,
+    )
+    self.assertAlmostEqual(
+        breakdown[BadputType.TRAINING_PREP],
+        (12.0 / total_time) * 100,
+        delta=0.1,
+    )
+    self.assertAlmostEqual(
+        self._get_badput_breakdown_total(goodput_pct, breakdown),
+        100.0,
+        delta=0.1,
+    )
+
+  def test_extract_restore_intervals_separates_repeated_restores(self):
+    """Validates the same step restored on two restarts gives two intervals."""
+    base = 1_000_000.0
+    entries = [
+        # One restore logged by two workers: averaged to (5, 13).
+        {
+            'event_type': 'restore',
+            'step': 10,
+            'directory': 'gs://bucket/path',
+            'checkpoint_manager_start_time': base + 5.0,
+            'checkpoint_manager_duration_secs': duration,
+        }
+        for duration in (6.0, 10.0)
+    ] + [
+        # The same step restored again after a later restart.
+        {
+            'event_type': 'restore',
+            'step': 10,
+            'directory': 'gs://bucket/path',
+            'checkpoint_manager_start_time': base + 100.0,
+            'checkpoint_manager_duration_secs': 4.0,
+        }
+    ]
+    intervals = sorted(
+        self.goodput_calculator._extract_restore_intervals(entries)
+    )
+    self.assertLen(intervals, 2)
+    self.assertAlmostEqual(intervals[0][0], base + 5.0)
+    self.assertAlmostEqual(intervals[0][1], base + 13.0)
+    self.assertAlmostEqual(intervals[1][0], base + 100.0)
+    self.assertAlmostEqual(intervals[1][1], base + 104.0)
+
   def test_goodput_badput_with_interval_query(self):
     """Validate computation of goodput and badput with interval query."""
 
@@ -2129,6 +2524,136 @@ class BadputTest(googletest.TestCase):
           computed_deviation,
           delta=0.1,
       )
+
+  def _record_steps_at(self, t0, step_offsets):
+    """Records step start times at `t0 + seconds` for `(step, seconds)` pairs."""
+    for step, seconds in step_offsets:
+      self.goodput_recorder.record_step_start_time(
+          step, t0 + datetime.timedelta(seconds=seconds)
+      )
+
+  def _record_custom_badput_event(self, t0, start_seconds, end_seconds):
+    """Records an `eval` custom badput event at offsets (seconds) from `t0`."""
+    self.goodput_recorder.record_custom_badput_event_start_time(
+        t0 + datetime.timedelta(seconds=start_seconds), 'eval'
+    )
+    self.goodput_recorder.record_custom_badput_event_end_time(
+        t0 + datetime.timedelta(seconds=end_seconds), 'eval'
+    )
+
+  def test_get_step_times_excludes_custom_badput_event(self):
+    """Validates a custom badput event inside a step is excluded from its time."""
+    t0 = _TEST_JOB_START_TIME
+    self._record_steps_at(t0, [(0, 0), (1, 10), (2, 20)])
+    # A 25s eval inside step 2 (t=20s to t=55s) makes its raw delta 35s.
+    self._record_custom_badput_event(t0, 25, 50)
+    self._record_steps_at(t0, [(3, 55), (4, 65)])
+
+    step_times = self.goodput_calculator._get_step_times(
+        self.mock_cloud_logger.entries
+    )
+    self.assertEqual(step_times, {0: 10.0, 1: 10.0, 2: 10.0, 3: 10.0})
+
+  def test_get_step_times_ignores_partially_overlapping_custom_badput_event(
+      self,
+  ):
+    """Validates only custom badput events fully inside a step are excluded."""
+    t0 = _TEST_JOB_START_TIME
+    self._record_steps_at(t0, [(0, 0), (1, 10)])
+    # Fully inside step 1 (t=10s to t=20s): excluded.
+    self._record_custom_badput_event(t0, 12, 15)
+    self._record_steps_at(t0, [(2, 20)])
+    # Starts inside step 2 (t=20s to t=30s) and ends inside step 3 (t=30s to
+    # t=40s): not fully inside either window, so excluded from neither.
+    self._record_custom_badput_event(t0, 25, 35)
+    self._record_steps_at(t0, [(3, 30), (4, 40), (5, 50)])
+
+    step_times = self.goodput_calculator._get_step_times(
+        self.mock_cloud_logger.entries
+    )
+    self.assertEqual(
+        step_times, {0: 10.0, 1: 7.0, 2: 10.0, 3: 10.0, 4: 10.0}
+    )
+
+  def test_get_step_times_excludes_custom_badput_event_and_checkpoint_save(
+      self,
+  ):
+    """Validates both a custom badput event and a checkpoint save are excluded."""
+    t0 = _TEST_JOB_START_TIME
+    self._record_steps_at(t0, [(0, 0), (1, 10)])
+    # Step 1 (t=10s to t=28s): 10s compute + 5s eval + 3s blocking save.
+    self._record_custom_badput_event(t0, 12, 17)
+    self.mock_cloud_logger.write_cloud_logging_entry(
+        asdict(
+            MockSaveStepStatistics(
+                step=1,
+                event_type='save',
+                directory='gs://bucket/path',
+                checkpoint_manager_blocking_start_time=(
+                    t0 + datetime.timedelta(seconds=18)
+                ).timestamp(),
+                checkpoint_manager_blocking_duration_secs=3.0,
+                synchronous=True,
+            )
+        )
+    )
+    self._record_steps_at(t0, [(2, 28), (3, 38)])
+
+    step_times = self.goodput_calculator._get_step_times(
+        self.mock_cloud_logger.entries
+    )
+    self.assertEqual(step_times, {0: 10.0, 1: 10.0, 2: 10.0})
+
+  def test_get_step_deviation_excludes_custom_badput_event(self):
+    """Validates a custom badput event does not inflate the step deviation."""
+    t0 = _TEST_JOB_START_TIME
+    self.goodput_recorder.record_job_start_time(t0)
+    self._record_steps_at(
+        t0, [(0, 0), (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)]
+    )
+    # A 25s eval inside step 5 (t=50s to t=85s).
+    self._record_custom_badput_event(t0, 52, 77)
+    self._record_steps_at(t0, [(6, 85), (7, 95), (8, 105), (9, 115)])
+    self.goodput_recorder.record_job_end_time(
+        t0 + datetime.timedelta(seconds=125)
+    )
+
+    step_deviations = self.goodput_calculator.get_step_deviation()
+
+    self.assertEqual(sorted(step_deviations), list(range(9)))
+    for step, deviation in step_deviations.items():
+      self.assertAlmostEqual(deviation, 0.0, msg=f'step {step}')
+    self.assertAlmostEqual(
+        self.goodput_calculator._goodput_cache.get_step_info().ideal_step_time,
+        10.0,
+    )
+
+  def test_get_step_deviation_sub_second_steps(self):
+    """Sub-second steps only yield step deviations with a lower min_step_time."""
+    self.goodput_recorder.record_job_start_time(_TEST_JOB_START_TIME)
+    step_start_time = _TEST_STEP_START_TIME
+    for step in range(_TEST_TOTAL_STEPS):
+      self.goodput_recorder.record_step_start_time(step, step_start_time)
+      step_start_time += datetime.timedelta(milliseconds=100)
+    self.goodput_recorder.record_job_end_time(step_start_time)
+
+    # The default 1 s floor drops every step, so no ideal step time exists.
+    with self.assertRaisesRegex(ValueError, 'No ideal step time available'):
+      self.goodput_calculator.get_step_deviation()
+
+    goodput_calculator = goodput.GoodputCalculator(
+        self.job_name,
+        self.logger_name,
+        self.mock_cloud_logger,
+        cache_dir=self.create_tempdir().full_path,
+        min_step_time=0.0,
+    )
+    step_deviations = goodput_calculator.get_step_deviation()
+    self.assertLen(step_deviations, _TEST_TOTAL_STEPS - 1)
+    for deviation in step_deviations.values():
+      self.assertAlmostEqual(deviation, 0.0, places=3)
+    step_info = goodput_calculator._goodput_cache.get_step_info()
+    self.assertAlmostEqual(step_info.ideal_step_time, 0.1, places=3)
 
   def test_badput_calculator_custom_sync_badput(self):
     """Test function to validate unknown badput bucket."""
@@ -3059,6 +3584,198 @@ class GoodputExclusionIntegrationTest(googletest.TestCase):
         (10.0 / 45.0) * 100,
         delta=0.1,
     )
+
+
+class LateEntriesTest(googletest.TestCase):
+  """Incremental reads pick up entries that became visible late."""
+
+  def setUp(self):
+    super().setUp()
+    self.job_name = f'test-run-{self.id().split(".")[-1]}'
+    self.logger_name = 'test-log'
+    self.temp_dir = self.create_tempdir().full_path
+    self.mock_cloud_logger = MockCloudLogger(self.job_name, self.logger_name)
+    self.goodput_recorder = goodput.GoodputRecorder(
+        self.job_name,
+        self.logger_name,
+        True,
+        self.mock_cloud_logger,
+    )
+    self.goodput_calculator = self._make_calculator()
+
+  def _make_calculator(self, **kwargs):
+    return goodput.GoodputCalculator(
+        self.job_name,
+        self.logger_name,
+        self.mock_cloud_logger,
+        cache_dir=self.temp_dir,
+        **kwargs,
+    )
+
+  def _step_time(self, offset_seconds):
+    return _TEST_STEP_START_TIME + datetime.timedelta(seconds=offset_seconds)
+
+  def _record_steps(self, steps_and_offsets):
+    for step, offset_seconds in steps_and_offsets:
+      self.goodput_recorder.record_step_start_time(
+          step, self._step_time(offset_seconds)
+      )
+
+  def _fetch(self, calculator=None, query_time=None):
+    calculator = calculator or self.goodput_calculator
+    query_time = query_time or datetime.datetime.now(datetime.timezone.utc)
+    return calculator._fetch_new_entries(query_time)
+
+  def test_defaults(self):
+    self.assertEqual(self.goodput_calculator._read_overlap_seconds, 300.0)
+    self.assertEqual(self.goodput_calculator._read_lag_seconds, 0.0)
+    self.assertEqual(
+        self.goodput_calculator._goodput_cache._read_overlap_seconds, 300.0
+    )
+
+  def test_late_entry_is_read_once_and_cursor_does_not_move_backward(self):
+    self.goodput_recorder.record_job_start_time(_TEST_JOB_START_TIME)
+    self._record_steps([(0, 0), (1, 3), (2, 6), (3, 9)])
+    self.assertLen(self._fetch(), 5)
+    cache = self.goodput_calculator._goodput_cache
+    self.assertEqual(cache.get_last_entry_info()[0], self._step_time(9))
+
+    # A data loading entry from step 1 becomes visible after the cursor passed
+    # its timestamp.
+    late_time = self._step_time(4)
+    self.goodput_recorder.record_data_loading_start_time(late_time)
+
+    late_entries = self._fetch()
+    self.assertLen(late_entries, 1)
+    self.assertEqual(
+        late_entries[0][goodput._DATA_LOADING_START_TIME], late_time.timestamp()
+    )
+    self.assertEqual(cache.get_last_entry_info()[0], self._step_time(9))
+    self.assertEmpty(self._fetch())
+    self.assertLen(cache.get_cached_entries(), 6)
+
+  def test_entries_inside_overlap_are_not_returned_twice(self):
+    self.goodput_recorder.record_job_start_time(_TEST_JOB_START_TIME)
+    self._record_steps([(0, 0), (1, 3), (2, 6)])
+    self.assertLen(self._fetch(), 4)
+
+    with mock.patch.object(
+        self.mock_cloud_logger,
+        'read_new_entries',
+        wraps=self.mock_cloud_logger.read_new_entries,
+    ) as read_new_entries:
+      self.assertEmpty(self._fetch())
+      self.assertEmpty(self._fetch())
+
+    # Both reads re-checked the overlap window with the ids already cached.
+    self.assertLen(read_new_entries.call_args_list, 2)
+    for call in read_new_entries.call_args_list:
+      _, _, overlap_seconds, known_entry_ids = call.args
+      self.assertEqual(overlap_seconds, 300.0)
+      self.assertLen(known_entry_ids, 4)
+    cache = self.goodput_calculator._goodput_cache
+    self.assertLen(cache.get_cached_entries(), 4)
+
+  def test_cached_entries_are_chronological_after_late_entries(self):
+    self.goodput_recorder.record_job_start_time(_TEST_JOB_START_TIME)
+    self._record_steps([(0, 0), (1, 3), (3, 9)])
+    self.assertLen(self._fetch(), 4)
+
+    # Step 2 and a synchronous save during step 1 arrive after step 3.
+    self._record_steps([(2, 6)])
+    self.mock_cloud_logger.write_cloud_logging_entry(
+        asdict(
+            MockSaveStepStatistics(
+                step=1,
+                directory='gs://bucket/path',
+                checkpoint_manager_blocking_start_time=self._step_time(
+                    4
+                ).timestamp(),
+                checkpoint_manager_blocking_duration_secs=1.0,
+                synchronous=True,
+            )
+        )
+    )
+    self.assertLen(self._fetch(), 2)
+
+    cached_entries = self.goodput_calculator._goodput_cache.get_cached_entries()
+    self.assertEqual(
+        [entry.get(goodput._STEP_COUNT) for entry in cached_entries],
+        [None, 0, 1, None, 2, 3],
+    )
+    self.assertEqual(cached_entries[3]['event_type'], 'save')
+    step_times = self.goodput_calculator._get_step_times(cached_entries)
+    self.assertEqual(step_times, {0: 3.0, 1: 2.0, 2: 3.0})
+
+  def test_timeline_without_cursor_is_read_again(self):
+    self.goodput_recorder.record_job_start_time(_TEST_JOB_START_TIME)
+    self._record_steps([(0, 0), (1, 3)])
+    self.assertLen(self._fetch(), 3)
+    cache = self.goodput_calculator._goodput_cache
+
+    # Metadata lost between processes: the new calculator starts over.
+    os.remove(cache._local_metadata_path)
+    with self.assertLogs(level='WARNING'):
+      resumed_calculator = self._make_calculator()
+    self.assertTrue(resumed_calculator._goodput_cache.is_cache_empty())
+    self.assertLen(self._fetch(resumed_calculator), 3)
+    self.assertLen(
+        resumed_calculator._goodput_cache.get_cached_entries(), 3
+    )
+
+    # Cursor lost at runtime: the next fetch starts over as well.
+    resumed_calculator._goodput_cache._last_entry_info = None
+    with self.assertLogs(level='WARNING'):
+      self.assertLen(self._fetch(resumed_calculator), 3)
+    self.assertLen(
+        resumed_calculator._goodput_cache.get_cached_entries(), 3
+    )
+
+  def test_read_lag_shifts_upper_bound(self):
+    calculator = self._make_calculator(read_lag_seconds=10.0)
+    self.goodput_recorder.record_job_start_time(_TEST_JOB_START_TIME)
+    self._record_steps([(0, 0)])
+    self.assertLen(self._fetch(calculator, self._step_time(20)), 2)
+
+    self._record_steps([(1, 5), (2, 15)])
+    # Reads stop 10 s before the query time, so step 2 is left for later.
+    self.assertLen(self._fetch(calculator, self._step_time(20)), 1)
+    self.assertEqual(
+        calculator._goodput_cache.get_last_entry_info()[0], self._step_time(5)
+    )
+    self.assertEmpty(self._fetch(calculator, self._step_time(14)))
+    self.assertLen(self._fetch(calculator, self._step_time(30)), 1)
+    self.assertEmpty(self._fetch(calculator, self._step_time(30)))
+
+  def test_read_knobs_from_environment(self):
+    with mock.patch.dict(
+        os.environ,
+        {
+            'ML_GOODPUT_READ_OVERLAP_SECONDS': '42.5',
+            'ML_GOODPUT_READ_LAG_SECONDS': '7',
+        },
+    ):
+      calculator = self._make_calculator(
+          read_overlap_seconds=1.0, read_lag_seconds=2.0
+      )
+    self.assertEqual(calculator._read_overlap_seconds, 42.5)
+    self.assertEqual(calculator._read_lag_seconds, 7.0)
+    self.assertEqual(calculator._goodput_cache._read_overlap_seconds, 42.5)
+
+    with mock.patch.dict(
+        os.environ,
+        {
+            'ML_GOODPUT_READ_OVERLAP_SECONDS': 'soon',
+            'ML_GOODPUT_READ_LAG_SECONDS': '-1',
+        },
+    ):
+      with self.assertLogs(level='WARNING') as logs:
+        calculator = self._make_calculator(
+            read_overlap_seconds=1.0, read_lag_seconds=2.0
+        )
+    self.assertEqual(calculator._read_overlap_seconds, 1.0)
+    self.assertEqual(calculator._read_lag_seconds, 2.0)
+    self.assertLen(logs.output, 2)
 
 
 class CustomSyncLookupTest(googletest.TestCase):

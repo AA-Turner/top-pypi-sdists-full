@@ -4,6 +4,7 @@
 
 import logging
 from collections.abc import Sequence
+from typing import Any, ClassVar
 
 from pyrit.common import apply_defaults
 from pyrit.converter import (
@@ -13,35 +14,40 @@ from pyrit.converter import (
     Base64Converter,
     Base2048Converter,
     BinAsciiConverter,
+    BrailleConverter,
     Converter,
+    EcojiConverter,
     LeetspeakConverter,
     MorseConverter,
+    NatoConverter,
     ROT13Converter,
     ZalgoConverter,
 )
-from pyrit.converter.braille_converter import BrailleConverter
-from pyrit.converter.ecoji_converter import EcojiConverter
-from pyrit.converter.nato_converter import NatoConverter
-from pyrit.executor.attack.core.attack_config import AttackConverterConfig, AttackScoringConfig
-from pyrit.executor.attack.single_turn.prompt_sending import PromptSendingAttack
+from pyrit.executor.attack import AttackConverterConfig, AttackScoringConfig, PromptSendingAttack
 from pyrit.models import (
     AttackSeedGroup,
+    BoundedDatasetSize,
+    DatasetSelectionMode,
+    ScenarioDatasetOptions,
     ScenarioRunSizeComponent,
     ScenarioRunSizeEstimate,
     Seed,
     SeedObjective,
     SeedPrompt,
 )
-from pyrit.prompt_normalizer.converter_configuration import ConverterConfiguration
+from pyrit.prompt_normalizer import ConverterConfiguration
 from pyrit.scenario.core.atomic_attack import AtomicAttack
 from pyrit.scenario.core.attack_technique import AttackTechnique
-from pyrit.scenario.core.dataset_configuration import CompoundDatasetAttackConfiguration, DatasetAttackConfiguration
+from pyrit.scenario.core.dataset_configuration import (
+    CompoundDatasetAttackConfiguration,
+    DatasetAttackConfiguration,
+    DatasetSource,
+)
 from pyrit.scenario.core.matrix_atomic_attack_builder import build_baseline_atomic_attack
 from pyrit.scenario.core.scenario import Scenario
 from pyrit.scenario.core.scenario_context import ScenarioContext
 from pyrit.scenario.core.scenario_technique import ScenarioTechnique
-from pyrit.score import TrueFalseScorer
-from pyrit.score.true_false.decoding_scorer import DecodingScorer
+from pyrit.score import DecodingScorer, TrueFalseScorer
 
 
 class EncodingDatasetConfiguration(DatasetAttackConfiguration):
@@ -55,7 +61,7 @@ class EncodingDatasetConfiguration(DatasetAttackConfiguration):
     ``DatasetAttackConfiguration``.
     """
 
-    def _build_attack_groups(self, seeds: list[Seed]) -> list[AttackSeedGroup]:
+    def _build_attack_groups(self, seeds: list[Seed[Any]]) -> list[AttackSeedGroup]:
         """
         Shape raw seeds into AttackSeedGroups carrying an encoding objective.
 
@@ -161,7 +167,11 @@ class Encoding(Scenario):
     By default, this uses the same dataset as Garak: slur terms and web XSS payloads.
     """
 
-    VERSION: int = 2
+    VERSION: int = 3
+    DATASET_OPTIONS = ScenarioDatasetOptions(
+        mode=DatasetSelectionMode.FIXED, per_dataset_limit=False, source_settings=False
+    )
+    SUPPORTS_TECHNIQUE_CONVERTERS: ClassVar[bool] = False
 
     @apply_defaults
     def __init__(
@@ -195,8 +205,16 @@ class Encoding(Scenario):
             technique_class=EncodingTechnique,
             default_dataset_config=CompoundDatasetAttackConfiguration(
                 configurations=[
-                    EncodingDatasetConfiguration(dataset_names=["garak_slur_terms_en"], max_dataset_size=10),
-                    EncodingDatasetConfiguration(dataset_names=["garak_web_html_js"], max_dataset_size=10),
+                    EncodingDatasetConfiguration(
+                        sources=[DatasetSource(name=name) for name in ["garak_slur_terms_en"]],
+                        max_per_dataset="all",
+                        max_total=10,
+                    ),
+                    EncodingDatasetConfiguration(
+                        sources=[DatasetSource(name=name) for name in ["garak_web_html_js"]],
+                        max_per_dataset="all",
+                        max_total=10,
+                    ),
                 ]
             ),
             objective_scorer=objective_scorer,
@@ -230,15 +248,14 @@ class Encoding(Scenario):
         atomic_attacks.extend(self._get_converter_attacks(context=context))
         return atomic_attacks
 
-    async def _estimate_run_size_async(self) -> ScenarioRunSizeEstimate:
+    async def _estimate_run_size_async(self, *, budget: BoundedDatasetSize) -> ScenarioRunSizeEstimate:
         """
         Estimate converter variants crossed with raw and decode-template prompt configurations.
 
         Returns:
-            ScenarioRunSizeEstimate: Exact converter-variant estimate.
+            ScenarioRunSizeEstimate: Configured converter-variant budget.
         """
-        selected_groups, datasets = await self._resolve_dataset_groups_for_estimate_async()
-        seed_group_count = sum(len(groups) for groups in selected_groups.values())
+        seed_group_count, datasets = await self._get_dataset_size_for_estimate_async(budget=budget)
         selected_encoding_names = {technique.value for technique in self._scenario_techniques}
         variant_count = sum(1 for _, name, _ in self._converter_variants() if name in selected_encoding_names)
         prompt_configuration_count = 1 + len(self._encoding_templates)
@@ -262,7 +279,7 @@ class Encoding(Scenario):
                 )
             )
         return ScenarioRunSizeEstimate(
-            estimated_attack_count=sum(component.count for component in components),
+            total_attack_count=sum(component.count for component in components),
             components=components,
             datasets=datasets,
             note=(

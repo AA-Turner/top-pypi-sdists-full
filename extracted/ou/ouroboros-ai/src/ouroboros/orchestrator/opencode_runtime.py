@@ -49,6 +49,7 @@ from ouroboros.orchestrator.adapter import (
     resolve_worker_cwd,
     worker_cwd_failure_message,
 )
+from ouroboros.orchestrator.interview_session import InterviewSessionTransition
 from ouroboros.orchestrator.opencode_event_normalizer import (
     OpenCodeEventContext,
     OpenCodeEventNormalizer,
@@ -77,7 +78,6 @@ _MAX_LINE_BUFFER_BYTES = 50 * 1024 * 1024  # 50 MB
 # are removed.
 _CHILD_ENV_STRIP_KEYS = DEFAULT_OUROBOROS_STRIP_KEYS
 
-_INTERVIEW_SESSION_METADATA_KEY = "ouroboros_interview_session_id"
 _STDOUT_IDLE_TIMEOUT_ENV = "OUROBOROS_OPENCODE_STDOUT_IDLE_TIMEOUT"
 
 
@@ -684,8 +684,8 @@ class OpenCodeRuntime:
             await stderr_task
         return []
 
-    async def _terminate_process(self, process: Any) -> None:
-        """Best-effort subprocess shutdown.
+    async def _terminate_process(self, process: Any) -> bool:
+        """Shut down the subprocess and report whether its tree is confirmed gone.
 
         Sends ``SIGTERM``, waits up to
         ``_process_shutdown_timeout_seconds``, then escalates to
@@ -695,12 +695,13 @@ class OpenCodeRuntime:
             process: Subprocess object (must expose ``terminate``,
                 ``kill``, and ``wait`` methods).
         """
-        await terminate_runtime_process(
+        return await terminate_runtime_process(
             process,
             shutdown_timeout=self._process_shutdown_timeout_seconds,
             logger=log,
             log_namespace=self._log_namespace,
             workspace=self._cwd,
+            require_owned_tree=True,
         )
 
     # -- Event conversion --------------------------------------------------
@@ -836,35 +837,8 @@ class OpenCodeRuntime:
         intercept: Resolved,
         current_handle: RuntimeHandle | None,
     ) -> dict[str, Any]:
-        """Build the MCP argument payload for an intercepted skill.
-
-        For ``ouroboros_interview`` tools, injects the persisted
-        interview session ID and the first positional argument as
-        ``answer`` when available.
-
-        Args:
-            intercept: Resolved skill intercept metadata.
-            current_handle: Active runtime handle carrying session
-                metadata, or ``None``.
-
-        Returns:
-            Dict of MCP tool arguments ready for dispatch.
-        """
-        if intercept.mcp_tool != "ouroboros_interview" or current_handle is None:
-            return dict(intercept.mcp_args)
-
-        session_id = current_handle.metadata.get(_INTERVIEW_SESSION_METADATA_KEY)
-        if not isinstance(session_id, str) or not session_id.strip():
-            return dict(intercept.mcp_args)
-
-        # Resume turn: drop initial_context so InterviewHandler branches on
-        # session_id instead of starting a new interview.
-        arguments: dict[str, Any] = dict(intercept.mcp_args)
-        arguments.pop("initial_context", None)
-        arguments["session_id"] = session_id.strip()
-        if intercept.first_argument is not None:
-            arguments["answer"] = intercept.first_argument
-        return arguments
+        """Build arguments through the shared interview transition contract."""
+        return InterviewSessionTransition(intercept, current_handle).tool_arguments()
 
     def _build_resume_handle(
         self,
@@ -872,42 +846,13 @@ class OpenCodeRuntime:
         intercept: Resolved,
         tool_result: Any,
     ) -> RuntimeHandle | None:
-        """Attach interview session metadata to the runtime handle.
-
-        After an ``ouroboros_interview`` tool call, persists the
-        returned ``session_id`` into the handle's metadata so
-        subsequent turns can resume the same interview.
-
-        Args:
-            current_handle: Existing handle, or ``None``.
-            intercept: Skill intercept metadata.
-            tool_result: MCP tool result containing a ``meta`` dict.
-
-        Returns:
-            Updated or new
-            :class:`~ouroboros.orchestrator.adapter.RuntimeHandle`,
-            or ``None`` if no session ID was found.
-        """
-        if intercept.mcp_tool != "ouroboros_interview":
-            return current_handle
-
-        session_id = tool_result.meta.get("session_id")
-        if not isinstance(session_id, str) or not session_id.strip():
-            return current_handle
-
-        metadata = dict(current_handle.metadata) if current_handle is not None else {}
-        metadata[_INTERVIEW_SESSION_METADATA_KEY] = session_id.strip()
-        updated_at = datetime.now(UTC).isoformat()
-
-        if current_handle is not None:
-            return replace(current_handle, metadata=metadata, updated_at=updated_at)
-
-        return RuntimeHandle(
+        """Retain session-local interview state through the shared transition."""
+        return InterviewSessionTransition(intercept, current_handle).resume_handle(
+            tool_result.meta,
             backend=self.runtime_backend,
             cwd=self.working_directory,
             approval_mode=self.permission_mode,
-            updated_at=updated_at,
-            metadata=metadata,
+            log_namespace="opencode_runtime",
         )
 
     async def _dispatch_skill_intercept_locally(
@@ -1061,6 +1006,21 @@ class OpenCodeRuntime:
         if handle is None:
             return None
 
+        if (
+            control_state.get("returncode") is None
+            and control_state.get("terminated") is not True
+            and control_state.get("runtime_status")
+            not in {
+                "cancelled",
+                "completed",
+                "failed",
+                "terminated",
+                "terminating",
+                "termination_unconfirmed",
+            }
+        ):
+            control_state["runtime_status"] = handle.lifecycle_state
+
         async def _observe(_handle: RuntimeHandle) -> dict[str, Any]:
             snapshot = _handle.snapshot()
             pid = control_state.get("process_id")
@@ -1070,6 +1030,12 @@ class OpenCodeRuntime:
             if isinstance(rc, int):
                 snapshot["returncode"] = rc
                 snapshot["lifecycle_state"] = "completed" if rc == 0 else "failed"
+            status = control_state.get("runtime_status")
+            if isinstance(status, str):
+                snapshot["lifecycle_state"] = status
+            if control_state.get("terminated") is True:
+                snapshot["terminated"] = True
+                snapshot["can_terminate"] = False
             return snapshot
 
         async def _terminate(_handle: RuntimeHandle) -> bool:
@@ -1078,7 +1044,10 @@ class OpenCodeRuntime:
             if getattr(process, "returncode", None) is not None:
                 return False
             control_state["runtime_status"] = "terminating"
-            await self._terminate_process(process)
+            confirmed = await self._terminate_process(process)
+            if not confirmed:
+                control_state["runtime_status"] = "termination_unconfirmed"
+                return False
             control_state["terminated"] = True
             rc = getattr(process, "returncode", None)
             control_state["returncode"] = rc
@@ -1319,11 +1288,15 @@ class OpenCodeRuntime:
                         yield message
 
         except TimeoutError as e:
+            termination_confirmed = False
             if process is not None and control_state is not None:
-                await self._terminate_process(process)
+                termination_confirmed = await self._terminate_process(process)
                 windows_child_cleanup_succeeded = self._cleanup_windows_child_processes(process)
                 windows_child_cleanup_done = True
-                control_state["terminated"] = True
+                control_state["terminated"] = termination_confirmed
+                control_state["runtime_status"] = (
+                    "terminated" if termination_confirmed else "termination_unconfirmed"
+                )
             process_terminated = True
             if stderr_task is not None:
                 stderr_lines = await self._collect_stderr_after_windows_cleanup(
@@ -1332,28 +1305,39 @@ class OpenCodeRuntime:
                 )
             final_message = "\n".join(stderr_lines).strip()
             if not final_message:
-                final_message = f"{self._display_name} became unresponsive and was terminated: {e}"
+                cleanup = (
+                    "was terminated" if termination_confirmed else "termination was not confirmed"
+                )
+                final_message = f"{self._display_name} became unresponsive; {cleanup}: {e}"
             yield AgentMessage(
                 type="result",
                 content=final_message,
-                data={"subtype": "error", "error_type": type(e).__name__},
+                data={
+                    "subtype": "error",
+                    "error_type": type(e).__name__,
+                    "termination_confirmed": termination_confirmed,
+                },
                 resume_handle=current_handle,
             )
             return
         except asyncio.CancelledError:
             if process is not None:
                 log.warning(f"{self._log_namespace}.task_cancelled", cwd=self._cwd)
-                await self._terminate_process(process)
+                confirmed = await self._terminate_process(process)
                 process_terminated = True
                 if control_state is not None:
-                    control_state["terminated"] = True
+                    control_state["terminated"] = confirmed
+                    control_state["runtime_status"] = (
+                        "terminated" if confirmed else "termination_unconfirmed"
+                    )
             raise
         else:
             # Normal completion — stdout stream finished
             returncode = await process.wait()
             process_finished = True
             control_state["returncode"] = returncode
-            control_state["runtime_status"] = "completed" if returncode == 0 else "failed"
+            if control_state.get("runtime_status") != "termination_unconfirmed":
+                control_state["runtime_status"] = "completed" if returncode == 0 else "failed"
             current_handle = self._bind_runtime_handle_controls(
                 current_handle,
                 process=process,
@@ -1403,8 +1387,13 @@ class OpenCodeRuntime:
                     and not process_terminated
                     and getattr(process, "returncode", None) is None
                 ):
-                    await self._terminate_process(process)
+                    confirmed = await self._terminate_process(process)
                     process_terminated = True
+                    if control_state is not None:
+                        control_state["terminated"] = confirmed
+                        control_state["runtime_status"] = (
+                            "terminated" if confirmed else "termination_unconfirmed"
+                        )
                 if not windows_child_cleanup_done:
                     self._cleanup_windows_child_processes(process)
             if stderr_task is not None and not stderr_task.done():

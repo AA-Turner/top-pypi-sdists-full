@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 from lxml import etree as ET
 
 from edgar.core import log
-from edgar.xbrl.core import NAMESPACES
+from edgar.xbrl.core import NAMESPACES, element_catalog_key
 from edgar.xmltools import xml_parser
 
 
@@ -63,6 +63,24 @@ class BaseParser:
             return float(order_value) if order_value is not None else 0.0
         except (ValueError, TypeError):
             return 0.0
+
+    @staticmethod
+    def _role_record(role: str, role_types: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        The identity of an extended link role, for the presentation,
+        calculation and definition role dictionaries.
+
+        The definition is the schema's roleType definition when one is loaded
+        (XBRL 2.1 section 5.1.3.3: its human-readable meaning), otherwise one
+        derived from the role URI's last segment.
+        """
+        role_id = role.split('/')[-1] if '/' in role else role
+        schema_def = role_types.get(role, {}).get('definition')
+        return {
+            'roleUri': role,
+            'definition': schema_def if schema_def else role_id.replace('_', ' '),
+            'roleId': role_id,
+        }
 
     def _extract_role_info(self, role_element) -> Dict[str, Any]:
         """
@@ -129,10 +147,7 @@ class BaseParser:
         Returns:
             Normalized element identifier
         """
-        if ':' in element_id:
-            prefix, name = element_id.split(':', 1)
-            return f"{prefix}_{name}"
-        return element_id
+        return element_catalog_key(element_id)
 
     def _log_parsing_progress(self, component: str, count: int, total: Optional[int] = None):
         """

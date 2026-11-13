@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import threading
 
-from fitevict.estimate import sizing
+from hugpy_core.lifted import sizing
 
 from hugpy_core.models import modeldb
 from hugpy_core.registry import registry

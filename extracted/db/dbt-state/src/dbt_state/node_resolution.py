@@ -31,7 +31,7 @@ from dbt_state.config import RunCacheConfig
 from dbt_state.grpc.client import QueryCacheGrpcClient
 from dbt_state.profiles import Profiles
 from dbt_state.relation import DeferredRelationResolver
-from dbt_state.utils import DBT_VERSION
+from dbt_state.utils import DBT_VERSION, is_full_refresh
 
 
 class NodeResolution:
@@ -236,6 +236,24 @@ class NodeResolution:
         return {
             self.node_to_table(node).sql(dialect=self.dialect)
             for node in self.iter_selected_nodes(self.selected_resource_ids)
+        }
+
+    def incremental_target_fqns(self, selected_ids: t.Set[str]) -> t.Set[str]:
+        """FQNs of the targets of selected incremental models that compare selected columns.
+
+        These models may read their own target (`{{ this }}`), which isn't in `depends_on`.
+        This only warms the schema cache; whether a target's schema is sent depends on whether the
+        compiled SQL reads it.
+
+        Args:
+            selected_ids: Unique IDs selected for this run. Empty means a full-project run.
+        """
+        return {
+            self.node_to_table(node).sql(dialect=self.dialect)
+            for node in self.iter_selected_nodes(selected_ids)
+            if node.get_materialization() == "incremental"
+            and not is_full_refresh(self._config, node)
+            and self._run_cache_config.resolve_compare_selected_columns(node.config)
         }
 
     @cached_property

@@ -34,6 +34,7 @@ from ...shared.reads.search_contract import (
     MetricMode,
     PaperExpansion,
     PaperMode,
+    SearchSort,
     SeriesSmoothing,
     SourceKind,
     SourceProvider,
@@ -43,6 +44,7 @@ from ..generated.views import View
 from ..events import follow_events
 from ..tools.reads.samples import SampleQuery, SampleView
 from ..tools.tools import ResearchReadService
+from ..source.people import PeopleFilters
 from probe.mcp.server.browse_args import _browse_args_for_mode, normalize_browse_scope
 from probe.mcp.server.limits import _WEB_MAX_LIMIT, _WEB_QUERY_CHARS
 from probe.mcp.server.metric_mode import _METRIC_ROUTES, _metric_args_for_mode
@@ -66,6 +68,7 @@ from probe.mcp.server.tool_text import (
     _BR_LIMIT_DOC,
     _BR_MODE_DOC,
     _BR_ORDER_DOC,
+    _BR_OWNER_DOC,
     _BR_PREFIX_DOC,
     _BR_PROJECT_DOC,
     _BR_PROVIDER_DOC,
@@ -74,9 +77,11 @@ from probe.mcp.server.tool_text import (
     _BR_REGISTERED_DOC,
     _BR_RUN_DOC,
     _BR_SIDE_CURSOR_DOC,
+    _BR_SINCE_DOC,
     _BR_STATUS_DOC,
     _BR_STORED_DOC,
     _BR_TAGS_DOC,
+    _BR_UNTIL_DOC,
     _BR_WORKSPACE_DOC,
     _CURSOR_DOC,
     _EV_EXPERIMENT_DOC,
@@ -110,11 +115,15 @@ from probe.mcp.server.tool_text import (
     _SK_COLLAPSE_DOC,
     _SK_CURSOR_DOC,
     _SK_EXCLUDE_DOC,
+    _SK_OWNER_DOC,
     _SK_PROJECT_DOC,
     _SK_QUERY_DOC,
     _SK_SEARCH_IN_DOC,
     _SK_SEMANTIC_DOC,
+    _SK_SINCE_DOC,
+    _SK_SORT_DOC,
     _SK_TOP_K_DOC,
+    _SK_UNTIL_DOC,
     _SK_WORKSPACE_DOC,
     _SM_AFTER_DOC,
     _SM_AT_DOC,
@@ -249,6 +258,16 @@ def _register_browse_and_search(mcp, svc):
         order: Annotated[
             str, BeforeValidator(_none_as_empty), Field(max_length=300, description=_BR_ORDER_DOC)
         ] = "",
+        # Plain `str` with "" for absent, like `query`: a date or "7d" must arrive as the text it is.
+        owner: Annotated[
+            str, BeforeValidator(_none_as_empty), Field(max_length=200, description=_BR_OWNER_DOC)
+        ] = "",
+        since: Annotated[
+            str, BeforeValidator(_none_as_empty), Field(max_length=64, description=_BR_SINCE_DOC)
+        ] = "",
+        until: Annotated[
+            str, BeforeValidator(_none_as_empty), Field(max_length=64, description=_BR_UNTIL_DOC)
+        ] = "",
         latest_metrics: Annotated[
             list[str] | None, Field(max_length=50, description=_BR_LATEST_METRICS_DOC)
         ] = None,
@@ -292,23 +311,24 @@ def _register_browse_and_search(mcp, svc):
     ) -> dict:
         """List what EXISTS in this lab: projects, their experiments, their runs.
 
-        Use the `entity` tool to get the full details of an entity returned by
-        this tool.
+        `entity` opens any row in full.
 
         ### `mode`:
         1. `projects` (default) - projects -> experiments -> runs; `project` or `experiment` (slug or uuid) opens one, `depth` 2 expands children
         2. `runs` - every run filed under a project, FLAT and NEWEST FIRST: the team's last N runs is `limit=N`, "what is running now" is `active=true`; `project` / `experiment` narrows; `filter`, `order` (top N) and `latest_metrics` (final values) find the best runs
-        3. `workspaces` - the team's filing locations with their NAMES (how a `workspace_id` becomes something a person can read)
-        4. `notes` - the notes catalog: what the team wrote down across every project, experiment and run; `query` matches note text literally (search ranks by meaning instead)
+        3. `workspaces` - the team's filing locations, by NAME (what a `workspace_id` is)
+        4. `notes` - every note the team wrote, team-wide; `query` matches note text literally (search ranks by meaning)
         5. `files` - the team's Shared folder, or one workspace's files with `workspace_id`; `prefix` narrows to a folder. A run's or project's own files are `entity(view="artifacts")`
         6. `datasets` - team datasets (`dataset:<name>`) and unregistered run-logged dataset files; `registered`, `project`, `query` narrow
         7. `checkpoints` - every checkpoint team-wide (step, best, stored state, run); `project`/`experiment`/`run`, `best`, `stored` narrow
         8. `sources` - external sources (Hub ids, buckets, URLs) with how many runs use each; `provider`, `kind`, `query` narrow
+        9. `people` - teammates and their user ids
+        10. `sessions` - agent sessions team-wide, newest first: title, whose, when, the work touched; `project` narrows
 
-        Each mode REFUSES arguments it does not read.
+        `owner` (who), `since` / `until` (when) and `order="recent"` (newest first) narrow every mode that lists work. Each mode REFUSES arguments it does not read.
 
         FYI:
-        `completeness.missing` tells what the returned response doesn't cover (absent: nothing) - make sure to read it to be knowledgeable of whats missing.
+        `completeness.missing` says what this response does not cover (absent: nothing): read it.
         One page is not the whole tree: on `next_cursor`, page on or search before concluding absence. An absent key means "nothing here", never "unknown". `available_views` appears once on the response, keyed by kind. mode=runs: `totals` counts the whole listing.
         """
         _browse_args_for_mode(
@@ -321,6 +341,9 @@ def _register_browse_and_search(mcp, svc):
                 "active": active,
                 "filter": filter,
                 "order": order,
+                "owner": owner,
+                "since": since,
+                "until": until,
                 "latest_metrics": latest_metrics,
                 "workspace_id": workspace_id,
                 "query": query,
@@ -339,6 +362,13 @@ def _register_browse_and_search(mcp, svc):
                 "kind": kind,
             },
         )
+        # `order` is mode=runs' sort too: there it reaches the runs list as `order`, never twice.
+        people = PeopleFilters(
+            owner=owner or None,
+            since=since or None,
+            until=until or None,
+            order=(order or None) if mode != BrowseMode.RUNS else None,
+        )
         with svc() as s:
             if mode == BrowseMode.PROJECTS:
                 return s.browse_research(
@@ -351,6 +381,7 @@ def _register_browse_and_search(mcp, svc):
                     cursor=cursor,
                     runs_cursor=runs_cursor,
                     subprojects_cursor=subprojects_cursor,
+                    people=people,
                 )
             return s.browse_list(
                 BrowseMode(mode),
@@ -376,6 +407,7 @@ def _register_browse_and_search(mcp, svc):
                 provider=provider,
                 kind=kind,
                 token_budget=token_budget,
+                people=people,
             )
 
     @mcp.tool()
@@ -413,6 +445,17 @@ def _register_browse_and_search(mcp, svc):
         exclude_session: Annotated[str | None, Field(description=_SK_EXCLUDE_DOC)] = None,
         token_budget: Annotated[TokenBudget, Field(description=_RESP_BUDGET_DOC)] = 2000,
         semantic: Annotated[bool, Field(description=_SK_SEMANTIC_DOC)] = True,
+        # Plain `str` with "" for absent, as browse's: a date or "7d" must arrive as the text it is.
+        owner: Annotated[
+            str, BeforeValidator(_none_as_empty), Field(max_length=200, description=_SK_OWNER_DOC)
+        ] = "",
+        since: Annotated[
+            str, BeforeValidator(_none_as_empty), Field(max_length=64, description=_SK_SINCE_DOC)
+        ] = "",
+        until: Annotated[
+            str, BeforeValidator(_none_as_empty), Field(max_length=64, description=_SK_UNTIL_DOC)
+        ] = "",
+        sort: Annotated[SearchSort, Field(description=_SK_SORT_DOC)] = SearchSort.RELEVANCE,
     ) -> dict:
         """Search this team's knowledgebase - a semantically indexed store of entities
         (projects/experiments/runs), session transcripts, and more; `search_in` names
@@ -435,6 +478,7 @@ def _register_browse_and_search(mcp, svc):
            (schema_version, as_of, scope, capability flags, a complete
            completeness, a null next_cursor) - a debugging aid
         9. `semantic` - (default true) false = keyword only, no model calls
+        10. `owner`, `since`, `until`, `sort` - (optional) who wrote it, when, and `sort="recent"` for newest first
 
         ### RESULTS:
         Every result carries `why_matched`: `score` is a RANK, not a probability - `reason` (when present) is one line from the model that read the passage.
@@ -461,6 +505,10 @@ def _register_browse_and_search(mcp, svc):
                 # the wrapper raised `response_too_large` on the way out, which
                 # tells an agent nothing about which knob to turn.
                 token_budget=token_budget,
+                owner=owner or None,
+                since=since or None,
+                until=until or None,
+                sort=sort,
             )
 
 

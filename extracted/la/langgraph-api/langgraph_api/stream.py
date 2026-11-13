@@ -17,6 +17,7 @@ from langchain_core.messages import (
     convert_to_messages,
     message_chunk_to_message,
 )
+from langgraph.constants import TAG_NOSTREAM
 from langgraph.errors import (
     EmptyChannelError,
     EmptyInputError,
@@ -75,6 +76,11 @@ else:
 
 
 logger = structlog.stdlib.get_logger(__name__)
+
+# What each runtime's messages mode skips: Python's has honored only "nostream"
+# since langgraph 0.6, while LangGraph.js tags "langsmith:nostream" and honors both.
+NOSTREAM_TAGS = frozenset({TAG_NOSTREAM})
+JS_NOSTREAM_TAGS = NOSTREAM_TAGS | {"langsmith:nostream"}
 
 
 async def _filter_context_by_schema(
@@ -265,6 +271,11 @@ async def astream_state(
         # ``capabilities.py`` documents this behavior — keep them in sync.
         stream_modes_set.discard("tools")
         stream_modes_set.discard("lifecycle")
+    elif not event_streaming_v2_run:
+        # The v1 React ``useStream`` hook asks for ``tools`` whenever an app
+        # listens for tool events, but it cannot parse the events graphs emit
+        # for this mode and throws on the first one.
+        stream_modes_set.discard("tools")
     if "debug" not in stream_modes_set:
         stream_modes_set.add("debug")
     if "messages-tuple" in stream_modes_set and not is_remote_pregel:
@@ -511,7 +522,9 @@ async def astream_state(
                         else:
                             yield "values", chunk
                     # --- end shared logic with astream ---
-                elif "events" in stream_mode:
+                elif "events" in stream_mode and (
+                    JS_NOSTREAM_TAGS if is_remote_pregel else NOSTREAM_TAGS
+                ).isdisjoint(event.get("tags") or ()):
                     yield "events", event
     elif use_stream_events_v3:
         async for ev in astream_state_v2(
@@ -738,23 +751,42 @@ async def _consume_inline(
     This preserves natural backpressure: each event must be published before the
     next one is consumed.
     """
+    publishing = True
     async with aclosing(stream):
         try:
             async for mode, payload in stream:
+                if not publishing:
+                    continue
                 event_type = get_stream_event_type(mode)
                 payload_bytes = await run_in_executor(None, json_dumpb, payload)
-                is_resumable = resumable and mode.split("|")[0] in stream_modes
-                with reporter.track_latency_ms(
-                    LATENCY_STREAM_PUBLISH,
-                    attributes={"stream_event_type": event_type},
-                ):
-                    await Runs.Stream.publish(
-                        run_id,
-                        mode,
-                        payload_bytes,
-                        thread_id=thread_id,
-                        resumable=is_resumable,
+                is_resumable = resumable and event_type.split("/")[0] in stream_modes
+                try:
+                    with reporter.track_latency_ms(
+                        LATENCY_STREAM_PUBLISH,
+                        attributes={"stream_event_type": event_type},
+                    ):
+                        await Runs.Stream.publish(
+                            run_id,
+                            mode,
+                            payload_bytes,
+                            thread_id=thread_id,
+                            resumable=is_resumable,
+                        )
+                except StreamPublishException as e:
+                    # Stop publishing for the rest of the run: transient errors
+                    # were already retried for up to a minute, and retrying every
+                    # later event would stall the graph again each time. The run
+                    # still finishes, and the worker records its real outcome.
+                    publishing = False
+                    await logger.aerror(
+                        "Stream publish failed, finishing the run without streaming",
+                        run_id=str(run_id),
+                        thread_id=str(thread_id),
+                        error_type=type(e).__name__,
+                        error=str(e),
                     )
+                    reporter.inc_counter(COUNTER_STREAMING_DATA_LOSS)
+                    continue
                 reporter.record_histogram(
                     HISTOGRAM_STREAM_DATA_SIZE,
                     float(len(payload_bytes)),
@@ -763,26 +795,6 @@ async def _consume_inline(
         except Exception as e:
             if isinstance(e, ExceptionGroup):
                 e = e.exceptions[0]
-            if isinstance(e, StreamPublishException):
-                # We swallow this and report the run as complete, so the worker
-                # never sees it and cannot surface it. Emit it to the client here.
-                with suppress(Exception):
-                    await Runs.Stream.publish(
-                        run_id,
-                        "error",
-                        await run_in_executor(None, json_dumpb, e),
-                        thread_id=thread_id,
-                        resumable=resumable,
-                    )
-                await logger.aerror(
-                    "Suppressing stream consume exception",
-                    run_id=str(run_id),
-                    thread_id=str(thread_id),
-                    error_type=type(e).__name__,
-                    error=str(e),
-                )
-                reporter.inc_counter(COUNTER_STREAMING_DATA_LOSS)
-                return
             raise e
 
 
@@ -858,7 +870,7 @@ async def _consume_async_queue(
             async for mode, payload in stream:
                 event_type = get_stream_event_type(mode)
                 payload_bytes = await run_in_executor(None, json_dumpb, payload)
-                is_resumable = resumable and mode.split("|")[0] in stream_modes
+                is_resumable = resumable and event_type.split("/")[0] in stream_modes
                 await _enqueue((mode, payload_bytes, event_type, is_resumable))
 
     except Exception as e:

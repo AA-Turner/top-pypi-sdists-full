@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from .balance import Balance, BalanceTypedDict
+from .creditdimension_union import CreditDimensionUnion, CreditDimensionUnionTypedDict
 from .plan import Plan, PlanTypedDict
 from autumn_sdk.types import (
     BaseModel,
@@ -28,7 +29,7 @@ class UpdateEntityGlobals(BaseModel):
         Optional[str],
         pydantic.Field(alias="x-api-version"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
-    ] = "2.5.0"
+    ] = "2.6.0"
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -347,7 +348,7 @@ class UpdateEntityUsageAlertFilterRequestBody(BaseModel):
 
 class UpdateEntityUsageAlertRequestBodyTypedDict(TypedDict):
     threshold: float
-    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage (0-100)."""
+    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage. remaining and remaining_percentage accept negative values with basis balance, to alert once the balance is overdrawn."""
     threshold_type: UpdateEntityThresholdTypeRequestBody
     r"""Whether the threshold is an absolute count or a percentage of the usage allowance or remaining balance."""
     feature_id: NotRequired[str]
@@ -364,7 +365,7 @@ class UpdateEntityUsageAlertRequestBodyTypedDict(TypedDict):
 
 class UpdateEntityUsageAlertRequestBody(BaseModel):
     threshold: float
-    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage (0-100)."""
+    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage. remaining and remaining_percentage accept negative values with basis balance, to alert once the balance is overdrawn."""
 
     threshold_type: UpdateEntityThresholdTypeRequestBody
     r"""Whether the threshold is an absolute count or a percentage of the usage allowance or remaining balance."""
@@ -566,7 +567,7 @@ class UpdateEntitySubscriptionTypedDict(TypedDict):
     expires_at: Nullable[float]
     r"""Timestamp when the subscription will expire, or null if no expiry set."""
     trial_ends_at: Nullable[float]
-    r"""Timestamp when the trial period ends, or null if not on trial."""
+    r"""When the trial ends or ended. Null if the subscription never had a trial. Compare with the current time to know whether it's still trialing."""
     started_at: float
     r"""Timestamp when the subscription started."""
     current_period_start: Nullable[float]
@@ -606,7 +607,7 @@ class UpdateEntitySubscription(BaseModel):
     r"""Timestamp when the subscription will expire, or null if no expiry set."""
 
     trial_ends_at: Nullable[float]
-    r"""Timestamp when the trial period ends, or null if not on trial."""
+    r"""When the trial ends or ended. Null if the subscription never had a trial. Compare with the current time to know whether it's still trialing."""
 
     started_at: float
     r"""Timestamp when the subscription started."""
@@ -750,125 +751,6 @@ UpdateEntityCombine = Union[
 r"""How grants of this feature from several plans combine: 'sum' adds them up, 'max' / 'min' keep the highest / lowest grant among plan items with no price. Omitted when 'sum'."""
 
 
-class UpdateEntityDimensions6TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-
-class UpdateEntityDimensions6(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-UpdateEntityDimensionsToEnum3 = Literal["inf",]
-
-
-UpdateEntityDimensionsToUnion3TypedDict = TypeAliasType(
-    "UpdateEntityDimensionsToUnion3TypedDict",
-    Union[float, UpdateEntityDimensionsToEnum3],
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-UpdateEntityDimensionsToUnion3 = TypeAliasType(
-    "UpdateEntityDimensionsToUnion3", Union[float, UpdateEntityDimensionsToEnum3]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-class UpdateEntityDimensionsTier3TypedDict(TypedDict):
-    to: UpdateEntityDimensionsToUnion3TypedDict
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class UpdateEntityDimensionsTier3(BaseModel):
-    to: UpdateEntityDimensionsToUnion3
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class UpdateEntityDimensions5TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    tiers: List[UpdateEntityDimensionsTier3TypedDict]
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-    tier_behavior: Literal["graduated"]
-
-
-class UpdateEntityDimensions5(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    tiers: List[UpdateEntityDimensionsTier3]
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    tier_behavior: Annotated[
-        Annotated[Literal["graduated"], AfterValidator(validate_const("graduated"))],
-        pydantic.Field(alias="tier_behavior"),
-    ] = "graduated"
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-UpdateEntityDimensionsUnion3TypedDict = TypeAliasType(
-    "UpdateEntityDimensionsUnion3TypedDict",
-    Union[UpdateEntityDimensions6TypedDict, UpdateEntityDimensions5TypedDict],
-)
-
-
-UpdateEntityDimensionsUnion3 = TypeAliasType(
-    "UpdateEntityDimensionsUnion3",
-    Union[UpdateEntityDimensions6, UpdateEntityDimensions5],
-)
-
-
 class UpdateEntityMultipliers3TypedDict(TypedDict):
     match: Dict[str, str]
     r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
@@ -911,7 +793,7 @@ class UpdateEntityCreditSchema3TypedDict(TypedDict):
     metered_feature_id: Literal[""]
     billing_units: NotRequired[float]
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-    dimensions: NotRequired[Dict[str, UpdateEntityDimensionsUnion3TypedDict]]
+    dimensions: NotRequired[Dict[str, CreditDimensionUnionTypedDict]]
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
     multipliers: NotRequired[Dict[str, UpdateEntityMultipliers3TypedDict]]
     r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
@@ -929,7 +811,7 @@ class UpdateEntityCreditSchema3(BaseModel):
     billing_units: Optional[float] = None
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
 
-    dimensions: Optional[Dict[str, UpdateEntityDimensionsUnion3]] = None
+    dimensions: Optional[Dict[str, CreditDimensionUnion]] = None
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
 
     multipliers: Optional[Dict[str, UpdateEntityMultipliers3]] = None
@@ -950,125 +832,6 @@ class UpdateEntityCreditSchema3(BaseModel):
                     m[k] = val
 
         return m
-
-
-class UpdateEntityDimensions4TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-
-class UpdateEntityDimensions4(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-UpdateEntityDimensionsToEnum2 = Literal["inf",]
-
-
-UpdateEntityDimensionsToUnion2TypedDict = TypeAliasType(
-    "UpdateEntityDimensionsToUnion2TypedDict",
-    Union[float, UpdateEntityDimensionsToEnum2],
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-UpdateEntityDimensionsToUnion2 = TypeAliasType(
-    "UpdateEntityDimensionsToUnion2", Union[float, UpdateEntityDimensionsToEnum2]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-class UpdateEntityDimensionsTier2TypedDict(TypedDict):
-    to: UpdateEntityDimensionsToUnion2TypedDict
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class UpdateEntityDimensionsTier2(BaseModel):
-    to: UpdateEntityDimensionsToUnion2
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class UpdateEntityDimensions3TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    tiers: List[UpdateEntityDimensionsTier2TypedDict]
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-    tier_behavior: Literal["graduated"]
-
-
-class UpdateEntityDimensions3(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    tiers: List[UpdateEntityDimensionsTier2]
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    tier_behavior: Annotated[
-        Annotated[Literal["graduated"], AfterValidator(validate_const("graduated"))],
-        pydantic.Field(alias="tier_behavior"),
-    ] = "graduated"
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-UpdateEntityDimensionsUnion2TypedDict = TypeAliasType(
-    "UpdateEntityDimensionsUnion2TypedDict",
-    Union[UpdateEntityDimensions4TypedDict, UpdateEntityDimensions3TypedDict],
-)
-
-
-UpdateEntityDimensionsUnion2 = TypeAliasType(
-    "UpdateEntityDimensionsUnion2",
-    Union[UpdateEntityDimensions4, UpdateEntityDimensions3],
-)
 
 
 class UpdateEntityMultipliers2TypedDict(TypedDict):
@@ -1114,7 +877,7 @@ class UpdateEntityCreditSchema2TypedDict(TypedDict):
     r"""Credits consumed per billing-unit group."""
     billing_units: NotRequired[float]
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-    dimensions: NotRequired[Dict[str, UpdateEntityDimensionsUnion2TypedDict]]
+    dimensions: NotRequired[Dict[str, CreditDimensionUnionTypedDict]]
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
     multipliers: NotRequired[Dict[str, UpdateEntityMultipliers2TypedDict]]
     r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
@@ -1130,7 +893,7 @@ class UpdateEntityCreditSchema2(BaseModel):
     billing_units: Optional[float] = None
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
 
-    dimensions: Optional[Dict[str, UpdateEntityDimensionsUnion2]] = None
+    dimensions: Optional[Dict[str, CreditDimensionUnion]] = None
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
 
     multipliers: Optional[Dict[str, UpdateEntityMultipliers2]] = None
@@ -1151,125 +914,6 @@ class UpdateEntityCreditSchema2(BaseModel):
                     m[k] = val
 
         return m
-
-
-class UpdateEntityDimensions2TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-
-class UpdateEntityDimensions2(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-UpdateEntityDimensionsToEnum1 = Literal["inf",]
-
-
-UpdateEntityDimensionsToUnion1TypedDict = TypeAliasType(
-    "UpdateEntityDimensionsToUnion1TypedDict",
-    Union[float, UpdateEntityDimensionsToEnum1],
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-UpdateEntityDimensionsToUnion1 = TypeAliasType(
-    "UpdateEntityDimensionsToUnion1", Union[float, UpdateEntityDimensionsToEnum1]
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-class UpdateEntityDimensionsTier1TypedDict(TypedDict):
-    to: UpdateEntityDimensionsToUnion1TypedDict
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class UpdateEntityDimensionsTier1(BaseModel):
-    to: UpdateEntityDimensionsToUnion1
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class UpdateEntityDimensions1TypedDict(TypedDict):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    tiers: List[UpdateEntityDimensionsTier1TypedDict]
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-    tier_behavior: Literal["graduated"]
-
-
-class UpdateEntityDimensions1(BaseModel):
-    match: Dict[str, str]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    tiers: List[UpdateEntityDimensionsTier1]
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    tier_behavior: Annotated[
-        Annotated[Literal["graduated"], AfterValidator(validate_const("graduated"))],
-        pydantic.Field(alias="tier_behavior"),
-    ] = "graduated"
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-UpdateEntityDimensionsUnion1TypedDict = TypeAliasType(
-    "UpdateEntityDimensionsUnion1TypedDict",
-    Union[UpdateEntityDimensions2TypedDict, UpdateEntityDimensions1TypedDict],
-)
-
-
-UpdateEntityDimensionsUnion1 = TypeAliasType(
-    "UpdateEntityDimensionsUnion1",
-    Union[UpdateEntityDimensions2, UpdateEntityDimensions1],
-)
 
 
 class UpdateEntityMultipliers1TypedDict(TypedDict):
@@ -1344,7 +988,7 @@ class UpdateEntityCreditSchema1TypedDict(TypedDict):
     tiers: List[UpdateEntityTierTypedDict]
     billing_units: NotRequired[float]
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-    dimensions: NotRequired[Dict[str, UpdateEntityDimensionsUnion1TypedDict]]
+    dimensions: NotRequired[Dict[str, CreditDimensionUnionTypedDict]]
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
     multipliers: NotRequired[Dict[str, UpdateEntityMultipliers1TypedDict]]
     r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
@@ -1360,7 +1004,7 @@ class UpdateEntityCreditSchema1(BaseModel):
     billing_units: Optional[float] = None
     r"""Number of metered-feature units priced together. Defaults to one when omitted."""
 
-    dimensions: Optional[Dict[str, UpdateEntityDimensionsUnion1]] = None
+    dimensions: Optional[Dict[str, CreditDimensionUnion]] = None
     r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
 
     multipliers: Optional[Dict[str, UpdateEntityMultipliers1]] = None
@@ -1949,7 +1593,7 @@ r"""Response-only: whether the entry is a customer-level override or inherited f
 
 class UpdateEntityUsageAlertResponseTypedDict(TypedDict):
     threshold: float
-    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage (0-100)."""
+    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage. remaining and remaining_percentage accept negative values with basis balance, to alert once the balance is overdrawn."""
     threshold_type: UpdateEntityThresholdTypeResponse
     r"""Whether the threshold is an absolute count or a percentage of the usage allowance or remaining balance."""
     feature_id: NotRequired[str]
@@ -1968,7 +1612,7 @@ class UpdateEntityUsageAlertResponseTypedDict(TypedDict):
 
 class UpdateEntityUsageAlertResponse(BaseModel):
     threshold: float
-    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage (0-100)."""
+    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage. remaining and remaining_percentage accept negative values with basis balance, to alert once the balance is overdrawn."""
 
     threshold_type: UpdateEntityThresholdTypeResponse
     r"""Whether the threshold is an absolute count or a percentage of the usage allowance or remaining balance."""
@@ -2116,6 +1760,8 @@ r"""The billing processor that owns this invoice."""
 
 
 class UpdateEntityInvoiceTypedDict(TypedDict):
+    id: str
+    r"""The Autumn invoice ID"""
     plan_ids: List[str]
     r"""Array of plan IDs included in this invoice"""
     stripe_id: str
@@ -2124,6 +1770,10 @@ class UpdateEntityInvoiceTypedDict(TypedDict):
     r"""The status of the invoice"""
     total: float
     r"""The total amount of the invoice"""
+    amount_paid: Nullable[float]
+    r"""The amount paid on the invoice, in major currency units. Null on invoices recorded before amounts paid were tracked."""
+    refunded_amount: float
+    r"""The total amount refunded on the invoice, in major currency units"""
     currency: str
     r"""The currency code for the invoice"""
     created_at: float
@@ -2135,6 +1785,9 @@ class UpdateEntityInvoiceTypedDict(TypedDict):
 
 
 class UpdateEntityInvoice(BaseModel):
+    id: str
+    r"""The Autumn invoice ID"""
+
     plan_ids: List[str]
     r"""Array of plan IDs included in this invoice"""
 
@@ -2146,6 +1799,12 @@ class UpdateEntityInvoice(BaseModel):
 
     total: float
     r"""The total amount of the invoice"""
+
+    amount_paid: Nullable[float]
+    r"""The amount paid on the invoice, in major currency units. Null on invoices recorded before amounts paid were tracked."""
+
+    refunded_amount: float
+    r"""The total amount refunded on the invoice, in major currency units"""
 
     currency: str
     r"""The currency code for the invoice"""
@@ -2162,7 +1821,7 @@ class UpdateEntityInvoice(BaseModel):
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         optional_fields = set(["processor_type", "hosted_invoice_url"])
-        nullable_fields = set(["hosted_invoice_url"])
+        nullable_fields = set(["amount_paid", "hosted_invoice_url"])
         serialized = handler(self)
         m = {}
 
@@ -2286,19 +1945,7 @@ try:
 except NameError:
     pass
 try:
-    UpdateEntityDimensions5.model_rebuild()
-except NameError:
-    pass
-try:
     UpdateEntityCreditSchema3.model_rebuild()
-except NameError:
-    pass
-try:
-    UpdateEntityDimensions3.model_rebuild()
-except NameError:
-    pass
-try:
-    UpdateEntityDimensions1.model_rebuild()
 except NameError:
     pass
 try:

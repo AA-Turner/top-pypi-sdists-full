@@ -1,14 +1,21 @@
-"""MCP (Model Context Protocol) server using Streamable HTTP transport.
+import structlog
 
-Specification (2025-11-25):
-  https://modelcontextprotocol.io/specification/2025-11-25
+from langgraph_api.api.mcp._sdk import InstalledSdk
+from langgraph_api.config import MCP_ENABLED
 
-Supported protocol versions: 2024-11-05, 2025-03-26, 2025-06-18, 2025-11-25.
+__all__ = ["MCP_SERVED", "mcp_routes"]
 
-LangGraph exposes each Assistant as an MCP Tool.  The implementation is
-stateless (no session persistence) and returns ``application/json`` only.
-"""
+logger = structlog.stdlib.get_logger(__name__)
+SDK = InstalledSdk.find()
+MCP_SERVED = MCP_ENABLED and SDK.is_supported
 
-from langgraph_api.api.mcp._routes import mcp_routes
-
-__all__ = ["mcp_routes"]
+if SDK.is_supported:
+    from langgraph_api.api.mcp._routes import mcp_routes
+else:
+    mcp_routes = []
+    if MCP_ENABLED:
+        logger.error(
+            "MCP endpoint disabled: the installed MCP SDK is not supported",
+            required=str(SDK.required.specifier),
+            installed=SDK.installed,
+        )

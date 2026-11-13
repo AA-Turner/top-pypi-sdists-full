@@ -4,11 +4,15 @@ server. Raised only for loss or a definite stall, never for slowness; the writes
 from __future__ import annotations
 
 from probe.sdk import errors
-from probe.sdk.delivery.outbox.waiter.outcome import WaitOutcome, WaitResult
+from probe.sdk.delivery.outbox.waiter.outcome import SET_ASIDE_WHY, WaitOutcome, WaitResult
 
 #: What to do next, per outcome (the message's last sentence).
 _NEXT = {
     WaitOutcome.REFUSED: "see `probe outbox status`; fix the cause, then `probe outbox retry`",
+    WaitOutcome.SET_ASIDE: (
+        "the refused ones stay in the outbox, as dead letters until its cleanup moves them to discarded/, "
+        "with nothing to send again (`probe outbox status`)"
+    ),
     WaitOutcome.LOGIN_REFUSED: "sign in again (`probe login`); the writes go out on their own then",
     WaitOutcome.PAUSED: "`probe outbox resume` sends them",
     WaitOutcome.STALLED: "they are retried every hour; `probe outbox retry` tries them now",
@@ -28,6 +32,7 @@ _NEXT = {
 
 _WHY = {
     WaitOutcome.REFUSED: "the server refused {failed} of them for good",
+    WaitOutcome.SET_ASIDE: "the server refuses {set_aside} of them for good (" + SET_ASIDE_WHY + ")",
     WaitOutcome.LOGIN_REFUSED: "the server refused this machine's credential",
     WaitOutcome.PAUSED: "the outbox is paused",
     WaitOutcome.STALLED: "{held} kept failing and were set aside",
@@ -45,7 +50,7 @@ _WHY = {
 
 class DeliveryIncomplete(errors.RosError):
     """Some of a run's writes did not reach the server. ``result`` says where they stand:
-    ``outcome`` (why), ``pending``, ``held``, ``failed``. Nothing is lost: they stay on disk."""
+    ``outcome`` (why), ``pending``, ``held``, ``failed``, ``set_aside``. Nothing is lost: they stay on disk."""
 
     def __init__(self, result: WaitResult, *, minutes: int = 10) -> None:
         self.result = result
@@ -58,9 +63,9 @@ def describe(result: WaitResult, *, minutes: int = 10) -> str:
     """One plain sentence a researcher can act on."""
     if result.outcome == WaitOutcome.DATA_REFUSED:
         return _describe_refusals(result)
-    left = result.pending + result.held + result.failed
+    left = result.pending + result.held + result.failed + result.set_aside
     why = _WHY.get(result.outcome, str(result.outcome)).format(
-        failed=result.failed, held=result.held, minutes=minutes, holder=result.holder or "?",
+        failed=result.failed, held=result.held, set_aside=result.set_aside, minutes=minutes, holder=result.holder or "?",
         service_version=result.service_version or "unknown version",
     )
     error = f" (first error: {result.first_error[:200]})" if result.first_error else ""

@@ -35,6 +35,7 @@ load_dotenv()
 
 from mistralai.workflows._mistral_http import MISTRAL_HTTP
 from mistralai.workflows.client import get_mistral_client, translate_model
+from mistralai.workflows.core.auth import RunAs
 from mistralai.workflows.core.config.config import setup_default_logging
 from mistralai.workflows.protocol.v1.events import (
     CustomTaskCanceled,
@@ -941,6 +942,7 @@ async def main_async() -> None:
         async with get_mistral_client(
             server_url=args.base_url,
             api_key=args.api_key,
+            run_as=RunAs.DEPLOYMENT,
         ) as client:
             # Create a dynamic model from the input dict
             field_definitions: Dict[str, Any] = {k: (type(v), v) for k, v in args.input.items()}

@@ -5,6 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .team_member_authorized_role import TeamMemberAuthorizedRole
+from .team_member_manager import TeamMemberManager
 from .team_member_role import TeamMemberRole
 from .team_member_status import TeamMemberStatus
 from .user_summary import UserSummary
@@ -23,7 +24,7 @@ class TeamMember(UniversalBaseModel):
 
     created_at: str = pydantic.Field()
     """
-    When the member joined or the invite was sent, as an ISO 8601 timestamp.
+    When the member joined the team or the invite was sent, as an ISO 8601 timestamp. A member who was a customer first keeps the date they were given their role.
     """
 
     direct_reports_count: typing.Optional[int] = pydantic.Field(default=None)
@@ -38,7 +39,7 @@ class TeamMember(UniversalBaseModel):
 
     id: str = pydantic.Field()
     """
-    Team member ID — `ausr_` for accepted members, `mber_` for members whose role is held on their member record, `ausri_` for pending invites.
+    Team member ID. Accepted members have an ID starting with `ausr_` or `mber_`, and pending invites one starting with `ausri_`. Treat it as opaque: both member prefixes are accepted wherever a team member ID is.
     """
 
     is_agent: bool = pydantic.Field()
@@ -46,9 +47,10 @@ class TeamMember(UniversalBaseModel):
     Whether this member is an agent (app-controlled account) rather than a human team member. Always `false` for invites.
     """
 
+    reports_to_chain: typing.Optional[typing.List[TeamMemberManager]] = None
     reports_to_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The team member this member reports to, prefixed `ausr_`, or `mber_` when that manager's role is held on their member record. `null` when the member reports to the business directly, and for invites.
+    The ID of the team member this member reports to, starting with `ausr_` or `mber_`; treat it as opaque. `null` when the member reports to the business directly, and for invites.
     """
 
     role: TeamMemberRole = pydantic.Field()

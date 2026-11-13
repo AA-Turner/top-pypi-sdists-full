@@ -6,7 +6,7 @@ authors = [
     {name = "Ilya (Marshal)", email = "ilya@marshal.dev"}
 ]
 license = "MIT"
-requires-python = ">=3.9,<3.15"
+requires-python = ">=3.9,<3.16"
 readme = "README.md"
 keywords = ["library", "sdk", "codegen", "xrpc", "xrpc-client", "atprotocol", "atproto", "lexicon", "parser", "schema", "bluesky", "bluesky-api", "at", "uri", "atp", "nsid", "did", "cid"]
 classifiers = [
@@ -22,6 +22,8 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
     "Topic :: Software Development",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Pre-processors",
@@ -32,13 +34,17 @@ dependencies = [
     "click>=8.1.3,<9",
     "websockets>=15,<18",
     "pydantic>=2.7,<3",
-    "libipld>=3.0.1,<4",
+    "libipld>=3.5.0,<4",
     "dnspython>=2.4.0,<3",
     "cryptography>=41.0.7,<51",
-    "zstandard (>=0.24.0,<0.26.0)",
+    # Python 3.14+ falls back to the standard library compression.zstd; the zstd extra is faster.
+    "zstandard (>=0.24.0,<0.26.0) ; python_version < '3.14'",
     "tlds>=2026093003",
 ]
-version = "0.0.73"
+version = "0.0.74"
+
+[project.optional-dependencies]
+zstd = ["zstandard (>=0.24.0,<0.26.0)"]
 
 [project.scripts]
 atp = "atproto_cli:atproto_cli"
@@ -55,9 +61,7 @@ sponsoring = "https://github.com/sponsors/MarshalX"
 [dependency-groups]
 dev = [
     "ruff==0.16.3",
-    # mypy itself requires Python 3.10+ to run; it still type checks our 3.9 target.
-    "mypy==2.3.1; python_version >= '3.10'",
-    "pyright==1.1.411",
+    "pyrefly==1.4.0",
 ]
 # the docs are built on 3.12+ only; sphinx 9 does not support anything older.
 docs = [
@@ -73,11 +77,19 @@ docs = [
     "sphinx-favicon==1.1.0; python_version >= '3.12'",
     "sphinxext-opengraph==0.13.0; python_version >= '3.12'",
     "sphinxcontrib-googleanalytics==0.5; python_version >= '3.12'",
+    "types-docutils==0.22.3.20260724; python_version >= '3.12'",
+    "types-Pygments==2.18.0.20240506; python_version >= '3.12'",
 ]
 test = [
     "pytest>=8.4.2,<9",
     "pytest-asyncio>=1.2.0",
-    "coverage==7.6.1",
+    # the jetstream tests build their fixtures with it
+    "zstandard (>=0.24.0,<0.26.0)",
+    # coverage 7.11+ requires Python 3.10+
+    "coverage==7.10.7; python_version < '3.10'",
+    "coverage==7.16.2; python_version >= '3.10'",
+    # keeps the lock on websockets 17 for 3.15 so unit_tests covers the newest major
+    "websockets>=17,<18; python_version >= '3.15'",
 ]
 
 [tool.poetry]
@@ -111,12 +123,20 @@ style = "pep440"
 requires = ["poetry-core>=2.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
 build-backend = "poetry_dynamic_versioning.backend"
 
-[tool.mypy]
-python_version = "3.9"
-disallow_untyped_defs = false # TODO(MarshalX) enable
+[tool.pyrefly]
+preset = "all"
+python-version = "3.9"
+project-includes = ["packages", "tests", "examples", "docs", "update_changelog.py", "update_lexicons.py"]
+project-excludes = ["examples/custom_lexicons/use_generated_client.py"]
+search-path = ["packages"]
+enabled-ignores = ["pyrefly"]
+strict-callable-subtyping = true
+strict-partial-subtyping = true
 
-[tool.pyright]
-reportMissingTypeStubs = false
+[tool.pyrefly.errors]
+explicit-any = "ignore"
+implicit-bool = "ignore"
+unused-call-result = "ignore"
 
 [tool.ruff]
 line-length = 120

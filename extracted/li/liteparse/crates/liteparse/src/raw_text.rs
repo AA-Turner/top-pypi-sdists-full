@@ -4,10 +4,9 @@
 //! [`crate::extract`]. It applies no layout heuristics — no gap-based line or word
 //! merging, no invisible-text skip, no ligature expansion, no punctuation
 //! normalisation, no dedup — so its output is a stable function of what pdfium
-//! reports and a consumer can build its own segmentation on top. Glyphs hidden by
-//! known rectangular clips are omitted before grouping; partially clipped glyphs
-//! are kept in full whenever their loose box intersects the clip. Unknown clips
-//! preserve text.
+//! reports and a consumer can build its own segmentation on top. Words hidden by
+//! known rectangular clips are omitted before grouping; a word with any glyph
+//! inside its clip is kept whole. Unknown clips preserve text.
 //!
 //! Rules:
 //!
@@ -98,6 +97,9 @@ pub struct RawTextItem {
     /// evenly across the chars it decodes to. `Some` only from
     /// [`extract_raw_text_items_with_glyph_widths`].
     pub glyph_widths: Option<Vec<f32>>,
+    /// One entry per glyph, parallel to `char_codes`: its loose and strict boxes.
+    /// `Some` only from [`extract_raw_text_items_with_glyph_widths`].
+    pub glyph_boxes: Option<Vec<GlyphBoxes>>,
     pub x: f32,
     pub y: f32,
     pub width: f32,
@@ -133,6 +135,17 @@ pub struct RawTextItem {
     pub stroke_color: Option<u32>,
 }
 
+/// One glyph's boxes in viewport space, as pdfium reports them.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GlyphBoxes {
+    /// The glyph's advance cell: its advance along the baseline, the font's
+    /// ascent to descent across it (`FPDFText_GetLooseCharBox`).
+    pub loose: RectF,
+    /// The glyph's ink (`FPDFText_GetCharBox`). Not meaningful for a generated glyph.
+    /// The chars a ligature decodes to each get the whole ligature's box.
+    pub strict: RectF,
+}
+
 /// Everything read per glyph before items are formed.
 struct Glyph {
     index: i32,
@@ -163,7 +176,8 @@ pub fn extract_raw_text_items(
     extract(page, text_page, view_box, glyph_resolver, false)
 }
 
-/// [`extract_raw_text_items`] that also fills [`RawTextItem::glyph_widths`], for
+/// [`extract_raw_text_items`] that also fills [`RawTextItem::glyph_widths`] and
+/// [`RawTextItem::glyph_boxes`], for
 /// callers that split an item's box per glyph.
 pub fn extract_raw_text_items_with_glyph_widths(
     page: &Page,
@@ -184,7 +198,7 @@ fn extract(
     let char_count = text_page.char_count();
     let page_rotation = page.rotation();
     let mut chunks = CharInfoChunks::new(text_page);
-    let clips = crate::text_clip::TextClip::new(page);
+    let clips = crate::text_clip::TextClip::new(page, text_page, false);
     let mut items = Vec::new();
     let mut run: Vec<Glyph> = Vec::new();
     // Outline shapes repeat across a page (the same glyph at the same size and
@@ -215,7 +229,7 @@ fn extract(
             ch: &ch,
             rec: chunks.as_mut().and_then(|chunks| chunks.record(i)),
         };
-        if clips.hides(&cv) {
+        if clips.hides(i) {
             flush(&mut run, &mut items);
             continue;
         }
@@ -469,6 +483,15 @@ fn build_item(
         angle_radians: first.angle,
         text_width,
         glyph_widths: keep_glyph_widths.then(|| split_ligature_advances(glyphs, widths)),
+        glyph_boxes: keep_glyph_widths.then(|| {
+            glyphs
+                .iter()
+                .map(|glyph| GlyphBoxes {
+                    loose: glyph.loose,
+                    strict: glyph.strict,
+                })
+                .collect()
+        }),
         x: bounds.left,
         y: bounds.top,
         width: bounds.right - bounds.left,
@@ -1066,6 +1089,7 @@ mod tests {
             angle_radians: angle,
             text_width: 0.0,
             glyph_widths: None,
+            glyph_boxes: None,
             x,
             y,
             width,

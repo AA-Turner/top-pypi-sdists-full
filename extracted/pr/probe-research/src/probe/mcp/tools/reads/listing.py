@@ -9,6 +9,7 @@ from ...delivery import accounting
 from ..views import branch_projection as _branches
 from ....shared.reads.search_contract import (
     BrowseMode,
+    BrowseOrder,
     EntityType,
     EnvelopeState,
     MissingMarker,
@@ -16,7 +17,9 @@ from ....shared.reads.search_contract import (
 from ...delivery.context import source_changed
 from probe.mcp.tools.shaping.cursors import _pack_cursor, _unpack_cursor
 from probe.mcp.tools.view import _supported_views
-from probe.mcp.source import RunListQuery
+from probe.mcp.source import PeopleFilters, RunListQuery
+from probe.foundation.compose.compose import fold_parts
+from probe.mcp.tools.shaping.people import get_owner_echo
 
 
 class BrowseListMixin:
@@ -79,8 +82,24 @@ class BrowseListMixin:
         return backend, last
 
     @staticmethod
-    def _list_cursor(mode: str, backend: str | None = None, last: str | None = None) -> str:
-        return _pack_cursor({"browse": str(mode), "c": backend, "a": last})
+    def _list_cursor(
+        mode: str, backend: str | None = None, last: str | None = None, index: int | None = None
+    ) -> str:
+        """`index`: where the last row sent sat in its read, for an order rows can move in (newest
+        activity first); `_check_resume_index` refuses a continuation once it has moved."""
+        return _pack_cursor(
+            {"browse": str(mode), "c": backend, "a": last, **({"i": index} if index is not None else {})}
+        )
+
+    @staticmethod
+    def _check_resume_index(cursor: str | None, found: int, what: str) -> None:
+        """Refuse a continuation whose last row sent moved in a newest-activity order: a row that jumped
+        ahead of it since that page would be skipped with nothing saying so."""
+        recorded = _unpack_cursor(cursor, hint="browse").get("i") if cursor else None
+        if isinstance(recorded, int) and recorded != found:
+            raise source_changed(
+                f"the {what} listing changed order since that page (newer activity moved rows)"
+            )
 
     @staticmethod
     def _uuid_ref(value: str, kinds: tuple[str, ...], *, what: str) -> tuple[str, str]:
@@ -155,10 +174,15 @@ class BrowseListMixin:
         kind: str | None = None,
         branch: str | None = None,
         token_budget: int = 2000,
+        people: PeopleFilters = PeopleFilters(),
     ) -> dict:
         """One page of a flat listing: runs (newest first), workspaces, the
-        notes catalog, the files in Shared / one workspace, or the data
-        catalog's datasets, checkpoints or sources.
+        notes catalog, the files in Shared / one workspace, the data
+        catalog's datasets, checkpoints or sources, the team's people, or
+        its agent sessions.
+
+        `people` (`owner`, `since`, `until`, `order="recent"`) goes to the
+        route as given; the server matches the person and reads the dates.
 
         `token_budget` sizes only a fixed part that scales: the workspace's
         pick history on the first branches page. Delivery fits the rows.
@@ -179,8 +203,17 @@ class BrowseListMixin:
         mode = BrowseMode(mode)
         if mode is BrowseMode.PROJECTS:
             raise errors.ValidationError("mode=projects is browse_research", status=422)
+        asked = [
+            *([f"mode={mode.value}"] if mode in (BrowseMode.PEOPLE, BrowseMode.SESSIONS) else []),
+            *people.to_query(),
+            # mode=runs carries its order on the runs query, not on `people`.
+            *(["order"] if order == BrowseOrder.RECENT else []),
+        ]
+        if asked:
+            self.source.require_people_filters(asked)
         page_size = max(1, min(int(limit), self._BROWSE_LIST_MAX))
         backend_cursor, last_sent = self._list_position(cursor, mode)
+        native_cursor = cursor
         hide_session = accounting.session_work_to_hide()
         missing: list[str] = []
         data: dict[str, Any] = {"mode": str(mode)}
@@ -219,20 +252,25 @@ class BrowseListMixin:
                 page_size=page_size, scope=scope, sent=sent, status=status, tags=tags,
                 query=RunListQuery(run_filter=run_filter or None, order=order or None,
                                    latest_metrics=latest_metrics or None),
+                people=people,
             )
         elif mode in self._CATALOG_FILTERS:
             end, hidden_count, views_by_kind = self._list_catalog_page(
                 backend_cursor=backend_cursor, best=best, data=data, end=end, experiment=experiment,
                 hidden=hidden, hidden_count=hidden_count, kind=kind, last_sent=last_sent,
                 missing=missing, mode=mode, page_size=page_size, project=project, provider=provider,
-                query=query, registered=registered, run=run, sent=sent, stored=stored,
+                query=query, registered=registered, run=run, sent=sent, stored=stored, people=people,
             )
         elif mode is BrowseMode.NOTES:
             if query is not None:
                 data["query"] = query
             position, resume_after = backend_cursor, last_sent
             for _ in range(self._HIDDEN_FILL_PAGES):
-                page = self.source.notes_catalog(query=query, cursor=position, limit=page_size)
+                page = self.source.notes_catalog(
+                    query=query, cursor=position, limit=page_size, filters=people
+                )
+                if position == backend_cursor:
+                    data.update(get_owner_echo(page))
                 rows = [row for row in (page or {}).get("items") or [] if isinstance(row, dict)]
                 backend_next = (page or {}).get("next_cursor")
                 start = 0
@@ -250,6 +288,7 @@ class BrowseListMixin:
                         None,
                     )
                     if found is not None:
+                        self._check_resume_index(native_cursor, found, "notes")
                         start = found + 1
                     elif resume_after != self._TEAM_NOTE_IDENTITY:
                         raise self._gone("note")
@@ -271,12 +310,16 @@ class BrowseListMixin:
             for index, row in enumerate(visible):
                 if index + 1 == len(visible):
                     after = end
-                elif keyset := self.source.note_cursor_after(row):
+                elif not people.is_recent and (keyset := self.source.note_cursor_after(row)):
                     # The catalog's OWN cursor, built from the row: newer notes
                     # landing on the first page cannot push it off its page.
+                    # Not under order=recent: that keyset is the creation order.
                     after = self._list_cursor(mode, keyset)
                 else:
-                    after = self._list_cursor(mode, position, self._note_identity(row))
+                    after = self._list_cursor(
+                        mode, position, self._note_identity(row),
+                        index=rows.index(row) if people.is_recent else None,
+                    )
                 sent.append((self._note_row(row), after))
             views_by_kind = {row["entity_type"] for row, _ in sent if "entity_type" in row}
         elif mode is BrowseMode.WORKSPACES:
@@ -315,6 +358,17 @@ class BrowseListMixin:
                 sent.append((self._workspace_row(row), after))
             end = sent[-1][1] if sent else None
             views_by_kind = set()
+        elif mode is BrowseMode.PEOPLE:
+            end = self._list_people_page(
+                last_sent=last_sent, mode=mode, page_size=page_size, sent=sent
+            )
+            views_by_kind = set()
+        elif mode is BrowseMode.SESSIONS:
+            end = self._list_sessions_page(
+                backend_cursor=backend_cursor, cursor=native_cursor, data=data, last_sent=last_sent,
+                mode=mode, page_size=page_size, people=people, scope=scope, sent=sent,
+            )
+            views_by_kind = {row["entity_type"] for row, _ in sent}
         elif mode is BrowseMode.BRANCHES:
             # The whole read every call (the route does not page), its rows
             # resumed after the last REF sent; delivery fits whole rows to the
@@ -361,6 +415,7 @@ class BrowseListMixin:
             end, views_by_kind = self._list_other_page(
                 data=data, end=end, last_sent=last_sent, missing=missing, mode=mode,
                 page_size=page_size, prefix=prefix, sent=sent, workspace_id=workspace_id,
+                people=people,
             )
 
         data[list_key] = [row for row, _ in sent]
@@ -387,7 +442,7 @@ class BrowseListMixin:
 
     def _list_runs_page(
         self, *, active, backend_cursor, data, end, hidden, hidden_count, hidden_count_more,
-        hide_session, kind, missing, mode, page_size, scope, sent, status, tags, query,
+        hide_session, kind, missing, mode, page_size, scope, sent, status, tags, query, people,
     ):
         """mode=runs: one page of runs, newest first, reading past the caller's own hidden work. An ordered read
         (`order` other than newest first) is ONE top-N page: the server sends no cursor for it, and no row here
@@ -416,6 +471,7 @@ class BrowseListMixin:
                 limit=page_size,
                 exclude_origin_session=hide_session,
                 query=query,
+                people=people,
             )
             visible = [
                 row
@@ -424,7 +480,9 @@ class BrowseListMixin:
                 and row.get("id")
                 and not (hidden and str(row["id"]).lower() in hidden)
             ]
-            end = self._list_cursor(mode, backend_next) if backend_next else None
+            # An ordered read (`order="recent"` too) is one top-N page: a cursor would resume the
+            # `created_at` keyset, a different order, so none is offered even if the server sent one.
+            end = self._list_cursor(mode, backend_next) if backend_next and not query.is_ordered else None
             if visible or not backend_next:
                 break
             position = backend_next
@@ -446,6 +504,7 @@ class BrowseListMixin:
                     cursor=backend_cursor,
                     limit=self._HIDDEN_COUNT_READ,
                     query=query,
+                    people=people,
                 )
             except Exception:  # noqa: BLE001 -- the count is optional
                 probe, probe_next = [], None
@@ -475,7 +534,7 @@ class BrowseListMixin:
             # "ten runs failed" from a 10-row page of 26). Same filter, so the totals and the pages
             # count one set; never fails the browse.
             try:
-                data["totals"] = self.source.run_counts(
+                totals = self.source.run_counts(
                     project_id=project_id,
                     experiment_id=experiment_id,
                     status=status,
@@ -483,16 +542,25 @@ class BrowseListMixin:
                     is_active=bool(active),
                     exclude_origin_session=hide_session,
                     run_filter=query.run_filter,
+                    people=people,
                 )
             except Exception:  # noqa: BLE001 -- an older API or a count past its bound
                 missing.append(MissingMarker.TOTALS_UNAVAILABLE)
+            else:
+                # The list's body is a bare array, so who `owner` matched rides the counts.
+                data.update(get_owner_echo(totals))
+                data["totals"] = (
+                    {k: v for k, v in totals.items() if k not in ("owner_matched", "unowned_count")}
+                    if isinstance(totals, dict)
+                    else totals
+                )
         views_by_kind = {EntityType.RUN.value}
         return end, hidden_count, hidden_count_more, views_by_kind
 
 
     def _list_catalog_page(
         self, *, backend_cursor, best, data, end, experiment, hidden, hidden_count, kind, last_sent,
-        missing, mode, page_size, project, provider, query, registered, run, sent, stored,
+        missing, mode, page_size, project, provider, query, registered, run, sent, stored, people,
     ):
         """A catalog mode (datasets, checkpoints, ...): one page of its filtered rows."""
         given = {
@@ -530,7 +598,10 @@ class BrowseListMixin:
                 cursor=position,
                 limit=page_size if resume_after is None else self._CATALOG_REREAD_LIMIT,
                 **filters,
+                **people.to_query(),
             )
+            if position == backend_cursor:
+                data.update(get_owner_echo(page))
             rows = [row for row in page.get("items") or [] if isinstance(row, dict)]
             for row in rows:
                 if not (row.get("ref") or row.get("id")):
@@ -591,7 +662,7 @@ class BrowseListMixin:
 
 
     def _list_other_page(
-        self, *, data, end, last_sent, missing, mode, page_size, prefix, sent, workspace_id,
+        self, *, data, end, last_sent, missing, mode, page_size, prefix, sent, workspace_id, people,
     ):
         """The remaining modes: one page of their rows, a workspace's when one is named."""
         if workspace_id is not None:
@@ -610,24 +681,29 @@ class BrowseListMixin:
         # its window (so "there is more" is a fact), and a continuation reads
         # the route's whole ceiling and resumes after the last NAME sent.
         # Names are unique per folder, so the name IS the position.
-        rows = [
-            row
-            for row in self.source.files(
-                workspace_id=workspace_id,
-                prefix=prefix,
-                limit=(
-                    min(page_size + 1, self._FILES_BACKEND_MAX)
-                    if last_sent is None
-                    else self._FILES_BACKEND_MAX
-                ),
-            )
-            if isinstance(row, dict)
-        ]
+        answer = self.source.files(
+            workspace_id=workspace_id,
+            prefix=prefix,
+            limit=(
+                min(page_size + 1, self._FILES_BACKEND_MAX)
+                if last_sent is None
+                else self._FILES_BACKEND_MAX
+            ),
+            filters=people,
+        )
+        # A bare list, or with a person or time filter the route's `{items, owner_matched?, ...}`.
+        if isinstance(answer, dict):
+            data.update(get_owner_echo(answer))
+            answer = answer.get("items")
+        rows = [row for row in answer or [] if isinstance(row, dict)]
         start = 0
         if last_sent is not None:
             found = next(
                 (i for i, row in enumerate(rows) if row.get("name") == last_sent), None
             )
+            if found is None and people.is_recent:
+                # Newest first, a name says nothing about where the rest resume.
+                raise self._gone("file")
             # A file deleted since the last page: continue at the first name
             # after it. Code-point order IS the route's `ORDER BY name` order
             # because the research databases are `datcollate=C` (UTF-8 bytes
@@ -655,3 +731,11 @@ class BrowseListMixin:
         end = sent[-1][1] if sent else None
         views_by_kind = {EntityType.ARTIFACT.value}
         return end, views_by_kind
+
+
+# The people and sessions modes' pages and rows (people and time filters, A1), folded in here rather than
+# composed in tools.py: they are `listings/` variants, reached through this listing.
+from probe.mcp.tools.reads.listings.people import PeopleRowsMixin  # noqa: E402 -- the class exists first
+from probe.mcp.tools.reads.listings.sessions import SessionRowsMixin  # noqa: E402
+
+fold_parts(BrowseListMixin, PeopleRowsMixin, SessionRowsMixin)

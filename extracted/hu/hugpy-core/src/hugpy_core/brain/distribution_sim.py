@@ -5,7 +5,7 @@ import copy
 import math
 from collections import Counter
 
-from fitevict.estimate.sizing import rank_candidates, host_fit
+from hugpy_core.lifted.sizing import rank_candidates, host_fit
 
 MODES = ('gpu-only', 'explicit', 'max-gpu', 'max-ram', 'ram-only')
 from hugpy_core.intake import schema as _schema  # noqa: E402 — either verdict vocabulary

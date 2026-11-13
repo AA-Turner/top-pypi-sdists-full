@@ -12,10 +12,13 @@ class RunAs(str, Enum):
       deployment's service credentials otherwise. Client requests require
       workflow context. This is the default policy.
     - ``DEPLOYMENT`` — always the deployment's (worker's) service identity.
+    - ``EXECUTOR`` — always the executing user's credentials; requests fail when the
+      workflow does not run on behalf of a user. SDK clients only: connectors reject it.
     """
 
     AUTO = "auto"
     DEPLOYMENT = "deployment"
+    EXECUTOR = "executor"
 
 
 def _deprecated_alias_getattr(module_name: str) -> Callable[[str], type[RunAs]]:

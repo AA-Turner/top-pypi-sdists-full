@@ -736,6 +736,8 @@ impl liteparse::ocr::OcrEngine for ProbeEngine {
                 bbox: [10.0, 10.0, 200.0, 40.0],
                 confidence: 0.99,
                 polygon: None,
+                rotation: None,
+                words: Vec::new(),
             }])
         })
     }
@@ -946,9 +948,12 @@ async fn test_ocr_rounds_fill_across_sparse_pages() {
 
     let calls = Arc::new(AtomicUsize::new(0));
     let peak = Arc::new(AtomicUsize::new(0));
+    // Fewer workers than the fixture's OCR pages (4: 2 sparse-text, 3 with images, overlapping),
+    // so the window has more than one round of pages to fill across native-text pages.
+    let workers = 3;
     let parser = LiteParse::new(LiteParseConfig {
         ocr_enabled: true,
-        num_workers: 8,
+        num_workers: workers,
         dpi: 72.0, // Small rasters: this test is about scheduling, not pixels.
         quiet: true,
         ..Default::default()
@@ -966,7 +971,7 @@ async fn test_ocr_rounds_fill_across_sparse_pages() {
 
     let recognized = calls.load(Ordering::SeqCst);
     assert!(
-        recognized > 8,
+        recognized > workers,
         "expected the fixture to need OCR on more than one round's worth of pages, got {recognized}"
     );
     assert!(
@@ -979,7 +984,7 @@ async fn test_ocr_rounds_fill_across_sparse_pages() {
     // pages are interleaved with native-text pages it skips.
     assert_eq!(
         peak.load(Ordering::SeqCst),
-        8,
+        workers,
         "the OCR window must fill to num_workers across skipped pages; a lower peak means \
          the window is being cut short by page span"
     );
@@ -1059,10 +1064,12 @@ fn glyph_widths_are_opt_in_and_sum_to_text_width() {
     let plain = extract_raw_text_items(&page, &text_page, &view_box, None);
     let with_widths = extract_raw_text_items_with_glyph_widths(&page, &text_page, &view_box, None);
     assert!(plain.iter().all(|item| item.glyph_widths.is_none()));
+    assert!(plain.iter().all(|item| item.glyph_boxes.is_none()));
     assert_eq!(plain.len(), with_widths.len());
 
     let mut uneven = false;
     let mut ligature = false;
+    let mut tight = false;
     for (a, b) in plain.iter().zip(&with_widths) {
         let widths = b.glyph_widths.as_ref().expect("opt-in fills glyph_widths");
         assert_eq!(widths.len(), b.char_codes.len());
@@ -1072,8 +1079,15 @@ fn glyph_widths_are_opt_in_and_sum_to_text_width() {
         } else {
             assert_eq!(sum.to_bits(), b.text_width.to_bits(), "{:?}", b.text);
         }
+        let boxes = b.glyph_boxes.as_ref().expect("opt-in fills glyph_boxes");
+        assert_eq!(boxes.len(), b.char_codes.len());
+        // Ink is shorter than the ascent-to-descent cell for most letters.
+        tight |= boxes
+            .iter()
+            .any(|g| g.strict.bottom - g.strict.top < g.loose.bottom - g.loose.top - 0.5);
         let mut b = b.clone();
         b.glyph_widths = None;
+        b.glyph_boxes = None;
         assert_eq!(a, &b, "opt-in changes nothing else");
         uneven |= widths
             .windows(2)
@@ -1084,6 +1098,7 @@ fn glyph_widths_are_opt_in_and_sum_to_text_width() {
         "a proportional font gives glyphs different advances"
     );
     assert!(ligature, "sample.pdf has an item with a ligature");
+    assert!(tight, "strict boxes hug the ink inside the loose cells");
 }
 
 /// One page that shows `(\002ce) Tj` in 12 pt Helvetica, where char code 2 is the
@@ -1460,6 +1475,8 @@ impl liteparse::ocr::OcrEngine for FailingWidthsEngine {
                 bbox: [4.0, 4.0, 100.0, 24.0],
                 confidence: 0.99,
                 polygon: None,
+                rotation: None,
+                words: Vec::new(),
             }])
         })
     }
@@ -1585,4 +1602,49 @@ async fn test_rotated_map_labels_keep_layout_canvas_bounded() {
         canvas.height,
         page.page_height
     );
+}
+
+/// `max_long_edge` picks a dpi per page in one render call: pages over the cap
+/// render with their long edge at exactly the cap, smaller pages keep the
+/// configured dpi, and `None` leaves every page at the configured dpi.
+#[test]
+#[serial]
+fn test_render_for_ocr_max_long_edge_fits_each_page() {
+    use liteparse::stages::{self, Library, OcrRenderOptions};
+
+    let lib = Library::init();
+    let input = PdfInput::Bytes(blank_pdf(&[(612, 792), (960, 540), (200, 200)]));
+    let document = stages::open(&lib, &input, None, &[]).unwrap();
+    let parser = LiteParse::new(LiteParseConfig::default());
+    let pages = stages::extract(&document, &parser.extract_request(None, usize::MAX))
+        .unwrap()
+        .pages;
+    let render = |max_long_edge, max_rasters| {
+        let options = OcrRenderOptions {
+            dpi: 300.0,
+            max_long_edge,
+            max_rasters,
+            selection: Some([1, 2, 3].into_iter().collect()),
+            ..OcrRenderOptions::default()
+        };
+        stages::render_for_ocr(&document, &pages, 0, &options).unwrap()
+    };
+
+    let (capped, next) = render(Some(1600), 0);
+    assert_eq!(next, 3);
+    let sizes: Vec<_> = capped.iter().map(|r| r.image.dimensions()).collect();
+    assert_eq!(sizes, [(1236, 1600), (1600, 900), (833, 833)]);
+    assert!((capped[0].dpi - 1600.0 * 72.0 / 792.0).abs() < 1e-3);
+    assert!((capped[1].dpi - 120.0).abs() < 1e-3);
+    assert_eq!(capped[2].dpi, 300.0);
+
+    // Bounded rounds still resume where the cap-fitted round stopped.
+    let (first_round, next) = render(Some(1600), 2);
+    assert_eq!((first_round.len(), next), (2, 2));
+
+    for off in [None, Some(0)] {
+        let (uncapped, _) = render(off, 0);
+        assert!(uncapped.iter().all(|r| r.dpi == 300.0), "{off:?}");
+        assert_eq!(uncapped[0].image.dimensions(), (2550, 3300));
+    }
 }

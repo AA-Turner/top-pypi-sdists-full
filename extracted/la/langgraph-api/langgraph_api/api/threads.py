@@ -7,6 +7,7 @@ from starlette.responses import Response
 from starlette.routing import BaseRoute
 
 from langgraph_api import config as lg_api_config
+from langgraph_api.api.runs import parse_stream_mode_param
 from langgraph_api.config import USE_CUSTOM_CHECKPOINTER
 from langgraph_api.encryption.shared import (
     using_encryption,
@@ -105,6 +106,11 @@ async def create_thread(
     return ApiResponse(thread)
 
 
+def _raw_values_kwargs(raw_values: bool = True) -> dict[str, bool]:
+    """Have the gRPC ops relay thread values undecoded; in-memory ops always decode."""
+    return {"raw_values": raw_values} if IS_POSTGRES_OR_GRPC_BACKEND else {}
+
+
 def _exclude_metadata_kwargs(payload: dict) -> dict:
     """Normalize `exclude_metadata` (object or list of objects) into ops kwargs."""
     exclude_metadata = payload.get("exclude_metadata")
@@ -166,6 +172,8 @@ async def search_threads(
             sort_order=payload.get("sort_order"),
             select=storage_select,
             extract=storage_extract,
+            # Python-side extraction reads the values, so it needs them decoded.
+            **_raw_values_kwargs(not (extract and needs_python_extract)),
             **exclude_kwargs,
         )
     threads, response_headers = await get_pagination_headers(
@@ -494,7 +502,9 @@ async def get_thread(
     include_ttl = "ttl" in include_fields
 
     async with connect() as conn:
-        thread = await Threads.get(conn, thread_id, include_ttl=include_ttl)
+        thread = await Threads.get(
+            conn, thread_id, include_ttl=include_ttl, **_raw_values_kwargs()
+        )
 
     thread_data = await fetchone(thread)
     return ApiResponse(thread_data)
@@ -584,29 +594,25 @@ async def join_thread_stream(request: ApiRequest):
     """Join a thread stream."""
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
-    last_event_id = request.headers.get("last-event-id") or None
-    validate_stream_id(
-        last_event_id, "Invalid last-event-id: must be a valid Redis stream ID"
+    last_event_id = validate_stream_id(
+        request.headers.get("last-event-id") or None,
+        "Invalid last-event-id: must be a valid Redis stream ID",
     )
 
-    # Parse stream_modes parameter - can be single string or comma-separated list
-    stream_modes_param = request.query_params.get("stream_modes")
-    if stream_modes_param:
-        if "," in stream_modes_param:
-            # Handle comma-separated list
-            stream_modes = [mode.strip() for mode in stream_modes_param.split(",")]
-        else:
-            # Handle single value
-            stream_modes = [stream_modes_param]
-        # Validate each mode
-        for mode in stream_modes:
-            if mode not in get_args(ThreadStreamMode):
-                raise HTTPException(
-                    status_code=422, detail=f"Invalid stream mode: {mode}"
-                )
-    else:
-        # Default to run_modes
-        stream_modes = ["run_modes"]
+    # The SDKs send ``stream_mode``: once per mode, or as one JSON array from
+    # JS SDKs before 1.12.
+    params = request.query_params
+    values = params.getlist("stream_modes") or params.getlist("stream_mode")
+    stream_modes = [
+        mode.strip()
+        for value in values
+        if value
+        for item in parse_stream_mode_param(value)
+        for mode in str(item).split(",")
+    ] or ["run_modes"]
+    for mode in stream_modes:
+        if mode not in get_args(ThreadStreamMode):
+            raise HTTPException(status_code=422, detail=f"Invalid stream mode: {mode}")
 
     return EventSourceResponse(
         Threads.Stream.join(

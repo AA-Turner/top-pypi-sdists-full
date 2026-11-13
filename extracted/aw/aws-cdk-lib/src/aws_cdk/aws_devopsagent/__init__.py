@@ -1908,6 +1908,15 @@ class CfnAssociation(
                     # the properties below are optional
                     enable_webhook_updates=False
                 ),
+                release_management=devopsagent.CfnAssociation.ReleaseManagementConfigurationProperty(
+                    name="name",
+                    network_access=devopsagent.CfnAssociation.NetworkAccessConfigurationProperty(
+                        private_access=devopsagent.CfnAssociation.PrivateNetworkAccessProperty(
+                            private_connection_name="privateConnectionName",
+                            runtime_role_arn="runtimeRoleArn"
+                        )
+                    )
+                ),
                 service_now=devopsagent.CfnAssociation.ServiceNowConfigurationProperty(
                     enable_webhook_updates=False,
                     instance_id="instanceId"
@@ -1955,6 +1964,20 @@ class CfnAssociation(
             service_id="serviceId",
         
             # the properties below are optional
+            capabilities=devopsagent.CfnAssociation.CapabilitiesProperty(
+                code_change_risk_analysis=devopsagent.CfnAssociation.CapabilityConfigurationProperty(
+                    enabled=False,
+                    trigger_filter_groups=[devopsagent.CfnAssociation.TriggerFilterGroupProperty(
+                        events=["events"],
+                        target_branches=devopsagent.CfnAssociation.PatternFilterProperty(
+                            patterns=["patterns"]
+                        )
+                    )]
+                ),
+                code_change_risk_analysis_automated_testing=devopsagent.CfnAssociation.AutomatedTestingCapabilityConfigurationProperty(
+                    enabled=False
+                )
+            ),
             linked_association_ids=["linkedAssociationIds"]
         )
     '''
@@ -1967,6 +1990,7 @@ class CfnAssociation(
         agent_space_id: builtins.str,
         configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.ServiceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         service_id: builtins.str,
+        capabilities: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.CapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         linked_association_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::DevOpsAgent::Association``.
@@ -1976,6 +2000,7 @@ class CfnAssociation(
         :param agent_space_id: The unique identifier of the Agent Space.
         :param configuration: The configuration that directs how the Agent Space interacts with the given service. You can specify only one configuration type per association. *Allowed Values* : ``SourceAws`` | ``Aws`` | ``GitHub`` | ``GitLab`` | ``Slack`` | ``Dynatrace`` | ``ServiceNow`` | ``MCPServer`` | ``MCPServerNewRelic`` | ``MCPServerDatadog`` | ``MCPServerSplunk`` | ``EventChannel``
         :param service_id: The identifier for the associated service. For ``SourceAws`` and ``Aws`` configurations, this must be ``aws`` . For all other service types, this is a UUID generated from the RegisterService command.
+        :param capabilities: Automated AWS DevOps Agent capabilities for the repository in this association. Code change risk analysis analyzes pull requests and merge requests for deployment risk, and automated testing extends that analysis by running tests against the change. Capabilities are supported for GitHub and GitLab associations. When this property is set, it fully defines both capabilities below: a capability omitted here is removed from the association. Removing this property from a template that previously set it disables both capabilities. Capabilities configured outside CloudFormation are left unchanged only while this property has never been set. On rollback, both capabilities are restored to the previous template's values, not to settings made outside CloudFormation. Other capabilities on the association are not affected. Updates read and rewrite the association's full capability set, so a capability change made outside CloudFormation while a stack update is in progress may be overwritten.
         :param linked_association_ids: Set of linked association IDs for parent-child relationships.
         '''
         if __debug__:
@@ -1986,6 +2011,7 @@ class CfnAssociation(
             agent_space_id=agent_space_id,
             configuration=configuration,
             service_id=service_id,
+            capabilities=capabilities,
             linked_association_ids=linked_association_ids,
         )
 
@@ -2120,6 +2146,24 @@ class CfnAssociation(
             type_hints = cached_type_hints(_typecheckingstub__08d88d472b1933bfd27859b1b634111a6667c50bedacee3234cfc98a8a05797a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="capabilities")
+    def capabilities(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.CapabilitiesProperty"]]:
+        '''Automated AWS DevOps Agent capabilities for the repository in this association.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.CapabilitiesProperty"]], jsii.get(self, "capabilities"))
+
+    @capabilities.setter
+    def capabilities(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.CapabilitiesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__75226190ffb0ae68b5ab7038c7fb41aeea246f08b40a4ff4c8ff6c1af9c3d145)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "capabilities", value)
 
     @builtins.property
     @jsii.member(jsii_name="linkedAssociationIds")
@@ -2393,6 +2437,65 @@ class CfnAssociation(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.AutomatedTestingCapabilityConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled"},
+    )
+    class AutomatedTestingCapabilityConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        ) -> None:
+            '''Configuration of the code change risk analysis automated testing capability.
+
+            This capability does not support trigger filter groups.
+
+            :param enabled: Whether the capability is enabled for this association.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-automatedtestingcapabilityconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                automated_testing_capability_configuration_property = devopsagent.CfnAssociation.AutomatedTestingCapabilityConfigurationProperty(
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__829ad6fbd171b22ad2fca4efbaa3a23751339ad5dff3799ed97e5620aa8ae8e2)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Whether the capability is enabled for this association.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-automatedtestingcapabilityconfiguration.html#cfn-devopsagent-association-automatedtestingcapabilityconfiguration-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AutomatedTestingCapabilityConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.AzureConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"subscription_id": "subscriptionId"},
@@ -2441,6 +2544,181 @@ class CfnAssociation(
 
         def __repr__(self) -> str:
             return "AzureConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.CapabilitiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "code_change_risk_analysis": "codeChangeRiskAnalysis",
+            "code_change_risk_analysis_automated_testing": "codeChangeRiskAnalysisAutomatedTesting",
+        },
+    )
+    class CapabilitiesProperty:
+        def __init__(
+            self,
+            *,
+            code_change_risk_analysis: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.CapabilityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            code_change_risk_analysis_automated_testing: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.AutomatedTestingCapabilityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Automated AWS DevOps Agent capabilities for the repository in this association.
+
+            Code change risk analysis analyzes pull requests and merge requests for deployment risk, and automated testing extends that analysis by running tests against the change. Capabilities are supported for GitHub and GitLab associations. When this property is set, it fully defines both capabilities below: a capability omitted here is removed from the association. Removing this property from a template that previously set it disables both capabilities. Capabilities configured outside CloudFormation are left unchanged only while this property has never been set. On rollback, both capabilities are restored to the previous template's values, not to settings made outside CloudFormation. Other capabilities on the association are not affected. Updates read and rewrite the association's full capability set, so a capability change made outside CloudFormation while a stack update is in progress may be overwritten.
+
+            :param code_change_risk_analysis: Configuration of a single capability.
+            :param code_change_risk_analysis_automated_testing: Configuration of the code change risk analysis automated testing capability. This capability does not support trigger filter groups.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-capabilities.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                capabilities_property = devopsagent.CfnAssociation.CapabilitiesProperty(
+                    code_change_risk_analysis=devopsagent.CfnAssociation.CapabilityConfigurationProperty(
+                        enabled=False,
+                        trigger_filter_groups=[devopsagent.CfnAssociation.TriggerFilterGroupProperty(
+                            events=["events"],
+                            target_branches=devopsagent.CfnAssociation.PatternFilterProperty(
+                                patterns=["patterns"]
+                            )
+                        )]
+                    ),
+                    code_change_risk_analysis_automated_testing=devopsagent.CfnAssociation.AutomatedTestingCapabilityConfigurationProperty(
+                        enabled=False
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__44891fbe48ab7f52c0b919810877387102df24705e3915f63c97eb698815d67c)
+                check_type(argname="argument code_change_risk_analysis", value=code_change_risk_analysis, expected_type=type_hints["code_change_risk_analysis"])
+                check_type(argname="argument code_change_risk_analysis_automated_testing", value=code_change_risk_analysis_automated_testing, expected_type=type_hints["code_change_risk_analysis_automated_testing"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if code_change_risk_analysis is not None:
+                self._values["code_change_risk_analysis"] = code_change_risk_analysis
+            if code_change_risk_analysis_automated_testing is not None:
+                self._values["code_change_risk_analysis_automated_testing"] = code_change_risk_analysis_automated_testing
+
+        @builtins.property
+        def code_change_risk_analysis(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.CapabilityConfigurationProperty"]]:
+            '''Configuration of a single capability.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-capabilities.html#cfn-devopsagent-association-capabilities-codechangeriskanalysis
+            '''
+            result = self._values.get("code_change_risk_analysis")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.CapabilityConfigurationProperty"]], result)
+
+        @builtins.property
+        def code_change_risk_analysis_automated_testing(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.AutomatedTestingCapabilityConfigurationProperty"]]:
+            '''Configuration of the code change risk analysis automated testing capability.
+
+            This capability does not support trigger filter groups.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-capabilities.html#cfn-devopsagent-association-capabilities-codechangeriskanalysisautomatedtesting
+            '''
+            result = self._values.get("code_change_risk_analysis_automated_testing")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.AutomatedTestingCapabilityConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CapabilitiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.CapabilityConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "trigger_filter_groups": "triggerFilterGroups",
+        },
+    )
+    class CapabilityConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            trigger_filter_groups: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.TriggerFilterGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Configuration of a single capability.
+
+            :param enabled: Whether the capability is enabled for this association.
+            :param trigger_filter_groups: Filter groups controlling when the capability triggers automatically. The capability triggers when any group matches. When omitted, all applicable events trigger the capability. Retained while the capability is disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-capabilityconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                capability_configuration_property = devopsagent.CfnAssociation.CapabilityConfigurationProperty(
+                    enabled=False,
+                    trigger_filter_groups=[devopsagent.CfnAssociation.TriggerFilterGroupProperty(
+                        events=["events"],
+                        target_branches=devopsagent.CfnAssociation.PatternFilterProperty(
+                            patterns=["patterns"]
+                        )
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9af3ff9811b2eeca52e0bb98e4d7d90521f97abf92c7845c204afd34b1ae1a66)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument trigger_filter_groups", value=trigger_filter_groups, expected_type=type_hints["trigger_filter_groups"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+            if trigger_filter_groups is not None:
+                self._values["trigger_filter_groups"] = trigger_filter_groups
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Whether the capability is enabled for this association.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-capabilityconfiguration.html#cfn-devopsagent-association-capabilityconfiguration-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def trigger_filter_groups(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.TriggerFilterGroupProperty"]]]]:
+            '''Filter groups controlling when the capability triggers automatically.
+
+            The capability triggers when any group matches. When omitted, all applicable events trigger the capability. Retained while the capability is disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-capabilityconfiguration.html#cfn-devopsagent-association-capabilityconfiguration-triggerfiltergroups
+            '''
+            result = self._values.get("trigger_filter_groups")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.TriggerFilterGroupProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CapabilityConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -3482,6 +3760,69 @@ class CfnAssociation(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.NetworkAccessConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"private_access": "privateAccess"},
+    )
+    class NetworkAccessConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            private_access: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.PrivateNetworkAccessProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Specifies how AWS DevOps Agent reaches your application using a release management environment.
+
+            Exactly one access type must be specified.
+
+            :param private_access: Private network access to your application inside a VPC, reached through a private connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-networkaccessconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                network_access_configuration_property = devopsagent.CfnAssociation.NetworkAccessConfigurationProperty(
+                    private_access=devopsagent.CfnAssociation.PrivateNetworkAccessProperty(
+                        private_connection_name="privateConnectionName",
+                        runtime_role_arn="runtimeRoleArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__76758c3bc73cb3c27eb61c0752e8066527331c2df7010269f590fced6b64638f)
+                check_type(argname="argument private_access", value=private_access, expected_type=type_hints["private_access"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "private_access": private_access,
+            }
+
+        @builtins.property
+        def private_access(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.PrivateNetworkAccessProperty"]:
+            '''Private network access to your application inside a VPC, reached through a private connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-networkaccessconfiguration.html#cfn-devopsagent-association-networkaccessconfiguration-privateaccess
+            '''
+            result = self._values.get("private_access")
+            assert result is not None, "Required property 'private_access' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.PrivateNetworkAccessProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NetworkAccessConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.PagerDutyConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -3576,6 +3917,216 @@ class CfnAssociation(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.PatternFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"patterns": "patterns"},
+    )
+    class PatternFilterProperty:
+        def __init__(self, *, patterns: typing.Sequence[builtins.str]) -> None:
+            '''A regex-based match condition.
+
+            Passes when the value matches any pattern.
+
+            :param patterns: Anchored full-match regex patterns, for example 'main' or 'release/.*'.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-patternfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                pattern_filter_property = devopsagent.CfnAssociation.PatternFilterProperty(
+                    patterns=["patterns"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__865b74a277b24d9665f5a0f8b50d937aa074f6386ac4a46f1eca0612e7a76ad1)
+                check_type(argname="argument patterns", value=patterns, expected_type=type_hints["patterns"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "patterns": patterns,
+            }
+
+        @builtins.property
+        def patterns(self) -> typing.List[builtins.str]:
+            '''Anchored full-match regex patterns, for example 'main' or 'release/.*'.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-patternfilter.html#cfn-devopsagent-association-patternfilter-patterns
+            '''
+            result = self._values.get("patterns")
+            assert result is not None, "Required property 'patterns' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PatternFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.PrivateNetworkAccessProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "private_connection_name": "privateConnectionName",
+            "runtime_role_arn": "runtimeRoleArn",
+        },
+    )
+    class PrivateNetworkAccessProperty:
+        def __init__(
+            self,
+            *,
+            private_connection_name: builtins.str,
+            runtime_role_arn: builtins.str,
+        ) -> None:
+            '''Private network access to your application inside a VPC, reached through a private connection.
+
+            :param private_connection_name: Name of the private connection that supplies the VPC configuration for this release management environment.
+            :param runtime_role_arn: Role ARN that AWS DevOps Agent assumes at runtime to connect to your VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-privatenetworkaccess.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                private_network_access_property = devopsagent.CfnAssociation.PrivateNetworkAccessProperty(
+                    private_connection_name="privateConnectionName",
+                    runtime_role_arn="runtimeRoleArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b9843e8e9b928c2d1bbb82a4b753c824482da2740f6bb06d325f562349ef0285)
+                check_type(argname="argument private_connection_name", value=private_connection_name, expected_type=type_hints["private_connection_name"])
+                check_type(argname="argument runtime_role_arn", value=runtime_role_arn, expected_type=type_hints["runtime_role_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "private_connection_name": private_connection_name,
+                "runtime_role_arn": runtime_role_arn,
+            }
+
+        @builtins.property
+        def private_connection_name(self) -> builtins.str:
+            '''Name of the private connection that supplies the VPC configuration for this release management environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-privatenetworkaccess.html#cfn-devopsagent-association-privatenetworkaccess-privateconnectionname
+            '''
+            result = self._values.get("private_connection_name")
+            assert result is not None, "Required property 'private_connection_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def runtime_role_arn(self) -> builtins.str:
+            '''Role ARN that AWS DevOps Agent assumes at runtime to connect to your VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-privatenetworkaccess.html#cfn-devopsagent-association-privatenetworkaccess-runtimerolearn
+            '''
+            result = self._values.get("runtime_role_arn")
+            assert result is not None, "Required property 'runtime_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PrivateNetworkAccessProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.ReleaseManagementConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "network_access": "networkAccess"},
+    )
+    class ReleaseManagementConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            network_access: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.NetworkAccessConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Configuration for a release management environment.
+
+            A release management environment defines how AWS DevOps Agent reaches your application, and other associations reference it to run automatic verification testing against that application.
+
+            :param name: The name for this release management environment.
+            :param network_access: Specifies how AWS DevOps Agent reaches your application using a release management environment. Exactly one access type must be specified.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-releasemanagementconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                release_management_configuration_property = devopsagent.CfnAssociation.ReleaseManagementConfigurationProperty(
+                    name="name",
+                    network_access=devopsagent.CfnAssociation.NetworkAccessConfigurationProperty(
+                        private_access=devopsagent.CfnAssociation.PrivateNetworkAccessProperty(
+                            private_connection_name="privateConnectionName",
+                            runtime_role_arn="runtimeRoleArn"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6723c07bc5c7fdf02aff81c5eab8363796a2e81543f237e4d7da8a285e6624b4)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument network_access", value=network_access, expected_type=type_hints["network_access"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "network_access": network_access,
+            }
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name for this release management environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-releasemanagementconfiguration.html#cfn-devopsagent-association-releasemanagementconfiguration-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def network_access(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.NetworkAccessConfigurationProperty"]:
+            '''Specifies how AWS DevOps Agent reaches your application using a release management environment.
+
+            Exactly one access type must be specified.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-releasemanagementconfiguration.html#cfn-devopsagent-association-releasemanagementconfiguration-networkaccess
+            '''
+            result = self._values.get("network_access")
+            assert result is not None, "Required property 'network_access' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.NetworkAccessConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReleaseManagementConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.ServiceConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -3592,6 +4143,7 @@ class CfnAssociation(
             "mcp_server_sig_v4": "mcpServerSigV4",
             "mcp_server_splunk": "mcpServerSplunk",
             "pager_duty": "pagerDuty",
+            "release_management": "releaseManagement",
             "service_now": "serviceNow",
             "slack": "slack",
             "source_aws": "sourceAws",
@@ -3614,6 +4166,7 @@ class CfnAssociation(
             mcp_server_sig_v4: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.MCPServerSigV4ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_splunk: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.MCPServerSplunkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             pager_duty: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.PagerDutyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            release_management: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.ReleaseManagementConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             service_now: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.ServiceNowConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             slack: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.SlackConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             source_aws: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.SourceAwsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3635,6 +4188,7 @@ class CfnAssociation(
             :param mcp_server_sig_v4: SigV4-authenticated MCP server configuration.
             :param mcp_server_splunk: Configuration for Splunk MCP server integration. Specifies the server name, endpoint URL, optional description, and webhook settings to enable the Agent Space to query logs, metrics, and events from Splunk.
             :param pager_duty: PagerDuty integration configuration.
+            :param release_management: Configuration for a release management environment. A release management environment defines how AWS DevOps Agent reaches your application, and other associations reference it to run automatic verification testing against that application.
             :param service_now: Configuration for ServiceNow instance integration. Specifies the instance URL, instance ID, and webhook settings to enable the Agent Space to create, update, and manage ServiceNow incidents and change requests.
             :param slack: Configuration for Slack workspace integration. Specifies the workspace ID, workspace name, and transmission targets to enable the Agent Space to send notifications to designated Slack channels.
             :param source_aws: Configuration for AWS source account integration. Specifies the account ID, assumable role ARN, and resources to be monitored in the source account.
@@ -3741,6 +4295,15 @@ class CfnAssociation(
                         # the properties below are optional
                         enable_webhook_updates=False
                     ),
+                    release_management=devopsagent.CfnAssociation.ReleaseManagementConfigurationProperty(
+                        name="name",
+                        network_access=devopsagent.CfnAssociation.NetworkAccessConfigurationProperty(
+                            private_access=devopsagent.CfnAssociation.PrivateNetworkAccessProperty(
+                                private_connection_name="privateConnectionName",
+                                runtime_role_arn="runtimeRoleArn"
+                            )
+                        )
+                    ),
                     service_now=devopsagent.CfnAssociation.ServiceNowConfigurationProperty(
                         enable_webhook_updates=False,
                         instance_id="instanceId"
@@ -3801,6 +4364,7 @@ class CfnAssociation(
                 check_type(argname="argument mcp_server_sig_v4", value=mcp_server_sig_v4, expected_type=type_hints["mcp_server_sig_v4"])
                 check_type(argname="argument mcp_server_splunk", value=mcp_server_splunk, expected_type=type_hints["mcp_server_splunk"])
                 check_type(argname="argument pager_duty", value=pager_duty, expected_type=type_hints["pager_duty"])
+                check_type(argname="argument release_management", value=release_management, expected_type=type_hints["release_management"])
                 check_type(argname="argument service_now", value=service_now, expected_type=type_hints["service_now"])
                 check_type(argname="argument slack", value=slack, expected_type=type_hints["slack"])
                 check_type(argname="argument source_aws", value=source_aws, expected_type=type_hints["source_aws"])
@@ -3831,6 +4395,8 @@ class CfnAssociation(
                 self._values["mcp_server_splunk"] = mcp_server_splunk
             if pager_duty is not None:
                 self._values["pager_duty"] = pager_duty
+            if release_management is not None:
+                self._values["release_management"] = release_management
             if service_now is not None:
                 self._values["service_now"] = service_now
             if slack is not None:
@@ -3998,6 +4564,19 @@ class CfnAssociation(
             '''
             result = self._values.get("pager_duty")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.PagerDutyConfigurationProperty"]], result)
+
+        @builtins.property
+        def release_management(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.ReleaseManagementConfigurationProperty"]]:
+            '''Configuration for a release management environment.
+
+            A release management environment defines how AWS DevOps Agent reaches your application, and other associations reference it to run automatic verification testing against that application.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-serviceconfiguration.html#cfn-devopsagent-association-serviceconfiguration-releasemanagement
+            '''
+            result = self._values.get("release_management")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.ReleaseManagementConfigurationProperty"]], result)
 
         @builtins.property
         def service_now(
@@ -4628,6 +5207,84 @@ class CfnAssociation(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.TriggerFilterGroupProperty",
+        jsii_struct_bases=[],
+        name_mapping={"events": "events", "target_branches": "targetBranches"},
+    )
+    class TriggerFilterGroupProperty:
+        def __init__(
+            self,
+            *,
+            events: typing.Optional[typing.Sequence[builtins.str]] = None,
+            target_branches: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.PatternFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''A group of trigger conditions.
+
+            The group matches when all present conditions pass. At least one condition must be present.
+
+            :param events: Passes when the webhook event is one of the listed events.
+            :param target_branches: A regex-based match condition. Passes when the value matches any pattern.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-triggerfiltergroup.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                trigger_filter_group_property = devopsagent.CfnAssociation.TriggerFilterGroupProperty(
+                    events=["events"],
+                    target_branches=devopsagent.CfnAssociation.PatternFilterProperty(
+                        patterns=["patterns"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__18d5d758965c2068a30eccdf1cee53641859c98d1f72642208703b30bdf2d4dc)
+                check_type(argname="argument events", value=events, expected_type=type_hints["events"])
+                check_type(argname="argument target_branches", value=target_branches, expected_type=type_hints["target_branches"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if events is not None:
+                self._values["events"] = events
+            if target_branches is not None:
+                self._values["target_branches"] = target_branches
+
+        @builtins.property
+        def events(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Passes when the webhook event is one of the listed events.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-triggerfiltergroup.html#cfn-devopsagent-association-triggerfiltergroup-events
+            '''
+            result = self._values.get("events")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def target_branches(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.PatternFilterProperty"]]:
+            '''A regex-based match condition.
+
+            Passes when the value matches any pattern.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-triggerfiltergroup.html#cfn-devopsagent-association-triggerfiltergroup-targetbranches
+            '''
+            result = self._values.get("target_branches")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.PatternFilterProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TriggerFilterGroupProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociationProps",
@@ -4636,6 +5293,7 @@ class CfnAssociation(
         "agent_space_id": "agentSpaceId",
         "configuration": "configuration",
         "service_id": "serviceId",
+        "capabilities": "capabilities",
         "linked_association_ids": "linkedAssociationIds",
     },
 )
@@ -4646,6 +5304,7 @@ class CfnAssociationProps:
         agent_space_id: builtins.str,
         configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.ServiceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         service_id: builtins.str,
+        capabilities: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.CapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         linked_association_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAssociation``.
@@ -4653,6 +5312,7 @@ class CfnAssociationProps:
         :param agent_space_id: The unique identifier of the Agent Space.
         :param configuration: The configuration that directs how the Agent Space interacts with the given service. You can specify only one configuration type per association. *Allowed Values* : ``SourceAws`` | ``Aws`` | ``GitHub`` | ``GitLab`` | ``Slack`` | ``Dynatrace`` | ``ServiceNow`` | ``MCPServer`` | ``MCPServerNewRelic`` | ``MCPServerDatadog`` | ``MCPServerSplunk`` | ``EventChannel``
         :param service_id: The identifier for the associated service. For ``SourceAws`` and ``Aws`` configurations, this must be ``aws`` . For all other service types, this is a UUID generated from the RegisterService command.
+        :param capabilities: Automated AWS DevOps Agent capabilities for the repository in this association. Code change risk analysis analyzes pull requests and merge requests for deployment risk, and automated testing extends that analysis by running tests against the change. Capabilities are supported for GitHub and GitLab associations. When this property is set, it fully defines both capabilities below: a capability omitted here is removed from the association. Removing this property from a template that previously set it disables both capabilities. Capabilities configured outside CloudFormation are left unchanged only while this property has never been set. On rollback, both capabilities are restored to the previous template's values, not to settings made outside CloudFormation. Other capabilities on the association are not affected. Updates read and rewrite the association's full capability set, so a capability change made outside CloudFormation while a stack update is in progress may be overwritten.
         :param linked_association_ids: Set of linked association IDs for parent-child relationships.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-association.html
@@ -4759,6 +5419,15 @@ class CfnAssociationProps:
                         # the properties below are optional
                         enable_webhook_updates=False
                     ),
+                    release_management=devopsagent.CfnAssociation.ReleaseManagementConfigurationProperty(
+                        name="name",
+                        network_access=devopsagent.CfnAssociation.NetworkAccessConfigurationProperty(
+                            private_access=devopsagent.CfnAssociation.PrivateNetworkAccessProperty(
+                                private_connection_name="privateConnectionName",
+                                runtime_role_arn="runtimeRoleArn"
+                            )
+                        )
+                    ),
                     service_now=devopsagent.CfnAssociation.ServiceNowConfigurationProperty(
                         enable_webhook_updates=False,
                         instance_id="instanceId"
@@ -4806,6 +5475,20 @@ class CfnAssociationProps:
                 service_id="serviceId",
             
                 # the properties below are optional
+                capabilities=devopsagent.CfnAssociation.CapabilitiesProperty(
+                    code_change_risk_analysis=devopsagent.CfnAssociation.CapabilityConfigurationProperty(
+                        enabled=False,
+                        trigger_filter_groups=[devopsagent.CfnAssociation.TriggerFilterGroupProperty(
+                            events=["events"],
+                            target_branches=devopsagent.CfnAssociation.PatternFilterProperty(
+                                patterns=["patterns"]
+                            )
+                        )]
+                    ),
+                    code_change_risk_analysis_automated_testing=devopsagent.CfnAssociation.AutomatedTestingCapabilityConfigurationProperty(
+                        enabled=False
+                    )
+                ),
                 linked_association_ids=["linkedAssociationIds"]
             )
         '''
@@ -4814,12 +5497,15 @@ class CfnAssociationProps:
             check_type(argname="argument agent_space_id", value=agent_space_id, expected_type=type_hints["agent_space_id"])
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
             check_type(argname="argument service_id", value=service_id, expected_type=type_hints["service_id"])
+            check_type(argname="argument capabilities", value=capabilities, expected_type=type_hints["capabilities"])
             check_type(argname="argument linked_association_ids", value=linked_association_ids, expected_type=type_hints["linked_association_ids"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "agent_space_id": agent_space_id,
             "configuration": configuration,
             "service_id": service_id,
         }
+        if capabilities is not None:
+            self._values["capabilities"] = capabilities
         if linked_association_ids is not None:
             self._values["linked_association_ids"] = linked_association_ids
 
@@ -4860,6 +5546,19 @@ class CfnAssociationProps:
         result = self._values.get("service_id")
         assert result is not None, "Required property 'service_id' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def capabilities(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.CapabilitiesProperty"]]:
+        '''Automated AWS DevOps Agent capabilities for the repository in this association.
+
+        Code change risk analysis analyzes pull requests and merge requests for deployment risk, and automated testing extends that analysis by running tests against the change. Capabilities are supported for GitHub and GitLab associations. When this property is set, it fully defines both capabilities below: a capability omitted here is removed from the association. Removing this property from a template that previously set it disables both capabilities. Capabilities configured outside CloudFormation are left unchanged only while this property has never been set. On rollback, both capabilities are restored to the previous template's values, not to settings made outside CloudFormation. Other capabilities on the association are not affected. Updates read and rewrite the association's full capability set, so a capability change made outside CloudFormation while a stack update is in progress may be overwritten.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-association.html#cfn-devopsagent-association-capabilities
+        '''
+        result = self._values.get("capabilities")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.CapabilitiesProperty"]], result)
 
     @builtins.property
     def linked_association_ids(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -11501,6 +12200,7 @@ def _typecheckingstub__9507e77277cf05febf82ccf8829d008e3d5bca6bfbb5c229a629346a3
     agent_space_id: builtins.str,
     configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.ServiceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     service_id: builtins.str,
+    capabilities: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.CapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     linked_association_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11542,6 +12242,12 @@ def _typecheckingstub__08d88d472b1933bfd27859b1b634111a6667c50bedacee3234cfc98a8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__75226190ffb0ae68b5ab7038c7fb41aeea246f08b40a4ff4c8ff6c1af9c3d145(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAssociation.CapabilitiesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2a926a8cb577bf81233b764232f042b444bc6a9e989283355f36b9faf248fe46(
     value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
@@ -11569,9 +12275,32 @@ def _typecheckingstub__c83865c7f5f4d4caa82576ab7efaac17f6225904d0ac52970333a1906
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__829ad6fbd171b22ad2fca4efbaa3a23751339ad5dff3799ed97e5620aa8ae8e2(
+    *,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f836cc91db14f6396fae800a0997ac7a32626b2df8d6a13e21c7bbd05304dad8(
     *,
     subscription_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44891fbe48ab7f52c0b919810877387102df24705e3915f63c97eb698815d67c(
+    *,
+    code_change_risk_analysis: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.CapabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    code_change_risk_analysis_automated_testing: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.AutomatedTestingCapabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9af3ff9811b2eeca52e0bb98e4d7d90521f97abf92c7845c204afd34b1ae1a66(
+    *,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    trigger_filter_groups: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.TriggerFilterGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11677,11 +12406,41 @@ def _typecheckingstub__5251bb56068759277d9b99b06c4d20b0e0434473774eeb3d825f9ed53
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__76758c3bc73cb3c27eb61c0752e8066527331c2df7010269f590fced6b64638f(
+    *,
+    private_access: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.PrivateNetworkAccessProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fa44ac3f3a7da9627c8e3d6693d029e4f70ecd3477c5729fec2b2ee1ab7873b0(
     *,
     customer_email: builtins.str,
     services: typing.Sequence[builtins.str],
     enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__865b74a277b24d9665f5a0f8b50d937aa074f6386ac4a46f1eca0612e7a76ad1(
+    *,
+    patterns: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b9843e8e9b928c2d1bbb82a4b753c824482da2740f6bb06d325f562349ef0285(
+    *,
+    private_connection_name: builtins.str,
+    runtime_role_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6723c07bc5c7fdf02aff81c5eab8363796a2e81543f237e4d7da8a285e6624b4(
+    *,
+    name: builtins.str,
+    network_access: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.NetworkAccessConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11701,6 +12460,7 @@ def _typecheckingstub__534ff66bec4c3f764380e71fc8dbccb3b6b0319f301032fa7e975aa18
     mcp_server_sig_v4: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.MCPServerSigV4ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_splunk: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.MCPServerSplunkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     pager_duty: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.PagerDutyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    release_management: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.ReleaseManagementConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     service_now: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.ServiceNowConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     slack: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.SlackConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     source_aws: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.SourceAwsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -11761,11 +12521,20 @@ def _typecheckingstub__f7f309a9bf78a2704dbd1fd90dfdf8ff7ac7091cdb4572312fad3281c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__18d5d758965c2068a30eccdf1cee53641859c98d1f72642208703b30bdf2d4dc(
+    *,
+    events: typing.Optional[typing.Sequence[builtins.str]] = None,
+    target_branches: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.PatternFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4b9c7866e61a4a7267964c2e97d2c2f23071408ae1546eca41521d60b1273549(
     *,
     agent_space_id: builtins.str,
     configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.ServiceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     service_id: builtins.str,
+    capabilities: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.CapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     linked_association_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

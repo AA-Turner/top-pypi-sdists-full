@@ -56,8 +56,9 @@ class VerlRecorder:
             self._failed.add(step)
 
     # -- training ----------------------------------------------------------------------------------------
-    def record_train(self, step: int, rows: Sequence[VerlRow]) -> None:
-        """Rows ``step`` is about to train on, before it trains: consumed by ``step`` (RL plan §3.3)."""
+    def record_train(self, step: int, rows: Sequence[VerlRow]) -> list[str]:
+        """Rows ``step`` is about to train on, before it trains: consumed by ``step`` (RL plan §3.3). Returns each
+        row's sample key, in order (the per-sample metrics name their rows with them)."""
         with self._lock:
             self._consumed_at.setdefault(step, datetime.now(timezone.utc))
             try:
@@ -68,6 +69,7 @@ class VerlRecorder:
                 raise
             if taken:
                 self.accepted_batches += 1
+        return [part["key"] for part in parts if part.get("role") == "trainer"]
 
     def commit(self, step: int, *, is_pushing_weights: bool = True) -> None:
         """`update_actor` succeeded: the step's consumed samples read `trained`, the weights it made go live (verl

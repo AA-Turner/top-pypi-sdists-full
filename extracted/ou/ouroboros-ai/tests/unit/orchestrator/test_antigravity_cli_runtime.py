@@ -1146,3 +1146,108 @@ async def test_resume_unavailable_terminal_has_no_following_workspace_warning() 
     assert messages[-1].is_final and messages[-1].is_error
     assert messages[-1].data["error_type"] == "ResumeUnavailable"
     assert messages[-1].resume_handle == handle
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("terminal_response", [None, ""])
+async def test_status_only_terminal_keeps_streamed_answer(terminal_response: str | None) -> None:
+    runtime = _make_runtime()
+    terminal = {"status": "SUCCESS"}
+    if terminal_response is not None:
+        terminal["response"] = terminal_response
+    events = [
+        {
+            "event": "step_update",
+            "step_update": {"step_type": "agent_response", "text_delta": delta},
+        }
+        for delta in ("Hello", " world", "\n")
+    ]
+    events.append({"event": "result", "result": terminal})
+    with (
+        patch(
+            "ouroboros.orchestrator.codex_cli_runtime.asyncio.create_subprocess_exec",
+            return_value=_FakeProcess([json.dumps(event) for event in events]),
+        ),
+        patch.object(runtime, "_process_group_id", return_value=None),
+    ):
+        result = await runtime.execute_task_to_result("Answer the question")
+    assert result.is_ok
+    assert result.value.final_message == "Hello world\n"
+
+
+@pytest.mark.asyncio
+async def test_explicit_request_models_are_forwarded_without_mutating_shared_runtime() -> None:
+    """Public execute_task must pass each request's native ID to its own process."""
+    import asyncio
+
+    runtime = AntigravityCLIRuntime(cli_path="/usr/bin/agy", model="constructor-model")
+    calls: list[tuple[str, ...]] = []
+
+    async def fake_exec(*command: str, **kwargs: object) -> _FakeProcess:
+        del kwargs
+        calls.append(command)
+        await asyncio.sleep(0)
+        return _FakeProcess(
+            [json.dumps({"event": "result", "result": {"status": "SUCCESS", "response": "ok"}})]
+        )
+
+    async def run(model: str | None) -> list[AgentMessage]:
+        return [message async for message in runtime.execute_task("work", model=model)]
+
+    with patch(
+        "ouroboros.orchestrator.codex_cli_runtime.asyncio.create_subprocess_exec",
+        side_effect=fake_exec,
+    ):
+        results = await asyncio.gather(run("native/first"), run("native/second"), run(None))
+    assert len(calls) == 3
+    assert {call[call.index("--model") + 1] for call in calls} == {
+        "native/first",
+        "native/second",
+        "constructor-model",
+    }
+    assert runtime._model == "constructor-model"
+    assert all(not any(message.is_error for message in messages) for messages in results)
+
+
+@pytest.mark.asyncio
+async def test_explicit_request_model_with_resume_is_forwarded_to_cli() -> None:
+    runtime = _make_runtime()
+    calls: list[tuple[str, ...]] = []
+
+    async def fake_exec(*command: str, **kwargs: object) -> _FakeProcess:
+        del kwargs
+        calls.append(command)
+        return _FakeProcess(
+            [
+                json.dumps(
+                    {
+                        "event": "result",
+                        "result": {
+                            "conversation_id": "session-1",
+                            "status": "SUCCESS",
+                            "response": "ok",
+                        },
+                    }
+                )
+            ]
+        )
+
+    with patch(
+        "ouroboros.orchestrator.codex_cli_runtime.asyncio.create_subprocess_exec",
+        side_effect=fake_exec,
+    ):
+        messages = [
+            message
+            async for message in runtime.execute_task(
+                "continue", resume_session_id="session-1", model="native/model"
+            )
+        ]
+    assert len(calls) == 1
+    assert calls[0][calls[0].index("--conversation") + 1] == "session-1"
+    assert calls[0][calls[0].index("--model") + 1] == "native/model"
+    assert not any(message.is_error for message in messages)
+
+
+def test_explicit_default_model_uses_native_cli_default() -> None:
+    runtime = AntigravityCLIRuntime(cli_path="/usr/bin/agy", model="constructor-model")
+    assert "--model" not in runtime._build_command("unused", prompt="x", model="default")

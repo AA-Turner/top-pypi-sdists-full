@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: hyperi-ci
-Version: 2.14.59
+Version: 2.14.62
 Summary: HyperI CI/CD CLI tool - multi-language build, test, and publish automation
 Project-URL: Homepage, https://github.com/hyperi-io/hyperi-ci
 Project-URL: Repository, https://github.com/hyperi-io/hyperi-ci
@@ -27,6 +27,7 @@ Requires-Dist: packaging>=26.0
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: scalo>=2.30.3
 Requires-Dist: tomli-w>=1.2.0
+Requires-Dist: tomlkit>=0.15.2
 Requires-Dist: typer>=0.27
 Description-Content-Type: text/markdown
 

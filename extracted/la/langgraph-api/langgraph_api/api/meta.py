@@ -4,7 +4,9 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.responses import JSONResponse, PlainTextResponse
 
 from langgraph_api import __version__, config, metadata
+from langgraph_api.api.mcp import MCP_SERVED
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
+from langgraph_api.go_prometheus_metrics import merge_go_prometheus_text
 from langgraph_api.http_metrics import HTTP_METRICS_COLLECTOR
 from langgraph_api.route import ApiRequest
 from langgraph_api.schema import PoolStats, PostgresPoolStats, RedisPoolStats
@@ -37,13 +39,18 @@ def _merge_pool_stats(local: PoolStats, remote: PoolStats) -> PoolStats:
     if "redis" in local or "redis" in remote:
         lr = local.get("redis") or {}
         rr = remote.get("redis") or {}
-        merged["redis"] = RedisPoolStats(
+        redis_stats = RedisPoolStats(
             idle_connections=lr.get("idle_connections", 0)
             + rr.get("idle_connections", 0),
             in_use_connections=lr.get("in_use_connections", 0)
             + rr.get("in_use_connections", 0),
-            max_connections=lr.get("max_connections", 0) + rr.get("max_connections", 0),
         )
+        # Cluster Go path omits max; only sum when at least one side reported it.
+        if "max_connections" in lr or "max_connections" in rr:
+            redis_stats["max_connections"] = lr.get("max_connections", 0) + rr.get(
+                "max_connections", 0
+            )
+        merged["redis"] = redis_stats
     return merged
 
 
@@ -80,6 +87,7 @@ async def meta_info(request: ApiRequest):
                 and bool(config.TRACING),
                 "langsmith_tracing_replicas": True,
                 "langsmith_tracing_session_on_runs": True,
+                "mcp": MCP_SERVED,
             },
             "host": {
                 "kind": metadata.HOST,
@@ -100,8 +108,11 @@ async def meta_metrics(request: ApiRequest):
 
     if metrics_format == "prometheus":
         # Served straight from the OTLP Prometheus client's registry (see
-        # metrics_otlp._LSDPrometheusReader).
-        return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+        # metrics_otlp._LSDPrometheusReader). In multi-process, Go owns queue
+        # depth / workers / run lifecycle — merge via Runs.PrometheusMetrics
+        # gRPC so scrapers (always hitting Python :8000/metrics) see them.
+        body = await merge_go_prometheus_text(generate_latest())
+        return PlainTextResponse(body, media_type=CONTENT_TYPE_LATEST)
 
     # JSON: hand-built snapshot of workers, queue depth, HTTP, and pool stats.
     worker_metrics = get_metrics()["workers"]

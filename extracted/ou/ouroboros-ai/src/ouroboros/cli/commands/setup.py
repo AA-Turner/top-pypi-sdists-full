@@ -53,6 +53,7 @@ from ouroboros.cli.commands.claude_setup import (
 from ouroboros.cli.commands.claude_setup import (
     setup_claude_sdk as _setup_claude_sdk,
 )
+from ouroboros.cli.commands.megacode_setup import detect_megacode_runtime, select_megacode_runtime
 from ouroboros.cli.commands.omp_setup import (
     detect_omp_runtime as _detect_omp_runtime,
 )
@@ -265,7 +266,7 @@ def _get_current_backend() -> str | None:
     if not config_path.exists():
         return None
     try:
-        data = yaml.safe_load(config_path.read_text()) or {}
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
         backend = data.get("orchestrator", {}).get("runtime_backend")
         if backend == "claude_mcp":
             return "claude-cli"
@@ -411,6 +412,7 @@ def _detect_runtimes() -> dict[str, str | None]:
 
     # OMP (Oh My Pi): omp_setup owns the explicit-path-config-then-PATH rule.
     runtimes["omp"] = _detect_omp_runtime()
+    runtimes["megacode"] = detect_megacode_runtime()
 
     # GJC: explicit-path config first, then PATH.
     try:
@@ -4060,7 +4062,7 @@ def _ensure_opencode_mcp_entry() -> bool:
         try:
             original_text = config_path.read_text(encoding="utf-8")
             data = json.loads(_strip_jsonc(original_text))
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError):
             print_warning(
                 f"Could not parse {config_path} — skipping MCP registration to avoid "
                 "overwriting existing settings.  Fix the JSON syntax and re-run setup."
@@ -4366,7 +4368,7 @@ def _ensure_opencode_plugin_entry() -> bool:
         try:
             original_text = config_path.read_text(encoding="utf-8")
             data = json.loads(_strip_jsonc(original_text))
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError):
             print_warning(f"Could not parse {config_path} — skipping plugin registration.")
             return False
 
@@ -4431,7 +4433,7 @@ def _cleanup_plugin_artifacts() -> None:
     config_path = find_opencode_config(allow_default=False)
     if config_path is not None:
         try:
-            raw = config_path.read_text()
+            raw = config_path.read_text(encoding="utf-8")
             data = json.loads(_strip_jsonc(raw))
             plugins = data.get("plugin", [])
             if isinstance(plugins, list):
@@ -4443,7 +4445,7 @@ def _cleanup_plugin_artifacts() -> None:
                         json.dump(data, f, indent=2)
                         f.write("\n")
                     print_info(f"Removed bridge plugin entry from {config_path}")
-        except (json.JSONDecodeError, OSError, KeyError):
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError, KeyError):
             pass  # best effort
 
 
@@ -4466,7 +4468,7 @@ def _setup_opencode(opencode_path: str, mode: str = "plugin") -> bool:
     """
     if mode not in ("plugin", "subprocess"):
         raise ValueError(f"Invalid opencode mode: {mode!r} (expected 'plugin' or 'subprocess')")
-    if mode == "plugin" and (version_error := plugin_version_error(opencode_path)):
+    if mode == "plugin" and (version_error := plugin_version_error(opencode_path, print_warning)):
         print_error(version_error)
         return False
 
@@ -4475,10 +4477,10 @@ def _setup_opencode(opencode_path: str, mode: str = "plugin") -> bool:
     config_dir = ensure_config_dir()
     config_path = config_dir / "config.yaml"
     if config_path.exists():
-        config_dict = yaml.safe_load(config_path.read_text()) or {}
+        config_dict = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     else:
         create_default_config(config_dir)
-        config_dict = yaml.safe_load(config_path.read_text()) or {}
+        config_dict = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     if not isinstance(config_dict, dict):
         print_warning("~/.ouroboros/config.yaml top-level is not a mapping — resetting.")
         config_dict = {}
@@ -4498,7 +4500,7 @@ def _setup_opencode(opencode_path: str, mode: str = "plugin") -> bool:
             config_dict["llm"] = llm
         llm["backend"] = "opencode"
 
-        with config_path.open("w") as f:
+        with config_path.open("w", encoding="utf-8") as f:
             yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
 
         # Mutual-exclusion cleanup: remove plugin-mode artifacts so both
@@ -4558,7 +4560,7 @@ def _setup_opencode(opencode_path: str, mode: str = "plugin") -> bool:
         config_dict["llm"] = llm
     llm["backend"] = "opencode"
 
-    with config_path.open("w") as f:
+    with config_path.open("w", encoding="utf-8") as f:
         yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
 
     print_success("Installed OpenCode bridge plugin and registered MCP entry")
@@ -4733,7 +4735,7 @@ def setup(
         typer.Option(
             "--runtime",
             "-r",
-            help="Runtime backend to configure (claude, claude-sdk, claude-cli, codex, opencode, hermes, gemini, goose, kiro, copilot, pi, omp, gjc, antigravity, grok, zcode, host).",
+            help="Runtime backend to configure (claude, claude-sdk, claude-cli, codex, opencode, hermes, gemini, goose, kiro, copilot, pi, omp, gjc, antigravity, grok, zcode, megacode, host).",
         ),
     ] = None,
     non_interactive: Annotated[
@@ -5000,6 +5002,8 @@ def setup(
         _setup_pi(pi_path)
     elif selected in ("omp", "omp_cli"):
         select_omp_runtime(available)
+    elif selected in ("megacode", "megacode_cli"):
+        select_megacode_runtime(available)
     elif selected in ("gjc", "gajae-code", "gajae_code"):
         gjc_path = available.get("gjc")
         if not gjc_path:

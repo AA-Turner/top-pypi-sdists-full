@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-agentcore-codeinterpreter
-Version: 0.0.6
+Version: 0.0.7
 Summary: Amazon Bedrock AgentCore Code Interpreter sandbox integration for Deep Agents
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-aws/tree/main/libs/agentcore-codeinterpreter
 Project-URL: Repository, https://github.com/langchain-ai/langchain-aws

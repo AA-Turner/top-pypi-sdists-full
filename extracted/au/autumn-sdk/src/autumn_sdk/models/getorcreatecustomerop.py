@@ -25,7 +25,7 @@ class GetOrCreateCustomerGlobals(BaseModel):
         Optional[str],
         pydantic.Field(alias="x-api-version"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
-    ] = "2.5.0"
+    ] = "2.6.0"
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -44,6 +44,13 @@ class GetOrCreateCustomerGlobals(BaseModel):
         return m
 
 
+GetOrCreateCustomerAutoTopupLimitType = Literal[
+    "count",
+    "amount",
+]
+r"""What `limit` caps: the number of auto top-ups (`count`, default) or the total amount charged for them, in the customer's currency (`amount`)."""
+
+
 GetOrCreateCustomerAutoTopupInterval = Literal[
     "hour",
     "day",
@@ -54,26 +61,33 @@ r"""The time interval for the purchase limit window."""
 
 
 class GetOrCreateCustomerPurchaseLimitTypedDict(TypedDict):
-    r"""Optional rate limit to cap how often auto top-ups occur. Pass count to set the current window's consumed top-ups."""
+    r"""Optional rate limit to cap how often auto top-ups occur. Pass count or amount to set the current window's consumed top-ups or charged amount."""
 
     interval: GetOrCreateCustomerAutoTopupInterval
     r"""The time interval for the purchase limit window."""
     limit: float
-    r"""Maximum number of auto top-ups allowed within the interval."""
+    r"""Maximum allowed within the interval: a number of auto top-ups when limit_type is count, or a total charge (e.g. 500 for $500, pre-tax) when limit_type is amount."""
+    limit_type: NotRequired[GetOrCreateCustomerAutoTopupLimitType]
+    r"""What `limit` caps: the number of auto top-ups (`count`, default) or the total amount charged for them, in the customer's currency (`amount`)."""
     interval_count: NotRequired[float]
     r"""Number of intervals in the purchase limit window."""
     count: NotRequired[float]
     r"""Set the current window's consumed auto top-up count. Omit to leave runtime state unchanged."""
+    amount: NotRequired[float]
+    r"""Set the amount already charged by auto top-ups in the current window. Omit to leave runtime state unchanged."""
 
 
 class GetOrCreateCustomerPurchaseLimit(BaseModel):
-    r"""Optional rate limit to cap how often auto top-ups occur. Pass count to set the current window's consumed top-ups."""
+    r"""Optional rate limit to cap how often auto top-ups occur. Pass count or amount to set the current window's consumed top-ups or charged amount."""
 
     interval: GetOrCreateCustomerAutoTopupInterval
     r"""The time interval for the purchase limit window."""
 
     limit: float
-    r"""Maximum number of auto top-ups allowed within the interval."""
+    r"""Maximum allowed within the interval: a number of auto top-ups when limit_type is count, or a total charge (e.g. 500 for $500, pre-tax) when limit_type is amount."""
+
+    limit_type: Optional[GetOrCreateCustomerAutoTopupLimitType] = None
+    r"""What `limit` caps: the number of auto top-ups (`count`, default) or the total amount charged for them, in the customer's currency (`amount`)."""
 
     interval_count: Optional[float] = 1
     r"""Number of intervals in the purchase limit window."""
@@ -81,9 +95,12 @@ class GetOrCreateCustomerPurchaseLimit(BaseModel):
     count: Optional[float] = None
     r"""Set the current window's consumed auto top-up count. Omit to leave runtime state unchanged."""
 
+    amount: Optional[float] = None
+    r"""Set the amount already charged by auto top-ups in the current window. Omit to leave runtime state unchanged."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["interval_count", "count"])
+        optional_fields = set(["limit_type", "interval_count", "count", "amount"])
         serialized = handler(self)
         m = {}
 
@@ -108,7 +125,7 @@ class GetOrCreateCustomerAutoTopupTypedDict(TypedDict):
     enabled: NotRequired[bool]
     r"""Whether auto top-up is enabled."""
     purchase_limit: NotRequired[GetOrCreateCustomerPurchaseLimitTypedDict]
-    r"""Optional rate limit to cap how often auto top-ups occur. Pass count to set the current window's consumed top-ups."""
+    r"""Optional rate limit to cap how often auto top-ups occur. Pass count or amount to set the current window's consumed top-ups or charged amount."""
     invoice_mode: NotRequired[bool]
     r"""When true, auto top-up creates a send_invoice invoice instead of auto-charging."""
 
@@ -127,7 +144,7 @@ class GetOrCreateCustomerAutoTopup(BaseModel):
     r"""Whether auto top-up is enabled."""
 
     purchase_limit: Optional[GetOrCreateCustomerPurchaseLimit] = None
-    r"""Optional rate limit to cap how often auto top-ups occur. Pass count to set the current window's consumed top-ups."""
+    r"""Optional rate limit to cap how often auto top-ups occur. Pass count or amount to set the current window's consumed top-ups or charged amount."""
 
     invoice_mode: Optional[bool] = None
     r"""When true, auto top-up creates a send_invoice invoice instead of auto-charging."""
@@ -149,7 +166,7 @@ class GetOrCreateCustomerAutoTopup(BaseModel):
         return m
 
 
-GetOrCreateCustomerLimitType = Literal[
+GetOrCreateCustomerSpendLimitLimitType = Literal[
     "absolute",
     "usage_percentage",
 ]
@@ -161,7 +178,7 @@ class GetOrCreateCustomerSpendLimitTypedDict(TypedDict):
     r"""Optional feature ID this spend limit applies to."""
     enabled: NotRequired[bool]
     r"""Whether the overage spend limit is enabled."""
-    limit_type: NotRequired[GetOrCreateCustomerLimitType]
+    limit_type: NotRequired[GetOrCreateCustomerSpendLimitLimitType]
     r"""How overage_limit is interpreted: an absolute overage cap (default) or a percentage of the main-plan allowance."""
     overage_limit: NotRequired[float]
     r"""Overage cap for the feature: absolute units, or a percent (e.g. 120) when limit_type is usage_percentage."""
@@ -176,7 +193,7 @@ class GetOrCreateCustomerSpendLimit(BaseModel):
     enabled: Optional[bool] = False
     r"""Whether the overage spend limit is enabled."""
 
-    limit_type: Optional[GetOrCreateCustomerLimitType] = None
+    limit_type: Optional[GetOrCreateCustomerSpendLimitLimitType] = None
     r"""How overage_limit is interpreted: an absolute overage cap (default) or a percentage of the main-plan allowance."""
 
     overage_limit: Optional[float] = None
@@ -343,7 +360,7 @@ class GetOrCreateCustomerUsageAlertFilter(BaseModel):
 
 class GetOrCreateCustomerUsageAlertTypedDict(TypedDict):
     threshold: float
-    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage (0-100)."""
+    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage. remaining and remaining_percentage accept negative values with basis balance, to alert once the balance is overdrawn."""
     threshold_type: GetOrCreateCustomerThresholdType
     r"""Whether the threshold is an absolute count or a percentage of the usage allowance or remaining balance."""
     feature_id: NotRequired[str]
@@ -360,7 +377,7 @@ class GetOrCreateCustomerUsageAlertTypedDict(TypedDict):
 
 class GetOrCreateCustomerUsageAlert(BaseModel):
     threshold: float
-    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage (0-100)."""
+    r"""The threshold value that triggers the alert. For usage or remaining, this is an absolute count. For usage_percentage or remaining_percentage, this is a percentage. remaining and remaining_percentage accept negative values with basis balance, to alert once the balance is overdrawn."""
 
     threshold_type: GetOrCreateCustomerThresholdType
     r"""Whether the threshold is an absolute count or a percentage of the usage allowance or remaining balance."""
@@ -488,6 +505,13 @@ class GetOrCreateCustomerBillingControls(BaseModel):
         return m
 
 
+GetOrCreateCustomerRenewalIssueMethod = Literal[
+    "draft",
+    "finalize",
+    "send",
+]
+
+
 class GetOrCreateCustomerConfigTypedDict(TypedDict):
     r"""Miscellaneous configurations for the customer."""
 
@@ -495,6 +519,10 @@ class GetOrCreateCustomerConfigTypedDict(TypedDict):
     r"""Whether to disable the shared customer-level pool for entities."""
     disable_overage_billing: NotRequired[bool]
     r"""Stops Autumn from posting usage-overage line items to Stripe for this customer. Check/track and balance resets still behave normally. When set, this overrides the organization-level disable_overage_billing setting."""
+    ignore_past_due: NotRequired[bool]
+    r"""Keeps this customer's plans working while past due: balances still reset, usage is not blocked and Stripe does not cancel the subscription. When set, this overrides each plan's ignore_past_due setting."""
+    renewal_issue_method: NotRequired[Nullable[GetOrCreateCustomerRenewalIssueMethod]]
+    r"""How this customer's renewal invoices are issued when the subscription is invoiced (send_invoice). draft leaves the renewal invoice editable for manual review. finalize opens it without Stripe emailing, reminding or charging (auto_advance off). send lets Stripe finalize and email it as usual. invoice_mode.issue_method on attach only shapes the subscription's first invoice; renewals follow this. Pass null to clear it."""
 
 
 class GetOrCreateCustomerConfig(BaseModel):
@@ -506,18 +534,42 @@ class GetOrCreateCustomerConfig(BaseModel):
     disable_overage_billing: Optional[bool] = None
     r"""Stops Autumn from posting usage-overage line items to Stripe for this customer. Check/track and balance resets still behave normally. When set, this overrides the organization-level disable_overage_billing setting."""
 
+    ignore_past_due: Optional[bool] = None
+    r"""Keeps this customer's plans working while past due: balances still reset, usage is not blocked and Stripe does not cancel the subscription. When set, this overrides each plan's ignore_past_due setting."""
+
+    renewal_issue_method: OptionalNullable[GetOrCreateCustomerRenewalIssueMethod] = (
+        UNSET
+    )
+    r"""How this customer's renewal invoices are issued when the subscription is invoiced (send_invoice). draft leaves the renewal invoice editable for manual review. finalize opens it without Stripe emailing, reminding or charging (auto_advance off). send lets Stripe finalize and email it as usual. invoice_mode.issue_method on attach only shapes the subscription's first invoice; renewals follow this. Pass null to clear it."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["disable_pooled_balance", "disable_overage_billing"])
+        optional_fields = set(
+            [
+                "disable_pooled_balance",
+                "disable_overage_billing",
+                "ignore_past_due",
+                "renewal_issue_method",
+            ]
+        )
+        nullable_fields = set(["renewal_issue_method"])
         serialized = handler(self)
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
             val = serialized.get(k, serialized.get(n))
+            is_nullable_and_explicitly_set = (
+                k in nullable_fields
+                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
+            )
 
             if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
+                if (
+                    val is not None
+                    or k not in optional_fields
+                    or is_nullable_and_explicitly_set
+                ):
                     m[k] = val
 
         return m

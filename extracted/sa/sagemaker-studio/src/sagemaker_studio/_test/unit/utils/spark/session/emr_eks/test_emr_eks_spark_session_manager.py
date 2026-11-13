@@ -120,7 +120,10 @@ def _make_connection(compute_arn=_VC_ARN, release_label=_RELEASE_LABEL):
 
 @pytest.fixture
 def manager():
-    return EmrEksSparkSessionManager(connection=_make_connection())
+    mgr = EmrEksSparkSessionManager(connection=_make_connection())
+    mgr._utils = MagicMock()
+    mgr._utils._get_domain_region.return_value = _REGION
+    return mgr
 
 
 @pytest.fixture
@@ -571,6 +574,7 @@ class TestCreateManagedEndpointSessionRaises:
         with patch(f"{_MODULE}.build_spark_configs", return_value={}):
             with pytest.raises(RuntimeError, match="authProxyUrl or serverUrl"):
                 manager._create_managed_endpoint_session(manager._build_endpoint_params())
+        manager._get_service_specific_configs.assert_called_once_with(account_id="111122223333")
 
 
 class TestGetServiceSpecificConfigs:
@@ -589,16 +593,23 @@ class TestGetServiceSpecificConfigs:
         )
         assert configs["spark.openlineage.transport.type"] == "amazon_datazone_api"
         assert configs["spark.openlineage.transport.domainId"] == "dzd-test-domain"
+        assert configs["spark.openlineage.transport.region"] == _REGION
+        assert configs["spark.openlineage.columnLineage.datasetLineageEnabled"] == "true"
 
     def test_openlineage_domain_id_from_project(self, manager):
         manager.project = MagicMock(domain_id="dzd-custom-123")
         configs = manager._get_service_specific_configs()
         assert configs["spark.openlineage.transport.domainId"] == "dzd-custom-123"
 
+    def test_glue_account_id_from_argument(self, manager):
+        manager.project = MagicMock(domain_id="dzd-test")
+        configs = manager._get_service_specific_configs(account_id="111122223333")
+        assert configs["spark.glue.accountId"] == "111122223333"
+        assert "spark.glue.accountId" not in manager._get_service_specific_configs()
+
     def test_no_glue_specific_configs(self, manager):
         manager.project = MagicMock(domain_id="dzd-test")
         configs = manager._get_service_specific_configs()
-        assert "spark.glue.accountId" not in configs
         assert "spark.glue.JOB_NAME" not in configs
         assert "spark.openlineage.facets.custom_environment_variables" not in configs
 
@@ -635,48 +646,66 @@ class TestGetServiceSpecificConfigs:
         assert configs["spark.hadoop.fs.s3.s3AccessGrants.enabled"] == "true"
         assert configs["spark.hadoop.fs.s3.s3AccessGrants.fallbackToIAM"] == "true"
 
-    def test_openlineage_skipped_for_emr_spark_8_2_and_above(self, manager):
-        """EMR 8.2+ injects OpenLineage server-side; client must not add it.
-
-        EKS resolves the label from ``spark.emr.releaseLabel``, which carries a
-        '-latest' suffix (see the ``_RELEASE_LABEL = emr-7.11.0-latest`` default),
-        so cover both the bare and '-latest'-suffixed forms.
-        """
+    def test_openlineage_added_for_all_release_labels(self, manager):
+        """DataZone OpenLineage is sent regardless of release label. EMR skips its
+        own lineage injection for SMUS endpoints, so the client must always send it."""
         manager.project = MagicMock(domain_id="dzd-test-domain")
         for label in [
+            "emr-7.11.0-latest",
+            "emr-7.13.0",
+            "emr-spark-8.0.0",
+            "emr-spark-8.1.0-latest",
             "emr-spark-8.2.0",
             "emr-spark-8.2.0-latest",
             "emr-spark-8.3.0",
-            "emr-spark-8.3.0-latest",
             "emr-spark-9.0.0",
         ]:
             manager.release_label = label
             configs = manager._get_service_specific_configs()
-            assert "spark.extraListeners" not in configs, label
-            assert "spark.openlineage.transport.type" not in configs, label
-
-    def test_openlineage_added_for_emr_spark_below_8_2(self, manager):
-        """emr-spark below 8.2.0 still passes OpenLineage from the client."""
-        manager.project = MagicMock(domain_id="dzd-test-domain")
-        for label in ["emr-spark-8.0.0", "emr-spark-8.1.0", "emr-spark-8.1.0-latest"]:
-            manager.release_label = label
-            configs = manager._get_service_specific_configs()
             assert (
                 configs["spark.extraListeners"]
                 == "io.openlineage.spark.agent.OpenLineageSparkListener"
             ), label
+            assert configs["spark.openlineage.transport.type"] == "amazon_datazone_api", label
 
-    def test_openlineage_added_for_classic_emr_label(self, manager):
-        """A classic emr-7.x '-latest' label (as EKS resolves today) still passes
-        OpenLineage -- the 8.2 cutoff only applies to the emr-spark line."""
+    def test_glue_openlineage_jar_only_for_emr_spark_8_2_and_above(self, manager):
+        """spark.jars is the Glue OpenLineage jar (same local:// path EMR injects for
+        non-SMUS endpoints) on emr-spark >= 8.2.0, and absent otherwise."""
         manager.project = MagicMock(domain_id="dzd-test-domain")
-        for label in ["emr-7.11.0-latest", "emr-7.13.0"]:
+        jar = "local:///usr/share/aws/glue-openlineage-spark/lib/GlueOpenLineageSpark.jar"
+        with_jar = ["emr-spark-8.2.0", "emr-spark-8.2.0-latest", "emr-spark-8.3.0"]
+        without_jar = ["emr-7.11.0-latest", "emr-7.13.0", "emr-spark-8.0.0", "emr-spark-8.1.0"]
+        for label in with_jar:
             manager.release_label = label
-            configs = manager._get_service_specific_configs()
-            assert (
-                configs["spark.extraListeners"]
-                == "io.openlineage.spark.agent.OpenLineageSparkListener"
-            ), label
+            assert manager._get_service_specific_configs()["spark.jars"] == jar, label
+        for label in without_jar:
+            manager.release_label = label
+            assert "spark.jars" not in manager._get_service_specific_configs(), label
+
+
+class TestEnsureLineageJar:
+    _JAR = "local:///usr/share/aws/glue-openlineage-spark/lib/GlueOpenLineageSpark.jar"
+
+    def test_appends_when_user_jars_replaced_it(self):
+        from sagemaker_studio.utils.spark.session.emr_eks.emr_eks_spark_session_manager import (
+            _ensure_lineage_jar,
+        )
+
+        merged = {"spark.jars": "s3://bucket/custom.jar"}
+        _ensure_lineage_jar(merged, {"spark.jars": self._JAR})
+        assert merged["spark.jars"] == f"s3://bucket/custom.jar,{self._JAR}"
+
+    def test_noop_when_present_or_not_requested(self):
+        from sagemaker_studio.utils.spark.session.emr_eks.emr_eks_spark_session_manager import (
+            _ensure_lineage_jar,
+        )
+
+        merged = {"spark.jars": self._JAR}
+        _ensure_lineage_jar(merged, {"spark.jars": self._JAR})
+        assert merged["spark.jars"] == self._JAR
+        merged = {"spark.jars": "s3://bucket/custom.jar"}
+        _ensure_lineage_jar(merged, {})
+        assert merged["spark.jars"] == "s3://bucket/custom.jar"
 
 
 class TestFgac:

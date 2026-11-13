@@ -822,6 +822,7 @@ if TYPE_CHECKING:
         BatchErrorResponseError,
         BatchErrorResponseErrorTypedDict,
     )
+    from .batchinputreference import BatchInputReference, BatchInputReferenceTypedDict
     from .batchlistitem import (
         BatchListItem,
         BatchListItemCompletionTokensDetails,
@@ -979,6 +980,10 @@ if TYPE_CHECKING:
         UnknownReasoningDetail,
         WebSearchCitation,
         WebSearchCitationTypedDict,
+    )
+    from .batchoutputreference import (
+        BatchOutputReference,
+        BatchOutputReferenceTypedDict,
     )
     from .batchpaymentrequiredresponse_error import (
         BatchPaymentRequiredResponseCompletionTokensDetails,
@@ -1503,6 +1508,10 @@ if TYPE_CHECKING:
     )
     from .contentfilterbuiltinslug import ContentFilterBuiltinSlug
     from .contentfilterentry import ContentFilterEntry, ContentFilterEntryTypedDict
+    from .contentfilterreadentry import (
+        ContentFilterReadEntry,
+        ContentFilterReadEntryTypedDict,
+    )
     from .contentpartaddedevent import (
         ContentPartAddedEvent,
         ContentPartAddedEventPart,
@@ -2459,6 +2468,27 @@ if TYPE_CHECKING:
         ImageGenCompletedEventTypedDict,
     )
     from .imagegeneration import ImageGeneration, ImageGenerationTypedDict
+    from .imagegenerationlayer import (
+        ImageGenerationLayer,
+        ImageGenerationLayerBackground,
+        ImageGenerationLayerTypedDict,
+    )
+    from .imagegenerationlayerboundingbox import (
+        ImageGenerationLayerBoundingBox,
+        ImageGenerationLayerBoundingBoxTypedDict,
+    )
+    from .imagegenerationlayertextrecognition import (
+        ImageGenerationLayerTextRecognition,
+        ImageGenerationLayerTextRecognitionTypedDict,
+        Line,
+        LineTypedDict,
+    )
+    from .imagegenerationlayertextrun import (
+        ImageGenerationLayerTextRun,
+        ImageGenerationLayerTextRunTypedDict,
+        Style,
+        StyleTypedDict,
+    )
     from .imagegenerationproviderpreferences import (
         ImageGenerationProviderPreferences,
         ImageGenerationProviderPreferencesIgnore,
@@ -4294,6 +4324,12 @@ if TYPE_CHECKING:
         ResponseOutputTextType,
         ResponseOutputTextTypedDict,
     )
+    from .responsesbadrequestresponseerrordata import (
+        Code,
+        CodeTypedDict,
+        ResponsesBadRequestResponseErrorData,
+        ResponsesBadRequestResponseErrorDataTypedDict,
+    )
     from .responsesrequest import (
         ReasoningConfig,
         ReasoningConfigTypedDict,
@@ -5630,6 +5666,8 @@ __all__ = [
     "BatchDeletionTargetsTypedDict",
     "BatchErrorResponseError",
     "BatchErrorResponseErrorTypedDict",
+    "BatchInputReference",
+    "BatchInputReferenceTypedDict",
     "BatchListItem",
     "BatchListItemCompletionTokensDetails",
     "BatchListItemCompletionTokensDetailsTypedDict",
@@ -5691,6 +5729,8 @@ __all__ = [
     "BatchObjectURLCitationTypedDict",
     "BatchObjectUsage",
     "BatchObjectUsageTypedDict",
+    "BatchOutputReference",
+    "BatchOutputReferenceTypedDict",
     "BatchPaymentRequiredResponseCompletionTokensDetails",
     "BatchPaymentRequiredResponseCompletionTokensDetailsTypedDict",
     "BatchPaymentRequiredResponseCompletionWindow",
@@ -5990,6 +6030,7 @@ __all__ = [
     "ClearToolInputsTypedDict",
     "ClientClosedRequestResponseErrorData",
     "ClientClosedRequestResponseErrorDataTypedDict",
+    "Code",
     "CodeEnum",
     "CodeInterpreterCallCodeDeltaEvent",
     "CodeInterpreterCallCodeDeltaEventType",
@@ -6017,6 +6058,7 @@ __all__ = [
     "CodeInterpreterLogsOutputTypedDict",
     "CodeInterpreterServerTool",
     "CodeInterpreterServerToolTypedDict",
+    "CodeTypedDict",
     "CodexLocalShellTool",
     "CodexLocalShellToolType",
     "CodexLocalShellToolTypedDict",
@@ -6084,6 +6126,8 @@ __all__ = [
     "ContentFilterBuiltinTypedDict",
     "ContentFilterEntry",
     "ContentFilterEntryTypedDict",
+    "ContentFilterReadEntry",
+    "ContentFilterReadEntryTypedDict",
     "ContentFilterTypedDict",
     "ContentImageURL",
     "ContentImageURLImageURL",
@@ -6799,6 +6843,15 @@ __all__ = [
     "ImageGenTextChunkEventType",
     "ImageGenTextChunkEventTypedDict",
     "ImageGeneration",
+    "ImageGenerationLayer",
+    "ImageGenerationLayerBackground",
+    "ImageGenerationLayerBoundingBox",
+    "ImageGenerationLayerBoundingBoxTypedDict",
+    "ImageGenerationLayerTextRecognition",
+    "ImageGenerationLayerTextRecognitionTypedDict",
+    "ImageGenerationLayerTextRun",
+    "ImageGenerationLayerTextRunTypedDict",
+    "ImageGenerationLayerTypedDict",
     "ImageGenerationProviderPreferences",
     "ImageGenerationProviderPreferencesIgnore",
     "ImageGenerationProviderPreferencesIgnoreTypedDict",
@@ -6987,6 +7040,8 @@ __all__ = [
     "LegacyWebSearchServerToolTypedDict",
     "Legend",
     "LegendTypedDict",
+    "Line",
+    "LineTypedDict",
     "ListAccountGuardrailPoliciesResponse",
     "ListAccountGuardrailPoliciesResponseTypedDict",
     "ListBYOKKeysResponse",
@@ -8097,6 +8152,8 @@ __all__ = [
     "ResponseOutputTextTopLogprobTypedDict",
     "ResponseOutputTextType",
     "ResponseOutputTextTypedDict",
+    "ResponsesBadRequestResponseErrorData",
+    "ResponsesBadRequestResponseErrorDataTypedDict",
     "ResponsesRequest",
     "ResponsesRequestAccessPrograms",
     "ResponsesRequestAccessProgramsTypedDict",
@@ -8341,6 +8398,8 @@ __all__ = [
     "StreamLogprobTopLogprob",
     "StreamLogprobTopLogprobTypedDict",
     "StreamLogprobTypedDict",
+    "Style",
+    "StyleTypedDict",
     "SubagentNestedTool",
     "SubagentNestedToolTypedDict",
     "SubagentReasoning",
@@ -9368,6 +9427,8 @@ _dynamic_imports: dict[str, str] = {
     "UpstreamTypedDict": ".batchdeletiontargets",
     "BatchErrorResponseError": ".batcherrorresponse",
     "BatchErrorResponseErrorTypedDict": ".batcherrorresponse",
+    "BatchInputReference": ".batchinputreference",
+    "BatchInputReferenceTypedDict": ".batchinputreference",
     "BatchListItem": ".batchlistitem",
     "BatchListItemCompletionTokensDetails": ".batchlistitem",
     "BatchListItemCompletionTokensDetailsTypedDict": ".batchlistitem",
@@ -9520,6 +9581,8 @@ _dynamic_imports: dict[str, str] = {
     "UnknownReasoningDetail": ".batchobject",
     "WebSearchCitation": ".batchobject",
     "WebSearchCitationTypedDict": ".batchobject",
+    "BatchOutputReference": ".batchoutputreference",
+    "BatchOutputReferenceTypedDict": ".batchoutputreference",
     "BatchPaymentRequiredResponseCompletionTokensDetails": ".batchpaymentrequiredresponse_error",
     "BatchPaymentRequiredResponseCompletionTokensDetailsTypedDict": ".batchpaymentrequiredresponse_error",
     "BatchPaymentRequiredResponseCompletionWindow": ".batchpaymentrequiredresponse_error",
@@ -9878,6 +9941,8 @@ _dynamic_imports: dict[str, str] = {
     "ContentFilterBuiltinSlug": ".contentfilterbuiltinslug",
     "ContentFilterEntry": ".contentfilterentry",
     "ContentFilterEntryTypedDict": ".contentfilterentry",
+    "ContentFilterReadEntry": ".contentfilterreadentry",
+    "ContentFilterReadEntryTypedDict": ".contentfilterreadentry",
     "ContentPartAddedEvent": ".contentpartaddedevent",
     "ContentPartAddedEventPart": ".contentpartaddedevent",
     "ContentPartAddedEventPartTypedDict": ".contentpartaddedevent",
@@ -10571,6 +10636,19 @@ _dynamic_imports: dict[str, str] = {
     "ImageGenCompletedEventTypedDict": ".imagegencompletedevent",
     "ImageGeneration": ".imagegeneration",
     "ImageGenerationTypedDict": ".imagegeneration",
+    "ImageGenerationLayer": ".imagegenerationlayer",
+    "ImageGenerationLayerBackground": ".imagegenerationlayer",
+    "ImageGenerationLayerTypedDict": ".imagegenerationlayer",
+    "ImageGenerationLayerBoundingBox": ".imagegenerationlayerboundingbox",
+    "ImageGenerationLayerBoundingBoxTypedDict": ".imagegenerationlayerboundingbox",
+    "ImageGenerationLayerTextRecognition": ".imagegenerationlayertextrecognition",
+    "ImageGenerationLayerTextRecognitionTypedDict": ".imagegenerationlayertextrecognition",
+    "Line": ".imagegenerationlayertextrecognition",
+    "LineTypedDict": ".imagegenerationlayertextrecognition",
+    "ImageGenerationLayerTextRun": ".imagegenerationlayertextrun",
+    "ImageGenerationLayerTextRunTypedDict": ".imagegenerationlayertextrun",
+    "Style": ".imagegenerationlayertextrun",
+    "StyleTypedDict": ".imagegenerationlayertextrun",
     "ImageGenerationProviderPreferences": ".imagegenerationproviderpreferences",
     "ImageGenerationProviderPreferencesIgnore": ".imagegenerationproviderpreferences",
     "ImageGenerationProviderPreferencesIgnoreTypedDict": ".imagegenerationproviderpreferences",
@@ -11953,6 +12031,10 @@ _dynamic_imports: dict[str, str] = {
     "ResponseOutputTextTopLogprobTypedDict": ".responseoutputtext",
     "ResponseOutputTextType": ".responseoutputtext",
     "ResponseOutputTextTypedDict": ".responseoutputtext",
+    "Code": ".responsesbadrequestresponseerrordata",
+    "CodeTypedDict": ".responsesbadrequestresponseerrordata",
+    "ResponsesBadRequestResponseErrorData": ".responsesbadrequestresponseerrordata",
+    "ResponsesBadRequestResponseErrorDataTypedDict": ".responsesbadrequestresponseerrordata",
     "ReasoningConfig": ".responsesrequest",
     "ReasoningConfigTypedDict": ".responsesrequest",
     "ResponsesRequest": ".responsesrequest",

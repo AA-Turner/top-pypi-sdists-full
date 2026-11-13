@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 from .plan import Plan, PlanTypedDict
-from autumn_sdk.types import BaseModel, Nullable, UNSET_SENTINEL
+from autumn_sdk.types import BaseModel, Nullable, UNSET_SENTINEL, UnrecognizedStr
 from autumn_sdk.utils import FieldMetadata, HeaderMetadata
 import pydantic
 from pydantic import model_serializer
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 from typing_extensions import Annotated, NotRequired, TypedDict
 
 
@@ -19,7 +19,7 @@ class PreviewMultiUpdateGlobals(BaseModel):
         Optional[str],
         pydantic.Field(alias="x-api-version"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
-    ] = "2.5.0"
+    ] = "2.6.0"
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -119,7 +119,7 @@ class PreviewMultiUpdateParamsTypedDict(TypedDict):
     refund_last_payment: NotRequired[PreviewMultiUpdateRefundLastPayment]
     r"""Controls how the last payment is refunded on immediate cancellation. 'prorated' refunds the unused portion, 'full' refunds the entire last payment."""
     subscription_params: NotRequired[Dict[str, Any]]
-    r"""Additional parameters to pass into the Stripe subscription update or cancel call."""
+    r"""Additional parameters to pass into the Stripe subscription update or cancel call. Fields Autumn manages itself are rejected with a 400; use invoice_mode to bill by invoice."""
 
 
 class PreviewMultiUpdateParams(BaseModel):
@@ -136,7 +136,7 @@ class PreviewMultiUpdateParams(BaseModel):
     r"""Controls how the last payment is refunded on immediate cancellation. 'prorated' refunds the unused portion, 'full' refunds the entire last payment."""
 
     subscription_params: Optional[Dict[str, Any]] = None
-    r"""Additional parameters to pass into the Stripe subscription update or cancel call."""
+    r"""Additional parameters to pass into the Stripe subscription update or cancel call. Fields Autumn manages itself are rejected with a 400; use invoice_mode to bill by invoice."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -280,6 +280,94 @@ class PreviewMultiUpdateLineItem(BaseModel):
                     or is_nullable_and_explicitly_set
                 ):
                     m[k] = val
+
+        return m
+
+
+PreviewMultiUpdatePlanActivates = Union[
+    Literal[
+        "now",
+        "on_finalize",
+        "on_payment",
+    ],
+    UnrecognizedStr,
+]
+r"""When the change takes effect. 'now' when it applies as soon as the request succeeds, 'on_finalize' when it waits for this draft invoice to be finalized, 'on_payment' when it waits for the invoice to be paid or the checkout to complete."""
+
+
+PreviewMultiUpdateType = Union[
+    Literal[
+        "none",
+        "zero_amount",
+        "charge",
+        "credit",
+    ],
+    UnrecognizedStr,
+]
+r"""What the invoice created now bills. 'none' when the change creates no invoice now. 'zero_amount' when an invoice is created but nothing was billed, such as a trial or a usage-only plan. 'charge' when something was billed, even if discounts or credits bring the amount due to zero. 'credit' when the invoice total is negative and becomes customer credit."""
+
+
+PreviewMultiUpdateIssueMethod = Union[
+    Literal[
+        "draft",
+        "finalize",
+        "send",
+        "charge_automatically",
+    ],
+    UnrecognizedStr,
+]
+
+
+PreviewMultiUpdateImmediateInvoicePlanActivates = Union[
+    Literal[
+        "now",
+        "on_finalize",
+        "on_payment",
+    ],
+    UnrecognizedStr,
+]
+r"""Deprecated: use the top-level plan_activates. When the change takes effect. 'now' when it applies as soon as the request succeeds, 'on_finalize' when it waits for this draft invoice to be finalized, 'on_payment' when it waits for the invoice to be paid or the checkout to complete."""
+
+
+class PreviewMultiUpdatePreviewImmediateInvoiceTypedDict(TypedDict):
+    r"""The invoice this change creates right away, if any. Renewals are described by next_cycle."""
+
+    type: PreviewMultiUpdateType
+    r"""What the invoice created now bills. 'none' when the change creates no invoice now. 'zero_amount' when an invoice is created but nothing was billed, such as a trial or a usage-only plan. 'charge' when something was billed, even if discounts or credits bring the amount due to zero. 'credit' when the invoice total is negative and becomes customer credit."""
+    issue_method: Nullable[PreviewMultiUpdateIssueMethod]
+    r"""How the invoice is issued, matching invoice_mode.issue_method: 'draft', 'finalize' or 'send'. 'charge_automatically' when the card on file is charged, or the customer pays at checkout. Null when type is 'none'."""
+    plan_activates: PreviewMultiUpdateImmediateInvoicePlanActivates
+    r"""Deprecated: use the top-level plan_activates. When the change takes effect. 'now' when it applies as soon as the request succeeds, 'on_finalize' when it waits for this draft invoice to be finalized, 'on_payment' when it waits for the invoice to be paid or the checkout to complete."""
+
+
+class PreviewMultiUpdatePreviewImmediateInvoice(BaseModel):
+    r"""The invoice this change creates right away, if any. Renewals are described by next_cycle."""
+
+    type: PreviewMultiUpdateType
+    r"""What the invoice created now bills. 'none' when the change creates no invoice now. 'zero_amount' when an invoice is created but nothing was billed, such as a trial or a usage-only plan. 'charge' when something was billed, even if discounts or credits bring the amount due to zero. 'credit' when the invoice total is negative and becomes customer credit."""
+
+    issue_method: Nullable[PreviewMultiUpdateIssueMethod]
+    r"""How the invoice is issued, matching invoice_mode.issue_method: 'draft', 'finalize' or 'send'. 'charge_automatically' when the card on file is charged, or the customer pays at checkout. Null when type is 'none'."""
+
+    plan_activates: Annotated[
+        PreviewMultiUpdateImmediateInvoicePlanActivates,
+        pydantic.Field(
+            deprecated="warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+        ),
+    ]
+    r"""Deprecated: use the top-level plan_activates. When the change takes effect. 'now' when it applies as soon as the request succeeds, 'on_finalize' when it waits for this draft invoice to be finalized, 'on_payment' when it waits for the invoice to be paid or the checkout to complete."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k, serialized.get(n))
+
+            if val != UNSET_SENTINEL:
+                m[k] = val
 
         return m
 
@@ -671,6 +759,10 @@ class PreviewMultiUpdateSubscriptionTypedDict(TypedDict):
     r"""The final amount after discounts and tax for the current billing period."""
     currency: str
     r"""The three-letter ISO currency code. All amounts are in the currency's major unit (e.g., dollars for USD)."""
+    plan_activates: PreviewMultiUpdatePlanActivates
+    r"""When the change takes effect. 'now' when it applies as soon as the request succeeds, 'on_finalize' when it waits for this draft invoice to be finalized, 'on_payment' when it waits for the invoice to be paid or the checkout to complete."""
+    immediate_invoice: PreviewMultiUpdatePreviewImmediateInvoiceTypedDict
+    r"""The invoice this change creates right away, if any. Renewals are described by next_cycle."""
     incoming: List[PreviewMultiUpdateIncomingTypedDict]
     r"""Products or subscription changes being added or updated."""
     outgoing: List[PreviewMultiUpdateOutgoingTypedDict]
@@ -681,6 +773,8 @@ class PreviewMultiUpdateSubscriptionTypedDict(TypedDict):
     r"""True when this change clears the customer's usage balances, so the approver can see usage will reset."""
     next_cycle: NotRequired[PreviewMultiUpdateNextCycleTypedDict]
     r"""Preview of the next billing cycle, if applicable. This shows what the customer will be charged in subsequent cycles."""
+    requires_payment_method: NotRequired[bool]
+    r"""True when this request can't be charged automatically because the customer has no payment method. Add one, or send an invoice with invoice_mode."""
     expand: NotRequired[List[str]]
     r"""Expand the response with additional data."""
 
@@ -701,6 +795,12 @@ class PreviewMultiUpdateSubscription(BaseModel):
     currency: str
     r"""The three-letter ISO currency code. All amounts are in the currency's major unit (e.g., dollars for USD)."""
 
+    plan_activates: PreviewMultiUpdatePlanActivates
+    r"""When the change takes effect. 'now' when it applies as soon as the request succeeds, 'on_finalize' when it waits for this draft invoice to be finalized, 'on_payment' when it waits for the invoice to be paid or the checkout to complete."""
+
+    immediate_invoice: PreviewMultiUpdatePreviewImmediateInvoice
+    r"""The invoice this change creates right away, if any. Renewals are described by next_cycle."""
+
     incoming: List[PreviewMultiUpdateIncoming]
     r"""Products or subscription changes being added or updated."""
 
@@ -716,12 +816,17 @@ class PreviewMultiUpdateSubscription(BaseModel):
     next_cycle: Optional[PreviewMultiUpdateNextCycle] = None
     r"""Preview of the next billing cycle, if applicable. This shows what the customer will be charged in subsequent cycles."""
 
+    requires_payment_method: Optional[bool] = None
+    r"""True when this request can't be charged automatically because the customer has no payment method. Add one, or send an invoice with invoice_mode."""
+
     expand: Optional[List[str]] = None
     r"""Expand the response with additional data."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["resets_usage", "next_cycle", "expand"])
+        optional_fields = set(
+            ["resets_usage", "next_cycle", "requires_payment_method", "expand"]
+        )
         serialized = handler(self)
         m = {}
 

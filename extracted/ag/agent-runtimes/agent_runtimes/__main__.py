@@ -58,6 +58,7 @@ from agent_runtimes.commands.events import app as events_app
 from agent_runtimes.commands.events import events_list, events_ls
 from agent_runtimes.commands.exec import main as exec_main
 from agent_runtimes.commands.executions import app as executions_app
+from agent_runtimes.commands.kagent import app as kagent_app
 from agent_runtimes.commands.list_agents import (
     ListAgentsError,
     OutputFormat,
@@ -99,6 +100,7 @@ from agent_runtimes.commands.serve import (
 )
 from agent_runtimes.commands.sessions import app as sessions_app
 from agent_runtimes.commands.tool_approvals import app as tool_approvals_app
+from agent_runtimes.utils.logs import AWS_LOGGERS, asked_verbose, quiet_loggers
 
 
 def _log_level(argv: list[str]) -> int:
@@ -118,6 +120,10 @@ logging.basicConfig(
     stream=sys.stderr,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+# AWS's SDK says at INFO where it found its credentials, over whatever the
+# command prints (`loop sessions`): shown when asked for, its warnings always.
+if not asked_verbose(sys.argv[1:], os.environ):
+    quiet_loggers(AWS_LOGGERS)
 logger = logging.getLogger(__name__)
 
 app = typer.Typer(
@@ -347,7 +353,7 @@ def main_callback(
         False,
         "--cloud",
         help=(
-            "Run the agent on Datalayer, in a cloud runtime billed by the minute, "
+            "Run the agent on Datalayer, in a cloud runtime billed by the second, "
             "without asking where (chat mode): an environment is picked, not an "
             "agentspec; the agent is example-simple unless -a names another. "
             "Needs `datalayer login` or DATALAYER_API_KEY."
@@ -589,7 +595,25 @@ try:
         help="Interactive assistant CLI for agent runtimes",
     )
 except Exception as exc:  # noqa: BLE001
-    logger.warning("Chat CLI disabled at startup: %s", exc)
+    # Said where it matters — when the chat is asked for — not before every
+    # command: an install without the chat's dependencies (boto3 for the
+    # default Bedrock models) runs every other command quietly.
+    _chat_unavailable = str(exc)
+
+    @app.command(
+        "chat",
+        help="Interactive assistant CLI for agent runtimes.",
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    )
+    def chat_unavailable() -> None:
+        """Interactive assistant CLI for agent runtimes."""
+        typer.echo(
+            "The chat cannot start in this installation: "
+            f"{_chat_unavailable}. Install its dependencies with "
+            "`pip install 'agent-runtimes[chat,aws]'`.",
+            err=True,
+        )
+        raise typer.Exit(1)
 
 
 @app.command("harnesses")
@@ -627,6 +651,7 @@ app.add_typer(schedules_app)
 app.add_typer(apps_app)
 app.add_typer(plugins_app)
 app.add_typer(agentcore_app)
+app.add_typer(kagent_app)
 app.add_typer(sessions_app)
 app.add_typer(scenes_app)
 app.command("events-list")(events_list)
@@ -853,7 +878,11 @@ def serve(
             envvar="AGENT_RUNTIMES_TARGET",
             help="Answer a platform's runtime contract: 'agentcore' serves Amazon Bedrock "
             "AgentCore Runtime's /invocations, /ping and /ws on 0.0.0.0:8080 "
-            "(AGENTCORE_PORT), the agentspec of AGENT_SPEC_ID configured at start",
+            "(AGENTCORE_PORT), the agentspec of AGENT_SPEC_ID configured at start; "
+            "'kagent' serves the agentspec of AGENT_SPEC_ID over A2A on loopback for "
+            "the kagent bridge, with the model and MCP servers kagent configured; "
+            "'ate' answers Agent Substrate's actor contract on 0.0.0.0:80 (ATE_PORT): "
+            "the wakeup probe and the actor's identity, read at each wake",
         ),
     ] = None,
 ) -> None:
@@ -919,6 +948,12 @@ def serve(
 
         # Answer Amazon Bedrock AgentCore Runtime's contract (0.0.0.0:8080)
         AGENT_SPEC_ID=crawler agent-runtimes serve --target agentcore
+
+        # Serve a kagent BYO actor's agent, for the bridge beside it
+        AGENT_SPEC_ID=crawler agent-runtimes serve --target kagent
+
+        # Run as an Agent Substrate actor (port 80, the wakeup probe at /ate/wakeup)
+        AGENT_SPEC_ID=crawler agent-runtimes serve --target ate
     """
     try:
         serve_server(

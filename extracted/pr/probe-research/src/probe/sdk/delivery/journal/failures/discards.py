@@ -25,11 +25,19 @@ if TYPE_CHECKING:
 #: A dead letter's ``last_error`` (as `drain` writes it) when the server refused it for a past
 #: write epoch: before T24 such writes were dead-lettered.
 _STALE_EPOCH_LETTER = re.compile("ConflictError: " + errors._STALE_EPOCH_MESSAGE.pattern)
+#: ...and when the server said a run is in the trash (410 `in_trash`: the notice's sentence,
+#: `app/projects/trash/notice.py` `TrashNotice.message`).
+_TRASHED_LETTER = re.compile(r"\w+: This run is in the trash since ")
+#: The op key the drain stamps on a dead letter refused as in the trash: the notice's ``kind`` and
+#: ``id``, and ``own_run`` (the trashed thing is the op's own run, `settle._is_own_run_in_trash`).
+TRASH_REFUSAL_KEY = "trash_refusal"
 #: ...and when the server said its run does not exist (`errors.names_no_such_run`;
 #: a workspace limit's 404 says more, so it never matches).
 _NO_SUCH_RUN_LETTER = f"NotFoundError: {errors.RUN_NOT_FOUND_DETAIL}"
 
 
+#: Where a queue keeps dead letters: its own, and its multipart uploads' (`settle._move_to_failed`).
+_DEAD_LETTER_FOLDERS = ("failed", "multipart/failed")
 #: A request's `delivery_state` while it is not delivered: what a discard moves.
 WAITING_STATES = frozenset({"queued", "pending", "failed"})
 #: How many days of enqueue dates `outbox.discarded` reports, newest first.
@@ -173,6 +181,33 @@ def _move_discards(queue: Path, root: Path, counts: DiscardCounts, *, limit: int
     return moved
 
 
+def is_final_letter(op: dict, error: str) -> bool:
+    """A write no retry can ever deliver, told by its stored refusal (``error``, its `last_error`):
+    a past write epoch, or its OWN run in the trash (the drain's `TRASH_REFUSAL_KEY` stamp says so;
+    an older release's unstamped letter is judged by its text). Never a run's create (`probe sync
+    --project` refiles it). The one rule of the sweep, the rescuer's trigger and the close's counts."""
+    if is_stale_epoch_letter(error):
+        return not _is_create(op)
+    if not _TRASHED_LETTER.match(error) or _is_create(op):
+        return False
+    notice = op.get(TRASH_REFUSAL_KEY)
+    if notice is None:
+        return True
+    return isinstance(notice, dict) and notice.get("kind") == "run" and notice.get("own_run") is True
+
+
+def is_stale_epoch_letter(error: str) -> bool:
+    """Whether a stored refusal says a newer attempt owns the write's run (a past write epoch)."""
+    return bool(_STALE_EPOCH_LETTER.match(error))
+
+
+def _is_create(op: dict) -> bool:
+    # Imported only for a refusal that could be final: the offline module is heavy on its own.
+    from probe.sdk.delivery.offline.offline import CREATE_KIND
+
+    return op.get("kind") == CREATE_KIND
+
+
 def _same_inode(st: os.stat_result, path: Path) -> bool:
     try:
         return os.path.samestat(st, path.stat())
@@ -256,52 +291,94 @@ class DiscardsMixin:
             self.gc_blobs()
         return counts
 
+    def drop_final_letters(self) -> DiscardCounts:
+        """Move to ``discarded/`` the dead letters whose stored refusal is final by itself: a write
+        a newer attempt of its run superseded (a past write epoch; a run's epoch only grows), or
+        one whose run is in the trash. Every queue's ``failed/`` and ``multipart/failed/`` (a dead
+        multipart upload's bytes went when it was dead-lettered). No network: the rescuer runs
+        it unasked. A close a takeover set aside stays. Returns what moved (`DiscardCounts`)."""
+        return self._drop_letters(is_final_letter, folders=_DEAD_LETTER_FOLDERS)
+
+    def has_final_letter(self, *, limit: int = 200) -> bool:
+        """Whether any queue of this outbox holds a dead letter `drop_final_letters` would move,
+        reading at most ``limit`` letters per folder, newest first (the rescuer asks on every due
+        look, so it stays cheap; a fixed prefix of old letters would hide every newer one)."""
+        for queue in self.namespaces():
+            if queue.receipt_enabled:
+                continue
+            for folder in _DEAD_LETTER_FOLDERS:
+                try:
+                    names = sorted((n for n in os.listdir(queue.dir / folder) if n.endswith(".json")), reverse=True)
+                except OSError:
+                    continue
+                for name in names[:limit]:
+                    op = _read_op_file(queue.dir / folder / name)
+                    if (
+                        isinstance(op, dict)
+                        and op.get(TAKEOVER_HOLD_KEY) is None
+                        and is_final_letter(op, str(op.get("last_error") or ""))
+                    ):
+                        return True
+        return False
+
     def drop_unrecoverable(
         self, *, run_exists: "Callable[[dict], bool | None] | None" = None
     ) -> DiscardCounts:
-        """Move to ``discarded/`` the dead letters no retry can ever deliver (`probe doctor --fix`,
-        #3629): a write a newer attempt of its run superseded (refused for a past write epoch; a
-        run's epoch only grows), and a write whose run the server said does not exist, asked again
-        now with the write's own credential. ``run_exists(op)`` answers: False only on the
-        server's own "run not found", None when it cannot tell (no credential here, server away):
-        then the letter stays, as does every other letter, for `probe outbox retry`. A close a
-        takeover set aside stays too. Returns what moved (`DiscardCounts`)."""
+        """`probe doctor --fix` (#3629): `drop_final_letters`, then the dead letters whose run the
+        server said does not exist, asked again now with the write's own credential.
+        ``run_exists(op)`` answers: False only on the server's own "run not found", None when it
+        cannot tell (no credential here, server away): then the letter stays, as does every other
+        letter, for `probe outbox retry`. Returns what moved (`DiscardCounts`)."""
         check = run_exists if run_exists is not None else _run_exists_now()
+        counts = self.drop_final_letters()
+        counts.merge(self._drop_letters(
+            lambda op, error: error == _NO_SUCH_RUN_LETTER and bool(op.get("run_ref")) and check(op) is False,
+            folders=("failed",),
+        ))
+        return counts
+
+    def _drop_letters(self, is_doomed: "Callable[[dict, str], bool]", *, folders: tuple[str, ...]) -> DiscardCounts:
+        """Move the dead letters ``is_doomed(op, last_error)`` picks, in each of every queue's
+        ``folders`` (relative to the queue), to its ``discarded/``."""
         counts = DiscardCounts()
         for queue in self.namespaces():
-            if queue.receipt_enabled or not queue.failed_dir.exists():
+            if queue.receipt_enabled:
                 continue
-            doomed: dict[Path, str] = {}
-            for path in sorted(queue.failed_dir.glob("*.json")):
-                op = _read_op_file(path)
-                if not isinstance(op, dict) or op.get(TAKEOVER_HOLD_KEY) is not None:
-                    continue
-                error = str(op.get("last_error") or "")
-                if _STALE_EPOCH_LETTER.match(error) or (
-                    error == _NO_SUCH_RUN_LETTER and op.get("run_ref") and check(op) is False
-                ):
-                    doomed[path] = error
-            if not doomed:
-                continue
-            target = queue._discard_dir()
-            moved = 0
-            with file_lock(queue.append_lock):
-                target.mkdir(parents=True, exist_ok=True, mode=0o700)
-                for path, error in doomed.items():
-                    op = _read_op_file(path)
-                    if not isinstance(op, dict) or str(op.get("last_error") or "") != error:
-                        continue  # retried, discarded or failed again meanwhile
-                    os.replace(path, target / path.name)
-                    counts.add(op)
-                    moved += 1
-                if moved:
-                    fsync_directory(target)
-                    fsync_directory(queue.failed_dir)
-                    queue._write_status_locked()
-                    queue._record_dead_letters()
+            for folder in folders:
+                queue._drop_letters_in(queue.dir / folder, is_doomed, counts)
         if counts.writes:
             self.gc_blobs()
         return counts
+
+    def _drop_letters_in(self, folder: Path, is_doomed: "Callable[[dict, str], bool]", counts: DiscardCounts) -> None:
+        """`_drop_letters` for one of this queue's dead-letter folders: picked unlocked, moved under
+        the append lock, skipping a letter retried, discarded or failed again meanwhile."""
+        doomed: dict[Path, str] = {}
+        for path in sorted(folder.glob("*.json")):
+            op = _read_op_file(path)
+            if not isinstance(op, dict) or op.get(TAKEOVER_HOLD_KEY) is not None:
+                continue
+            error = str(op.get("last_error") or "")
+            if is_doomed(op, error):
+                doomed[path] = error
+        if not doomed:
+            return
+        target = self._discard_dir()
+        moved = 0
+        with file_lock(self.append_lock):
+            target.mkdir(parents=True, exist_ok=True, mode=0o700)
+            for path, error in doomed.items():
+                op = _read_op_file(path)
+                if not isinstance(op, dict) or str(op.get("last_error") or "") != error:
+                    continue  # retried, discarded or failed again meanwhile
+                os.replace(path, target / path.name)
+                counts.add(op)
+                moved += 1
+            if moved:
+                fsync_directory(target)
+                fsync_directory(folder)
+                self._write_status_locked()
+                self._record_dead_letters()
 
     def _discard_dir(self) -> Path:
         """Where this queue's discards go: its own ``discarded/``, or for a credential queue the

@@ -1,5 +1,6 @@
 import jsonschema_rs
 import structlog
+from langgraph.errors import EmptyInputError, InvalidUpdateError
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -61,6 +62,21 @@ async def overloaded_error_handler(request, exc: ValueError):
     return await http_exception_handler(
         request, HTTPException(status_code=503, detail="Service Unavailable")
     )
+
+
+def app_exception_handlers() -> dict:
+    """The exception handlers shared by the server app and the operator routes."""
+    # Imported here because the runtime imports this module while it loads.
+    from langgraph_runtime.retry import OVERLOADED_EXCEPTIONS  # noqa: PLC0415
+
+    return {
+        HTTPException: http_exception_handler,
+        ValueError: value_error_handler,
+        InvalidUpdateError: value_error_handler,
+        EmptyInputError: value_error_handler,
+        jsonschema_rs.ValidationError: validation_error_handler,
+        RemoteException: remote_exception_handler,
+    } | {exc: overloaded_error_handler for exc in OVERLOADED_EXCEPTIONS}
 
 
 class UserInterrupt(Exception):

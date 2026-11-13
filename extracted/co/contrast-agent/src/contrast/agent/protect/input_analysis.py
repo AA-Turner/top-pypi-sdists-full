@@ -380,7 +380,7 @@ def check_url_input_exclusion(
         return False
 
     return exclusions.evaluate_input_exclusions_url(
-        exclusions, input_type, input_name, mode="defend"
+        exclusions, input_type, input_name, mode="protect"
     )
 
 
@@ -391,5 +391,5 @@ def check_param_input_exclusions(
         return False
 
     return exclusions.evaluate_input_exclusions(
-        exclusions, input_type, input_name, mode="defend"
+        exclusions, input_type, input_name, mode="protect"
     )

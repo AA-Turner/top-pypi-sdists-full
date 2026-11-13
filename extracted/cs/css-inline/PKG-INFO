@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: css-inline
-Version: 0.23.1
+Version: 0.24.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -32,7 +32,6 @@ Project-URL: repository, https://github.com/Stranger6667/css-inline
 [<img alt="versions" src="https://img.shields.io/pypi/pyversions/css_inline.svg?style=flat-square" height="20">](https://pypi.org/project/css_inline/)
 [<img alt="license" src="https://img.shields.io/pypi/l/css_inline.svg?style=flat-square" height="20">](https://opensource.org/licenses/MIT)
 [<img alt="codecov.io" src="https://img.shields.io/codecov/c/gh/Stranger6667/css-inline?logo=codecov&style=flat-square&token=tOzvV4kDY0" height="20">](https://app.codecov.io/github/Stranger6667/css-inline)
-[<img alt="gitter" src="https://img.shields.io/gitter/room/Stranger6667/css-inline?style=flat-square" height="20">](https://gitter.im/Stranger6667/css-inline)
 
 `css_inline` is a high-performance library for inlining CSS into HTML 'style' attributes.
 
@@ -92,10 +91,10 @@ PyPI ships pre-compiled wheels for:
 
 - Linux (glibc and musl): x86_64, aarch64, armv7; glibc also i686
 - macOS: x86_64, arm64
-- Windows: x64, x86
+- Windows: x64, x86, arm64
 - PyPy 3.11: Linux x86_64 and aarch64, macOS x86_64
 
-On other platforms, `pip` builds the package from source, which requires Rust 1.85 or newer.
+On other platforms, `pip` builds the package from source, which requires Rust 1.88 or newer.
 
 ## Usage
 

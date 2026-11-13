@@ -71,7 +71,12 @@ from ouroboros.orchestrator.frugality_runtime_attestation import (
     clear_attested_codex_child_environment,
     codex_cli_runtime_attestation,
 )
+from ouroboros.orchestrator.interview_session import (
+    InterviewSessionTransition,
+    interview_transition_digest,
+)
 from ouroboros.orchestrator.runtime_drift import DRIFT_EPOCH_UNKNOWN, RuntimeDriftLedger
+from ouroboros.orchestrator.runtime_model_errors import safe_retry_metadata
 from ouroboros.orchestrator.skill_tool_mapping import discover_skill_tool_mappings
 from ouroboros.orchestrator.tooling_guidance import render_tooling_guidance
 from ouroboros.providers.base import CompletionConfig
@@ -171,8 +176,6 @@ def _normalized_usage(obj: object) -> dict[str, int | float] | None:
         result[key] = value
     return result or None
 
-
-_INTERVIEW_SESSION_METADATA_KEY = "ouroboros_interview_session_id"
 
 _SAFE_SESSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 # Effort levels Codex's ``model_reasoning_effort`` config key accepts. Used to
@@ -1144,13 +1147,10 @@ class CodexCliRuntime:
         ]
         return self._hash_json_payload(payload)
 
-    def _fingerprint_skill_dispatcher(
-        self,
-        dispatcher: SkillDispatchHandler | None,
-    ) -> str:
-        """Fingerprint the process-local dispatch callable bound at startup."""
+    def _fingerprint_skill_dispatcher(self, dispatcher: SkillDispatchHandler | None) -> str:
+        """Fingerprint the bound callable or packaged transition implementation."""
         if dispatcher is None:
-            return "packaged"
+            return f"packaged:{interview_transition_digest()}"
         owner = getattr(dispatcher, "__self__", None)
         stable_identity = getattr(owner, "stable_identity_contract", None)
         if callable(stable_identity):
@@ -1670,22 +1670,8 @@ class CodexCliRuntime:
         intercept: Resolved,
         current_handle: RuntimeHandle | None,
     ) -> dict[str, Any]:
-        """Build the MCP argument payload for an intercepted skill."""
-        if intercept.mcp_tool != "ouroboros_interview" or current_handle is None:
-            return dict(intercept.mcp_args)
-
-        session_id = current_handle.metadata.get(_INTERVIEW_SESSION_METADATA_KEY)
-        if not isinstance(session_id, str) or not session_id.strip():
-            return dict(intercept.mcp_args)
-
-        # Resume turn: drop initial_context so InterviewHandler branches on
-        # session_id instead of starting a new interview.
-        arguments: dict[str, Any] = dict(intercept.mcp_args)
-        arguments.pop("initial_context", None)
-        arguments["session_id"] = session_id.strip()
-        if intercept.first_argument is not None:
-            arguments["answer"] = intercept.first_argument
-        return arguments
+        """Build arguments through the shared interview transition contract."""
+        return InterviewSessionTransition(intercept, current_handle).tool_arguments()
 
     def _build_resume_handle(
         self,
@@ -1693,33 +1679,13 @@ class CodexCliRuntime:
         intercept: Resolved,
         tool_result: Any,
     ) -> RuntimeHandle | None:
-        """Attach interview session metadata to the runtime handle."""
-        if intercept.mcp_tool != "ouroboros_interview":
-            return current_handle
-
-        session_id = tool_result.meta.get("session_id")
-        if not isinstance(session_id, str) or not session_id.strip():
-            if session_id is not None:
-                log.warning(
-                    "codex_cli_runtime.resume_handle.invalid_session_id",
-                    session_id_type=type(session_id).__name__,
-                    session_id_value=repr(session_id),
-                )
-            return current_handle
-
-        metadata = dict(current_handle.metadata) if current_handle is not None else {}
-        metadata[_INTERVIEW_SESSION_METADATA_KEY] = session_id.strip()
-        updated_at = datetime.now(UTC).isoformat()
-
-        if current_handle is not None:
-            return replace(current_handle, metadata=metadata, updated_at=updated_at)
-
-        return RuntimeHandle(
+        """Retain session-local interview state through the shared transition."""
+        return InterviewSessionTransition(intercept, current_handle).resume_handle(
+            tool_result.meta,
             backend=self.runtime_backend,
             cwd=self.working_directory,
             approval_mode=self.permission_mode,
-            updated_at=updated_at,
-            metadata=metadata,
+            log_namespace="codex_cli_runtime",
         )
 
     async def _dispatch_skill_intercept_locally(
@@ -2255,9 +2221,9 @@ class CodexCliRuntime:
         process: Any,
         *,
         process_group_id: int | None = None,
-    ) -> None:
-        """Best-effort subprocess shutdown used when task consumption is cancelled."""
-        await terminate_runtime_process(
+    ) -> bool:
+        """Shut down the subprocess and report whether its tree is confirmed gone."""
+        return await terminate_runtime_process(
             process,
             shutdown_timeout=self._process_shutdown_timeout_seconds,
             logger=log,
@@ -2266,6 +2232,7 @@ class CodexCliRuntime:
             terminate_process_group=self._use_process_group,
             process_group_id=process_group_id,
             workspace=self._cwd,
+            require_owned_tree=True,
         )
 
     async def _close_process_stdin(self, process: Any) -> None:
@@ -2370,11 +2337,17 @@ class CodexCliRuntime:
         process_returncode = getattr(process, "returncode", None)
         if process_returncode is not None:
             control_state["returncode"] = process_returncode
-            control_state["runtime_status"] = "completed" if process_returncode == 0 else "failed"
+            if control_state.get("runtime_status") != "termination_unconfirmed":
+                control_state["runtime_status"] = (
+                    "completed" if process_returncode == 0 else "failed"
+                )
             return False
 
         control_state["runtime_status"] = "terminating"
-        await self._terminate_process(process)
+        confirmed = await self._terminate_process(process)
+        if not confirmed:
+            control_state["runtime_status"] = "termination_unconfirmed"
+            return False
 
         process_returncode = getattr(process, "returncode", None)
         control_state["terminated"] = True
@@ -2428,7 +2401,11 @@ class CodexCliRuntime:
                 metadata=metadata,
             )
 
-        if control_state.get("returncode") is None and control_state.get("terminated") is not True:
+        if (
+            control_state.get("returncode") is None
+            and control_state.get("terminated") is not True
+            and control_state.get("runtime_status") != "termination_unconfirmed"
+        ):
             control_state["runtime_status"] = effective_handle.lifecycle_state
 
         async def _observe(_handle: RuntimeHandle) -> dict[str, Any]:
@@ -3716,7 +3693,9 @@ class CodexCliRuntime:
                 data={
                     "subtype": "error",
                     "error_type": type(e).__name__,
-                    **self._build_resume_retry_metadata(attempted_resume_session_id),
+                    **safe_retry_metadata(
+                        e, self._build_resume_retry_metadata(attempted_resume_session_id)
+                    ),
                 },
                 resume_handle=current_handle,
             )
@@ -3936,8 +3915,11 @@ class CodexCliRuntime:
                         yield message
 
         except TimeoutError as e:
+            termination_confirmed = False
             if process is not None and control_state is not None:
-                await self._terminate_bound_runtime_handle(process, control_state)
+                termination_confirmed = await self._terminate_bound_runtime_handle(
+                    process, control_state
+                )
                 current_handle = self._bind_runtime_handle_controls(
                     current_handle,
                     process=process,
@@ -3949,10 +3931,14 @@ class CodexCliRuntime:
                 stderr_lines = await stderr_task
             final_message = "\n".join(stderr_lines).strip()
             if not final_message:
-                final_message = f"{self._display_name} became unresponsive and was terminated: {e}"
+                cleanup = (
+                    "was terminated" if termination_confirmed else "termination was not confirmed"
+                )
+                final_message = f"{self._display_name} became unresponsive; {cleanup}: {e}"
             data = {
                 "subtype": "error",
                 "error_type": type(e).__name__,
+                "termination_confirmed": termination_confirmed,
             }
             data.update(self._build_resume_retry_metadata(attempted_resume_session_id))
             yield AgentMessage(
@@ -3965,22 +3951,27 @@ class CodexCliRuntime:
         except asyncio.CancelledError:
             if process is not None:
                 log.warning(f"{self._log_namespace}.task_cancelled", cwd=self._cwd)
-                await self._terminate_process(process, process_group_id=process_group_id)
+                confirmed = await self._terminate_process(
+                    process, process_group_id=process_group_id
+                )
                 process_terminated = True
                 if control_state is not None:
-                    control_state["terminated"] = True
+                    control_state["terminated"] = confirmed
                     control_state["returncode"] = getattr(process, "returncode", None)
-                    control_state["runtime_status"] = "terminated"
+                    control_state["runtime_status"] = (
+                        "terminated" if confirmed else "termination_unconfirmed"
+                    )
             raise
         else:
             # Normal completion path — stdout stream finished without timeout.
             returncode = await process.wait()
             process_finished = True
             control_state["returncode"] = returncode
-            if control_state.get("terminated") is True and returncode < 0:
-                control_state["runtime_status"] = "terminated"
-            else:
-                control_state["runtime_status"] = "completed" if returncode == 0 else "failed"
+            if control_state.get("runtime_status") != "termination_unconfirmed":
+                if control_state.get("terminated") is True and returncode < 0:
+                    control_state["runtime_status"] = "terminated"
+                else:
+                    control_state["runtime_status"] = "completed" if returncode == 0 else "failed"
             current_handle = self._bind_runtime_handle_controls(
                 current_handle,
                 process=process,
@@ -4079,7 +4070,14 @@ class CodexCliRuntime:
                     and not process_terminated
                     and getattr(process, "returncode", None) is None
                 ):
-                    await self._terminate_process(process, process_group_id=process_group_id)
+                    confirmed = await self._terminate_process(
+                        process, process_group_id=process_group_id
+                    )
+                    if control_state is not None:
+                        control_state["terminated"] = confirmed
+                        control_state["runtime_status"] = (
+                            "terminated" if confirmed else "termination_unconfirmed"
+                        )
                 elif process_finished:
                     await self._cleanup_completed_process_group(process, process_group_id)
                 await self._close_process_stdin(process)

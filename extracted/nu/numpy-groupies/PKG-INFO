@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numpy-groupies
-Version: 0.16.5
+Version: 0.16.6
 Summary: Optimised tools for group-indexing operations: aggregated sum and more.
 Author-email: Michael Löffler <ml@occam.com.ua>, Daniel Manson <danielmanson.uk@gmail.com>
 Maintainer-email: Deepak Cherian <dcherian@ucar.edu>
@@ -82,7 +82,7 @@ Group 2 never occurs in `group_idx`, so its slot is filled with `fill_value`.
 - **One call, many functions.** The usual reductions plus `median`, `quantile`/`percentile`, `skew`/`kurt`, `sort` (ascending or descending), `topk` (the k largest values of each group), `mode` (the most frequent value of each group), `trapezoid`, the cumulative `cumsum`/`cumprod`/`cummin`/`cummax`, `argmin`/`argmax`, `array` (collect the members of each group) and any custom callable. Every reduction has a `nan…` variant - the `topk` and the `mode` have none, their missing values are in no selection.
 - **Array in, array out.** Plain NumPy arrays, no DataFrame and no index. The result is an array indexed by group label, with empty groups filled with the value you choose. Multi-dimensional output (N-D binning) and aggregation along an `axis` are built in.
 - **Usable inside your own jitted code.** Every Numba kernel is `@njit`-callable, so group statistics can sit inside your own compiled loops.
-- **Numerically careful.** Integer sums, means and variances accumulate in a dtype wide enough not to wrap around, NaN handling follows NumPy, and complex and `float16` input are supported.
+- **Numerically careful.** Integer sums, running sums and variances accumulate in a dtype wide enough not to wrap around (the ladder widens to 32, then 64 bits, and never across the sign), products and squared sums land in the wide accumulator of the input's own sign (`int64` signed, `uint64` unsigned - `int64` and `uint64` input wrap like numpy's own), NaN handling follows NumPy, and complex and `float16` input are supported. The pure-Python implementation accumulates in Python numbers, which do not wrap: the sums and products of values at the end of the ladder are exact there where the NumPy and the Numba implementation wrap like numpy's own.
 - **Light on dependencies.** NumPy is the only requirement; Numba is optional and only makes things faster. A pure-Python implementation is included as a fallback.
 
 ## Installation
@@ -126,7 +126,7 @@ npg.aggregate(np.array([0, 1, 0, 1, 0]), np.array([1, 2, 3, 4, 5]), func="cumsum
 **Custom functions.** Any callable works. Non-numeric output needs `dtype=object`, and since the default fill value of a custom function cannot be guessed, give one explicitly. Use the NumPy implementation for this: Numba can only compile numeric functions, so with Numba installed the plain `aggregate` fails on the string example below — and it compiles *functions*, so a callable object (a `functools.partial`, a dataclass with `__call__`) is for the NumPy implementation as well.
 
 ```python
-import numpy_groupies.aggregate_numpy as npg
+import numpy_groupies.npg_numpy as npg
 
 group_idx = np.array([1, 0, 1, 4, 1])
 a = np.array([12.0, 3.2, -15, 88, 12.9])
@@ -139,7 +139,7 @@ npg.aggregate(group_idx, a, func=lambda x: " or ".join(map(str, x)), fill_value=
 ```python
 import numba as nb
 import numpy as np
-import numpy_groupies.aggregate_numba as npg
+import numpy_groupies.npg_numba as npg
 
 @nb.njit
 def zscore(group_idx, a):
@@ -236,7 +236,7 @@ npg.quantile(group_idx, a, q=0.9)   # the same as func="quantile", q=0.9
 The same names are the attributes of the module of every implementation, so an implementation can be chosen and used the same way:
 
 ```python
-import numpy_groupies.aggregate_numpy as npg
+import numpy_groupies.npg_numpy as npg
 npg.mean(group_idx, a)              # the numpy implementation
 ```
 
@@ -273,9 +273,9 @@ npg.purge_cache()   # the compiled kernels are gone, the next call compiles them
 `from numpy_groupies import aggregate` picks the best available implementation: **numba** if installed, otherwise **numpy**. Every implementation is a module of its own, and it is called through its `aggregate` — its functions are its attributes as well:
 
 ```python
-import numpy_groupies.aggregate_numba as npg   # numba
-import numpy_groupies.aggregate_numpy as npg   # numpy
-import numpy_groupies.aggregate_purepy as npg  # pure python
+import numpy_groupies.npg_numba as npg   # numba
+import numpy_groupies.npg_numpy as npg   # numpy
+import numpy_groupies.npg_purepy as npg  # pure python
 
 npg.aggregate(group_idx, a, func="mean")  # the aggregate of that implementation
 npg.mean(group_idx, a)                    # one of its functions
@@ -291,6 +291,12 @@ from numpy_groupies import aggregate_np as aggregate  # numpy
 from numpy_groupies import aggregate_py as aggregate  # pure python
 ```
 
+The modules had their names before as well, and the package still carries them: `aggregate_numpy` is `npg_numpy`, `aggregate_numba` is `npg_numba` and `aggregate_purepy` is `npg_purepy`.
+
+```python
+from numpy_groupies import aggregate_numpy as npg  # the same as npg_numpy
+```
+
 All implementations share the calling syntax and produce the same results up to floating-point error, but some support only a subset of functions and raise `NotImplementedError` otherwise.
 
 | Implementation | Needs        | Notes |
@@ -302,7 +308,7 @@ All implementations share the calling syntax and produce the same results up to 
 | pandas         | numpy, pandas | For benchmarking only: wraps `groupby` (in `numpy_groupies.benchmarks`). Skips NaN even in the plain functions (except `median`, `quantile`, `cumsum`). |
 | polars         | numpy, polars | For benchmarking only: wraps `group_by` (in `numpy_groupies.benchmarks`). |
 
-> **Gotchas:** with Numba installed, custom callables must be Numba-compilable (numeric code). For the cases that are not, call the NumPy implementation: `import numpy_groupies.aggregate_numpy as npg`, then `npg.aggregate(group_idx, a, func=my_callable)`.
+> **Gotchas:** with Numba installed, custom callables must be Numba-compilable (numeric code). For the cases that are not, call the NumPy implementation: `import numpy_groupies.npg_numpy as npg`, then `npg.aggregate(group_idx, a, func=my_callable)`.
 
 ## Performance
 

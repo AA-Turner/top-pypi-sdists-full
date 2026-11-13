@@ -4,31 +4,31 @@
 """
 REST envelopes and write-request types for the target endpoints.
 
-Canonical target catalog types (``TargetInstance``) live in
+The canonical target instance type (``TargetInstance``) lives in
 ``pyrit.models.catalog.target`` and should be imported from there directly.
 """
 
-from typing import Literal
+from pydantic import BaseModel, Field, model_validator
 
-from pydantic import BaseModel, Field
-
-from pyrit.backend.models.common import PaginationInfo
-from pyrit.models import JSONValue, Parameter
-from pyrit.models.catalog.target import TargetInstance
+from pyrit.backend.models.common import MAX_ITEMS, REGISTRY_INSTANCE_NAME_PATTERN, IdentifierStr, PaginationInfo
+from pyrit.common import AuthMode
+from pyrit.models import JSONValue, Parameter, TargetCapabilities, TargetIdentifier
+from pyrit.models.catalog import TargetInstance
+from pyrit.models.component_spec import SourceInstanceSpec
 
 __all__ = [
     "CreateTargetRequest",
-    "TargetCatalogEntry",
-    "TargetCatalogResponse",
     "TargetListResponse",
+    "TargetTypeEntry",
+    "TargetTypeResponse",
 ]
 
 
-def _default_auth_modes() -> list[Literal["api_key", "identity"]]:
+def _default_auth_modes() -> list[AuthMode]:
     return ["api_key"]
 
 
-class TargetCatalogEntry(BaseModel):
+class TargetTypeEntry(BaseModel):
     """A target type available from the backend registry."""
 
     target_type: str = Field(..., description="Target class name (e.g., 'OpenAIChatTarget')")
@@ -36,17 +36,17 @@ class TargetCatalogEntry(BaseModel):
         default_factory=list,
         description="Constructor parameters for dynamic form generation",
     )
-    supported_auth_modes: list[Literal["api_key", "identity"]] = Field(
+    supported_auth_modes: list[AuthMode] = Field(
         default_factory=_default_auth_modes,
         description="Authentication modes this target type supports",
     )
     description: str | None = Field(None, description="Short description of the target from its docstring")
 
 
-class TargetCatalogResponse(BaseModel):
+class TargetTypeResponse(BaseModel):
     """Response for listing available target types from the registry."""
 
-    items: list[TargetCatalogEntry] = Field(..., description="List of available target types")
+    items: list[TargetTypeEntry] = Field(..., description="List of available target types")
 
 
 class TargetListResponse(BaseModel):
@@ -59,15 +59,41 @@ class TargetListResponse(BaseModel):
 class CreateTargetRequest(BaseModel):
     """Request to create a new target instance."""
 
-    type: str = Field(..., description="Target type (e.g., 'OpenAIChatTarget')")
-    params: dict[str, JSONValue] = Field(default_factory=dict, description="Target constructor parameters")
-    auth_mode: Literal["api_key", "identity"] = Field(
+    # LEGACY COMPATIBILITY: The current target configuration UI does not send a
+    # name. Make this field required after that UI sends explicit registry names.
+    name: str | None = Field(
+        None,
+        min_length=1,
+        pattern=REGISTRY_INSTANCE_NAME_PATTERN,
+        description="Unique registry name; omitted only for legacy UI compatibility",
+    )
+    register: bool = Field(True, description="Register the object; false returns only its descriptor")
+    source: SourceInstanceSpec | None = None
+    type: IdentifierStr = Field(..., description="Target type (e.g., 'OpenAIChatTarget')")
+    params: dict[IdentifierStr, JSONValue] = Field(
+        default_factory=dict, max_length=MAX_ITEMS, description="Target constructor parameters"
+    )
+    auth_mode: AuthMode = Field(
         "api_key",
         description=(
             "Authentication mode. 'api_key' uses the api_key in params (default). "
             "'identity' omits the key so the target authenticates itself via an ambient "
             "Azure identity (Entra ID token or DefaultAzureCredential); requires an Azure "
             "endpoint and is supported by OpenAI-family targets, AzureMLChatTarget, "
-            "AzureBlobStorageTarget, and PromptShieldTarget."
+            "AzureBlobStorageTarget, and PromptShieldTarget. 'none' reads no key and sends a fixed "
+            "placeholder, for OpenAI-compatible servers that need no key; supported by OpenAI-family targets."
         ),
     )
+
+    @model_validator(mode="after")
+    def _validate_source(self) -> "CreateTargetRequest":
+        if self.source is not None and (self.register or self.params or "auth_mode" in self.model_fields_set):
+            raise ValueError("source requires register=false and overrides, including auth_mode, in source.params")
+        return self
+
+
+class UnregisteredTarget(BaseModel):
+    """A constructed target descriptor with no registry key or object handle."""
+
+    identifier: TargetIdentifier
+    capabilities: TargetCapabilities

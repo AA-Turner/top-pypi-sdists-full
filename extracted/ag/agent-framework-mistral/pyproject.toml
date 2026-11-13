@@ -3,7 +3,7 @@ name = "agent-framework-mistral"
 description = "Mistral AI integration for Microsoft Agent Framework."
 readme = "README.md"
 requires-python = ">=3.11"
-version = "1.0.0b261106"
+version = "1.0.0b261112"
 license-files = ["LICENSE"]
 classifiers = [
     "License :: OSI Approved :: MIT License",
@@ -20,7 +20,8 @@ classifiers = [
 ]
 dependencies = [
     "agent-framework-core>=1.24.0,<2",
-    "mistralai>=2.9.2,<3",
+    "httpx>=0.28.1,<1",
+    "mistralai>=2.9.2,<4",
 ]
 
 [[project.authors]]

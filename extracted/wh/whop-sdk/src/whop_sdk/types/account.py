@@ -28,6 +28,7 @@ from .account_tax_remitted_by import AccountTaxRemittedBy
 from .account_tax_type import AccountTaxType
 from .account_three_ds_level import AccountThreeDsLevel
 from .account_wallet import AccountWallet
+from .checkout_session_payment_method_configuration import CheckoutSessionPaymentMethodConfiguration
 from .file import File
 from .money import Money
 from .trading_account import TradingAccount
@@ -58,12 +59,12 @@ class Account(UniversalBaseModel):
 
     business_type: typing.Optional[str] = pydantic.Field(default=None)
     """
-    High-level business category for the account. See the [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary) for valid values.
+    High-level business category for the account. See the [business types and industries glossary](/api-reference/accounts/account#business-types-and-industries-glossary) for valid values.
     """
 
     can_transfer_pending_balance_to_children: bool = pydantic.Field()
     """
-    Whether pending funds may be transferred from this platform account to its connected accounts.
+    Whether pending funds may be transferred from this platform account to its subaccounts.
     """
 
     cancellation_policy: typing.Optional[File] = pydantic.Field(default=None)
@@ -88,7 +89,7 @@ class Account(UniversalBaseModel):
 
     company_formation: AccountCompanyFormation = pydantic.Field()
     """
-    Company formation state for the account, managed through [Form Company](/api-reference/beta/accounts/form-company). A `draft` `status` until the formation checkout is paid, then filing progress with downloadable documents and signatures awaiting action. Empty when the formation state is temporarily unavailable.
+    Company formation state for the account, managed through [Form Company](/api-reference/accounts/form-company). A `draft` `status` until the formation checkout is paid, then filing progress with downloadable documents and signatures awaiting action. Empty when the formation state is temporarily unavailable.
     """
 
     country: typing.Optional[str] = pydantic.Field(default=None)
@@ -123,7 +124,7 @@ class Account(UniversalBaseModel):
 
     economic_intelligence: bool = pydantic.Field()
     """
-    Whether Economic Intelligence is on for the account. It turns off automatically when its committed period ends.
+    Whether Economic Intelligence is on for the account. It turns off automatically when its committed period ends. While it is off, the account can't activate an experiment or run a recommendation.
     """
 
     email: typing.Optional[str] = pydantic.Field(default=None)
@@ -136,9 +137,19 @@ class Account(UniversalBaseModel):
     The account's end-user license agreement document, or `null` if they have not published one.
     """
 
+    external_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The parent platform's own identifier for this subaccount, unique among the platform's subaccounts. `null` when unset.
+    """
+
     financing: typing.Optional[AccountFinancing] = pydantic.Field(default=None)
     """
     The account's most recent financing application. Computed only on `retrieve` and `me` for callers with `company:balance:read` scope; `null` otherwise, or when the account has never applied for financing.
+    """
+
+    funds_release_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    When a suspended account can pay out its balance to its own payout method, as an ISO 8601 timestamp. A dispute can move it later. Computed on `retrieve`, `me`, and `suspend`; `null` otherwise, when `status` is not `suspended`, and when the suspension holds the balance.
     """
 
     home_preferences: typing.List[AccountHomePreferencesItem]
@@ -149,7 +160,7 @@ class Account(UniversalBaseModel):
 
     industry_type: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Specific industry vertical for the account. See the [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary) for valid values.
+    Specific industry vertical for the account. See the [business types and industries glossary](/api-reference/accounts/account#business-types-and-industries-glossary) for valid values.
     """
 
     invoice_prefix: typing.Optional[str] = pydantic.Field(default=None)
@@ -209,7 +220,7 @@ class Account(UniversalBaseModel):
 
     parent_account: typing.Optional[AccountParent] = pydantic.Field(default=None)
     """
-    Parent account for connected accounts, or `null` for standalone accounts.
+    Parent account for subaccounts, or `null` for standalone accounts.
     """
 
     partner: typing.Optional[AccountPartner] = pydantic.Field(default=None)
@@ -220,6 +231,13 @@ class Account(UniversalBaseModel):
     payment_controls: typing.Optional[AccountPaymentControls] = pydantic.Field(default=None)
     """
     Payment health controls currently applied to the account. Computed only on `retrieve` and `me` for callers with `company:balance:read` scope; `null` otherwise.
+    """
+
+    payment_method_configuration: typing.Optional[CheckoutSessionPaymentMethodConfiguration] = pydantic.Field(
+        default=None
+    )
+    """
+    The account's default payment methods at checkout. A variant's or checkout configuration's own `payment_method_configuration` takes precedence. `null` when the account uses Whop's platform defaults.
     """
 
     platform_credits: typing.List[Money]
@@ -311,7 +329,7 @@ class Account(UniversalBaseModel):
     tax_identifiers: typing.List[AccountTaxIdentifier]
     tax_remitted_by: typing.Optional[AccountTaxRemittedBy] = pydantic.Field(default=None)
     """
-    Who calculates and remits tax for the account: `whop` (Whop calculates and remits), `self` (Whop calculates; the account collects and remits), or `none` (neither; the account is responsible). `null` until the account enrolls in the Whop tax service.
+    Who calculates and remits tax for the account. `whop` means Whop calculates and remits. `self` means Whop calculates, and the account collects and remits. `none` means neither, and the account is responsible. New businesses start on `whop`, and new connected accounts start on `none`. `null` means the account has no setting yet.
     """
 
     tax_type: typing.Optional[AccountTaxType] = pydantic.Field(default=None)
@@ -346,7 +364,7 @@ class Account(UniversalBaseModel):
 
     trading: typing.Optional[TradingAccount] = pydantic.Field(default=None)
     """
-    The trading account address and its WebSocket subscriptions. Opt in with `include_trading=true` on single-account reads. `null` otherwise, without trading permission, or without an Ethereum wallet.
+    The trading account address, a snapshot of its margin and open positions, and its WebSocket subscriptions. Opt in with `include_trading=true` on single-account reads. `null` otherwise, without trading permission, or without an Ethereum wallet.
     """
 
     use_logo_as_opengraph_image_fallback: bool = pydantic.Field()

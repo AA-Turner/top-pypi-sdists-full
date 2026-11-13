@@ -82,11 +82,11 @@ async def cron_scheduler():
                     ):
                         logger.debug(f"Scheduling cron run {cron}")
                         try:
-                            cron_id = None
+                            cron_id = str(cron["cron_id"])
                             if run_payload.get("context"):
                                 # Cron persistence and set_auth_ctx_for_run write these into configurable, which create_valid_run rejects next to context.
                                 configurable = run_payload["config"]["configurable"]
-                                cron_id = configurable.pop("cron_id", None)
+                                configurable.pop("cron_id", None)
                                 configurable.pop("langgraph_auth_user", None)
                             run = await create_valid_run(
                                 conn,

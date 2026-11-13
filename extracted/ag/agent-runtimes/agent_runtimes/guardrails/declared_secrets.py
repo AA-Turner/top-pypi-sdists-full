@@ -92,6 +92,10 @@ RESERVED_PREFIXES: Tuple[str, ...] = (
     "AGENT_",
     # AgentCore Runtime's own (AGENTCORE_PORT, AGENTCORE_WORKLOAD_NAME, AGENTCORE_OAUTH_RETURN_URL).
     "AGENTCORE_",
+    # kagent's (KAGENT_CONFIG_PATH, KAGENT_BOOTSTRAP_JSON, the bridge's KAGENT_BRIDGE_*).
+    "KAGENT_",
+    # Agent Substrate's (ATE_PORT, ATE_SYSTEM_INFO_DIR, ATE_TRUST_BUNDLE).
+    "ATE_",
     "RUNTIME_",
     "RUNTIMES_",
     "LOOP_",
@@ -202,7 +206,8 @@ class ReservedSecretName(ValueError):
 
 def on_a_deployment(app_instance: Optional[Mapping[str, Any]] = None) -> bool:
     """Whether reserved names are refused here: what is read is for a deployment,
-    wherever it is read, or this runtime was launched for one or serves one."""
+    wherever it is read, or this runtime was launched for one or serves one.
+    """
     if str((app_instance or {}).get("deployment_uid") or "").strip():
         return True
     from agent_runtimes.apps.principal import a_deployment_is_served, launched_for
@@ -317,7 +322,8 @@ def _catalog_server(server_id: str) -> Any:
 
 def as_the_catalogue_wrote_it(server_id: str, server: Any) -> bool:
     """Whether a server is the catalogue's own: a spec carries its copy, and
-    a copy pointed elsewhere under its id is the spec's."""
+    a copy pointed elsewhere under its id is the spec's.
+    """
     catalogue = _catalog_server(server_id)
     return catalogue is not None and all(
         _get(server, key) == _get(catalogue, key)

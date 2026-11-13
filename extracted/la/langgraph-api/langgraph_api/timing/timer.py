@@ -221,10 +221,24 @@ def combine_lifespans(
 ) -> Callable[[Starlette], AbstractAsyncContextManager]:
     @contextlib.asynccontextmanager
     async def combined_lifespan(app):
+        from langgraph_api.timing import startup as startup_status  # noqa: PLC0415
+
+        startup_status.set_phase("entering_lifespan")
         async with contextlib.AsyncExitStack() as stack:
+            # Runtime lifespan is always first; any later lifespan is the
+            # user custom app. Advance the phase before each enter so a
+            # stall in the custom app is not blamed on the last graph.
+            entered = 0
             for ls in lifespans:
-                if ls is not None:
-                    await stack.enter_async_context(ls(app))
+                if ls is None:
+                    continue
+                if entered == 0:
+                    startup_status.set_phase("entering_runtime_lifespan")
+                else:
+                    startup_status.set_phase("entering_custom_app_lifespan")
+                entered += 1
+                await stack.enter_async_context(ls(app))
+            startup_status.mark_ready()
             elapsed = get_startup_elapsed()
             logger.info(f"Application started up in {elapsed:2.3f}s", elapsed=elapsed)
             yield

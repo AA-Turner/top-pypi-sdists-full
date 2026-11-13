@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: superdoc-sdk
-Version: 2.27.0
+Version: 2.28.0
 Summary: Python SDK for SuperDoc, to read and edit .docx files from Python.
 Author: SuperDoc
 License-Expression: AGPL-3.0
 Requires-Python: >=3.9
-Requires-Dist: superdoc-sdk-cli-darwin-arm64==2.27.0; platform_system == "Darwin" and (platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "ARM64")
-Requires-Dist: superdoc-sdk-cli-darwin-x64==2.27.0; platform_system == "Darwin" and (platform_machine == "x86_64" or platform_machine == "AMD64" or platform_machine == "amd64")
-Requires-Dist: superdoc-sdk-cli-linux-x64==2.27.0; platform_system == "Linux" and (platform_machine == "x86_64" or platform_machine == "AMD64" or platform_machine == "amd64")
-Requires-Dist: superdoc-sdk-cli-linux-arm64==2.27.0; platform_system == "Linux" and (platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "ARM64")
-Requires-Dist: superdoc-sdk-cli-windows-x64==2.27.0; platform_system == "Windows" and (platform_machine == "x86_64" or platform_machine == "AMD64" or platform_machine == "amd64")
+Requires-Dist: superdoc-sdk-cli-darwin-arm64==2.28.0; platform_system == "Darwin" and (platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "ARM64")
+Requires-Dist: superdoc-sdk-cli-darwin-x64==2.28.0; platform_system == "Darwin" and (platform_machine == "x86_64" or platform_machine == "AMD64" or platform_machine == "amd64")
+Requires-Dist: superdoc-sdk-cli-linux-x64==2.28.0; platform_system == "Linux" and (platform_machine == "x86_64" or platform_machine == "AMD64" or platform_machine == "amd64")
+Requires-Dist: superdoc-sdk-cli-linux-arm64==2.28.0; platform_system == "Linux" and (platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "ARM64")
+Requires-Dist: superdoc-sdk-cli-windows-x64==2.28.0; platform_system == "Windows" and (platform_machine == "x86_64" or platform_machine == "AMD64" or platform_machine == "amd64")

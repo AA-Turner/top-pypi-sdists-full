@@ -50,7 +50,7 @@ class ConnectorSlot:
         return ToolCallClient(
             self.connector_name,
             credentials_name=self.credentials_name,
-            run_as=self.run_as.value if self.run_as_explicit else None,
+            run_as=self.run_as if self.run_as_explicit else None,
         )
 
     def to_metadata(self) -> dict[str, Any]:

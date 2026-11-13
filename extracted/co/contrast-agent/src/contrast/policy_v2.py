@@ -49,6 +49,10 @@ def definitions() -> list[PolicyDefinition]:
     return (
         cmd_exec
         + file_open
+        + file_delete
+        + file_move
+        + file_permissions
+        + nosql
         + authn
         + authz
         + outbound_request
@@ -138,6 +142,59 @@ file_open: list[PolicyDefinition] = [
             "flags": "flags",
             "dbm": True,
         },
+    },
+]
+
+file_delete: list[PolicyDefinition] = [
+    {
+        "module": "os",
+        "method_names": ["remove", "unlink", "rmdir", "removedirs"],
+        "event": {"name": "file-delete"},
+    },
+    {
+        "module": "shutil",
+        "method_names": ["rmtree"],
+        "event": {"name": "file-delete"},
+    },
+]
+
+file_move: list[PolicyDefinition] = [
+    {
+        "module": "os",
+        "method_names": ["rename", "replace", "renames"],
+        "event": {"name": "file-move"},
+    },
+    {
+        "module": "shutil",
+        "method_names": ["move"],
+        "event": {"name": "file-move"},
+    },
+]
+
+file_permissions: list[PolicyDefinition] = [
+    {
+        "module": "os",
+        "method_names": ["chmod", "chown", "lchown"],
+        "event": {"name": "file-permissions"},
+    },
+    {
+        "module": "shutil",
+        "method_names": ["chown"],
+        "event": {"name": "file-permissions"},
+    },
+]
+
+nosql: list[PolicyDefinition] = [
+    {
+        "module": "pymongo.collection",
+        "method_names": [
+            "Collection.find",
+            "Collection.insert_one",
+            "Collection.insert_many",
+            "Collection._delete_retryable",
+            "Collection._update_retryable",
+        ],
+        "event": {"name": "nosql"},
     },
 ]
 

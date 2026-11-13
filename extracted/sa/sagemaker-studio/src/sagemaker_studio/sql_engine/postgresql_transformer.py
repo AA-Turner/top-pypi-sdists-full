@@ -5,6 +5,8 @@ from .database_transformer import DatabaseTransformer
 
 class PostgreSQLTransformer(DatabaseTransformer):
 
+    supports_row_limit = True  # PostgreSQL accepts a trailing "LIMIT n"
+
     @classmethod
     def get_dialect(cls) -> Optional[str]:
         return "postgres"

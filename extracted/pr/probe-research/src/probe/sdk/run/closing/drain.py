@@ -108,12 +108,15 @@ class CloseDrainMixin:
 
     def _drain_until(
         self, drain_deadline: float, *, strict: bool
-    ) -> tuple[list, list, int, bool]:
+    ) -> tuple[list, list, list, int, bool]:
         """Deliver THIS run's ops until none is left or ``drain_deadline``.
 
-        Returns ``(pending, dead, delivered, auth_blocked)``: this run's
-        blocking ops still queued, its dead letters, how many ops the loop
-        delivered, and whether it stopped on a refused credential.
+        Returns ``(pending, dead, set_aside, delivered, auth_blocked)``: this
+        run's blocking ops still queued, its dead letters a retry may deliver,
+        this attempt's writes the server refuses for good (the run in the
+        trash, a newer attempt owning it: `RunOps.set_aside`; they never land
+        either), how many ops the loop delivered, and whether it stopped on a
+        refused credential.
 
         Grown from PR #1679's ``_barrier_drain_with_retry`` (Mahit), which gave
         the old one-attempt hard barrier a bounded retry: a two-second blip --
@@ -156,6 +159,7 @@ class CloseDrainMixin:
         from ....foundation.durable import durable
 
         mine = self._client.journal.run_ops(self.id)
+        this_attempt = self._client.journal.run_ops(self.id, min_epoch=self.write_epoch)
         # Writes of this run queued under ANOTHER credential (#2035) sit in
         # their own queue, where this process cannot deliver them and this
         # queue's order cannot see them. Counted, never waited on: a close is
@@ -175,15 +179,16 @@ class CloseDrainMixin:
             except Exception:  # noqa: BLE001 -- drain records last_error itself
                 pass
             pending = mine.pending()
-            dead = mine.failed()
+            dead = mine.get_refused()
+            set_aside = this_attempt.set_aside()
             auth_blocked = report is not None and report.auth_blocked
             if not pending:
-                return elsewhere.pending(), dead, delivered, auth_blocked
-            if (strict and dead) or auth_blocked:
-                return pending, dead, delivered, auth_blocked
+                return elsewhere.pending(), dead, set_aside, delivered, auth_blocked
+            if (strict and (dead or set_aside)) or auth_blocked:
+                return pending, dead, set_aside, delivered, auth_blocked
             left = drain_deadline - time.monotonic()
             if left <= 0:
-                return pending, dead, delivered, False
+                return pending, dead, set_aside, delivered, False
             if report is not None and report.lock_busy:
                 # Already waited on the lock; its holder may be delivering ours.
                 continue
@@ -217,16 +222,18 @@ class CloseDrainMixin:
         from ...delivery.outbox.waiter.scan import count_run, worker_queues
 
         queued = count_run(worker_queues(self._client.journal), self.id, min_epoch=self.write_epoch)
-        # Refused writes already in failed/ ride the close's accounting (probe_finish.dead_lettered).
+        # Refused writes already in failed/ ride the close's accounting (probe_finish.dead_lettered),
+        # and the ones refused for good the count just found (probe_finish.set_aside).
         accounting = self._count_close_accounting(
-            self._client.journal.run_ops(self.id).failed()
-            + self._client.journal.run_ops_elsewhere(self.id).failed()
+            self._client.journal.run_ops(self.id).get_refused()
+            + self._client.journal.run_ops_elsewhere(self.id).get_refused(),
+            set_aside=queued.set_aside,
         )
         # Best-effort writes count while in line (the exit span lands before the close): waited for,
-        # never a reason to raise (one that fails is set aside at once). Refused or held writes send
-        # the close through the waiter too, so the outcome says what is missing.
+        # never a reason to raise (one that fails is set aside at once). Refused, set-aside or held
+        # writes send the close through the waiter too, so the outcome says what is missing.
         left = queued.pending + queued.held + queued.best_effort + len(stuck)
-        if not verdict_sent and not (left or queued.failed):
+        if not verdict_sent and not (left or queued.failed or queued.set_aside):
             row = self._close_now(status, summary, accounting, should_warn, deadline)
             if row is not None:
                 return row
@@ -362,7 +369,7 @@ class CloseDrainMixin:
         from .stored import wait_for_stored_data
 
         stored = wait_for_stored_data(
-            self._read_fresh_row, row, run_ref=self.id, write_epoch=self.write_epoch, deadline=wait_limit
+            self._fetch_row_unless_gone, row, run_ref=self.id, write_epoch=self.write_epoch, deadline=wait_limit
         )
         return stored if isinstance(stored, dict) else self._data
 
@@ -376,12 +383,25 @@ class CloseDrainMixin:
 
     def _read_fresh_row(self) -> dict | None:
         """The run as the server has it now, or None when the read failed (asked again later)."""
+        from .stored import RunGone
+
+        try:
+            return self._fetch_row_unless_gone()
+        except RunGone:
+            return None
+
+    def _fetch_row_unless_gone(self) -> dict | None:
+        """`_read_fresh_row`, raising `RunGone` when the server says the run is in the trash or not
+        found: the store wait then ends instead of asking forever."""
         from ...delivery.transport.deadlines import fresh_deadline_scope
+        from .stored import RunGone, is_run_gone
 
         try:
             with fresh_deadline_scope(time.monotonic() + _ROW_READ_SECONDS):
                 row = self._client.get_run(self.id)
-        except Exception:  # noqa: BLE001 -- a failed read says nothing
+        except Exception as exc:  # noqa: BLE001 -- a failed read says nothing, unless it is final
+            if is_run_gone(exc):
+                raise RunGone(str(exc)) from exc
             return None
         if isinstance(row, dict):
             self._data = row

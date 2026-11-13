@@ -94,6 +94,9 @@ from .errors import (
     Conflict,
     NewVersion,
     Gone,
+    GpuBadRequest,
+    GpuNoCard,
+    GpuOverLimit,
     InternalError,
     InvalidRequest,
     MissingPackage,
@@ -170,6 +173,10 @@ __all__ = [
     "CertPinError",
     "StreamRefused",
     "MissingPackage",
+
+    "GpuBadRequest",
+    "GpuOverLimit",
+    "GpuNoCard",
     "from_response",
     "DEFAULT_BASE_URL",
 ]

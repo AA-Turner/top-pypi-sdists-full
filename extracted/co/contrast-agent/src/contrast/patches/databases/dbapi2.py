@@ -130,6 +130,23 @@ class Dbapi2Patcher:
         connection_class = type(connection_instance)
         build_and_apply_patch(connection_class, "cursor", self._build_cursor_patch)
 
+    @fail_quietly("failed to report sql capability")
+    def _report_sql_capability(self, instance, method_name: str):
+        from contrast.agent import agent_state
+
+        if (reporter := agent_state.module.shield_permission_reporter) is None:
+            return
+        if scope.in_contrast_scope():
+            return
+
+        cursor_class = type(instance)
+        with scope.contrast_scope():
+            reporter.report_permission(
+                "sql",
+                cursor_class.__module__,
+                f"{cursor_class.__qualname__}.{method_name}",
+            )
+
     @contextmanager
     def _storage_query_span(self):
         context = contrast.CONTEXT.get()
@@ -180,6 +197,7 @@ class Dbapi2Patcher:
                 """
                 Patch for dbapi_adapter.connection().cursor().execute*()
                 """
+                self._report_sql_capability(instance, orig_func.__name__)
                 with self._storage_query_span():
                     return apply_rule(
                         self._adapter_name,

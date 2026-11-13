@@ -4,6 +4,7 @@
 
 #include "rectangle/solution_builder.hpp"
 #include "packingsolver/rectangle/algorithm_formatter.hpp"
+#include "packingsolver/algorithms/resource.hpp"
 #include "algorithms/thread_pool.hpp"
 #include "treesearchsolver/iterative_beam_search.hpp"
 
@@ -66,6 +67,23 @@ BranchingSchemeMaximalSpaces::BranchingSchemeMaximalSpaces(
     const BinType& bin_type = instance_.bin_type(bin_type_id);
     bin_rect_.x = max_reachable_lengths.x[bin_type.rect.x];
     bin_rect_.y = max_reachable_lengths.y[bin_type.rect.y];
+    copy_dependent_resource_consumptions_
+        = copy_dependent_resource_consumptions(instance_)[bin_type_id];
+}
+
+const std::vector<double>& BranchingSchemeMaximalSpaces::insertion_resource_consumption(
+        const Node& node,
+        const Block& block,
+        BinTypeId bin_type_id) const
+{
+    return shifted_resource_consumption(
+            instance_,
+            bin_type_id,
+            copy_dependent_resource_consumptions_,
+            node.item_number_of_copies,
+            block.item_copies,
+            block.resource_consumption,
+            insertion_resource_consumption_);
 }
 
 const std::shared_ptr<BranchingSchemeMaximalSpaces::Node> BranchingSchemeMaximalSpaces::root() const
@@ -139,7 +157,17 @@ double BranchingSchemeMaximalSpaces::compute_insertion_guide(
     const Block& block = blocks_[bin_type_id][insertion.block_id];
 
     double fill_rate = (double)parent.item_area / bin_rect_.area();
+    // Generalization of the volume of the items of the block of the fitness
+    // function of Guesser et al. (2026) to profits different from the areas:
+    // the area of the items weighted by their profit density. When the
+    // profits are proportional to the areas, all the blocks have the same
+    // density, and the order of the insertions is the one of the paper.
     double v = insertion_profit(parent, block, bin_type_id);
+    if (v > 0) {
+        v = block.item_area * std::pow(
+                v / block.item_area,
+                parameters_.profit_density_exponent);
+    }
     double l = compute_area_loss_factor(info, block);
     double n = (double)block.number_of_items;
     if (fill_rate < parameters_.configuration_switch_threshold) {
@@ -212,19 +240,13 @@ bool BranchingSchemeMaximalSpaces::block_resource_capacity_ok(
         const Block& block,
         BinTypeId bin_type_id) const
 {
-    const BinType& bin_type = instance_.bin_type(bin_type_id);
-    for (ResourceId resource_id = 0;
-            resource_id < bin_type.number_of_resources();
-            ++resource_id) {
-        const Resource& resource = bin_type.resource(resource_id);
-        if (resource.penalize)
-            continue;
-        double previous_consumption = parent.resource_consumption.empty()?
-            0.0: parent.resource_consumption[resource_id];
-        if (previous_consumption + block.resource_consumption[resource_id] > resource.capacity * PSTOL)
-            return false;
-    }
-    return true;
+    if (instance_.bin_type(bin_type_id).number_of_resources() == 0)
+        return true;
+    return resource_feasible(
+            instance_,
+            bin_type_id,
+            parent.resource_consumption,
+            insertion_resource_consumption(parent, block, bin_type_id));
 }
 
 Profit BranchingSchemeMaximalSpaces::insertion_profit(
@@ -232,21 +254,13 @@ Profit BranchingSchemeMaximalSpaces::insertion_profit(
         const Block& block,
         BinTypeId bin_type_id) const
 {
-    const BinType& bin_type = instance_.bin_type(bin_type_id);
-    Profit profit = block.item_profit;
-    for (ResourceId resource_id = 0;
-            resource_id < bin_type.number_of_resources();
-            ++resource_id) {
-        const Resource& resource = bin_type.resource(resource_id);
-        if (!resource.penalize)
-            continue;
-        double previous_consumption = parent.resource_consumption.empty()?
-            0.0: parent.resource_consumption[resource_id];
-        double new_consumption = previous_consumption + block.resource_consumption[resource_id];
-        if (new_consumption > resource.capacity && previous_consumption <= resource.capacity)
-            profit -= resource.penalty;
-    }
-    return profit;
+    if (instance_.bin_type(bin_type_id).number_of_resources() == 0)
+        return block.item_profit;
+    return block.item_profit - resource_penalty(
+            instance_,
+            bin_type_id,
+            parent.resource_consumption,
+            insertion_resource_consumption(parent, block, bin_type_id));
 }
 
 const std::vector<BranchingSchemeMaximalSpaces::Insertion>& BranchingSchemeMaximalSpaces::insertions(
@@ -466,12 +480,16 @@ void BranchingSchemeMaximalSpaces::apply_insertion(
     // 'penalize' resource's *first* crossing of its capacity).
     node.profit += insertion_profit(node, block, bin_type_id);
     if (bin_type.number_of_resources() > 0) {
+        // Before the item counts: it depends on the copies already in the
+        // node.
+        const std::vector<double>& block_resource_consumption
+            = insertion_resource_consumption(node, block, bin_type_id);
         if (node.resource_consumption.empty())
             node.resource_consumption.assign(bin_type.number_of_resources(), 0.0);
         for (ResourceId resource_id = 0;
                 resource_id < bin_type.number_of_resources();
                 ++resource_id) {
-            node.resource_consumption[resource_id] += block.resource_consumption[resource_id];
+            node.resource_consumption[resource_id] += block_resource_consumption[resource_id];
         }
     }
 

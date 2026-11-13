@@ -34,6 +34,7 @@ from .solvent import *
 from .mode import *
 from .status import *
 from .constraint import *
+from .coordinate import AngleCoordinate, Coordinate, DihedralCoordinate, DistanceCoordinate, LinearCombinationCoordinate
 from .message import *
 from .types import *
 from .trajectory_clustering import *

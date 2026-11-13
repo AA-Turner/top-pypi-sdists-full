@@ -26,6 +26,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import ctypes
+from typing import Optional
 from Phidget22.GPGGA import GPGGA
 from Phidget22.GPGSA import GPGSA
 from Phidget22.GPRMC import GPRMC
@@ -39,7 +40,11 @@ class NMEAData:
     VTG: GPVTG
 
     def __init__(
-        self, GGA: GPGGA = GPGGA(), GSA: GPGSA = GPGSA(), RMC: GPRMC = GPRMC(), VTG: GPVTG = GPVTG()
+        self,
+        GGA: Optional[GPGGA] = None,
+        GSA: Optional[GPGSA] = None,
+        RMC: Optional[GPRMC] = None,
+        VTG: Optional[GPVTG] = None,
     ) -> None: ...
 
 

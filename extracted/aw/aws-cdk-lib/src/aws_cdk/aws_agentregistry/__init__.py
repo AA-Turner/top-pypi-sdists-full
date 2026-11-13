@@ -897,7 +897,7 @@ class CfnRegistry(
         ) -> None:
             '''Configuration for a custom JWT authorizer that validates inbound bearer tokens against an OpenID Connect identity provider.
 
-            :param discovery_url: The OpenID Connect discovery URL used to retrieve the identity provider's metadata and signing keys.
+            :param discovery_url: The OpenID Connect discovery or OAuth 2.0 authorization server metadata URL used to retrieve the identity provider's metadata and signing keys. The URL contains /.well-known/openid-configuration or /.well-known/oauth-authorization-server, respectively.
             :param allowed_audience: The audience values accepted during JWT validation.
             :param allowed_clients: The client identifiers accepted during JWT validation.
             :param allowed_scopes: The scopes accepted during JWT validation.
@@ -953,7 +953,7 @@ class CfnRegistry(
 
         @builtins.property
         def discovery_url(self) -> builtins.str:
-            '''The OpenID Connect discovery URL used to retrieve the identity provider's metadata and signing keys.
+            '''The OpenID Connect discovery or OAuth 2.0 authorization server metadata URL used to retrieve the identity provider's metadata and signing keys. The URL contains /.well-known/openid-configuration or /.well-known/oauth-authorization-server, respectively.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registry-customjwtauthorizerconfiguration.html#cfn-agentregistry-registry-customjwtauthorizerconfiguration-discoveryurl
             '''

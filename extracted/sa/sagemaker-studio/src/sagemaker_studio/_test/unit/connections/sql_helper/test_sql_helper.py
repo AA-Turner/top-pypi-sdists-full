@@ -250,6 +250,41 @@ def test_to_redshift_helper_sql_config_uses_user_selected_database():
     assert result["database_name"] == "user_selected_db"
 
 
+# A Redshift connection whose DataZone redshiftProperties has no databaseName: the flattened
+# connection data then has no database_name key at all.
+redshift_connection_without_database = make_dataclass(
+    "Connection", ["connection_creds", "data", "_find_secret_arn"]
+)(
+    redshift_connection.connection_creds,
+    make_dataclass(
+        "ConnectionData",
+        ["name", "connection_id", "physical_endpoints", "storage", "connection_creds"],
+    )(
+        name="warehouse",
+        connection_id="conn-123",
+        physical_endpoints=[{"awsLocation": {"awsRegion": "us-west-2"}}],
+        storage={"workgroupName": "my-workgroup"},
+        connection_creds={},
+    ),
+    lambda: None,
+)
+
+
+def test_to_redshift_helper_sql_config_without_a_default_database_raises():
+    import pytest
+
+    with pytest.raises(ValueError, match="Redshift connection 'warehouse' has no default database"):
+        RedshiftSqlHelper.to_sql_config(redshift_connection_without_database)
+
+
+def test_to_redshift_helper_sql_config_without_a_default_database_uses_the_argument():
+    result = RedshiftSqlHelper.to_sql_config(
+        redshift_connection_without_database, database_name="user_selected_db"
+    )
+    assert result["database_name"] == "user_selected_db"
+    assert result["workgroup_name"] == "my-workgroup"
+
+
 def test_to_athena_helper_sql_config_with_credential_provider():
     """Test Athena helper uses credential_provider when provided"""
 

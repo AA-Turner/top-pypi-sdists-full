@@ -2090,6 +2090,19 @@ async def handle_message_send(
                     "message": "Invalid params: 'configuration' must be an object",
                 }
             }
+        for field in ("returnImmediately", "blocking"):
+            if configuration.get(field) is not None and not isinstance(
+                configuration[field], bool
+            ):
+                return {
+                    "error": {
+                        "code": ERROR_CODE_INVALID_PARAMS,
+                        "message": f"Invalid params: '{field}' must be a boolean",
+                    }
+                }
+        return_immediately = configuration.get("returnImmediately")
+        if return_immediately is None:
+            return_immediately = configuration.get("blocking") is False
         history_length = configuration.get("historyLength")
         if history_error := _validate_history_length(history_length):
             return {
@@ -2308,6 +2321,36 @@ async def handle_message_send(
         context_id = str(run["thread_id"])
         if task_id is None:
             task_id = _make_task_id(context_id, str(run["run_id"]))
+        if return_immediately:
+            immediate_task: dict[str, Any] = {
+                "kind": "task",
+                "id": task_id,
+                "contextId": context_id,
+                "status": {
+                    "state": _task_state_for_run(run),
+                    "timestamp": _run_timestamp(run),
+                },
+            }
+            if history_length is not None and history_length != 0:
+                run_messages = await _load_run_messages(
+                    context_id, str(run["run_id"]), request.headers
+                )
+                if not run_messages.messages:
+                    run_messages = RunMessages(input_content.get("messages", []), 0)
+                if task_start_id:
+                    task_ids_by_start_id.setdefault(task_start_id, task_id)
+                immediate_task["history"] = _convert_messages_to_a2a_format(
+                    run_messages.stamped(task_id),
+                    task_id,
+                    context_id,
+                    history_length=history_length,
+                    history_scope=history_scope,
+                    a2ui=a2ui,
+                    task_ids_by_start_id=task_ids_by_start_id,
+                )
+            return {"result": {"task": immediate_task}}
+
+        if existing_task_id is None:
             try:
                 runs = await _list_context_runs(
                     client, context_id=context_id, headers=request.headers
@@ -2489,6 +2532,48 @@ async def handle_tasks_get(
         lg_status = run_info.get("status", "unknown")
         a2a_state = task.state
 
+        if a2a_state in ("TASK_STATE_COMPLETED", "TASK_STATE_INPUT_REQUIRED"):
+            states, before = await asyncio.gather(
+                get_client().threads.get_history(
+                    context_id,
+                    limit=1,
+                    metadata={"run_id": str(run_info["run_id"])},
+                    headers=request.headers,
+                ),
+                _latest_messages(
+                    context_id,
+                    {"run_id": str(run_info["run_id"]), "source": "input"},
+                    request.headers,
+                ),
+            )
+            result = dict(states[0]["values"]) if states else {}
+            messages = result.get("messages", []) or []
+            run_messages = (
+                RunMessages.between(before, messages)
+                if before is not None
+                else RunMessages(messages, None)
+            )
+            if "messages" in result:
+                result["messages"] = run_messages.stamped(task_id)
+            if a2a_state == "TASK_STATE_INPUT_REQUIRED":
+                result["__interrupt__"] = (
+                    states[0].get("interrupts", []) if states else []
+                )
+            response = await _create_task_response(
+                task_id=task_id,
+                context_id=context_id,
+                result=result,
+                assistant_id=assistant_id,
+                a2ui=_a2ui_context_for_run(run_info),
+                history_length=history_length,
+                history_scope=history_scope,
+                task_ids_by_start_id=task.task_ids_by_start_id,
+                turn=run_messages.added,
+            )
+            task_response = response["result"]["task"]
+            task_response["status"]["timestamp"] = task.status_timestamp
+            return {"result": task_response}
+
         thread_history = []
         if history_length != 0:
             try:
@@ -2532,16 +2617,7 @@ async def handle_tasks_get(
         if history_length != 0:
             task_response["history"] = thread_history
 
-        # Add result message if completed
-        if a2a_state == "TASK_STATE_COMPLETED":
-            task_response["status"]["message"] = {
-                "kind": "message",
-                "role": "ROLE_AGENT",
-                "parts": [{"kind": "text", "text": "Task completed successfully"}],
-                "messageId": str(uuid.uuid4()),
-                "taskId": task_id,
-            }
-        elif a2a_state == "TASK_STATE_FAILED":
+        if a2a_state == "TASK_STATE_FAILED":
             task_response["status"]["message"] = {
                 "kind": "message",
                 "role": "ROLE_AGENT",
@@ -2554,6 +2630,13 @@ async def handle_tasks_get(
 
         return {"result": task_response}
 
+    except InvalidAgentResponseError as e:
+        return {
+            "error": {
+                "code": ERROR_CODE_INVALID_AGENT_RESPONSE,
+                "message": str(e),
+            }
+        }
     except Exception as e:
         await logger.aexception(
             f"Error in tasks/get for task {params.get('id')}: {e!s}", exc_info=True

@@ -8,23 +8,48 @@ All interactions in the UI are modeled as "attacks" - including manual conversat
 This is the attack-centric API design where every user interaction targets a model.
 """
 
+import copy
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal, cast
 
-from pydantic import BaseModel, Field, computed_field, field_serializer, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    Field,
+    GetJsonSchemaHandler,
+    computed_field,
+    field_serializer,
+    model_validator,
+)
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import CoreSchema
 
 from pyrit.backend.models._media import build_filename, infer_mime_type
-from pyrit.backend.models.common import PaginationInfo
+from pyrit.backend.models.common import (
+    MAX_IDENTIFIER_LENGTH,
+    MAX_ITEMS,
+    IdentifierStr,
+    LabelDict,
+    PaginationInfo,
+    TextStr,
+)
+from pyrit.common import print_deprecation_message
 from pyrit.models import (
+    AttackOutcome,
     AttackResult,
     ChatMessageRole,
+    ComponentIdentifier,
     ConversationReference,
+    ConversationSummary,
     Message,
     MessagePiece,
     PromptDataType,
+    PromptResponseError,
     Score,
 )
+from pyrit.models.component_spec import RegisteredComponentReference, TargetBinding
+from pyrit.models.results.attack_result import ManualContinuation, ScoringFailure, normalize_legacy_attack_attribution
 
 
 class TargetInfo(BaseModel):
@@ -32,9 +57,11 @@ class TargetInfo(BaseModel):
 
     target_type: str = Field(..., description="Target class name (e.g., 'OpenAIChatTarget')")
     target_registry_name: str | None = Field(None, description="Registry alias used to create the attack")
+    identifier: ComponentIdentifier | None = Field(None, description="Persisted target identity for inspection")
     endpoint: str | None = Field(None, description="Target endpoint URL")
     model_name: str | None = Field(None, description="Model or deployment name")
     identifier_hash: str = Field(..., description="Canonical target identifier hash")
+    binding: TargetBinding | None = None
 
 
 class ScoreView(Score):
@@ -47,7 +74,7 @@ class ScoreView(Score):
 
     is_objective_score: bool = Field(
         default=False,
-        description="Whether this is the score referenced by AttackResult.last_score.",
+        description="Whether this is the effective objective score referenced by AttackResult.last_score.",
     )
 
     @computed_field  # type: ignore[prop-decorator]
@@ -177,7 +204,7 @@ class MessagePieceView(MessagePiece):
         return cls.model_construct(**data)
 
 
-class MessageView(Message):
+class MessageView(Message[MessagePieceView]):
     """
     API view of a ``pyrit.models.Message``.
 
@@ -203,32 +230,57 @@ class MessageView(Message):
     @property
     def created_at(self) -> datetime:
         """The timestamp of the first piece."""
-        return self.message_pieces[0].timestamp if self.message_pieces else datetime.now(timezone.utc)
+        return self.message_pieces[0].timestamp if self.message_pieces else datetime.now(UTC)
 
 
-class AttackSummary(AttackResult):
+class AttackSummary(AttackResult[MessagePieceView, ScoreView]):
     """
     API view of a ``pyrit.models.AttackResult``.
 
     Inherits every canonical attack-result field (including ``last_response``,
-    ``last_score`` and ``retry_events``) and adds presentation data: computed
+    score fields, and ``retry_events``) and adds presentation data: computed
     projections of the strategy identifier plus mapper-populated conversation
-    stats. ``last_response`` / ``last_score`` are narrowed to their view types so
+    stats. ``last_response`` and score fields are narrowed to their view types so
     their presentation fields serialize.
     """
 
     last_response: MessagePieceView | None = None
-    last_score: ScoreView | None = None
+    automated_score: ScoreView | None = None
+    human_score: ScoreView | None = None
 
     # Mapper-populated presentation fields (need external stats / metadata).
+    operation_name: str | None = Field(
+        default=None, description="Current saved Operation name, or the historical name for legacy activity"
+    )
     message_count: int = Field(default=0, description="Total number of messages in the attack")
     last_message_preview: str | None = Field(default=None, description="Preview of the last message")
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), description="Attack creation timestamp"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), description="Attack creation timestamp")
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), description="Last update timestamp")
+
+    chat_scorer: RegisteredComponentReference | None = Field(
+        default=None, description="Scorer for future manual responses"
     )
-    updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), description="Last update timestamp"
-    )
+    chat_scorer_inherited: bool = Field(default=False, description="Uses the scan's registered original scorer")
+    execution_read_only: bool = Field(default=False, description="Execution changes require a manual continuation")
+
+    @computed_field
+    @property
+    def manual_continuation(self) -> ManualContinuation | None:
+        """The original automated conversation and handoff response, when this is a continuation."""
+        value = self.metadata.get(ManualContinuation.METADATA_KEY)
+        return ManualContinuation.model_validate(value) if value is not None else None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def target_unbound(self) -> bool:
+        """Whether this manual attack was deliberately saved without a target."""
+        return self.metadata.get("target_unbound") is True
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def last_score(self) -> ScoreView | None:
+        """The human score when present, otherwise the automated score."""
+        return self.human_score or self.automated_score
 
     @field_serializer("related_conversations")
     def _serialize_related_conversations(
@@ -270,9 +322,11 @@ class AttackSummary(AttackResult):
         return TargetInfo(
             target_type=target_id.class_name,
             target_registry_name=target_registry_name if isinstance(target_registry_name, str) else None,
+            identifier=target_id,
             endpoint=cast("str | None", target_id.params.get("endpoint") or None),
             model_name=cast("str | None", target_id.params.get("model_name") or None),
             identifier_hash=target_id.hash,
+            binding=TargetBinding.from_metadata(self.metadata),
         )
 
     @computed_field  # type: ignore[prop-decorator]
@@ -290,9 +344,45 @@ class AttackSummary(AttackResult):
         return sorted(ref.conversation_id for ref in self.related_conversations)
 
 
+class AttackMetadata(BaseModel):
+    """Chat metadata without reference collections, transcript bodies, or result hierarchies."""
+
+    attack_result_id: str
+    conversation_id: str
+    objective: str
+    labels: dict[str, str] = Field(default_factory=dict)
+    operator: str | None = None
+    target: TargetInfo | None = None
+    target_unbound: bool = False
+    outcome: AttackOutcome
+    automated_score: ScoreView | None = None
+    human_score: ScoreView | None = None
+    chat_scorer: RegisteredComponentReference | None = None
+    chat_scorer_inherited: bool = False
+    execution_read_only: bool = False
+    manual_continuation: ManualContinuation | None = None
+    last_response_message_piece_id: str | None = None
+    related_conversation_count: int = Field(..., ge=0, description="Number of pruned conversations, excluding main")
+    selected_conversation_id: str
+    selected_conversation_valid: bool = Field(
+        ..., description="Selected conversation is a saved main or pruned reference"
+    )
+
+
 # ============================================================================
 # Conversation Messages Response
 # ============================================================================
+
+
+class TargetResponseStatus(BaseModel):
+    """Error status and turn identifiers for the latest real target response."""
+
+    response_error: PromptResponseError = Field(
+        ...,
+        description="Error category recorded for the latest target response, or 'none' if no piece reports an error",
+    )
+    request_turn_number: int = Field(..., description="Turn number of the user request sent to the target")
+    response_turn_number: int = Field(..., description="Turn number of the target's assistant response")
 
 
 class ConversationMessagesResponse(BaseModel):
@@ -300,6 +390,23 @@ class ConversationMessagesResponse(BaseModel):
 
     conversation_id: str = Field(..., description="Conversation identifier")
     messages: list[MessageView] = Field(default_factory=list, description="All messages in order")
+    scoring_failure: ScoringFailure | None = None
+    automated_score: ScoreView | None = None
+    outcome: AttackOutcome | None = Field(
+        default=None, description="Outcome for the latest response; a human score overrides the attack"
+    )
+    latest_response_id: str | None = Field(
+        default=None, description="First piece ID of the latest live assistant response"
+    )
+    target_response_status: TargetResponseStatus | None = Field(
+        default=None,
+        description=(
+            "Error status of the latest real assistant response and its associated user request. "
+            "None when the conversation does not end with a target response."
+        ),
+    )
+    pagination: PaginationInfo | None = None
+    partial_message_sequences: list[int] = Field(default_factory=list)
 
 
 # ============================================================================
@@ -336,26 +443,143 @@ class ConverterOptionsResponse(BaseModel):
 class MessagePieceRequest(BaseModel):
     """A piece of content for a message."""
 
-    data_type: str = Field(default="text", description="Data type: 'text', 'image', 'audio', etc.")
+    data_type: PromptDataType = Field(default="text", description="Original value's prompt data type.")
     original_value: str = Field(..., description="Original value (text or base64 for media)")
     converted_value: str | None = Field(None, description="Converted value. If provided, bypasses converters.")
-    mime_type: str | None = Field(None, description="MIME type for media content")
-    prompt_metadata: dict[str, Any] | None = Field(
+    converted_value_data_type: PromptDataType | None = Field(
         None,
+        description="Final converted value's data type. Defaults to data_type; requires converted_value.",
+    )
+    applied_converter_ids: list[IdentifierStr] | None = Field(
+        None,
+        max_length=MAX_ITEMS,
+        description="Registry IDs of converters already applied, in execution order, including duplicates. "
+        "Requires converted_value. Use an empty list for manual edits.",
+    )
+    applied_converter_provenance: list[str | None] | None = Field(None, max_length=MAX_ITEMS)
+    mime_type: IdentifierStr | None = Field(None, description="MIME type for media content")
+    prompt_metadata: dict[IdentifierStr, Any] | None = Field(
+        None,
+        max_length=MAX_ITEMS,
         description="Metadata to attach to the piece (e.g., {'video_id': '...'} for remix mode).",
     )
-    original_prompt_id: str | None = Field(
+    original_prompt_id: IdentifierStr | None = Field(
         None,
         description="ID of the source piece when prepending from an existing conversation. "
         "Preserves lineage so the new piece traces back to the original.",
     )
+    source_piece_id: uuid.UUID | None = Field(
+        None, description="Source piece for a complete conversation save; verified against its source conversation."
+    )
+
+    @model_validator(mode="after")
+    def _validate_converted_value_data_type(self) -> "MessagePieceRequest":
+        """
+        Validate that an explicit converted type accompanies a converted value.
+
+        Returns:
+            The validated request piece.
+
+        Raises:
+            ValueError: If a converted type is supplied without a converted value.
+        """
+        if self.converted_value_data_type is not None and self.converted_value is None:
+            raise ValueError("converted_value_data_type requires converted_value")
+        if self.applied_converter_ids is not None and self.converted_value is None:
+            raise ValueError("applied_converter_ids requires converted_value")
+        if self.applied_converter_provenance is not None and (
+            self.applied_converter_ids is None
+            or len(self.applied_converter_provenance) != len(self.applied_converter_ids)
+        ):
+            raise ValueError("applied_converter_provenance must match applied_converter_ids")
+        return self
 
 
-class PrependedMessageRequest(BaseModel):
-    """A message to prepend to the attack (for system prompt/branching)."""
+class MessageRequest(BaseModel):
+    """An ordered message input shared by conversation creation and editing."""
 
     role: ChatMessageRole = Field(..., description="Message role")
-    pieces: list[MessagePieceRequest] = Field(..., description="Message pieces (supports multimodal)", max_length=50)
+    pieces: list[MessagePieceRequest] = Field(
+        ..., description="Message pieces (supports multimodal)", min_length=1, max_length=50
+    )
+
+
+PrependedMessageRequest = MessageRequest
+
+
+class _AttackAttributionInput(BaseModel):
+    """Shared first-class attribution input with temporary legacy label aliases."""
+
+    operator: str | None = Field(None, max_length=128, description="Operator responsible for the attack")
+    # TODO(PyRIT 1.4): Remove with Operation name attribution.
+    operation: str | None = Field(None, max_length=128, description="Deprecated saved Operation name; use operation_id")
+    operation_id: uuid.UUID | None = Field(None, description="Saved Operation reference, or unassigned")
+    labels: LabelDict | None = Field(None, description="Arbitrary user-defined labels for filtering")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_legacy_attribution_labels(cls, data: Any) -> Any:
+        """
+        Normalize deprecated label aliases without mutating the caller's dictionaries.
+
+        TODO(PyRIT 1.4): Remove this validator with legacy attribution label aliases.
+
+        Returns:
+            The normalized model input.
+
+        Raises:
+            ValueError: If an alias is not a string or conflicts with a dedicated field.
+        """
+        if not isinstance(data, dict) or not isinstance(data.get("labels"), dict):
+            return data
+        normalized = dict(data)
+        remaining, operator, operation = normalize_legacy_attack_attribution(
+            labels=normalized["labels"],
+            operator=normalized.get("operator"),
+            operation=normalized.get("operation"),
+        )
+        normalized["labels"] = remaining
+        normalized["operator"] = operator
+        normalized["operation"] = operation
+        return normalized
+
+
+_TARGET_BINDING_LIMITED_FIELDS = ("source_name", "source_hash", "effective_hash")
+
+
+def _limit_target_binding(binding: TargetBinding) -> TargetBinding:
+    """
+    Apply the identifier limit to a binding a caller sends.
+
+    Saved bindings are read without this limit, so attacks saved before it keep loading.
+
+    Returns:
+        TargetBinding: The unchanged binding.
+
+    Raises:
+        ValueError: If a name or hash is longer than the identifier limit.
+    """
+    if any(len(getattr(binding, field)) > MAX_IDENTIFIER_LENGTH for field in _TARGET_BINDING_LIMITED_FIELDS):
+        raise ValueError(f"Target binding names and hashes are limited to {MAX_IDENTIFIER_LENGTH} characters.")
+    return binding
+
+
+class _TargetBindingInputSchema:
+    """Show the identifier limit in the schema of a binding a caller sends."""
+
+    def __get_pydantic_json_schema__(self, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        """Return the binding schema with the limit, described inline for request fields only."""
+        schema = handler(core_schema)
+        if handler.mode != "validation":
+            return schema
+        # Saved bindings are read without the limit, so the shared definition stays unchanged.
+        limited = copy.deepcopy(handler.resolve_ref_schema(schema))
+        for field in _TARGET_BINDING_LIMITED_FIELDS:
+            limited["properties"][field]["maxLength"] = MAX_IDENTIFIER_LENGTH
+        return limited
+
+
+TargetBindingInput = Annotated[TargetBinding, AfterValidator(_limit_target_binding), _TargetBindingInputSchema()]
 
 
 # ============================================================================
@@ -363,9 +587,13 @@ class PrependedMessageRequest(BaseModel):
 # ============================================================================
 
 
-class CreateAttackRequest(BaseModel):
+class CreateAttackRequest(_AttackAttributionInput):
     """
-    Request to create a new attack.
+    Request to create a new manual attack.
+
+    ``objective`` is the goal, not the strategy type or a display name.
+    The deprecated ``name`` input aliases ``objective`` when it is omitted
+    or null. If both are non-null, they must match exactly, including empty strings.
 
     For branching from an existing conversation into a new attack, provide
     ``source_conversation_id`` and ``cutoff_index``.  The backend will
@@ -374,21 +602,54 @@ class CreateAttackRequest(BaseModel):
     supplied in ``labels`` (typically the current operator's labels).
     """
 
-    name: str | None = Field(None, description="Attack name/label")
-    target_registry_name: str = Field(..., description="Target registry name to attack")
-    source_conversation_id: str | None = Field(
+    objective: TextStr | None = Field(None, description="Attack objective; omitted or null means no objective")
+    name: TextStr | None = Field(
+        None,
+        description="Deprecated input alias for objective, not a display name or strategy type. "
+        "Used when objective is omitted or null; non-null values must match when both are supplied.",
+        json_schema_extra={"deprecated": True},
+    )
+    target_binding: TargetBindingInput | None = None
+    chat_scorer: RegisteredComponentReference | None = None
+    target_registry_name: IdentifierStr | None = Field(
+        None, description="Target registry name, or None for a saved unbound attack"
+    )
+    source_conversation_id: IdentifierStr | None = Field(
         None, description="Conversation to branch from (clone messages into the new attack)"
     )
-    cutoff_index: int | None = Field(None, description="Include messages up to and including this turn index (0-based)")
+    cutoff_index: int | None = Field(
+        None, ge=0, description="Include messages up to and including this turn index (0-based)"
+    )
     system_prompt: str | None = Field(
         None,
         description="System prompt lowered to a single system-role message at the front of the conversation. "
         "Composes with prepended_conversation (the system message is inserted first).",
     )
-    prepended_conversation: list[PrependedMessageRequest] | None = Field(
+    prepended_conversation: list[MessageRequest] | None = Field(
         None, description="Messages to prepend (system prompts, branching context)", max_length=200
     )
-    labels: dict[str, str] | None = Field(None, description="User-defined labels for filtering")
+
+    @model_validator(mode="after")
+    def _normalize_legacy_objective(self) -> "CreateAttackRequest":
+        """
+        Normalize the deprecated name input.
+
+        Returns:
+            The request with its resolved objective.
+
+        Raises:
+            ValueError: If non-null name and objective values disagree.
+        """
+        if self.name is not None:
+            print_deprecation_message(
+                old_item="CreateAttackRequest.name",
+                new_item="CreateAttackRequest.objective",
+                removed_in="1.4.0",
+            )
+            if self.objective is not None and self.objective != self.name:
+                raise ValueError("name and objective must match when both are supplied")
+            self.objective = self.name
+        return self
 
 
 class CreateAttackResponse(BaseModel):
@@ -405,23 +666,37 @@ class CreateAttackResponse(BaseModel):
 
 
 class UpdateAttackRequest(BaseModel):
-    """Request to update an attack's outcome."""
+    """Request to update mutable attack fields."""
 
-    outcome: Literal["undetermined", "success", "failure", "error"] = Field(..., description="Updated attack outcome")
+    outcome: Literal["undetermined", "success", "failure", "error"] | None = Field(
+        default=None,
+        description="Updated attack outcome",
+    )
+    chat_scorer: RegisteredComponentReference | None = None
+    default_chat_scorer: RegisteredComponentReference | None = None
+    objective: TextStr | None = Field(default=None, description="Shared objective for all conversations in the attack")
+    expected_objective: str | None = Field(
+        default=None, description="Objective read before editing, for conflict detection"
+    )
+
+    @model_validator(mode="after")
+    def _validate_update(self) -> "UpdateAttackRequest":
+        """
+        Validate that the request contains a supported update.
+
+        Returns:
+            UpdateAttackRequest: The validated request.
+        """
+        if self.outcome is None and self.objective is None and "chat_scorer" not in self.model_fields_set:
+            raise ValueError("At least one mutable attack field must be supplied")
+        if self.objective is not None:
+            self.objective = self.objective.strip()
+        return self
 
 
 # ============================================================================
 # Related Conversations
 # ============================================================================
-
-
-class ConversationSummary(BaseModel):
-    """Summary of a conversation (message count, preview, timestamp)."""
-
-    conversation_id: str = Field(..., description="Unique conversation identifier")
-    message_count: int = Field(0, description="Number of messages in this conversation")
-    last_message_preview: str | None = Field(None, description="Preview of the last message")
-    created_at: datetime | None = Field(None, description="Timestamp of the first message")
 
 
 class AttackConversationsResponse(BaseModel):
@@ -432,6 +707,8 @@ class AttackConversationsResponse(BaseModel):
     conversations: list[ConversationSummary] = Field(
         default_factory=list, description="All conversations including main"
     )
+    pagination: PaginationInfo | None = None
+    total_count: int | None = None
 
 
 class CreateConversationRequest(BaseModel):
@@ -443,8 +720,10 @@ class CreateConversationRequest(BaseModel):
     the cutoff turn, preserving tracking relationships (original_prompt_id).
     """
 
-    source_conversation_id: str | None = Field(None, description="Conversation to branch from")
-    cutoff_index: int | None = Field(None, description="Include messages up to and including this turn index (0-based)")
+    source_conversation_id: IdentifierStr | None = Field(None, description="Conversation to branch from")
+    cutoff_index: int | None = Field(
+        None, ge=0, description="Include messages up to and including this turn index (0-based)"
+    )
 
 
 class CreateConversationResponse(BaseModel):
@@ -454,10 +733,59 @@ class CreateConversationResponse(BaseModel):
     created_at: datetime = Field(..., description="Conversation creation timestamp")
 
 
+ConversationPieceRequest = MessagePieceRequest
+ConversationMessageRequest = MessageRequest
+
+
+class SaveConversationRequest(_AttackAttributionInput):
+    """Save a complete draft without sending it, optionally reusing unsent history."""
+
+    save_id: uuid.UUID
+    chat_scorer: RegisteredComponentReference | None = None
+    default_chat_scorer: RegisteredComponentReference | None = None
+    destination: Literal["same_attack", "new_attack"]
+    attack_result_id: uuid.UUID | None = None
+    source_attack_result_id: uuid.UUID | None = None
+    source_conversation_id: uuid.UUID | None = None
+    expected_objective: str | None = None
+    objective: str | None = Field(None, description="Omit to keep the destination's objective unchanged")
+    target_registry_name: IdentifierStr | None = None
+    target_binding: TargetBindingInput | None = None
+    messages: list[MessageRequest] = Field(default_factory=list)
+    reuse_unsent_conversation: bool = False
+    expected_source_piece_ids: list[uuid.UUID] | None = None
+
+    @model_validator(mode="after")
+    def _validate_destination(self) -> "SaveConversationRequest":
+        """
+        Validate source and destination references.
+
+        Returns:
+            The validated save request.
+        """
+        if (self.destination == "same_attack") != (self.attack_result_id is not None):
+            raise ValueError("Same attack requires attack_result_id; New attack must not supply it")
+        if (self.source_attack_result_id is None) != (self.source_conversation_id is None):
+            raise ValueError("Both source attack and source conversation are required together")
+        if self.reuse_unsent_conversation and (
+            self.destination != "same_attack"
+            or self.source_attack_result_id != self.attack_result_id
+            or self.source_conversation_id is None
+            or self.expected_source_piece_ids is None
+        ):
+            raise ValueError("Reusing unsent history requires the same source attack and an expected piece snapshot")
+        if self.objective is not None:
+            self.objective = self.objective.strip()
+        for message in self.messages:
+            if message.role not in ("system", "user", "simulated_assistant", "simulated_tool", "developer"):
+                raise ValueError("Draft replies must use simulated_assistant or simulated_tool roles")
+        return self
+
+
 class UpdateMainConversationRequest(BaseModel):
     """Request to update the main conversation of an attack result."""
 
-    conversation_id: str = Field(..., description="The conversation to promote to main")
+    conversation_id: IdentifierStr = Field(..., description="The conversation to promote to main")
 
 
 class UpdateMainConversationResponse(BaseModel):
@@ -476,24 +804,27 @@ class UpdateMainConversationResponse(BaseModel):
 class ConverterConfigurationRequest(BaseModel):
     """Registry-backed converter configuration for one ordered pipeline."""
 
-    converter_ids: list[str] = Field(
+    converter_ids: list[IdentifierStr] = Field(
         ...,
         min_length=1,
+        max_length=MAX_ITEMS,
         description="Converter instance IDs to apply in order.",
     )
     indexes_to_apply: list[Annotated[int, Field(ge=0)]] | None = Field(
         None,
         min_length=1,
+        max_length=MAX_ITEMS,
         description="Zero-based message piece indexes to which this pipeline applies. Defaults to all indexes.",
     )
     prompt_data_types_to_apply: list[PromptDataType] | None = Field(
         None,
         min_length=1,
+        max_length=MAX_ITEMS,
         description="Prompt data types to which this pipeline applies. Defaults to all data types.",
     )
 
 
-class AddMessageRequest(BaseModel):
+class AddMessageRequest(MessageRequest):
     """
     Request to add a message to an attack.
 
@@ -503,38 +834,48 @@ class AddMessageRequest(BaseModel):
     """
 
     role: ChatMessageRole = Field(default="user", description="Message role")
-    pieces: list[MessagePieceRequest] = Field(..., description="Message pieces", max_length=50)
     send: bool = Field(
         default=True,
         description="If True, send to target and wait for response. If False, just store in memory.",
     )
-    target_registry_name: str | None = Field(
+    target_registry_name: IdentifierStr | None = Field(
         None,
         description="Target registry name. Required when send=True so the backend knows which target to use.",
     )
-    converter_ids: list[str] | None = Field(
+    target_binding: TargetBindingInput | None = None
+    converter_ids: list[IdentifierStr] | None = Field(
         None,
+        max_length=MAX_ITEMS,
         description="Deprecated global request converter pipeline. Use request_converter_configurations instead.",
     )
     request_converter_configurations: list[ConverterConfigurationRequest] | None = Field(
         None,
         min_length=1,
+        max_length=MAX_ITEMS,
         description="Ordered registry-backed converter pipelines to apply to the request.",
     )
     response_converter_configurations: list[ConverterConfigurationRequest] | None = Field(
         None,
         min_length=1,
+        max_length=MAX_ITEMS,
         description="Ordered registry-backed converter pipelines to apply to the response.",
     )
-    target_conversation_id: str = Field(
+    start_token: str = Field(
+        default="⟪",
+        min_length=1,
+        max_length=MAX_IDENTIFIER_LENGTH,
+        description="Opening marker for request and response converter pipelines",
+    )
+    end_token: str = Field(
+        default="⟫",
+        min_length=1,
+        max_length=MAX_IDENTIFIER_LENGTH,
+        description="Closing marker for request and response converter pipelines",
+    )
+    target_conversation_id: IdentifierStr = Field(
         ...,
         description="The conversation_id to store and send messages under. "
         "Usually the attack's main conversation, but can be a related conversation.",
-    )
-    labels: dict[str, str] | None = Field(
-        None,
-        description="Request labels used for attack-level consistency checks. "
-        "When present, the operator must match the attack result's operator.",
     )
 
     @model_validator(mode="after")
@@ -548,6 +889,8 @@ class AddMessageRequest(BaseModel):
         Raises:
             ValueError: If converter fields conflict, cannot run, or contain an out-of-range request index.
         """
+        if any(piece.source_piece_id is not None for piece in self.pieces):
+            raise ValueError("source_piece_id requires a complete conversation save")
         if self.converter_ids and self.request_converter_configurations:
             raise ValueError("converter_ids and request_converter_configurations cannot both be provided")
 
@@ -575,8 +918,9 @@ class AddMessageResponse(BaseModel):
     Response after adding a message.
 
     Returns the attack metadata and all messages. If send=True was used, the new
-    assistant response will be in the messages list. Check response_error
-    on the assistant's message pieces if the target returned an error.
+    assistant response will be in the messages list. Check messages.target_response_status
+    for its error category and associated user turn. HTTP success does not imply
+    error-free target processing.
     """
 
     attack: AttackSummary = Field(..., description="Updated attack metadata")

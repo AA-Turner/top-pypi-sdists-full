@@ -1058,6 +1058,11 @@ class RunsStub:
                 request_serializer=core__api__pb2.CancelRunRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
+        self.CancelAcceptedBefore = channel.unary_unary(
+                '/coreApi.Runs/CancelAcceptedBefore',
+                request_serializer=core__api__pb2.CancelAcceptedBeforeRequest.SerializeToString,
+                response_deserializer=core__api__pb2.CancelAcceptedBeforeResponse.FromString,
+                _registered_method=True)
         self.SetStatus = channel.unary_unary(
                 '/coreApi.Runs/SetStatus',
                 request_serializer=core__api__pb2.SetRunStatusRequest.SerializeToString,
@@ -1097,6 +1102,11 @@ class RunsStub:
                 '/coreApi.Runs/PoolStats',
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
                 response_deserializer=core__api__pb2.ConnectionPoolStats.FromString,
+                _registered_method=True)
+        self.PrometheusMetrics = channel.unary_unary(
+                '/coreApi.Runs/PrometheusMetrics',
+                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                response_deserializer=core__api__pb2.PrometheusMetricsResponse.FromString,
                 _registered_method=True)
         self.Count = channel.unary_unary(
                 '/coreApi.Runs/Count',
@@ -1144,6 +1154,13 @@ class RunsServicer:
 
     def Cancel(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CancelAcceptedBefore(self, request, context):
+        """Cancel runs accepted before a boundary, in bounded batches (operator method, no auth)
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -1208,6 +1225,13 @@ class RunsServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def PrometheusMetrics(self, request, context):
+        """Dump Go Prometheus registry text for Python /metrics merge (internal, no auth)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Count(self, request, context):
         """Count runs matching criteria (internal method, no auth)
         """
@@ -1258,6 +1282,11 @@ def add_RunsServicer_to_server(servicer, server):
                     request_deserializer=core__api__pb2.CancelRunRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
+            'CancelAcceptedBefore': grpc.unary_unary_rpc_method_handler(
+                    servicer.CancelAcceptedBefore,
+                    request_deserializer=core__api__pb2.CancelAcceptedBeforeRequest.FromString,
+                    response_serializer=core__api__pb2.CancelAcceptedBeforeResponse.SerializeToString,
+            ),
             'SetStatus': grpc.unary_unary_rpc_method_handler(
                     servicer.SetStatus,
                     request_deserializer=core__api__pb2.SetRunStatusRequest.FromString,
@@ -1297,6 +1326,11 @@ def add_RunsServicer_to_server(servicer, server):
                     servicer.PoolStats,
                     request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                     response_serializer=core__api__pb2.ConnectionPoolStats.SerializeToString,
+            ),
+            'PrometheusMetrics': grpc.unary_unary_rpc_method_handler(
+                    servicer.PrometheusMetrics,
+                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    response_serializer=core__api__pb2.PrometheusMetricsResponse.SerializeToString,
             ),
             'Count': grpc.unary_unary_rpc_method_handler(
                     servicer.Count,
@@ -1449,6 +1483,33 @@ class Runs:
             '/coreApi.Runs/Cancel',
             core__api__pb2.CancelRunRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CancelAcceptedBefore(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/coreApi.Runs/CancelAcceptedBefore',
+            core__api__pb2.CancelAcceptedBeforeRequest.SerializeToString,
+            core__api__pb2.CancelAcceptedBeforeResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1665,6 +1726,33 @@ class Runs:
             '/coreApi.Runs/PoolStats',
             google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             core__api__pb2.ConnectionPoolStats.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PrometheusMetrics(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/coreApi.Runs/PrometheusMetrics',
+            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            core__api__pb2.PrometheusMetricsResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -9,11 +9,13 @@ This is the attack-centric API design.
 """
 
 import logging
-from typing import Literal
+import uuid
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
+from pydantic import Field
 
-from pyrit.backend.models.attacks import (
+from pyrit.backend.models import (
     AddMessageRequest,
     AddMessageResponse,
     AttackConversationsResponse,
@@ -26,17 +28,92 @@ from pyrit.backend.models.attacks import (
     CreateAttackResponse,
     CreateConversationRequest,
     CreateConversationResponse,
+    ProblemDetail,
     UpdateAttackRequest,
     UpdateMainConversationRequest,
     UpdateMainConversationResponse,
 )
-from pyrit.backend.models.common import ProblemDetail
+from pyrit.backend.models.attacks import AttackMetadata, SaveConversationRequest
+from pyrit.backend.models.common import MAX_IDENTIFIER_LENGTH, MAX_ITEMS, CursorStr, IdentifierStr, LabelFilterStr
+from pyrit.backend.models.scores import ApplyChatScorerRequest, ApplyChatScorerResponse
 from pyrit.backend.routes.common import parse_label_query_params
-from pyrit.backend.services.attack_service import get_attack_service
+from pyrit.backend.services import get_attack_service
+from pyrit.backend.services.attack_service import AttackObjectiveConflictError
+from pyrit.backend.services.chat_scoring_service import ChatScoringError, get_chat_scoring_service
+from pyrit.backend.services.history_replay import HistoryReplayError
+from pyrit.backend.services.manual_send_scheduler import ManualSendConflictError, ManualSendQueueFullError
+from pyrit.backend.services.media_persistence import MediaAccessDeniedError
+from pyrit.common import print_deprecation_message
+from pyrit.memory.memory_interface import AttackStateConflictError
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/attacks", tags=["attacks"])
+
+
+@router.post("/{attack_result_id}/apply-scorer", response_model=ApplyChatScorerResponse)
+async def apply_chat_scorer_async(
+    *, attack_result_id: IdentifierStr, request: ApplyChatScorerRequest
+) -> ApplyChatScorerResponse:
+    """
+    Apply the selected scorer only to the latest saved response in the requested conversation.
+
+    Returns:
+        The persisted result and whether an existing complete score was reused.
+    """
+    try:
+        return await get_chat_scoring_service().apply_async(attack_result_id=attack_result_id, request=request)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (AttackStateConflictError, ManualSendConflictError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ManualSendQueueFullError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ChatScoringError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/save-conversation", response_model=AddMessageResponse)
+async def save_conversation_async(*, body: SaveConversationRequest, request: Request) -> AddMessageResponse:
+    """
+    Save a complete draft without sending messages.
+
+    Returns:
+        The stored attack and conversation.
+    """
+    user = getattr(request.state, "user", None)
+    if user is not None:
+        body.operator = user.email.split("@", 1)[0].lower()
+    try:
+        return await get_attack_service().save_conversation_async(request=body)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except (AttackStateConflictError, ManualSendConflictError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ManualSendQueueFullError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise FileNotFoundError(str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/conversations/{conversation_id}", response_model=AddMessageResponse)
+async def get_saved_conversation_async(conversation_id: IdentifierStr) -> AddMessageResponse:
+    """
+    Get a saved chat conversation and its attack for the scanner editor.
+
+    Returns:
+        The stored attack and conversation.
+    """
+    response = await get_attack_service().get_saved_conversation_async(conversation_id=conversation_id)
+    if response is None:
+        raise HTTPException(status_code=404, detail="Saved chat conversation not found")
+    return response
 
 
 @router.get(
@@ -44,14 +121,16 @@ router = APIRouter(prefix="/attacks", tags=["attacks"])
     response_model=AttackListResponse,
 )
 async def list_attacks(  # pyrit-async-suffix-exempt
-    attack_types: list[str] | None = Query(
+    attack_types: list[IdentifierStr] | None = Query(
         None,
+        max_length=MAX_ITEMS,
         description="Filter by attack type names. May be specified multiple times to OR-match "
         "across types (e.g. ?attack_types=A&attack_types=B). Case-insensitive. "
         "Omit to return all attacks regardless of type.",
     ),
-    converter_types: list[str] | None = Query(
+    converter_types: list[IdentifierStr] | None = Query(
         None,
+        max_length=MAX_ITEMS,
         description="Filter by converter type names. May be specified multiple times; "
         "combination semantics are controlled by converter_types_match "
         "(e.g. ?converter_types=A&converter_types=B). "
@@ -75,16 +154,26 @@ async def list_attacks(  # pyrit-async-suffix-exempt
     outcome: Literal["undetermined", "success", "failure", "error"] | None = Query(
         None, description="Filter by outcome"
     ),
-    label: list[str] | None = Query(
+    operator: list[Annotated[str, Field(max_length=128)]] | None = Query(
+        None, max_length=MAX_ITEMS, description="Filter by dedicated operator values"
+    ),
+    operation: list[Annotated[str, Field(max_length=128)]] | None = Query(
+        None, max_length=MAX_ITEMS, description="Filter by dedicated operation values"
+    ),
+    operation_id: list[uuid.UUID] | None = Query(
+        None, max_length=MAX_ITEMS, description="Filter by saved Operation IDs; legacy name-only attacks never match"
+    ),
+    label: list[LabelFilterStr] | None = Query(
         None,
+        max_length=MAX_ITEMS,
         description="Filter by labels (format: key:value). May be specified multiple times; "
         "OR-matched within a key, AND-matched across keys "
         "(e.g. ?label=op:red&label=op:blue matches op=red OR op=blue).",
     ),
-    min_turns: int | None = Query(None, ge=0, description="Filter by minimum executed turns"),
-    max_turns: int | None = Query(None, ge=0, description="Filter by maximum executed turns"),
+    min_turns: int | None = Query(None, ge=0, le=10_000, description="Filter by minimum executed turns"),
+    max_turns: int | None = Query(None, ge=0, le=10_000, description="Filter by maximum executed turns"),
     limit: int = Query(20, ge=1, le=100, description="Maximum items per page"),
-    cursor: str | None = Query(
+    cursor: CursorStr | None = Query(
         None,
         description="Opaque pagination cursor returned as next_cursor by the previous page. "
         "Treat it as opaque and pass it back unmodified. "
@@ -100,8 +189,28 @@ async def list_attacks(  # pyrit-async-suffix-exempt
     Returns:
         AttackListResponse: Paginated list of attack summaries.
     """
-    service = get_attack_service()
-    labels = parse_label_query_params(label)
+    labels = parse_label_query_params(label) or {}
+    # TODO(PyRIT 1.4): Remove legacy attribution aliases from label query parameters.
+    legacy_operator = labels.pop("operator", None)
+    legacy_operation = labels.pop("operation", None)
+    if legacy_operator is not None:
+        print_deprecation_message(
+            old_item="GET /attacks?label=operator:...",
+            new_item="GET /attacks?operator=...",
+            removed_in="1.4.0",
+        )
+        if operator is not None and operator != legacy_operator:
+            raise HTTPException(status_code=422, detail="operator conflicts with legacy label=operator filter")
+        operator = legacy_operator
+    if legacy_operation is not None:
+        print_deprecation_message(
+            old_item="GET /attacks?label=operation:...",
+            new_item="GET /attacks?operation=...",
+            removed_in="1.4.0",
+        )
+        if operation is not None and operation != legacy_operation:
+            raise HTTPException(status_code=422, detail="operation conflicts with legacy label=operation filter")
+        operation = legacy_operation
     # Strip empty strings from the list-valued query params. The service layer
     # coerces an all-empty ``converter_types`` list to None ("no filter"); the
     # "attacks with no converters" case is expressed through ``has_converters``.
@@ -109,6 +218,7 @@ async def list_attacks(  # pyrit-async-suffix-exempt
         converter_types = [c for c in converter_types if c]
     if attack_types is not None:
         attack_types = [a for a in attack_types if a]
+    service = get_attack_service()
     return await service.list_attacks_async(
         attack_types=attack_types,
         converter_types=converter_types,
@@ -116,7 +226,10 @@ async def list_attacks(  # pyrit-async-suffix-exempt
         has_converters=has_converters,
         include_scenario_attacks=include_scenario_attacks,
         outcome=outcome,
-        labels=labels,
+        operator=operator,
+        operation=operation,
+        operation_ids=operation_id,
+        labels=labels or None,
         min_turns=min_turns,
         max_turns=max_turns,
         limit=limit,
@@ -186,6 +299,12 @@ async def create_attack(request: CreateAttackRequest) -> CreateAttackResponse:  
 
     try:
         return await service.create_attack_async(request=request)
+    except LookupError as e:
+        raise FileNotFoundError(str(e)) from e
+    except MediaAccessDeniedError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except HistoryReplayError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -200,7 +319,7 @@ async def create_attack(request: CreateAttackRequest) -> CreateAttackResponse:  
         404: {"model": ProblemDetail, "description": "Attack not found"},
     },
 )
-async def get_attack(attack_result_id: str) -> AttackSummary:  # pyrit-async-suffix-exempt
+async def get_attack(attack_result_id: IdentifierStr) -> AttackSummary:  # pyrit-async-suffix-exempt
     """
     Get attack details.
 
@@ -221,34 +340,97 @@ async def get_attack(attack_result_id: str) -> AttackSummary:  # pyrit-async-suf
     return attack
 
 
+@router.get(
+    "/{attack_result_id}/metadata",
+    response_model=AttackMetadata,
+    responses={
+        400: {"model": ProblemDetail, "description": "Invalid metadata request"},
+        404: {"model": ProblemDetail, "description": "Attack not found"},
+    },
+)
+async def get_attack_metadata_async(
+    *,
+    attack_result_id: IdentifierStr,
+    conversation_id: IdentifierStr | None = Query(None, description="Selected main or pruned conversation to validate"),
+) -> AttackMetadata:
+    """
+    Get Chat metadata without downloading either complete conversation-reference array.
+
+    Membership is checked independently of reference paging. An invalid selection is
+    reported in the metadata rather than replacing it with the main conversation.
+    GET /attacks/{id} retains its full legacy summary.
+
+    Returns:
+        AttackMetadata: Metadata, pruned-reference count, and selected membership.
+    """
+    try:
+        metadata = await get_attack_service().get_attack_metadata_async(
+            attack_result_id=attack_result_id, conversation_id=conversation_id
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    if metadata is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Attack '{attack_result_id}' not found")
+    return metadata
+
+
 @router.patch(
     "/{attack_result_id}",
     response_model=AttackSummary,
     responses={
         404: {"model": ProblemDetail, "description": "Attack not found"},
+        409: {"model": ProblemDetail, "description": "The shared objective changed since it was read"},
     },
 )
 async def update_attack(  # pyrit-async-suffix-exempt
-    attack_result_id: str,
+    attack_result_id: IdentifierStr,
     request: UpdateAttackRequest,
 ) -> AttackSummary:
     """
-    Update an attack's outcome.
-
-    Used to mark attacks as success/failure/undetermined.
+    Update mutable attack fields.
 
     Returns:
         AttackSummary: Updated attack details.
     """
     service = get_attack_service()
 
-    attack = await service.update_attack_async(attack_result_id=attack_result_id, request=request)
+    try:
+        attack = await service.update_attack_async(attack_result_id=attack_result_id, request=request)
+    except AttackObjectiveConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     if not attack:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Attack '{attack_result_id}' not found",
         )
 
+    return attack
+
+
+@router.delete(
+    "/{attack_result_id}/human-score",
+    response_model=AttackSummary,
+    responses={
+        404: {"model": ProblemDetail, "description": "Attack not found"},
+    },
+)
+async def remove_human_score(attack_result_id: IdentifierStr) -> AttackSummary:  # pyrit-async-suffix-exempt
+    """
+    Remove the attack's human-score override.
+
+    Returns:
+        AttackSummary: Updated attack details.
+    """
+    service = get_attack_service()
+    try:
+        attack = await service.remove_human_score_async(attack_result_id=attack_result_id)
+    except AttackObjectiveConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    if not attack:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Attack '{attack_result_id}' not found",
+        )
     return attack
 
 
@@ -261,13 +443,18 @@ async def update_attack(  # pyrit-async-suffix-exempt
     },
 )
 async def get_conversation_messages(  # pyrit-async-suffix-exempt
-    attack_result_id: str,
-    conversation_id: str = Query(..., description="The conversation_id whose messages to return"),
+    attack_result_id: IdentifierStr,
+    conversation_id: str = Query(
+        ..., max_length=MAX_IDENTIFIER_LENGTH, description="The conversation_id whose messages to return"
+    ),
+    limit: int | None = Query(None, ge=1, le=500, description="Optional saved message-piece page size"),
+    cursor: CursorStr | None = Query(None, description="Opaque message-piece continuation cursor"),
 ) -> ConversationMessagesResponse:
     """
-    Get all messages for a conversation belonging to an attack.
+    Get saved messages for a main or pruned conversation belonging to an attack.
 
-    Returns prepended conversation and all messages in order.
+    Omitting limit preserves the existing full-conversation response. Paged reads can
+    split a multimodal turn; append pieces by their IDs and turn number across pages.
 
     Returns:
         ConversationMessagesResponse: All messages for the conversation.
@@ -278,6 +465,8 @@ async def get_conversation_messages(  # pyrit-async-suffix-exempt
         messages = await service.get_conversation_messages_async(
             attack_result_id=attack_result_id,
             conversation_id=conversation_id,
+            limit=limit,
+            cursor=cursor,
         )
     except ValueError as e:
         raise HTTPException(
@@ -298,22 +487,31 @@ async def get_conversation_messages(  # pyrit-async-suffix-exempt
     "/{attack_result_id}/conversations",
     response_model=AttackConversationsResponse,
     responses={
+        400: {"model": ProblemDetail, "description": "Invalid conversation cursor"},
         404: {"model": ProblemDetail, "description": "Attack not found"},
     },
 )
-async def get_conversations(attack_result_id: str) -> AttackConversationsResponse:  # pyrit-async-suffix-exempt
+async def get_conversations(  # pyrit-async-suffix-exempt
+    attack_result_id: IdentifierStr,
+    limit: int | None = Query(None, ge=1, le=200, description="Optional saved conversation-reference page size"),
+    cursor: CursorStr | None = Query(None, description="Opaque conversation-reference continuation cursor"),
+) -> AttackConversationsResponse:
     """
-    Get all conversations belonging to an attack.
+    Get main and pruned conversations belonging to an attack.
 
-    Returns the main conversation and all related conversations with
-    message counts and preview text.
+    Without a limit, preserve the existing active-conversation list and timestamp
+    ordering. Paged reads use stored-reference order, with message counts and
+    preview text. Both paths exclude adversarial and preparation contexts.
 
     Returns:
         AttackConversationsResponse: All conversations for the attack.
     """
     service = get_attack_service()
 
-    result = await service.get_conversations_async(attack_result_id=attack_result_id)
+    try:
+        result = await service.get_conversations_async(attack_result_id=attack_result_id, limit=limit, cursor=cursor)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     if not result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -333,7 +531,7 @@ async def get_conversations(attack_result_id: str) -> AttackConversationsRespons
     },
 )
 async def create_related_conversation(  # pyrit-async-suffix-exempt
-    attack_result_id: str,
+    attack_result_id: IdentifierStr,
     request: CreateConversationRequest,
 ) -> CreateConversationResponse:
     """
@@ -376,7 +574,7 @@ async def create_related_conversation(  # pyrit-async-suffix-exempt
     },
 )
 async def update_main_conversation(  # pyrit-async-suffix-exempt
-    attack_result_id: str,
+    attack_result_id: IdentifierStr,
     request: UpdateMainConversationRequest,
 ) -> UpdateMainConversationResponse:
     """
@@ -416,10 +614,13 @@ async def update_main_conversation(  # pyrit-async-suffix-exempt
     responses={
         404: {"model": ProblemDetail, "description": "Attack not found"},
         400: {"model": ProblemDetail, "description": "Message send failed"},
+        403: {"model": ProblemDetail, "description": "Automated results require a manual continuation"},
+        409: {"model": ProblemDetail, "description": "Conversation has an active manual operation"},
+        429: {"model": ProblemDetail, "description": "Manual-message admission limit reached"},
     },
 )
 async def add_message(  # pyrit-async-suffix-exempt
-    attack_result_id: str,
+    attack_result_id: IdentifierStr,
     request: AddMessageRequest,
 ) -> AddMessageResponse:
     """
@@ -441,6 +642,12 @@ async def add_message(  # pyrit-async-suffix-exempt
 
     try:
         return await service.add_message_async(attack_result_id=attack_result_id, request=request)
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
+    except ManualSendConflictError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+    except ManualSendQueueFullError as e:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(e)) from e
     except ValueError as e:
         error_msg = str(e)
         if "not found" in error_msg.lower():

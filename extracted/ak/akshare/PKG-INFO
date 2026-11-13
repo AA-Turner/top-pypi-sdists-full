@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: akshare
-Version: 1.20.38
+Version: 1.20.42
 Summary: AKShare is an elegant and simple financial data interface library for Python, built for human beings!
 Author-email: AKFamily <albertandking@gmail.com>
 License: MIT
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.11
+Requires-Python: >=3.11.5
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: beautifulsoup4>=4.11.2
@@ -59,7 +59,7 @@ Dynamic: license-file
 
 ## Overview
 
-[AKShare](https://github.com/akfamily/akshare) requires Python(64 bit) 3.11 or higher and
+[AKShare](https://github.com/akfamily/akshare) requires Python(64 bit) 3.11.5 or higher and
 aims to simplify the process of fetching financial data.
 
 **Write less, get more!**
@@ -98,7 +98,7 @@ Claude Desktop, Cursor and other clients:
 
 [![Add AKTools MCP server to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=aktools&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJha3Rvb2xzIiwiYWt0b29scy1tY3AiXX0%3D)
 
-Instead of registering 1000+ tools, it exposes three generic ones that the
+Instead of registering nearly 1000 tools, it exposes three generic ones that the
 assistant chains together:
 
 | Tool | Purpose |

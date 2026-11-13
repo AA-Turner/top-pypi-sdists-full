@@ -24,6 +24,7 @@ from .exceptions import SandboxClaimFailedError, SandboxMetadataError, SandboxNo
 from .models import AdditionalPodMetadata
 from .utils import (
     construct_sandbox_claim_env_spec,
+    current_not_ready,
     is_valid_gateway_hostname,
     is_valid_ip,
     select_pod_ip,
@@ -134,7 +135,10 @@ class K8sHelper:
             body=manifest
         ))
 
-    def resolve_sandbox_name(self, claim_name: str, namespace: str, timeout: int, resource_version: str | None = None) -> str:
+    def resolve_sandbox_name(
+        self, claim_name: str, namespace: str, timeout: int, resource_version: str | None = None,
+        *, initial_claim: dict[str, Any] | None = None,
+    ) -> str:
         """Resolves the actual Sandbox name from the SandboxClaim status.
         With warm pool adoption, the sandbox name may differ from the claim
         name. This method watches the SandboxClaim until the sandbox name
@@ -144,9 +148,11 @@ class K8sHelper:
             resource_version: Optional resourceVersion to start the watch
                 from (e.g. ``metadata.resourceVersion`` of the create
                 response). Defaults to ``"0"`` — see ``_watch_claim``.
+            initial_claim: Optional GET response to evaluate before
+                waiting for future watch events.
         """
         return self._watch_claim(claim_name, namespace, timeout, require_ready=False,
-                                 resource_version=resource_version)
+                                 resource_version=resource_version, initial_claim=initial_claim)
 
     def wait_for_claim_ready(
         self, claim_name: str, namespace: str, timeout: int, resource_version: str | None = None,
@@ -251,31 +257,27 @@ class K8sHelper:
                             rv = seen_rv
                         status = claim_object.get('status') or {}
 
-                        ready = False
-                        for cond in status.get('conditions', []):
-                            if (
-                                cond.get('type') == 'Ready'
-                                and cond.get('status') == 'False'
-                                and cond.get('reason') == 'TemplateNotFound'
-                            ):
+                        not_ready = current_not_ready(claim_object)
+                        if not_ready is not None:
+                            reason = not_ready.get('reason')
+                            if reason == 'TemplateNotFound':
                                 raise SandboxTemplateNotFoundError(
-                                    f"SandboxTemplate requested does not exist: {cond.get('message', 'Template not found')}"
+                                    f"SandboxTemplate requested does not exist: {not_ready.get('message', 'Template not found')}"
                                 )
-                            elif cond.get('reason') == 'WarmPoolNotFound':
+                            if reason == 'WarmPoolNotFound':
                                 raise SandboxWarmPoolNotFoundError(
-                                    f"SandboxWarmPool requested does not exist: {cond.get('message', 'WarmPool not found')}"
+                                    f"SandboxWarmPool requested does not exist: {not_ready.get('message', 'WarmPool not found')}"
                                 )
-                            elif (
-                                cond.get('type') == 'Ready'
-                                and cond.get('status') == 'False'
-                                and cond.get('reason') in TERMINAL_CLAIM_READY_REASONS
-                            ):
+                            if reason in TERMINAL_CLAIM_READY_REASONS:
                                 # The controller reported a failure it will not
                                 # retry; waiting out the timeout cannot succeed.
                                 raise SandboxClaimFailedError(
                                     f"SandboxClaim '{claim_name}' failed with terminal reason "
-                                    f"{cond.get('reason')}: {cond.get('message', '')}"
+                                    f"{reason}: {not_ready.get('message', '')}"
                                 )
+
+                        ready = False
+                        for cond in status.get('conditions', []):
                             if (cond.get('type') == 'Ready' and cond.get('status') == 'True'
                                     and (not require_current_generation
                                          or (metadata.get('generation') is not None

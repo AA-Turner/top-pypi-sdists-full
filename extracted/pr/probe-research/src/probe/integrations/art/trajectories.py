@@ -12,7 +12,9 @@ from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from probe.generated.samples import TurnsSource
 from probe.sdk.run.samples.refs import parse_generated_by
+from probe.sdk.run.samples.rollout import REASONING_KEYS, to_tool_call
 
 from .live import ATTEMPT_KEY, read_attempt_key
 
@@ -188,7 +190,7 @@ class TrajectoryMapper:
         histories = [list(getattr(history, "messages_and_choices", None) or [])
                      for history in getattr(trajectory, "additional_histories", None) or ()]
         history_turns: list[int] = []
-        if _is_multi_turn(messages) or histories:
+        if _is_multi_turn(messages) or histories or _has_capture(messages):
             turns = build_turns(messages, items, {})
             history_turns.append(len(turns))
             for history in histories:  # ART trains each with the trajectory's advantage (`preprocessing/tokenize.py:262-277`)
@@ -197,6 +199,7 @@ class TrajectoryMapper:
                 history_turns.append(len(found))
             _add_turn_rewards(turns, turn_rewards)
             part["turns"] = turns
+            part["turns_source"] = TurnsSource.AS_SENT  # ART keeps the messages its rollout built (`messages_and_choices`)
             part["turn_count"] = len(turns)
             part["tool_call_count"] = sum(len(turn.get("tool_calls", ())) for turn in turns)
         arrays = _get_token_arrays(choices)
@@ -269,7 +272,8 @@ def make_prompt_key(messages: list[dict]) -> str:
 
 def build_turns(messages: list[dict], items: list, turn_rewards: dict[int, float]) -> list[dict]:
     """One turn per model reply, holding the messages since the last reply; trailing messages are a last
-    turn. Each message keeps its source and whether the trainer learns from it (ART's Choice = trainable)."""
+    turn. Each message keeps its source, whether the trainer learns from it (ART's Choice = trainable), its tool
+    calls (id, name, arguments as sent) and its reasoning; a turn's `tool_calls` name each call its reply asked for."""
     turns: list[dict] = []
     current: list[dict] = []
     calls: list[dict] = []
@@ -281,8 +285,11 @@ def build_turns(messages: list[dict], items: list, turn_rewards: dict[int, float
             "content": message["content"],
             **({"name": message["name"]} if message.get("name") else {}),
             **({"tool_call_id": message["tool_call_id"]} if message.get("tool_call_id") else {}),
+            **({"reasoning": message["reasoning"]} if message.get("reasoning") else {}),
+            **({"tool_calls": message["tool_calls"]} if message.get("tool_calls") else {}),
         })
-        calls.extend({"name": name} for name in message.get("tool_names", ()))
+        calls.extend({"id": call["id"], "name": call["name"]} if call.get("id") else {"name": call["name"]}
+                     for call in message.get("tool_calls", ()))  # fmt: skip
         if message["role"] == "assistant":
             turns.append({"messages": current, "tool_calls": calls})
             current, calls = [], []
@@ -320,16 +327,20 @@ def _get_text(content: Any) -> str:
 
 
 def _to_message(item: Any) -> dict:
+    """One item of `messages_and_choices` (a Choice's message, or a message dict) with its tool calls as
+    `MessageToolCall`s (id, name, arguments as the model sent them) and its reasoning: `reasoning_content` /
+    `reasoning` where the engine or litellm gives one, never read from the text (D4)."""
     message = _get(item, "message") if _is_choice(item) else item
     role = "assistant" if _is_choice(item) else str(_get(message, "role") or "user")
-    calls = _get(message, "tool_calls") or []
-    names = [str(_get(_get(call, "function"), "name") or "tool") for call in calls]
+    calls = [to_tool_call(call) or {"name": "tool", "arguments": ""} for call in _get(message, "tool_calls") or []]
+    reasoning = next((value for key in REASONING_KEYS if isinstance(value := _get(message, key), str) and value), None)
     return {
         "role": role,
         "content": _get_text(_get(message, "content")),
         "name": _get(message, "name") if isinstance(_get(message, "name"), str) else None,
         "tool_call_id": _get(message, "tool_call_id") if isinstance(_get(message, "tool_call_id"), str) else None,
-        "tool_names": names,
+        "tool_calls": calls,
+        "reasoning": reasoning,
     }
 
 
@@ -351,6 +362,11 @@ def _get_response(messages: list[dict]) -> str:
 def _is_multi_turn(messages: list[dict]) -> bool:
     replies = sum(1 for message in messages if message["role"] == "assistant")
     return replies > 1 or any(message["role"] in ("tool", "function") for message in messages)
+
+
+def _has_capture(messages: list[dict]) -> bool:
+    """A one-reply trajectory still gets its turns when its reply holds tool calls or reasoning (else they are lost)."""
+    return any(message.get("tool_calls") or message.get("reasoning") for message in messages)
 
 
 def _split_metrics(metrics: Mapping[str, Any]) -> tuple[dict[str, float], dict[int, float]]:

@@ -44,11 +44,15 @@ class RawAiChatsClient:
         first: typing.Optional[int] = None,
         last: typing.Optional[int] = None,
         agent_identifier: typing.Optional[AiChatAgentIdentifiers] = None,
+        account_id: typing.Optional[str] = None,
         only_active_crons: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[AiChatListItem, ListAiChatsResponse]:
         """
         Returns a paginated list of AI chat threads for the current authenticated user.
+
+        Required permissions:
+         - `ai_chat:read`
 
         Parameters
         ----------
@@ -65,6 +69,9 @@ class RawAiChatsClient:
             Returns the last _n_ elements from the list.
 
         agent_identifier : typing.Optional[AiChatAgentIdentifiers]
+
+        account_id : typing.Optional[str]
+            Only return chats associated with this business account.
 
         only_active_crons : typing.Optional[bool]
             When true, returns only chats with an active cron schedule
@@ -87,6 +94,7 @@ class RawAiChatsClient:
                 "first": first,
                 "last": last,
                 "agent_identifier": agent_identifier,
+                "account_id": account_id,
                 "only_active_crons": only_active_crons,
             },
             request_options=request_options,
@@ -112,6 +120,7 @@ class RawAiChatsClient:
                         first=first,
                         last=last,
                         agent_identifier=agent_identifier,
+                        account_id=account_id,
                         only_active_crons=only_active_crons,
                         request_options=request_options,
                     )
@@ -373,6 +382,9 @@ class RawAiChatsClient:
     def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[AiChat]:
         """
         Retrieves the details of an existing AI chat.
+
+        Required permissions:
+         - `ai_chat:read`
 
         Parameters
         ----------
@@ -772,11 +784,15 @@ class AsyncRawAiChatsClient:
         first: typing.Optional[int] = None,
         last: typing.Optional[int] = None,
         agent_identifier: typing.Optional[AiChatAgentIdentifiers] = None,
+        account_id: typing.Optional[str] = None,
         only_active_crons: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[AiChatListItem, ListAiChatsResponse]:
         """
         Returns a paginated list of AI chat threads for the current authenticated user.
+
+        Required permissions:
+         - `ai_chat:read`
 
         Parameters
         ----------
@@ -793,6 +809,9 @@ class AsyncRawAiChatsClient:
             Returns the last _n_ elements from the list.
 
         agent_identifier : typing.Optional[AiChatAgentIdentifiers]
+
+        account_id : typing.Optional[str]
+            Only return chats associated with this business account.
 
         only_active_crons : typing.Optional[bool]
             When true, returns only chats with an active cron schedule
@@ -815,6 +834,7 @@ class AsyncRawAiChatsClient:
                 "first": first,
                 "last": last,
                 "agent_identifier": agent_identifier,
+                "account_id": account_id,
                 "only_active_crons": only_active_crons,
             },
             request_options=request_options,
@@ -842,6 +862,7 @@ class AsyncRawAiChatsClient:
                             first=first,
                             last=last,
                             agent_identifier=agent_identifier,
+                            account_id=account_id,
                             only_active_crons=only_active_crons,
                             request_options=request_options,
                         )
@@ -1106,6 +1127,9 @@ class AsyncRawAiChatsClient:
     ) -> AsyncHttpResponse[AiChat]:
         """
         Retrieves the details of an existing AI chat.
+
+        Required permissions:
+         - `ai_chat:read`
 
         Parameters
         ----------

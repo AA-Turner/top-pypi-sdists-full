@@ -182,7 +182,7 @@ pub fn output_summary(options: SummaryOptions) -> (bool, String) {
     }
 
     if plain {
-        return (has_success, output_plain(&file_entries));
+        return (has_success, output_plain(&file_entries, suggest_refactors));
     }
 
     let output = if failed_only && file_entries.is_empty() && rows.allowed > 0 {
@@ -227,19 +227,52 @@ fn allowed_summary(allowed: u64, max_complexity: u64) -> String {
     )
 }
 
-pub fn output_plain(file_entries: &[FileEntry]) -> String {
+pub fn output_plain(file_entries: &[FileEntry], suggest_refactors: bool) -> String {
     let mut lines = Vec::new();
     for entry in file_entries {
         for function in &entry.functions {
             lines.push(format!(
-                "{} {} {}",
+                "{}:{} {} {}",
                 escape_controls(&entry.path),
+                function.line_start,
                 escape_controls(&function.name),
                 function.complexity
             ));
+            if suggest_refactors {
+                lines.extend(plain_plan_lines(function));
+            }
         }
     }
     lines.join("\n")
+}
+
+fn plain_plan_lines(function: &FunctionRow) -> Vec<String> {
+    let mut lines: Vec<String> = function
+        .refactor_plans
+        .iter()
+        .map(|plan| {
+            let qualifier = if plan.reduction_is_measured { "" } else { "~" };
+            format!(
+                "  {} {} (-{}{})",
+                escape_controls(&plan.rule_id),
+                escape_controls(&plan.title),
+                qualifier,
+                plan.estimated_reduction
+            )
+        })
+        .collect();
+    if function.additional_refactor_plans > 0 {
+        let suffix = if function.additional_refactor_plans != 1 {
+            "s"
+        } else {
+            ""
+        };
+        lines.push(format!(
+            "  ... and {} more suggestion{}",
+            function.additional_refactor_plans, suffix
+        ));
+    }
+    lines
 }
 
 pub fn output_file_entries(
@@ -377,15 +410,21 @@ pub fn colorize_complexity(complexity: u64, max_complexity: u64) -> String {
     }
 }
 
-pub fn print_invalid_paths(invalid_paths: &[String]) -> (bool, String) {
+pub fn print_invalid_paths(invalid_paths: &[String], color: bool) -> (bool, String) {
     let has_success = invalid_paths.is_empty();
+    let paint = |text: &str, style: Style| {
+        if color {
+            text.style(style).to_string()
+        } else {
+            text.to_string()
+        }
+    };
     let mut lines = Vec::new();
     for failed_path in invalid_paths {
         lines.push(format!(
             "{}: Failed to process {} - Please check file/folder exists or check syntax",
-            "error".if_supports_color(Stream::Stdout, |text| text.style(Style::new().bold().red())),
-            escape_controls(failed_path).if_supports_color(Stream::Stdout, |text| text
-                .style(Style::new().bold().white()))
+            paint("error", Style::new().bold().red()),
+            paint(&escape_controls(failed_path), Style::new().bold().white())
         ));
     }
     (has_success, lines.join("\n"))

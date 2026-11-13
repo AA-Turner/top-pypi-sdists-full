@@ -390,22 +390,78 @@ async def test_cryptex_nonce_selects_the_domain_by_handle() -> None:
     assert "nonce-domain" not in sent[0]["argv"]
 
 
+def _image_mounter_reports(monkeypatch: pytest.MonkeyPatch, mounted: bool) -> None:
+    async def mounted_by_image_mounter(_: CryptexdService) -> bool:
+        return mounted
+
+    monkeypatch.setattr(CryptexdService, "_ddi_mounted_by_image_mounter", mounted_by_image_mounter)
+
+
+_INSTALLED_DDI_REPLY = {
+    "error": 0,
+    "argv": {
+        "remote-cryptex-array": [
+            {"remote-cryptex-identifier": DDI_CRYPTEX_IDENTIFIER, "remote-cryptex-version": "27.1.5228.8"}
+        ]
+    },
+}
+
+
 @pytest.mark.asyncio
-async def test_auto_install_ddi_refuses_when_already_installed() -> None:
+async def test_auto_install_ddi_refuses_when_already_installed(monkeypatch: pytest.MonkeyPatch) -> None:
     # Guard before personalizing: the daemon would otherwise fail the install with EEXIST after
     # a pointless TSS round-trip.
-    service, sent = _service({
-        "error": 0,
-        "argv": {
-            "remote-cryptex-array": [
-                {"remote-cryptex-identifier": DDI_CRYPTEX_IDENTIFIER, "remote-cryptex-version": "27.1.5228.8"}
-            ]
-        },
-    })
+    service, sent = _service(_INSTALLED_DDI_REPLY)
+    _image_mounter_reports(monkeypatch, mounted=True)
 
     with pytest.raises(AlreadyMountedError, match=re.escape("27.1.5228.8")):
         await service.auto_install_ddi()
 
+    assert [request["routine"] for request in sent] == ["copy-installed"]
+
+
+@pytest.mark.asyncio
+async def test_auto_install_ddi_replaces_an_installed_cryptex_that_is_not_mounted(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # Regression: `mounter umount-personalized` unmounts a cryptex-installed DDI but leaves the
+    # cryptex installed (observed on iPhone19,4 27.2.1). auto-mount then answered "already
+    # mounted" and mounted nothing, leaving the device without its developer services.
+    service, sent = _service(_INSTALLED_DDI_REPLY)
+    _image_mounter_reports(monkeypatch, mounted=False)
+
+    class ReachedPersonalization(Exception):
+        pass
+
+    def stop_at_personalization(restore_dir: Optional[Path] = None) -> Any:
+        raise ReachedPersonalization
+
+    monkeypatch.setattr(cryptexd, "load_cryptex1_assets", stop_at_personalization)
+
+    with caplog.at_level(logging.WARNING), pytest.raises(ReachedPersonalization):
+        await service.auto_install_ddi()
+
+    assert [request["routine"] for request in sent] == ["copy-installed", "uninstall"]
+    assert str(sent[1]["argv"]["remote-cryptex-identifier"]) == DDI_CRYPTEX_IDENTIFIER
+    assert "not mounted" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_uninstall_ddi_removes_the_installed_cryptex() -> None:
+    service, sent = _service(_INSTALLED_DDI_REPLY)
+
+    removed = await service.uninstall_ddi()
+
+    assert removed is not None
+    assert removed.identifier == DDI_CRYPTEX_IDENTIFIER
+    assert [request["routine"] for request in sent] == ["copy-installed", "uninstall"]
+
+
+@pytest.mark.asyncio
+async def test_uninstall_ddi_does_nothing_without_one() -> None:
+    service, sent = _service({"error": 0, "argv": {"remote-cryptex-array": []}})
+
+    assert await service.uninstall_ddi() is None
     assert [request["routine"] for request in sent] == ["copy-installed"]
 
 
@@ -415,11 +471,7 @@ async def test_auto_install_ddi_refuses_an_image_mounted_by_the_image_mounter(mo
     # copy-installed, so the install went ahead and failed after the TSS round-trip with
     # "mkdir custom mount path: /System/Developer [17: File exists]".
     service, sent = _service({"error": 0, "argv": {"remote-cryptex-array": []}})
-
-    async def mounted_by_image_mounter(_: CryptexdService) -> bool:
-        return True
-
-    monkeypatch.setattr(CryptexdService, "_ddi_mounted_by_image_mounter", mounted_by_image_mounter)
+    _image_mounter_reports(monkeypatch, mounted=True)
 
     with pytest.raises(AlreadyMountedError, match="image mounter"):
         await service.auto_install_ddi()

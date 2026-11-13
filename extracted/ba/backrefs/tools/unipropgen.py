@@ -316,6 +316,9 @@ def gen_blocks(output, ascii_props=False, append=False, prefix="", aliases=None)
                     if piece[0] > last + 1:
                         no_block_inverse.append((last + 1, piece[0] - 1))
                     last = piece[1]
+                # Include everything after the last range that is not in a block.
+                if last < max_range:
+                    no_block_inverse.append((last + 1, max_range))
             for block, name in ((no_block, 'noblock'), (no_block_inverse, '^noblock')):
                 f.write('\n    "%s": "' % name)
                 for piece in block:
@@ -687,6 +690,14 @@ def gen_binary(table, output, ascii_props=False, append=False, prefix="", aliase
     }
     binary['horizspace'] = [x for x in binary['horizspace'] if x <= max_range]
     binary['vertspace'] = [x for x in binary['vertspace'] if x <= max_range]
+
+    # Properties required by UTS #18 (`RL1.2`) that are not defined in the Unicode Character Database.
+    # `Any` is every character, even in ASCII mode, as it is in Regex. `Assigned` is everything that is not
+    # unassigned (General Category `Cn`).
+    unassigned = set(table['c']['n'])
+    binary['any'] = list(range(0, MAXUNICODE + 1))
+    binary['assigned'] = [x for x in range(0, max_range + 1) if x not in unassigned]
+    binary['ascii'] = list(range(0, min(MAXVALIDASCII, max_range) + 1))
 
     for filename, include in binary_props:
         with open(os.path.join(HOME, 'unicodedata', UNIVERSION, filename), 'r', encoding='utf-8') as uf:

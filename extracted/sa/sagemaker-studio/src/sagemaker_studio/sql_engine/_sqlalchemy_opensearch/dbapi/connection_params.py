@@ -5,11 +5,13 @@ This module handles parsing of connection URLs and validation of connection para
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qs, unquote
 
 from .exceptions import InterfaceError
+
+SECRET_MASK = "****"
 
 
 @dataclass
@@ -37,8 +39,8 @@ class ConnectionParams:
     host: str = "localhost"
     port: int = 443
     index: str = "_all"
-    username: Optional[str] = None
-    password: Optional[str] = None
+    username: Optional[str] = field(default=None, repr=False)
+    password: Optional[str] = field(default=None, repr=False)
     use_ssl: bool = True
     verify_certs: bool = True
     ca_certs: Optional[str] = None
@@ -46,8 +48,8 @@ class ConnectionParams:
     client_key: Optional[str] = None
     timeout: int = 30
     max_retries: int = 3
-    api_key: Optional[str] = None
-    api_key_id: Optional[str] = None
+    api_key: Optional[str] = field(default=None, repr=False)
+    api_key_id: Optional[str] = field(default=None, repr=False)
 
     def __post_init__(self):
         """Validate connection parameters after initialization."""
@@ -118,7 +120,12 @@ class ConnectionParams:
                 )
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert connection parameters to dictionary."""
+        """
+        Convert connection parameters to a dictionary that is safe to log.
+
+        Credentials (username, password, api_key_id, api_key) are masked. Read the attributes directly
+        when the real values are needed, e.g. to build the client.
+        """
         result = {
             "host": self.host,
             "port": self.port,
@@ -131,9 +138,9 @@ class ConnectionParams:
 
         # Add optional parameters if they are set
         if self.username:
-            result["username"] = self.username
+            result["username"] = SECRET_MASK
         if self.password:
-            result["password"] = self.password
+            result["password"] = SECRET_MASK
         if self.ca_certs:
             result["ca_certs"] = self.ca_certs
         if self.client_cert:
@@ -141,9 +148,9 @@ class ConnectionParams:
         if self.client_key:
             result["client_key"] = self.client_key
         if self.api_key:
-            result["api_key"] = self.api_key
+            result["api_key"] = SECRET_MASK
         if self.api_key_id:
-            result["api_key_id"] = self.api_key_id
+            result["api_key_id"] = SECRET_MASK
 
         return result
 

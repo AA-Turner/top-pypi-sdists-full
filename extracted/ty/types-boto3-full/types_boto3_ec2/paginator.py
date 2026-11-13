@@ -82,6 +82,7 @@ Usage::
         DescribeMacHostsPaginator,
         DescribeMacModificationTasksPaginator,
         DescribeManagedPrefixListsPaginator,
+        DescribeMetricCategoriesPaginator,
         DescribeMovingAddressesPaginator,
         DescribeNatGatewaysPaginator,
         DescribeNetworkAclsPaginator,
@@ -261,6 +262,7 @@ Usage::
     describe_mac_hosts_paginator: DescribeMacHostsPaginator = client.get_paginator("describe_mac_hosts")
     describe_mac_modification_tasks_paginator: DescribeMacModificationTasksPaginator = client.get_paginator("describe_mac_modification_tasks")
     describe_managed_prefix_lists_paginator: DescribeManagedPrefixListsPaginator = client.get_paginator("describe_managed_prefix_lists")
+    describe_metric_categories_paginator: DescribeMetricCategoriesPaginator = client.get_paginator("describe_metric_categories")
     describe_moving_addresses_paginator: DescribeMovingAddressesPaginator = client.get_paginator("describe_moving_addresses")
     describe_nat_gateways_paginator: DescribeNatGatewaysPaginator = client.get_paginator("describe_nat_gateways")
     describe_network_acls_paginator: DescribeNetworkAclsPaginator = client.get_paginator("describe_network_acls")
@@ -516,6 +518,8 @@ from .type_defs import (
     DescribeMacModificationTasksResultTypeDef,
     DescribeManagedPrefixListsRequestPaginateTypeDef,
     DescribeManagedPrefixListsResultTypeDef,
+    DescribeMetricCategoriesRequestPaginateTypeDef,
+    DescribeMetricCategoriesResultTypeDef,
     DescribeMovingAddressesRequestPaginateTypeDef,
     DescribeMovingAddressesResultTypeDef,
     DescribeNatGatewaysRequestPaginateTypeDef,
@@ -803,6 +807,7 @@ __all__ = (
     "DescribeMacHostsPaginator",
     "DescribeMacModificationTasksPaginator",
     "DescribeManagedPrefixListsPaginator",
+    "DescribeMetricCategoriesPaginator",
     "DescribeMovingAddressesPaginator",
     "DescribeNatGatewaysPaginator",
     "DescribeNetworkAclsPaginator",
@@ -2477,6 +2482,27 @@ class DescribeManagedPrefixListsPaginator(_DescribeManagedPrefixListsPaginatorBa
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeManagedPrefixLists.html#EC2.Paginator.DescribeManagedPrefixLists.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describemanagedprefixlistspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeMetricCategoriesPaginatorBase = Paginator[DescribeMetricCategoriesResultTypeDef]
+else:
+    _DescribeMetricCategoriesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class DescribeMetricCategoriesPaginator(_DescribeMetricCategoriesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeMetricCategories.html#EC2.Paginator.DescribeMetricCategories)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describemetriccategoriespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeMetricCategoriesRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeMetricCategoriesResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeMetricCategories.html#EC2.Paginator.DescribeMetricCategories.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describemetriccategoriespaginator)
         """
 
 

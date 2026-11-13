@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// nanobind includes Python.h, which must come before any standard header: it
+// sets feature macros such as _POSIX_C_SOURCE that they would set otherwise.
+#include "nanobind/nanobind.h"
+// (keep the above first)
 #include <optional>
 #include <string>
 
@@ -19,7 +23,6 @@
 #include "manifold/cross_section.h"
 #include "manifold/manifold.h"
 #include "manifold/polygon.h"
-#include "nanobind/nanobind.h"
 #include "nanobind/ndarray.h"
 #include "nanobind/operators.h"
 #include "nanobind/stl/function.h"
@@ -64,14 +67,17 @@ struct nb::detail::type_caster<la::vec<T, N>> {
   NB_TYPE_CASTER(la_type, const_name(la_name<la_type>::name));
 
   bool from_python(handle src, uint8_t flags, cleanup_list* cleanup) noexcept {
-    int size = PyObject_Size(src.ptr());  // negative on failure
-    if (size != N) return false;
+    size_t size;
+    PyObject* temp;
+    PyObject** o = seq_get(src.ptr(), &size, &temp);
+    bool success = o != nullptr && size == N;
     make_caster<T> t_cast;
-    for (int i = 0; i < size; i++) {
-      if (!t_cast.from_python(src[i], flags, cleanup)) return false;
-      value[i] = t_cast.value;
+    for (size_t i = 0; success && i < size; i++) {
+      success = t_cast.from_python(o[i], flags, cleanup);
+      if (success) value[i] = t_cast.value;
     }
-    return true;
+    Py_XDECREF(temp);
+    return success;
   }
   static handle from_cpp(la_type vec, rv_policy policy,
                          cleanup_list* cleanup) noexcept {
@@ -89,19 +95,24 @@ struct nb::detail::type_caster<la::mat<T, R, C>> {
   NB_TYPE_CASTER(la_type, const_name(la_name<la_type>::name));
 
   bool from_python(handle src, uint8_t flags, cleanup_list* cleanup) noexcept {
-    int rows = PyObject_Size(src.ptr());  // negative on failure
-    if (rows != R) return false;
-    for (int i = 0; i < R; i++) {
-      const nb::object& slice = src[i];
-      int cols = PyObject_Size(slice.ptr());  // negative on failure
-      if (cols != C) return false;
-      for (int j = 0; j < C; j++) {
-        make_caster<T> t_cast;
-        if (!t_cast.from_python(slice[j], flags, cleanup)) return false;
-        value[j][i] = t_cast.value;
+    size_t rows;
+    PyObject* temp;
+    PyObject** o = seq_get(src.ptr(), &rows, &temp);
+    bool success = o != nullptr && rows == R;
+    for (size_t i = 0; success && i < R; i++) {
+      size_t cols;
+      PyObject* row_temp;
+      PyObject** row = seq_get(o[i], &cols, &row_temp);
+      success = row != nullptr && cols == C;
+      make_caster<T> t_cast;
+      for (size_t j = 0; success && j < C; j++) {
+        success = t_cast.from_python(row[j], flags, cleanup);
+        if (success) value[j][i] = t_cast.value;
       }
+      Py_XDECREF(row_temp);
     }
-    return true;
+    Py_XDECREF(temp);
+    return success;
   }
   static handle from_cpp(la_type mat, rv_policy policy,
                          cleanup_list* cleanup) noexcept {
@@ -137,14 +148,18 @@ struct nb::detail::type_caster<std::vector<la::vec<T, N>>> {
         }
       }
     } else {
-      size_t num_vec = PyObject_Size(src.ptr());  // negative on failure
-      if (num_vec == static_cast<size_t>(-1)) return false;
-      value.resize(num_vec);
-      for (size_t i = 0; i < num_vec; i++) {
+      size_t num_vec;
+      PyObject* temp;
+      PyObject** o = seq_get(src.ptr(), &num_vec, &temp);
+      bool success = o != nullptr;
+      if (success) value.resize(num_vec);
+      for (size_t i = 0; success && i < num_vec; i++) {
         make_caster<la_type> vec_cast;
-        if (!vec_cast.from_python(src[i], flags, cleanup)) return false;
-        value[i] = vec_cast.value;
+        success = vec_cast.from_python(o[i], flags, cleanup);
+        if (success) value[i] = vec_cast.value;
       }
+      Py_XDECREF(temp);
+      return success;
     }
     return true;
   }
@@ -246,7 +261,7 @@ NB_MODULE(manifold3d, m) {
       .def("scale", &Manifold::Scale, nb::arg("v"), manifold__scale__v)
       .def(
           "scale",
-          [](const Manifold& self, double s) { self.Scale({s, s, s}); },
+          [](const Manifold& self, double s) { return self.Scale({s, s, s}); },
           nb::arg("s"),
           "Scale this Manifold in space. This operation can be chained. "
           "Transforms are combined and applied lazily.\n\n"
@@ -273,11 +288,13 @@ NB_MODULE(manifold3d, m) {
             return self.WarpBatch([&warp_func](VecView<vec3> v) {
               auto tmp = warp_func(v);
               nb::ndarray<double, nb::shape<-1, 3>, nanobind::c_contig> tmpnd;
-              if (!nb::try_cast(tmp, tmpnd) || tmpnd.ndim() != 2)
-                throw std::runtime_error(
-                    "Invalid vector shape, expected (:, 3)");
-              std::copy(tmpnd.data(), tmpnd.data() + v.size() * 3,
-                        &v.data()->x);
+              if (!nb::try_cast(tmp, tmpnd) || tmpnd.ndim() != 2 ||
+                  tmpnd.shape(0) != v.size())
+                throw std::runtime_error("Invalid vector shape, expected (" +
+                                         std::to_string(v.size()) + ", 3)");
+              if (v.size() > 0)
+                std::copy(tmpnd.data(), tmpnd.data() + v.size() * 3,
+                          &v.data()->x);
             });
           },
           nb::arg("warp_func"), manifold__warp_batch__warp_func)
@@ -304,6 +321,9 @@ NB_MODULE(manifold3d, m) {
                                            std::to_string(newNumProp) + ")");
                 for (int i = 0; i < newNumProp; i++) newProps[i] = array(i);
               } else if (nb::try_cast(result, vec)) {
+                if (vec.size() != static_cast<size_t>(newNumProp))
+                  throw std::runtime_error("Invalid vector length, expected " +
+                                           std::to_string(newNumProp));
                 for (int i = 0; i < newNumProp; i++) newProps[i] = vec[i];
               } else {
                 throw std::runtime_error(
@@ -359,7 +379,8 @@ NB_MODULE(manifold3d, m) {
       .def("get_tolerance", &Manifold::GetTolerance, manifold__get_tolerance)
       .def("set_tolerance", &Manifold::SetTolerance,
            manifold__set_tolerance__tolerance)
-      .def("simplify", &Manifold::Simplify, manifold__simplify__tolerance)
+      .def("simplify", &Manifold::Simplify, nb::arg("tolerance") = 0,
+           manifold__simplify__tolerance)
       .def("as_original", &Manifold::AsOriginal, manifold__as_original)
       .def("is_empty", &Manifold::IsEmpty, manifold__is_empty)
       .def("decompose", &Manifold::Decompose, manifold__decompose)
@@ -476,6 +497,8 @@ NB_MODULE(manifold3d, m) {
              std::vector<double> bounds, double edgeLength, double level = 0.0,
              double tolerance = -1) {
             // Same format as Manifold.bounding_box
+            if (bounds.size() != 6)
+              throw std::runtime_error("bounds must have 6 elements");
             Box bound = {vec3(bounds[0], bounds[1], bounds[2]),
                          vec3(bounds[3], bounds[4], bounds[5])};
 
@@ -524,9 +547,13 @@ NB_MODULE(manifold3d, m) {
              const std::optional<nb::ndarray<float, nb::shape<-1, 3, 4>,
                                              nb::c_contig>>& halfedgeTangent,
              float tolerance) {
+            if (vertProp.shape(1) < 3)
+              throw std::runtime_error(
+                  "vert_properties must have at least 3 columns");
             new (self) MeshGL();
             MeshGL& out = *self;
             out.numProp = vertProp.shape(1);
+            out.tolerance = tolerance;
             out.vertProperties = toVector(vertProp.data(), vertProp.size());
 
             out.triVerts = toVector(triVerts.data(), triVerts.size());
@@ -583,7 +610,7 @@ NB_MODULE(manifold3d, m) {
       .def_prop_ro(
           "tri_verts",
           [](const MeshGL& self) {
-            return nb::ndarray<nb::numpy, const int, nb::c_contig>(
+            return nb::ndarray<nb::numpy, const uint32_t, nb::c_contig>(
                 self.triVerts.data(), {self.triVerts.size() / 3, 3},
                 nb::handle());
           },
@@ -638,10 +665,14 @@ NB_MODULE(manifold3d, m) {
                  nb::ndarray<uint64_t, nb::shape<-1>, nb::c_contig>>& faceID,
              const std::optional<nb::ndarray<double, nb::shape<-1, 3, 4>,
                                              nb::c_contig>>& halfedgeTangent,
-             float tolerance) {
+             double tolerance) {
+            if (vertProp.shape(1) < 3)
+              throw std::runtime_error(
+                  "vert_properties must have at least 3 columns");
             new (self) MeshGL64();
             MeshGL64& out = *self;
             out.numProp = vertProp.shape(1);
+            out.tolerance = tolerance;
             out.vertProperties = toVector(vertProp.data(), vertProp.size());
 
             out.triVerts = toVector(triVerts.data(), triVerts.size());
@@ -766,6 +797,8 @@ NB_MODULE(manifold3d, m) {
              const std::function<double(double, double, double)>& f,
              std::vector<double> bounds, double edgeLength, double level,
              double tolerance) {
+            if (bounds.size() != 6)
+              throw std::runtime_error("bounds must have 6 elements");
             Box bound = {vec3(bounds[0], bounds[1], bounds[2]),
                          vec3(bounds[3], bounds[4], bounds[5])};
             std::function<double(vec3)> cppToPython = [&f](vec3 v) {
@@ -911,7 +944,7 @@ NB_MODULE(manifold3d, m) {
            cross_section__scale__scale)
       .def(
           "scale",
-          [](const CrossSection& self, double s) { self.Scale({s, s}); },
+          [](const CrossSection& self, double s) { return self.Scale({s, s}); },
           nb::arg("s"),
           "Scale this CrossSection in space. This operation can be chained. "
           "Transforms are combined and applied lazily."
@@ -928,9 +961,6 @@ NB_MODULE(manifold3d, m) {
             return self.Warp([&warp_func](vec2& v) { v = warp_func(v); });
           },
           nb::arg("warp_func"), cross_section__warp__warp_func)
-      .def("warp_batch", &CrossSection::WarpBatch, nb::arg("warp_func"),
-           cross_section__warp_batch__warp_func)
-
       .def(
           "warp_batch",
           [](const CrossSection& self,
@@ -939,11 +969,13 @@ NB_MODULE(manifold3d, m) {
             return self.WarpBatch([&warp_func](VecView<vec2> v) {
               auto tmp = warp_func(v);
               nb::ndarray<double, nb::shape<-1, 2>, nanobind::c_contig> tmpnd;
-              if (!nb::try_cast(tmp, tmpnd) || tmpnd.ndim() != 2)
-                throw std::runtime_error(
-                    "Invalid vector shape, expected (:, 2)");
-              std::copy(tmpnd.data(), tmpnd.data() + v.size() * 2,
-                        &v.data()->x);
+              if (!nb::try_cast(tmp, tmpnd) || tmpnd.ndim() != 2 ||
+                  tmpnd.shape(0) != v.size())
+                throw std::runtime_error("Invalid vector shape, expected (" +
+                                         std::to_string(v.size()) + ", 2)");
+              if (v.size() > 0)
+                std::copy(tmpnd.data(), tmpnd.data() + v.size() * 2,
+                          &v.data()->x);
             });
           },
           nb::arg("warp_func"), cross_section__warp_batch__warp_func)

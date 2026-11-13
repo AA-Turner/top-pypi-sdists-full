@@ -43,6 +43,7 @@ __all__ = [
     "RunCounts",
     "RunEdit",
     "RunStatus",
+    "RunType",
     "ScaleArgs",
     "SetConfigArgs",
     "ShiftStepArgs",
@@ -60,6 +61,15 @@ class RunStatus(StrEnum):
     CRASHED = "crashed"
     CANCELED = "canceled"
     UNTRACKED = "untracked"
+
+
+class RunType(StrEnum):
+    """What a run is, as its creator declares it (0495). Training and evaluation are phases inside a run, not types.
+    RL presentation (RL workspace, Rollouts, Compute timeline, Trials) follows `RL`; DESIGN.md (run.py).
+    """
+
+    GENERAL = "general"
+    RL = "rl"
 
 
 class ParentRelation(StrEnum):

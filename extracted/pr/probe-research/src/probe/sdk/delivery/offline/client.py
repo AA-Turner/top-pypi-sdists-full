@@ -93,9 +93,9 @@ class OfflineClient(Client):
 
     #: Features whose writes an offline run QUEUES instead of asking about: the server that
     #: decides is the one `probe sync` delivers to, and `sync_dir` checks it there (and says
-    #: so when it lacks one). Asking now would be a request; every other feature reads as
-    #: unsupported offline.
-    DEFERRED_FEATURES = frozenset({"run_config_merge", *LINEAGE_ROUTES})
+    #: so when it lacks one; `samples_turn_capture`: the samples gate at delivery). Asking now
+    #: would be a request; every other feature reads as unsupported offline.
+    DEFERRED_FEATURES = frozenset({"run_config_merge", "samples_turn_capture", *LINEAGE_ROUTES})
 
     def supports_feature(self, name: str) -> bool:
         return name in self.DEFERRED_FEATURES

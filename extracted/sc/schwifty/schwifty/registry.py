@@ -23,6 +23,7 @@ from schwifty.domain import canonical_bic
 from schwifty.domain import Component
 from schwifty.domain import IBANSpec
 from schwifty.domain import Range
+from schwifty.domain import SEPAScheme
 
 
 Key = str | tuple[str, ...]
@@ -218,6 +219,13 @@ class Registry:
         # their BIC, so that e.g. REVOGB21 and REVOGB21XXX find the same banks.
         return self._get_country_banks(bic[4:6].upper()).by_bic.get(canonical_bic(bic), [])
 
+    def get_sepa_schemes(self, bic: str) -> frozenset[SEPAScheme] | None:
+        """Return the SEPA schemes of ``bic``, or ``None`` if the SCL directory doesn't list it."""
+        directory = self._get("scl")
+        assert isinstance(directory, dict)
+        schemes = directory.get(canonical_bic(bic.upper()))
+        return None if schemes is None else frozenset(SEPAScheme(scheme) for scheme in schemes)
+
     def get_countries(self) -> list[str]:
         return list(self._bank_files())
 
@@ -268,24 +276,43 @@ _default_registry = Registry()
 
 
 def get_iban_spec(country_code: str) -> IBANSpec:
+    """Return the IBAN specification of ``country_code``.
+
+    Raises:
+        InvalidCountryCode: If the country has no IBAN specification.
+    """
     return _default_registry.get_iban_spec(country_code)
 
 
 def get_banks_by_country(country_code: str) -> list[Bank]:
+    """Return all banks of ``country_code``, including the retired ones."""
     return _default_registry.get_banks_by_country(country_code)
 
 
 def get_banks_by_code(country_code: str, bank_code: str) -> list[Bank]:
+    """Return the banks of ``bank_code`` in ``country_code``, or an empty list."""
     return _default_registry.get_banks_by_code(country_code, bank_code)
 
 
 def get_banks_by_bic(bic: str) -> list[Bank]:
+    """Return the banks of ``bic``, or an empty list.
+
+    A BIC without branch code and the same BIC with the branch code ``XXX`` find the same banks,
+    and the BIC of a merged bank finds the bank codes it was listed with.
+    """
     return _default_registry.get_banks_by_bic(bic)
 
 
+def get_sepa_schemes(bic: str) -> frozenset[SEPAScheme] | None:
+    """Return the SEPA schemes of ``bic``, or ``None`` if the SCL directory doesn't list it."""
+    return _default_registry.get_sepa_schemes(bic)
+
+
 def get_countries() -> list[str]:
+    """Return the codes of the countries that have a bank registry."""
     return _default_registry.get_countries()
 
 
 def get_all_banks() -> list[Bank]:
+    """Return the banks of all countries."""
     return _default_registry.get_all_banks()

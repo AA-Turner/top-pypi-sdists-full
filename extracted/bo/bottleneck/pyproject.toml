@@ -1,22 +1,131 @@
 [build-system]
 requires = [
-    "setuptools",
-    "versioneer", 
-    # Comments on numpy build requirement range:
-    #
-    #   1. >=2.0.x is the numpy requirement for wheel builds for distribution
-    #      on PyPI - building against 2.x yields wheels that are also
-    #      ABI-compatible with numpy 1.x at runtime.
-    #   2. Note that building against numpy 1.x works fine too - users and
-    #      redistributors can do this by installing the numpy version they like
-    #      and disabling build isolation.
-    #   3. The <2.(N+3) upper bound is for matching the numpy deprecation policy,
-    #      it should not be loosened more than that.
-    "numpy>=2,<2.6"
+    "setuptools>=77.0.1",
+    "versioneer>=0.29",
+    "versioneer[toml] ; python_version < '3.11'",
+    # The upper bound should be 3 minor releases ahead of the current runtime version
+    "numpy>=2,<2.8"
 ]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "Bottleneck"
+description = "Fast NumPy array functions written in C"
+maintainers = [
+    { name = "Christopher Whelan" , email = "bottle-neck@googlegroups.com" },
+]
+readme = { file = "README.rst" , content-type = "text/x-rst" }
+license = "BSD-2-Clause"
+license-files = [
+    "LICENSE",
+    "LICENSES/NUMPY_LICENSE",
+    "LICENSES/PANDAS_LICENSE",
+    "LICENSES/SCIPY_LICENSE",
+    "LICENSES/SETUPTOOLS_LICENSE",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Operating System :: OS Independent",
+    "Programming Language :: C",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
+    "Topic :: Scientific/Engineering",
+]
+requires-python = ">=3.11"
+dependencies = [
+    # keep in sync with NPY_* macros (setup.py)
+    "numpy>=2.0.0",
+]
+dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/pydata/bottleneck"
+Changelog = "https://github.com/pydata/bottleneck/blob/master/RELEASE.rst"
+
+[dependency-groups]
+doc = [
+    "numpydoc",
+    "sphinx",
+    "gitpython",
+]
+test = [
+    "pytest>=9.0.0",
+]
+concurrency = [
+    { include-group = "test" },
+    "pytest-run-parallel>=0.9.0",
+]
+
+[tool.setuptools]
+include-package-data = false
+zip-safe = false
+
+[tool.setuptools.packages.find]
+namespaces = false
+
+[tool.versioneer]
+VCS = "git"
+style = "pep440-pre"
+versionfile_source = "bottleneck/_version.py"
+versionfile_build = "bottleneck/_version.py"
+tag_prefix = "v"
+parentdir_prefix = "bottleneck-"
+
+[tool.uv]
+no-build-package = ["numpy"]
 
 [tool.pytest.ini_options]
-addopts = "-l"
+addopts = "-l --strict-markers"
 filterwarnings = ["error"]
+testpaths = ["bottleneck/tests"]
+
+[tool.cibuildwheel]
+build-frontend = "uv; args: --no-config"
+skip = [
+    "*_i686",
+    "cp310-win_arm64", # no numpy wheels for this target
+]
+test-groups = ["test", "concurrency"]
+test-sources = ["pyproject.toml"]
+test-command = [
+    "pytest --pyargs bottleneck",
+]
+
+[tool.ruff]
+exclude = [
+    "doc",
+    "versioneer.py",
+    "bottleneck/_version.py",
+    "build",
+]
+
+[tool.ruff.lint]
+ignore = [
+    # "E501"
+    #"E203",  # Defer to how black formats
+    "C408",  # Unnecessary dict call - rewrite as a literal.
+]
+select = [
+    "E",
+    "F",
+    "W",
+    "C4",  # flake8-comprehensions
+    "B",   # flake8-bugbear
+    "TCH", # flake8-type-checking
+    "YTT", # flake8-2020
+    "I",   # isort
+    "UP",  # pyupgrade
+    "NPY", # numpy specific rules
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]

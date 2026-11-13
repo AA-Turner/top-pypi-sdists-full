@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-fsm
-Version: 5.0.1
+Version: 5.0.2
 Summary: State machines for Python objects and Django models.
 Home-page: https://github.com/viewflow/django-fsm
 Author: Mikhail Podgurskiy

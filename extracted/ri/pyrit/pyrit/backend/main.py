@@ -20,10 +20,15 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 import pyrit
+from pyrit import _compatibility
+from pyrit.backend.authentication_policy import resolve_authentication_policy
 from pyrit.backend.middleware import RequestIdMiddleware, SecurityHeadersMiddleware, register_error_handlers
 from pyrit.backend.middleware.auth import EntraAuthMiddleware
-from pyrit.backend.models.initializers import ConfiguredInitializerSetting
+from pyrit.backend.middleware.compatibility import CompatibilityAPI, CompatibilityMiddleware
+from pyrit.backend.middleware.request_size import RequestSizeLimitMiddleware
+from pyrit.backend.middleware.runtime import RuntimeAdmissionMiddleware
 from pyrit.backend.routes import (
+    analytics,
     attacks,
     auth,
     configuration,
@@ -33,15 +38,19 @@ from pyrit.backend.routes import (
     initializers,
     labels,
     media,
+    message_sends,
+    operations,
+    scenario_presets,
+    scenario_suites,
     scenarios,
+    scorers,
+    scores,
     targets,
+    techniques,
     version,
 )
 from pyrit.backend.services.configuration_file_service import ConfigurationFileService
-from pyrit.backend.services.environment_file_service import EnvironmentFileService
-from pyrit.common.path import CONFIGURATION_DIRECTORY_PATH
-from pyrit.registry import InitializerRegistry
-from pyrit.setup.configuration_loader import ConfigurationLoader
+from pyrit.backend.services.runtime_lifecycle import RuntimeLifecycle
 
 # Check for development mode from environment variable
 DEV_MODE = os.getenv("PYRIT_DEV_MODE", "false").lower() == "true"
@@ -59,60 +68,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     2. ``~/.pyrit/.pyrit_conf`` when present
     3. ``PYRIT_CONFIG_FILE`` local path or Azure Blob URI when set
     """
+    app.state.compatibility_id = await asyncio.to_thread(_compatibility.get_compatibility_id)
+    app.state.authentication_policy = resolve_authentication_policy()
+    if app.state.authentication_policy.enabled and not app.state.authentication_policy.admin_group_id:
+        logger.warning("ENTRA_ADMIN_GROUP_ID is not set; authenticated users cannot access administrator routes.")
+    logger.info("Incoming-request authentication mode: %s", app.state.authentication_policy.mode)
     configuration_file_service = ConfigurationFileService(config_file_value=os.getenv("PYRIT_CONFIG_FILE"))
     app.state.configuration_file_service = configuration_file_service
-    async with configuration_file_service.resolve_async() as config_file:
-        config = ConfigurationLoader.load_with_overrides(config_file=config_file)
-    resolved_env_files = config.resolve_env_files()
-    read_only_file_sources = {}
-    if os.getenv("PYRIT_ENV_CONTENTS"):
-        read_only_file_sources[CONFIGURATION_DIRECTORY_PATH / ".env"] = (
-            "This file is materialized from the Container App secret and cannot be persisted here. "
-            "Update the deployment secret instead."
-        )
-    app.state.environment_file_service = EnvironmentFileService(
-        resolved_env_files=list(resolved_env_files) if resolved_env_files is not None else None,
-        env_akv_ref=config.resolve_env_akv_ref(),
-        env_akv_strict=config.env_akv_strict,
-        read_only_file_sources=read_only_file_sources,
-    )
-    initializer_registry = InitializerRegistry.get_registry_singleton()
-    initializer_registry.configure_custom_scripts_source(config.custom_initializers_source)
-    if config.allow_custom_initializers:
-        await asyncio.to_thread(initializer_registry.register_stored_initializers)
-    await config.initialize_pyrit_async(raise_on_initializer_error=False)
-
-    app.state.configured_initializers = [
-        ConfiguredInitializerSetting(
-            initializer_name=initializer.name,
-            parameters=initializer.args,
-            order_index=order_index,
-        )
-        for order_index, initializer in enumerate(config.initializer_configs)
-    ]
-
-    # Expose config values to route handlers via app.state
-    default_labels: dict[str, str] = {}
-    if config.operator:
-        default_labels["operator"] = config.operator
-    if config.operation:
-        default_labels["operation"] = config.operation
-    app.state.default_labels = default_labels
-    app.state.max_concurrent_scenario_runs = config.max_concurrent_scenario_runs
-    app.state.allow_custom_initializers = config.allow_custom_initializers
-
-    if config.allow_custom_initializers:
-        logger.warning("Custom initializer registration is ENABLED (allow_custom_initializers: true).")
+    runtime = RuntimeLifecycle(app=app, source=configuration_file_service)
+    app.state.runtime_lifecycle = runtime
+    await runtime.startup_async()
 
     # Mount the bundled frontend (or print a dev/missing-frontend notice).
     # Done here rather than at module load so test imports of `pyrit.backend.main`
     # don't emit noise and don't perform filesystem side effects.
     setup_frontend()
 
-    yield
+    try:
+        yield
+    finally:
+        await runtime.shutdown_async()
 
 
-app = FastAPI(
+app = CompatibilityAPI(
     title="PyRIT API",
     description="Python Risk Identification Tool for LLMs - REST API",
     version=pyrit.__version__,
@@ -125,16 +103,15 @@ app = FastAPI(
 # Register RFC 7807 error handlers
 register_error_handlers(app)
 
-# Security response headers (CSP, HSTS, X-Frame-Options, etc.)
-# Registered first so headers are applied even on early returns (e.g. auth 401s)
-app.add_middleware(SecurityHeadersMiddleware, dev_mode=DEV_MODE)
+# Innermost so route handlers read the body directly through its size check; a BaseHTTPMiddleware
+# between them would turn the 413 raised while streaming into a body-parsing error.
+app.add_middleware(RequestSizeLimitMiddleware)
+app.add_middleware(RuntimeAdmissionMiddleware)
 
-# Attach X-Request-ID to every request/response for log correlation
-app.add_middleware(RequestIdMiddleware)
-
-# Microsoft Graph-backed authentication (PKCE — no client secrets needed)
-# Disabled if tenant/client configuration is absent; enabled deployments require allowed groups.
+# Microsoft Graph-backed authentication (PKCE — no client secrets needed).
+# The immutable process-start policy is validated by the application lifespan.
 app.add_middleware(EntraAuthMiddleware)
+app.add_middleware(CompatibilityMiddleware)
 
 
 # Configure CORS
@@ -145,23 +122,33 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID", _compatibility.COMPATIBILITY_HEADER],
 )
+app.add_middleware(RequestIdMiddleware)
+app.add_middleware(SecurityHeadersMiddleware, dev_mode=DEV_MODE)
 
 
 # Include API routes
+app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(attacks.router, prefix="/api", tags=["attacks"])
+app.include_router(message_sends.router, prefix="/api", tags=["attacks"])
 app.include_router(configuration.router, prefix="/api", tags=["config"])
 app.include_router(targets.router, prefix="/api", tags=["targets"])
+app.include_router(scorers.router, prefix="/api", tags=["scorers"])
 app.include_router(converters.router, prefix="/api", tags=["converters"])
+app.include_router(techniques.router, prefix="/api", tags=["techniques"])
 app.include_router(datasets.router, prefix="/api", tags=["datasets"])
+app.include_router(operations.router, prefix="/api", tags=["operations"])
 app.include_router(scenarios.router, prefix="/api", tags=["scenarios"])
+app.include_router(scenario_presets.router, prefix="/api", tags=["scenario-presets"])
+app.include_router(scenario_suites.router, prefix="/api", tags=["scenario-suites"])
 app.include_router(initializers.router, prefix="/api", tags=["initializers"])
 app.include_router(labels.router, prefix="/api", tags=["labels"])
 app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(auth.router, prefix="/api", tags=["auth"])
 app.include_router(media.router, prefix="/api", tags=["media"])
+app.include_router(scores.router, prefix="/api", tags=["scores"])
 app.include_router(version.router, tags=["version"])
 
 

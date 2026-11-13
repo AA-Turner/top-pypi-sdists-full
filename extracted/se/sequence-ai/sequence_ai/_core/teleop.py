@@ -35,6 +35,9 @@ from .names import segment
 OFFER = "/v1/teleop/offer"
 
 
+WARM = "/v1/health"
+
+
 OFFER_AGAIN_S = 10.0
 PAIRING = "/v1/teleop/pairing/{}"
 
@@ -59,6 +62,16 @@ def _codec():
         return codec()
     except MissingPackage:
         return None
+
+
+def _warm(gateway: Any) -> None:
+    """One cheap request on the platform's connection while the console gathers its addresses (Teleop._meet): the offer
+    then goes out on a connection already made. Whatever it answers, or a failure, is nothing to the console - the offer
+    reaches the platform the same way, or says why it could not."""
+    try:
+        gateway.get(WARM)
+    except Exception:
+        pass
 
 
 class Teleop:
@@ -96,6 +109,8 @@ class Teleop:
         self._newest: tuple = (None, None)
         self._kf_asked = 0.0
         self._link: Optional[Any] = _direct.ConsoleLink(self._said, self._state_changed)
+
+        self.connect_s: dict = {}
         try:
             self._meet(gateway, max(timeout_s, _direct.OPEN_S))
         except BaseException:
@@ -107,21 +122,41 @@ class Teleop:
 
     def _meet(self, gateway: Any, timeout_s: float) -> None:
         """Connect straight to the robot, the platform carrying the two sides' first words - else what the platform or
-        the network said, and nothing else goes in its place."""
+        the network said, and nothing else goes in its place. Each step's seconds go into connect_s as it ends: gather
+        (this side's addresses and NAT), offer (the platform took the offer), answer (the robot's came), open (the
+        direct connection and its channels), said (the robot's first word on it).
+        The platform's connection is made while this side gathers, where the offer waited after the gathering for a new
+        connection's handshake. {worker 3 11-12, r28 on prod: the console's first request reached the platform 8.05 s
+        after teleop() began; on that network a new HTTPS connection took 0.27-2.1 s, dev's POST of the offer 1.32-2.08 s
+        of which the platform's own 0.2 s}
+"""
         end = time.monotonic() + timeout_s
         link = self._link
         _direct.install_receiving()
+        threading.Thread(target=_warm, args=(gateway,), daemon=True, name="seq-teleop-warm").start()
+        last = [time.monotonic()]
+
+        def step(name: str) -> None:
+
+            now = time.monotonic()
+            self.connect_s[name] = round(now - last[0], 3)
+            last[0] = now
+
         offer = link.offer(timeout_s, tracks=_direct.MOST_TRACKS, on_track=self._took_track)
+        step("gather")
         placed = self._offered(gateway, {**({"operator": self.operator} if self.operator else {}), "sdp": offer["sdp"],
                                          "nat": offer["nat"]}, min(end, time.monotonic() + OFFER_AGAIN_S))
+        step("offer")
         self.robot = placed.get("robot")
         answer = self._answer_of(gateway, str(placed.get("pairing")), end)
+        step("answer")
         link.accept(answer["sdp"], max(1.0, end - time.monotonic()))
         if not link.wait_open(max(1.0, end - time.monotonic())):
             facts = link.facts()
             why = _direct.why_not(offer.get("nat"), answer.get("nat"), facts)
             raise Unavailable(f"no direct connection to the robot: {why}", details={
                 "reason": "direct_failed", "console": offer.get("nat"), "robot": answer.get("nat"), **facts})
+        step("open")
 
         with self._lock:
             self._lock.wait_for(lambda: self._opened or self._closed is not None, max(1.0, end - time.monotonic()))
@@ -129,6 +164,7 @@ class Teleop:
         if not opened:
             raise Unavailable(f"the robot said nothing on its direct connection: {why or 'no answer in time'}",
                               details={"reason": "direct_failed"})
+        step("said")
 
     @staticmethod
     def _offered(gateway: Any, body: dict, until: float) -> dict:
@@ -484,7 +520,8 @@ class Teleop:
         stream() handing it on), state_us (its arrays' one way), rtt_us (the command path's round trip), input_us (an
         input read → send(), where send() was told when); commands_sent, commands_unanswered, frames_received,
         frames_dropped, states_received; clock_offset_us (the robot's clock less this one's) and clock_uncertainty_us
-        (how far off that may be). The robot's own side: its handle's teleop_metrics()."""
+        (how far off that may be); "connect_s": the seconds each step of meeting the robot took - gather, offer, answer,
+        open, said (_meet), what a slow teleop() spent its time on. The robot's own side: its handle's teleop_metrics()."""
         now = _clock.now_us()
         unanswered = 0
         with self._lock:
@@ -498,7 +535,8 @@ class Teleop:
             self.stats.count("commands_unanswered", unanswered)
         self.stats.gauge("clock_offset_us", self._clock.offset_us)
         self.stats.gauge("clock_uncertainty_us", self._clock.error_us)
-        return {"path": self.path, **self.stats.snapshot()}
+
+        return {"path": self.path, "connect_s": dict(self.connect_s), **self.stats.snapshot()}
 
     def requests(self) -> Iterator[dict]:
         """Each time the robot's policy asks for a person (a @seq.plan returning seq.ask_human), as the robot tells this

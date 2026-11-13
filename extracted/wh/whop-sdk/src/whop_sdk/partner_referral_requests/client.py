@@ -39,8 +39,12 @@ class PartnerReferralRequestsClient:
         account_id: typing.Optional[str] = None,
         target_user_id: typing.Optional[str] = None,
         partner_id: typing.Optional[str] = None,
+        referring_account_id: typing.Optional[str] = None,
         status: typing.Optional[ListPartnerReferralRequestsRequestStatus] = None,
         request_type: typing.Optional[ListPartnerReferralRequestsRequestRequestType] = None,
+        authorized_user_id: typing.Optional[str] = None,
+        member_id: typing.Optional[str] = None,
+        personal: typing.Optional[bool] = None,
         order: typing.Optional[ListPartnerReferralRequestsRequestOrder] = None,
         direction: typing.Optional[ListPartnerReferralRequestsRequestDirection] = None,
         first: typing.Optional[int] = None,
@@ -63,11 +67,23 @@ class PartnerReferralRequestsClient:
         partner_id : typing.Optional[str]
             Only requests sent by this partner's user ID, prefixed `user_`.
 
+        referring_account_id : typing.Optional[str]
+            Only the referral links created for memberships on this business's team, prefixed `biz_`. Needs read access to the business: its owner sees every member's links, a manager the links of the people reporting to them, and other members only their own.
+
         status : typing.Optional[ListPartnerReferralRequestsRequestStatus]
             Only requests with this approval status.
 
         request_type : typing.Optional[ListPartnerReferralRequestsRequestRequestType]
             Only requests initiated in this way.
+
+        authorized_user_id : typing.Optional[str]
+            Only requests created for this team membership, prefixed `ausr_`.
+
+        member_id : typing.Optional[str]
+            Only requests that credit this member record, prefixed `mber_`. A request created for a team membership also credits its holder's member record.
+
+        personal : typing.Optional[bool]
+            When true, only personal requests, created for neither a team membership nor a member record. When false, only requests created for one.
 
         order : typing.Optional[ListPartnerReferralRequestsRequestOrder]
             Field used to sort requests.
@@ -100,7 +116,7 @@ class PartnerReferralRequestsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -115,8 +131,12 @@ class PartnerReferralRequestsClient:
             account_id=account_id,
             target_user_id=target_user_id,
             partner_id=partner_id,
+            referring_account_id=referring_account_id,
             status=status,
             request_type=request_type,
+            authorized_user_id=authorized_user_id,
+            member_id=member_id,
+            personal=personal,
             order=order,
             direction=direction,
             first=first,
@@ -155,7 +175,7 @@ class PartnerReferralRequestsClient:
         )
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -190,7 +210,7 @@ class PartnerReferralRequestsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -223,7 +243,7 @@ class PartnerReferralRequestsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -256,7 +276,7 @@ class PartnerReferralRequestsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -289,7 +309,7 @@ class PartnerReferralRequestsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -322,8 +342,12 @@ class AsyncPartnerReferralRequestsClient:
         account_id: typing.Optional[str] = None,
         target_user_id: typing.Optional[str] = None,
         partner_id: typing.Optional[str] = None,
+        referring_account_id: typing.Optional[str] = None,
         status: typing.Optional[ListPartnerReferralRequestsRequestStatus] = None,
         request_type: typing.Optional[ListPartnerReferralRequestsRequestRequestType] = None,
+        authorized_user_id: typing.Optional[str] = None,
+        member_id: typing.Optional[str] = None,
+        personal: typing.Optional[bool] = None,
         order: typing.Optional[ListPartnerReferralRequestsRequestOrder] = None,
         direction: typing.Optional[ListPartnerReferralRequestsRequestDirection] = None,
         first: typing.Optional[int] = None,
@@ -346,11 +370,23 @@ class AsyncPartnerReferralRequestsClient:
         partner_id : typing.Optional[str]
             Only requests sent by this partner's user ID, prefixed `user_`.
 
+        referring_account_id : typing.Optional[str]
+            Only the referral links created for memberships on this business's team, prefixed `biz_`. Needs read access to the business: its owner sees every member's links, a manager the links of the people reporting to them, and other members only their own.
+
         status : typing.Optional[ListPartnerReferralRequestsRequestStatus]
             Only requests with this approval status.
 
         request_type : typing.Optional[ListPartnerReferralRequestsRequestRequestType]
             Only requests initiated in this way.
+
+        authorized_user_id : typing.Optional[str]
+            Only requests created for this team membership, prefixed `ausr_`.
+
+        member_id : typing.Optional[str]
+            Only requests that credit this member record, prefixed `mber_`. A request created for a team membership also credits its holder's member record.
+
+        personal : typing.Optional[bool]
+            When true, only personal requests, created for neither a team membership nor a member record. When false, only requests created for one.
 
         order : typing.Optional[ListPartnerReferralRequestsRequestOrder]
             Field used to sort requests.
@@ -385,7 +421,7 @@ class AsyncPartnerReferralRequestsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -407,8 +443,12 @@ class AsyncPartnerReferralRequestsClient:
             account_id=account_id,
             target_user_id=target_user_id,
             partner_id=partner_id,
+            referring_account_id=referring_account_id,
             status=status,
             request_type=request_type,
+            authorized_user_id=authorized_user_id,
+            member_id=member_id,
+            personal=personal,
             order=order,
             direction=direction,
             first=first,
@@ -449,7 +489,7 @@ class AsyncPartnerReferralRequestsClient:
         )
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -494,7 +534,7 @@ class AsyncPartnerReferralRequestsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -537,7 +577,7 @@ class AsyncPartnerReferralRequestsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -580,7 +620,7 @@ class AsyncPartnerReferralRequestsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -623,7 +663,7 @@ class AsyncPartnerReferralRequestsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-28",
+            "2026-11-10-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

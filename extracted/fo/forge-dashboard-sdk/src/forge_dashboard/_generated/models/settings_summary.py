@@ -46,6 +46,13 @@ class SettingsSummary:
             hide_dependency_dashboard (bool):
             ignored_titles (list[str]):
             ignored_title_counts (list[int | None]):
+            forgejo_skipped_avatar_hosts (list[str]): Other hosts a Forgejo avatar was refused for lately: the image
+                proxy only fetches from the saved instance, so an avatar on
+                Gravatar or Libravatar is skipped and the page shows an initial.
+                Lowercase, sorted, at most eight, and never the instance's own
+                host. A host is listed while its avatars keep being asked for and
+                drops off after about ten minutes without one, so the list is
+                empty when nothing is skipped. Held in memory: a restart empties it.
             theme (SettingsSummaryTheme):
             timezone (str):
      """
@@ -63,6 +70,7 @@ class SettingsSummary:
     hide_dependency_dashboard: bool
     ignored_titles: list[str]
     ignored_title_counts: list[int | None]
+    forgejo_skipped_avatar_hosts: list[str]
     theme: SettingsSummaryTheme
     timezone: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -108,6 +116,10 @@ class SettingsSummary:
 
 
 
+        forgejo_skipped_avatar_hosts = self.forgejo_skipped_avatar_hosts
+
+
+
         theme = self.theme.value
 
         timezone = self.timezone
@@ -129,6 +141,7 @@ class SettingsSummary:
             "hideDependencyDashboard": hide_dependency_dashboard,
             "ignoredTitles": ignored_titles,
             "ignoredTitleCounts": ignored_title_counts,
+            "forgejoSkippedAvatarHosts": forgejo_skipped_avatar_hosts,
             "theme": theme,
             "timezone": timezone,
         })
@@ -179,6 +192,9 @@ class SettingsSummary:
             ignored_title_counts.append(ignored_title_counts_item)
 
 
+        forgejo_skipped_avatar_hosts = cast(list[str], d.pop("forgejoSkippedAvatarHosts"))
+
+
         theme = SettingsSummaryTheme(d.pop("theme"))
 
 
@@ -200,6 +216,7 @@ class SettingsSummary:
             hide_dependency_dashboard=hide_dependency_dashboard,
             ignored_titles=ignored_titles,
             ignored_title_counts=ignored_title_counts,
+            forgejo_skipped_avatar_hosts=forgejo_skipped_avatar_hosts,
             theme=theme,
             timezone=timezone,
         )

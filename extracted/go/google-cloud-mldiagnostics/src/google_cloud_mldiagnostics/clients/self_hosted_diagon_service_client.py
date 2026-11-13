@@ -17,7 +17,9 @@
 import datetime
 import hashlib
 import logging
+import random
 import threading
+import time
 from typing import Any
 import urllib.parse
 import uuid
@@ -31,6 +33,36 @@ _RUN_PHASE_TO_WORKLOAD_STATE = {
     mlrun_types.RunPhase.PHASE_COMPLETED.value: "STATE_SUCCEEDED",
     mlrun_types.RunPhase.PHASE_FAILED.value: "STATE_FAILED",
 }
+
+_TERMINAL_RUN_PHASES = frozenset({
+    mlrun_types.RunPhase.PHASE_COMPLETED.value,
+    mlrun_types.RunPhase.PHASE_FAILED.value,
+})
+
+# Kubernetes workload kinds whose terminal state (STATE_SUCCEEDED /
+# STATE_FAILED / STATE_CANCELLED) is reported by the cluster agent. Other kinds
+# (Deployment, RayCluster, standalone Pods), unknown kinds, and agentless runs
+# are not closed by the cluster agent, so the SDK sends terminal states for
+# them.
+_AGENT_TERMINAL_K8S_WORKLOAD_KINDS = frozenset({
+    "Job",
+    "JobSet",
+    "LeaderWorkerSet",
+    "RayJob",
+})
+
+_ACTIVE_WORKLOAD_STATES = frozenset({
+    "STATE_PENDING",
+    "STATE_RUNNING",
+    "STATE_ACTIVE",
+    "ACTIVE",
+})
+
+_SELF_HOSTED_RESOLVE_MAX_ATTEMPTS = 8
+_SELF_HOSTED_RESOLVE_INITIAL_DELAY_SEC = 1.0
+_SELF_HOSTED_RESOLVE_BASE_DELAY_SEC = 1.0
+_SELF_HOSTED_RESOLVE_MAX_DELAY_SEC = 16.0
+_MAX_PAGES_PER_RESOLVE_ATTEMPT = 5
 
 _SESSION_PHASE_TO_STATES = {
     "ACTIVE": ("STATE_ACTIVE", "STATE_RUNNING"),
@@ -51,6 +83,39 @@ def _format_timestamp(timestamp: float) -> str:
   ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _escape_filter_value(value: Any) -> str:
+  """Escapes backslashes and double quotes for AIP-160 filter literals."""
+  return str(value).replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _add_configs_and_labels(
+    body: dict[str, Any],
+    update_mask_fields: list[str],
+    configs: dict[str, Any] | None,
+    labels: dict[str, str] | None,
+) -> None:
+  """Adds MLRun configs and labels to a PATCH body and its update mask.
+
+  The control plane replaces `configs` and `labels` wholesale and clears them
+  when the masked value is empty, so empty values are never sent. The paths are
+  added to the update mask even for `allow_missing` creations, because a
+  concurrent creation makes the server fall back to a masked update.
+
+  Args:
+    body: The MachineLearningRun JSON body to add the fields to.
+    update_mask_fields: The update mask paths to append the field paths to.
+    configs: MLRun configs keyed by `softwareConfigs`, `hardwareConfigs`, and
+      `userConfigs`.
+    labels: MLRun labels.
+  """
+  if configs:
+    body["configs"] = dict(configs)
+    update_mask_fields.append("configs")
+  if labels:
+    body["labels"] = dict(labels)
+    update_mask_fields.append("labels")
+
+
 class SelfHostedDiagonServiceClient:
   """REST client for synchronizing MLRun metadata with a self-hosted control plane.
 
@@ -58,16 +123,38 @@ class SelfHostedDiagonServiceClient:
   profiler session metadata.
 
   API Contract:
-    - MLRuns Endpoint: Expose `PATCH /v1/machineLearningRuns/{run_id}`.
-      Creations are processed as upserts via `allow_missing=true` and updates
-      via the `update_mask` query parameter.
+    - MLRuns Query Endpoint: Expose `GET /v1/machineLearningRuns`.
+      Supports `filter` (e.g. `cluster_id="..." logical_id="..."`), `page_size`,
+      and `page_token` query parameters for read-only active run resolution.
+    - MLRuns Upsert/Update Endpoint: Expose
+      `PATCH /v1/machineLearningRuns/{run_id}`. Creations are processed as
+      upserts via `allow_missing=true` and updates via the `update_mask` query
+      parameter. The MachineLearningRun body may carry `configs` (an object
+      with `softwareConfigs`, `hardwareConfigs`, and `userConfigs` JSON
+      objects) and `labels` (a string-to-string map). The `configs` and
+      `labels` update mask paths replace the stored value wholesale, so the
+      client only sends them when they are non-empty. When the workload kind
+      is known, creations also send `workload.kubernetes` (`namespace` and
+      `workloadKind`) under the `workload.kubernetes` update mask path.
     - ProfilerSessions Endpoints: Expose
       `POST /v1/machineLearningRuns/{run_id}/profilerSessions` for creation and
       `PATCH /v1/machineLearningRuns/{run_id}/profilerSessions/{session_id}`
       with `update_mask` for lifecycle updates.
+
+  Terminal States:
+    When `cluster_id` is set and the workload is a Slurm job or a Kubernetes
+    `Job`, `JobSet`, `LeaderWorkerSet`, or `RayJob`, the cluster agent reports
+    the terminal workload state, so `update_ml_run` does not send
+    `PHASE_COMPLETED` or `PHASE_FAILED`. For all other runs, including runs
+    whose workload kind is unknown, the client sends terminal states.
   """
 
-  def __init__(self, control_plane_url: str, cluster_id: str | None = None):
+  def __init__(
+      self,
+      control_plane_url: str,
+      cluster_id: str | None = None,
+      workload_kind: str | None = None,
+  ):
     self.control_plane_url = control_plane_url.rstrip("/")
     parsed_url = urllib.parse.urlsplit(self.control_plane_url)
     if parsed_url.scheme not in ("http", "https") or not parsed_url.netloc:
@@ -76,9 +163,20 @@ class SelfHostedDiagonServiceClient:
           " http:// or https:// scheme and host."
       )
     self.cluster_id = cluster_id or ""
+    self._workload_kind = mlrun_types.normalize_k8s_workload_kind(workload_kind)
+    self._agent_owns_terminal_states = self._owns_terminal_states(
+        self._workload_kind
+    )
     self.session = requests.Session()
     self._session_id_map: dict[str, str] = {}
     self._session_id_lock = threading.Lock()
+
+  def _owns_terminal_states(self, workload_kind: str) -> bool:
+    """Whether the cluster agent reports terminal states for `workload_kind`."""
+    return bool(self.cluster_id) and (
+        workload_kind == mlrun_types.SLURM_WORKLOAD_KIND
+        or workload_kind in _AGENT_TERMINAL_K8S_WORKLOAD_KINDS
+    )
 
   def _resolve_session_id(self, run_id: str, session_id: str) -> str:
     """Resolves a profiler session ID to its server UUID."""
@@ -166,13 +264,10 @@ class SelfHostedDiagonServiceClient:
       workload_targets: list[dict[str, Any]] | None = None,
   ) -> dict[str, Any] | None:
     _ = (
-        configs,
         tools,
         run_group,
-        labels,
         orchestrator,
         workload_targets,
-        run_phase,
     )
     workload_details = workload_details or {}
     workload_id = workload_details.get("id", "")
@@ -181,17 +276,24 @@ class SelfHostedDiagonServiceClient:
           "workload_details must contain a valid 'id' to create an ML Run."
       )
 
-    body: dict[str, Any] = {
-        "logicalId": name,
+    run_phase_str = (
+        str(run_phase.value) if hasattr(run_phase, "value") else str(run_phase)
+    )
+    state = _RUN_PHASE_TO_WORKLOAD_STATE.get(run_phase_str)
+    workload_kind = (
+        self._workload_kind
+        or mlrun_types.normalize_k8s_workload_kind(
+            str(workload_details.get("kind") or "")
+        )
+    )
+    # The constructor kind wins; otherwise each creation uses its own kind, so
+    # a later run of another kind on the same client is not mis-attributed.
+    self._agent_owns_terminal_states = self._owns_terminal_states(workload_kind)
+    namespace = str(workload_details.get("namespace") or "").strip()
+    workload_body: dict[str, Any] = {
+        "workloadId": workload_id,
         "displayName": display_name,
-        "creator": "CREATOR_MANUAL",
-        "clusterId": self.cluster_id,
-        "workload": {
-            "workloadId": workload_id,
-            "displayName": display_name,
-        },
     }
-
     update_mask_fields = [
         "display_name",
         "creator",
@@ -200,10 +302,33 @@ class SelfHostedDiagonServiceClient:
         "workload.display_name",
         "logical_id",
     ]
+    if state is not None:
+      workload_body["state"] = state
+      update_mask_fields.append("workload.state")
+    if (
+        workload_kind
+        and namespace
+        and workload_kind != mlrun_types.SLURM_WORKLOAD_KIND
+    ):
+      workload_body["kubernetes"] = {
+          "namespace": namespace,
+          "workloadKind": workload_kind,
+      }
+      update_mask_fields.append("workload.kubernetes")
+
+    body: dict[str, Any] = {
+        "logicalId": name,
+        "displayName": display_name,
+        "creator": "CREATOR_MANUAL",
+        "clusterId": self.cluster_id,
+        "workload": workload_body,
+    }
 
     if artifacts and artifacts.get("gcsPath"):
       body["baseBlobPath"] = artifacts["gcsPath"]
       update_mask_fields.append("base_blob_path")
+
+    _add_configs_and_labels(body, update_mask_fields, configs, labels)
 
     created_update_mask = ",".join(update_mask_fields)
 
@@ -213,6 +338,113 @@ class SelfHostedDiagonServiceClient:
         update_mask=created_update_mask,
         allow_missing=True,
     )
+
+  def resolve_active_ml_run(
+      self,
+      mlrun: mlrun_types.MLRun | str | None,
+      *,
+      hostname: str | None = None,
+      max_attempts: int = _SELF_HOSTED_RESOLVE_MAX_ATTEMPTS,
+      initial_delay_sec: float = _SELF_HOSTED_RESOLVE_INITIAL_DELAY_SEC,
+      base_delay_sec: float = _SELF_HOSTED_RESOLVE_BASE_DELAY_SEC,
+      max_delay_sec: float = _SELF_HOSTED_RESOLVE_MAX_DELAY_SEC,
+  ) -> dict[str, Any] | None:
+    """Resolves an active self-hosted MLRun by logical_id using read-only queries.
+
+    Args:
+        mlrun: The active MLRun instance or logical ID string.
+        hostname: Optional local pod/instance hostname (unused in self-hosted).
+        max_attempts: Maximum number of polling attempts.
+        initial_delay_sec: Initial jittered delay before the first poll attempt.
+        base_delay_sec: Base backoff delay in seconds between attempts.
+        max_delay_sec: Maximum backoff delay in seconds between attempts.
+
+    Returns:
+        The resolved ML run dictionary if found, or None if the logical ID is
+        empty, no active run matches within the retry budget, or the control
+        plane is unreachable.
+    """
+    del hostname
+    if mlrun is None:
+      return None
+    raw_logical_id = mlrun if isinstance(mlrun, str) else mlrun.name
+    clean_logical_id = raw_logical_id.strip()
+    if not clean_logical_id:
+      return None
+
+    if initial_delay_sec > 0:
+      time.sleep(initial_delay_sec * (0.5 + 0.5 * random.random()))
+
+    delay = base_delay_sec
+    url = f"{self.control_plane_url}/v1/machineLearningRuns"
+    base_params: dict[str, str] = {"page_size": "100"}
+    filter_parts = []
+    if self.cluster_id:
+      escaped_cluster_id = _escape_filter_value(self.cluster_id)
+      filter_parts.append(f'cluster_id="{escaped_cluster_id}"')
+    escaped_logical_id = _escape_filter_value(clean_logical_id)
+    filter_parts.append(f'logical_id="{escaped_logical_id}"')
+    base_params["filter"] = " ".join(filter_parts)
+
+    for attempt in range(max_attempts):
+      try:
+        page_token = ""
+        pages_scanned = 0
+        seen_tokens = set()
+        while pages_scanned < _MAX_PAGES_PER_RESOLVE_ATTEMPT:
+          pages_scanned += 1
+          params = dict(base_params)
+          if page_token:
+            params["page_token"] = page_token
+            seen_tokens.add(page_token)
+          response = self.session.get(url, params=params, timeout=5)
+          response.raise_for_status()
+          payload = response.json()
+          if not isinstance(payload, dict):
+            break
+          runs = payload.get("machineLearningRuns") or []
+          for run in runs:
+            if not isinstance(run, dict):
+              continue
+            if run.get("logicalId") != clean_logical_id:
+              continue
+            if (
+                self.cluster_id
+                and run.get("clusterId")
+                and run.get("clusterId") != self.cluster_id
+            ):
+              continue
+            workload = run.get("workload")
+            state = (
+                workload.get("state", "") if isinstance(workload, dict) else ""
+            )
+            if state in _ACTIVE_WORKLOAD_STATES:
+              return run
+          next_token = str(payload.get("nextPageToken") or "").strip()
+          if not next_token or next_token in seen_tokens:
+            break
+          page_token = next_token
+      except (requests.RequestException, ValueError) as e:
+        logger.warning(
+            "Transient error resolving self-hosted ML run %r (attempt %d/%d):"
+            " %s",
+            clean_logical_id,
+            attempt + 1,
+            max_attempts,
+            e,
+        )
+
+      if attempt + 1 < max_attempts:
+        time.sleep(delay * (0.5 + 0.5 * random.random()))
+        delay = min(delay * 2, max_delay_sec)
+
+    logger.warning(
+        "Could not resolve active self-hosted ML run %r from control plane"
+        " after %s attempts; proceeding with local run ID.",
+        clean_logical_id,
+        max_attempts,
+    )
+    return None
 
   def update_ml_run(
       self,
@@ -233,8 +465,6 @@ class SelfHostedDiagonServiceClient:
         display_name,
         tools,
         artifacts,
-        labels,
-        configs,
         workload_targets,
         update_mask,
     )
@@ -253,12 +483,25 @@ class SelfHostedDiagonServiceClient:
     if not run_id:
       logger.warning("Cannot update MLRun with empty run ID.")
       return None
+    if (
+        run_phase_str in _TERMINAL_RUN_PHASES
+        and self._agent_owns_terminal_states
+    ):
+      logger.info(
+          "Not sending run phase %r for %r: the cluster agent reports"
+          " terminal states for this workload.",
+          run_phase_str,
+          run_id,
+      )
+      return None
     resource_name = f"machineLearningRuns/{run_id}"
     body: dict[str, Any] = {"name": resource_name, "workload": {"state": state}}
+    update_mask_fields = ["workload.state"]
+    _add_configs_and_labels(body, update_mask_fields, configs, labels)
     return self._patch(
         run_id=run_id,
         body=body,
-        update_mask="workload.state",
+        update_mask=",".join(update_mask_fields),
         allow_missing=False,
     )
 

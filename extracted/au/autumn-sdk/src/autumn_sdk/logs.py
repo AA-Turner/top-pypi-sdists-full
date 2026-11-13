@@ -25,7 +25,7 @@ class Logs(BaseSDK):
         r"""Search API requests and incoming Stripe webhooks for your organization and environment.
 
         :param query: Filter and sort logs using where, order by, and limit, joined with |. Omit to return recent logs.
-        :param range: Time window to search. Defaults to the last 30 minutes. Maximum 7 days.
+        :param range: Time window to search. Defaults to the last 30 minutes. Maximum 365 days.
         :param limit: Maximum number of logs to return, from 1 to 200. Defaults to 100.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
@@ -123,7 +123,7 @@ class Logs(BaseSDK):
         r"""Search API requests and incoming Stripe webhooks for your organization and environment.
 
         :param query: Filter and sort logs using where, order by, and limit, joined with |. Omit to return recent logs.
-        :param range: Time window to search. Defaults to the last 30 minutes. Maximum 7 days.
+        :param range: Time window to search. Defaults to the last 30 minutes. Maximum 365 days.
         :param limit: Maximum number of logs to return, from 1 to 200. Defaults to 100.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method

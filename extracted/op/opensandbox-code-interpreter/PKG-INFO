@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: opensandbox-code-interpreter
-Version: 1.2.0
+Version: 1.2.1
 Summary: OpenSandbox Code Interpreter Python SDK - Advanced code execution with persistent contexts
 Project-URL: Homepage, https://open-sandbox.ai
 Project-URL: Repository, https://github.com/opensandbox-group/OpenSandbox
@@ -223,7 +223,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: opensandbox<2.0.0,>=1.2.0
+Requires-Dist: opensandbox<2.0.0,>=1.2.1
 Requires-Dist: pydantic<3.0,>=2.4.2
 Description-Content-Type: text/markdown
 

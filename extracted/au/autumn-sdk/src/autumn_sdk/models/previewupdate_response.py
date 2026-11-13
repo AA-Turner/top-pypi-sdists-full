@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 from .plan import Plan, PlanTypedDict
-from .previewupdate_upsert_license_proration import (
+from .previewupdate_remove_license import (
     PreviewUpdateAddItemPlanItem,
     PreviewUpdateAddItemPlanItemTypedDict,
     PreviewUpdateBasePrice,
     PreviewUpdateBasePriceTypedDict,
+    PreviewUpdateBillUpfront,
+    PreviewUpdateBillUpfrontTypedDict,
     PreviewUpdateBillingControls,
     PreviewUpdateBillingControlsTypedDict,
     PreviewUpdateCustomizeFreeTrialParams,
@@ -19,16 +21,10 @@ from .previewupdate_upsert_license_proration import (
     PreviewUpdateItemPlanItemTypedDict,
     PreviewUpdatePlanItemFilter,
     PreviewUpdatePlanItemFilterTypedDict,
-    PreviewUpdateUpsertLicenseBasePrice,
-    PreviewUpdateUpsertLicenseBasePriceTypedDict,
-    PreviewUpdateUpsertLicensePrice,
-    PreviewUpdateUpsertLicensePriceTypedDict,
-    PreviewUpdateUpsertLicenseProration,
-    PreviewUpdateUpsertLicenseProrationTypedDict,
-    PreviewUpdateUpsertLicenseReset,
-    PreviewUpdateUpsertLicenseResetTypedDict,
-    PreviewUpdateUpsertLicenseThresholdBilling,
-    PreviewUpdateUpsertLicenseThresholdBillingTypedDict,
+    PreviewUpdateRemoveLicense,
+    PreviewUpdateRemoveLicenseTypedDict,
+    PreviewUpdateUpsertLicense,
+    PreviewUpdateUpsertLicenseTypedDict,
 )
 from autumn_sdk.types import (
     BaseModel,
@@ -38,1072 +34,10 @@ from autumn_sdk.types import (
     UNSET_SENTINEL,
     UnrecognizedStr,
 )
-from autumn_sdk.utils import validate_const
 import pydantic
 from pydantic import model_serializer
-from pydantic.functional_validators import AfterValidator
 from typing import Any, Dict, List, Literal, Optional, Union
 from typing_extensions import Annotated, NotRequired, TypeAliasType, TypedDict
-
-
-PreviewUpdateUpsertLicenseExpiryDurationType = Literal[
-    "month",
-    "forever",
-]
-r"""When rolled over units expire."""
-
-
-class PreviewUpdateUpsertLicenseRolloverTypedDict(TypedDict):
-    r"""Rollover config for unused units. If set, unused included units carry over."""
-
-    expiry_duration_type: PreviewUpdateUpsertLicenseExpiryDurationType
-    r"""When rolled over units expire."""
-    max: NotRequired[float]
-    r"""Max rollover units. Omit for unlimited rollover."""
-    max_percentage: NotRequired[float]
-    r"""Maximum rollover as a percentage (0-100) of included + prepaid grant. Mutually exclusive with max."""
-    expiry_duration_length: NotRequired[float]
-    r"""Number of periods before expiry."""
-
-
-class PreviewUpdateUpsertLicenseRollover(BaseModel):
-    r"""Rollover config for unused units. If set, unused included units carry over."""
-
-    expiry_duration_type: PreviewUpdateUpsertLicenseExpiryDurationType
-    r"""When rolled over units expire."""
-
-    max: Optional[float] = None
-    r"""Max rollover units. Omit for unlimited rollover."""
-
-    max_percentage: Optional[float] = None
-    r"""Maximum rollover as a percentage (0-100) of included + prepaid grant. Mutually exclusive with max."""
-
-    expiry_duration_length: Optional[float] = None
-    r"""Number of periods before expiry."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["max", "max_percentage", "expiry_duration_length"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-PreviewUpdateUpsertLicenseDuration = Literal[
-    "day",
-    "week",
-    "month",
-    "year",
-]
-
-
-class PreviewUpdateUpsertLicenseExpiryTypedDict(TypedDict):
-    r"""Purchased units expire this long after each purchase. One-off prepaid consumable items only."""
-
-    duration: PreviewUpdateUpsertLicenseDuration
-    length: float
-
-
-class PreviewUpdateUpsertLicenseExpiry(BaseModel):
-    r"""Purchased units expire this long after each purchase. One-off prepaid consumable items only."""
-
-    duration: PreviewUpdateUpsertLicenseDuration
-
-    length: float
-
-
-class PreviewUpdateCreditSchemaUpsertLicense3TypedDict(TypedDict):
-    metered_feature_id: str
-    r"""ID of the metered feature to remove from the credit system."""
-    excluded: Literal[True]
-    r"""Removes this feature from the credit system for customers on this plan. Cannot be combined with a rate."""
-
-
-class PreviewUpdateCreditSchemaUpsertLicense3(BaseModel):
-    metered_feature_id: str
-    r"""ID of the metered feature to remove from the credit system."""
-
-    excluded: Annotated[
-        Annotated[Literal[True], AfterValidator(validate_const(True))],
-        pydantic.Field(alias="excluded"),
-    ] = True
-    r"""Removes this feature from the credit system for customers on this plan. Cannot be combined with a rate."""
-
-
-PreviewUpdateDimensionsUpsertLicenseMatch4TypedDict = TypeAliasType(
-    "PreviewUpdateDimensionsUpsertLicenseMatch4TypedDict", Union[str, float, bool]
-)
-
-
-PreviewUpdateDimensionsUpsertLicenseMatch4 = TypeAliasType(
-    "PreviewUpdateDimensionsUpsertLicenseMatch4", Union[str, float, bool]
-)
-
-
-class PreviewUpdateDimensionsUpsertLicense4TypedDict(TypedDict):
-    match: Dict[str, PreviewUpdateDimensionsUpsertLicenseMatch4TypedDict]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-
-class PreviewUpdateDimensionsUpsertLicense4(BaseModel):
-    match: Dict[str, PreviewUpdateDimensionsUpsertLicenseMatch4]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-PreviewUpdateDimensionsUpsertLicenseMatch3TypedDict = TypeAliasType(
-    "PreviewUpdateDimensionsUpsertLicenseMatch3TypedDict", Union[str, float, bool]
-)
-
-
-PreviewUpdateDimensionsUpsertLicenseMatch3 = TypeAliasType(
-    "PreviewUpdateDimensionsUpsertLicenseMatch3", Union[str, float, bool]
-)
-
-
-PreviewUpdateDimensionsToUpsertLicenseEnum2 = Literal["inf",]
-
-
-PreviewUpdateDimensionsUpsertLicenseToUnion2TypedDict = TypeAliasType(
-    "PreviewUpdateDimensionsUpsertLicenseToUnion2TypedDict",
-    Union[float, PreviewUpdateDimensionsToUpsertLicenseEnum2],
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-PreviewUpdateDimensionsUpsertLicenseToUnion2 = TypeAliasType(
-    "PreviewUpdateDimensionsUpsertLicenseToUnion2",
-    Union[float, PreviewUpdateDimensionsToUpsertLicenseEnum2],
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-class PreviewUpdateDimensionsUpsertLicenseTier2TypedDict(TypedDict):
-    to: PreviewUpdateDimensionsUpsertLicenseToUnion2TypedDict
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class PreviewUpdateDimensionsUpsertLicenseTier2(BaseModel):
-    to: PreviewUpdateDimensionsUpsertLicenseToUnion2
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class PreviewUpdateDimensionsUpsertLicense3TypedDict(TypedDict):
-    match: Dict[str, PreviewUpdateDimensionsUpsertLicenseMatch3TypedDict]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    tiers: List[PreviewUpdateDimensionsUpsertLicenseTier2TypedDict]
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-    tier_behavior: Literal["graduated"]
-
-
-class PreviewUpdateDimensionsUpsertLicense3(BaseModel):
-    match: Dict[str, PreviewUpdateDimensionsUpsertLicenseMatch3]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    tiers: List[PreviewUpdateDimensionsUpsertLicenseTier2]
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    tier_behavior: Annotated[
-        Annotated[Literal["graduated"], AfterValidator(validate_const("graduated"))],
-        pydantic.Field(alias="tier_behavior"),
-    ] = "graduated"
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-PreviewUpdateUpsertLicenseDimensionsUnion2TypedDict = TypeAliasType(
-    "PreviewUpdateUpsertLicenseDimensionsUnion2TypedDict",
-    Union[
-        PreviewUpdateDimensionsUpsertLicense4TypedDict,
-        PreviewUpdateDimensionsUpsertLicense3TypedDict,
-    ],
-)
-
-
-PreviewUpdateUpsertLicenseDimensionsUnion2 = TypeAliasType(
-    "PreviewUpdateUpsertLicenseDimensionsUnion2",
-    Union[PreviewUpdateDimensionsUpsertLicense4, PreviewUpdateDimensionsUpsertLicense3],
-)
-
-
-PreviewUpdateUpsertLicenseMultipliersMatch2TypedDict = TypeAliasType(
-    "PreviewUpdateUpsertLicenseMultipliersMatch2TypedDict", Union[str, float, bool]
-)
-
-
-PreviewUpdateUpsertLicenseMultipliersMatch2 = TypeAliasType(
-    "PreviewUpdateUpsertLicenseMultipliersMatch2", Union[str, float, bool]
-)
-
-
-class PreviewUpdateUpsertLicenseMultipliers2TypedDict(TypedDict):
-    match: Dict[str, PreviewUpdateUpsertLicenseMultipliersMatch2TypedDict]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    factor: NotRequired[float]
-    r"""Multiplies the matched rate. All matching multipliers stack."""
-    add: NotRequired[float]
-    r"""Added to the rate after every factor is applied, in credits per billing-unit group."""
-
-
-class PreviewUpdateUpsertLicenseMultipliers2(BaseModel):
-    match: Dict[str, PreviewUpdateUpsertLicenseMultipliersMatch2]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    factor: Optional[float] = None
-    r"""Multiplies the matched rate. All matching multipliers stack."""
-
-    add: Optional[float] = None
-    r"""Added to the rate after every factor is applied, in credits per billing-unit group."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["factor", "add"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-class PreviewUpdateCreditSchemaUpsertLicense2TypedDict(TypedDict):
-    metered_feature_id: str
-    r"""ID of the metered feature that draws from this credit system."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group."""
-    billing_units: NotRequired[float]
-    r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-    dimensions: NotRequired[
-        Dict[str, PreviewUpdateUpsertLicenseDimensionsUnion2TypedDict]
-    ]
-    r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
-    multipliers: NotRequired[Dict[str, PreviewUpdateUpsertLicenseMultipliers2TypedDict]]
-    r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
-
-
-class PreviewUpdateCreditSchemaUpsertLicense2(BaseModel):
-    metered_feature_id: str
-    r"""ID of the metered feature that draws from this credit system."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group."""
-
-    billing_units: Optional[float] = None
-    r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-
-    dimensions: Optional[Dict[str, PreviewUpdateUpsertLicenseDimensionsUnion2]] = None
-    r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
-
-    multipliers: Optional[Dict[str, PreviewUpdateUpsertLicenseMultipliers2]] = None
-    r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["billing_units", "dimensions", "multipliers"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-PreviewUpdateDimensionsUpsertLicenseMatch2TypedDict = TypeAliasType(
-    "PreviewUpdateDimensionsUpsertLicenseMatch2TypedDict", Union[str, float, bool]
-)
-
-
-PreviewUpdateDimensionsUpsertLicenseMatch2 = TypeAliasType(
-    "PreviewUpdateDimensionsUpsertLicenseMatch2", Union[str, float, bool]
-)
-
-
-class PreviewUpdateDimensionsUpsertLicense2TypedDict(TypedDict):
-    match: Dict[str, PreviewUpdateDimensionsUpsertLicenseMatch2TypedDict]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-
-class PreviewUpdateDimensionsUpsertLicense2(BaseModel):
-    match: Dict[str, PreviewUpdateDimensionsUpsertLicenseMatch2]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group when this dimension matches."""
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-PreviewUpdateDimensionsUpsertLicenseMatch1TypedDict = TypeAliasType(
-    "PreviewUpdateDimensionsUpsertLicenseMatch1TypedDict", Union[str, float, bool]
-)
-
-
-PreviewUpdateDimensionsUpsertLicenseMatch1 = TypeAliasType(
-    "PreviewUpdateDimensionsUpsertLicenseMatch1", Union[str, float, bool]
-)
-
-
-PreviewUpdateDimensionsToUpsertLicenseEnum1 = Literal["inf",]
-
-
-PreviewUpdateDimensionsUpsertLicenseToUnion1TypedDict = TypeAliasType(
-    "PreviewUpdateDimensionsUpsertLicenseToUnion1TypedDict",
-    Union[float, PreviewUpdateDimensionsToUpsertLicenseEnum1],
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-PreviewUpdateDimensionsUpsertLicenseToUnion1 = TypeAliasType(
-    "PreviewUpdateDimensionsUpsertLicenseToUnion1",
-    Union[float, PreviewUpdateDimensionsToUpsertLicenseEnum1],
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-class PreviewUpdateDimensionsUpsertLicenseTier1TypedDict(TypedDict):
-    to: PreviewUpdateDimensionsUpsertLicenseToUnion1TypedDict
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class PreviewUpdateDimensionsUpsertLicenseTier1(BaseModel):
-    to: PreviewUpdateDimensionsUpsertLicenseToUnion1
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class PreviewUpdateDimensionsUpsertLicense1TypedDict(TypedDict):
-    match: Dict[str, PreviewUpdateDimensionsUpsertLicenseMatch1TypedDict]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    tiers: List[PreviewUpdateDimensionsUpsertLicenseTier1TypedDict]
-    priority: NotRequired[int]
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-    tier_behavior: Literal["graduated"]
-
-
-class PreviewUpdateDimensionsUpsertLicense1(BaseModel):
-    match: Dict[str, PreviewUpdateDimensionsUpsertLicenseMatch1]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    tiers: List[PreviewUpdateDimensionsUpsertLicenseTier1]
-
-    priority: Optional[int] = None
-    r"""Breaks ties between dimensions that match the same number of keys. Higher wins."""
-
-    tier_behavior: Annotated[
-        Annotated[Literal["graduated"], AfterValidator(validate_const("graduated"))],
-        pydantic.Field(alias="tier_behavior"),
-    ] = "graduated"
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["priority"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-PreviewUpdateUpsertLicenseDimensionsUnion1TypedDict = TypeAliasType(
-    "PreviewUpdateUpsertLicenseDimensionsUnion1TypedDict",
-    Union[
-        PreviewUpdateDimensionsUpsertLicense2TypedDict,
-        PreviewUpdateDimensionsUpsertLicense1TypedDict,
-    ],
-)
-
-
-PreviewUpdateUpsertLicenseDimensionsUnion1 = TypeAliasType(
-    "PreviewUpdateUpsertLicenseDimensionsUnion1",
-    Union[PreviewUpdateDimensionsUpsertLicense2, PreviewUpdateDimensionsUpsertLicense1],
-)
-
-
-PreviewUpdateUpsertLicenseMultipliersMatch1TypedDict = TypeAliasType(
-    "PreviewUpdateUpsertLicenseMultipliersMatch1TypedDict", Union[str, float, bool]
-)
-
-
-PreviewUpdateUpsertLicenseMultipliersMatch1 = TypeAliasType(
-    "PreviewUpdateUpsertLicenseMultipliersMatch1", Union[str, float, bool]
-)
-
-
-class PreviewUpdateUpsertLicenseMultipliers1TypedDict(TypedDict):
-    match: Dict[str, PreviewUpdateUpsertLicenseMultipliersMatch1TypedDict]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-    factor: NotRequired[float]
-    r"""Multiplies the matched rate. All matching multipliers stack."""
-    add: NotRequired[float]
-    r"""Added to the rate after every factor is applied, in credits per billing-unit group."""
-
-
-class PreviewUpdateUpsertLicenseMultipliers1(BaseModel):
-    match: Dict[str, PreviewUpdateUpsertLicenseMultipliersMatch1]
-    r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
-
-    factor: Optional[float] = None
-    r"""Multiplies the matched rate. All matching multipliers stack."""
-
-    add: Optional[float] = None
-    r"""Added to the rate after every factor is applied, in credits per billing-unit group."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["factor", "add"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-PreviewUpdateToUpsertLicenseEnum = Literal["inf",]
-
-
-PreviewUpdateUpsertLicenseFeatureOverrideToUnionTypedDict = TypeAliasType(
-    "PreviewUpdateUpsertLicenseFeatureOverrideToUnionTypedDict",
-    Union[float, PreviewUpdateToUpsertLicenseEnum],
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-PreviewUpdateUpsertLicenseFeatureOverrideToUnion = TypeAliasType(
-    "PreviewUpdateUpsertLicenseFeatureOverrideToUnion",
-    Union[float, PreviewUpdateToUpsertLicenseEnum],
-)
-r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-
-class PreviewUpdateUpsertLicenseFeatureOverrideTierTypedDict(TypedDict):
-    to: PreviewUpdateUpsertLicenseFeatureOverrideToUnionTypedDict
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class PreviewUpdateUpsertLicenseFeatureOverrideTier(BaseModel):
-    to: PreviewUpdateUpsertLicenseFeatureOverrideToUnion
-    r"""Inclusive upper usage boundary for this graduated tier. The final tier must be 'inf'."""
-
-    credit_cost: float
-    r"""Credits consumed per billing-unit group within this tier."""
-
-
-class PreviewUpdateCreditSchemaUpsertLicense1TypedDict(TypedDict):
-    metered_feature_id: str
-    r"""ID of the metered feature that draws from this credit system."""
-    tiers: List[PreviewUpdateUpsertLicenseFeatureOverrideTierTypedDict]
-    billing_units: NotRequired[float]
-    r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-    dimensions: NotRequired[
-        Dict[str, PreviewUpdateUpsertLicenseDimensionsUnion1TypedDict]
-    ]
-    r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
-    multipliers: NotRequired[Dict[str, PreviewUpdateUpsertLicenseMultipliers1TypedDict]]
-    r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
-    tier_behavior: Literal["graduated"]
-
-
-class PreviewUpdateCreditSchemaUpsertLicense1(BaseModel):
-    metered_feature_id: str
-    r"""ID of the metered feature that draws from this credit system."""
-
-    tiers: List[PreviewUpdateUpsertLicenseFeatureOverrideTier]
-
-    billing_units: Optional[float] = None
-    r"""Number of metered-feature units priced together. Defaults to one when omitted."""
-
-    dimensions: Optional[Dict[str, PreviewUpdateUpsertLicenseDimensionsUnion1]] = None
-    r"""Named rates chosen by event properties. The most specific match sets the rate; with no match the item's own rate applies."""
-
-    multipliers: Optional[Dict[str, PreviewUpdateUpsertLicenseMultipliers1]] = None
-    r"""Named adjustments chosen by event properties. Every match applies: factors multiply, then adds are summed."""
-
-    tier_behavior: Annotated[
-        Annotated[Literal["graduated"], AfterValidator(validate_const("graduated"))],
-        pydantic.Field(alias="tier_behavior"),
-    ] = "graduated"
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["billing_units", "dimensions", "multipliers"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-PreviewUpdateUpsertLicenseCreditSchemaUnionTypedDict = TypeAliasType(
-    "PreviewUpdateUpsertLicenseCreditSchemaUnionTypedDict",
-    Union[
-        PreviewUpdateCreditSchemaUpsertLicense3TypedDict,
-        PreviewUpdateCreditSchemaUpsertLicense2TypedDict,
-        PreviewUpdateCreditSchemaUpsertLicense1TypedDict,
-    ],
-)
-
-
-PreviewUpdateUpsertLicenseCreditSchemaUnion = TypeAliasType(
-    "PreviewUpdateUpsertLicenseCreditSchemaUnion",
-    Union[
-        PreviewUpdateCreditSchemaUpsertLicense3,
-        PreviewUpdateCreditSchemaUpsertLicense2,
-        PreviewUpdateCreditSchemaUpsertLicense1,
-    ],
-)
-
-
-class PreviewUpdateUpsertLicenseProviderMarkupsTypedDict(TypedDict):
-    markup: float
-
-
-class PreviewUpdateUpsertLicenseProviderMarkups(BaseModel):
-    markup: float
-
-
-class PreviewUpdateUpsertLicenseModelMarkupsTypedDict(TypedDict):
-    markup: NotRequired[float]
-    input_cost: NotRequired[float]
-    output_cost: NotRequired[float]
-
-
-class PreviewUpdateUpsertLicenseModelMarkups(BaseModel):
-    markup: Optional[float] = None
-
-    input_cost: Optional[float] = None
-
-    output_cost: Optional[float] = None
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["markup", "input_cost", "output_cost"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-class PreviewUpdateUpsertLicenseMarkupsTypedDict(TypedDict):
-    r"""For AI credit system features: replaces the feature's markup chain entirely for customers on this plan. An unset level means no markup at that level rather than inheriting the feature's."""
-
-    default_markup: NotRequired[float]
-    r"""Default percentage markup for customers on this plan. Use -100 to make usage free."""
-    provider_markups: NotRequired[
-        Nullable[Dict[str, PreviewUpdateUpsertLicenseProviderMarkupsTypedDict]]
-    ]
-    r"""Per-provider markup percentages for customers on this plan."""
-    model_markups: NotRequired[
-        Nullable[Dict[str, PreviewUpdateUpsertLicenseModelMarkupsTypedDict]]
-    ]
-    r"""Per-model markup overrides for customers on this plan."""
-
-
-class PreviewUpdateUpsertLicenseMarkups(BaseModel):
-    r"""For AI credit system features: replaces the feature's markup chain entirely for customers on this plan. An unset level means no markup at that level rather than inheriting the feature's."""
-
-    default_markup: Optional[float] = None
-    r"""Default percentage markup for customers on this plan. Use -100 to make usage free."""
-
-    provider_markups: OptionalNullable[
-        Dict[str, PreviewUpdateUpsertLicenseProviderMarkups]
-    ] = UNSET
-    r"""Per-provider markup percentages for customers on this plan."""
-
-    model_markups: OptionalNullable[
-        Dict[str, PreviewUpdateUpsertLicenseModelMarkups]
-    ] = UNSET
-    r"""Per-model markup overrides for customers on this plan."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["default_markup", "provider_markups", "model_markups"])
-        nullable_fields = set(["provider_markups", "model_markups"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-            is_nullable_and_explicitly_set = (
-                k in nullable_fields
-                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
-            )
-
-            if val != UNSET_SENTINEL:
-                if (
-                    val is not None
-                    or k not in optional_fields
-                    or is_nullable_and_explicitly_set
-                ):
-                    m[k] = val
-
-        return m
-
-
-class PreviewUpdateUpsertLicenseFeatureOverrideTypedDict(TypedDict):
-    r"""Overrides fields of this item's feature for customers on this plan (e.g. a credit system's credit_schema)."""
-
-    credit_schema: NotRequired[
-        List[PreviewUpdateUpsertLicenseCreditSchemaUnionTypedDict]
-    ]
-    r"""For credit system features: merges into the feature's credit_schema by metered_feature_id for customers on this plan. A row with a rate overrides or adds that feature, a row with `excluded: true` removes it, and unlisted features keep the credit system's rate."""
-    markups: NotRequired[PreviewUpdateUpsertLicenseMarkupsTypedDict]
-    r"""For AI credit system features: replaces the feature's markup chain entirely for customers on this plan. An unset level means no markup at that level rather than inheriting the feature's."""
-
-
-class PreviewUpdateUpsertLicenseFeatureOverride(BaseModel):
-    r"""Overrides fields of this item's feature for customers on this plan (e.g. a credit system's credit_schema)."""
-
-    credit_schema: Optional[List[PreviewUpdateUpsertLicenseCreditSchemaUnion]] = None
-    r"""For credit system features: merges into the feature's credit_schema by metered_feature_id for customers on this plan. A row with a rate overrides or adds that feature, a row with `excluded: true` removes it, and unlisted features keep the credit system's rate."""
-
-    markups: Optional[PreviewUpdateUpsertLicenseMarkups] = None
-    r"""For AI credit system features: replaces the feature's markup chain entirely for customers on this plan. An unset level means no markup at that level rather than inheriting the feature's."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["credit_schema", "markups"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-class PreviewUpdateUpsertLicensePlanItemTypedDict(TypedDict):
-    r"""Configuration for a feature item in a plan, including usage limits, pricing, and rollover settings."""
-
-    feature_id: str
-    r"""The ID of the feature to configure."""
-    threshold_billing: NotRequired[
-        Nullable[PreviewUpdateUpsertLicenseThresholdBillingTypedDict]
-    ]
-    r"""Bills this many feature units when outstanding overage reaches it."""
-    included: NotRequired[float]
-    r"""Number of free units included. Balance resets to this each interval for consumable features."""
-    unlimited: NotRequired[bool]
-    r"""If true, customer has unlimited access to this feature."""
-    pooled: NotRequired[bool]
-    r"""Whether entity-level grants contribute to a shared customer balance."""
-    reset: NotRequired[PreviewUpdateUpsertLicenseResetTypedDict]
-    r"""Reset configuration for consumable features. Omit for non-consumable features like seats."""
-    price: NotRequired[PreviewUpdateUpsertLicensePriceTypedDict]
-    r"""Pricing for usage beyond included units. Omit for free features."""
-    proration: NotRequired[PreviewUpdateUpsertLicenseProrationTypedDict]
-    r"""Proration settings for prepaid features. Controls mid-cycle quantity change billing."""
-    rollover: NotRequired[PreviewUpdateUpsertLicenseRolloverTypedDict]
-    r"""Rollover config for unused units. If set, unused included units carry over."""
-    expiry: NotRequired[PreviewUpdateUpsertLicenseExpiryTypedDict]
-    r"""Purchased units expire this long after each purchase. One-off prepaid consumable items only."""
-    feature_override: NotRequired[PreviewUpdateUpsertLicenseFeatureOverrideTypedDict]
-    r"""Overrides fields of this item's feature for customers on this plan (e.g. a credit system's credit_schema)."""
-
-
-class PreviewUpdateUpsertLicensePlanItem(BaseModel):
-    r"""Configuration for a feature item in a plan, including usage limits, pricing, and rollover settings."""
-
-    feature_id: str
-    r"""The ID of the feature to configure."""
-
-    threshold_billing: OptionalNullable[PreviewUpdateUpsertLicenseThresholdBilling] = (
-        UNSET
-    )
-    r"""Bills this many feature units when outstanding overage reaches it."""
-
-    included: Optional[float] = None
-    r"""Number of free units included. Balance resets to this each interval for consumable features."""
-
-    unlimited: Optional[bool] = None
-    r"""If true, customer has unlimited access to this feature."""
-
-    pooled: Optional[bool] = False
-    r"""Whether entity-level grants contribute to a shared customer balance."""
-
-    reset: Optional[PreviewUpdateUpsertLicenseReset] = None
-    r"""Reset configuration for consumable features. Omit for non-consumable features like seats."""
-
-    price: Optional[PreviewUpdateUpsertLicensePrice] = None
-    r"""Pricing for usage beyond included units. Omit for free features."""
-
-    proration: Optional[PreviewUpdateUpsertLicenseProration] = None
-    r"""Proration settings for prepaid features. Controls mid-cycle quantity change billing."""
-
-    rollover: Optional[PreviewUpdateUpsertLicenseRollover] = None
-    r"""Rollover config for unused units. If set, unused included units carry over."""
-
-    expiry: Optional[PreviewUpdateUpsertLicenseExpiry] = None
-    r"""Purchased units expire this long after each purchase. One-off prepaid consumable items only."""
-
-    feature_override: Optional[PreviewUpdateUpsertLicenseFeatureOverride] = None
-    r"""Overrides fields of this item's feature for customers on this plan (e.g. a credit system's credit_schema)."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(
-            [
-                "threshold_billing",
-                "included",
-                "unlimited",
-                "pooled",
-                "reset",
-                "price",
-                "proration",
-                "rollover",
-                "expiry",
-                "feature_override",
-            ]
-        )
-        nullable_fields = set(["threshold_billing"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-            is_nullable_and_explicitly_set = (
-                k in nullable_fields
-                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
-            )
-
-            if val != UNSET_SENTINEL:
-                if (
-                    val is not None
-                    or k not in optional_fields
-                    or is_nullable_and_explicitly_set
-                ):
-                    m[k] = val
-
-        return m
-
-
-PreviewUpdateUpsertLicenseRemoveItemBillingMethod = Literal[
-    "prepaid",
-    "usage_based",
-]
-r"""Match items with this billing method (prepaid or usage_based)."""
-
-
-PreviewUpdateIntervalUpsertLicenseRemoveItemEnum2 = Literal[
-    "one_off",
-    "minute",
-    "hour",
-    "day",
-    "week",
-    "month",
-    "quarter",
-    "semi_annual",
-    "year",
-]
-
-
-PreviewUpdateIntervalUpsertLicenseRemoveItemEnum1 = Literal[
-    "one_off",
-    "week",
-    "month",
-    "quarter",
-    "semi_annual",
-    "year",
-]
-
-
-PreviewUpdateUpsertLicenseIntervalUnionTypedDict = TypeAliasType(
-    "PreviewUpdateUpsertLicenseIntervalUnionTypedDict",
-    Union[
-        PreviewUpdateIntervalUpsertLicenseRemoveItemEnum1,
-        PreviewUpdateIntervalUpsertLicenseRemoveItemEnum2,
-    ],
-)
-r"""Match items with this interval. Accepts either a BillingInterval (price-side) or a ResetInterval (reset-side, includes day/hour/minute) so price-less items keyed by reset.interval can be disambiguated."""
-
-
-PreviewUpdateUpsertLicenseIntervalUnion = TypeAliasType(
-    "PreviewUpdateUpsertLicenseIntervalUnion",
-    Union[
-        PreviewUpdateIntervalUpsertLicenseRemoveItemEnum1,
-        PreviewUpdateIntervalUpsertLicenseRemoveItemEnum2,
-    ],
-)
-r"""Match items with this interval. Accepts either a BillingInterval (price-side) or a ResetInterval (reset-side, includes day/hour/minute) so price-less items keyed by reset.interval can be disambiguated."""
-
-
-class PreviewUpdateUpsertLicensePlanItemFilterTypedDict(TypedDict):
-    r"""Filter for matching plan items. All provided fields must match (AND)."""
-
-    feature_id: NotRequired[str]
-    r"""Match items linked to this feature."""
-    billing_method: NotRequired[PreviewUpdateUpsertLicenseRemoveItemBillingMethod]
-    r"""Match items with this billing method (prepaid or usage_based)."""
-    interval: NotRequired[PreviewUpdateUpsertLicenseIntervalUnionTypedDict]
-    r"""Match items with this interval. Accepts either a BillingInterval (price-side) or a ResetInterval (reset-side, includes day/hour/minute) so price-less items keyed by reset.interval can be disambiguated."""
-    interval_count: NotRequired[int]
-    r"""Match items with this interval_count. Disambiguates between items that share an interval but differ in count."""
-    included: NotRequired[float]
-    r"""Match items whose grant equals this included usage. Omitted is a wildcard."""
-
-
-class PreviewUpdateUpsertLicensePlanItemFilter(BaseModel):
-    r"""Filter for matching plan items. All provided fields must match (AND)."""
-
-    feature_id: Optional[str] = None
-    r"""Match items linked to this feature."""
-
-    billing_method: Optional[PreviewUpdateUpsertLicenseRemoveItemBillingMethod] = None
-    r"""Match items with this billing method (prepaid or usage_based)."""
-
-    interval: Optional[PreviewUpdateUpsertLicenseIntervalUnion] = None
-    r"""Match items with this interval. Accepts either a BillingInterval (price-side) or a ResetInterval (reset-side, includes day/hour/minute) so price-less items keyed by reset.interval can be disambiguated."""
-
-    interval_count: Optional[int] = None
-    r"""Match items with this interval_count. Disambiguates between items that share an interval but differ in count."""
-
-    included: Optional[float] = None
-    r"""Match items whose grant equals this included usage. Omitted is a wildcard."""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(
-            ["feature_id", "billing_method", "interval", "interval_count", "included"]
-        )
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
-class PreviewUpdateUpsertLicenseCustomizeTypedDict(TypedDict):
-    price: NotRequired[Nullable[PreviewUpdateUpsertLicenseBasePriceTypedDict]]
-    add_items: NotRequired[List[PreviewUpdateUpsertLicensePlanItemTypedDict]]
-    remove_items: NotRequired[List[PreviewUpdateUpsertLicensePlanItemFilterTypedDict]]
-
-
-class PreviewUpdateUpsertLicenseCustomize(BaseModel):
-    price: OptionalNullable[PreviewUpdateUpsertLicenseBasePrice] = UNSET
-
-    add_items: Optional[List[PreviewUpdateUpsertLicensePlanItem]] = None
-
-    remove_items: Optional[List[PreviewUpdateUpsertLicensePlanItemFilter]] = None
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["price", "add_items", "remove_items"])
-        nullable_fields = set(["price"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-            is_nullable_and_explicitly_set = (
-                k in nullable_fields
-                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
-            )
-
-            if val != UNSET_SENTINEL:
-                if (
-                    val is not None
-                    or k not in optional_fields
-                    or is_nullable_and_explicitly_set
-                ):
-                    m[k] = val
-
-        return m
-
-
-class PreviewUpdateUpsertLicenseTypedDict(TypedDict):
-    license_plan_id: str
-    version_slug: NotRequired[str]
-    included: NotRequired[int]
-    prepaid_only: NotRequired[bool]
-    customize: NotRequired[Nullable[PreviewUpdateUpsertLicenseCustomizeTypedDict]]
-    metadata: NotRequired[Dict[str, Any]]
-
-
-class PreviewUpdateUpsertLicense(BaseModel):
-    license_plan_id: str
-
-    version_slug: Optional[str] = None
-
-    included: Optional[int] = None
-
-    prepaid_only: Optional[bool] = None
-
-    customize: OptionalNullable[PreviewUpdateUpsertLicenseCustomize] = UNSET
-
-    metadata: Optional[Dict[str, Any]] = None
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(
-            ["version_slug", "included", "prepaid_only", "customize", "metadata"]
-        )
-        nullable_fields = set(["customize"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k, serialized.get(n))
-            is_nullable_and_explicitly_set = (
-                k in nullable_fields
-                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
-            )
-
-            if val != UNSET_SENTINEL:
-                if (
-                    val is not None
-                    or k not in optional_fields
-                    or is_nullable_and_explicitly_set
-                ):
-                    m[k] = val
-
-        return m
-
-
-class PreviewUpdateRemoveLicenseTypedDict(TypedDict):
-    license_plan_id: str
-
-
-class PreviewUpdateRemoveLicense(BaseModel):
-    license_plan_id: str
 
 
 class PreviewUpdateCustomizeTypedDict(TypedDict):
@@ -1191,12 +125,12 @@ class PreviewUpdateCustomize(BaseModel):
         return m
 
 
-PreviewUpdateIssueMethod = Literal[
+PreviewUpdateInvoiceModeIssueMethod = Literal[
     "draft",
     "finalize",
     "send",
 ]
-r"""How far the invoice created now advances. draft leaves it editable for manual review. finalize opens it without Stripe emailing, reminding or charging (auto_advance off), for invoices collected outside Stripe. send opens it and lets Stripe email it. Defaults to send. Requires enabled: true. Renewal invoices follow the subscription."""
+r"""How far the invoice created now advances. draft leaves it editable for manual review. finalize opens it without Stripe emailing, reminding or charging (auto_advance off), for invoices collected outside Stripe. send opens it and lets Stripe email it. Defaults to send. Requires enabled: true. Only applies to an invoice the request creates right away ($0 and credit invoices included): a request that invoices nothing now, such as a future starts_at or an end-of-cycle change, rejects it. Renewal invoices follow the customer's config.renewal_issue_method."""
 
 
 PreviewUpdatePaymentMethodType = Literal[
@@ -1216,15 +150,15 @@ class PreviewUpdateInvoiceModeTypedDict(TypedDict):
     enabled: bool
     r"""When true, creates an invoice and sends it to the customer instead of charging their card immediately. Uses Stripe's send_invoice collection method."""
     enable_plan_immediately: NotRequired[bool]
-    r"""If true, enables the plan immediately even though the invoice is not paid yet."""
+    r"""Deprecated: use the top-level enable_plan on attach, billing.update and set_plans. If true, enables the plan before the invoice is paid: once a draft is finalized, now when the invoice is issued straight away, or before a future starts_at."""
     finalize: NotRequired[bool]
-    r"""Deprecated: use issue_method. true sends the invoice (issue_method: send), false keeps it as a draft (issue_method: draft). Defaults to true. Ignored when issue_method is set."""
-    issue_method: NotRequired[PreviewUpdateIssueMethod]
-    r"""How far the invoice created now advances. draft leaves it editable for manual review. finalize opens it without Stripe emailing, reminding or charging (auto_advance off), for invoices collected outside Stripe. send opens it and lets Stripe email it. Defaults to send. Requires enabled: true. Renewal invoices follow the subscription."""
+    r"""Deprecated: use issue_method. true sends the invoice (issue_method: send), false keeps it as a draft (issue_method: draft). Defaults to true. Ignored when issue_method is set. Like issue_method, rejected on a request that creates no invoice now."""
+    issue_method: NotRequired[PreviewUpdateInvoiceModeIssueMethod]
+    r"""How far the invoice created now advances. draft leaves it editable for manual review. finalize opens it without Stripe emailing, reminding or charging (auto_advance off), for invoices collected outside Stripe. send opens it and lets Stripe email it. Defaults to send. Requires enabled: true. Only applies to an invoice the request creates right away ($0 and credit invoices included): a request that invoices nothing now, such as a future starts_at or an end-of-cycle change, rejects it. Renewal invoices follow the customer's config.renewal_issue_method."""
     invoice_template_id: NotRequired[str]
     r"""ID of an invoice template (configured in billing settings) whose footer (e.g. bank details) is applied to the invoice."""
     net_terms_days: NotRequired[int]
-    r"""Number of days the customer has to pay the invoice before it is due (Stripe days_until_due)."""
+    r"""Number of days the customer has to pay the invoice before it is due (Stripe days_until_due). Omitted, a subscription already billed by invoice keeps its current terms."""
     payment_method_types: NotRequired[List[PreviewUpdatePaymentMethodType]]
     r"""Payment method types the customer can pay the invoice with, e.g. card and us_bank_account. Overrides the org's allowed payment methods."""
 
@@ -1235,20 +169,30 @@ class PreviewUpdateInvoiceMode(BaseModel):
     enabled: bool
     r"""When true, creates an invoice and sends it to the customer instead of charging their card immediately. Uses Stripe's send_invoice collection method."""
 
-    enable_plan_immediately: Optional[bool] = False
-    r"""If true, enables the plan immediately even though the invoice is not paid yet."""
+    enable_plan_immediately: Annotated[
+        Optional[bool],
+        pydantic.Field(
+            deprecated="warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+        ),
+    ] = False
+    r"""Deprecated: use the top-level enable_plan on attach, billing.update and set_plans. If true, enables the plan before the invoice is paid: once a draft is finalized, now when the invoice is issued straight away, or before a future starts_at."""
 
-    finalize: Optional[bool] = None
-    r"""Deprecated: use issue_method. true sends the invoice (issue_method: send), false keeps it as a draft (issue_method: draft). Defaults to true. Ignored when issue_method is set."""
+    finalize: Annotated[
+        Optional[bool],
+        pydantic.Field(
+            deprecated="warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+        ),
+    ] = None
+    r"""Deprecated: use issue_method. true sends the invoice (issue_method: send), false keeps it as a draft (issue_method: draft). Defaults to true. Ignored when issue_method is set. Like issue_method, rejected on a request that creates no invoice now."""
 
-    issue_method: Optional[PreviewUpdateIssueMethod] = None
-    r"""How far the invoice created now advances. draft leaves it editable for manual review. finalize opens it without Stripe emailing, reminding or charging (auto_advance off), for invoices collected outside Stripe. send opens it and lets Stripe email it. Defaults to send. Requires enabled: true. Renewal invoices follow the subscription."""
+    issue_method: Optional[PreviewUpdateInvoiceModeIssueMethod] = None
+    r"""How far the invoice created now advances. draft leaves it editable for manual review. finalize opens it without Stripe emailing, reminding or charging (auto_advance off), for invoices collected outside Stripe. send opens it and lets Stripe email it. Defaults to send. Requires enabled: true. Only applies to an invoice the request creates right away ($0 and credit invoices included): a request that invoices nothing now, such as a future starts_at or an end-of-cycle change, rejects it. Renewal invoices follow the customer's config.renewal_issue_method."""
 
     invoice_template_id: Optional[str] = None
     r"""ID of an invoice template (configured in billing settings) whose footer (e.g. bank details) is applied to the invoice."""
 
     net_terms_days: Optional[int] = None
-    r"""Number of days the customer has to pay the invoice before it is due (Stripe days_until_due)."""
+    r"""Number of days the customer has to pay the invoice before it is due (Stripe days_until_due). Omitted, a subscription already billed by invoice keeps its current terms."""
 
     payment_method_types: Optional[List[PreviewUpdatePaymentMethodType]] = None
     r"""Payment method types the customer can pay the invoice with, e.g. card and us_bank_account. Overrides the org's allowed payment methods."""
@@ -1277,6 +221,14 @@ class PreviewUpdateInvoiceMode(BaseModel):
                     m[k] = val
 
         return m
+
+
+PreviewUpdateEnablePlan = Literal[
+    "on_payment",
+    "on_finalize",
+    "immediately",
+]
+r"""When the plan turns on. 'on_payment' (default) waits until the invoice is paid or checkout completes. 'on_finalize' turns it on once the invoice is finalized, before payment, and needs invoice_mode. 'immediately' turns it on now, even while the invoice is still a draft; voiding or deleting the draft leaves the plan on. Takes precedence over the deprecated enable_plan_immediately flags."""
 
 
 PreviewUpdateProrationBehavior = Literal[
@@ -1856,10 +808,14 @@ class PreviewUpdateParamsTypedDict(TypedDict):
     r"""The version of the plan to attach."""
     free_trial: NotRequired[Nullable[PreviewUpdateFreeTrialParamsTypedDict]]
     r"""Free trial for this plan. A shorthand for customize.free_trial, which takes precedence when both are given."""
+    bill_upfront: NotRequired[PreviewUpdateBillUpfrontTypedDict]
+    r"""Charge today for billing periods that haven't started yet. Only the plan's base price is billed upfront; usage, prepaid quantities and seats keep billing every period."""
     customize: NotRequired[PreviewUpdateCustomizeTypedDict]
     r"""Customize the plan to attach. Can override the price, items, licenses, free trial, or a combination."""
     invoice_mode: NotRequired[PreviewUpdateInvoiceModeTypedDict]
     r"""Invoice mode creates a draft or open invoice and sends it to the customer, instead of charging their card immediately. This uses Stripe's send_invoice collection method."""
+    enable_plan: NotRequired[PreviewUpdateEnablePlan]
+    r"""When the plan turns on. 'on_payment' (default) waits until the invoice is paid or checkout completes. 'on_finalize' turns it on once the invoice is finalized, before payment, and needs invoice_mode. 'immediately' turns it on now, even while the invoice is still a draft; voiding or deleting the draft leaves the plan on. Takes precedence over the deprecated enable_plan_immediately flags."""
     proration_behavior: NotRequired[PreviewUpdateProrationBehavior]
     r"""How to handle proration when updating an existing subscription. 'prorate_immediately' charges/credits prorated amounts now, 'none' skips creating any charges, 'bill_difference' bills the larger of the full-period price difference and the prorated amount (full difference on upgrades, prorated credit on downgrades) now without changing the billing cycle."""
     redirect_mode: NotRequired[PreviewUpdateRedirectMode]
@@ -1885,7 +841,7 @@ class PreviewUpdateParamsTypedDict(TypedDict):
     refund_last_payment: NotRequired[PreviewUpdateRefundLastPayment]
     r"""Controls how the last payment is refunded on immediate cancellation. 'prorated' refunds the unused portion, 'full' refunds the entire last payment."""
     subscription_params: NotRequired[Dict[str, Any]]
-    r"""Additional parameters to pass into the Stripe subscription update or cancel call."""
+    r"""Additional parameters to pass into the Stripe subscription update or cancel call. Fields Autumn manages itself are rejected with a 400; use invoice_mode to bill by invoice."""
     recalculate_balances: NotRequired[PreviewUpdateRecalculateBalancesTypedDict]
     r"""Controls whether balances should be recalculated during the subscription update."""
     carry_over_usages: NotRequired[PreviewUpdateCarryOverUsagesTypedDict]
@@ -1913,11 +869,17 @@ class PreviewUpdateParams(BaseModel):
     free_trial: OptionalNullable[PreviewUpdateFreeTrialParams] = UNSET
     r"""Free trial for this plan. A shorthand for customize.free_trial, which takes precedence when both are given."""
 
+    bill_upfront: Optional[PreviewUpdateBillUpfront] = None
+    r"""Charge today for billing periods that haven't started yet. Only the plan's base price is billed upfront; usage, prepaid quantities and seats keep billing every period."""
+
     customize: Optional[PreviewUpdateCustomize] = None
     r"""Customize the plan to attach. Can override the price, items, licenses, free trial, or a combination."""
 
     invoice_mode: Optional[PreviewUpdateInvoiceMode] = None
     r"""Invoice mode creates a draft or open invoice and sends it to the customer, instead of charging their card immediately. This uses Stripe's send_invoice collection method."""
+
+    enable_plan: Optional[PreviewUpdateEnablePlan] = None
+    r"""When the plan turns on. 'on_payment' (default) waits until the invoice is paid or checkout completes. 'on_finalize' turns it on once the invoice is finalized, before payment, and needs invoice_mode. 'immediately' turns it on now, even while the invoice is still a draft; voiding or deleting the draft leaves the plan on. Takes precedence over the deprecated enable_plan_immediately flags."""
 
     proration_behavior: Optional[PreviewUpdateProrationBehavior] = None
     r"""How to handle proration when updating an existing subscription. 'prorate_immediately' charges/credits prorated amounts now, 'none' skips creating any charges, 'bill_difference' bills the larger of the full-period price difference and the prorated amount (full difference on upgrades, prorated credit on downgrades) now without changing the billing cycle."""
@@ -1956,7 +918,7 @@ class PreviewUpdateParams(BaseModel):
     r"""Controls how the last payment is refunded on immediate cancellation. 'prorated' refunds the unused portion, 'full' refunds the entire last payment."""
 
     subscription_params: Optional[Dict[str, Any]] = None
-    r"""Additional parameters to pass into the Stripe subscription update or cancel call."""
+    r"""Additional parameters to pass into the Stripe subscription update or cancel call. Fields Autumn manages itself are rejected with a 400; use invoice_mode to bill by invoice."""
 
     recalculate_balances: Optional[PreviewUpdateRecalculateBalances] = None
     r"""Controls whether balances should be recalculated during the subscription update."""
@@ -1976,8 +938,10 @@ class PreviewUpdateParams(BaseModel):
                 "feature_quantities",
                 "version",
                 "free_trial",
+                "bill_upfront",
                 "customize",
                 "invoice_mode",
+                "enable_plan",
                 "proration_behavior",
                 "redirect_mode",
                 "subscription_id",
@@ -2142,6 +1106,94 @@ class PreviewUpdateLineItem(BaseModel):
                     or is_nullable_and_explicitly_set
                 ):
                     m[k] = val
+
+        return m
+
+
+PreviewUpdatePlanActivates = Union[
+    Literal[
+        "now",
+        "on_finalize",
+        "on_payment",
+    ],
+    UnrecognizedStr,
+]
+r"""When the change takes effect. 'now' when it applies as soon as the request succeeds, 'on_finalize' when it waits for this draft invoice to be finalized, 'on_payment' when it waits for the invoice to be paid or the checkout to complete."""
+
+
+PreviewUpdateType = Union[
+    Literal[
+        "none",
+        "zero_amount",
+        "charge",
+        "credit",
+    ],
+    UnrecognizedStr,
+]
+r"""What the invoice created now bills. 'none' when the change creates no invoice now. 'zero_amount' when an invoice is created but nothing was billed, such as a trial or a usage-only plan. 'charge' when something was billed, even if discounts or credits bring the amount due to zero. 'credit' when the invoice total is negative and becomes customer credit."""
+
+
+PreviewUpdateImmediateInvoiceIssueMethod = Union[
+    Literal[
+        "draft",
+        "finalize",
+        "send",
+        "charge_automatically",
+    ],
+    UnrecognizedStr,
+]
+
+
+PreviewUpdateImmediateInvoicePlanActivates = Union[
+    Literal[
+        "now",
+        "on_finalize",
+        "on_payment",
+    ],
+    UnrecognizedStr,
+]
+r"""Deprecated: use the top-level plan_activates. When the change takes effect. 'now' when it applies as soon as the request succeeds, 'on_finalize' when it waits for this draft invoice to be finalized, 'on_payment' when it waits for the invoice to be paid or the checkout to complete."""
+
+
+class PreviewUpdatePreviewImmediateInvoiceTypedDict(TypedDict):
+    r"""The invoice this change creates right away, if any. Renewals are described by next_cycle."""
+
+    type: PreviewUpdateType
+    r"""What the invoice created now bills. 'none' when the change creates no invoice now. 'zero_amount' when an invoice is created but nothing was billed, such as a trial or a usage-only plan. 'charge' when something was billed, even if discounts or credits bring the amount due to zero. 'credit' when the invoice total is negative and becomes customer credit."""
+    issue_method: Nullable[PreviewUpdateImmediateInvoiceIssueMethod]
+    r"""How the invoice is issued, matching invoice_mode.issue_method: 'draft', 'finalize' or 'send'. 'charge_automatically' when the card on file is charged, or the customer pays at checkout. Null when type is 'none'."""
+    plan_activates: PreviewUpdateImmediateInvoicePlanActivates
+    r"""Deprecated: use the top-level plan_activates. When the change takes effect. 'now' when it applies as soon as the request succeeds, 'on_finalize' when it waits for this draft invoice to be finalized, 'on_payment' when it waits for the invoice to be paid or the checkout to complete."""
+
+
+class PreviewUpdatePreviewImmediateInvoice(BaseModel):
+    r"""The invoice this change creates right away, if any. Renewals are described by next_cycle."""
+
+    type: PreviewUpdateType
+    r"""What the invoice created now bills. 'none' when the change creates no invoice now. 'zero_amount' when an invoice is created but nothing was billed, such as a trial or a usage-only plan. 'charge' when something was billed, even if discounts or credits bring the amount due to zero. 'credit' when the invoice total is negative and becomes customer credit."""
+
+    issue_method: Nullable[PreviewUpdateImmediateInvoiceIssueMethod]
+    r"""How the invoice is issued, matching invoice_mode.issue_method: 'draft', 'finalize' or 'send'. 'charge_automatically' when the card on file is charged, or the customer pays at checkout. Null when type is 'none'."""
+
+    plan_activates: Annotated[
+        PreviewUpdateImmediateInvoicePlanActivates,
+        pydantic.Field(
+            deprecated="warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+        ),
+    ]
+    r"""Deprecated: use the top-level plan_activates. When the change takes effect. 'now' when it applies as soon as the request succeeds, 'on_finalize' when it waits for this draft invoice to be finalized, 'on_payment' when it waits for the invoice to be paid or the checkout to complete."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k, serialized.get(n))
+
+            if val != UNSET_SENTINEL:
+                m[k] = val
 
         return m
 
@@ -2633,6 +1685,10 @@ class PreviewUpdateResponseTypedDict(TypedDict):
     r"""The final amount after discounts and tax for the current billing period."""
     currency: str
     r"""The three-letter ISO currency code. All amounts are in the currency's major unit (e.g., dollars for USD)."""
+    plan_activates: PreviewUpdatePlanActivates
+    r"""When the change takes effect. 'now' when it applies as soon as the request succeeds, 'on_finalize' when it waits for this draft invoice to be finalized, 'on_payment' when it waits for the invoice to be paid or the checkout to complete."""
+    immediate_invoice: PreviewUpdatePreviewImmediateInvoiceTypedDict
+    r"""The invoice this change creates right away, if any. Renewals are described by next_cycle."""
     incoming: List[PreviewUpdateIncomingTypedDict]
     r"""Products or subscription changes being added or updated."""
     outgoing: List[PreviewUpdateOutgoingTypedDict]
@@ -2642,6 +1698,8 @@ class PreviewUpdateResponseTypedDict(TypedDict):
     r"""True when this change clears the customer's usage balances, so the approver can see usage will reset."""
     next_cycle: NotRequired[PreviewUpdateNextCycleTypedDict]
     r"""Preview of the next billing cycle, if applicable. This shows what the customer will be charged in subsequent cycles."""
+    requires_payment_method: NotRequired[bool]
+    r"""True when this request can't be charged automatically because the customer has no payment method. Add one, or send an invoice with invoice_mode."""
     expand: NotRequired[List[str]]
     r"""Expand the response with additional data."""
     tax: NotRequired[PreviewUpdateTaxTypedDict]
@@ -2668,6 +1726,12 @@ class PreviewUpdateResponse(BaseModel):
     currency: str
     r"""The three-letter ISO currency code. All amounts are in the currency's major unit (e.g., dollars for USD)."""
 
+    plan_activates: PreviewUpdatePlanActivates
+    r"""When the change takes effect. 'now' when it applies as soon as the request succeeds, 'on_finalize' when it waits for this draft invoice to be finalized, 'on_payment' when it waits for the invoice to be paid or the checkout to complete."""
+
+    immediate_invoice: PreviewUpdatePreviewImmediateInvoice
+    r"""The invoice this change creates right away, if any. Renewals are described by next_cycle."""
+
     incoming: List[PreviewUpdateIncoming]
     r"""Products or subscription changes being added or updated."""
 
@@ -2682,6 +1746,9 @@ class PreviewUpdateResponse(BaseModel):
     next_cycle: Optional[PreviewUpdateNextCycle] = None
     r"""Preview of the next billing cycle, if applicable. This shows what the customer will be charged in subsequent cycles."""
 
+    requires_payment_method: Optional[bool] = None
+    r"""True when this request can't be charged automatically because the customer has no payment method. Add one, or send an invoice with invoice_mode."""
+
     expand: Optional[List[str]] = None
     r"""Expand the response with additional data."""
 
@@ -2694,7 +1761,14 @@ class PreviewUpdateResponse(BaseModel):
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         optional_fields = set(
-            ["resets_usage", "next_cycle", "expand", "tax", "invoice_credits"]
+            [
+                "resets_usage",
+                "next_cycle",
+                "requires_payment_method",
+                "expand",
+                "tax",
+                "invoice_credits",
+            ]
         )
         serialized = handler(self)
         m = {}
@@ -2708,21 +1782,3 @@ class PreviewUpdateResponse(BaseModel):
                     m[k] = val
 
         return m
-
-
-try:
-    PreviewUpdateCreditSchemaUpsertLicense3.model_rebuild()
-except NameError:
-    pass
-try:
-    PreviewUpdateDimensionsUpsertLicense3.model_rebuild()
-except NameError:
-    pass
-try:
-    PreviewUpdateDimensionsUpsertLicense1.model_rebuild()
-except NameError:
-    pass
-try:
-    PreviewUpdateCreditSchemaUpsertLicense1.model_rebuild()
-except NameError:
-    pass

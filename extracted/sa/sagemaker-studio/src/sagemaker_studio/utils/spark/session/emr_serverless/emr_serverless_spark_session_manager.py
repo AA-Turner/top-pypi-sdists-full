@@ -21,6 +21,7 @@ from sagemaker_studio.utils.spark.connection_resolver import _ensure_project
 from sagemaker_studio.utils.spark.session.constants import SPARK_CONNECT_LOG_FILE
 from sagemaker_studio.utils.spark.session.emr_serverless.interceptors import CustomChannelBuilder
 from sagemaker_studio.utils.spark.session.spark_config_builder import (
+    _parse_emr_release_version,
     apply_compatibility_mode_configs,
     build_spark_configs,
     extract_connection_spark_configs,
@@ -31,6 +32,22 @@ from sagemaker_studio.utils.spark.session.spark_session_manager import SparkSess
 _parent_logger = logging.getLogger("SparkConnect")
 SparkSessionManager.setup_logger(_parent_logger, SPARK_CONNECT_LOG_FILE)
 logger = logging.getLogger("SparkConnect.EMRServerless")
+
+# Same jar selection as the Sessions package (emr_on_serverless_session.py).
+_DATAZONE_OPENLINEAGE_JAR = (
+    "/usr/share/aws/datazone-openlineage-spark/lib/DataZoneOpenLineageSpark-1.0.jar"
+)
+_GLUE_OPENLINEAGE_JAR = "/usr/share/aws/glue-openlineage-spark/lib/GlueOpenLineageSpark.jar"
+
+
+def _ensure_lineage_jar(spark_configs: dict, service_configs: dict):
+    """Re-append the lineage jar if a connection/user spark.jars replaced it."""
+    jar = (service_configs or {}).get("spark.jars")
+    if not jar:
+        return
+    merged = spark_configs.get("spark.jars", "")
+    if jar not in merged.split(","):
+        spark_configs["spark.jars"] = f"{merged},{jar}" if merged else jar
 
 
 class EMRServerlessSparkSessionManager(SparkSessionManager):
@@ -168,13 +185,16 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
             # Prepare session parameters (outside metrics)
             application = self._ensure_application_started(self.application_id)
             user_id, account_id = self._get_user_id_account_id()
-            service_configs = self._get_service_specific_configs(application)
+            service_configs = self._get_service_specific_configs(
+                application, user_id=user_id, account_id=account_id
+            )
             spark_configs = build_spark_configs(
                 account_id=account_id,
                 service_configs=service_configs,
                 connection_configs=self.connection_spark_configs,
                 user_configs=self._user_spark_conf,
             )
+            _ensure_lineage_jar(spark_configs, service_configs)
 
             self.emr_serverless_session_id, spark_endpoint_url, endpoint_response = (
                 self._start_emr_serverless_session(self.application_id, user_id, spark_configs)
@@ -248,10 +268,11 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
             return self.emr_serverless_runtime_role
         return self.project.iam_role
 
-    def _get_service_specific_configs(self, application) -> dict:
+    def _get_service_specific_configs(self, application, user_id=None, account_id=None) -> dict:
         """Build EMR Serverless-specific spark configs (Layer 2).
 
-        Handles FTA/compatibility mode, executor idle timeout, and S3 Access Grants.
+        Handles FTA/compatibility mode, executor idle timeout, DataZone OpenLineage,
+        and S3 Access Grants.
         """
         configs = {}
         release_label = application.get("releaseLabel", "")
@@ -279,8 +300,48 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
                 )
             logger.info("Native FGAC active — compatibility mode configs not applied")
         configs["spark.dynamicAllocation.executorIdleTimeout"] = "120s"
+        configs.update(self._get_openlineage_configs(release_label, user_id, account_id))
         configs.update(self._get_s3_access_grants_configs())
         return configs
+
+    def _get_openlineage_configs(self, release_label, user_id, account_id) -> dict:
+        """DataZone OpenLineage configs (mirrors the Sessions package Livy flow).
+
+        Disable via ClientConfig(overrides={"emr-serverless": {"enable_open_lineage": False}}).
+        """
+        if not self.config.overrides.get("emr-serverless", {}).get("enable_open_lineage", True):
+            logger.info("OpenLineage disabled via ClientConfig overrides")
+            return {}
+        try:
+            configs = {
+                "spark.extraListeners": "io.openlineage.spark.agent.OpenLineageSparkListener",
+                "spark.openlineage.transport.type": "amazon_datazone_api",
+                "spark.openlineage.transport.domainId": self.project.domain_id,
+                "spark.openlineage.transport.region": InternalUtils()._get_domain_region(),
+                "spark.openlineage.columnLineage.datasetLineageEnabled": "true",
+                "spark.jars": self._openlineage_jar(release_label),
+            }
+            if account_id:
+                configs["spark.glue.accountId"] = account_id
+            if user_id:
+                configs["spark.glue.JOB_NAME"] = f"Interactive/{self.project.id}/{user_id}"
+            logger.info("DataZone OpenLineage configs added for EMR Serverless")
+            return configs
+        except Exception as e:
+            logger.warning(f"Failed to add OpenLineage configs: {e}")
+            return {}
+
+    @staticmethod
+    def _openlineage_jar(release_label: str) -> str:
+        """Glue OpenLineage jar for emr-spark >= 8.2.0, DataZone jar otherwise."""
+        version = _parse_emr_release_version(release_label)
+        if (
+            EMRServerlessSparkSessionManager._is_emr_spark_release(release_label)
+            and version
+            and version >= [8, 2]
+        ):
+            return _GLUE_OPENLINEAGE_JAR
+        return _DATAZONE_OPENLINEAGE_JAR
 
     def _get_s3_access_grants_configs(self) -> dict:
         """Get S3 Access Grants spark configs (shared implementation in spark_config_builder)."""

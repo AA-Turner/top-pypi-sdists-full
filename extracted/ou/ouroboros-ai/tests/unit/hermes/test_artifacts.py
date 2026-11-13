@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 
 import pytest
 
@@ -68,6 +70,49 @@ class TestInstallHermesSkills:
         )
         assert installed_path.joinpath("run", "notes.txt").read_text(encoding="utf-8") == "copied"
         assert installed_path.joinpath("interview", "SKILL.md").is_file()
+
+    def test_installs_welcome_scripts_beside_its_skill(self, tmp_path: Path, monkeypatch) -> None:
+        """Hermes reports each skill's directory; welcome's scripts must be in it and run."""
+        source_skills_dir = Path(__file__).resolve().parents[3] / "skills"
+        monkeypatch.setattr(
+            "ouroboros.hermes.artifacts._repo_root_skills_dir",
+            lambda: source_skills_dir,
+        )
+
+        installed = install_hermes_skills(hermes_dir=tmp_path / ".hermes") / "welcome"
+        source = source_skills_dir / "welcome"
+        scripts = sorted(path.name for path in (source / "scripts").glob("*.py"))
+
+        assert "welcome_state.py" in scripts
+        assert sorted(path.name for path in (installed / "scripts").iterdir()) == scripts
+        for name in scripts:
+            assert (installed / "scripts" / name).read_bytes() == (
+                source / "scripts" / name
+            ).read_bytes()
+        assert (
+            installed.joinpath("SKILL.md").read_bytes() == source.joinpath("SKILL.md").read_bytes()
+        )
+
+        home = tmp_path / "home"
+        (home / ".ouroboros").mkdir(parents=True)
+        (home / ".ouroboros" / "config.yaml").write_text(
+            f"orchestrator: {{runtime_backend: codex, codex_cli_path: {sys.executable}}}\n"
+            "llm: {backend: codex}\n",
+            encoding="utf-8",
+        )
+        (home / ".codex").mkdir()
+        (home / ".codex" / "config.toml").write_text(
+            f'[mcp_servers.ouroboros]\ncommand = "{sys.executable}"\n', encoding="utf-8"
+        )
+        result = subprocess.run(
+            [sys.executable, "-", "codex-gate", str(home), str(home / ".codex")],
+            input=(installed / "scripts" / "welcome_state.py").read_text(encoding="utf-8"),
+            capture_output=True,
+            text=True,
+            env={"HOME": str(home), "PATH": os.defpath},
+            check=True,
+        )
+        assert result.stdout == "CODEX_READY\n"
 
     def test_installs_runtime_skill_capability_guide(self, tmp_path: Path, monkeypatch) -> None:
         """Hermes installs should include backend-specific skill execution guidance."""
@@ -1746,3 +1791,56 @@ class TestInstallHermesSkills:
         assert not real_workspace.joinpath(
             ".hermes", "skills", "autonomous-ai-agents", "ouroboros", "run"
         ).exists()
+
+
+def test_restore_owned_backup_preserves_concurrent_empty_target(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A generation appearing after the absence check must never be replaced."""
+    from ouroboros.hermes.artifacts import _restore_owned_backup
+
+    backup = tmp_path / "backup"
+    backup.mkdir()
+    (backup / "original").write_text("original", encoding="utf-8")
+    target = tmp_path / "target"
+    original_is_symlink = Path.is_symlink
+
+    def race(path: Path) -> bool:
+        if path == target and not target.exists():
+            target.mkdir()
+            return False
+        return original_is_symlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", race)
+    with pytest.raises(OSError):
+        _restore_owned_backup(backup, target)
+    assert target.is_dir()
+    assert list(target.iterdir()) == []
+    assert (backup / "original").read_text(encoding="utf-8") == "original"
+
+
+def test_restore_cleanup_failure_preserves_concurrent_backup(tmp_path: Path, monkeypatch) -> None:
+    """Rollback cannot replace a backup name claimed after its absence check."""
+    from ouroboros.hermes.artifacts import _restore_owned_backup
+
+    backup = tmp_path / "backup"
+    backup.mkdir()
+    (backup / "original").write_text("original", encoding="utf-8")
+    target = tmp_path / "target"
+    original_exists = Path.exists
+
+    def race(path: Path) -> bool:
+        if path == backup and original_exists(target) and not original_exists(backup):
+            backup.mkdir()
+            return False
+        return original_exists(path)
+
+    def fail_remove(_path: Path) -> None:
+        raise OSError("synthetic marker cleanup failure")
+
+    monkeypatch.setattr(Path, "exists", race)
+    monkeypatch.setattr("ouroboros.hermes.artifacts._remove_target_path", fail_remove)
+    with pytest.raises(OSError):
+        _restore_owned_backup(backup, target)
+    assert list(backup.iterdir()) == []
+    assert (target / "original").read_text(encoding="utf-8") == "original"

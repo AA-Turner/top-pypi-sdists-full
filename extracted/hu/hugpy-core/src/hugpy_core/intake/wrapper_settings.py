@@ -41,8 +41,57 @@ def apply_report(conn, worker, rows):
                      (Jsonb(settings), env, worker, key, Jsonb(settings), env))
 
 
+# Core knob -> native wrapper option (POST /v1/models/options), and back. The
+# native wrapper keeps one explicit choice per unit (placement/limits, bnb4,
+# moe, goal, ctx, quant); every other legacy pair knob has no backing there.
+_NATIVE_SET = {'alloc_mode': 'placement', 'bnb_4bit': 'bnb4', 'moe': 'moe', 'auto_goal': 'goal',
+               'ctx': 'ctx', 'ctx_min': 'ctx_min', 'limit_gib': 'limit_gib', 'gguf_file': 'quant'}
+_NATIVE_BACK = {'placement': 'alloc_mode', 'bnb4': 'bnb_4bit', 'moe': 'moe', 'goal': 'auto_goal',
+                'ctx': 'ctx', 'ctx_min': 'ctx_min', 'limit_gib': 'limit_gib'}
+
+
+def _native_worker(worker):
+    """The live worker when its wrapper is the native build, else None."""
+    from hugpy_core.registry import registry
+    from hugpy_core.relay.relay import is_native
+    live = registry.lookup_worker(worker if isinstance(worker, str) else worker.get('name') or worker.get('id'))
+    return live if live and is_native(live) else None
+
+
+def native_command(worker, key, sets, unset):
+    """Deliver placement knobs to a native wrapper's options surface and read back."""
+    from hugpy_core.registry.transport import request, target
+    unknown = [k for k in sets if k not in _NATIVE_SET]
+    if unknown:
+        raise ValueError('this wrapper keeps only placement choices (' + ', '.join(sorted(_NATIVE_SET))
+                         + '); it has no setting named: ' + ', '.join(sorted(unknown)))
+    if unset and sets:
+        raise ValueError('this wrapper keeps one choice per model: clear it (unset alone) or replace it, not both')
+    configured = target(worker)
+    body = {'model': key}
+    if unset:
+        body['clear'] = True
+    body.update({_NATIVE_SET[k]: ('moe' if k == 'alloc_mode' and v == 'moe' else v)
+                 for k, v in sets.items()})
+    if body.get('placement') == 'moe':
+        body.pop('placement')
+        body.setdefault('moe', True)
+    offered = request(configured, '/v1/models/options', body)
+    chosen = offered.get('chosen') or {}
+    settings = {_NATIVE_BACK[k]: v for k, v in chosen.items() if k in _NATIVE_BACK}
+    quant = next((q.get('variation') for q in offered.get('quants') or [] if q.get('chosen')), None)
+    if quant:
+        settings['gguf_file'] = quant
+    return {'settings': settings, 'source': 'wrapper',
+            'confirmation': {'status': 'confirmed', 'requested': sets,
+                             'cleared': bool(unset), 'actual': settings}}
+
+
 def command(worker, key, sets, unset):
     """Send only edited keys, then read the wrapper's own confirmed state."""
+    native = _native_worker(worker)
+    if native is not None:
+        return native_command(worker, key, sets, unset)
     from hugpy_settings.settings_delivery import command as deliver
     from hugpy_core.registry.transport import request, target
     configured = target(worker)
@@ -52,6 +101,10 @@ def command(worker, key, sets, unset):
 
 
 def box_command(worker, settings):
+    native = _native_worker(worker)
+    if native is not None:
+        # The native wrapper's box-wide surface is the "*" options row.
+        return native_command(worker, '*', settings, [])
     from hugpy_settings.settings_delivery import command as deliver
     from hugpy_core.registry.transport import request, target
     configured = target(worker)

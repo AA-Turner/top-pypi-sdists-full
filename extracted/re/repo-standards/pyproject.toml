@@ -1,6 +1,6 @@
 [project]
 name = "repo-standards"
-version = "6.23.2"
+version = "7.0.0"
 description = "Deterministic pull-request sizing and reviewed repository policy"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -118,5 +118,8 @@ extend-select = [
 "test_selection.py" = ["too-many-return-statements"]
 
 [tool.ruff.per-file-target-version]
+"ci_artifacts.py" = "py312"
+"ci_reviewed_validation.py" = "py312"
+"release_reconciliation.py" = "py312"
 "test_selection.py" = "py312"
 "src/repo_standards/github_checkout.py" = "py311"

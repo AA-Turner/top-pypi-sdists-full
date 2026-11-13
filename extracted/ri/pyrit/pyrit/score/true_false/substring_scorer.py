@@ -2,8 +2,8 @@
 # Licensed under the MIT license.
 
 
-from pyrit.analytics.text_matching import ExactTextMatching, TextMatching
-from pyrit.models import ComponentIdentifier, MessagePiece, Score
+from pyrit.common.text_matching import ExactTextMatching, TextMatching
+from pyrit.models import ComponentIdentifier, MessagePiece, Score, ScoringExpectation
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
 from pyrit.score.true_false.true_false_score_aggregator import (
     TrueFalseAggregatorFunc,
@@ -56,27 +56,31 @@ class SubStringScorer(MessageTrueFalseScorer):
         Returns:
             ComponentIdentifier: The identifier for this scorer.
         """
+        get_matcher_params = getattr(self._text_matcher, "get_identifier_params", None)
         return self._create_identifier(
             params={
                 "substring": self._substring,
                 "text_matcher": self._text_matcher.__class__.__name__,
+                "text_matcher_params": get_matcher_params() if callable(get_matcher_params) else None,
             },
             score_aggregator=self._score_aggregator.__name__,  # type: ignore[ty:unresolved-attribute]
         )
 
-    async def _score_piece_async(self, message_piece: MessagePiece, *, objective: str | None = None) -> list[Score]:
+    async def _score_piece_with_expectation_async(
+        self, message_piece: MessagePiece, *, expectation: ScoringExpectation | None
+    ) -> list[Score]:
         """
         Score the given message piece based on presence of the substring.
 
         Args:
             message_piece (MessagePiece): The message piece to score.
-            objective (str | None): The objective to evaluate against. Defaults to None.
-                Currently not used for this scorer.
+            expectation (ScoringExpectation | None): The scoring criteria. Only its objective is read.
 
         Returns:
             list[Score]: A list containing a single Score object with a boolean value indicating
                 whether the substring matches the text according to the matching strategy.
         """
+        objective = expectation.objective if expectation else None
         substring_present = self._text_matcher.is_match(target=self._substring, text=message_piece.converted_value)
 
         return [

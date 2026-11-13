@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 # plugin, the `probe-research-mcp` binaries, and mcp.research.prbe.ai. The import
 # name (`probe`) and the CLI binary (`probe`) are unchanged.
 name = "probe-research"
-version = "0.531.0"
+version = "0.546.0"
 description = "Probe: experiment tracking for ML teams and their coding agents (SDK, CLI, read-only MCP)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -39,9 +39,10 @@ dependencies = [
     # on the CapacityLimiter cancelled-acquire wakeup fix — both solid in the
     # 4.5+ line (also mcp's own floor). Locked: 4.14.x.
     "anyio>=4.5",
-    # 1.24: `mcp.client.streamable_http.streamable_http_client`, the client the
+    # 1.30 security floor; 1.24 introduced the streamable HTTP client below.
+    # `mcp.client.streamable_http.streamable_http_client` is the client the
     # CLI's `probe mcp tools|call` (`/probe inline`) talks to the hosted MCP with.
-    "mcp>=1.24,<2",
+    "mcp>=1.30,<2",
     # Frozen MCP output accounting; vocabulary/configuration ship as package data
     # so first use works offline. Imported only by the MCP budget module on demand.
     # A RANGE, not a pin (plan 2.11): an exact pin refused to share an
@@ -91,9 +92,10 @@ dependencies = [
 dev = [
     "pytest>=8",
     # CI runs the suite across every core (`-n auto`). The suite is built for it:
-    # conftest declares no session- or module-scoped fixture, and its autouse
-    # fixtures redirect HOME/XDG_*/PROBE_OUTBOX_DIR per test, so workers share
-    # no state. The ONE exception is the pty screen harness in
+    # conftest's session-scoped fixtures only load modules or make an empty
+    # folder, and the autouse fixtures in tests/homes/homes.py redirect HOME,
+    # XDG_CONFIG_HOME, XDG_STATE_HOME and PROBE_OUTBOX_DIR per test, so workers
+    # share no state. The ONE exception is the pty screen harness in
     # tests/test_setup_wizard.py -- see tests/test_pty_isolation.py.
     "pytest-xdist>=3.2",
     # Build the real wheel/sdist in offline tokenizer packaging regression tests.
@@ -142,8 +144,8 @@ mcp-http = ["uvicorn>=0.30"]
 # path is stdlib-only). 3.4: pyjwt[crypto]'s floor; Ed25519 itself is older.
 # zstandard: the importer reads Codex 0.166+'s compressed rollouts (`.jsonl.zst`,
 # cli/imports/transcripts/archive.py, D82); imported lazily, never by core.
-cli = ["probe-research-cli==0.531.0", "typer>=0.12,<0.29", "questionary>=2.0,<3", "tomlkit>=0.12", "cryptography>=3.4", "zstandard>=0.23"]
-mcp = ["mcp>=1.24,<2", "anyio>=4.5", "tiktoken>=0.8,<0.14"]
+cli = ["probe-research-cli==0.546.0", "typer>=0.12,<0.29", "questionary>=2.0,<3", "tomlkit>=0.12", "cryptography>=3.4", "zstandard>=0.23"]
+mcp = ["mcp>=1.30,<2", "anyio>=4.5", "tiktoken>=0.8,<0.14"]
 all = ["probe-research[cli,mcp]"]
 # `probe.integrations.lightning.ProbeLogger` (plan (a)). Brings torch: never a
 # default, and `import probe` never loads it (tests/test_integrations_import_guard.py).
@@ -156,8 +158,8 @@ huggingface = ["transformers[torch]>=4.46"]
 # exactly (R3.4). Installed by the wizard when the researcher turns daemon mode
 # on, into the CLI's own uv tool environment; without
 # it capture keeps running and daemon mode reports itself unavailable.
-daemon = ["probe-research-cli==0.531.0", 
-    "pydantic-ai-slim[openai,mcp]==2.51.0",
+daemon = ["probe-research-cli==0.546.0", 
+    "pydantic-ai-slim[openai,mcp]==2.53.0",
     "pydantic-ai-harness[skills]==0.36.0",
     "pydantic-ai-skills==2.0.0",
     # File events for the daemon's Wake on macOS and Windows (Linux uses inotify, stdlib only).
@@ -169,10 +171,10 @@ daemon = ["probe-research-cli==0.531.0",
 # Trial object in-process. Harbor itself requires Python 3.12+, but Probe's
 # ordinary CLI/SDK remains supported on 3.11; the marker keeps the universal
 # project lock resolvable without raising Probe's global Python floor.
-# Upper bound = the line verify_harbor_contract() is pinned against. NB:
-# litellm>=1.93 (a harbor dep) ships an sdist needing rustc>=1.86 — add
-# litellm<1.93 if the install fails to build.
-harbor = ["probe-research-cli==0.531.0", "harbor>=0.20,<0.26; python_version >= '3.12'"]
+# Upper bound = the line verify_harbor_contract() is pinned against. NB: never
+# cap litellm (a harbor dep) below 1.100.4, the server's security pin; it ships
+# abi3 wheels, so only a platform without one builds the sdist (rustc>=1.86).
+harbor = ["probe-research-cli==0.546.0", "harbor>=0.20,<0.26; python_version >= '3.12'"]
 
 [project.urls]
 Homepage = "https://www.useprobe.ai"

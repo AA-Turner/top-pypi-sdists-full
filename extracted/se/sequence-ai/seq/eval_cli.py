@@ -1140,21 +1140,13 @@ def _print_usage(usage: list[dict], echo: Callable[[str], Any] = print) -> None:
 
 
 def placement_line(place: Any) -> str | None:
-    """Where the eval's machines ran (details["placement"]): on one machine or apart, and the region(s) - never the
-    provider's name. None when it is not known. {the user 11-02: "are these two machines just next to each other"}"""
+    """Where the eval's machines ran (details["placement"]): on one machine or apart. No region is named, ours or a
+    provider's, whatever a platform sends. None when it is not known. {the user 11-02: "are these two machines just next
+    to each other"; the user 11-12: "we shouldnt say the region here"}"""
     if not isinstance(place, dict):
         return None
-    region = place.get("region")
-    if place.get("same_machine"):
-        return "placement: the policy and benchmark ran on one machine" + (f" in {region}" if isinstance(region, str)
-                                                                            else "")
-    where = ""
-    if isinstance(region, str):
-        where = f" in {region}"
-    elif isinstance(region, dict) and region.get("policy") and region.get("benchmark"):
-        pol, ben = region["policy"], region["benchmark"]
-        where = f" both in {pol}" if pol == ben else f" (policy in {pol}, benchmark in {ben})"
-    return "placement: the policy and benchmark ran on separate machines" + where
+    return ("placement: the policy and benchmark ran on " + ("one machine" if place.get("same_machine")
+                                                             else "separate machines"))
 
 
 def _span(seeds: list) -> str:

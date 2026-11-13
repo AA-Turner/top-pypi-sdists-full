@@ -97,6 +97,7 @@ from .paginator import (
     DescribeMacHostsPaginator,
     DescribeMacModificationTasksPaginator,
     DescribeManagedPrefixListsPaginator,
+    DescribeMetricCategoriesPaginator,
     DescribeMovingAddressesPaginator,
     DescribeNatGatewaysPaginator,
     DescribeNetworkAclsPaginator,
@@ -427,6 +428,8 @@ from .type_defs import (
     CreateMacSystemIntegrityProtectionModificationTaskResultTypeDef,
     CreateManagedPrefixListRequestTypeDef,
     CreateManagedPrefixListResultTypeDef,
+    CreateMetricCategoryRequestTypeDef,
+    CreateMetricCategoryResultTypeDef,
     CreateNatGatewayRequestTypeDef,
     CreateNatGatewayResultTypeDef,
     CreateNetworkAclEntryRequestTypeDef,
@@ -616,6 +619,8 @@ from .type_defs import (
     DeleteLocalGatewayVirtualInterfaceResultTypeDef,
     DeleteManagedPrefixListRequestTypeDef,
     DeleteManagedPrefixListResultTypeDef,
+    DeleteMetricCategoryRequestTypeDef,
+    DeleteMetricCategoryResultTypeDef,
     DeleteNatGatewayRequestTypeDef,
     DeleteNatGatewayResultTypeDef,
     DeleteNetworkAclEntryRequestTypeDef,
@@ -938,6 +943,8 @@ from .type_defs import (
     DescribeMacModificationTasksResultTypeDef,
     DescribeManagedPrefixListsRequestTypeDef,
     DescribeManagedPrefixListsResultTypeDef,
+    DescribeMetricCategoriesRequestTypeDef,
+    DescribeMetricCategoriesResultTypeDef,
     DescribeMovingAddressesRequestTypeDef,
     DescribeMovingAddressesResultTypeDef,
     DescribeNatGatewaysRequestTypeDef,
@@ -1533,6 +1540,8 @@ from .type_defs import (
     ModifyManagedPrefixListResultTypeDef,
     ModifyManagedResourceVisibilityRequestTypeDef,
     ModifyManagedResourceVisibilityResultTypeDef,
+    ModifyMetricCategoryRequestTypeDef,
+    ModifyMetricCategoryResultTypeDef,
     ModifyNetworkInterfaceAttributeRequestTypeDef,
     ModifyPrivateDnsNameOptionsRequestTypeDef,
     ModifyPrivateDnsNameOptionsResultTypeDef,
@@ -3039,6 +3048,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_managed_prefix_list)
         """
 
+    def create_metric_category(
+        self, **kwargs: Unpack[CreateMetricCategoryRequestTypeDef]
+    ) -> CreateMetricCategoryResultTypeDef:
+        """
+        Creates a metric category.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_metric_category.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_metric_category)
+        """
+
     def create_nat_gateway(
         self, **kwargs: Unpack[CreateNatGatewayRequestTypeDef]
     ) -> CreateNatGatewayResultTypeDef:
@@ -4049,6 +4068,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_managed_prefix_list.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_managed_prefix_list)
+        """
+
+    def delete_metric_category(
+        self, **kwargs: Unpack[DeleteMetricCategoryRequestTypeDef]
+    ) -> DeleteMetricCategoryResultTypeDef:
+        """
+        Deletes the specified metric category.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_metric_category.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_metric_category)
         """
 
     def delete_nat_gateway(
@@ -5799,6 +5828,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_managed_prefix_lists.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_managed_prefix_lists)
+        """
+
+    def describe_metric_categories(
+        self, **kwargs: Unpack[DescribeMetricCategoriesRequestTypeDef]
+    ) -> DescribeMetricCategoriesResultTypeDef:
+        """
+        Describes the specified metric categories, or all of your metric categories.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_metric_categories.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_metric_categories)
         """
 
     def describe_moving_addresses(
@@ -8920,6 +8959,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_managed_resource_visibility)
         """
 
+    def modify_metric_category(
+        self, **kwargs: Unpack[ModifyMetricCategoryRequestTypeDef]
+    ) -> ModifyMetricCategoryResultTypeDef:
+        """
+        Modifies the metrics in the specified metric category.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_metric_category.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_metric_category)
+        """
+
     def modify_network_interface_attribute(
         self, **kwargs: Unpack[ModifyNetworkInterfaceAttributeRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -10982,6 +11031,17 @@ class EC2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_managed_prefix_lists"]
     ) -> DescribeManagedPrefixListsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_metric_categories"]
+    ) -> DescribeMetricCategoriesPaginator:
         """
         Create a paginator for an operation.
 

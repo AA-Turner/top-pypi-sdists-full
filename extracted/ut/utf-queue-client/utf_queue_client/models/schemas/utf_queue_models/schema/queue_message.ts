@@ -654,7 +654,7 @@ interface XrayCustomField extends QueueRecord {
      * @TJS-type integer
     */
     id?: string; // The test run custom field ID
-    value: string; // The test run custom field value
+    value: string | string[]; // The test run custom field value
 }
 
 interface XrayIteration extends QueueRecord {

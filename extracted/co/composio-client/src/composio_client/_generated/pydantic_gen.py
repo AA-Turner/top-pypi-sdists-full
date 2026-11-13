@@ -23675,6 +23675,8 @@ class GetV31ToolkitsBySlugComposioManagedAuthUserScopes(BaseModel):
 
 class GetV31ToolkitsBySlugComposioManagedAuth(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
+    managed_app_id: str = Field(..., description="Unique id of this Composio-managed app.")
+    is_default: bool = Field(..., description="Whether this is the toolkit's default Composio-managed app.")
     mode: str = Field(..., description="Authentication mode for the Composio-managed auth config")
     scopes: GetV31ToolkitsBySlugComposioManagedAuthScopes = Field(..., description="OAuth scopes available in the Composio-managed auth config for this auth mode.")
     user_scopes: Optional[GetV31ToolkitsBySlugComposioManagedAuthUserScopes] = Field(default=None, description="OAuth user scopes available in the Composio-managed auth config for this auth mode. Only present for Slack toolkits.")
@@ -23843,7 +23845,7 @@ class GetV31ToolkitsBySlugResponse(BaseModel):
     enabled: bool = Field(..., description="Indicates if this toolkit is currently enabled and available for use")
     access: Optional[GetV31ToolkitsBySlugAccess] = Field(default=None, description='Custom toolkits only. "all": every user in the project can use it. "user": only the user it was created for can.')
     composio_managed_auth_schemes: Optional[list[str]] = Field(default=None, description="List of authentication methods that Composio manages for this toolkit")
-    composio_managed_auth: list[GetV31ToolkitsBySlugComposioManagedAuth] = Field(..., description="Managed-auth-only metadata, including the supported OAuth scope ceiling.")
+    composio_managed_auth: list[GetV31ToolkitsBySlugComposioManagedAuth] = Field(..., description="One entry per Composio-managed app, the default first, each with its supported OAuth scope ceiling.")
     is_local_toolkit: bool = Field(..., description="DEPRECATED: This field is no longer meaningful and will always return false. It was previously used to indicate if a toolkit is specific to the current project.", deprecated=True)
     auth_config_details: Optional[list[GetV31ToolkitsBySlugAuthConfigDetails]] = Field(default=None, description="Complete authentication configuration details for each supported auth method")
     auth_guide_url: Optional[str] = Field(default=None, description="URL to a guide page with authentication setup instructions for this toolkit")

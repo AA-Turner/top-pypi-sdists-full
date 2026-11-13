@@ -14,6 +14,8 @@ class DocumentDBTransformer(DatabaseTransformer):
     (MONGODB-AWS) authentication mechanisms.
     """
 
+    # No supports_row_limit: inherits False. MongoDB query language, not SQL.
+
     @classmethod
     def get_dialect(cls) -> Optional[str]:
         return None  # MongoDB query language, not a SQL dialect supported by sqlglot

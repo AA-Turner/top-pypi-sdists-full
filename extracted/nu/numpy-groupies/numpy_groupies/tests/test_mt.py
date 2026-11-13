@@ -4,9 +4,9 @@ import numba as nb
 import numpy as np
 import pytest
 
-from numpy_groupies.aggregate_numba import mt
+from numpy_groupies.npg_numba import mt, specials
 
-# the decision of the chunked path: the values, the groups and the threads
+# the decision of the chunked path: the groups, the threads and the values
 # against the answer the gate gives
 _CHUNKED_CASES = [
     # one thread: nothing is shared, and the region costs more than the work
@@ -20,9 +20,9 @@ _CHUNKED_CASES = [
 ]
 
 
-@pytest.mark.parametrize(("n_values", "n_groups", "n_threads", "expected"), _CHUNKED_CASES)
-def test_the_chunked_path_is_decided_by_the_model(n_values, n_groups, n_threads, expected):
-    assert mt.should_use_mt(n_values, n_groups, n_threads) is expected
+@pytest.mark.parametrize(("n_groups", "n_threads", "n_values", "expected"), _CHUNKED_CASES)
+def test_chunked_path_is_decided_by_model(n_groups, n_threads, n_values, expected):
+    assert mt.should_use_mt(n_groups, n_threads, n_values) is expected
 
 
 # the decision of the path that cuts the groups into ranges: the same model,
@@ -39,49 +39,49 @@ _GROUP_CASES = [
 ]
 
 
-@pytest.mark.parametrize(("n_values", "n_groups", "n_threads", "expected"), _GROUP_CASES)
-def test_the_group_path_is_decided_by_the_model(n_values, n_groups, n_threads, expected):
-    assert mt.should_use_group_mt(n_values, n_groups, n_threads, 18.0) is expected
+@pytest.mark.parametrize(("n_groups", "n_threads", "n_values", "expected"), _GROUP_CASES)
+def test_group_path_is_decided_by_model(n_groups, n_threads, n_values, expected):
+    assert mt.should_use_group_mt(n_groups, n_threads, n_values, 18.0) is expected
 
 
-def test_the_decision_does_not_depend_on_the_machine():
+def test_decision_does_not_depend_on_machine():
     # nothing is measured at run time - the answer is the same every time
     first = mt.should_use_mt(1000, 4, 10**6)
     second = mt.should_use_mt(1000, 4, 10**6)
     assert first == second
 
 
-def test_the_ratio_gets_better_with_more_values():
+def test_ratio_gets_better_with_more_values():
     # the cost of the groups is fixed, so it amortizes over the values
     few = mt.estimate_mt_ratio(1000, 4, 10**5)
     many = mt.estimate_mt_ratio(1000, 4, 10**7)
     assert many < few
 
 
-def test_the_ratio_gets_worse_with_more_groups():
+def test_ratio_gets_worse_with_more_groups():
     few = mt.estimate_mt_ratio(1000, 4, 10**6)
     many = mt.estimate_mt_ratio(10**5, 4, 10**6)
     assert many > few
 
 
-def test_the_ratio_gets_worse_with_more_threads():
+def test_ratio_gets_worse_with_more_threads():
     # the partial matrix of every chunk has to be written and read again
     few = mt.estimate_mt_ratio(10**4, 2, 10**6)
     many = mt.estimate_mt_ratio(10**4, 6, 10**6)
     assert many > few
 
 
-def test_the_estimate_is_positive():
+def test_estimate_is_positive():
     assert mt.estimate_seq_time_us(1000, 10**6) > 0
     assert mt.estimate_mt_time_us(1000, 4, 10**6) > 0
     assert np.isfinite(mt.estimate_mt_ratio(1000, 4, 10**6))
 
 
-def test_the_core_counts_are_sane():
+def test_core_counts_are_sane():
     assert 1 <= mt.physical_core_count() <= mt.logical_core_count()
 
 
-def test_the_thread_count_is_within_the_pool():
+def test_thread_count_is_within_pool():
     assert 1 <= mt.mt_thread_count() <= nb.get_num_threads()
 
 
@@ -89,9 +89,8 @@ def test_the_thread_count_is_within_the_pool():
 #
 # The order statistics cannot be reduced in chunks: the values of a group have
 # to be together where they are worked on.  They cut the *groups* into ranges
-# instead, and the decision is a model of its own - the counting sort that
-# places the values stays single threaded, and only the loop over the groups
-# is shared out.
+# instead - the counting sort stays single threaded, only the loop over the
+# groups is shared out.
 
 
 def test_one_thread_means_no_group_parallel_path():
@@ -102,13 +101,13 @@ def test_too_few_values_mean_no_group_parallel_path():
     assert not mt.should_use_group_mt(1000, 4, mt.GROUP_MT_MIN_VALUES - 1, 18.0)
 
 
-def test_the_group_ratio_gets_better_with_more_threads():
+def test_group_ratio_gets_better_with_more_threads():
     few = mt.estimate_group_mt_ratio(1000, 2, 10**6, 18.0)
     many = mt.estimate_group_mt_ratio(1000, 6, 10**6, 18.0)
     assert many < few
 
 
-def test_the_group_path_needs_fewer_values_than_the_chunked_one():
+def test_group_path_needs_fewer_values_than_chunked_one():
     # the operations that cut their groups into ranges cost orders of
     # magnitude more per value than the sum: the fixed cost of a parallel
     # region is a far smaller share of their time, so they parallelize where
@@ -117,7 +116,7 @@ def test_the_group_path_needs_fewer_values_than_the_chunked_one():
     assert mt.should_use_group_mt(1000, 4, mt.GROUP_MT_MIN_VALUES, 18.0)
 
 
-def test_a_cheap_operation_needs_more_values_to_amortize_the_region():
+def test_cheap_operation_needs_more_values_to_amortize_region():
     # the fixed cost of the parallel region against what a value costs: the
     # cheaper the operation, the more values it has to gather before the
     # region is paid for
@@ -126,7 +125,7 @@ def test_a_cheap_operation_needs_more_values_to_amortize_the_region():
     assert cheap > expensive
 
 
-def test_the_group_ratio_of_one_thread_is_no_gain():
+def test_group_ratio_of_one_thread_is_no_gain():
     # one thread: nothing is shared, and what is left is the overhead of the
     # region - the answer of the model is above one, and the answer of the
     # gate is no
@@ -134,7 +133,7 @@ def test_the_group_ratio_of_one_thread_is_no_gain():
     assert not mt.should_use_group_mt(1000, 1, 10**6, 18.0)
 
 
-def test_the_ranges_are_more_than_the_threads():
+def test_ranges_are_more_than_threads():
     # a thread that is done with its range takes one that is left instead of
     # waiting for the slowest core, so the ranges have to outnumber the
     # threads - with a pool of one thread the sequential path runs, and
@@ -147,19 +146,17 @@ def test_the_ranges_are_more_than_the_threads():
     assert mt.group_chunk_count(8, 2) <= 2
 
 
-def test_the_group_estimate_is_positive():
+def test_group_estimate_is_positive():
     assert mt.estimate_group_mt_ratio(1000, 4, 10**6, 18.0) > 0
     assert np.isfinite(mt.estimate_group_mt_ratio(1000, 4, 10**6, 18.0))
 
 
-def test_the_shape_of_the_kernel_tests_is_one_the_parallel_path_is_used_for():
+def test_kernel_test_shape_reaches_parallel_path():
     # the tests of the group parallel kernels are only about the parallel path
     # if the shape they use is a shape the model sends there - a threshold that
     # creeps above the test data would leave every one of them a test of the
     # sequential kernel, passing and empty.  The select is the cheapest of the
-    # operations that cut their groups into ranges, so what is enough for it is
-    # enough for all of them.
-    from numpy_groupies.aggregate_numba import specials
+    # operations that cut their groups into ranges.
 
     for n_groups in (100, 1000, 10_000):
         assert mt.should_use_group_mt(n_groups, 4, 200_000, specials._NS_PER_VALUE_SELECT)

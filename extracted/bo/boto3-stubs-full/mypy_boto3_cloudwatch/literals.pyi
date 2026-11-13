@@ -42,11 +42,13 @@ __all__ = (
     "HistoryItemTypeType",
     "ListAlarmMuteRulesPaginatorName",
     "ListDashboardsPaginatorName",
+    "ListMetricDataQueryDefinitionsPaginatorName",
     "ListMetricsPaginatorName",
     "LogAlarmExistsWaiterName",
     "MetricStreamOutputFormatType",
     "OTelEnrichmentStatusType",
     "PaginatorName",
+    "QueryTypeType",
     "RecentlyActiveType",
     "RegionName",
     "ResourceServiceName",
@@ -92,10 +94,12 @@ HistoryItemTypeType = Literal[
 ]
 ListAlarmMuteRulesPaginatorName = Literal["list_alarm_mute_rules"]
 ListDashboardsPaginatorName = Literal["list_dashboards"]
+ListMetricDataQueryDefinitionsPaginatorName = Literal["list_metric_data_query_definitions"]
 ListMetricsPaginatorName = Literal["list_metrics"]
 LogAlarmExistsWaiterName = Literal["log_alarm_exists"]
 MetricStreamOutputFormatType = Literal["json", "opentelemetry0.7", "opentelemetry1.0"]
 OTelEnrichmentStatusType = Literal["Running", "Stopped"]
+QueryTypeType = Literal["METRIC_MATH", "PROMQL", "SQL"]
 RecentlyActiveType = Literal["PT3H"]
 ScanByType = Literal["TimestampAscending", "TimestampDescending"]
 StandardUnitType = Literal[
@@ -578,6 +582,7 @@ PaginatorName = Literal[
     "get_metric_data",
     "list_alarm_mute_rules",
     "list_dashboards",
+    "list_metric_data_query_definitions",
     "list_metrics",
 ]
 WaiterName = Literal[

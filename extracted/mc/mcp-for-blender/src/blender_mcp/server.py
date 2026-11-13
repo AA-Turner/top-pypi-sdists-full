@@ -1826,7 +1826,8 @@ def _worldlabs_status(blender: BlenderConnection) -> dict:
 def _describe_world(world: dict) -> str:
     name = world.get("name") or "World"
     splats, collider = world.get("splats"), world.get("collider")
-    reply = (f"Generated and imported the world '{name}' with World Labs: an empty parenting '{splats}' "
+    model = f" {world['model']}" if world.get("model") else ""
+    reply = (f"Generated and imported the world '{name}' with World Labs{model}: an empty parenting '{splats}' "
              f"(Gaussian splats, {world.get('resolution') or '500k'})")
     if collider:
         reply += f" and '{collider}' (a rough collision mesh, hidden and not rendered)"
@@ -1874,7 +1875,6 @@ async def generate_gaussian_world(
     prompt: str | None = None,
     image: str | None = None,
     name: str | None = None,
-    quality: str | None = None,
     resolution: str = "500k",
     job: str | None = None,
     wait_seconds: int = 50,
@@ -1890,9 +1890,9 @@ async def generate_gaussian_world(
     ready-made environment to set things in. Never for ordinary scene building, single objects
     (generate_3d), or ground, rooms and backdrops you can model or get from search_assets.
 
-    Each call can cost the user money or a monthly generation. Standard quality takes about a
-    minute, high about 5. Waits up to wait_seconds (at most 45), then imports; if it isn't done in
-    time you get a job handle: call generate_gaussian_world(job=..., name=...) again to keep waiting.
+    Each call costs the user money or a high-quality monthly generation, and takes about 5
+    minutes. Waits up to wait_seconds (at most 45), then imports; if it isn't done in time you get
+    a job handle: call generate_gaussian_world(job=..., name=...) again to keep waiting.
     Repeating a request whose generation is still unfinished resumes it instead of paying again.
 
     Parameters:
@@ -1902,15 +1902,11 @@ async def generate_gaussian_world(
       images of one place, in name order going around it (the first is the front). Images attached
       in chat can't be passed: ask the user for a path or URL.
     - name: Name of the world's parent object. Defaults to one made from the prompt.
-    - quality: "standard" (fast and cheap, rougher) or "high" (full Marble). Omit for the user's
-      default; "high" only when the user asks for more detail or standard looks too rough.
     - resolution: Splats to import: "100k", "500k" (default) or "full_res" (about 2 million; sharper
       but slow in the viewport).
     - job: A handle from an earlier call, to resume waiting for it.
     - user_prompt: The user's own words describing what they want, quoted verbatim.
     """
-    if quality not in (None, "standard", "high"):
-        return "Error: quality must be 'standard' or 'high'"
     if resolution not in generation.WORLD_RESOLUTIONS:
         return f"Error: resolution must be one of {', '.join(generation.WORLD_RESOLUTIONS)}"
     call_start = time.monotonic()
@@ -1928,7 +1924,7 @@ async def generate_gaussian_world(
             return "Error: " + " ".join(str(status.get("message") or "World Labs is not available.").split())
         note = ""
         pending = _pending_generations()
-        key = generation.request_key("worldlabs", prompt, image, quality, None)
+        key = generation.request_key("worldlabs", prompt, image, None, None)
         started = pending.find(key)
         if started:
             note = (" This request was already generating from an earlier call, so it resumed that "
@@ -1936,7 +1932,7 @@ async def generate_gaussian_world(
         else:
             started = generation.submit_world(
                 _generation_send, name or (generation.default_name(prompt) if prompt else "World"),
-                prompt, image, quality)
+                prompt, image)
             pending.add(key, started)
         remaining = wait_seconds - (time.monotonic() - call_start)
         return await _world_reply(ctx, started, remaining, resolution, note)

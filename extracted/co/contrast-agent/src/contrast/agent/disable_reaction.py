@@ -35,3 +35,7 @@ class DisableReaction:
             enable_option.override_value = False
             # But we also set the UI option b/c the value technically came from TeamServer
             enable_option.ui_value = False
+
+        from contrast import import_hook
+
+        import_hook.remove_path_finder()

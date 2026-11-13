@@ -90,6 +90,8 @@ class TMDRBFESettings(Base):
         local_md_k: Spring constant used during local MD.
         local_md_radius: Sphere radius in nanometers for the local MD region.
         local_md_free_reference: Free the reference frame during local MD when true.
+        restrain_protein_metal_contacts: Preserve input protein–Zn donor distances with harmonic springs during complex-leg setup and sampling.
+            Other metals are currently unsupported. Spring strength is fixed by the runner.
         legs: Which thermodynamic cycle legs to run (default: solvent and complex).
         save_trajectories: Save complex- and solvent-leg endpoint DCD trajectories when true.
         trajectory_save_interval: Save every Nth frame when saving trajectories.
@@ -111,6 +113,7 @@ class TMDRBFESettings(Base):
     local_md_k: float = 10_000.0
     local_md_radius: float = 1.2
     local_md_free_reference: bool = False
+    restrain_protein_metal_contacts: bool = False
     legs: list[RBFELeg] = ["solvent", "complex"]
     save_trajectories: bool = False
     trajectory_save_interval: PositiveInt = 100
@@ -367,6 +370,7 @@ class RBFEGraphEdge(Base):
         score: Score used during graph construction.
         separated_topology_metadata: Resolved setup and correction metadata for a separated-topology edge.
         complex_dg: Predicted complex-leg free energy difference (kcal/mol).
+        protein_metal_contacts_restrained: Whether the saved complex result used protein–metal contact restraints.
         complex_dg_err: Uncertainty on `complex_dg`.
         solvent_dg: Predicted solvent-leg free energy difference (kcal/mol).
         solvent_dg_err: Uncertainty on `solvent_dg`.
@@ -396,6 +400,7 @@ class RBFEGraphEdge(Base):
     separated_topology_metadata: RBFESeparatedTopologyMetadata | None = None
 
     complex_dg: Annotated[float | None, AfterValidator(round_optional_float(3))] = None
+    protein_metal_contacts_restrained: bool = False
     complex_dg_err: Annotated[float | None, AfterValidator(round_optional_float(3))] = None
     solvent_dg: Annotated[float | None, AfterValidator(round_optional_float(3))] = None
     solvent_dg_err: Annotated[float | None, AfterValidator(round_optional_float(3))] = None

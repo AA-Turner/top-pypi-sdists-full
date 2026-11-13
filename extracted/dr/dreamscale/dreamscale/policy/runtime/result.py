@@ -7,7 +7,7 @@ from contextlib import suppress
 from typing import Any
 
 from dreamscale import wire
-from dreamscale.policy.runtime.server_report import real_rows
+from dreamscale.policy.runtime.server_report import answer_engine, real_rows
 from dreamscale.policy.types import ActionChunkResult, ActionTiming
 
 
@@ -53,6 +53,7 @@ def result_from_chunk(
     if rows is not None and rows < len(actions):
         # An older worker padded its answer past the model's real rows: never run them.
         actions, indices = actions[:rows], indices[:rows]
+    engine, engine_reason = answer_engine(chunk)
     return ActionChunkResult(
         observation_id=observation_id,
         chunk_id=getattr(chunk, "chunk_id", None),
@@ -83,6 +84,8 @@ def result_from_chunk(
         raw_chunk=chunk,
         capture_time_ns=capture_time_ns,
         prefix_rows=_prefix_rows(chunk),
+        engine=engine,
+        engine_reason=engine_reason,
     )
 
 

@@ -20,22 +20,27 @@ from __future__ import annotations
 import abc
 import os
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
+import bson
+from bson.binary import Binary
 from pymongo._azure_helpers import _get_azure_response
 from pymongo._gcp_helpers import _get_gcp_response
-from pymongo.errors import ConfigurationError
+from pymongo.errors import ConfigurationError, OperationFailure
+from pymongo.helpers_shared import _AUTHENTICATION_FAILURE_CODE
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping, MutableMapping
+
     from pymongo.auth_shared import MongoCredential
 
 
 @dataclass
 class OIDCIdPInfo:
     issuer: str
-    clientId: Optional[str] = field(default=None)
-    requestScopes: Optional[list[str]] = field(default=None)
+    clientId: str | None = field(default=None)
+    requestScopes: list[str] | None = field(default=None)
 
 
 @dataclass
@@ -43,15 +48,15 @@ class OIDCCallbackContext:
     timeout_seconds: float
     username: str
     version: int
-    refresh_token: Optional[str] = field(default=None)
-    idp_info: Optional[OIDCIdPInfo] = field(default=None)
+    refresh_token: str | None = field(default=None)
+    idp_info: OIDCIdPInfo | None = field(default=None)
 
 
 @dataclass
 class OIDCCallbackResult:
     access_token: str
-    expires_in_seconds: Optional[float] = field(default=None)
-    refresh_token: Optional[str] = field(default=None)
+    expires_in_seconds: float | None = field(default=None)
+    refresh_token: str | None = field(default=None)
 
 
 class OIDCCallback(abc.ABC):
@@ -64,11 +69,11 @@ class OIDCCallback(abc.ABC):
 
 @dataclass
 class _OIDCProperties:
-    callback: Optional[OIDCCallback] = field(default=None)
-    human_callback: Optional[OIDCCallback] = field(default=None)
-    environment: Optional[str] = field(default=None)
+    callback: OIDCCallback | None = field(default=None)
+    human_callback: OIDCCallback | None = field(default=None)
+    environment: str | None = field(default=None)
     allowed_hosts: list[str] = field(default_factory=list)
-    token_resource: Optional[str] = field(default=None)
+    token_resource: str | None = field(default=None)
     username: str = ""
 
 
@@ -135,6 +140,60 @@ def _get_k8s_token() -> str:
             fname = os.environ[key]
     with open(fname) as fid:
         return fid.read()
+
+
+@dataclass
+class _OIDCAuthenticatorBase:
+    """Shared base class for async and sync _OIDCAuthenticator.
+
+    Subclasses contain all methods that perform I/O.
+    """
+
+    username: str
+    properties: _OIDCProperties
+    refresh_token: str | None = field(default=None)
+    access_token: str | None = field(default=None)
+    idp_info: OIDCIdPInfo | None = field(default=None)
+    token_gen_id: int = field(default=0)
+    last_call_time: float = field(default=0)
+
+    def get_spec_auth_cmd(self) -> MutableMapping[str, Any] | None:
+        """Get the appropriate speculative auth command."""
+        if not self.access_token:
+            return None
+        return self._get_start_command({"jwt": self.access_token})
+
+    def _is_auth_error(self, err: Exception) -> bool:
+        if not isinstance(err, OperationFailure):
+            return False
+        return err.code == _AUTHENTICATION_FAILURE_CODE
+
+    def _invalidate(self, oidc_token_gen_id: int | None) -> None:
+        # Ignore the invalidation if a token gen id is given and is less than our
+        # current token gen id.
+        if (oidc_token_gen_id or 0) < self.token_gen_id:
+            return
+        self.access_token = None
+
+    def _get_start_command(self, payload: Mapping[str, Any] | None) -> MutableMapping[str, Any]:
+        if payload is None:
+            principal_name = self.username
+            if principal_name:
+                payload = {"n": principal_name}
+            else:
+                payload = {}
+        bin_payload = Binary(bson.encode(payload))
+        return {"saslStart": 1, "mechanism": "MONGODB-OIDC", "payload": bin_payload}
+
+    def _get_continue_command(
+        self, payload: Mapping[str, Any], start_resp: Mapping[str, Any]
+    ) -> MutableMapping[str, Any]:
+        bin_payload = Binary(bson.encode(payload))
+        return {
+            "saslContinue": 1,
+            "payload": bin_payload,
+            "conversationId": start_resp["conversationId"],
+        }
 
 
 def _get_authenticator(

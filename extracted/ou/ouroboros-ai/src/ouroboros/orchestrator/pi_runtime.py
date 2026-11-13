@@ -676,7 +676,22 @@ class PiRuntime:
                 await self._terminate_process(process)
             process_terminated = True
             if stderr_task is not None:
-                stderr_lines = await stderr_task
+                done, _ = await asyncio.wait(
+                    {stderr_task}, timeout=self._process_shutdown_timeout_seconds
+                )
+                if done:
+                    try:
+                        stderr_lines = stderr_task.result()
+                    except Exception:
+                        # A broken diagnostic stream must not replace the
+                        # stdout timeout with an unrelated reader exception.
+                        stderr_lines = []
+                else:
+                    # Another writer may still hold stderr open even after the
+                    # runtime was terminated. Do not hide the stdout timeout
+                    # forever while waiting for that pipe to reach EOF.
+                    stderr_task.cancel()
+                    stderr_lines = []
             else:
                 stderr_lines = []
             final_message = "\n".join(stderr_lines).strip() or str(e)
@@ -688,10 +703,26 @@ class PiRuntime:
             )
             return
         else:
-            returncode = await process.wait()
-            process_finished = True
+            from ouroboros.providers.codex_cli_stream import wait_runtime_exit
 
-            stderr_lines = await stderr_task if stderr_task else []
+            try:
+                returncode, stderr_lines = await wait_runtime_exit(
+                    process,
+                    stderr_task,
+                    shutdown_timeout=self._process_shutdown_timeout_seconds,
+                    display_name=self._display_name,
+                )
+            except TimeoutError as exc:
+                await self._terminate_process(process)
+                process_terminated = True
+                yield AgentMessage(
+                    type="result",
+                    content=str(exc),
+                    data={"subtype": "error", "error_type": "TimeoutError"},
+                    resume_handle=current_handle,
+                )
+                return
+            process_finished = True
             if returncode != 0 or pending_error_content:
                 stderr_text = "\n".join(stderr_lines).strip()
                 if returncode == 0 and pending_error_content:

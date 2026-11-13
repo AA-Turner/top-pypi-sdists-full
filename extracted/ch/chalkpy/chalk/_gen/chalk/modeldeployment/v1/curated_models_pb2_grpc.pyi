@@ -12,6 +12,8 @@ from chalk._gen.chalk.modeldeployment.v1.curated_models_pb2 import (
     DeployCuratedModelResponse,
     ListCuratedModelsRequest,
     ListCuratedModelsResponse,
+    ResolveServingRuntimeImageRequest,
+    ResolveServingRuntimeImageResponse,
 )
 from grpc import (
     Channel,
@@ -45,4 +47,33 @@ class CuratedModelServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> DeployCuratedModelResponse: ...
 
-def add_CuratedModelServiceServicer_to_server(servicer: CuratedModelServiceServicer, server: Server) -> None: ...
+def add_CuratedModelServiceServicer_to_server(
+    servicer: CuratedModelServiceServicer, server: Server
+) -> None: ...
+
+class ServingRuntimeServiceStub:
+    """Separate from CuratedModelService so runtime resolution can ship independently
+    of the per-model curated deployment handlers.
+    """
+
+    def __init__(self, channel: Channel) -> None: ...
+    ResolveServingRuntimeImage: UnaryUnaryMultiCallable[
+        ResolveServingRuntimeImageRequest,
+        ResolveServingRuntimeImageResponse,
+    ]
+
+class ServingRuntimeServiceServicer(metaclass=ABCMeta):
+    """Separate from CuratedModelService so runtime resolution can ship independently
+    of the per-model curated deployment handlers.
+    """
+
+    @abstractmethod
+    def ResolveServingRuntimeImage(
+        self,
+        request: ResolveServingRuntimeImageRequest,
+        context: ServicerContext,
+    ) -> ResolveServingRuntimeImageResponse: ...
+
+def add_ServingRuntimeServiceServicer_to_server(
+    servicer: ServingRuntimeServiceServicer, server: Server
+) -> None: ...

@@ -1676,7 +1676,8 @@ class AsyncPolicy:
         self._snapshot = {
             name: getattr(inner, name, None)
             for name in (
-                "session_id", "region", "speed", "transport_mode", "action_hz",
+                "session_id", "region", "speed", "engine", "engine_reason", "transport_mode",
+                "action_hz",
                 "native_action_hz", "chunk_size", "runtime_contract",
                 "resolved_optimization_config", "runtime_stats", "context", "control",
                 "deployment", "observation_history",
@@ -2147,7 +2148,7 @@ LEGACY_CONNECT_KWARGS = frozenset(
         "acceleration", "control", "rtc", "calibration", "region", "provider", "speed",
         "idle_timeout", "keep_warm", "startup_timeout", "transport", "control_hz",
         "deployment", "endpoint", "context", "optimization_config", "steady_send",
-        "region_fallback",
+        "region_fallback", "engine",
     }
 )
 
@@ -2176,6 +2177,7 @@ async def aconnect(
     api_key: str | None = None,
     region: str = "auto",
     region_fallback: bool | None = None,
+    engine: str | None = None,
     on_progress: Any = _DEFAULT_PROGRESS,
     mode: str = "auto",
     **legacy: Any,
@@ -2186,7 +2188,9 @@ async def aconnect(
     the same beside the base model, and ``checkpoint=`` is its older name. Auth comes from
     ``api_key=``, ``DREAMSCALE_API_KEY`` or ``dreamscale login``. ``mode``: how
     ``next_action()`` runs chunks, ``"sync"`` (each to its end) or ``"async"`` (replanning);
-    ``"auto"`` takes the model's own (sync for Praxis-1, async for the rest)."""
+    ``"auto"`` takes the model's own (sync for Praxis-1, async for the rest). ``engine``
+    (Praxis-1, experimental): ``"standard"`` (the default) or ``"lightning"``, the same actions
+    faster; ``policy.engine_reason`` is ``"unavailable"`` when standard serves instead."""
     from dreamscale.policy.remote import _aconnect
 
     _check_legacy_kwargs(legacy)
@@ -2207,6 +2211,7 @@ async def aconnect(
             **({"api_key": api_key} if api_key is not None else {}),
             **({"region": region} if region != "auto" else {}),
             **({"region_fallback": region_fallback} if region_fallback is not None else {}),
+            **({"engine": engine} if engine is not None else {}),
             **legacy,
         )
 
@@ -2230,6 +2235,7 @@ def connect(
     api_key: str | None = None,
     region: str = "auto",
     region_fallback: bool | None = None,
+    engine: str | None = None,
     on_progress: Any = _DEFAULT_PROGRESS,
     mode: str = "auto",
     **legacy: Any,
@@ -2245,6 +2251,7 @@ def connect(
                 on_progress=on_progress, mode=mode, **legacy,
                 **({"region": region} if region != "auto" else {}),
                 **({"region_fallback": region_fallback} if region_fallback is not None else {}),
+                **({"engine": engine} if engine is not None else {}),
             )
         )
     except BaseException:

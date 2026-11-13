@@ -43,7 +43,6 @@ class QueryExecutor:
         """
         # Create execution context for error handling and logging
         execution_context = {
-            "sql": sql[:200] + "..." if len(sql) > 200 else sql,  # Truncate long SQL
             "parameter_count": len(parameters) if parameters else 0,
             "host": self.connection_params.host,
             "port": self.connection_params.port,

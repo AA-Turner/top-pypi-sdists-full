@@ -47,6 +47,7 @@ from pymobiledevice3.exceptions import (
     ConnectionFailedError,
     ConnectionFailedToUsbmuxdError,
     ConnectionTerminatedError,
+    DeveloperDiskImageServiceError,
     DeviceNotFoundError,
     InvalidServiceError,
     NoDeviceConnectedError,
@@ -55,7 +56,8 @@ from pymobiledevice3.exceptions import (
 )
 from pymobiledevice3.lockdown import retry_create_using_usbmux
 
-ansilogs.install(logging.INFO)
+# Messages name the commands to run in `backticks`: make them stand out from the sentence
+ansilogs.install(logging.INFO, highlight_code=True)
 
 logging.getLogger("quic").setLevel(logging.CRITICAL + 1)
 logging.getLogger("asyncio").setLevel(logging.CRITICAL + 1)
@@ -344,6 +346,10 @@ def invoke_cli_with_error_handling() -> tuple[ExitCode, bool]:
         # The device may be back by the next attempt (after a disconnect it may still be re-enumerating
         # while other devices are attached); usbmuxd itself being down is another matter.
         reconnectable = not isinstance(e, ConnectionFailedToUsbmuxdError)
+    except DeveloperDiskImageServiceError as e:
+        # Raised over a live RSD connection with the cause already worked out: no tunnel to retry
+        # over, and nothing INVALID_SERVICE_MESSAGE's checklist could add.
+        _report(e)
     except (InvalidServiceError, RSDRequiredError) as e:
         reason = ""
         # Both exceptions carry the device's product version (no extra device round-trip needed).

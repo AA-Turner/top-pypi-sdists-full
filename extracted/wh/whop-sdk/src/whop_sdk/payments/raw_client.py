@@ -70,7 +70,7 @@ class RawPaymentsClient:
         currency: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         query: typing.Optional[str] = None,
-        include_connected_accounts: typing.Optional[bool] = None,
+        include_subaccounts: typing.Optional[bool] = None,
         member_id: typing.Optional[str] = None,
         membership_id: typing.Optional[str] = None,
         product_id: typing.Optional[str] = None,
@@ -87,6 +87,8 @@ class RawPaymentsClient:
             typing.Union[ListPaymentsRequestBillingReasonsItem, typing.Sequence[ListPaymentsRequestBillingReasonsItem]]
         ] = None,
         currencies: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        min_amount: typing.Optional[float] = None,
+        max_amount: typing.Optional[float] = None,
         variant_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         product_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         payment_methods: typing.Optional[
@@ -107,6 +109,7 @@ class RawPaymentsClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
+        include_total_count: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Payment, ListPaymentsResponse]:
         """
@@ -138,8 +141,8 @@ class RawPaymentsClient:
         query : typing.Optional[str]
             Search payments by payment ID, dispute ID, user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
 
-        include_connected_accounts : typing.Optional[bool]
-            Also cover the account's connected accounts. Requires `account_id`, and is a 400 without it. Without `query`, lists the payments of the account and every connected account, newest first by `created_at` only; another `order` is a 400. The listing is cut off after 10 seconds, which a rare filter on an account with little recent activity can reach; add a `query` to narrow it. With `query`, matches on payment, dispute, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`); free-text queries such as a name search only the named account. Connected accounts' payments are returned only for connected accounts you can read payments on.
+        include_subaccounts : typing.Optional[bool]
+            Also cover the account's subaccounts. Requires `account_id`, and is a 400 without it. Without `query`, lists the payments of the account and every subaccount, newest first by `created_at` only; another `order` is a 400. The listing is cut off after 10 seconds, which a rare filter on an account with little recent activity can reach; add a `query` to narrow it. With `query`, matches on payment, dispute, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`); free-text queries such as a name search only the named account. Subaccounts' payments are returned only for subaccounts you can read payments on.
 
         member_id : typing.Optional[str]
             Only payments made by this member, prefixed `mber_`.
@@ -170,6 +173,12 @@ class RawPaymentsClient:
 
         currencies : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Only payments presented in any of these three-letter currencies. Repeat the parameter to pass several. Combined with `currency` when both are sent.
+
+        min_amount : typing.Optional[float]
+            Only payments charged at least this amount: what the buyer was charged after discounts and including tax, in the currency each payment was presented in, the same amount `order=amount` sorts by. Where tax is added on top of the price (`tax_behavior` is `exclusive`), that is the price plus the tax, so a 995 price with tax added does not match `995`: match a range instead. A failed payment that charged nothing matches 0, not its price. Inclusive and compared to the cent. Pair it with `currencies` when the account sells in several. Send the same value as `max_amount` to match one exact amount.
+
+        max_amount : typing.Optional[float]
+            Only payments charged at most this amount, measured like `min_amount`: after discounts and including tax, in the currency each payment was presented in. Inclusive and compared to the cent. Must not be less than `min_amount`.
 
         variant_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Only payments priced by any of these variants, each prefixed `plan_`. Repeat the parameter to pass several. Combined with `variant_id` when both are sent.
@@ -219,6 +228,9 @@ class RawPaymentsClient:
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
+        include_total_count : typing.Optional[bool]
+            Set to `true` to return the number of matching results in `page_info.total_count`. Send `first=0` as well to return the count without any results.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -240,7 +252,7 @@ class RawPaymentsClient:
                 "currency": currency,
                 "user_id": user_id,
                 "query": query,
-                "include_connected_accounts": include_connected_accounts,
+                "include_subaccounts": include_subaccounts,
                 "member_id": member_id,
                 "membership_id": membership_id,
                 "product_id": product_id,
@@ -251,6 +263,8 @@ class RawPaymentsClient:
                 "substatuses": substatuses,
                 "billing_reasons": billing_reasons,
                 "currencies": currencies,
+                "min_amount": min_amount,
+                "max_amount": max_amount,
                 "variant_ids": variant_ids,
                 "product_ids": product_ids,
                 "payment_methods": payment_methods,
@@ -275,6 +289,7 @@ class RawPaymentsClient:
                 "after": after,
                 "last": last,
                 "before": before,
+                "include_total_count": include_total_count,
             },
             request_options=request_options,
         )
@@ -302,7 +317,7 @@ class RawPaymentsClient:
                         currency=currency,
                         user_id=user_id,
                         query=query,
-                        include_connected_accounts=include_connected_accounts,
+                        include_subaccounts=include_subaccounts,
                         member_id=member_id,
                         membership_id=membership_id,
                         product_id=product_id,
@@ -313,6 +328,8 @@ class RawPaymentsClient:
                         substatuses=substatuses,
                         billing_reasons=billing_reasons,
                         currencies=currencies,
+                        min_amount=min_amount,
+                        max_amount=max_amount,
                         variant_ids=variant_ids,
                         product_ids=product_ids,
                         payment_methods=payment_methods,
@@ -329,6 +346,7 @@ class RawPaymentsClient:
                         after=_parsed_next,
                         last=last,
                         before=before,
+                        include_total_count=include_total_count,
                         request_options=request_options,
                     )
                 return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
@@ -426,7 +444,7 @@ class RawPaymentsClient:
             A confirmation token describing a payment method the buyer just supplied. Provide this instead of `member_id` and `payment_method_id`; the buyer is resolved from the token's billing email, or from `email`. The buyer may still have a step to complete — poll the payment's status for what to do next.
 
         email : typing.Optional[str]
-            The buyer's email, resolving or creating the user the payment belongs to. With `confirmation_token` it overrides the email the token carries, and is ignored when the token was created by a signed-in buyer; with a `card_present` `payment_method` it names a buyer the point of sale already knows, otherwise the sale belongs to a guest until a buyer is attached; with a `paypal` `payment_method` it names the buyer and is required unless `member_id` is provided. Ignored with `member_id`.
+            The buyer's email, resolving or creating the user the payment belongs to. With `confirmation_token` it overrides the email the token carries, and is ignored when the token was created by a signed-in buyer; with a `card_present` `payment_method` it names a buyer the point of sale already knows, otherwise the sale belongs to a guest until a buyer is attached; with a `paypal` `payment_method` it names the buyer, and when it and `member_id` are both omitted the buyer is the PayPal account that approves the payment. Ignored with `member_id`.
 
         ip_address : typing.Optional[str]
             The buyer's IPv4 or IPv6 address, used to assess the charge's risk and passed to the processor. Ignored unless a saved payment method is charged with `off_session` set to false.
@@ -435,7 +453,7 @@ class RawPaymentsClient:
             What the buyer is purchasing. Each entry takes exactly one of `variant_id` or an inline `variant`. One entry charges that variant; several entries form a cart, which requires every variant to be compatible, belong to this account, and use the same currency. Mutually exclusive with `variant_id` and `variant`.
 
         member_id : typing.Optional[str]
-            The member to charge, prefixed `mber_`. Required with `payment_method_id` unless `confirmation_token` is provided. With a `paypal` `payment_method` it names the buyer instead of `email`, and must belong to a user.
+            The member to charge, prefixed `mber_`. Required with `payment_method_id` unless `confirmation_token` is provided. With a `paypal` `payment_method` it names the buyer instead of `email`, and must belong to a user; omit both to take the buyer from the PayPal account that approves.
 
         metadata : typing.Optional[typing.Dict[str, typing.Optional[str]]]
             Custom metadata to attach to the payment.
@@ -630,6 +648,8 @@ class RawPaymentsClient:
             ]
         ] = None,
         currencies: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        min_amount: typing.Optional[float] = None,
+        max_amount: typing.Optional[float] = None,
         variant_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         product_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         payment_methods: typing.Optional[
@@ -651,7 +671,7 @@ class RawPaymentsClient:
         dispute_created_after: typing.Optional[dt.datetime] = None,
         dispute_created_before: typing.Optional[dt.datetime] = None,
         query: typing.Optional[str] = None,
-        include_connected_accounts: typing.Optional[bool] = None,
+        include_subaccounts: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[SummaryPaymentsResponse]:
         """
@@ -676,6 +696,12 @@ class RawPaymentsClient:
 
         currencies : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Only payments presented in any of these three-letter currencies. Repeat the parameter to pass several.
+
+        min_amount : typing.Optional[float]
+            Only payments charged at least this amount: what the buyer was charged after discounts and including tax, in the currency each payment was presented in. Where tax is added on top of the price (`tax_behavior` is `exclusive`), that is the price plus the tax. A failed payment that charged nothing counts as 0. Inclusive and compared to the cent.
+
+        max_amount : typing.Optional[float]
+            Only payments charged at most this amount, measured like `min_amount`: after discounts and including tax. Inclusive and compared to the cent. Must not be less than `min_amount`.
 
         variant_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Only payments priced by any of these variants, each prefixed `plan_`. Repeat the parameter to pass several.
@@ -716,8 +742,8 @@ class RawPaymentsClient:
         query : typing.Optional[str]
             Search payments by payment ID, dispute ID, user ID, membership ID, user email, name, or username.
 
-        include_connected_accounts : typing.Optional[bool]
-            Only for searches: with `query`, also search the account's connected accounts. Requires `account_id` and `query`, and is a 400 without either; it never lists connected accounts' payments on its own. Matches on payment, dispute, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`). Free-text queries such as a name search only the named account. Connected accounts' payments are returned only for connected accounts you can read payments on.
+        include_subaccounts : typing.Optional[bool]
+            Only for searches: with `query`, also search the account's subaccounts. Requires `account_id` and `query`, and is a 400 without either; it never lists subaccounts' payments on its own. Matches on payment, dispute, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`). Free-text queries such as a name search only the named account. Subaccounts' payments are returned only for subaccounts you can read payments on.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -738,6 +764,8 @@ class RawPaymentsClient:
                 "substatuses": substatuses,
                 "billing_reasons": billing_reasons,
                 "currencies": currencies,
+                "min_amount": min_amount,
+                "max_amount": max_amount,
                 "variant_ids": variant_ids,
                 "product_ids": product_ids,
                 "payment_methods": payment_methods,
@@ -759,7 +787,7 @@ class RawPaymentsClient:
                 if dispute_created_before is not None
                 else None,
                 "query": query,
-                "include_connected_accounts": include_connected_accounts,
+                "include_subaccounts": include_subaccounts,
             },
             request_options=request_options,
         )
@@ -1784,7 +1812,7 @@ class AsyncRawPaymentsClient:
         currency: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         query: typing.Optional[str] = None,
-        include_connected_accounts: typing.Optional[bool] = None,
+        include_subaccounts: typing.Optional[bool] = None,
         member_id: typing.Optional[str] = None,
         membership_id: typing.Optional[str] = None,
         product_id: typing.Optional[str] = None,
@@ -1801,6 +1829,8 @@ class AsyncRawPaymentsClient:
             typing.Union[ListPaymentsRequestBillingReasonsItem, typing.Sequence[ListPaymentsRequestBillingReasonsItem]]
         ] = None,
         currencies: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        min_amount: typing.Optional[float] = None,
+        max_amount: typing.Optional[float] = None,
         variant_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         product_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         payment_methods: typing.Optional[
@@ -1821,6 +1851,7 @@ class AsyncRawPaymentsClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
+        include_total_count: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Payment, ListPaymentsResponse]:
         """
@@ -1852,8 +1883,8 @@ class AsyncRawPaymentsClient:
         query : typing.Optional[str]
             Search payments by payment ID, dispute ID, user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
 
-        include_connected_accounts : typing.Optional[bool]
-            Also cover the account's connected accounts. Requires `account_id`, and is a 400 without it. Without `query`, lists the payments of the account and every connected account, newest first by `created_at` only; another `order` is a 400. The listing is cut off after 10 seconds, which a rare filter on an account with little recent activity can reach; add a `query` to narrow it. With `query`, matches on payment, dispute, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`); free-text queries such as a name search only the named account. Connected accounts' payments are returned only for connected accounts you can read payments on.
+        include_subaccounts : typing.Optional[bool]
+            Also cover the account's subaccounts. Requires `account_id`, and is a 400 without it. Without `query`, lists the payments of the account and every subaccount, newest first by `created_at` only; another `order` is a 400. The listing is cut off after 10 seconds, which a rare filter on an account with little recent activity can reach; add a `query` to narrow it. With `query`, matches on payment, dispute, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`); free-text queries such as a name search only the named account. Subaccounts' payments are returned only for subaccounts you can read payments on.
 
         member_id : typing.Optional[str]
             Only payments made by this member, prefixed `mber_`.
@@ -1884,6 +1915,12 @@ class AsyncRawPaymentsClient:
 
         currencies : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Only payments presented in any of these three-letter currencies. Repeat the parameter to pass several. Combined with `currency` when both are sent.
+
+        min_amount : typing.Optional[float]
+            Only payments charged at least this amount: what the buyer was charged after discounts and including tax, in the currency each payment was presented in, the same amount `order=amount` sorts by. Where tax is added on top of the price (`tax_behavior` is `exclusive`), that is the price plus the tax, so a 995 price with tax added does not match `995`: match a range instead. A failed payment that charged nothing matches 0, not its price. Inclusive and compared to the cent. Pair it with `currencies` when the account sells in several. Send the same value as `max_amount` to match one exact amount.
+
+        max_amount : typing.Optional[float]
+            Only payments charged at most this amount, measured like `min_amount`: after discounts and including tax, in the currency each payment was presented in. Inclusive and compared to the cent. Must not be less than `min_amount`.
 
         variant_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Only payments priced by any of these variants, each prefixed `plan_`. Repeat the parameter to pass several. Combined with `variant_id` when both are sent.
@@ -1933,6 +1970,9 @@ class AsyncRawPaymentsClient:
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
+        include_total_count : typing.Optional[bool]
+            Set to `true` to return the number of matching results in `page_info.total_count`. Send `first=0` as well to return the count without any results.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1954,7 +1994,7 @@ class AsyncRawPaymentsClient:
                 "currency": currency,
                 "user_id": user_id,
                 "query": query,
-                "include_connected_accounts": include_connected_accounts,
+                "include_subaccounts": include_subaccounts,
                 "member_id": member_id,
                 "membership_id": membership_id,
                 "product_id": product_id,
@@ -1965,6 +2005,8 @@ class AsyncRawPaymentsClient:
                 "substatuses": substatuses,
                 "billing_reasons": billing_reasons,
                 "currencies": currencies,
+                "min_amount": min_amount,
+                "max_amount": max_amount,
                 "variant_ids": variant_ids,
                 "product_ids": product_ids,
                 "payment_methods": payment_methods,
@@ -1989,6 +2031,7 @@ class AsyncRawPaymentsClient:
                 "after": after,
                 "last": last,
                 "before": before,
+                "include_total_count": include_total_count,
             },
             request_options=request_options,
         )
@@ -2018,7 +2061,7 @@ class AsyncRawPaymentsClient:
                             currency=currency,
                             user_id=user_id,
                             query=query,
-                            include_connected_accounts=include_connected_accounts,
+                            include_subaccounts=include_subaccounts,
                             member_id=member_id,
                             membership_id=membership_id,
                             product_id=product_id,
@@ -2029,6 +2072,8 @@ class AsyncRawPaymentsClient:
                             substatuses=substatuses,
                             billing_reasons=billing_reasons,
                             currencies=currencies,
+                            min_amount=min_amount,
+                            max_amount=max_amount,
                             variant_ids=variant_ids,
                             product_ids=product_ids,
                             payment_methods=payment_methods,
@@ -2045,6 +2090,7 @@ class AsyncRawPaymentsClient:
                             after=_parsed_next,
                             last=last,
                             before=before,
+                            include_total_count=include_total_count,
                             request_options=request_options,
                         )
 
@@ -2143,7 +2189,7 @@ class AsyncRawPaymentsClient:
             A confirmation token describing a payment method the buyer just supplied. Provide this instead of `member_id` and `payment_method_id`; the buyer is resolved from the token's billing email, or from `email`. The buyer may still have a step to complete — poll the payment's status for what to do next.
 
         email : typing.Optional[str]
-            The buyer's email, resolving or creating the user the payment belongs to. With `confirmation_token` it overrides the email the token carries, and is ignored when the token was created by a signed-in buyer; with a `card_present` `payment_method` it names a buyer the point of sale already knows, otherwise the sale belongs to a guest until a buyer is attached; with a `paypal` `payment_method` it names the buyer and is required unless `member_id` is provided. Ignored with `member_id`.
+            The buyer's email, resolving or creating the user the payment belongs to. With `confirmation_token` it overrides the email the token carries, and is ignored when the token was created by a signed-in buyer; with a `card_present` `payment_method` it names a buyer the point of sale already knows, otherwise the sale belongs to a guest until a buyer is attached; with a `paypal` `payment_method` it names the buyer, and when it and `member_id` are both omitted the buyer is the PayPal account that approves the payment. Ignored with `member_id`.
 
         ip_address : typing.Optional[str]
             The buyer's IPv4 or IPv6 address, used to assess the charge's risk and passed to the processor. Ignored unless a saved payment method is charged with `off_session` set to false.
@@ -2152,7 +2198,7 @@ class AsyncRawPaymentsClient:
             What the buyer is purchasing. Each entry takes exactly one of `variant_id` or an inline `variant`. One entry charges that variant; several entries form a cart, which requires every variant to be compatible, belong to this account, and use the same currency. Mutually exclusive with `variant_id` and `variant`.
 
         member_id : typing.Optional[str]
-            The member to charge, prefixed `mber_`. Required with `payment_method_id` unless `confirmation_token` is provided. With a `paypal` `payment_method` it names the buyer instead of `email`, and must belong to a user.
+            The member to charge, prefixed `mber_`. Required with `payment_method_id` unless `confirmation_token` is provided. With a `paypal` `payment_method` it names the buyer instead of `email`, and must belong to a user; omit both to take the buyer from the PayPal account that approves.
 
         metadata : typing.Optional[typing.Dict[str, typing.Optional[str]]]
             Custom metadata to attach to the payment.
@@ -2347,6 +2393,8 @@ class AsyncRawPaymentsClient:
             ]
         ] = None,
         currencies: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        min_amount: typing.Optional[float] = None,
+        max_amount: typing.Optional[float] = None,
         variant_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         product_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         payment_methods: typing.Optional[
@@ -2368,7 +2416,7 @@ class AsyncRawPaymentsClient:
         dispute_created_after: typing.Optional[dt.datetime] = None,
         dispute_created_before: typing.Optional[dt.datetime] = None,
         query: typing.Optional[str] = None,
-        include_connected_accounts: typing.Optional[bool] = None,
+        include_subaccounts: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[SummaryPaymentsResponse]:
         """
@@ -2393,6 +2441,12 @@ class AsyncRawPaymentsClient:
 
         currencies : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Only payments presented in any of these three-letter currencies. Repeat the parameter to pass several.
+
+        min_amount : typing.Optional[float]
+            Only payments charged at least this amount: what the buyer was charged after discounts and including tax, in the currency each payment was presented in. Where tax is added on top of the price (`tax_behavior` is `exclusive`), that is the price plus the tax. A failed payment that charged nothing counts as 0. Inclusive and compared to the cent.
+
+        max_amount : typing.Optional[float]
+            Only payments charged at most this amount, measured like `min_amount`: after discounts and including tax. Inclusive and compared to the cent. Must not be less than `min_amount`.
 
         variant_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Only payments priced by any of these variants, each prefixed `plan_`. Repeat the parameter to pass several.
@@ -2433,8 +2487,8 @@ class AsyncRawPaymentsClient:
         query : typing.Optional[str]
             Search payments by payment ID, dispute ID, user ID, membership ID, user email, name, or username.
 
-        include_connected_accounts : typing.Optional[bool]
-            Only for searches: with `query`, also search the account's connected accounts. Requires `account_id` and `query`, and is a 400 without either; it never lists connected accounts' payments on its own. Matches on payment, dispute, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`). Free-text queries such as a name search only the named account. Connected accounts' payments are returned only for connected accounts you can read payments on.
+        include_subaccounts : typing.Optional[bool]
+            Only for searches: with `query`, also search the account's subaccounts. Requires `account_id` and `query`, and is a 400 without either; it never lists subaccounts' payments on its own. Matches on payment, dispute, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`). Free-text queries such as a name search only the named account. Subaccounts' payments are returned only for subaccounts you can read payments on.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2455,6 +2509,8 @@ class AsyncRawPaymentsClient:
                 "substatuses": substatuses,
                 "billing_reasons": billing_reasons,
                 "currencies": currencies,
+                "min_amount": min_amount,
+                "max_amount": max_amount,
                 "variant_ids": variant_ids,
                 "product_ids": product_ids,
                 "payment_methods": payment_methods,
@@ -2476,7 +2532,7 @@ class AsyncRawPaymentsClient:
                 if dispute_created_before is not None
                 else None,
                 "query": query,
-                "include_connected_accounts": include_connected_accounts,
+                "include_subaccounts": include_subaccounts,
             },
             request_options=request_options,
         )

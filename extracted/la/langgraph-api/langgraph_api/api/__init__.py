@@ -28,10 +28,14 @@ from langgraph_api.api.threads import threads_routes
 from langgraph_api.api.ui import ui_routes
 from langgraph_api.auth.middleware import auth_middleware
 from langgraph_api.config import (
+    A2A_ENABLED,
     FF_PYSPY_PROFILING_ENABLED,
     HTTP_CONFIG,
     LANGGRAPH_ENCRYPTION,
+    MCP_ENABLED,
     MIGRATIONS_PATH,
+    RUNS_ENABLED,
+    THREADS_ENABLED,
 )
 from langgraph_api.feature_flags import (
     FF_V2_EVENT_STREAMING,
@@ -166,9 +170,9 @@ protected_routes: list[BaseRoute] = []
 if HTTP_CONFIG:
     if not HTTP_CONFIG.get("disable_assistants"):
         protected_routes.extend(assistants_routes)
-    if not HTTP_CONFIG.get("disable_runs"):
+    if RUNS_ENABLED:
         protected_routes.extend(runs_routes)
-    if not HTTP_CONFIG.get("disable_threads"):
+    if THREADS_ENABLED:
         protected_routes.extend(threads_routes)
     if not HTTP_CONFIG.get("disable_store"):
         protected_routes.extend(store_routes)
@@ -176,21 +180,16 @@ if HTTP_CONFIG:
         protected_routes.extend(profile_routes)
     if not HTTP_CONFIG.get("disable_ui"):
         protected_routes.extend(ui_routes)
-    if not HTTP_CONFIG.get("disable_mcp"):
+    if MCP_ENABLED:
         protected_routes.extend(mcp_routes)
-    if not HTTP_CONFIG.get("disable_a2a"):
+    if A2A_ENABLED:
         protected_routes.extend(a2a_routes)
-    # ``disable_runs`` also gates event streaming because the v2 transport
-    # exposes run-creating commands (``run.start`` / ``run.cancel`` /
-    # ``run.attach`` over the WS, plus the ``/runs/{run_id}/protocol``
-    # attach route). If an operator hardens a deployment with
-    # ``disable_runs=true``, leaving event streaming open would be a
-    # backdoor that lets clients create runs anyway. ``disable_event_streaming``
-    # is the narrow knob (turn off just v2); ``disable_runs`` is the broad
-    # knob (no run-related functionality at all).
+    # disable_runs also unmounts event streaming: its WebSocket and the
+    # /runs/{run_id}/protocol route can start, cancel and attach runs, so leaving
+    # them mounted would let clients create runs on a deployment that disabled runs.
     if (
         FF_V2_EVENT_STREAMING
-        and not HTTP_CONFIG.get("disable_runs")
+        and RUNS_ENABLED
         and not HTTP_CONFIG.get("disable_event_streaming")
     ):
         protected_routes.extend(event_streaming_routes)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: owasp-depscan
-Version: 6.3.1
+Version: 6.3.2
 Summary: Fully open-source security audit for project dependencies based on known vulnerabilities and advisories.
 Author-email: Team AppThreat <cloud@appthreat.com>
 License-Expression: MIT
@@ -21,33 +21,33 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: appthreat-vulnerability-db[oras]~=6.7.2
+Requires-Dist: appthreat-vulnerability-db[oras]~=6.7.7
 Requires-Dist: custom-json-diff~=2.1.6
-Requires-Dist: defusedxml>=0.7.1
-Requires-Dist: httpx>=0.27
-Requires-Dist: PyYAML>=6.0.2
+Requires-Dist: defusedxml~=0.7.1
+Requires-Dist: httpx~=0.28.1
+Requires-Dist: PyYAML~=6.0.2
 Requires-Dist: rich~=15.0.0
-Requires-Dist: Jinja2>=3.1.6
-Requires-Dist: packageurl-python>=0.16.0
-Requires-Dist: cvss>=3.4
-Requires-Dist: tomli>=2.2.1; python_full_version <= "3.11"
-Requires-Dist: ds-xbom-lib>=6.3.1
-Requires-Dist: ds-analysis-lib>=6.3.1
-Requires-Dist: ds-reporting-lib>=6.3.1
+Requires-Dist: Jinja2~=3.1.6
+Requires-Dist: packageurl-python~=0.17.6
+Requires-Dist: cvss~=3.6
+Requires-Dist: tomli~=2.5.0; python_full_version <= "3.11"
+Requires-Dist: ds-xbom-lib~=6.3.2
+Requires-Dist: ds-analysis-lib~=6.3.2
+Requires-Dist: ds-reporting-lib~=6.3.2
 Provides-Extra: dev
-Requires-Dist: pytest>=8.3.4; extra == "dev"
-Requires-Dist: pytest-asyncio>=1.2.0; extra == "dev"
-Requires-Dist: pytest-cov>=6.0.0; extra == "dev"
+Requires-Dist: pytest~=9.2.0; extra == "dev"
+Requires-Dist: pytest-asyncio~=1.4.1; extra == "dev"
+Requires-Dist: pytest-cov~=7.1.0; extra == "dev"
 Provides-Extra: server
-Requires-Dist: ds-server-lib>=6.3.1; extra == "server"
+Requires-Dist: ds-server-lib~=6.3.2; extra == "server"
 Provides-Extra: ext
-Requires-Dist: atom-tools>=0.7.8; extra == "ext"
-Requires-Dist: blint>=3.2.3; extra == "ext"
+Requires-Dist: atom-tools~=0.9.1; extra == "ext"
+Requires-Dist: blint~=3.2.3; extra == "ext"
 Provides-Extra: all
-Requires-Dist: atom-tools>=0.7.8; extra == "all"
-Requires-Dist: blint>=3.2.3; extra == "all"
-Requires-Dist: ds-server-lib>=6.3.1; extra == "all"
-Requires-Dist: PyGithub>=2.6.1; extra == "all"
+Requires-Dist: atom-tools~=0.9.1; extra == "all"
+Requires-Dist: blint~=3.2.3; extra == "all"
+Requires-Dist: ds-server-lib~=6.3.2; extra == "all"
+Requires-Dist: PyGithub~=2.10.0; extra == "all"
 Dynamic: license-file
 
 # Introduction

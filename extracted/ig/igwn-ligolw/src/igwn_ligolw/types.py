@@ -76,25 +76,25 @@ import base64
 #
 
 
-BlobTypes = set(["blob", "ilwd:char_u"])
+BlobTypes = {"blob", "ilwd:char_u"}
 """LIGO Light-Weight XML type strings for binary blob-like data."""
 
-StringTypes = set(["char_s", "char_v", "lstring", "string", "ilwd:char"])
+StringTypes = {"char_s", "char_v", "lstring", "string", "ilwd:char"}
 """LIGO Light-Weight XML type strings for string-like data."""
 
-IntTypes = set(["int_2s", "int_2u", "int_4s", "int_4u", "int_8s", "int_8u", "int"])
+IntTypes = {"int_2s", "int_2u", "int_4s", "int_4u", "int_8s", "int_8u", "int"}
 """LIGO Light-Weight XML type strings for integer-like data."""
 
-FloatTypes = set(["real_4", "real_8", "float", "double"])
+FloatTypes = {"real_4", "real_8", "float", "double"}
 """LIGO Light-Weight XML type strings for floating-point-like data."""
 
-ComplexTypes = set(["complex_8", "complex_16"])
+ComplexTypes = {"complex_8", "complex_16"}
 """LIGO Light-Weight XML type strings for complex-like data."""
 
 NumericTypes = IntTypes | FloatTypes | ComplexTypes
 """LIGO Light-Weight XML type strings for number-like data."""
 
-TimeTypes = set(["GPS", "Unix", "ISO-8601"])
+TimeTypes = {"GPS", "Unix", "ISO-8601"}
 """LIGO Light-Weight XML type strings for time-like data."""
 
 Types = BlobTypes | StringTypes | NumericTypes | TimeTypes
@@ -116,7 +116,7 @@ def string_format_func(s):
     Escapes back-slashes and quotes, and wraps the resulting string in
     quotes.
     """
-    return '"%s"' % str(s).replace("\\", "\\\\").replace('"', '\\"')
+    return '"{}"'.format(str(s).replace("\\", "\\\\").replace('"', '\\"'))
 
 
 def blob_format_func(b):
@@ -124,7 +124,7 @@ def blob_format_func(b):
     Function used internally to format binary data.  Base64-encodes the
     data and wraps the resulting string in quotes.
     """
-    return '"%s"' % base64.standard_b64encode(b)
+    return f'"{base64.standard_b64encode(b)}"'
 
 
 def mk_complex_format_func(fmt):
@@ -210,7 +210,7 @@ igwn_ligolw XML parsing codes.
 class FromPyTypeCls(dict):
     def __getitem__(self, key):
         try:
-            return super(FromPyTypeCls, self).__getitem__(key)
+            return super().__getitem__(key)
         except KeyError:
             for test_key, val in self.items():
                 if issubclass(key, test_key):

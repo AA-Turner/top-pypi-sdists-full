@@ -1,5 +1,3 @@
-from unittest import TestCase
-
 from aioquic.quic.congestion.base import K_INITIAL_WINDOW, K_MINIMUM_WINDOW
 from aioquic.quic.congestion.cubic import (
     K_CUBIC_C,
@@ -10,7 +8,7 @@ from aioquic.quic.congestion.cubic import (
 from aioquic.quic.packet import QuicPacketType
 from aioquic.quic.packet_builder import QuicSentPacket
 
-from .utils import ack_eliciting_packet
+from .utils import TestCase, ack_eliciting_packet
 
 
 def W_cubic(t: float, K: float, W_max: float) -> float:
@@ -40,7 +38,7 @@ class CubicCongestionControlTest(TestCase):
         self.assertEqual(
             cubic.get_log_data(),
             {
-                "cwnd": cubic.congestion_window,
+                "congestion_window": cubic.congestion_window,
                 "bytes_in_flight": cubic.bytes_in_flight,
                 "cubic-wmax": cubic._W_max,
             },
@@ -52,7 +50,7 @@ class CubicCongestionControlTest(TestCase):
         self.assertEqual(
             cubic.get_log_data(),
             {
-                "cwnd": cubic.congestion_window,
+                "congestion_window": cubic.congestion_window,
                 "ssthresh": cubic.ssthresh,
                 "bytes_in_flight": cubic.bytes_in_flight,
                 "cubic-wmax": cubic._W_max,

@@ -33,6 +33,7 @@ from .paginator import (
     ListHealthChecksPaginator,
     ListHostedZonesPaginator,
     ListQueryLoggingConfigsPaginator,
+    ListResourceRecordSetProtectionsPaginator,
     ListResourceRecordSetsPaginator,
     ListVPCAssociationAuthorizationsPaginator,
 )
@@ -56,6 +57,7 @@ from .type_defs import (
     CreateKeySigningKeyResponseTypeDef,
     CreateQueryLoggingConfigRequestTypeDef,
     CreateQueryLoggingConfigResponseTypeDef,
+    CreateResourceRecordSetProtectionsRequestTypeDef,
     CreateReusableDelegationSetRequestTypeDef,
     CreateReusableDelegationSetResponseTypeDef,
     CreateTrafficPolicyInstanceRequestTypeDef,
@@ -75,6 +77,7 @@ from .type_defs import (
     DeleteKeySigningKeyRequestTypeDef,
     DeleteKeySigningKeyResponseTypeDef,
     DeleteQueryLoggingConfigRequestTypeDef,
+    DeleteResourceRecordSetProtectionsRequestTypeDef,
     DeleteReusableDelegationSetRequestTypeDef,
     DeleteTrafficPolicyInstanceRequestTypeDef,
     DeleteTrafficPolicyRequestTypeDef,
@@ -135,6 +138,8 @@ from .type_defs import (
     ListHostedZonesResponseTypeDef,
     ListQueryLoggingConfigsRequestTypeDef,
     ListQueryLoggingConfigsResponseTypeDef,
+    ListResourceRecordSetProtectionsRequestTypeDef,
+    ListResourceRecordSetProtectionsResponseTypeDef,
     ListResourceRecordSetsRequestTypeDef,
     ListResourceRecordSetsResponseTypeDef,
     ListReusableDelegationSetsRequestTypeDef,
@@ -211,6 +216,7 @@ class Exceptions(BaseClientExceptions):
     InvalidKeySigningKeyName: type[BotocoreClientError]
     InvalidKeySigningKeyStatus: type[BotocoreClientError]
     InvalidPaginationToken: type[BotocoreClientError]
+    InvalidResourceRecordSetProtectionBatch: type[BotocoreClientError]
     InvalidSigningStatus: type[BotocoreClientError]
     InvalidTrafficPolicyDocument: type[BotocoreClientError]
     InvalidVPCId: type[BotocoreClientError]
@@ -234,6 +240,7 @@ class Exceptions(BaseClientExceptions):
     NoSuchTrafficPolicyInstance: type[BotocoreClientError]
     NotAuthorizedException: type[BotocoreClientError]
     PriorRequestNotComplete: type[BotocoreClientError]
+    ProtectionAlreadyExists: type[BotocoreClientError]
     PublicZoneVPCAssociation: type[BotocoreClientError]
     QueryLoggingConfigAlreadyExists: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
@@ -387,6 +394,16 @@ class Route53Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#create_query_logging_config)
         """
 
+    def create_resource_record_set_protections(
+        self, **kwargs: Unpack[CreateResourceRecordSetProtectionsRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Creates one or more resource record set protections in a hosted zone.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/create_resource_record_set_protections.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#create_resource_record_set_protections)
+        """
+
     def create_reusable_delegation_set(
         self, **kwargs: Unpack[CreateReusableDelegationSetRequestTypeDef]
     ) -> CreateReusableDelegationSetResponseTypeDef:
@@ -503,6 +520,16 @@ class Route53Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/delete_query_logging_config.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#delete_query_logging_config)
+        """
+
+    def delete_resource_record_set_protections(
+        self, **kwargs: Unpack[DeleteResourceRecordSetProtectionsRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes one or more resource record set protections from a hosted zone.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/delete_resource_record_set_protections.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#delete_resource_record_set_protections)
         """
 
     def delete_reusable_delegation_set(
@@ -856,6 +883,16 @@ class Route53Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#list_query_logging_configs)
         """
 
+    def list_resource_record_set_protections(
+        self, **kwargs: Unpack[ListResourceRecordSetProtectionsRequestTypeDef]
+    ) -> ListResourceRecordSetProtectionsResponseTypeDef:
+        """
+        Lists the resource record set protections in a hosted zone.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/list_resource_record_set_protections.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#list_resource_record_set_protections)
+        """
+
     def list_resource_record_sets(
         self, **kwargs: Unpack[ListResourceRecordSetsRequestTypeDef]
     ) -> ListResourceRecordSetsResponseTypeDef:
@@ -1085,6 +1122,17 @@ class Route53Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_query_logging_configs"]
     ) -> ListQueryLoggingConfigsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_resource_record_set_protections"]
+    ) -> ListResourceRecordSetProtectionsPaginator:
         """
         Create a paginator for an operation.
 

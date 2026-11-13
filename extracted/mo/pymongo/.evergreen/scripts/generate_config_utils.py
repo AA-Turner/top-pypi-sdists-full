@@ -26,6 +26,12 @@ CPYTHONS = ["3.11", "3.12", "3.13", "3.14t", "3.14", "3.15t", "3.15"]
 MIN_SUPPORT_VERSIONS = ["3.11"]
 ALL_PYTHONS = CPYTHONS
 MIN_MAX_PYTHON = [CPYTHONS[0], CPYTHONS[-1]]
+# The Python and server version boundaries that PR tasks pin to.
+MIN_PYTHON = CPYTHONS[0]
+MAX_PYTHON = CPYTHONS[-1]
+FREE_THREADED_PYTHON = [p for p in CPYTHONS if "t" in p][-1]
+MIN_VERSION = min((v for v in ALL_VERSIONS if v[0].isdigit()), key=float)
+MAX_VERSION = max((v for v in ALL_VERSIONS if v[0].isdigit()), key=float)
 BATCHTIME_WEEK = 10080
 BATCHTIME_DAY = 1440
 AUTH_SSLS = [("auth", "ssl"), ("noauth", "ssl"), ("noauth", "nossl")]
@@ -79,6 +85,7 @@ for name, run_on in zip(
         "rhel82-arm64-small",
         "amazon2023-arm64-latest-large-m8g",
     ],
+    strict=True,
 ):
     HOSTS[name] = Host(name, run_on, name, dict())
 

@@ -56,11 +56,11 @@ def get_process_params(xmldoc, program, param, require_unique_program=True):
     process_ids = lsctables.ProcessTable.get_table(xmldoc).get_ids_by_program(program)
     if len(process_ids) < 1:
         raise ValueError(
-            "process table must contain at least one program named '%s'" % program
+            f"process table must contain at least one program named '{program}'"
         )
     elif require_unique_program and len(process_ids) != 1:
         raise ValueError(
-            "process table must contain exactly one program named '%s'" % program
+            f"process table must contain exactly one program named '{program}'"
         )
     return [
         row.pyvalue

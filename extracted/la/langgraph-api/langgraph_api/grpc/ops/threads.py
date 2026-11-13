@@ -43,9 +43,9 @@ from langgraph_api.grpc.ops import (
     map_if_exists,
     transform_grpc_error_event,
 )
-from langgraph_api.grpc.ops.runs import Runs
+from langgraph_api.grpc.ops.runs import Runs, forget_deleted_thread
 from langgraph_api.schema import ThreadUpdateResponse
-from langgraph_api.serde import json_dumpb, json_dumpb_optional, json_loads
+from langgraph_api.serde import Fragment, json_dumpb, json_dumpb_optional, json_loads
 from langgraph_api.state import (
     iter_state_history,
     narrow_history_reads,
@@ -192,6 +192,17 @@ def fragment_to_value(fragment: pb.Fragment | None) -> Any:
         return None
 
 
+def _fragment_passthrough(fragment: pb.Fragment) -> Fragment | None:
+    """The fragment's JSON, undecoded, for a response to relay as-is.
+
+    Empty values read as None, as in ``fragment_to_value``. The core encodes
+    values with ``json.Marshal``, so the bytes are valid JSON.
+    """
+    if not fragment.value or fragment.value == b"{}":
+        return None
+    return Fragment(fragment.value)
+
+
 def _proto_interrupts_to_dict(
     interrupts_map: dict[str, pb.Interrupts],
 ) -> dict[str, list[dict[str, Any]]]:
@@ -216,8 +227,13 @@ def _proto_interrupts_to_dict(
     return out
 
 
-def proto_to_thread(proto_thread: pb.Thread) -> Thread:
-    """Convert protobuf Thread to API dictionary format."""
+def proto_to_thread(proto_thread: pb.Thread, *, raw_values: bool = False) -> Thread:
+    """Convert protobuf Thread to API dictionary format.
+
+    With ``raw_values``, ``values`` stays the core's JSON bytes (a ``Fragment``)
+    instead of Python objects. Decoding a large thread's values and encoding
+    them again for the response costs several times their size in memory.
+    """
     thread_id = (
         UUID(proto_thread.thread_id.value)
         if proto_thread.HasField("thread_id")
@@ -255,8 +271,20 @@ def proto_to_thread(proto_thread: pb.Thread) -> Thread:
         "config": fragment_to_value(proto_thread.config) or {},
         "error": fragment_to_value(proto_thread.error),
         "status": status,
-        "values": fragment_to_value(proto_thread.values),
+        "values": (
+            _fragment_passthrough(proto_thread.values)
+            if raw_values
+            else fragment_to_value(proto_thread.values)
+        ),
         "interrupts": _proto_interrupts_to_dict(dict(proto_thread.interrupts)),
+        "run_priority": (
+            proto_thread.priority if proto_thread.HasField("priority") else None
+        ),
+        "fairness_group": (
+            proto_thread.fairness_group
+            if proto_thread.HasField("fairness_group")
+            else None
+        ),
     }
 
     if proto_thread.extracted_json:
@@ -276,6 +304,11 @@ def proto_to_thread(proto_thread: pb.Thread) -> Thread:
             else None,
         }
     return result
+
+
+# Thread select fields whose core column has another name: a thread's run_priority is its
+# priority column.
+_CORE_SELECT_NAMES = {"run_priority": "priority"}
 
 
 def _filter_thread_fields(
@@ -344,8 +377,10 @@ class Threads(Authenticated):
         select: list[ThreadSelectField] | None = None,
         extract: dict[str, str] | None = None,
         exclude_metadata: list[dict[str, Any]] | None = None,
+        raw_values: bool = False,
         ctx: Any = None,
     ) -> tuple[AsyncIterator[Thread], int | None]:
+        """Search threads. ``raw_values`` returns each thread's values undecoded."""
         metadata = metadata or {}
         values = values or {}
 
@@ -383,7 +418,9 @@ class Threads(Authenticated):
             request_kwargs["status"] = mapped_status
 
         if select:
-            request_kwargs["select"] = select
+            request_kwargs["select"] = [
+                _CORE_SELECT_NAMES.get(field, field) for field in select
+            ]
 
         if ids:
             request_kwargs["ids"] = [
@@ -398,7 +435,10 @@ class Threads(Authenticated):
             pb.SearchThreadsRequest(**request_kwargs)
         )
 
-        threads = [proto_to_thread(thread) for thread in response.threads]
+        threads = [
+            proto_to_thread(thread, raw_values=raw_values)
+            for thread in response.threads
+        ]
         cursor = offset + limit if len(threads) == limit else None
 
         async def generate_results():
@@ -459,6 +499,7 @@ class Threads(Authenticated):
         filters: Auth.types.FilterType | list[pb.AuthFilter] | None = None,
         include_ttl: bool = False,
         read_mask_paths: list[str] | None = None,
+        raw_values: bool = False,
     ) -> AsyncIterator[Thread]:
         """Get a thread by ID.
 
@@ -475,6 +516,8 @@ class Threads(Authenticated):
                 (plus always-included identity/status columns) are queried.
                 Use ["metadata", "config"] to skip the large "values" column, or
                 [] for an auth/existence check that discards the thread body.
+            raw_values: When True, return the values as undecoded JSON, for a
+                caller that relays them without reading them.
         """
         auth_filters = await Threads.handle_event(
             ctx, "read", {"thread_id": str(thread_id)}
@@ -503,7 +546,7 @@ class Threads(Authenticated):
         client = await get_shared_client()
         response = await client.threads.Get(request)
 
-        thread = proto_to_thread(response)
+        thread = proto_to_thread(response, raw_values=raw_values)
 
         async def generate_result():
             yield thread
@@ -621,6 +664,7 @@ class Threads(Authenticated):
         response = await client.threads.Delete(request)
 
         deleted_id = UUID(response.value)
+        await forget_deleted_thread(str(deleted_id))
 
         # The Go layer deletes its own checkpoint tables, but custom
         # checkpointers store data elsewhere (e.g. Redis). Clean that up too.
@@ -698,6 +742,7 @@ class Threads(Authenticated):
                 except Exception:
                     await logger.aexception("Failed to delete thread.", thread_id=tid)
                     return False
+                await forget_deleted_thread(_normalize_uuid(tid))
                 if checkpointer is not None:
                     try:
                         await checkpointer.adelete_thread(tid)
@@ -960,18 +1005,21 @@ class Threads(Authenticated):
             Yields:
                 Tuples of (event_bytes, message_bytes, stream_id_bytes|None)
             """
-            async for (
-                event_bytes,
-                message_bytes,
-                stream_id_bytes,
-                _run_id,
-            ) in Threads.Stream.join_event_streaming(
-                thread_id,
-                stream_modes=stream_modes,
-                last_event_id=last_event_id,
-                ctx=ctx,
-            ):
-                yield (event_bytes, message_bytes, stream_id_bytes)
+            async with aclosing(
+                Threads.Stream.join_event_streaming(
+                    thread_id,
+                    stream_modes=stream_modes,
+                    last_event_id=last_event_id,
+                    ctx=ctx,
+                )
+            ) as events:
+                async for (
+                    event_bytes,
+                    message_bytes,
+                    stream_id_bytes,
+                    _run_id,
+                ) in events:
+                    yield (event_bytes, message_bytes, stream_id_bytes)
 
         @staticmethod
         async def join_event_streaming(
@@ -1006,9 +1054,9 @@ class Threads(Authenticated):
                 request.last_event_id = last_event_id
 
             client = await get_shared_client()
-
+            call = client.threads.Stream(request)
             try:
-                async for event in client.threads.Stream(request):
+                async for event in call:
                     # Convert protobuf StreamEvent to tuple format
                     event_bytes = event.event_type.encode("utf-8")
                     message_bytes = event.message
@@ -1028,6 +1076,8 @@ class Threads(Authenticated):
                 if isinstance(e, AioRpcError):
                     _handle_grpc_error(e)
                 raise
+            finally:
+                call.cancel()
 
         @staticmethod
         async def check_thread_stream_auth(

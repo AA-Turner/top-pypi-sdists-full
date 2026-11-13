@@ -13,12 +13,19 @@ def _ensure_uuid(id: str | UUID) -> UUID:
     return UUID(id) if isinstance(id, str) else id
 
 
-def _generate_ms_seq_id() -> str:
-    """Generate a Redis-like millisecond-sequence ID (e.g., '1234567890123-0')"""
-    # Get current time in milliseconds
-    ms = int(time.time() * 1000)
-    # For simplicity, always use sequence 0 since we're not handling high throughput
-    return f"{ms}-0"
+def stream_id_key(stream_id: str | bytes) -> tuple[int, int]:
+    """Numeric order of a `<ms>-<seq>` stream id, for comparing resume cursors.
+
+    Clients send `-` or a negative id such as `-1` to replay everything, so
+    those sort first, and `<ms>` or `<ms>-*` to replay that whole millisecond.
+    Raises ValueError for an id without a numeric `<ms>`.
+    """
+    if isinstance(stream_id, bytes):
+        stream_id = stream_id.decode()
+    if stream_id.startswith("-"):
+        return (-1, -1)
+    ms, _, seq = stream_id.partition("-")
+    return int(ms), int(seq) if seq.isdigit() else -1
 
 
 @dataclass
@@ -65,6 +72,14 @@ class StreamManager:
         self.message_stores = defaultdict(
             lambda: defaultdict(list[Message])
         )  # Dict[str, List[Message]]
+        self._last_id = (0, -1)
+
+    def _next_id(self) -> bytes:
+        """Strictly increasing, as a resume replays only the ids above its cursor."""
+        ms = int(time.time() * 1000)
+        last_ms, last_seq = self._last_id
+        self._last_id = (ms, 0) if ms > last_ms else (last_ms, last_seq + 1)
+        return f"{self._last_id[0]}-{self._last_id[1]}".encode()
 
     def get_queues(
         self, run_id: UUID | str, thread_id: UUID | str | None
@@ -109,8 +124,7 @@ class StreamManager:
         else:
             thread_id = _ensure_uuid(thread_id)
 
-        message.id = _generate_ms_seq_id().encode()
-        # For resumable run streams, embed the generated message ID into the frame
+        message.id = self._next_id()
         topic = message.topic.decode()
         if resumable:
             self.message_stores[thread_id][run_id].append(message)
@@ -131,8 +145,8 @@ class StreamManager:
         message: Message,
     ) -> None:
         thread_id = _ensure_uuid(thread_id)
-        message.id = _generate_ms_seq_id().encode()
-        queues = self.thread_streams[thread_id]
+        message.id = self._next_id()
+        queues = self.thread_streams.get(thread_id, ())
         coros = [queue.put(message) for queue in queues]
         results = await asyncio.gather(*coros, return_exceptions=True)
         for result in results:
@@ -182,6 +196,13 @@ class StreamManager:
             if not self.queues[thread_id][run_id]:
                 del self.queues[thread_id][run_id]
 
+    async def remove_thread_stream(self, thread_id: UUID | str, queue: asyncio.Queue):
+        thread_id = _ensure_uuid(thread_id)
+        if thread_id in self.thread_streams:
+            self.thread_streams[thread_id].remove(queue)
+            if not self.thread_streams[thread_id]:
+                del self.thread_streams[thread_id]
+
     async def remove_control_queue(
         self, run_id: UUID | str, thread_id: UUID | str | None, queue: asyncio.Queue
     ):
@@ -207,19 +228,15 @@ class StreamManager:
             thread_id = THREADLESS_KEY
         else:
             thread_id = _ensure_uuid(thread_id)
-        if message_id is None:
+        if message_id is None or thread_id not in self.message_stores:
             return
         try:
-            # Handle ms-seq format (e.g., "1234567890123-0")
-            if thread_id in self.message_stores:
-                for message in self.message_stores[thread_id][run_id]:
-                    if message.id.decode() > message_id:
-                        yield message
-        except TypeError:
-            # Try integer format if ms-seq fails
-            message_idx = int(message_id) + 1
-            if run_id in self.message_stores:
-                yield from self.message_stores[thread_id][run_id][message_idx:]
+            after = stream_id_key(message_id)
+        except ValueError:
+            return
+        for message in self.message_stores[thread_id][run_id]:
+            if stream_id_key(message.id) > after:
+                yield message
 
     def get_queues_by_thread_id(self, thread_id: UUID | str) -> list[asyncio.Queue]:
         """Get all queues for a specific thread_id across all runs."""

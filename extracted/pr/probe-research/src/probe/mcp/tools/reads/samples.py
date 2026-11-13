@@ -17,9 +17,11 @@ class SampleView(StrEnum):
     `hung_after`). `turns`: a watched sample's turns (`run`, `sample` = a live row's `attempt_id`, `after`).
     `list`: a run's samples (`step`, `result`, `reward`, `split`, `where`, `include`, `grep`). `show` / `logs`: one
     sample whole / its full log (`sample` = a sample id). `stats`: grouped measures (`run`, `by`, `measure`,
-    `pass_rule`, `where`). `capture`: did every sample arrive (`run`). `tasks`: the run's tasks; `task`,
+    `pass_rule`, `where`). `capture`: did every sample arrive, and what each producer cannot capture (`run`). `tasks`: the run's tasks; `task`,
     `task_samples`, `curve`: one `task`. `compare`: one `task` `at` steps or checkpoints. `weights`: weight versions.
-    `best_checkpoint`: by `metric`, `mode`."""
+    `best_checkpoint`: by `metric`, `mode`. `points`: per-sample metrics: the run's keys (`run`), one key's series
+    (`run`, `metric` = the key, `split`, `by` step|update|run), or one sample's (`sample`, optional `metric`).
+    `points_capture`: per step, declared vs received and the loss checks (`run`)."""
 
     LIVE = "live"
     TURNS = "turns"
@@ -35,6 +37,8 @@ class SampleView(StrEnum):
     COMPARE = "compare"
     WEIGHTS = "weights"
     BEST_CHECKPOINT = "best_checkpoint"
+    POINTS = "points"
+    POINTS_CAPTURE = "points_capture"
 
 
 @dataclass(frozen=True)
@@ -76,6 +80,18 @@ def _get_stats(client: Any, query: SampleQuery) -> dict:
                                    include=query.include, split=query.split or None)  # fmt: skip
 
 
+def _read_points(client: Any, query: SampleQuery) -> dict:
+    """One sample's points, a key's series, or the run's keys, by which arguments are given."""
+    if query.sample:
+        return client.get_sample_points(query.sample, key=query.metric or None)
+    if not query.run:
+        raise ToolError("samples view=points needs `run` (its keys, or a `metric`'s series) or `sample`")
+    if query.metric:
+        return client.get_sample_point_series(query.run, query.metric, split=query.split or None,
+                                              by=query.by[0] if query.by else None)  # fmt: skip
+    return client.list_sample_point_keys(query.run)
+
+
 #: Each view: the arguments it needs, and its read.
 READS: dict[SampleView, tuple[tuple[str, ...], Callable[[Any, SampleQuery], dict]]] = {
     SampleView.LIVE: (("run",), lambda c, q: c.list_live_samples(
@@ -97,6 +113,8 @@ READS: dict[SampleView, tuple[tuple[str, ...], Callable[[Any, SampleQuery], dict
     SampleView.WEIGHTS: (("run",), lambda c, q: c.list_weight_versions(q.run)),
     SampleView.BEST_CHECKPOINT: (("run", "metric"), lambda c, q: c.get_best_checkpoint(
         q.run, q.metric, mode=q.mode or "max")),
+    SampleView.POINTS: ((), _read_points),
+    SampleView.POINTS_CAPTURE: (("run",), lambda c, q: c.get_sample_points_capture(q.run)),
 }
 
 

@@ -60,6 +60,11 @@ class SkyrlRecorder:
         #: (global_step, weight-sync count) at train start: a count maps to a policy version.
         self._version_base: tuple[int, int] | None = None
 
+    @property
+    def samples(self) -> Any:
+        """`run.samples` as this producer."""
+        return self._samples
+
     # -- versions ----------------------------------------------------------------------------------------
     @_make_locked
     def start(self, global_step: int, weight_version: int | None) -> None:
@@ -113,18 +118,20 @@ class SkyrlRecorder:
     # -- training ----------------------------------------------------------------------------------------
     @_make_locked
     def record_batch(self, step: int, output: Mapping[str, Any], *, dropped: Iterable[Mapping[str, Any]] = (),
-                     should_drop_leftovers: bool = False) -> None:
+                     should_drop_leftovers: bool = False) -> list[list[str]]:
         """Rows a step is about to train on, before it trains: consumed by ``step`` at version ``step - 1``
         (the updates applied before it), or dropped when their loss mask is all zero. ``dropped`` outputs
         are groups the trainer threw away (zero variance, `fully_async_trainer.py:832-850`). With
         ``should_drop_leftovers`` (the synchronous trainer), train rows generated this step and missing from
-        the batch were filtered out (dynamic sampling)."""
+        the batch were filtered out (dynamic sampling). Returns each training row's sample keys, in order."""
         self._consumed_at[step] = datetime.now(timezone.utc)
         parts: list[dict] = []
+        row_keys: list[list[str]] = []
         masks = output.get("loss_masks") or []
         for row_index, row in enumerate(output.get("response_ids") or []):
             mask = masks[row_index] if row_index < len(masks) else None
             keys = self._take_keys(row, output, row_index)
+            row_keys.append(keys)
             drop = None if mask is None or any(mask) else ("zero_variance" if self._is_zero_variance_filter else MASKED_DROP)
             parts.extend(self._make_trainer_part(key, step, drop) for key in keys)
         parts.extend(self._drop_groups(step, dropped, "zero_variance"))
@@ -135,6 +142,7 @@ class SkyrlRecorder:
             self._trajectory_of.clear()
             self._rows.clear()  # every train row of the step is now consumed or dropped
         self._send(parts)
+        return row_keys
 
     @_make_locked
     def record_discarded(self, step: int, groups: Iterable[Mapping[str, Any]], reason: str) -> None:

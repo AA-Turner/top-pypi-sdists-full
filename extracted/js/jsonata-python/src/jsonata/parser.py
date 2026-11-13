@@ -111,7 +111,10 @@ class Parser:
         # Procedure:
         procedure: 'Optional[Parser.Symbol]'
         arguments: 'Optional[MutableSequence[Parser.Symbol]]'
-        body: 'Optional[Parser.Symbol]'
+        # a Symbol, or a function (e.g. a JFunction) for a partially applied native function
+        body: 'Optional[Any]'
+        # the parameter names of a partially applied native function, in order
+        native_args: 'Optional[list[str]]'
         predicate: 'Optional[MutableSequence[Parser.Symbol]]'
         stages: 'Optional[MutableSequence[Parser.Symbol]]'
         input: Optional[Any]
@@ -198,6 +201,7 @@ class Parser:
             self.procedure = None
             self.arguments = None
             self.body = None
+            self.native_args = None
             self.predicate = None
             self.stages = None
             self.input = None
@@ -234,6 +238,25 @@ class Parser:
 
         def clone(self):
             return copy.copy(self)
+
+        def deep_clone(self):
+            # Copy the whole subtree (sharing only the outer parser), so that
+            # processing the copy in process_ast cannot mutate the original
+            c = self.clone()
+            for k, v in vars(self).items():
+                if k != "_outer_instance":
+                    setattr(c, k, Parser.Symbol._deep_clone_value(v))
+            return c
+
+        @staticmethod
+        def _deep_clone_value(v):
+            if isinstance(v, Parser.Symbol):
+                return v.deep_clone()
+            if isinstance(v, list):
+                return [Parser.Symbol._deep_clone_value(e) for e in v]
+            if isinstance(v, tuple):
+                return tuple(Parser.Symbol._deep_clone_value(e) for e in v)
+            return v
 
         def __repr__(self):
             return str(type(self)) + " " + self.id + " value=" + self.value
@@ -665,7 +688,8 @@ class Parser:
                             depth += 1
                         sig += tok.value
                     self._outer_instance.advance(">")
-                    self.signature = signature.Signature(sig, "lambda")
+                    # the name reported in signature errors is taken from the call site
+                    self.signature = signature.Signature(sig, None)
                 # parse the function body
                 self._outer_instance.advance("{")
                 self.body = self._outer_instance.expression(0)
@@ -878,7 +902,8 @@ class Parser:
             proc.type = "variable"
             proc.value = "exists"
             cond.procedure = proc
-            cond.arguments = [left]
+            # left is also the then branch: give exists() its own copy
+            cond.arguments = [left.deep_clone()]
             self.condition = cond
             self.then = left
             self._else = self._outer_instance.expression(0)
@@ -893,7 +918,9 @@ class Parser:
 
         def led(self, left):
             self.type = "condition"
-            self.condition = left
+            # the condition and then branches need separate nodes, otherwise
+            # process_ast mutates the shared node twice (e.g. -5 becomes 5)
+            self.condition = left.deep_clone()
             self.then = left
             self._else = self._outer_instance.expression(0)
             return self

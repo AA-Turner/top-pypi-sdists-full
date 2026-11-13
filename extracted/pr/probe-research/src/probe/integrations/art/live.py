@@ -6,12 +6,16 @@ Line refs are `OpenPipe/ART@414acc5`. Why: DESIGN.md "Live samples"."""
 
 from __future__ import annotations
 
+import contextlib
 import contextvars
 import functools
 import inspect
 import uuid
+from collections import OrderedDict
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any
+
+from probe.sdk.run.samples.rollout import RolloutCapture
 
 from .._live import LiveAttempts
 
@@ -24,6 +28,9 @@ COMMAND_REFUSAL = ("a cancelled rollout raises in your gather, and ART's default
 #: Where a trajectory carries its live sample's key (a string `MetadataValue`, `trajectories.py:46`).
 ATTEMPT_KEY = "probe_attempt_key"
 KEY_PREFIX = "art:"
+#: Rollouts whose files wait for their trajectory's sample (`apply_files`); past it the oldest are forgotten (a
+#: trajectory never logged nor trained).
+MAX_WAITING_ROLLOUTS = 4096
 
 #: The live sample the current rollout task is (for `ArtTracker.send_progress`).
 _CURRENT: contextvars.ContextVar[str | None] = contextvars.ContextVar("probe_art_rollout", default=None)
@@ -38,6 +45,8 @@ class ArtLive:
     def __init__(self, tracker: ArtTracker) -> None:
         self._tracker = tracker
         self.attempts: LiveAttempts | None = None
+        #: Each finished rollout's export (files + span), by its key, until its trajectory's part is mapped.
+        self._exports: OrderedDict[str, dict] = OrderedDict()
 
     def open(self, samples: Any, reward_max: float | None) -> None:
         self.attempts = LiveAttempts(samples, reward_max=reward_max)
@@ -53,20 +62,33 @@ class ArtLive:
                 return await _call(function, args, kwargs)
             await tracker.guard.call_async("a live sample", tracker.ensure_run)
             key = tracker.guard.call("a live sample", self._start, task_key, args, kwargs)
+            capture = tracker.guard.call("a rollout's files", RolloutCapture, tracker.run, key) if key else None
             token = _CURRENT.set(key)
             try:
-                result = await _call(function, args, kwargs)
+                with capture if capture is not None else contextlib.nullcontext():
+                    result = await _call(function, args, kwargs)
             except BaseException as exc:
                 if key is not None:
                     tracker.guard.call("a live sample", self._end_error, key, exc)
+                if capture is not None:  # the span closes; the files stay the run's, linked to no sample
+                    await tracker.guard.call_async("a rollout's files", capture.export_async)
                 raise
             finally:
                 _CURRENT.reset(token)
             if key is not None:
                 tracker.guard.call("a live sample", self._end, key, result)
+            if capture is not None:
+                exported = await tracker.guard.call_async("a rollout's files", capture.export_async)
+                tracker.guard.call("a rollout's files", self._keep_export, key, exported)
             return result
 
         return call_rollout
+
+    def apply_files(self, part: dict) -> dict:
+        """``part`` (a trajectory's generator part) with the files and span its decorated rollout's own code
+        attached (`probe.samples.attach_file` inside `record_rollout`), found by its `attempt_key`."""
+        exported = self._exports.pop(part.get("attempt_key") or "", None)
+        return RolloutCapture.update_part(part, exported)
 
     def send_progress(self, snapshot: Mapping[str, Any]) -> None:
         """The current rollout's progress (`phase`, `turns`, `tokens`, `activity`), when it runs decorated."""
@@ -100,6 +122,13 @@ class ArtLive:
         attempts = self.attempts
         reward = max(rewards) if rewards else None
         attempts.end([{"key": key, "outcome": attempts.get_outcome(reward)}])
+
+    def _keep_export(self, key: str, exported: Mapping[str, Any] | None) -> None:
+        if not exported:
+            return
+        self._exports[key] = dict(exported)
+        while len(self._exports) > MAX_WAITING_ROLLOUTS:
+            self._exports.popitem(last=False)
 
     def _end_error(self, key: str, error: BaseException) -> None:
         self.attempts.end_error([key], error)

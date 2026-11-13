@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import numpy as np
 import pytest
 
-from numpy_groupies import aggregate_purepy
+from numpy_groupies import npg_purepy
 from numpy_groupies.fills import default_fill_value
 from numpy_groupies.functions import default_fill_values, fill_value_key
 from numpy_groupies.registry import function_names
@@ -19,11 +19,12 @@ from numpy_groupies.tests.helpers import (
     assert_same_result,
     func_list,
     is_numba,
+    is_purepy,
     random_values,
 )
 from numpy_groupies.tests.reference import aggregate_ref
 
-# the one-out-per-item functions (cum*, sort) have nothing to fill an absent
+# the one-out-per-item functions (the cumulative ones, sort) have nothing to fill an absent
 # group with - see test_one_out_per_in_cannot_fill in test_axis.py
 # the topk answers a row per group, and the test below compares the row with
 # the fill value - one value against many - so the topk is measured by the
@@ -49,7 +50,8 @@ scalar_input_values = [
 def test_preserve_missing(impl):
     res = impl.aggregate(np.array([0, 1, 3, 1, 3]), np.arange(101, 106, dtype=int))
     np.testing.assert_array_equal(res, np.array([101, 206, 0, 208]))
-    if not isinstance(res, list):
+    if not is_purepy(impl):
+        # the pure python implementation carries no dtype of its own
         assert "int" in res.dtype.name
 
 
@@ -58,7 +60,8 @@ def test_uint_group_idx(impl, group_idx_type):
     group_idx = np.array([1, 1, 2, 2, 2, 2, 4, 4], dtype=group_idx_type)
     res = impl.aggregate(group_idx, np.ones(group_idx.size), dtype=int)
     np.testing.assert_array_equal(res, np.array([0, 2, 4, 0, 2]))
-    if not isinstance(res, list):
+    if not is_purepy(impl):
+        # the pure python implementation carries no dtype of its own
         assert "int" in res.dtype.name
 
 
@@ -78,16 +81,33 @@ def test_create_lists(impl):
 def test_item_counting(impl):
     group_idx = np.array([0, 1, 2, 3, 3, 3, 3, 4, 5, 5, 5, 6, 5, 4, 3, 8, 8])
     a = np.arange(group_idx.size)
-    res = impl.aggregate(group_idx, a, func=lambda x: len(x) > 1)
-    np.testing.assert_array_equal(res, np.array([0, 0, 0, 1, 1, 1, 0, 0, 1]))
+
+    def more_than_one(x):
+        return len(x) > 1
+
+    res = np.asarray(impl.aggregate(group_idx, a, func=more_than_one))
+    # group 7 is never named - a callable of the caller's own has a result of
+    # its own making, and without a dtype of the caller the answer is read as
+    # a float in every backend, so the absent group takes the nan of the
+    # generic rule
+    wanted = np.array([0, 0, 0, 1, 1, 1, 0, np.nan, 1])
+    np.testing.assert_array_equal(res, wanted, err_msg="absent group")
 
 
-@pytest.mark.parametrize("a_dtype", ["float64", "int64", "float16"], ids=["float", "int", "float16"])
 @pytest.mark.parametrize("func", default_fill_funcs, ids=lambda x: getattr(x, "__name__", x))
-def test_default_fill_value(impl, func, a_dtype):
+def test_default_fill_value_of_float16_result(impl, func):
+    """the default of a float16 result, the one dtype the sweep does not see.
+
+    The defaults of the float64 results are the business of the generic
+    sweep - it runs every function over the floating values of the block,
+    absent groups included - and the defaults of the integer results over
+    its integer values.  What neither sees is the narrow float: min, first
+    and their kind keep the dtype of float16 values, and the nan of their
+    default has to land in it, against every backend.
+    """
     # group 1 has no items at all, so it takes the function specific default
     group_idx = np.array([0, 0, 2, 2])
-    a = np.array([1.0, 2.0, 4.0, 8.0], dtype=a_dtype)
+    a = np.array([1.0, 2.0, 4.0, 8.0], dtype=np.float16)
 
     res = impl.aggregate(group_idx, a, func=func, size=3)
     if isinstance(res, list) and isinstance(res[0], list):
@@ -204,7 +224,7 @@ def test_default_fill_value_table(func, dtype, expected):
     assert repr(default_fill_value(func, dtype)) == repr(expected)
 
 
-def test_every_function_of_the_registry_has_a_default():
+def test_every_function_of_registry_has_default():
     """Every function of the package resolves to a default of its own.
 
     The table above names them all - a function that is added to the registry
@@ -245,7 +265,7 @@ def test_scalar_input(impl, func, value):
     "func",
     ["sum", "mean", "min", "max", "median", "std", "var", "first", "last", "cumsum", "array", "sort"],
 )
-def test_the_input_arrays_are_not_touched(impl, rng, func):
+def test_input_arrays_are_not_touched(impl, rng, func):
     """No implementation may write into the data it aggregates.
 
     The data belongs to the caller, and a write into it would change the
@@ -283,7 +303,26 @@ def test_custom_callable(impl, rng):
     np.testing.assert_allclose(actual, expected)
 
 
-def test_custom_callable_gets_the_values_in_the_order_of_the_input(impl):
+def test_callable_of_caller_runs_as_is(impl):
+    """A callable of the caller is called, whatever its name is.
+
+    A func that is no key of the table of the aliases is the callable of the
+    caller, and every backend runs it as it is - a callable is asked for by
+    its identity, and its name names nothing.  The name of a function of the
+    package is no exception: a callable whose name is one of them is still
+    the callable of the caller, in every backend alike.
+    """
+
+    def len(x):
+        return 42.0
+
+    group_idx = np.array([0, 0, 1])
+    a = np.array([1.0, 2.0, 3.0])
+    res = impl.aggregate(group_idx, a, func=len)
+    assert np.asarray(res)[0] == 42.0
+
+
+def test_custom_callable_gets_values_in_order_of_input(impl):
     """The values of a group reach the callable in the order they appear in
     the input - the backends group them in different ways (the numba one
     counts them into blocks, the numpy ones sort them), and the order has to
@@ -322,7 +361,7 @@ class _spread_object:
         return float(np.max(x) - np.min(x))
 
 
-def test_a_callable_that_cannot_be_a_key(impl):
+def test_unhashable_callable(impl):
     # not being a key of the dispatch table is no mistake of the func, it is what
     # makes it one of the caller's own: numpy and pure python run it, and numba,
     # which compiles its func, says which kind of func it compiles instead
@@ -336,7 +375,7 @@ def test_a_callable_that_cannot_be_a_key(impl):
         np.testing.assert_allclose(res, [2.0, 5.0])
 
 
-def test_a_callable_that_cannot_be_a_key_along_an_axis(impl):
+def test_unhashable_callable_along_axis(impl):
     # the axis path names the function it validates against, and a func that
     # names no function is the caller's own there as anywhere else
     group_idx = np.array([0, 0, 1, 1])
@@ -349,7 +388,7 @@ def test_a_callable_that_cannot_be_a_key_along_an_axis(impl):
         np.testing.assert_allclose(res, [2.0, 5.0])
 
 
-def test_a_callable_object_is_still_no_function_for_numba(impl):
+def test_callable_object_is_no_function_for_numba(impl):
     # what ran before keeps running in numpy and pure python, and numba refuses
     # the hashable object as it refused the other one - in its own words, which
     # name the object it was handed rather than the table that could not hold it
@@ -368,7 +407,7 @@ def test_a_callable_object_is_still_no_function_for_numba(impl):
     [42, "no_such_function", [1, 2], {"a": 1}, np.array([1.0])],
     ids=["int", "unknown name", "list", "dict", "array"],
 )
-def test_a_func_that_names_nothing_says_the_same_everywhere(impl, func):
+def test_func_named_nothing_says_same_everywhere(impl, func):
     # whether a func cannot be a key of the dispatch table or only is no key of
     # it makes no difference to the answer: the table is no mistake the caller
     # made, and no implementation is entitled to report it as one
@@ -496,7 +535,7 @@ _VALIDATION_CASES = [
     _VALIDATION_CASES,
     ids=[case[0] for case in _VALIDATION_CASES],
 )
-def test_a_refused_input_is_refused_in_the_words_of_the_package(impl, name, group_idx, a, kwargs, error, message):
+def test_refused_input_is_refused_in_words_of_package(impl, name, group_idx, a, kwargs, error, message):
     """The validation of the input says the same thing in every path.
 
     The words are the ones of ``numpy_groupies.validation`` - the negative
@@ -512,7 +551,7 @@ def test_a_refused_input_is_refused_in_the_words_of_the_package(impl, name, grou
     [{"0": 1, "1": 2}, {1, 2}, frozenset({1, 2}), iter([1, 2]), (x for x in (1, 2))],
     ids=["dict", "set", "frozenset", "iterator", "generator"],
 )
-def test_the_pure_python_path_refuses_what_is_no_sequence_of_values(values):
+def test_pure_python_path_refuses_non_sequence_values(values):
     """The values of a call are a sequence of values.
 
     A mapping and a set are no such sequence: iterating over them yields
@@ -522,10 +561,10 @@ def test_the_pure_python_path_refuses_what_is_no_sequence_of_values(values):
     is the path that has to say so.
     """
     with pytest.raises(ValueError, match="must be scalar or 1 dimensional"):
-        aggregate_purepy.aggregate(np.array([0, 1]), values, func="sum", size=2)
+        npg_purepy.aggregate(np.array([0, 1]), values, func="sum", size=2)
 
 
-def test_the_out_argument_is_the_one_of_the_numba_backend(impl):
+def test_out_argument_is_of_numba_backend(impl):
     """``out=`` is the numba business, and the others say so.
 
     The protocol of the public ``aggregate`` promises it: only the numba
@@ -543,14 +582,34 @@ def test_the_out_argument_is_the_one_of_the_numba_backend(impl):
             impl.aggregate(group_idx, a, func="sum", out=out)
 
 
-@pytest.mark.parametrize("fill_value", [0, np.nan])
-@pytest.mark.parametrize("func", func_list)
-def test_the_fill_value_matches_the_group_loop(impl, func, fill_value, block):
+# the fill values an explicit call is asked for, and the combos that carry
+# no statement of their own: a fill value that is the default of the function
+# (against the floating result the table names) is the very call the generic
+# sweep runs over the block - twice the sizes, six sets of values - so those
+# combos are dropped here at the collection, where they show up as
+# deselected instead of as a skip at the runtime
+_FILL_CASES = [
+    (func, fill)
+    for func in default_fill_funcs
+    for fill in (0, np.nan)
+    if fill != default_fill_value(func, np.float64) or fill != fill
+]
+
+
+@pytest.mark.parametrize(
+    ("func", "fill_value"),
+    _FILL_CASES,
+    ids=[f"{func}-{fill}" for func, fill in _FILL_CASES],
+)
+def test_fill_value_matches_group_loop(impl, func, fill_value, block):
     """what an absent group is filled with, and which fill value is refused.
 
-    Two of the block's labels name no value, so the fill value shows up in the
-    result - and one that does not fit the dtype of the result is refused, which
-    the group loop refuses before it computes anything.
+    Only the calls the default does not answer anyway are collected here:
+    what is left is the override of the default and the value the result
+    cannot hold - the nan for a count, a flag or a position, which the
+    package refuses before it computes anything.  The one-out-per-item
+    functions are the business of :mod:`.test_axis` - they have no absent
+    group to fill at all.
     """
     labels, a = block.group_idx, block.a
     kwargs = {"func": func, "size": block.size, "fill_value": fill_value}
@@ -563,7 +622,34 @@ def test_the_fill_value_matches_the_group_loop(impl, func, fill_value, block):
         assert_same_result(impl.aggregate(labels, a, **kwargs), want, func)
 
 
-def test_the_arg_reductions_name_a_position_in_the_input(impl):
+def test_callable_of_caller_fills_absent_group_like_result(impl):
+    """the fill of a callable of the caller's own follows the dtype of the
+    result, and that one is the same in every backend.
+
+    Without a dtype of the caller the answer of a callable is read as a
+    float - the numpy based backends build their answer in float64 and the
+    numba one does the same now - so an absent group takes the nan of the
+    generic rule, whether the values were integers or floats.  The dtype
+    the caller asks for decides where the result cannot hold the nan: an
+    integer result is filled with 0.
+    """
+    group_idx = np.array([0, 0, 2, 2])  # group 1 is never named
+
+    def total(x):
+        return float(np.sum(x))
+
+    for values in (np.array([1, 2, 4, 8]), np.array([1.0, 2.0, 4.0, 8.0])):
+        res = np.asarray(impl.aggregate(group_idx, values, func=total))
+        assert res[1] != res[1], "an absent group takes the nan of the generic rule"
+
+    # the dtype of the caller is the one the fill has to fit - the pure
+    # python implementation carries no dtype at all, so it is not asked
+    if not is_purepy(impl):
+        res = np.asarray(impl.aggregate(group_idx, np.array([1.0, 2.0, 4.0, 8.0]), func=total, dtype=np.int64))
+        assert res[1] == 0
+
+
+def test_arg_reductions_name_position_in_input(impl):
     """the position an arg reduction reports is one in the input, not in an
     array the backend had to build on the way to it, and a group holding a nan
     has no extreme to point at - so it names no position at all and takes the
@@ -588,10 +674,10 @@ def test_none_is_refused_where_no_result_holds_it(impl, func):
     The sentinel that asks for the default of a function is ``DEFAULT_FILL_VALUE``
     and the suite pins ``None`` as the value of an empty sequence result
     (`test_fill_value`).  Asked of a number, a flag, a count, a position or the
-    values of a sort, the request used to be answered three different ways: the
-    numpy implementation complained about an ``isnan`` of an object, the numba one
-    failed to type a kernel, and the pure python one wrote the ``None`` into a
-    column of floats, which made the result an object array.
+    values of a sort, the request used to be answered three different ways:
+    ``isnan`` of an object (numpy), a kernel that failed to type (numba) and a
+    ``None`` written into a column of floats (purepy, making the result an
+    object array).
     """
     labels = np.array([0, 2])
     a = np.array([1.0, 2.0])  # group 1 is never named

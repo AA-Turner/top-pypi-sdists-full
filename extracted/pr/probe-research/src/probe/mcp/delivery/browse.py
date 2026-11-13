@@ -51,6 +51,11 @@ _CURSOR_PARAMETERS = {
 }
 
 
+#: Who a person filter matched and how many rows had no known person (`browse_research` puts them on
+#: `data`): every page of the tree repeats them, as a flat listing's page does.
+_OWNER_ECHO = ("owner_matched", "unowned_count")
+
+
 def _pack_state(state: dict) -> dict:
     """Compress opaque bytes once, avoiding base64 inside base64.
 
@@ -403,6 +408,7 @@ def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
     def result(values: list, continuation: dict | None) -> dict:
         output_data: dict[str, Any] = {
             "scope": target_ref,
+            **{key: data[key] for key in _OWNER_ECHO if key in data},
             "depth": fetch_args["depth"],
             target_level: values,
         }
@@ -463,6 +469,7 @@ def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
         whole = result([], None)
         whole["data"] = {
             "scope": target_ref,
+            **{key: data[key] for key in _OWNER_ECHO if key in data},
             "depth": fetch_args["depth"],
             **{
                 name: [tree_row(row) for row in data[name]]

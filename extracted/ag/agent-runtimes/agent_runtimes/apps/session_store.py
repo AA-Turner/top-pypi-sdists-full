@@ -112,7 +112,9 @@ def _page(
             continue
         if agent and session["agent"] != agent:
             continue
-        if state and session["state"] != state:
+        # Unsaid, the sessions that run and those that can be gone on with:
+        # an ended one is listed when its state is asked.
+        if session["state"] != state if state else session["state"] == "ended":
             continue
         if query and query.lower() not in session["title"].lower():
             continue
@@ -212,7 +214,11 @@ class FileSessionStore:
         query: str = "",
         archived: bool = False,
     ) -> SessionPage:
-        sessions = self.described()
+        from agent_runtimes.apps.local_rule import reconciled
+
+        # As the rule says them (`local_rule`): a seat whose run is over is
+        # ended, an open one whose process is gone is paused.
+        sessions = reconciled(self, self.described())
         return _page(
             sessions,
             owner=owner,
@@ -291,6 +297,14 @@ class FileSessionStore:
     async def append(
         self, uid: str, entries: Sequence[Mapping[str, Any]], **body: Any
     ) -> None:
+        self.write(uid, entries, **body)
+
+    def write(
+        self, uid: str, entries: Sequence[Mapping[str, Any]], **body: Any
+    ) -> None:
+        """Add entries to a session's file: what :meth:`append` does, for
+        a caller that is not in a loop (the rule that reconciles a listing).
+        """
         path = self._file(uid)
         path.parent.mkdir(parents=True, exist_ok=True)
         at = _now()
@@ -612,7 +626,8 @@ class RecordSessionStore:
 
     async def remove(self, uid: str) -> bool:
         """Delete one session of the caller's from the record, for good; an
-        open one, or one they did not open, refused in ai-agents' sentence."""
+        open one, or one they did not open, refused in ai-agents' sentence.
+        """
         await self.remover(uid, _bearer())
         return True
 

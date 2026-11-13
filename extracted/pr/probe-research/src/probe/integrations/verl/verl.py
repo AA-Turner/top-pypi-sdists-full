@@ -11,15 +11,18 @@ from collections.abc import Mapping
 from typing import Any
 
 from probe.foundation.safe_warn import safe_warn as _diagnostics
+from probe.sdk.run.samples.points import TrainingGuard
 
 from .. import _rl_owner
 from .._live import refuse_commands
 from .live import COMMAND_REFUSAL
 from .phases import PhaseClock, install_phase_timer
 from .recorder import VerlRecorder
+from .tool_loop import build_unsupported
 from .runs import (
     get_resume_folder, get_external_id, get_names, get_rewind_step, get_run_config, get_run_name, read_resume_step,
 )
+from .training import EvalPoints, build_training_plan
 from .trainers import FAMILIES, RollouterFamily, TrainerFamily, TrainerWraps, build_mapper
 
 #: The producer the verl training process writes samples as.
@@ -50,6 +53,11 @@ class VerlSession:
         self.recorder = VerlRecorder(self.samples, floor=floor, is_eval_only=is_rollouter)
         self.phases = None if is_rollouter else PhaseClock()
         self.wraps = TrainerWraps(get_active_session)
+        #: Each validation pass's per-sample eval values (`training/driver.py`).
+        self.eval_points = EvalPoints(self.samples)
+        #: Fails open for the per-sample metrics calls, saying what a failure costs them (`training/`).
+        self.training_guard = TrainingGuard("verl")
+        self._is_rollouter = is_rollouter
         self._trainers: set[int] = set()
         self._is_finished = False
         self._is_hooks_checked = False
@@ -61,6 +69,11 @@ class VerlSession:
         self._trainers.add(id(trainer))
         self.recorder.set_mapper(build_mapper(trainer))
         self.recorder.plan_steps(family.get_total_steps(trainer))
+        if not self._is_rollouter:  # what the worker ranks send per sample, and what they cannot (T3)
+            self.samples.plan(training=build_training_plan(getattr(trainer, "config", None)))
+        unsupported = build_unsupported(getattr(trainer, "config", None), getattr(trainer, "tokenizer", None))
+        if unsupported:  # what the agent loops' capture cannot hold for this layout (`tool_loop/plan.py`)
+            self.samples.plan(unsupported=unsupported)
 
     def log_metrics(self, data: Mapping[str, Any], step: Any) -> None:
         """A verl metrics row as metrics at ``step``: finite numbers only (tables and text stay verl's)."""

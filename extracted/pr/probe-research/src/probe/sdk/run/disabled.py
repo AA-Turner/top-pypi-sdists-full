@@ -20,6 +20,8 @@ import inspect
 import uuid
 from typing import Any
 
+from ...generated.records import RunType
+from ..values.run_type import to_run_type
 from .context.context import FailureContext
 
 
@@ -137,6 +139,7 @@ class DisabledRun:
         name: str | None = None,
         config: dict | None = None,
         tags: list[str] | None = None,
+        run_type: str | None = None,
     ) -> None:
         # Every PUBLIC ATTRIBUTE of a real Run, with a value of its type -- the
         # `__getattr__` fallback below answers with a function, which is right
@@ -149,6 +152,8 @@ class DisabledRun:
         self.repo: str | None = None
         self.config = DisabledConfig(_as_config(config))
         self.tags = list(tags or [])
+        # Checked like an online init's, so a typo fails the same way in every mode.
+        self.run_type = to_run_type(run_type) if run_type is not None else RunType.GENERAL.value
         self.foreign_keys: dict = {}
         self.env_ref: str | None = None
         self.status = "running"

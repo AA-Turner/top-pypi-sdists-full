@@ -25,7 +25,7 @@ class UnknownUnionFallback:
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type: t.Any, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
         members = tuple(arg for arg in t.get_args(source_type) if arg is not DotDictType)
-        discriminated = te.Annotated[t.Union[members], Field(discriminator='py_type')]  # type: ignore[valid-type]
+        discriminated = te.Annotated[t.Union[members], Field(discriminator='py_type')]  # pyrefly: ignore[not-a-type]
 
         def validate(value: t.Any, validator: core_schema.ValidatorFunctionWrapHandler) -> t.Any:
             try:
@@ -83,16 +83,21 @@ class UnknownRecordFallback:
         def validate(
             value: t.Any, validator: core_schema.ValidatorFunctionWrapHandler, info: core_schema.ValidationInfo
         ) -> t.Any:
-            if isinstance(value, BaseModel):
-                return value
+            data = value
+            # a dict is the common case, so it skips the slower ABC checks
+            if type(value) is not dict:
+                if isinstance(value, BaseModel):
+                    return value
+                if isinstance(value, DotDict):
+                    data = value.to_dict()
 
-            data = value.to_dict() if isinstance(value, DotDict) else value
             if isinstance(data, dict):
                 record_type = data.get('$type')
                 model = resolve_record_type(record_type) if isinstance(record_type, str) else None
                 if model is not None:
                     try:
-                        return model.model_validate(data, context=info.context)
+                        # skips the model_validate() wrapper, which only forwards the arguments
+                        return model.__pydantic_validator__.validate_python(data, context=info.context)
                     except ValidationError:
                         # a record the models know of but cannot describe still degrades to DotDict
                         pass

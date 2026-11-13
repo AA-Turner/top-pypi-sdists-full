@@ -1,3 +1,4 @@
+from itertools import chain, combinations
 from unittest import TestCase
 
 from citeproc import (
@@ -56,11 +57,33 @@ class TestBibliographyGeneration(TestCase):
                     f'Failed for {lg} at index {index}. Expected: {expected_value}, Got: {generated_ordinals[index]}'
                 )
 
+    def test_generation_without_keys(self):
+        """Test generating citations with all subsets of fields missing"""
+
+        def _powerset(iterable):
+            s = list(iterable)
+            return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
+
+        def _test_generation(data):
+            bib = source.json.CiteProcJSON([data])
+            assert bib is not None
+
+        for subset in _powerset(template.items()):
+            subset = dict(subset)
+            if subset:
+                _test_generation(subset)
+
     def test_ordinals_with_embedded_locale(self):
         """chicago-author-date has an embedded <locale xml:lang="en"> that defines
         editor/translator terms but no ordinal terms.  Ordinals must still be
         resolved from the file-based en-US locale data.
         Regression test for https://github.com/citeproc-py/citeproc-py/issues/183."""
+
+        try:
+            import citeproc_styles  # ruff: ignore[unused-import]
+        except ImportError:
+            self.skipTest('citeproc-py-styles (provides citeproc_styles package) not installed')
+
         bib_style = CitationStylesStyle('chicago-author-date', 'en-US')
 
         entries = [

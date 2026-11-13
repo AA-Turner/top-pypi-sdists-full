@@ -99,13 +99,13 @@ class Storage(Service):
         enabled : Optional[bool]
             Is bucket enabled? When set to 'disabled', users cannot access the files in this bucket but Server SDKs with and API key can still access the bucket. No files are lost when this is toggled.
         maximum_file_size : Optional[float]
-            Maximum file size allowed in bytes. Maximum allowed value is 5GB.
+            Maximum file size allowed in bytes. Maximum allowed value is 0B.
         allowed_file_extensions : Optional[List[str]]
             Allowed file extensions. Maximum of 100 extensions are allowed, each 64 characters long.
         compression : Optional[Compression]
             Compression algorithm chosen for compression. Can be one of none,  [gzip](https://en.wikipedia.org/wiki/Gzip), or [zstd](https://en.wikipedia.org/wiki/Zstd), For file size above 20MB compression is skipped even if it's enabled
         encryption : Optional[bool]
-            Is encryption enabled? For file size above 20MB encryption is skipped even if it's enabled
+            Is encryption enabled? Files of any size are encrypted.
         antivirus : Optional[bool]
             Is virus scanning enabled? For file size above 20MB AntiVirus scanning is skipped even if it's enabled
         transformations : Optional[bool]
@@ -241,13 +241,13 @@ class Storage(Service):
         enabled : Optional[bool]
             Is bucket enabled? When set to 'disabled', users cannot access the files in this bucket but Server SDKs with and API key can still access the bucket. No files are lost when this is toggled.
         maximum_file_size : Optional[float]
-            Maximum file size allowed in bytes. Maximum allowed value is 5GB.
+            Maximum file size allowed in bytes. Maximum allowed value is 0B.
         allowed_file_extensions : Optional[List[str]]
             Allowed file extensions. Maximum of 100 extensions are allowed, each 64 characters long.
         compression : Optional[Compression]
             Compression algorithm chosen for compression. Can be one of none, [gzip](https://en.wikipedia.org/wiki/Gzip), or [zstd](https://en.wikipedia.org/wiki/Zstd), For file size above 20MB compression is skipped even if it's enabled
         encryption : Optional[bool]
-            Is encryption enabled? For file size above 20MB encryption is skipped even if it's enabled
+            Is encryption enabled? Files of any size are encrypted.
         antivirus : Optional[bool]
             Is virus scanning enabled? For file size above 20MB AntiVirus scanning is skipped even if it's enabled
         transformations : Optional[bool]
@@ -707,7 +707,7 @@ class Storage(Service):
         token: Optional[str] = None,
     ) -> bytes:
         """
-        Get a file preview image. Currently, this method supports preview for image files (jpg, png, and gif), other supported formats, like pdf, docs, slides, and spreadsheets, will return the file icon image. You can also pass query string arguments for cutting and resizing your preview image. Preview is supported only for image files smaller than 10MB.
+        Get a file preview image. Currently, this method supports preview for image files (jpg, png, and gif), other supported formats, like pdf, docs, slides, and spreadsheets, will return the file icon image. You can also pass query string arguments for cutting and resizing your preview image. Set `output` to `auto` to receive avif or webp when the client's `Accept` header supports it, falling back to the original image format. Preview is supported only for image files smaller than 10MB.
 
         Parameters
         ----------
@@ -736,7 +736,7 @@ class Storage(Service):
         background : Optional[str]
             Preview image background color. Only works with transparent images (png). Use a valid HEX color, no # is needed for prefix.
         output : Optional[ImageFormat]
-            Output format type (jpeg, jpg, png, gif and webp).
+            Output format type (jpeg, jpg, png, gif, webp, heic and avif). Pass auto to serve avif or webp when the client's Accept header supports it, falling back to the original format.
         token : Optional[str]
             File token for accessing this file.
         Returns

@@ -146,6 +146,8 @@ class ComposioManagedAuth(BaseModel):
     "OAuth scopes available in the Composio-managed auth config for this auth mode."
     user_scopes: Optional[ComposioManagedAuthUserScopes] = None
     "OAuth user scopes available in the Composio-managed auth config for this auth\nmode. Only present for Slack toolkits."
+    managed_app_id: str
+    is_default: bool
 
 
 class Deprecated(BaseModel):

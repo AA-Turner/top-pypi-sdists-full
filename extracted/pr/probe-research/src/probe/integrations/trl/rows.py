@@ -10,8 +10,11 @@ import math
 import os
 import re
 from collections import OrderedDict, deque
-from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
-from typing import Any
+from collections.abc import Callable, Collection, Iterable, Mapping, MutableMapping, Sequence
+from typing import Any, NamedTuple
+
+from probe.generated.samples import CaptureField, TurnsSource
+from probe.sdk.run.samples.rollout import REASONING_KEYS, to_tool_call
 
 #: A dataset column naming the task; else the prompt's hash is the key (`prompt:<sha256[:16]>`).
 TASK_COLUMN = "task_id"
@@ -30,6 +33,13 @@ MAX_EXTRAS_BYTES = 8 * 1024
 SCENARIO_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_\-]{0,63}$")
 #: Chat roles onto `MessageSource`; a `user` message inside a completion is the environment answering.
 SOURCES = {"system": "system", "assistant": "model", "tool": "tool", "function": "tool", "user": "environment"}
+
+#: The capture fields a trainer that runs no tools cannot fill (`plan(unsupported=)`).
+TOOL_FIELDS = (CaptureField.TOOL_CALL_IDS, CaptureField.TOOL_CALL_ARGUMENTS, CaptureField.TOOL_RESULT_LINKS,
+               CaptureField.ENVIRONMENT_FILES)
+
+#: `extras` key: replies whose tool results could not be linked to their calls by TRL's order (a name differed).
+UNLINKED_TOOL_TURNS = "unlinked_tool_turns"
 
 #: Collated rows remembered for the recorder; past it the oldest go (GKD collates eval rows it never records).
 MAX_COLLATED_ROWS = 4096
@@ -156,38 +166,117 @@ class RowReader:
         return [digest for digest in (get_image_digest(image) for image in images) if digest]
 
 
-def build_completion(completion: Any) -> dict:
+def has_response_schema(tokenizer: Any) -> bool:
+    """Whether TRL can parse a completion's tool calls and reasoning with this tokenizer (`parse_response` needs a
+    `response_template` or the older `response_schema`); without one it decodes plain text."""
+    return any(getattr(tokenizer, name, None) is not None for name in ("response_template", "response_schema"))
+
+
+class ToolDispatch(NamedTuple):
+    """How TRL's tool loop runs one parsed call (`grpo_trainer.py:2064-2083`): the call's id, the names its result may
+    carry, and whether TRL hands it to an async tool (deferred to the gather: only those take an async position)."""
+
+    id: str
+    names: frozenset[str | None]
+    is_deferred: bool
+
+
+def build_completion(completion: Any, *, async_tools: Iterable[str] | None = (),
+                     failed_async_calls: Iterable[int] | None = None) -> dict:
     """The response text, plus turns and the tool-call count when the completion is a tool-calling conversation
-    (more than one message): each message keeps its source and whether the trainer learns from it."""
+    (more than one message, or a reply with tool calls or reasoning): each message keeps its source, whether the
+    trainer learns from it, its tool calls (id, name, arguments as JSON text) and its reasoning. TRL's parser names no
+    call id, so each is `probe-<turn>-<i>`, and its result is linked by TRL's own order (`link_tool_results`);
+    ``async_tools`` are the names TRL ran as coroutines (None: unknown), ``failed_async_calls`` the positions, among
+    the calls TRL handed to them (in call order, over the whole completion), of those that raised when called (sync
+    GRPO only; None: not watched, so a reply holding such a call links nothing)."""
     if isinstance(completion, str):
         return {"response": completion}
     messages = [message for message in completion or () if isinstance(message, Mapping)]
     replies = [get_text(message.get("content")) for message in messages if message.get("role") == "assistant"]
     built: dict[str, Any] = {"response": replies[-1] if replies else render_prompt(messages)}
-    if len(messages) <= 1 and not any(message.get("tool_calls") for message in messages):
+    if len(messages) <= 1 and not any(message.get("tool_calls") or _get_reasoning(message) for message in messages):
         return built
     turns: list[dict] = []
     current: list[dict] = []
     calls: list[dict] = []
+    asked: list[ToolDispatch] = []  # the last reply's calls as TRL runs them, waiting for their results
+    results: list[dict] = []
+    mismatched = 0
+    asynchronous = None if async_tools is None else frozenset(async_tools)
+    failed = None if asynchronous is None or failed_async_calls is None else frozenset(failed_async_calls)
+    async_position = 0  # the first of this reply's async calls, among the completion's
     for message in messages:
         role = str(message.get("role") or "assistant")
-        current.append({
+        if role != "tool" and results:
+            mismatched += not link_tool_results(asked, results, failed, async_position)
+            async_position += sum(call.is_deferred for call in asked)
+            asked, results = [], []
+        built_message = {
             "role": role[:64],
             "source": SOURCES.get(role, "environment"),
             "is_trainable": role == "assistant",
             "content": get_text(message.get("content")),
             **({"name": str(message["name"])[:256]} if message.get("name") else {}),
-        })
-        calls.extend({"name": _get_tool_name(call)} for call in message.get("tool_calls") or ())
+            **({"tool_call_id": str(message["tool_call_id"])[:256]} if message.get("tool_call_id") else {}),
+        }
+        reasoning = _get_reasoning(message)
+        if reasoning is not None:
+            built_message["reasoning"] = reasoning
+        if role == "tool":
+            results.append(built_message)
+        current.append(built_message)
+        raw_calls = list(message.get("tool_calls") or ())
+        message_calls = [_to_tool_call(call, len(turns), index) for index, call in enumerate(raw_calls)]
+        if message_calls:
+            built_message["tool_calls"] = message_calls
+        calls.extend({"id": call["id"], "name": call["name"]} for call in message_calls)
         if role == "assistant":  # one turn per model reply, holding what came since the last one
             turns.append({"messages": current, "tool_calls": calls})
             current, calls = [], []
+            asked = [_read_dispatch(raw, call, asynchronous) for raw, call in zip(raw_calls, message_calls)]
+    if results:
+        mismatched += not link_tool_results(asked, results, failed, async_position)
     if current:
         turns.append({"messages": current, "tool_calls": calls})
     built["turns"] = turns
+    built["turns_source"] = TurnsSource.AS_SENT
     built["turn_count"] = len(turns)
     built["tool_call_count"] = sum(len(turn["tool_calls"]) for turn in turns)
+    if mismatched:
+        built["extras"] = {UNLINKED_TOOL_TURNS: mismatched}
     return built
+
+
+def link_tool_results(calls: Sequence[ToolDispatch], results: list[dict],
+                      failed_async_calls: Collection[int] | None = None, first_async: int = 0) -> bool:
+    """Set each tool result's `tool_call_id` from TRL's own order (O1): within a reply, the results of the calls run
+    or failed at once come first, then the deferred calls' (`grpo_trainer.py:2064-2112`), each in call order
+    (AsyncGRPO awaits every call in order: none is deferred). A deferred call that raised when called (its position,
+    counted from ``first_async``, in ``failed_async_calls``) is a failed one; with ``failed_async_calls`` None (not
+    watched) a reply holding a deferred call links nothing. Checked by name: when the count or any name differs,
+    nothing in this reply is linked and it returns False, so the caller counts it (a wrong link is worse than none)."""
+    if any(result.get("tool_call_id") for result in results):
+        return True  # the framework linked them itself (a custom rollout): as sent
+    if failed_async_calls is None and any(call.is_deferred for call in calls):
+        return False
+    expected: list[ToolDispatch] = []
+    gathered: list[ToolDispatch] = []
+    position = first_async
+    for call in calls:
+        if call.is_deferred:
+            position += 1
+            if position - 1 not in (failed_async_calls or ()):
+                gathered.append(call)
+                continue
+        expected.append(call)
+    expected += gathered
+    if len(expected) != len(results) or any(result.get("name") not in call.names
+                                            for call, result in zip(expected, results)):  # fmt: skip
+        return False
+    for call, result in zip(expected, results):
+        result["tool_call_id"] = call.id
+    return True
 
 
 def to_numbers(values: Any) -> list[float | None]:
@@ -234,10 +323,41 @@ def split_extras(values: Mapping[str, Any]) -> tuple[dict[str, float], dict[str,
     return numbers, others
 
 
-def _get_tool_name(call: Any) -> str:
-    function = call.get("function") if isinstance(call, Mapping) else None
-    name = (function or {}).get("name") if isinstance(function, Mapping) else None
-    return str(name or (call.get("name") if isinstance(call, Mapping) else None) or "tool")[:256]
+def _to_tool_call(call: Any, turn: int, index: int) -> dict:
+    """One assistant tool call as a `MessageToolCall`: TRL's parsed arguments (a dict) as JSON text, the id TRL's
+    parser never gives numbered `probe-<turn>-<i>`; a call with no name reads `tool` (TRL runs it as unknown)."""
+    found = to_tool_call(call) if isinstance(call, Mapping) else None
+    if found is None:
+        found = {"name": "tool", "arguments": ""}
+    found["name"] = str(found["name"])[:256]
+    found.setdefault("id", f"probe-{turn}-{index}")
+    return found
+
+
+def _read_dispatch(raw: Any, call: Mapping[str, Any], async_tools: Collection[str] | None) -> ToolDispatch:
+    """TRL calls a tool only for a `function` call, as `tool(**arguments)` (`:2066-2072`): any other type, or arguments
+    that are not a str-keyed mapping, fail before the tool, with the results filed at once. ``async_tools`` None
+    (unknown) counts every callable call as possibly deferred."""
+    raw = raw if isinstance(raw, Mapping) else {}
+    function = raw.get("function")
+    if raw.get("type") != "function" or not isinstance(function, Mapping):
+        # GRPO and Distillation name this result `tool_call.get("name", "unknown")` (`:2082`); AsyncGRPO the function's
+        return ToolDispatch(call["id"], frozenset({call["name"], _to_result_name(raw.get("name", "unknown"))}), False)
+    arguments = function.get("arguments")
+    is_callable = isinstance(arguments, Mapping) and all(isinstance(key, str) for key in arguments)
+    is_deferred = is_callable and (async_tools is None or function.get("name") in async_tools)
+    return ToolDispatch(call["id"], frozenset({call["name"]}), is_deferred)
+
+
+def _to_result_name(name: Any) -> str | None:
+    """A name as a tool result message keeps it (`build_completion`): text cut to 256 characters, None when empty."""
+    return str(name)[:256] if name else None
+
+
+def _get_reasoning(message: Mapping[str, Any]) -> str | None:
+    """The reasoning a tokenizer's response schema parsed apart from the content (`reasoning_content` / `thinking`),
+    never found in the text itself (D4)."""
+    return next((value for key in REASONING_KEYS if isinstance(value := message.get(key), str) and value), None)
 
 
 def _parse_scenario(value: Any) -> dict:
@@ -288,6 +408,27 @@ def _to_finite(value: Any) -> float | None:
 #: `labels` mark a collated row's prompt and padding with this, so only its completion is trained on (the ChatML
 #: collator; `gkd_trainer.py:394-401`, `gold_trainer.py:1819-1836`).
 IGNORED_LABEL = -100
+
+
+#: An SFT eval example's key prefix: its own sample, apart from the same tokens trained on (`sft:`).
+SFT_EVAL_PREFIX = "sft-eval:"
+
+
+def make_sft_key(ids: Sequence[int], *, is_eval: bool = False) -> str:
+    """An SFT example's sample key: the digest of its unpadded token ids (the SFT recorder and the loss hook agree);
+    an eval example's under its own prefix."""
+    digest = hashlib.sha256(",".join(str(token) for token in ids).encode("ascii")).hexdigest()[:32]
+    return f"{SFT_EVAL_PREFIX if is_eval else 'sft:'}{digest}"
+
+
+def get_segment_starts(batch: Mapping[str, Any]) -> list[int] | None:
+    """Where each example starts in a padding-free (or packed) SFT row (`cu_seq_lens_q` without its end, host ints),
+    or None for an unpacked batch (it has an `attention_mask`). The collator puts every example of a micro-batch in
+    one row and restarts `position_ids` at each (`sft_trainer.py:197-216`)."""
+    bounds = batch.get("cu_seq_lens_q")
+    if "attention_mask" in batch or bounds is None:
+        return None
+    return [int(start) for start in to_ints(bounds)[:-1]]
 
 
 def read_labeled_rows(batch: Mapping[str, Any]) -> list[tuple[list[int], list[int]]]:

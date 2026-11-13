@@ -60,7 +60,7 @@ _CONTENT = ("group_key", "segment", "segment_count", "split", "scheduled_step", 
             "response_blob", "finish_reason", "prompt_tokens", "response_tokens", "timing", "engine_stats", "tokens",
             "events")
 #: The turns: the generator's, else a Harbor trial's read from its folder after Harbor's secret scrub (T27).
-_TURNS = ("turns", "turns_blob", "turn_count", "tool_call_count")
+_TURNS = ("turns", "turns_blob", "turns_source", "turn_count", "tool_call_count")
 _CONSUMPTION = ("consumed_step", "consumed_until_step", "consumed_version", "trainer_rank", "is_misaligned",
                 "occurrence", "trainer_tokens")
 

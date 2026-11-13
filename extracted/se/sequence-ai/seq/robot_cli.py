@@ -160,7 +160,8 @@ def robot_set(name: str, changes: dict, *, base_url: str | None = None, echo: Ec
         _say(echo, f"the robot {shown} keeps nothing more; what it has kept stays until its retention ends")
     if "record_retention_days" in body:
         days = body["record_retention_days"]
-        _say(echo, f"what the robot {shown} keeps stays for {days if days is not None else RECORD_DAYS} days")
+        n = days if days is not None else RECORD_DAYS
+        _say(echo, f"what the robot {shown} keeps stays for {n} day{'' if n == 1 else 's'}")
     if out.get("notice"):
         _say(echo, out["notice"])
     return {"robot": robot}

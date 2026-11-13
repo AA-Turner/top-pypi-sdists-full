@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional, Union, cast
 from pydantic import Field, PrivateAttr, model_validator
 
 from .base_model import AppwriteModel
-from .review import Review
+from .campaign_review import CampaignReview
 
 
 class Campaign(AppwriteModel):
@@ -29,7 +29,7 @@ class Campaign(AppwriteModel):
         Campaign infor when unclaimed
     image : Optional[Dict[str, Any]]
         Campaign images
-    reviews : Optional[List[Review]]
+    reviews : Optional[List[CampaignReview]]
         Campaign reviews
     onlyneworgs : Optional[bool]
         Campaign valid only for new orgs.
@@ -46,7 +46,7 @@ class Campaign(AppwriteModel):
     claimed: Optional[str] = Field(default=None, alias='claimed')
     unclaimed: Optional[str] = Field(default=None, alias='unclaimed')
     image: Optional[Dict[str, Any]] = Field(default=None, alias='image')
-    reviews: Optional[List[Review]] = Field(default=None, alias='reviews')
+    reviews: Optional[List[CampaignReview]] = Field(default=None, alias='reviews')
     onlyneworgs: Optional[bool] = Field(default=None, alias='onlyNewOrgs')
     footer: Optional[bool] = Field(default=None, alias='footer')
 

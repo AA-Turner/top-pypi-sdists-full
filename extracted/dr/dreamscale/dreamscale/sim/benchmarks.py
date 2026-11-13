@@ -11,6 +11,7 @@ from dreamscale_transport import catalog
 from dreamscale import errors
 from dreamscale.model_names import public_model
 
+from .abc_catalog import DEFAULT_TASK as ABC_DEFAULT_TASK
 from .abc_catalog import MODELS as ABC_MODELS
 
 BENCHMARK_LABELS = {"libero": "LIBERO", "robocasa365": "RoboCasa365",
@@ -25,6 +26,10 @@ BENCHMARK_MODELS = {
 }
 BENCHMARK_MODELS["abc"] = ABC_MODELS
 LIBERO_MODELS = BENCHMARK_MODELS["libero"]
+# The --task-suite each benchmark runs when none is given; RoboCasa365 has none. LIBERO's is
+# the browser try-it's first suite: π0.5 LIBERO completes its first task reliably.
+DEFAULT_SUITES = {"libero": "libero_spatial", "molmospaces": "all", "roboeval": "lift_pot",
+                  "abc": ABC_DEFAULT_TASK}
 LIBERO_SUITES = {"libero_spatial": 10, "libero_object": 10, "libero_goal": 10,
                  "libero_10": 10, "libero_90": 90}
 

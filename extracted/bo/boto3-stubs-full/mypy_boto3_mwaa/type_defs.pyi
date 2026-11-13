@@ -49,6 +49,7 @@ __all__ = (
     "EnvironmentTypeDef",
     "GetEnvironmentInputTypeDef",
     "GetEnvironmentOutputTypeDef",
+    "IdentityCenterConfigurationTypeDef",
     "InvokeRestApiRequestTypeDef",
     "InvokeRestApiResponseTypeDef",
     "LastUpdateTypeDef",
@@ -70,12 +71,14 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "StatisticSetTypeDef",
     "TagResourceInputTypeDef",
+    "TeamConfigTypeDef",
     "TimestampTypeDef",
     "UntagResourceInputTypeDef",
     "UpdateEnvironmentInputTypeDef",
     "UpdateEnvironmentOutputTypeDef",
     "UpdateErrorTypeDef",
     "UpdateNetworkConfigurationInputTypeDef",
+    "UpdateTeamsInputTypeDef",
 )
 
 class CreateCliTokenRequestTypeDef(TypedDict):
@@ -87,6 +90,14 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+class IdentityCenterConfigurationTypeDef(TypedDict):
+    StartUrl: NotRequired[str]
+    IdentityStoreId: NotRequired[str]
+
+class TeamConfigTypeDef(TypedDict):
+    SourceBucketArn: str
+    DagS3Path: str
 
 class CreateWebLoginTokenRequestTypeDef(TypedDict):
     Name: str
@@ -194,6 +205,10 @@ class UpdateEnvironmentOutputTypeDef(TypedDict):
     Arn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateTeamsInputTypeDef(TypedDict):
+    AddOrUpdate: NotRequired[Mapping[str, TeamConfigTypeDef]]
+    Remove: NotRequired[Sequence[str]]
+
 class LastUpdateTypeDef(TypedDict):
     Status: NotRequired[UpdateStatusType]
     CreatedAt: NotRequired[datetime]
@@ -254,6 +269,8 @@ class UpdateEnvironmentInputTypeDef(TypedDict):
     StartupScriptS3ObjectVersion: NotRequired[str]
     WebserverAccessMode: NotRequired[WebserverAccessModeType]
     WeeklyMaintenanceWindowStart: NotRequired[str]
+    IdentityCenterConfiguration: NotRequired[IdentityCenterConfigurationTypeDef]
+    Teams: NotRequired[UpdateTeamsInputTypeDef]
 
 class EnvironmentTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -290,6 +307,8 @@ class EnvironmentTypeDef(TypedDict):
     EndpointManagement: NotRequired[EndpointManagementType]
     MinWebservers: NotRequired[int]
     MaxWebservers: NotRequired[int]
+    IdentityCenterConfiguration: NotRequired[IdentityCenterConfigurationTypeDef]
+    Teams: NotRequired[dict[str, TeamConfigTypeDef]]
 
 class PublishMetricsInputTypeDef(TypedDict):
     EnvironmentName: str
@@ -321,6 +340,8 @@ class CreateEnvironmentInputTypeDef(TypedDict):
     EndpointManagement: NotRequired[EndpointManagementType]
     MinWebservers: NotRequired[int]
     MaxWebservers: NotRequired[int]
+    IdentityCenterConfiguration: NotRequired[IdentityCenterConfigurationTypeDef]
+    Teams: NotRequired[Mapping[str, TeamConfigTypeDef]]
 
 class GetEnvironmentOutputTypeDef(TypedDict):
     Environment: EnvironmentTypeDef

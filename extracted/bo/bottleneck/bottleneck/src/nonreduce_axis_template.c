@@ -1,5 +1,6 @@
 // Copyright 2010-2019 Keith Goodman
 // Copyright 2019 Bottleneck Developers
+#include <stdlib.h>
 #include "bottleneck.h"
 #include "iterators.h"
 
@@ -61,6 +62,7 @@ NRA(partition, DTYPE0) {
         PyErr_Format(PyExc_ValueError,
                      "`n` (=%d) must be between 0 and %zd, inclusive.",
                      n, LENGTH - 1);
+        Py_DECREF((PyObject *)a);
         return NULL;
     }
 
@@ -172,6 +174,7 @@ NRA(argpartition, DTYPE0) {
         PyErr_Format(PyExc_ValueError,
                      "`n` (=%d) must be between 0 and %zd, inclusive.",
                      n, LENGTH - 1);
+        Py_DECREF(y);
         return NULL;
     }
     BN_BEGIN_ALLOW_THREADS
@@ -202,8 +205,13 @@ NRA(rankdata, DTYPE0) {
     npy_DTYPE1 old, new, averank, sumranks = 0;
 
     PyObject *z = PyArray_ArgSort(a, axis, NPY_QUICKSORT);
+    if (z == NULL) return NULL;
     PyObject *y = PyArray_EMPTY(PyArray_NDIM(a),
                                 PyArray_SHAPE(a), NPY_DTYPE1, 0);
+    if (y == NULL) {
+        Py_DECREF(z);
+        return NULL;
+    }
 
     iter3 it;
     init_iter3(&it, a, y, z, axis);
@@ -264,8 +272,13 @@ NRA(nanrankdata, DTYPE0) {
     npy_DTYPE1 old, new, averank, sumranks = 0;
 
     PyObject *z = PyArray_ArgSort(a, axis, NPY_QUICKSORT);
+    if (z == NULL) return NULL;
     PyObject *y = PyArray_EMPTY(PyArray_NDIM(a),
                                 PyArray_SHAPE(a), NPY_DTYPE1, 0);
+    if (y == NULL) {
+        Py_DECREF(z);
+        return NULL;
+    }
 
     iter3 it;
     init_iter3(&it, a, y, z, axis);
@@ -345,6 +358,7 @@ NRA(push, DTYPE0) {
     npy_intp index;
     npy_DTYPE0 ai, ai_last, n_float;
     PyObject *y = PyArray_Copy(a);
+    if (y == NULL) return NULL;
     iter it;
     init_iter_one(&it, (PyArrayObject *)y, axis);
     if (LENGTH == 0 || NDIM == 0) {
@@ -396,7 +410,7 @@ intern_strings(void) {
     pystr_n = PyUnicode_InternFromString("n");
     pystr_kth = PyUnicode_InternFromString("kth");
     pystr_axis = PyUnicode_InternFromString("axis");
-    return pystr_a && pystr_n && pystr_axis;
+    return pystr_a && pystr_n && pystr_kth && pystr_axis;
 }
 
 /* nonreducer_axis ------------------------------------------------------- */
@@ -639,12 +653,13 @@ nonreducer_axis(char *name,
         }
     } else {
         RUNTIME_ERR("Unknown parse type; please report error.");
+        return NULL;
     }
 
     /* convert to array if necessary */
     if (PyArray_Check(a_obj)) {
         a = (PyArrayObject *)a_obj;
-        Py_INCREF(a);
+        Py_INCREF((PyObject*)a);
     } else {
         a = (PyArrayObject *)PyArray_FROM_O(a_obj);
         if (a == NULL) {
@@ -654,7 +669,7 @@ nonreducer_axis(char *name,
 
     /* check for byte swapped input array */
     if (PyArray_ISBYTESWAPPED(a)) {
-        Py_DECREF(a);
+        Py_DECREF((PyObject *)a);
         return slow(name, args, kwds);
     }
 
@@ -669,7 +684,10 @@ nonreducer_axis(char *name,
             }
         } else {
             if (PyArray_NDIM(a) != 1) {
-                a = (PyArrayObject *)PyArray_Ravel(a, NPY_CORDER);
+                PyArrayObject *tmp = (PyArrayObject *)PyArray_Ravel(a, NPY_CORDER);
+                Py_DECREF((PyObject *)a);
+                if (tmp == NULL) return NULL;
+                a = tmp;
             }
             axis = 0;
         }
@@ -679,7 +697,10 @@ nonreducer_axis(char *name,
             goto error;
         }
         if (PyArray_NDIM(a) != 1) {
-            a = (PyArrayObject *)PyArray_Ravel(a, NPY_CORDER);
+            PyArrayObject *tmp = (PyArrayObject *)PyArray_Ravel(a, NPY_CORDER);
+            Py_DECREF((PyObject *)a);
+            if (tmp == NULL) return NULL;
+            a = tmp;
         }
         axis = 0;
     } else {
@@ -725,12 +746,12 @@ nonreducer_axis(char *name,
     else if (dtype == NPY_int32)   y = nra_int32(a, axis, n);
     else                           y = slow(name, args, kwds);
 
-    Py_DECREF(a);
+    Py_DECREF((PyObject *)a);
 
     return y;
 
 error:
-    Py_DECREF(a);
+    Py_DECREF((PyObject *)a);
     return NULL;
 
 }

@@ -22,9 +22,11 @@ import { RUNNERS } from "./daily-report.js";
 import {
   MIN_HISTORY_NIGHTS,
   cellKey,
+  cpuSignature,
   flaggedChange,
   formatMove,
   loadCapacityHistory,
+  sameCpu,
 } from "./history.js";
 import { runnerColumnName, runnerShortName } from "./runner-descriptions.js";
 import { cellWindow, peakCpu, podRange, summarizeServerMetrics } from "./server-metrics.js";
@@ -229,13 +231,31 @@ function indexCells(deployments, summaries) {
   return byDeployment;
 }
 
-function pastNights(deployment, tier, runner, summary, history) {
+function sameExecutorNights(deployment, tier, runner, summary, history) {
   const executor = summary?.config?.k6Executor ?? "constant-vus";
   // Nights measured in users and nights measured in req/s are different
   // scales; only the same executor is a baseline.
   return (history[cellKey({ deploymentSlug: deployment.slug, computeTier: tier, benchmarkType: runner })] ?? [])
-    .filter((night) => (night.executor ?? "constant-vus") === executor)
+    .filter((night) => (night.executor ?? "constant-vus") === executor);
+}
+
+// The baseline stays a week of nights on tonight's cpu; the workflow fetches more so a week can be found.
+const PAST_NIGHTS = 7;
+
+function pastNights(deployment, tier, runner, summary, history) {
+  return sameCpu(sameExecutorNights(deployment, tier, runner, summary, history), summary?.serverCpus)
+    .slice(0, PAST_NIGHTS)
     .map((night) => night.capacityVUs);
+}
+
+/** Tonight's CPUs against the newest comparable night's, when both are known and differ. */
+function newMachine(row, history) {
+  if (!row.summary || row.summary.error) return null;
+  const tonight = cpuSignature(row.summary.serverCpus);
+  const before = cpuSignature(sameExecutorNights(row.deployment, row.tier, row.runner, row.summary, history)[0]?.serverCpus);
+  return tonight && before && tonight !== before
+    ? `${deploymentName(row.deployment)} ${tierLabel(row.deployment, row.tier)} on ${tonight} (was ${before})`
+    : null;
 }
 
 function analyseDeployment(deployment, cells, history) {
@@ -404,12 +424,16 @@ export function formatAggregateTable(
   if (reasons.size > 0) lines.push(`*Why:* ${[...reasons].join(" · ")}`);
   if (regressed.length > 0) lines.push(`*Regressed:* ${regressed.map((row) => moveLine(row, unit)).join(" · ")}`);
   if (bottlenecks.length > 0) lines.push(`*Bottlenecks:* ${bottlenecks.join(" · ")}`);
+  // A tier's runners share its pods, so one line per tier.
+  const moved = [...new Set(rows.map((row) => newMachine(row, history)).filter(Boolean))];
+  if (moved.length > 0) lines.push(`*New machine:* ${moved.join(" · ")} · compared only with nights on the same cpu`);
   for (const warning of allWarnings) lines.push(`:warning: ${warning}`);
 
   for (const { deployment, rows: deploymentRows, nights } of analysed) {
     lines.push("", ...capacityTable(deployment, deploymentRows, unitFor(executorOf(deploymentRows.map((r) => r.summary).filter(Boolean)))));
     if (nights < MIN_HISTORY_NIGHTS) {
-      lines.push(`_${nights} of ${MIN_HISTORY_NIGHTS} nights of history, no change flags yet_`);
+      const cpuKnown = deploymentRows.some((row) => cpuSignature(row.summary?.serverCpus));
+      lines.push(`_${nights} of ${MIN_HISTORY_NIGHTS} nights of history${cpuKnown ? " on this cpu" : ""}, no change flags yet_`);
     }
   }
   return lines.join("\n");
@@ -473,6 +497,17 @@ function serverTable(deployment, cells, kind) {
   return lines.join("\n");
 }
 
+/** "Machines: L amd rome · M intel broadwell", per runner only where a tier's runners differ. */
+function machines(deployment, cells) {
+  const parts = [];
+  for (const tier of deployment.tiers) {
+    const cpus = RUNNERS.map((r) => cpuSignature(cells[tier]?.[r]?.serverCpus) ?? "-");
+    if (cpus.every((cpu) => cpu === "-")) continue;
+    parts.push(`${tierLabel(deployment, tier)} ${cpus.every((cpu) => cpu === cpus[0]) ? cpus[0] : cpus.join(" / ")}`);
+  }
+  return parts.length > 0 ? `Machines: ${parts.join(" · ")}` : null;
+}
+
 export function formatServerView(deployments, summaries) {
   const byDeployment = indexCells(deployments, summaries);
   const blocks = [];
@@ -484,6 +519,7 @@ export function formatServerView(deployments, summaries) {
       .map((tier) => `${tierLabel(deployment, tier)} ${RUNNERS.map((r) => servedRate(cells[tier]?.[r])).join(" / ")}`)
       .join(" · ");
     const servedLine = `Runs/sec actually served at the top step, as ${RUNNERS.map(runnerColumnName).join(" / ")}: ${served}`;
+    const machinesLine = machines(deployment, cells);
     // The served rate is k6's; the pod and CPU tables are the dashboard's, which is best effort.
     const cpu = serverTable(deployment, cells, "cpu");
     const pods = serverTable(deployment, cells, "pods");
@@ -493,6 +529,7 @@ export function formatServerView(deployments, summaries) {
         cpu ? `_CPU, % of request_\n${cpu}` : null,
         pods ? `_Pods, start → end_\n${pods}` : null,
         servedLine,
+        machinesLine,
       ]
         .filter(Boolean)
         .join("\n"),

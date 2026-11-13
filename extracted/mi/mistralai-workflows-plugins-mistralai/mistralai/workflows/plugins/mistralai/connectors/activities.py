@@ -29,13 +29,13 @@ from mistralai.workflows.plugins.mistralai.connectors.mcp_apps import (
 from mistralai.workflows.plugins.mistralai.connectors.models import (
     ResolvedConnector,
 )
-from mistralai.workflows.plugins.mistralai.connectors.run_as import RunAs
+from mistralai.workflows.plugins.mistralai.connectors.run_as import RunAs, require_connector_activity_run_as
 
 logger = structlog.get_logger(__name__)
 
 
 def _build_connector_client(run_as: RunAs = RunAs.AUTO) -> Mistral:
-    return get_mistral_client(run_as=run_as)
+    return get_mistral_client(run_as=require_connector_activity_run_as(run_as))
 
 
 @activity(

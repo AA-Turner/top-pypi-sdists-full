@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-09-17 AT 19:00:59
+# AUTO GENERATED ON 2026-11-12 AT 19:21:42
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -71,6 +71,12 @@ def by_signature(lib):
     f.restype = ERROR
     f.dir = ['out', 'in', 'in', 'in']
     out['awkward_ByteMaskedArray_getitem_nextcarry', int64, int8] = f
+
+    f = lib.awkward_ListOffsetArray_getitem_boolmask_64
+    f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int8), POINTER(c_int64), c_int64, c_int64]
+    f.restype = ERROR
+    f.dir = ['out', 'out', 'in', 'in', 'in', 'in']
+    out['awkward_ListOffsetArray_getitem_boolmask', int64, int64, int8, int64] = f
 
     f = lib.awkward_ByteMaskedArray_getitem_nextcarry_outindex_64
     f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int8), c_int64, c_bool]
@@ -3005,17 +3011,5 @@ def by_signature(lib):
     f.restype = ERROR
     f.dir = ['out', 'in', 'in', 'out']
     out['awkward_unique_ranges', float64, int64, int64] = f
-
-    f = lib.awkward_sorting_ranges
-    f.argtypes = [POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
-    f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in']
-    out['awkward_sorting_ranges', int64, int64] = f
-
-    f = lib.awkward_sorting_ranges_length
-    f.argtypes = [POINTER(c_int64), POINTER(c_int64), c_int64]
-    f.restype = ERROR
-    f.dir = ['out', 'in', 'in']
-    out['awkward_sorting_ranges_length', int64, int64] = f
 
     return out

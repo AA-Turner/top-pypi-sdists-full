@@ -1,15 +1,18 @@
-Metadata-Version: 2.1
-Name: pydantic-settings-yaml
-Version: 0.2.0
+Metadata-Version: 2.4
+Name: pydantic_settings_yaml
+Version: 0.2.1
 Summary: Yaml support for Pydantic settings
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: pyYAML
+Requires-Dist: pydantic-settings<3.0,>=2.0
+Dynamic: license-file
 
 # pydantic-settings-yaml
 
-***Note: 2.x needs Pydantic>2.0,<3.0. Install 1.x if you still need Pydantic 1.x.***
+***Note: 0.2.x needs Pydantic>2.0,<3.0. Install 0.1.x if you still need Pydantic 1.x.***
 
 Yaml support for Pydantic settings. Load a yaml config file 
 as nested Pydantic models. 

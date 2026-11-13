@@ -20,6 +20,7 @@ from hugpy_core.router.observability import store as routing
 api_access_bp, logger = get_bp("api_access_bp", __name__)
 _lock = threading.Lock()
 _SETTING = "require_key_mode"
+_MODES = ("never", "outside", "always")
 _TABLE = "hugpy_console_settings"
 _INSTALL_BRIDGE_FILE = "/etc/hugpy/install-link-bridge.secret"
 
@@ -28,6 +29,41 @@ def valid_use_authorization(auth):
     """Shared bearer validation for HTTP and hosted arms."""
     token = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
     return bool(token and routing.KEYS.scope_of(token) in ("use", "admin"))
+
+
+def principal():
+    """Who is calling, as the key gate judges the current request:
+    ``{"scope", "inside", "console", "role"}``.
+
+    scope "admin": an admin key, or this box itself (a direct loopback caller: the gate's own
+    rule for managing the box). "use": a valid use key, or a caller the requirement mode admits
+    to the model API without one. None: nobody the gate would admit. ``inside`` says whether
+    the caller's address is on this box or its trusted networks.
+
+    ``console`` is True when the request came through a front's session gate (its verified
+    marker, from a configured console proxy address); ``role`` is then what that front said of
+    the session (X-Hugpy-Role), which Core passes on and does not interpret. Such a request
+    reaches Core from the front's own address, so its scope reads as this box: a caller that
+    must tell the operator from any signed-in session looks at ``role`` as well.
+
+    Hosted arms receive this function with Core's other services, so one rule decides who is
+    calling everywhere."""
+    class RequestView:
+        client_address = (request.remote_addr or "", 0)
+        headers = request.headers
+
+    view = RequestView()
+    proxies = {value.strip() for value in os.environ.get(
+        'HUGPY_CONSOLE_PROXY_ADDRS', '127.0.0.1,::1').split(',') if value.strip()}
+    console = (request.remote_addr in proxies
+               and request.headers.get('X-Hugpy-Console-Authenticated') == '1')
+    who = {"scope": None, "inside": routing.KEYS.is_inside(view), "console": console,
+           "role": request.headers.get('X-Hugpy-Role') if console else None}
+    for scope in ("admin", "use"):
+        if routing.KEYS.check(view, scope) is None:
+            who["scope"] = scope
+            break
+    return who
 
 
 def verify_use_key():
@@ -46,7 +82,7 @@ def initialize_api_access():
     try:
         _ensure_settings()
         rows = routing.STORE.read(f"SELECT value FROM {_TABLE} WHERE key = ?", (_SETTING,))
-        if rows and rows[0]["value"] in ("never", "outside", "always"):
+        if rows and rows[0]["value"] in _MODES:
             os.environ[routing.KEYS.env_require] = rows[0]["value"]
     except Exception:  # noqa: BLE001 - the endpoint surfaces persistence errors to operators
         return
@@ -176,10 +212,19 @@ def keys_require_get():
     return _mode_view()
 
 
-def keys_require_set(require=None, **_body):
-    """POST|PUT /keys/require {require: bool}: turn /v1 key enforcement on or off."""
+def keys_require_set(require=None, mode=None, **_body):
+    """POST|PUT /keys/require: who needs an API key on /v1 and /live-api.
+
+    ``{require: bool}``, the console's switch: on is "always" (everybody, local callers
+    included), off is "never". ``{mode: "never" | "outside" | "always"}`` names a state outright;
+    "outside" asks a key only of callers from outside this box and its trusted networks."""
+    if mode is None:
+        mode = "always" if require else "never"
+    mode = str(mode).strip().lower()
+    if mode not in _MODES:
+        return {"error": f"mode must be one of {', '.join(_MODES)}"}, 400
     try:
-        _set_mode("always" if require else "never")
+        _set_mode(mode)
     except Exception as exc:  # noqa: BLE001
         return {"error": f"Could not save API key requirement: {exc}"}, 503
     return _mode_view()

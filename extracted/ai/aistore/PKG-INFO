@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aistore
-Version: 2.1.0
+Version: 2.2.0
 Summary: Client-side APIs to access and utilize clusters, buckets, and objects on AIStore.
 Project-URL: Homepage, https://aistore.nvidia.com
 Project-URL: Documentation, https://aistore.nvidia.com/docs/python-sdk
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.10
 Requires-Dist: braceexpand>=0.1.7
@@ -45,7 +46,7 @@ Requires-Dist: gunicorn>=23.0.0; extra == 'etl'
 Requires-Dist: httpx>=0.28.0; extra == 'etl'
 Requires-Dist: uvicorn[standard]>=0.32.0; extra == 'etl'
 Provides-Extra: mcp
-Requires-Dist: mcp[cli]<2,>=1.4.1; extra == 'mcp'
+Requires-Dist: mcp[cli]<3,>=2; extra == 'mcp'
 Provides-Extra: pytorch
 Requires-Dist: alive-progress>=3.1.0; extra == 'pytorch'
 Requires-Dist: torch; extra == 'pytorch'

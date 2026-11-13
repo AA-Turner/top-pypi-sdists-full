@@ -43,25 +43,20 @@ def picker_models():
 
 
 def text_models():
-    from hugpy_core.registry import registry
-    from hugpy_core.models.keys import model_key_forms, serveable_match
-    with _conn() as conn:
-        rows = conn.execute('SELECT model_key,primary_task,metadata FROM models').fetchall()
-    workers = [w for w in registry.all_workers() if registry.is_online(w)]
+    """The text models of Core's one model list (web/routes.model_rows), in the shape a hosted
+    arm's picker reads: the name to send, whether a worker has it loaded, whether one serves it."""
+    from hugpy_core.web.routes import model_rows
     out = []
-    for row in rows:
-        metadata = row['metadata'] or {}
-        tasks = [row['primary_task'], *(metadata.get('tasks') or [])]
-        if 'text-generation' not in tasks or metadata.get('adapter') or metadata.get('serveable') is False:
+    for row in model_rows():
+        name = row.get('id') or ''
+        if row.get('object') != 'model' or name.startswith('session:'):
             continue
-        key = row['model_key']
-        wanted = model_key_forms(key)
-        serving = any(serveable_match(key, wanted, w.get('loaded_models') or []) for w in workers)
-        held = serving or any(serveable_match(key, wanted,
-                       [*(w.get('models') or []), *(w.get('models_local') or [])]) for w in workers)
-        out.append({'model': key, 'serving': serving, 'held': held,
+        if 'text-generation' not in [row.get('primary_task'), *(row.get('tasks') or [])]:
+            continue
+        serving, held = bool(row.get('loaded_on')), bool(row.get('available'))
+        out.append({'model': name, 'serving': serving, 'held': serving or held,
                     'state': 'serving' if serving else 'hot' if held else 'unknown'})
-    return sorted(out, key=lambda row: row['model'])
+    return out
 
 
 def video_models():
@@ -85,6 +80,8 @@ def video_models():
 
 
 def media_models():
-    """The same availability facts as Core's model endpoint, called directly."""
-    from hugpy_core.web.routes import catalog_rows
-    return catalog_rows()
+    """The rows Core's model endpoint serves, read in-process: the servable id of each model,
+    whether an online worker has it, and where it is loaded. A hosted Media arm selects by them,
+    so what it picks is what the relay can route."""
+    from hugpy_core.web.routes import model_rows
+    return model_rows()

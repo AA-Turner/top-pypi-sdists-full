@@ -76,6 +76,30 @@ class Orchestrator(str, enum.Enum):
   NONE = "NONE"
 
 
+# Self-hosted `workload_details["kind"]` value for Slurm jobs, whose terminal
+# states are reported by the cluster agent.
+SLURM_WORKLOAD_KIND = "SlurmJob"
+
+_CANONICAL_K8S_WORKLOAD_KINDS = {
+    "job": "Job",
+    "jobset": "JobSet",
+    "leaderworkerset": "LeaderWorkerSet",
+    "lws": "LeaderWorkerSet",
+    "rayjob": "RayJob",
+    "statefulset": "StatefulSet",
+    "deployment": "Deployment",
+    "raycluster": "RayCluster",
+}
+
+
+def normalize_k8s_workload_kind(kind: str | None) -> str:
+  """Trims `kind` and canonicalizes known Kubernetes workload kinds."""
+  cleaned = (kind or "").strip()
+  if not cleaned:
+    return ""
+  return _CANONICAL_K8S_WORKLOAD_KINDS.get(cleaned.lower(), cleaned)
+
+
 ALLOWED_GKE_WORKLOAD_DETAIL_KEYS = frozenset({
     "id",
     "kind",
@@ -170,4 +194,8 @@ class MLRun:
   namespace: str | None = None
 
   def __post_init__(self) -> None:
+    # Self-contained runs (control_plane_url set) have no concept of a GCP
+    # region, so location is not validated.
+    if self.control_plane_url:
+      return
     gcp.validate_region(self.location)

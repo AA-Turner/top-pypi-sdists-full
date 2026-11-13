@@ -17,7 +17,7 @@ from . import core, decompose, feature, util
 from .util.exceptions import ParameterError
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Iterable, Literal
+    from typing import Callable, Iterable, Literal
 
     from numpy.typing import ArrayLike
 
@@ -140,6 +140,7 @@ def hpss(
         n_fft=n_fft,
         hop_length=hop_length,
         win_length=win_length,
+        window=window,
         center=center,
         pad_mode=pad_mode,
     )
@@ -156,6 +157,7 @@ def hpss(
         n_fft=n_fft,
         hop_length=hop_length,
         win_length=win_length,
+        window=window,
         center=center,
         length=y.shape[-1],
     )
@@ -165,6 +167,7 @@ def hpss(
         n_fft=n_fft,
         hop_length=hop_length,
         win_length=win_length,
+        window=window,
         center=center,
         length=y.shape[-1],
     )
@@ -263,6 +266,7 @@ def harmonic(
         n_fft=n_fft,
         hop_length=hop_length,
         win_length=win_length,
+        window=window,
         center=center,
         pad_mode=pad_mode,
     )
@@ -279,6 +283,7 @@ def harmonic(
         n_fft=n_fft,
         hop_length=hop_length,
         win_length=win_length,
+        window=window,
         center=center,
         length=y.shape[-1],
     )
@@ -377,6 +382,7 @@ def percussive(
         n_fft=n_fft,
         hop_length=hop_length,
         win_length=win_length,
+        window=window,
         center=center,
         pad_mode=pad_mode,
     )
@@ -393,6 +399,7 @@ def percussive(
         n_fft=n_fft,
         hop_length=hop_length,
         win_length=win_length,
+        window=window,
         center=center,
         length=y.shape[-1],
     )
@@ -400,7 +407,17 @@ def percussive(
     return y_perc
 
 
-def time_stretch(y: np.ndarray, *, rate: float, **kwargs: Any) -> np.ndarray:
+def time_stretch(
+    y: np.ndarray,
+    *,
+    rate: float,
+    n_fft: int = 2048,
+    hop_length: int | None = None,
+    win_length: int | None = None,
+    window: _WindowSpec = "hann",
+    center: bool = True,
+    pad_mode: _PadModeSTFT = "constant",
+) -> np.ndarray:
     """Time-stretch an audio series by a fixed rate.
 
     Parameters
@@ -410,8 +427,30 @@ def time_stretch(y: np.ndarray, *, rate: float, **kwargs: Any) -> np.ndarray:
     rate : float > 0 [scalar]
         Stretch factor.  If ``rate > 1``, then the signal is sped up.
         If ``rate < 1``, then the signal is slowed down.
-    **kwargs : additional keyword arguments.
-        See `librosa.decompose.stft` for details.
+
+    n_fft : int > 0 [scalar]
+        Length of the windowed signal after padding with zeros.
+        The number of rows in the STFT matrix is ``(1 + n_fft/2)``.
+
+    hop_length : int or None
+        Number of audio samples between adjacent STFT columns.
+        If unspecified, defaults to ``win_length // 4``.
+
+    win_length : int or None
+        Each frame of audio is windowed by ``window`` of length ``win_length``
+        and then padded with zeros to match ``n_fft``.
+        If unspecified, defaults to ``win_length = n_fft``.
+
+    window : str, tuple, number, function, or np.ndarray [shape=(n_fft,)]
+        Window specification. See `scipy.signal.get_window` for supported values.
+
+    center : bool
+        If ``True``, the signal is padded so that frame ``t`` is centered
+        at ``y[t * hop_length]``.
+
+    pad_mode : str
+        Padding mode used when ``center=True``.
+        See `numpy.pad` for available modes.
 
     Returns
     -------
@@ -442,21 +481,33 @@ def time_stretch(y: np.ndarray, *, rate: float, **kwargs: Any) -> np.ndarray:
         raise ParameterError("rate must be a positive number")
 
     # Construct the short-term Fourier transform (STFT)
-    stft = core.stft(y, **kwargs)
+    stft = core.stft(
+        y,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        win_length=win_length,
+        window=window,
+        center=center,
+        pad_mode=pad_mode,
+    )
 
     # Stretch by phase vocoding
-    stft_stretch = core.phase_vocoder(
-        stft,
-        rate=rate,
-        hop_length=kwargs.get("hop_length"),
-        n_fft=kwargs.get("n_fft"),
-    )
+    stft_stretch = core.phase_vocoder(stft, rate=rate)
 
     # Predict the length of y_stretch
     len_stretch = round(y.shape[-1] / rate)
 
     # Invert the STFT
-    y_stretch = core.istft(stft_stretch, dtype=y.dtype, length=len_stretch, **kwargs)
+    y_stretch = core.istft(
+        stft_stretch,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        win_length=win_length,
+        window=window,
+        center=center,
+        dtype=y.dtype,
+        length=len_stretch,
+    )
 
     return y_stretch
 
@@ -469,7 +520,12 @@ def pitch_shift(
     bins_per_octave: int = 12,
     res_type: str = "soxr_hq",
     scale: bool = False,
-    **kwargs: Any,
+    n_fft: int = 2048,
+    hop_length: int | None = None,
+    win_length: int | None = None,
+    window: _WindowSpec = "hann",
+    center: bool = True,
+    pad_mode: _PadModeSTFT = "constant",
 ) -> np.ndarray:
     """Shift the pitch of a waveform by ``n_steps`` steps.
 
@@ -498,8 +554,29 @@ def pitch_shift(
         Scale the resampled signal so that ``y`` and ``y_hat`` have approximately
         equal total energy.
 
-    **kwargs : additional keyword arguments.
-        See `librosa.decompose.stft` for details.
+    n_fft : int > 0 [scalar]
+        Length of the windowed signal after padding with zeros.
+        The number of rows in the STFT matrix is ``(1 + n_fft/2)``.
+
+    hop_length : int or None
+        Number of audio samples between adjacent STFT columns.
+        If unspecified, defaults to ``win_length // 4``.
+
+    win_length : int or None
+        Each frame of audio is windowed by ``window`` of length ``win_length``
+        and then padded with zeros to match ``n_fft``.
+        If unspecified, defaults to ``win_length = n_fft``.
+
+    window : str, tuple, number, function, or np.ndarray [shape=(n_fft,)]
+        Window specification. See `scipy.signal.get_window` for supported values.
+
+    center : bool
+        If ``True``, the signal is padded so that frame ``t`` is centered
+        at ``y[t * hop_length]``.
+
+    pad_mode : str
+        Padding mode used when ``center=True``.
+        See `numpy.pad` for available modes.
 
     Returns
     -------
@@ -540,7 +617,16 @@ def pitch_shift(
 
     # Stretch in time, then resample
     y_shift = core.resample(
-        time_stretch(y, rate=rate, **kwargs),
+        time_stretch(
+            y,
+            rate=rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            center=center,
+            pad_mode=pad_mode,
+        ),
         orig_sr=float(sr) / rate,
         target_sr=sr,
         res_type=res_type,
@@ -608,7 +694,7 @@ def remix(
 
     for interval in intervals:
         if align_zeros:
-            interval = zeros[util.match_events(interval, zeros)]
+            interval = zeros[util.match_events(np.asarray(interval), zeros)]
 
         y_out.append(y[..., interval[0] : interval[1]])
 
@@ -892,6 +978,10 @@ def preemphasis(
     zf : number
         if ``return_zf=True``, the final filter state is also returned
 
+    See Also
+    --------
+    deemphasis
+
     Examples
     --------
     Apply a standard pre-emphasis filter
@@ -917,10 +1007,6 @@ def preemphasis(
     >>> y_filt_2, zf = librosa.effects.preemphasis(y[1000:], zi=zf, return_zf=True)
     >>> np.allclose(y_filt, np.concatenate([y_filt_1, y_filt_2]))
     True
-
-    See Also
-    --------
-    deemphasis
     """
     b = np.asarray([1.0, -coef], dtype=y.dtype)
     a = np.asarray([1.0], dtype=y.dtype)
@@ -1009,6 +1095,10 @@ def deemphasis(
     zf : number
         if ``return_zf=True``, the final filter state is also returned
 
+    See Also
+    --------
+    preemphasis
+
     Examples
     --------
     Apply a standard pre-emphasis filter and invert it with de-emphasis
@@ -1018,10 +1108,6 @@ def deemphasis(
     >>> y_deemph = librosa.effects.deemphasis(y_filt)
     >>> np.allclose(y, y_deemph)
     True
-
-    See Also
-    --------
-    preemphasis
     """
     b = np.array([1.0, -coef], dtype=y.dtype)
     a = np.array([1.0], dtype=y.dtype)

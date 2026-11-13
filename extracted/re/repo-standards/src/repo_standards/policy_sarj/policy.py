@@ -380,8 +380,8 @@ RULES = (
     ),
     Rule(
         rule_id=UNTYPED_JAVASCRIPT_RULE_ID,
-        version=1,
-        default_severity="warning",
+        version=2,
+        default_severity="error",
         title="Prefer typed source and declare required JavaScript artifacts",
         description=(
             "Tracked .js, .jsx, .mjs and .cjs paths, case-insensitively, need an exact "
@@ -394,8 +394,9 @@ RULES = (
             "make that intent reviewable without inferring it from a filename."
         ),
         fix=(
-            "Review module loading and callers before migrating authored code to typed "
-            "TypeScript. For required JavaScript, declare the exact path, artifact kind and "
+            "Use .mts for authored ESM tooling, .cts for CommonJS, and the framework's typed "
+            "source convention for applications. Review module loading and callers before "
+            "migrating. For required JavaScript, declare the exact path, artifact kind and "
             "reason; generated output also needs a tracked non-JavaScript source. A declaration "
             "records intent and does not prove generation or semantic necessity."
         ),
@@ -406,8 +407,8 @@ RULES = (
                 title="Typed tooling source",
                 language="text",
                 before="scripts/generate-catalog.mjs",
-                after="scripts/generate-catalog.ts",
-                expected_severity="warning",
+                after="scripts/generate-catalog.mts",
+                expected_severity="error",
             ),
             _example(
                 example_id="sarj-artifact-untyped-javascript-generated",
@@ -424,7 +425,7 @@ RULES = (
                     'kind = \\"generated\\"\\nsource = \\"scripts/generate.py\\"\\n'
                     'reason = \\"External tools load this generated ESM artifact.\\"\\n"}'
                 ),
-                expected_severity="warning",
+                expected_severity="error",
             ),
         ),
     ),
@@ -481,7 +482,7 @@ RULES = (
     ),
     Rule(
         rule_id=RuleId("repository/artifacts/bespoke-iac-verifiers"),
-        version=6,
+        version=7,
         default_severity="error",
         title="Do not commit bespoke verifier scripts",
         description=(
@@ -497,13 +498,12 @@ RULES = (
             "executable verification belongs in an objectively owned tool or harness."
         ),
         fix=(
-            "Identify each distinct behavior and safety contract the verifier checks. "
-            "Before deleting it and its invocations, demonstrate that retained or replacement "
-            "checks reject the same wrong outcomes through Terraform, shared policy, or a "
-            "provider or runtime contract; if executable "
-            "verification is durable product code, place it in conventional source inside a "
-            "declared or workspace-backed tool or harness. Relocating, renaming, or translating "
-            "the same check, including to TypeScript, is not remediation."
+            "Run one-off IaC rehearsals outside Git and summarize evidence in the PR. "
+            "For a permanent check, name the recurring regression existing gates miss, "
+            "its owned harness, execution cost, and failure action. Preserve distinct "
+            "behavior and safety contracts in native checks or that harness; then remove "
+            "the redundant helper, invocations, and unused dependencies. Renaming, moving, "
+            "or translating the helper does not resolve duplication."
         ),
         taxonomy=taxonomy(CHANGE_SAFETY, ARTIFACTS),
         examples=(
@@ -518,7 +518,7 @@ RULES = (
     ),
     Rule(
         rule_id=RuleId("repository/artifacts/operational-script-tests"),
-        version=5,
+        version=6,
         default_severity="warning",
         title="Review operational script tests for duplicate contracts",
         description=(
@@ -538,10 +538,11 @@ RULES = (
             "redundancy or test value; workflow contents are outside this rule's evidence."
         ),
         fix=(
-            "Review the asserted contract and existing checks. Remove a test and its "
-            "invocations only when existing coverage rejects the same wrong outcomes. "
-            "Retain distinct behavior and safety coverage; moving or renaming does not "
-            "resolve contract duplication."
+            "Name the wrong outcome and retained check that rejects it. Keep one-off "
+            "rollout rehearsals and reports outside Git. Recurring tests need a distinct "
+            "regression, an owned harness, and a bounded execution cost. Remove redundant "
+            "tests and invocations only after proving equivalent coverage; retain distinct "
+            "behavior and safety contracts. Moving or renaming is not remediation."
         ),
         taxonomy=taxonomy(CHANGE_SAFETY, ARTIFACTS),
         examples=(
@@ -836,7 +837,7 @@ RULE_GOVERNANCE = tuple(
 POLICY_SPEC = PolicySpec(
     schema_version=2,
     policy_id=PolicyId("sarj"),
-    policy_version=35,
+    policy_version=36,
     profile_id=PROFILE_ID,
     title="Sarj repository standard",
     component_kinds=tuple(kind.value for kind in ComponentKind),
@@ -1021,16 +1022,19 @@ def _tracked_artifact_diagnostics(
                 message="tracked retired, operational, or unowned verifier is prohibited",
                 path=path,
                 remediation=Remediation(
-                    summary="Preserve distinct contracts before removing the verifier.",
+                    summary="Keep one-off rehearsals outside Git; preserve distinct contracts.",
                     steps=(
                         (
-                            "Identify each behavior and safety contract and demonstrate that "
-                            "retained or replacement Terraform, shared-policy, provider, or "
-                            "runtime checks reject the same wrong outcomes."
+                            "For recurring verification, name the regression existing gates "
+                            "miss, its owned harness, runtime budget, and failure action."
                         ),
                         (
-                            "Then delete the verifier and every invocation; relocating it "
-                            "is not remediation."
+                            "Demonstrate that retained native checks or the owned harness "
+                            "reject each distinct wrong outcome."
+                        ),
+                        (
+                            "Remove the redundant helper, invocations, and unused dependencies; "
+                            "moving or renaming it is not remediation."
                         ),
                     ),
                     validation=(
@@ -1052,12 +1056,16 @@ def _tracked_artifact_diagnostics(
                 remediation=Remediation(
                     summary="Review the asserted contract and existing coverage.",
                     steps=(
-                        "Retain tests that reject distinct behavior or safety regressions.",
+                        (
+                            "Retain tests that reject distinct behavior or safety regressions "
+                            "in an owned harness with a bounded execution cost."
+                        ),
                         (
                             "Delete the test and its invocations only after demonstrating "
                             "equivalent existing coverage; moving or renaming does not "
                             "resolve duplication."
                         ),
+                        "Keep one-off IaC rehearsals and their reports outside Git.",
                     ),
                     validation=(
                         "Run focused tests for retained contracts and rerun repo-standards.",
@@ -1528,6 +1536,10 @@ class SarjPolicy:
     policy_id: ClassVar[PolicyId] = PolicyId("sarj")
     policy_version: ClassVar[int] = POLICY_SPEC.policy_version
     profile_id: ClassVar[ProfileId] = PROFILE_ID
+    default_rule_ids: ClassVar[tuple[str, ...]] = (
+        "repository/artifacts/untyped-javascript",
+        "repository/artifacts/bespoke-iac-verifiers",
+    )
 
     @staticmethod
     def spec() -> PolicySpec:

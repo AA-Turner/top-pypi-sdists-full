@@ -45,6 +45,7 @@ from probe.sdk.client.resources.projects.projects import ProjectsMixin, Projects
 from probe.sdk.client.resources.projects.summaries import SummariesMixin, SummariesResource
 from probe.sdk.client.resources.reads import ReadsMixin, ReadsResource
 from probe.sdk.client.resources.samples.live import LiveSamplesMixin
+from probe.sdk.client.resources.samples.points import SamplePointsMixin
 from probe.sdk.client.resources.samples.samples import SampleReadsMixin, SamplesResource
 from probe.sdk.client.resources.runs.attach import RunAttachMixin
 from probe.sdk.client.resources.runs.check import RunCheckMixin
@@ -118,6 +119,7 @@ class Client(
     NotesMixin,
     ReadsMixin,
     SampleReadsMixin,
+    SamplePointsMixin,
     LiveSamplesMixin,
 ):
     #: True for a client whose queue is drained by hand on purpose -- the

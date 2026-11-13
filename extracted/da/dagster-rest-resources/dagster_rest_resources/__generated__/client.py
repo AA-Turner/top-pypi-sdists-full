@@ -7,6 +7,7 @@ from .base_client import BaseClient
 from .base_model import UNSET
 
 if TYPE_CHECKING:
+    from .add_dynamic_partition import AddDynamicPartition
     from .add_link_to_issue import AddLinkToIssue
     from .add_or_update_code_location import AddOrUpdateCodeLocation
     from .base_model import UnsetType
@@ -15,6 +16,7 @@ if TYPE_CHECKING:
     from .delete_alert_policy import DeleteAlertPolicy
     from .delete_code_location import DeleteCodeLocation
     from .delete_deployment import DeleteDeployment
+    from .delete_dynamic_partitions import DeleteDynamicPartitions
     from .enums import (
         InstigationTickStatus,
         IssueStatus,
@@ -33,7 +35,10 @@ if TYPE_CHECKING:
     from .get_asset_materialization_events import GetAssetMaterializationEvents
     from .get_asset_metrics import GetAssetMetrics
     from .get_asset_observation_events import GetAssetObservationEvents
+    from .get_asset_partition_definition import GetAssetPartitionDefinition
+    from .get_asset_partition_keys import GetAssetPartitionKeys
     from .get_asset_partition_status import GetAssetPartitionStatus
+    from .get_asset_partition_statuses import GetAssetPartitionStatuses
     from .get_asset_selection_metrics import GetAssetSelectionMetrics
     from .get_captured_logs import GetCapturedLogs
     from .get_captured_logs_metadata import GetCapturedLogsMetadata
@@ -102,6 +107,10 @@ if TYPE_CHECKING:
     from .rerun_backfill import RerunBackfill
     from .rerun_run import RerunRun
     from .set_deployment_settings import SetDeploymentSettings
+    from .start_schedule import StartSchedule
+    from .start_sensor import StartSensor
+    from .stop_schedule import StopSchedule
+    from .stop_sensor import StopSensor
     from .terminate_run import TerminateRun
     from .update_issue import UpdateIssue
     from .update_organization_settings import UpdateOrganizationSettings
@@ -115,8 +124,7 @@ class Client(BaseClient):
     def list_agents(self, **kwargs: Any) -> "ListAgents":
         from .list_agents import ListAgents
 
-        query = gql(
-            """
+        query = gql("""
             query ListAgents {
               agents {
                 id
@@ -129,8 +137,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {}
         response = self.execute(
             query=query, operation_name="ListAgents", variables=variables, **kwargs
@@ -143,8 +150,7 @@ class Client(BaseClient):
     ) -> "ListAlertPoliciesAsDocument":
         from .list_alert_policies_as_document import ListAlertPoliciesAsDocument
 
-        query = gql(
-            """
+        query = gql("""
             query ListAlertPoliciesAsDocument {
               alertPoliciesAsDocumentOrError {
                 __typename
@@ -159,8 +165,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {}
         response = self.execute(
             query=query,
@@ -176,8 +181,7 @@ class Client(BaseClient):
     ) -> "ReconcileAlertPolicies":
         from .reconcile_alert_policies import ReconcileAlertPolicies
 
-        query = gql(
-            """
+        query = gql("""
             mutation ReconcileAlertPolicies($document: GenericScalar!) {
               reconcileAlertPoliciesFromDocument(document: $document) {
                 __typename
@@ -200,8 +204,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"document": document}
         response = self.execute(
             query=query,
@@ -215,8 +218,7 @@ class Client(BaseClient):
     def list_alert_policies(self, **kwargs: Any) -> "ListAlertPolicies":
         from .list_alert_policies import ListAlertPolicies
 
-        query = gql(
-            """
+        query = gql("""
             query ListAlertPolicies {
               alertPolicies {
                 ...AlertPolicyFields
@@ -371,8 +373,7 @@ class Client(BaseClient):
                 renotifyIntervalMinutes
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {}
         response = self.execute(
             query=query,
@@ -386,8 +387,7 @@ class Client(BaseClient):
     def get_alert_policy(self, alert_policy_id: str, **kwargs: Any) -> "GetAlertPolicy":
         from .get_alert_policy import GetAlertPolicy
 
-        query = gql(
-            """
+        query = gql("""
             query GetAlertPolicy($alertPolicyId: String!) {
               alertPolicyById(alertPolicyId: $alertPolicyId) {
                 ...AlertPolicyFields
@@ -542,8 +542,7 @@ class Client(BaseClient):
                 renotifyIntervalMinutes
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"alertPolicyId": alert_policy_id}
         response = self.execute(
             query=query, operation_name="GetAlertPolicy", variables=variables, **kwargs
@@ -560,8 +559,7 @@ class Client(BaseClient):
     ) -> "GetAlertPoliciesForJob":
         from .get_alert_policies_for_job import GetAlertPoliciesForJob
 
-        query = gql(
-            """
+        query = gql("""
             query GetAlertPoliciesForJob($jobName: String!, $repositoryName: String!, $repositoryLocationName: String!) {
               alertPoliciesForJob(
                 jobName: $jobName
@@ -720,8 +718,7 @@ class Client(BaseClient):
                 renotifyIntervalMinutes
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "jobName": job_name,
             "repositoryName": repository_name,
@@ -745,8 +742,7 @@ class Client(BaseClient):
     ) -> "GetAlertPolicyNotifications":
         from .get_alert_policy_notifications import GetAlertPolicyNotifications
 
-        query = gql(
-            """
+        query = gql("""
             query GetAlertPolicyNotifications($alertPolicyId: String!, $limit: Int!, $cursor: String) {
               alertPolicyNotifications(
                 alertPolicyId: $alertPolicyId
@@ -828,8 +824,7 @@ class Client(BaseClient):
                 computedValue
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "alertPolicyId": alert_policy_id,
             "limit": limit,
@@ -852,8 +847,7 @@ class Client(BaseClient):
     ) -> "GetRunAlertNotifications":
         from .get_run_alert_notifications import GetRunAlertNotifications
 
-        query = gql(
-            """
+        query = gql("""
             query GetRunAlertNotifications($runId: String!, $limit: Int) {
               runNotificationsOrError(runId: $runId, limit: $limit) {
                 __typename
@@ -1049,8 +1043,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"runId": run_id, "limit": limit}
         response = self.execute(
             query=query,
@@ -1066,8 +1059,7 @@ class Client(BaseClient):
     ) -> "CreateOrUpdateAlertPolicy":
         from .create_or_update_alert_policy import CreateOrUpdateAlertPolicy
 
-        query = gql(
-            """
+        query = gql("""
             mutation CreateOrUpdateAlertPolicy($document: GenericScalar!) {
               createOrUpdateAlertPolicyFromDocument(document: $document) {
                 __typename
@@ -1238,8 +1230,7 @@ class Client(BaseClient):
                 renotifyIntervalMinutes
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"document": document}
         response = self.execute(
             query=query,
@@ -1255,8 +1246,7 @@ class Client(BaseClient):
     ) -> "DeleteAlertPolicy":
         from .delete_alert_policy import DeleteAlertPolicy
 
-        query = gql(
-            """
+        query = gql("""
             mutation DeleteAlertPolicy($alertPolicyName: String!) {
               deleteAlertPolicy(alertPolicyName: $alertPolicyName) {
                 __typename
@@ -1275,8 +1265,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"alertPolicyName": alert_policy_name}
         response = self.execute(
             query=query,
@@ -1296,8 +1285,7 @@ class Client(BaseClient):
     ) -> "ListAssetRecords":
         from .list_asset_records import ListAssetRecords
 
-        query = gql(
-            """
+        query = gql("""
             query ListAssetRecords($prefix: [String!], $cursor: String, $limit: Int) {
               assetRecordsOrError(prefix: $prefix, cursor: $cursor, limit: $limit) {
                 __typename
@@ -1315,8 +1303,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "prefix": prefix,
             "cursor": cursor,
@@ -1336,8 +1323,7 @@ class Client(BaseClient):
     ) -> "GetAssetDetails":
         from .get_asset_details import GetAssetDetails
 
-        query = gql(
-            """
+        query = gql("""
             query GetAssetDetails($assetKeys: [AssetKeyInput!]!) {
               assetsOrError(assetKeys: $assetKeys) {
                 __typename
@@ -1446,8 +1432,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"assetKeys": asset_keys}
         response = self.execute(
             query=query, operation_name="GetAssetDetails", variables=variables, **kwargs
@@ -1460,8 +1445,7 @@ class Client(BaseClient):
     ) -> "GetAssetHealth":
         from .get_asset_health import GetAssetHealth
 
-        query = gql(
-            """
+        query = gql("""
             query GetAssetHealth($assetKeys: [AssetKeyInput!]!) {
               assetsOrError(assetKeys: $assetKeys) {
                 __typename
@@ -1533,8 +1517,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"assetKeys": asset_keys}
         response = self.execute(
             query=query, operation_name="GetAssetHealth", variables=variables, **kwargs
@@ -1552,8 +1535,7 @@ class Client(BaseClient):
     ) -> "GetAssetMaterializationEvents":
         from .get_asset_materialization_events import GetAssetMaterializationEvents
 
-        query = gql(
-            """
+        query = gql("""
             query GetAssetMaterializationEvents($assetKeys: [AssetKeyInput!]!, $limit: Int, $beforeTimestampMillis: String, $partitions: [String!]) {
               assetsOrError(assetKeys: $assetKeys) {
                 __typename
@@ -1615,8 +1597,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "assetKeys": asset_keys,
             "limit": limit,
@@ -1642,8 +1623,7 @@ class Client(BaseClient):
     ) -> "GetAssetObservationEvents":
         from .get_asset_observation_events import GetAssetObservationEvents
 
-        query = gql(
-            """
+        query = gql("""
             query GetAssetObservationEvents($assetKeys: [AssetKeyInput!]!, $limit: Int, $beforeTimestampMillis: String, $partitions: [String!]) {
               assetsOrError(assetKeys: $assetKeys) {
                 __typename
@@ -1705,8 +1685,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "assetKeys": asset_keys,
             "limit": limit,
@@ -1731,8 +1710,7 @@ class Client(BaseClient):
     ) -> "GetAssetConditionEvaluations":
         from .get_asset_condition_evaluations import GetAssetConditionEvaluations
 
-        query = gql(
-            """
+        query = gql("""
             query GetAssetConditionEvaluations($assetKey: AssetKeyInput!, $limit: Int!, $cursor: String) {
               assetConditionEvaluationRecordsOrError(
                 assetKey: $assetKey
@@ -1768,8 +1746,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "assetKey": asset_key,
             "limit": limit,
@@ -1789,8 +1766,7 @@ class Client(BaseClient):
     ) -> "GetAssetPartitionStatus":
         from .get_asset_partition_status import GetAssetPartitionStatus
 
-        query = gql(
-            """
+        query = gql("""
             query GetAssetPartitionStatus($assetKey: AssetKeyInput!) {
               assetNodeOrError(assetKey: $assetKey) {
                 __typename
@@ -1807,8 +1783,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"assetKey": asset_key}
         response = self.execute(
             query=query,
@@ -1824,8 +1799,7 @@ class Client(BaseClient):
     ) -> "GetAssetLocation":
         from .get_asset_location import GetAssetLocation
 
-        query = gql(
-            """
+        query = gql("""
             query GetAssetLocation($assetKey: AssetKeyInput!) {
               assetNodeOrError(assetKey: $assetKey) {
                 __typename
@@ -1845,8 +1819,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"assetKey": asset_key}
         response = self.execute(
             query=query,
@@ -1862,8 +1835,7 @@ class Client(BaseClient):
     ) -> "GetAssetLocations":
         from .get_asset_locations import GetAssetLocations
 
-        query = gql(
-            """
+        query = gql("""
             query GetAssetLocations($assetKeys: [AssetKeyInput!]!) {
               assetNodes(assetKeys: $assetKeys) {
                 assetKey {
@@ -1877,8 +1849,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"assetKeys": asset_keys}
         response = self.execute(
             query=query,
@@ -1889,6 +1860,155 @@ class Client(BaseClient):
         data = self.get_data(response)
         return GetAssetLocations.model_validate(data)
 
+    def get_asset_partition_keys(
+        self,
+        asset_key: "AssetKeyInput",
+        limit: int,
+        ascending: bool,
+        cursor: Union[Optional[str], "UnsetType"] = UNSET,
+        **kwargs: Any
+    ) -> "GetAssetPartitionKeys":
+        from .get_asset_partition_keys import GetAssetPartitionKeys
+
+        query = gql("""
+            query GetAssetPartitionKeys($assetKey: AssetKeyInput!, $limit: Int!, $ascending: Boolean!, $cursor: String) {
+              assetNodeOrError(assetKey: $assetKey) {
+                __typename
+                ... on AssetNode {
+                  partitionKeyConnection(limit: $limit, ascending: $ascending, cursor: $cursor) {
+                    results
+                    cursor
+                    hasMore
+                  }
+                }
+                ... on AssetNotFoundError {
+                  message
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {
+            "assetKey": asset_key,
+            "limit": limit,
+            "ascending": ascending,
+            "cursor": cursor,
+        }
+        response = self.execute(
+            query=query,
+            operation_name="GetAssetPartitionKeys",
+            variables=variables,
+            **kwargs
+        )
+        data = self.get_data(response)
+        return GetAssetPartitionKeys.model_validate(data)
+
+    def get_asset_partition_definition(
+        self, asset_key: "AssetKeyInput", **kwargs: Any
+    ) -> "GetAssetPartitionDefinition":
+        from .get_asset_partition_definition import GetAssetPartitionDefinition
+
+        query = gql("""
+            query GetAssetPartitionDefinition($assetKey: AssetKeyInput!) {
+              assetNodeOrError(assetKey: $assetKey) {
+                __typename
+                ... on AssetNode {
+                  assetKey {
+                    path
+                  }
+                  repository {
+                    name
+                    location {
+                      name
+                    }
+                  }
+                  partitionDefinition {
+                    type
+                    dimensionTypes {
+                      name
+                      type
+                      dynamicPartitionsDefinitionName
+                    }
+                  }
+                }
+                ... on AssetNotFoundError {
+                  message
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {"assetKey": asset_key}
+        response = self.execute(
+            query=query,
+            operation_name="GetAssetPartitionDefinition",
+            variables=variables,
+            **kwargs
+        )
+        data = self.get_data(response)
+        return GetAssetPartitionDefinition.model_validate(data)
+
+    def get_asset_partition_statuses(
+        self, asset_key: "AssetKeyInput", **kwargs: Any
+    ) -> "GetAssetPartitionStatuses":
+        from .get_asset_partition_statuses import GetAssetPartitionStatuses
+
+        query = gql("""
+            query GetAssetPartitionStatuses($assetKey: AssetKeyInput!) {
+              assetNodeOrError(assetKey: $assetKey) {
+                __typename
+                ... on AssetNode {
+                  assetKey {
+                    path
+                  }
+                  isPartitioned
+                  assetPartitionStatuses {
+                    __typename
+                    ...DefaultPartitionStatusFields
+                    ...TimePartitionStatusFields
+                    ... on MultiPartitionStatuses {
+                      primaryDimensionName
+                      ranges {
+                        primaryDimStartKey
+                        primaryDimEndKey
+                        secondaryDim {
+                          __typename
+                          ...DefaultPartitionStatusFields
+                          ...TimePartitionStatusFields
+                        }
+                      }
+                    }
+                  }
+                }
+                ... on AssetNotFoundError {
+                  message
+                }
+              }
+            }
+
+            fragment DefaultPartitionStatusFields on DefaultPartitionStatuses {
+              materializedPartitions
+              failedPartitions
+              materializingPartitions
+              unmaterializedPartitions
+            }
+
+            fragment TimePartitionStatusFields on TimePartitionStatuses {
+              ranges {
+                startKey
+                endKey
+                status
+              }
+            }
+            """)
+        variables: dict[str, object] = {"assetKey": asset_key}
+        response = self.execute(
+            query=query,
+            operation_name="GetAssetPartitionStatuses",
+            variables=variables,
+            **kwargs
+        )
+        data = self.get_data(response)
+        return GetAssetPartitionStatuses.model_validate(data)
+
     def list_asset_checks(
         self,
         asset_key: "AssetKeyInput",
@@ -1897,8 +2017,7 @@ class Client(BaseClient):
     ) -> "ListAssetChecks":
         from .list_asset_checks import ListAssetChecks
 
-        query = gql(
-            """
+        query = gql("""
             query ListAssetChecks($assetKey: AssetKeyInput!, $limit: Int) {
               assetNodeOrError(assetKey: $assetKey) {
                 __typename
@@ -1933,8 +2052,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"assetKey": asset_key, "limit": limit}
         response = self.execute(
             query=query, operation_name="ListAssetChecks", variables=variables, **kwargs
@@ -1952,8 +2070,7 @@ class Client(BaseClient):
     ) -> "ListAssetCheckExecutions":
         from .list_asset_check_executions import ListAssetCheckExecutions
 
-        query = gql(
-            """
+        query = gql("""
             query ListAssetCheckExecutions($assetKey: AssetKeyInput!, $checkName: String!, $limit: Int!, $cursor: String) {
               assetCheckExecutions(
                 assetKey: $assetKey
@@ -1969,8 +2086,7 @@ class Client(BaseClient):
                 stepKey
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "assetKey": asset_key,
             "checkName": check_name,
@@ -1989,8 +2105,7 @@ class Client(BaseClient):
     def list_code_locations(self, **kwargs: Any) -> "ListCodeLocations":
         from .list_code_locations import ListCodeLocations
 
-        query = gql(
-            """
+        query = gql("""
             query ListCodeLocations {
               workspace {
                 workspaceEntries {
@@ -1999,8 +2114,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {}
         response = self.execute(
             query=query,
@@ -2014,8 +2128,7 @@ class Client(BaseClient):
     def get_location_statuses(self, **kwargs: Any) -> "GetLocationStatuses":
         from .get_location_statuses import GetLocationStatuses
 
-        query = gql(
-            """
+        query = gql("""
             query GetLocationStatuses {
               locationStatusesOrError {
                 __typename
@@ -2030,8 +2143,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {}
         response = self.execute(
             query=query,
@@ -2047,8 +2159,7 @@ class Client(BaseClient):
     ) -> "AddOrUpdateCodeLocation":
         from .add_or_update_code_location import AddOrUpdateCodeLocation
 
-        query = gql(
-            """
+        query = gql("""
             mutation AddOrUpdateCodeLocation($document: GenericScalar!) {
               addOrUpdateLocationFromDocument(document: $document) {
                 __typename
@@ -2066,8 +2177,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"document": document}
         response = self.execute(
             query=query,
@@ -2083,8 +2193,7 @@ class Client(BaseClient):
     ) -> "DeleteCodeLocation":
         from .delete_code_location import DeleteCodeLocation
 
-        query = gql(
-            """
+        query = gql("""
             mutation DeleteCodeLocation($locationName: String!) {
               deleteLocation(locationName: $locationName) {
                 __typename
@@ -2099,8 +2208,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"locationName": location_name}
         response = self.execute(
             query=query,
@@ -2120,8 +2228,7 @@ class Client(BaseClient):
     ) -> "GetLogsCapturedEvents":
         from .get_logs_captured_events import GetLogsCapturedEvents
 
-        query = gql(
-            """
+        query = gql("""
             query GetLogsCapturedEvents($runId: ID!, $limit: Int, $afterCursor: String) {
               logsForRun(runId: $runId, limit: $limit, afterCursor: $afterCursor) {
                 __typename
@@ -2146,8 +2253,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "runId": run_id,
             "limit": limit,
@@ -2171,8 +2277,7 @@ class Client(BaseClient):
     ) -> "GetCapturedLogs":
         from .get_captured_logs import GetCapturedLogs
 
-        query = gql(
-            """
+        query = gql("""
             query GetCapturedLogs($logKey: [String!]!, $cursor: String, $limit: Int) {
               capturedLogs(logKey: $logKey, cursor: $cursor, limit: $limit) {
                 stdout
@@ -2180,8 +2285,7 @@ class Client(BaseClient):
                 cursor
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "logKey": log_key,
             "cursor": cursor,
@@ -2198,16 +2302,14 @@ class Client(BaseClient):
     ) -> "GetCapturedLogsMetadata":
         from .get_captured_logs_metadata import GetCapturedLogsMetadata
 
-        query = gql(
-            """
+        query = gql("""
             query GetCapturedLogsMetadata($logKey: [String!]!) {
               capturedLogsMetadata(logKey: $logKey) {
                 stdoutDownloadUrl
                 stderrDownloadUrl
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"logKey": log_key}
         response = self.execute(
             query=query,
@@ -2221,8 +2323,7 @@ class Client(BaseClient):
     def list_deployments(self, **kwargs: Any) -> "ListDeployments":
         from .list_deployments import ListDeployments
 
-        query = gql(
-            """
+        query = gql("""
             query ListDeployments {
               fullDeployments {
                 deploymentName
@@ -2234,8 +2335,7 @@ class Client(BaseClient):
                 organizationName
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {}
         response = self.execute(
             query=query, operation_name="ListDeployments", variables=variables, **kwargs
@@ -2251,8 +2351,7 @@ class Client(BaseClient):
     ) -> "ListBranchDeployments":
         from .list_branch_deployments import ListBranchDeployments
 
-        query = gql(
-            """
+        query = gql("""
             query ListBranchDeployments($limit: Int!, $pullRequestStatus: PullRequestStatus) {
               branchDeployments(limit: $limit, pullRequestStatus: $pullRequestStatus) {
                 nodes {
@@ -2266,8 +2365,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "limit": limit,
             "pullRequestStatus": pull_request_status,
@@ -2284,8 +2382,7 @@ class Client(BaseClient):
     def get_deployment(self, deployment_name: str, **kwargs: Any) -> "GetDeployment":
         from .get_deployment import GetDeployment
 
-        query = gql(
-            """
+        query = gql("""
             query GetDeployment($deploymentName: String!) {
               deploymentByName(name: $deploymentName) {
                 __typename
@@ -2309,8 +2406,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"deploymentName": deployment_name}
         response = self.execute(
             query=query, operation_name="GetDeployment", variables=variables, **kwargs
@@ -2321,15 +2417,13 @@ class Client(BaseClient):
     def get_deployment_settings(self, **kwargs: Any) -> "GetDeploymentSettings":
         from .get_deployment_settings import GetDeploymentSettings
 
-        query = gql(
-            """
+        query = gql("""
             query GetDeploymentSettings {
               deploymentSettings {
                 settings
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {}
         response = self.execute(
             query=query,
@@ -2345,8 +2439,7 @@ class Client(BaseClient):
     ) -> "SetDeploymentSettings":
         from .set_deployment_settings import SetDeploymentSettings
 
-        query = gql(
-            """
+        query = gql("""
             mutation SetDeploymentSettings($deploymentSettings: DeploymentSettingsInput!) {
               setDeploymentSettings(deploymentSettings: $deploymentSettings) {
                 __typename
@@ -2361,8 +2454,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"deploymentSettings": deployment_settings}
         response = self.execute(
             query=query,
@@ -2378,8 +2470,7 @@ class Client(BaseClient):
     ) -> "DeleteDeployment":
         from .delete_deployment import DeleteDeployment
 
-        query = gql(
-            """
+        query = gql("""
             mutation DeleteDeployment($deploymentId: Int!) {
               deleteDeployment(deploymentId: $deploymentId) {
                 __typename
@@ -2397,8 +2488,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"deploymentId": deployment_id}
         response = self.execute(
             query=query,
@@ -2412,8 +2502,7 @@ class Client(BaseClient):
     def get_issue(self, issue_id: str, **kwargs: Any) -> "GetIssue":
         from .get_issue import GetIssue
 
-        query = gql(
-            """
+        query = gql("""
             query GetIssue($issueId: String!) {
               issue(issueId: $issueId) {
                 __typename
@@ -2464,8 +2553,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"issueId": issue_id}
         response = self.execute(
             query=query, operation_name="GetIssue", variables=variables, **kwargs
@@ -2482,8 +2570,7 @@ class Client(BaseClient):
     ) -> "ListIssues":
         from .list_issues import ListIssues
 
-        query = gql(
-            """
+        query = gql("""
             query ListIssues($limit: Int!, $cursor: String, $filters: IssuesFilter) {
               issues(limit: $limit, cursor: $cursor, filters: $filters) {
                 __typename
@@ -2538,8 +2625,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "limit": limit,
             "cursor": cursor,
@@ -2561,8 +2647,7 @@ class Client(BaseClient):
     ) -> "CreateIssue":
         from .create_issue import CreateIssue
 
-        query = gql(
-            """
+        query = gql("""
             mutation CreateIssue($title: String!, $description: String!, $status: IssueStatus, $origin: IssueLinkedObjectInput) {
               createIssue(
                 title: $title
@@ -2620,8 +2705,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "title": title,
             "description": description,
@@ -2645,8 +2729,7 @@ class Client(BaseClient):
     ) -> "UpdateIssue":
         from .update_issue import UpdateIssue
 
-        query = gql(
-            """
+        query = gql("""
             mutation UpdateIssue($issueId: String!, $status: IssueStatus, $title: String, $description: String, $context: String) {
               updateIssue(
                 issueId: $issueId
@@ -2705,8 +2788,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "issueId": issue_id,
             "status": status,
@@ -2725,8 +2807,7 @@ class Client(BaseClient):
     ) -> "AddLinkToIssue":
         from .add_link_to_issue import AddLinkToIssue
 
-        query = gql(
-            """
+        query = gql("""
             mutation AddLinkToIssue($issueId: String!, $linkedObject: IssueLinkedObjectInput!) {
               addLinkToIssue(issueId: $issueId, linkedObject: $linkedObject) {
                 __typename
@@ -2779,8 +2860,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "issueId": issue_id,
             "linkedObject": linked_object,
@@ -2796,8 +2876,7 @@ class Client(BaseClient):
     ) -> "RemoveLinkFromIssue":
         from .remove_link_from_issue import RemoveLinkFromIssue
 
-        query = gql(
-            """
+        query = gql("""
             mutation RemoveLinkFromIssue($issueId: String!, $linkedObject: IssueLinkedObjectInput!) {
               removeLinkFromIssue(issueId: $issueId, linkedObject: $linkedObject) {
                 __typename
@@ -2850,8 +2929,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "issueId": issue_id,
             "linkedObject": linked_object,
@@ -2868,8 +2946,7 @@ class Client(BaseClient):
     def list_repositories(self, **kwargs: Any) -> "ListRepositories":
         from .list_repositories import ListRepositories
 
-        query = gql(
-            """
+        query = gql("""
             query ListRepositories {
               repositoriesOrError {
                 __typename
@@ -2912,8 +2989,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {}
         response = self.execute(
             query=query,
@@ -2929,8 +3005,7 @@ class Client(BaseClient):
     ) -> "LaunchRun":
         from .launch_run import LaunchRun
 
-        query = gql(
-            """
+        query = gql("""
             mutation LaunchRun($executionParams: ExecutionParams!) {
               launchRun(executionParams: $executionParams) {
                 __typename
@@ -2986,8 +3061,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"executionParams": execution_params}
         response = self.execute(
             query=query, operation_name="LaunchRun", variables=variables, **kwargs
@@ -3002,8 +3076,7 @@ class Client(BaseClient):
     ) -> "ListAssetMetricTypes":
         from .list_asset_metric_types import ListAssetMetricTypes
 
-        query = gql(
-            """
+        query = gql("""
             query ListAssetMetricTypes($metricsStoreType: MetricsStoreType) {
               metricTypesForAsset(metricsStoreType: $metricsStoreType) {
                 __typename
@@ -3031,8 +3104,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"metricsStoreType": metrics_store_type}
         response = self.execute(
             query=query,
@@ -3054,8 +3126,7 @@ class Client(BaseClient):
     ) -> "ListSpecificAssetMetricTypes":
         from .list_specific_asset_metric_types import ListSpecificAssetMetricTypes
 
-        query = gql(
-            """
+        query = gql("""
             query ListSpecificAssetMetricTypes($metricsFilter: AssetReportingMetricsFilter, $timeframeSelector: ReportingMetricsTimeframeSelector!, $metricsStoreType: MetricsStoreType) {
               metricTypesForSpecificAsset(
                 metricsFilter: $metricsFilter
@@ -3087,8 +3158,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "metricsFilter": metrics_filter,
             "timeframeSelector": timeframe_selector,
@@ -3110,8 +3180,7 @@ class Client(BaseClient):
     ) -> "ListJobMetricTypes":
         from .list_job_metric_types import ListJobMetricTypes
 
-        query = gql(
-            """
+        query = gql("""
             query ListJobMetricTypes($metricsStoreType: MetricsStoreType) {
               metricTypesForJob(metricsStoreType: $metricsStoreType) {
                 __typename
@@ -3139,8 +3208,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"metricsStoreType": metrics_store_type}
         response = self.execute(
             query=query,
@@ -3162,8 +3230,7 @@ class Client(BaseClient):
     ) -> "ListSpecificJobMetricTypes":
         from .list_specific_job_metric_types import ListSpecificJobMetricTypes
 
-        query = gql(
-            """
+        query = gql("""
             query ListSpecificJobMetricTypes($metricsFilter: JobReportingMetricsFilter, $timeframeSelector: ReportingMetricsTimeframeSelector!, $metricsStoreType: MetricsStoreType) {
               metricTypesForSpecificJob(
                 metricsFilter: $metricsFilter
@@ -3195,8 +3262,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "metricsFilter": metrics_filter,
             "timeframeSelector": timeframe_selector,
@@ -3218,8 +3284,7 @@ class Client(BaseClient):
     ) -> "ListDeploymentMetricTypes":
         from .list_deployment_metric_types import ListDeploymentMetricTypes
 
-        query = gql(
-            """
+        query = gql("""
             query ListDeploymentMetricTypes($metricsStoreType: MetricsStoreType) {
               metricTypesForDeployment(metricsStoreType: $metricsStoreType) {
                 __typename
@@ -3247,8 +3312,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"metricsStoreType": metrics_store_type}
         response = self.execute(
             query=query,
@@ -3270,8 +3334,7 @@ class Client(BaseClient):
     ) -> "GetAssetMetrics":
         from .get_asset_metrics import GetAssetMetrics
 
-        query = gql(
-            """
+        query = gql("""
             query GetAssetMetrics($metricsFilter: AssetReportingMetricsFilter, $metricsSelector: ReportingMetricsSelector!, $metricsStoreType: MetricsStoreType) {
               reportingMetricsByAsset(
                 metricsFilter: $metricsFilter
@@ -3313,8 +3376,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "metricsFilter": metrics_filter,
             "metricsSelector": metrics_selector,
@@ -3337,8 +3399,7 @@ class Client(BaseClient):
     ) -> "GetJobMetrics":
         from .get_job_metrics import GetJobMetrics
 
-        query = gql(
-            """
+        query = gql("""
             query GetJobMetrics($metricsFilter: JobReportingMetricsFilter, $metricsSelector: ReportingMetricsSelector!, $metricsStoreType: MetricsStoreType) {
               reportingMetricsByJob(
                 metricsFilter: $metricsFilter
@@ -3377,8 +3438,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "metricsFilter": metrics_filter,
             "metricsSelector": metrics_selector,
@@ -3401,8 +3461,7 @@ class Client(BaseClient):
     ) -> "GetDeploymentMetrics":
         from .get_deployment_metrics import GetDeploymentMetrics
 
-        query = gql(
-            """
+        query = gql("""
             query GetDeploymentMetrics($metricsFilter: DeploymentReportingMetricsFilter, $metricsSelector: ReportingMetricsSelector!, $metricsStoreType: MetricsStoreType) {
               reportingMetricsByDeployment(
                 metricsFilter: $metricsFilter
@@ -3444,8 +3503,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "metricsFilter": metrics_filter,
             "metricsSelector": metrics_selector,
@@ -3469,8 +3527,7 @@ class Client(BaseClient):
     ) -> "GetAssetSelectionMetrics":
         from .get_asset_selection_metrics import GetAssetSelectionMetrics
 
-        query = gql(
-            """
+        query = gql("""
             query GetAssetSelectionMetrics($metricsFilter: AssetSelectionReportingMetricsFilter!, $metricsSelector: ReportingMetricsSelector!, $metricsStoreType: MetricsStoreType) {
               reportingMetricsByAssetSelection(
                 metricsFilter: $metricsFilter
@@ -3507,8 +3564,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "metricsFilter": metrics_filter,
             "metricsSelector": metrics_selector,
@@ -3526,15 +3582,13 @@ class Client(BaseClient):
     def get_organization_settings(self, **kwargs: Any) -> "GetOrganizationSettings":
         from .get_organization_settings import GetOrganizationSettings
 
-        query = gql(
-            """
+        query = gql("""
             query GetOrganizationSettings {
               organizationSettings {
                 settings
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {}
         response = self.execute(
             query=query,
@@ -3550,8 +3604,7 @@ class Client(BaseClient):
     ) -> "UpdateOrganizationSettings":
         from .update_organization_settings import UpdateOrganizationSettings
 
-        query = gql(
-            """
+        query = gql("""
             mutation UpdateOrganizationSettings($organizationSettings: OrganizationSettingsInput!) {
               setOrganizationSettings(organizationSettings: $organizationSettings) {
                 __typename
@@ -3566,8 +3619,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"organizationSettings": organization_settings}
         response = self.execute(
             query=query,
@@ -3578,11 +3630,106 @@ class Client(BaseClient):
         data = self.get_data(response)
         return UpdateOrganizationSettings.model_validate(data)
 
+    def add_dynamic_partition(
+        self,
+        partitions_def_name: str,
+        partition_key: str,
+        repository_selector: "RepositorySelector",
+        **kwargs: Any
+    ) -> "AddDynamicPartition":
+        from .add_dynamic_partition import AddDynamicPartition
+
+        query = gql("""
+            mutation AddDynamicPartition($partitionsDefName: String!, $partitionKey: String!, $repositorySelector: RepositorySelector!) {
+              addDynamicPartition(
+                partitionsDefName: $partitionsDefName
+                partitionKey: $partitionKey
+                repositorySelector: $repositorySelector
+              ) {
+                __typename
+                ... on AddDynamicPartitionSuccess {
+                  partitionsDefName
+                  partitionKey
+                }
+                ... on DuplicateDynamicPartitionError {
+                  message
+                }
+                ... on UnauthorizedError {
+                  message
+                }
+                ... on PythonError {
+                  message
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {
+            "partitionsDefName": partitions_def_name,
+            "partitionKey": partition_key,
+            "repositorySelector": repository_selector,
+        }
+        response = self.execute(
+            query=query,
+            operation_name="AddDynamicPartition",
+            variables=variables,
+            **kwargs
+        )
+        data = self.get_data(response)
+        return AddDynamicPartition.model_validate(data)
+
+    def delete_dynamic_partitions(
+        self,
+        partitions_def_name: str,
+        partition_keys: list[str],
+        repository_selector: "RepositorySelector",
+        wipe_materializations: Union[Optional[bool], "UnsetType"] = UNSET,
+        **kwargs: Any
+    ) -> "DeleteDynamicPartitions":
+        from .delete_dynamic_partitions import DeleteDynamicPartitions
+
+        query = gql("""
+            mutation DeleteDynamicPartitions($partitionsDefName: String!, $partitionKeys: [String!]!, $repositorySelector: RepositorySelector!, $wipeMaterializations: Boolean) {
+              deleteDynamicPartitions(
+                partitionsDefName: $partitionsDefName
+                partitionKeys: $partitionKeys
+                repositorySelector: $repositorySelector
+                wipeMaterializations: $wipeMaterializations
+              ) {
+                __typename
+                ... on DeleteDynamicPartitionsSuccess {
+                  partitionsDefName
+                }
+                ... on UnsupportedOperationError {
+                  message
+                }
+                ... on UnauthorizedError {
+                  message
+                }
+                ... on PythonError {
+                  message
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {
+            "partitionsDefName": partitions_def_name,
+            "partitionKeys": partition_keys,
+            "repositorySelector": repository_selector,
+            "wipeMaterializations": wipe_materializations,
+        }
+        response = self.execute(
+            query=query,
+            operation_name="DeleteDynamicPartitions",
+            variables=variables,
+            **kwargs
+        )
+        data = self.get_data(response)
+        return DeleteDynamicPartitions.model_validate(data)
+
     def get_run(self, run_id: str, **kwargs: Any) -> "GetRun":
         from .get_run import GetRun
 
-        query = gql(
-            """
+        query = gql("""
             query GetRun($runId: ID!) {
               runOrError(runId: $runId) {
                 __typename
@@ -3618,8 +3765,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"runId": run_id}
         response = self.execute(
             query=query, operation_name="GetRun", variables=variables, **kwargs
@@ -3636,8 +3782,7 @@ class Client(BaseClient):
     ) -> "ListRuns":
         from .list_runs import ListRuns
 
-        query = gql(
-            """
+        query = gql("""
             query ListRuns($filter: RunsFilter, $cursor: String, $limit: Int) {
               runsOrError(filter: $filter, cursor: $cursor, limit: $limit) {
                 __typename
@@ -3665,8 +3810,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "filter": filter,
             "cursor": cursor,
@@ -3686,8 +3830,7 @@ class Client(BaseClient):
     ) -> "TerminateRun":
         from .terminate_run import TerminateRun
 
-        query = gql(
-            """
+        query = gql("""
             mutation TerminateRun($runId: String!, $terminatePolicy: TerminateRunPolicy) {
               terminateRun(runId: $runId, terminatePolicy: $terminatePolicy) {
                 __typename
@@ -3713,8 +3856,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "runId": run_id,
             "terminatePolicy": terminate_policy,
@@ -3730,8 +3872,7 @@ class Client(BaseClient):
     ) -> "RerunRun":
         from .rerun_run import RerunRun
 
-        query = gql(
-            """
+        query = gql("""
             mutation RerunRun($reexecutionParams: ReexecutionParams!) {
               launchRunReexecution(reexecutionParams: $reexecutionParams) {
                 __typename
@@ -3777,8 +3918,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"reexecutionParams": reexecution_params}
         response = self.execute(
             query=query, operation_name="RerunRun", variables=variables, **kwargs
@@ -3793,8 +3933,7 @@ class Client(BaseClient):
     ) -> "RerunBackfill":
         from .rerun_backfill import RerunBackfill
 
-        query = gql(
-            """
+        query = gql("""
             mutation RerunBackfill($reexecutionParams: ReexecutionParams) {
               reexecutePartitionBackfill(reexecutionParams: $reexecutionParams) {
                 __typename
@@ -3835,8 +3974,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"reexecutionParams": reexecution_params}
         response = self.execute(
             query=query, operation_name="RerunBackfill", variables=variables, **kwargs
@@ -3853,8 +3991,7 @@ class Client(BaseClient):
     ) -> "GetRunEvents":
         from .get_run_events import GetRunEvents
 
-        query = gql(
-            """
+        query = gql("""
             query GetRunEvents($runId: ID!, $limit: Int, $afterCursor: String) {
               logsForRun(runId: $runId, limit: $limit, afterCursor: $afterCursor) {
                 __typename
@@ -3904,8 +4041,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "runId": run_id,
             "limit": limit,
@@ -3922,8 +4058,7 @@ class Client(BaseClient):
     ) -> "ListSchedules":
         from .list_schedules import ListSchedules
 
-        query = gql(
-            """
+        query = gql("""
             query ListSchedules($repositorySelector: RepositorySelector!) {
               schedulesOrError(repositorySelector: $repositorySelector) {
                 __typename
@@ -3948,8 +4083,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"repositorySelector": repository_selector}
         response = self.execute(
             query=query, operation_name="ListSchedules", variables=variables, **kwargs
@@ -3962,8 +4096,7 @@ class Client(BaseClient):
     ) -> "ListRepositoriesWithSchedules":
         from .list_repositories_with_schedules import ListRepositoriesWithSchedules
 
-        query = gql(
-            """
+        query = gql("""
             query ListRepositoriesWithSchedules {
               repositoriesOrError {
                 __typename
@@ -3994,8 +4127,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {}
         response = self.execute(
             query=query,
@@ -4011,8 +4143,7 @@ class Client(BaseClient):
     ) -> "GetSchedule":
         from .get_schedule import GetSchedule
 
-        query = gql(
-            """
+        query = gql("""
             query GetSchedule($scheduleSelector: ScheduleSelector!) {
               scheduleOrError(scheduleSelector: $scheduleSelector) {
                 __typename
@@ -4035,14 +4166,79 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"scheduleSelector": schedule_selector}
         response = self.execute(
             query=query, operation_name="GetSchedule", variables=variables, **kwargs
         )
         data = self.get_data(response)
         return GetSchedule.model_validate(data)
+
+    def start_schedule(
+        self, schedule_selector: "ScheduleSelector", **kwargs: Any
+    ) -> "StartSchedule":
+        from .start_schedule import StartSchedule
+
+        query = gql("""
+            mutation StartSchedule($scheduleSelector: ScheduleSelector!) {
+              startSchedule(scheduleSelector: $scheduleSelector) {
+                __typename
+                ... on ScheduleStateResult {
+                  scheduleState {
+                    name
+                    status
+                  }
+                }
+                ... on ScheduleNotFoundError {
+                  message
+                }
+                ... on UnauthorizedError {
+                  message
+                }
+                ... on PythonError {
+                  message
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {"scheduleSelector": schedule_selector}
+        response = self.execute(
+            query=query, operation_name="StartSchedule", variables=variables, **kwargs
+        )
+        data = self.get_data(response)
+        return StartSchedule.model_validate(data)
+
+    def stop_schedule(self, id: str, **kwargs: Any) -> "StopSchedule":
+        from .stop_schedule import StopSchedule
+
+        query = gql("""
+            mutation StopSchedule($id: String!) {
+              stopRunningSchedule(id: $id) {
+                __typename
+                ... on ScheduleStateResult {
+                  scheduleState {
+                    name
+                    status
+                  }
+                }
+                ... on ScheduleNotFoundError {
+                  message
+                }
+                ... on UnauthorizedError {
+                  message
+                }
+                ... on PythonError {
+                  message
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {"id": id}
+        response = self.execute(
+            query=query, operation_name="StopSchedule", variables=variables, **kwargs
+        )
+        data = self.get_data(response)
+        return StopSchedule.model_validate(data)
 
     def list_secrets(
         self,
@@ -4053,8 +4249,7 @@ class Client(BaseClient):
     ) -> "ListSecrets":
         from .list_secrets import ListSecrets
 
-        query = gql(
-            """
+        query = gql("""
             query ListSecrets($locationName: String, $scopes: SecretScopesInput, $secretName: String) {
               secretsOrError(
                 locationName: $locationName
@@ -4091,8 +4286,7 @@ class Client(BaseClient):
               canViewSecretValue
               canEditSecret
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "locationName": location_name,
             "scopes": scopes,
@@ -4113,8 +4307,7 @@ class Client(BaseClient):
     ) -> "GetSecretWithValue":
         from .get_secret_with_value import GetSecretWithValue
 
-        query = gql(
-            """
+        query = gql("""
             query GetSecretWithValue($locationName: String, $scopes: SecretScopesInput, $secretName: String) {
               secretsOrError(
                 locationName: $locationName
@@ -4152,8 +4345,7 @@ class Client(BaseClient):
               canViewSecretValue
               canEditSecret
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "locationName": location_name,
             "scopes": scopes,
@@ -4173,8 +4365,7 @@ class Client(BaseClient):
     ) -> "ListSensors":
         from .list_sensors import ListSensors
 
-        query = gql(
-            """
+        query = gql("""
             query ListSensors($repositorySelector: RepositorySelector!) {
               sensorsOrError(repositorySelector: $repositorySelector) {
                 __typename
@@ -4197,8 +4388,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"repositorySelector": repository_selector}
         response = self.execute(
             query=query, operation_name="ListSensors", variables=variables, **kwargs
@@ -4211,8 +4401,7 @@ class Client(BaseClient):
     ) -> "ListRepositoriesWithSensors":
         from .list_repositories_with_sensors import ListRepositoriesWithSensors
 
-        query = gql(
-            """
+        query = gql("""
             query ListRepositoriesWithSensors {
               repositoriesOrError {
                 __typename
@@ -4241,8 +4430,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {}
         response = self.execute(
             query=query,
@@ -4258,8 +4446,7 @@ class Client(BaseClient):
     ) -> "GetSensor":
         from .get_sensor import GetSensor
 
-        query = gql(
-            """
+        query = gql("""
             query GetSensor($sensorSelector: SensorSelector!) {
               sensorOrError(sensorSelector: $sensorSelector) {
                 __typename
@@ -4283,8 +4470,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {"sensorSelector": sensor_selector}
         response = self.execute(
             query=query, operation_name="GetSensor", variables=variables, **kwargs
@@ -4292,11 +4478,73 @@ class Client(BaseClient):
         data = self.get_data(response)
         return GetSensor.model_validate(data)
 
+    def start_sensor(
+        self, sensor_selector: "SensorSelector", **kwargs: Any
+    ) -> "StartSensor":
+        from .start_sensor import StartSensor
+
+        query = gql("""
+            mutation StartSensor($sensorSelector: SensorSelector!) {
+              startSensor(sensorSelector: $sensorSelector) {
+                __typename
+                ... on Sensor {
+                  name
+                  sensorState {
+                    status
+                  }
+                }
+                ... on SensorNotFoundError {
+                  message
+                }
+                ... on UnauthorizedError {
+                  message
+                }
+                ... on PythonError {
+                  message
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {"sensorSelector": sensor_selector}
+        response = self.execute(
+            query=query, operation_name="StartSensor", variables=variables, **kwargs
+        )
+        data = self.get_data(response)
+        return StartSensor.model_validate(data)
+
+    def stop_sensor(self, id: str, **kwargs: Any) -> "StopSensor":
+        from .stop_sensor import StopSensor
+
+        query = gql("""
+            mutation StopSensor($id: String!) {
+              stopSensor(id: $id) {
+                __typename
+                ... on StopSensorMutationResult {
+                  instigationState {
+                    name
+                    status
+                  }
+                }
+                ... on UnauthorizedError {
+                  message
+                }
+                ... on PythonError {
+                  message
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {"id": id}
+        response = self.execute(
+            query=query, operation_name="StopSensor", variables=variables, **kwargs
+        )
+        data = self.get_data(response)
+        return StopSensor.model_validate(data)
+
     def list_repositories_for_ticks(self, **kwargs: Any) -> "ListRepositoriesForTicks":
         from .list_repositories_for_ticks import ListRepositoriesForTicks
 
-        query = gql(
-            """
+        query = gql("""
             query ListRepositoriesForTicks {
               repositoriesOrError {
                 __typename
@@ -4322,8 +4570,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {}
         response = self.execute(
             query=query,
@@ -4346,8 +4593,7 @@ class Client(BaseClient):
     ) -> "GetSensorTicks":
         from .get_sensor_ticks import GetSensorTicks
 
-        query = gql(
-            """
+        query = gql("""
             query GetSensorTicks($sensorSelector: SensorSelector!, $limit: Int, $cursor: String, $statuses: [InstigationTickStatus!], $beforeTimestamp: Float, $afterTimestamp: Float) {
               sensorOrError(sensorSelector: $sensorSelector) {
                 __typename
@@ -4386,8 +4632,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "sensorSelector": sensor_selector,
             "limit": limit,
@@ -4414,8 +4659,7 @@ class Client(BaseClient):
     ) -> "GetScheduleTicks":
         from .get_schedule_ticks import GetScheduleTicks
 
-        query = gql(
-            """
+        query = gql("""
             query GetScheduleTicks($scheduleSelector: ScheduleSelector!, $limit: Int, $cursor: String, $statuses: [InstigationTickStatus!], $beforeTimestamp: Float, $afterTimestamp: Float) {
               scheduleOrError(scheduleSelector: $scheduleSelector) {
                 __typename
@@ -4451,8 +4695,7 @@ class Client(BaseClient):
                 }
               }
             }
-            """
-        )
+            """)
         variables: dict[str, object] = {
             "scheduleSelector": schedule_selector,
             "limit": limit,

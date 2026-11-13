@@ -170,14 +170,23 @@ class ChangedUnderneath(Exception):
     pass
 
 
-def _replace(path: Path, text: str) -> None:
-    """Write *path* whole, so a reader never sees half of it."""
+def _replace(path: Path, text: str, *, unless_changed_from: str | None = None) -> bool:
+    """Write *path* whole, so a reader never sees half of it.
+
+    With *unless_changed_from*, the rename happens only if the file still reads
+    that text once the new text is on disk; returns whether it happened.
+    """
     fd, temp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
     try:
         with os.fdopen(fd, "w") as f:
             f.write(text)
         os.chmod(temp, path.stat().st_mode & 0o7777)
+        if unless_changed_from is not None and path.read_text() != unless_changed_from:
+            Path(temp).unlink(missing_ok=True)
+            return False
+
         os.replace(temp, path)
+        return True
     except BaseException:
         Path(temp).unlink(missing_ok=True)
         raise
@@ -198,19 +207,21 @@ def edit(
     *,
     migrate: bool = True,
     convert: bool = False,
+    written: abc.Callable[[str, str], None] | None = None,
 ) -> None:
     """Apply *change* to the file's text, re-applying it if the file is saved meanwhile.
 
-    The brief is often open in an editor. Reading it again just before the
-    write narrows the window in which someone else's save is lost to the
-    rename itself; the edits here touch one section, so re-applying them to
-    the newer text keeps both.
+    The brief is often open in an editor. The new text is written to a temp file
+    first and the brief is compared with what *change* saw just before the
+    rename, so only a save between that comparison and the rename is lost;
+    the edits here touch one section, so re-applying them to the newer text
+    keeps both.
 
     *change* sees the brief with header lines (see `frontmatter`), and its result
     goes back into frontmatter, so a brief without a block gets one here unless
     *migrate* is false; *convert* gives it one even when *change* changes nothing.
-    *editor* joins the block's `contributors`. Raises ValueError for
-    a block that isn't valid YAML.
+    *editor* joins the block's `contributors`. *written* gets the file's text before and
+    after, once it is written. Raises ValueError for a block that isn't valid YAML.
     """
     with home.guard.operation():
         for _ in range(_EDIT_ATTEMPTS):
@@ -230,8 +241,9 @@ def edit(
             if after == before:
                 return
 
-            if path.read_text() == before:
-                _replace(path, after)
+            if _replace(path, after, unless_changed_from=before):
+                if written:
+                    written(before, after)
                 return
 
     raise ChangedUnderneath(f"{path} kept changing while it was being edited; try again")

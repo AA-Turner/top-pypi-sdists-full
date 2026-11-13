@@ -277,7 +277,7 @@ def get_info(
                 node.add_node(_create_node(child))
         else:
             node.icon = "file"
-            node.value = str(data)  # Store the entire data as a string.
+            node.value = str(data)  # Store the entire data as a string.  # pyrefly: ignore[missing-attribute]
         return node
 
     root_node = _create_node(tree_json)
@@ -424,7 +424,7 @@ def check_cmap(cmap: str | list[str]) -> list[str] | str:
             except Exception as e:
                 raise Exception(f"{cmap} is not a valid colormap.")
     elif isinstance(cmap, box.Box):
-        return list(cmap["default"])  # pytype: disable=unsupported-operands
+        return list(cmap["default"])
     elif isinstance(cmap, (list, tuple)):
         return cmap
     else:
@@ -692,7 +692,7 @@ def download_file(
     Returns:
         The output file path.
     """
-    import gdown
+    import gdown  # pyrefly: ignore[missing-import]
 
     if output is None:
         if isinstance(url, str) and url.startswith(("http://", "https://")):

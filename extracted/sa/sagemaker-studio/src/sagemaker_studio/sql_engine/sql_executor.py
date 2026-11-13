@@ -237,6 +237,7 @@ class SqlExecutor:
         connection: Optional[Connection] = None,
         error_strategy: str = ErrorStrategy.STOP_ON_ERROR,
         statement_executor: Optional[Callable[..., Any]] = None,
+        limit_query_results: Optional[int] = None,
     ) -> Generator[ExecutionResult, None, None]:
         """Execute SQL query with optional parameters using provided engine.
 
@@ -257,6 +258,8 @@ class SqlExecutor:
                 for named parameters or a list for positional parameters.
             error_strategy: Error handling strategy. STOP_ON_ERROR (default) stops execution
                 on first error. CONTINUE_ON_ERROR executes remaining statements after errors.
+            limit_query_results: Optional maximum rows per statement, applied by the transformer
+                to eligible statements only.
 
         Yields:
             ExecutionResult: Result for each executed statement in the query.
@@ -283,6 +286,9 @@ class SqlExecutor:
 
         transformer = self._get_transformer(connection_type)
         statements = transformer.split_query(query)
+        # Must precede execute_statements so the per-statement executor, the MAX_STATEMENTS
+        # check and ExecutionResult.statement all see the submitted text.
+        statements = transformer.apply_row_limits(statements, limit_query_results)
 
         # Per-statement executor is injectable so alternate paths (e.g. async
         # materialization) can capture execution ids without fetching, while reusing

@@ -23,12 +23,16 @@ from ..types.invoice import Invoice
 from ..types.invoice_pdf import InvoicePdf
 from .types.create_invoices_request_billing_address import CreateInvoicesRequestBillingAddress
 from .types.create_invoices_request_items_item import CreateInvoicesRequestItemsItem
+from .types.create_invoices_request_payment_method_configuration import CreateInvoicesRequestPaymentMethodConfiguration
+from .types.issue_invoices_request_collection_method import IssueInvoicesRequestCollectionMethod
 from .types.list_invoices_request_direction import ListInvoicesRequestDirection
 from .types.list_invoices_request_order import ListInvoicesRequestOrder
 from .types.list_invoices_request_status import ListInvoicesRequestStatus
 from .types.list_invoices_response import ListInvoicesResponse
+from .types.send_invoices_request_collection_method import SendInvoicesRequestCollectionMethod
 from .types.update_invoices_request_billing_address import UpdateInvoicesRequestBillingAddress
 from .types.update_invoices_request_items_item import UpdateInvoicesRequestItemsItem
+from .types.update_invoices_request_payment_method_configuration import UpdateInvoicesRequestPaymentMethodConfiguration
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -55,6 +59,7 @@ class RawInvoicesClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
+        include_total_count: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Invoice, ListInvoicesResponse]:
         """
@@ -92,6 +97,9 @@ class RawInvoicesClient:
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
+        include_total_count : typing.Optional[bool]
+            Set to `true` to return the number of matching results in `page_info.total_count`. Send `first=0` as well to return the count without any results.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -118,6 +126,7 @@ class RawInvoicesClient:
                 "after": after,
                 "last": last,
                 "before": before,
+                "include_total_count": include_total_count,
             },
             request_options=request_options,
         )
@@ -150,6 +159,7 @@ class RawInvoicesClient:
                         after=_parsed_next,
                         last=last,
                         before=before,
+                        include_total_count=include_total_count,
                         request_options=request_options,
                     )
                 return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
@@ -218,13 +228,15 @@ class RawInvoicesClient:
         email_address: typing.Optional[str] = OMIT,
         mailing_address_id: typing.Optional[str] = OMIT,
         member_id: typing.Optional[str] = OMIT,
+        memo: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
+        payment_method_configuration: typing.Optional[CreateInvoicesRequestPaymentMethodConfiguration] = OMIT,
         payment_method_id: typing.Optional[str] = OMIT,
         recipient_emails: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Invoice]:
         """
-        Creates a draft invoice backed by a receipt, with saved items, quantities, prices, and recipients. Issue the draft to resolve final tax and open the invoice. The pay_ ID stays the same when paid.
+        Creates a draft invoice backed by a receipt, with saved items, quantities, prices, and recipients. Issue the draft to resolve final tax and open the invoice. The pay_ ID stays the same when paid. Needs `invoice:create` or `payment:charge`; a `payment_method_id` needs `payment:charge`.
 
         Parameters
         ----------
@@ -232,13 +244,13 @@ class RawInvoicesClient:
             The issuing account.
 
         items : typing.Sequence[CreateInvoicesRequestItemsItem]
-            The variants being invoiced, all in the same currency. Each variant may appear once; use quantity for multiple units. Product and price come from each variant; a recurring variant must belong to a product, bills its renewal price and, once the invoice is paid, renews as a subscription charged to the payment method that paid it. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
+            The variants being invoiced, all in the same currency. Each variant may appear once; use quantity for multiple units. Product and price come from each variant; a recurring variant must belong to a product, bills its renewal price and, once the invoice is paid, renews as a subscription collected by the `collection_method` the invoice was sent or issued with. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
 
         billing_address : typing.Optional[CreateInvoicesRequestBillingAddress]
             Create a billing address linked to this member.
 
         buyer_fee_percentage : typing.Optional[float]
-            The buyer's adjustable fee in percentage points, with at most two decimal places.
+            The buyer's adjustable fee in percentage points, with at most two decimal places: `0` for none, or between 5 and 100. The account keeps it, and Whop waives its take rate on the invoice.
 
         customer_name : typing.Optional[str]
             The contact name when creating an email-only member.
@@ -253,13 +265,19 @@ class RawInvoicesClient:
             An address associated with the member. Mutually exclusive with billing_address.
 
         member_id : typing.Optional[str]
-            The billed customer, a member of the account. Changing email recipients does not change this buyer.
+            The billed customer, a member of the account, prefixed `mber_`. It can't change once the draft is created. Changing email recipients does not change this buyer.
+
+        memo : typing.Optional[str]
+            A note to the customer, shown on the invoice email, PDF, and checkout page with its line breaks kept. Trimmed; `null` or blank clears it. Can be updated on draft, open, or uncollectible invoices.
 
         metadata : typing.Optional[typing.Dict[str, str]]
-            Up to 50 caller-owned string key/value pairs.
+            Up to 50 caller-owned string key/value pairs. The `invoice_memo` key is reserved and ignored; set `memo` instead.
+
+        payment_method_configuration : typing.Optional[CreateInvoicesRequestPaymentMethodConfiguration]
+            The payment methods the customer can choose from when paying through the invoice's checkout link, in the shape a variant or checkout configuration takes. It takes precedence over the invoice's variants and the account, and changes neither. Send both lists. `null` uses its variants' payment methods. Can be updated on drafts.
 
         payment_method_id : typing.Optional[str]
-            A saved payment method belonging to the member, prefixed `payt_`. Sending or issuing the invoice charges this method at the `charge_at` passed to that call, otherwise on `due_at`, or right away when there is no `due_at` or it has passed. Sending also emails the invoice now when the charge is later; issuing does not.
+            A saved payment method belonging to the member, prefixed `payt_`. Sending or issuing the invoice charges this method at the `charge_at` passed to that call, otherwise on `due_at`, or right away when there is no `due_at` or it has passed. Sending also emails the invoice now when the charge is later; issuing does not. Setting it needs `payment:charge`.
 
         recipient_emails : typing.Optional[typing.Sequence[str]]
             Email addresses saved for invoice delivery, independent of the billed customer. Saving them sends no email. Defaults to the customer email when omitted on create. Can be updated on draft, open, or uncollectible invoices.
@@ -292,7 +310,13 @@ class RawInvoicesClient:
                 ),
                 "mailing_address_id": mailing_address_id,
                 "member_id": member_id,
+                "memo": memo,
                 "metadata": metadata,
+                "payment_method_configuration": convert_and_respect_annotation_metadata(
+                    object_=payment_method_configuration,
+                    annotation=typing.Optional[CreateInvoicesRequestPaymentMethodConfiguration],
+                    direction="write",
+                ),
                 "payment_method_id": payment_method_id,
                 "recipient_emails": recipient_emails,
             },
@@ -450,13 +474,15 @@ class RawInvoicesClient:
         items: typing.Optional[typing.Sequence[UpdateInvoicesRequestItemsItem]] = OMIT,
         mailing_address_id: typing.Optional[str] = OMIT,
         member_id: typing.Optional[str] = OMIT,
+        memo: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
+        payment_method_configuration: typing.Optional[UpdateInvoicesRequestPaymentMethodConfiguration] = OMIT,
         payment_method_id: typing.Optional[str] = OMIT,
         recipient_emails: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Invoice]:
         """
-        Updates draft invoice items and billing fields. Recipient-only updates are also allowed on unpaid invoices. Edit customer contact details through the member API.
+        Updates draft invoice items and billing fields. Updates of only `recipient_emails` and `memo` are also allowed on unpaid invoices. The customer is set when the draft is created and can't change. To bill someone else, first void the draft. Then create a new invoice. Edit customer contact details through the member API. A draft with no saved payment method and no scheduled send needs `invoice:update`, `invoice:create`, or `payment:charge`; every other update, and setting `payment_method_id`, needs `payment:charge`.
 
         Parameters
         ----------
@@ -467,25 +493,31 @@ class RawInvoicesClient:
             Create a billing address linked to this member.
 
         buyer_fee_percentage : typing.Optional[float]
-            The buyer's adjustable fee in percentage points, with at most two decimal places.
+            The buyer's adjustable fee in percentage points, with at most two decimal places: `0` for none, or between 5 and 100. The account keeps it, and Whop waives its take rate on the invoice.
 
         due_at : typing.Optional[dt.datetime]
             When payment is due, as an ISO 8601 timestamp.
 
         items : typing.Optional[typing.Sequence[UpdateInvoicesRequestItemsItem]]
-            The variants being invoiced, all in the same currency. Each variant may appear once; use quantity for multiple units. Product and price come from each variant; a recurring variant must belong to a product, bills its renewal price and, once the invoice is paid, renews as a subscription charged to the payment method that paid it. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
+            The variants being invoiced, all in the same currency. Each variant may appear once; use quantity for multiple units. Product and price come from each variant; a recurring variant must belong to a product, bills its renewal price and, once the invoice is paid, renews as a subscription collected by the `collection_method` the invoice was sent or issued with. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
 
         mailing_address_id : typing.Optional[str]
             An address associated with the member. Mutually exclusive with billing_address.
 
         member_id : typing.Optional[str]
-            The billed customer, a member of the account. Changing email recipients does not change this buyer.
+            The billed customer, a member of the account, prefixed `mber_`. The customer is set when the draft is created and can't change, so pass the draft's current customer or omit this field. A draft saved without a customer can take one here. Changing email recipients does not change this buyer.
+
+        memo : typing.Optional[str]
+            A note to the customer, shown on the invoice email, PDF, and checkout page with its line breaks kept. Trimmed; `null` or blank clears it. Can be updated on draft, open, or uncollectible invoices.
 
         metadata : typing.Optional[typing.Dict[str, str]]
-            Up to 50 caller-owned string key/value pairs.
+            Up to 50 caller-owned string key/value pairs. The `invoice_memo` key is reserved and ignored; set `memo` instead.
+
+        payment_method_configuration : typing.Optional[UpdateInvoicesRequestPaymentMethodConfiguration]
+            The payment methods the customer can choose from when paying through the invoice's checkout link, in the shape a variant or checkout configuration takes. It takes precedence over the invoice's variants and the account, and changes neither. Send both lists. `null` uses its variants' payment methods. Can be updated on drafts.
 
         payment_method_id : typing.Optional[str]
-            A saved payment method belonging to the member, prefixed `payt_`. Sending or issuing the invoice charges this method at the `charge_at` passed to that call, otherwise on `due_at`, or right away when there is no `due_at` or it has passed. Sending also emails the invoice now when the charge is later; issuing does not.
+            A saved payment method belonging to the member, prefixed `payt_`. Sending or issuing the invoice charges this method at the `charge_at` passed to that call, otherwise on `due_at`, or right away when there is no `due_at` or it has passed. Sending also emails the invoice now when the charge is later; issuing does not. Setting it needs `payment:charge`.
 
         recipient_emails : typing.Optional[typing.Sequence[str]]
             Email addresses saved for invoice delivery, independent of the billed customer. Saving them sends no email. Defaults to the customer email when omitted on create. Can be updated on draft, open, or uncollectible invoices.
@@ -515,7 +547,13 @@ class RawInvoicesClient:
                 ),
                 "mailing_address_id": mailing_address_id,
                 "member_id": member_id,
+                "memo": memo,
                 "metadata": metadata,
+                "payment_method_configuration": convert_and_respect_annotation_metadata(
+                    object_=payment_method_configuration,
+                    annotation=typing.Optional[UpdateInvoicesRequestPaymentMethodConfiguration],
+                    direction="write",
+                ),
                 "payment_method_id": payment_method_id,
                 "recipient_emails": recipient_emails,
             },
@@ -577,16 +615,136 @@ class RawInvoicesClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def generate_pdf(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[InvoicePdf]:
+    def charge(
+        self,
+        id: str,
+        *,
+        payment_method_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[Invoice]:
         """
-        Generates the invoice as a PDF and returns a short-lived link to download it. A draft shows its estimated totals. The buyer's name and email need `member:basic:read` and `member:email:read`, and the Pay now link on an open invoice needs `payment:charge`. Each call generates a new file and link, so this endpoint does not replay `Idempotency-Key` responses.
+        Charges an open invoice now to one of its customer's saved payment methods, canceling any charge scheduled for later. The charge completes asynchronously: the invoice becomes `paid`, or, if declined, stays `open` and its recipients are emailed the `checkout_link`. Refused for drafts and while another payment is in progress.
 
         Parameters
         ----------
         id : str
             The invoice's pay_ ID.
+
+        payment_method_id : typing.Optional[str]
+            The saved payment method to charge, prefixed `payt_`. It must belong to the invoice's customer and be chargeable without the customer present. Omit it to charge the invoice's own `payment_method_id`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[Invoice]
+            charge started
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"invoices/{encode_path_param(id)}/charge",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            json={
+                "payment_method_id": payment_method_id,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Invoice,
+                    parse_obj_as(
+                        type_=Invoice,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def generate_pdf(
+        self,
+        id: str,
+        *,
+        include_descriptions: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[InvoicePdf]:
+        """
+        Generates the invoice as a PDF and returns a short-lived link to download it. A draft shows its estimated totals. The buyer's name and email need `member:basic:read` and `member:email:read`, and the Pay now link on an open invoice needs `payment:charge`, or `invoice:create` or `invoice:update` when it has no `payment_method_id`. Each call generates a new file and link, so this endpoint does not replay `Idempotency-Key` responses.
+
+        Parameters
+        ----------
+        id : str
+            The invoice's pay_ ID.
+
+        include_descriptions : typing.Optional[bool]
+            Whether to print each line item's `description` under it. Defaults to `true`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -600,7 +758,14 @@ class RawInvoicesClient:
             f"invoices/{encode_path_param(id)}/generate_pdf",
             base_url=self._client_wrapper.get_environment().api,
             method="POST",
+            json={
+                "include_descriptions": include_descriptions,
+            },
+            headers={
+                "content-type": "application/json",
+            },
             request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -670,6 +835,7 @@ class RawInvoicesClient:
         id: str,
         *,
         charge_at: typing.Optional[dt.datetime] = OMIT,
+        collection_method: typing.Optional[IssueInvoicesRequestCollectionMethod] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Invoice]:
         """
@@ -682,6 +848,9 @@ class RawInvoicesClient:
 
         charge_at : typing.Optional[dt.datetime]
             When to charge the draft's `payment_method_id`, as an ISO 8601 timestamp in the future. Only for a draft with a `payment_method_id` and a total above zero. Omit to charge on `due_at` if it is still ahead, or right away otherwise.
+
+        collection_method : typing.Optional[IssueInvoicesRequestCollectionMethod]
+            How the subscription this invoice starts collects each renewal. `charge_automatically` charges the payment method that paid the invoice each period: the draft's `payment_method_id`, or the one the customer pays the invoice link with. `send_invoice` issues a numbered invoice each period, due on the renewal date and emailed with its payment link to the latest invoice's `recipient_emails`, so it needs at least one recipient and isn't available for invoices billed to a business. Defaults to `charge_automatically`. Only for a draft with a recurring item. A scheduled send applies it when it fires (see `scheduled_collection_method`).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -697,6 +866,7 @@ class RawInvoicesClient:
             method="POST",
             json={
                 "charge_at": charge_at,
+                "collection_method": collection_method,
             },
             headers={
                 "content-type": "application/json",
@@ -871,11 +1041,12 @@ class RawInvoicesClient:
         id: str,
         *,
         charge_at: typing.Optional[dt.datetime] = OMIT,
+        collection_method: typing.Optional[SendInvoicesRequestCollectionMethod] = OMIT,
         send_at: typing.Optional[dt.datetime] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Invoice]:
         """
-        Issues a draft and emails it to its recipients, with reminders after the due date. A draft with a `payment_method_id` needs `payment:charge`: with a `charge_at`, or when its `due_at` is still ahead, it is emailed now and charged to that method at that time (see `scheduled_charge_at`); otherwise it is charged right away instead of emailed. Voiding the invoice, marking it uncollectible, or paying it first cancels the scheduled charge, and its recipients get the payment link if a charge fails. Sending an open invoice emails it again, up to three emails a day including the first send. With `send_at`, the draft is sent at that time instead, and cannot be edited, except its recipients, until it is sent or unscheduled. Each email, reminders included, is sent separately to the customer email shown on the invoice and to each address in `recipient_emails`, so recipients never see each other's addresses.
+        Issues a draft and emails it to its recipients, with reminders after the due date. A draft with no `payment_method_id` needs `invoice:update`, `invoice:create`, or `payment:charge`, and is never charged. A draft with a `payment_method_id` needs `payment:charge`: with a `charge_at`, or when its `due_at` is still ahead, it is emailed now and charged to that method at that time (see `scheduled_charge_at`); otherwise it is charged right away instead of emailed. Voiding the invoice, marking it uncollectible, or paying it first cancels the scheduled charge, and its recipients get the payment link if a charge fails. Sending an open invoice needs `payment:charge` and emails it again, up to three emails a day including the first send. With `send_at`, the draft is sent at that time instead, and cannot be edited, except its recipients, until it is sent or unscheduled. Each email, reminders included, is sent separately to the customer email shown on the invoice and to each address in `recipient_emails`, so recipients never see each other's addresses.
 
         Parameters
         ----------
@@ -884,6 +1055,9 @@ class RawInvoicesClient:
 
         charge_at : typing.Optional[dt.datetime]
             When to charge the draft's `payment_method_id`, as an ISO 8601 timestamp in the future and no earlier than `send_at`. Only for a draft with a `payment_method_id` and a total above zero. Omit to charge on `due_at` if it is still ahead when the draft is sent, or right away otherwise. A scheduled send that runs after `charge_at` charges right away.
+
+        collection_method : typing.Optional[SendInvoicesRequestCollectionMethod]
+            How the subscription this invoice starts collects each renewal. `charge_automatically` charges the payment method that paid the invoice each period: the draft's `payment_method_id`, or the one the customer pays the invoice link with. `send_invoice` issues a numbered invoice each period, due on the renewal date and emailed with its payment link to the latest invoice's `recipient_emails`, so it needs at least one recipient and isn't available for invoices billed to a business. Defaults to `charge_automatically`. Only for a draft with a recurring item. A scheduled send applies it when it fires (see `scheduled_collection_method`).
 
         send_at : typing.Optional[dt.datetime]
             When to send the draft, as an ISO 8601 timestamp in the future. Omit to send now.
@@ -902,6 +1076,7 @@ class RawInvoicesClient:
             method="POST",
             json={
                 "charge_at": charge_at,
+                "collection_method": collection_method,
                 "send_at": send_at,
             },
             headers={
@@ -964,7 +1139,7 @@ class RawInvoicesClient:
 
     def unschedule(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Invoice]:
         """
-        Cancels a draft's scheduled send, so it can be edited again. An invoice with no scheduled send is returned unchanged.
+        Cancels a draft's scheduled send, so it can be edited again. An invoice with no scheduled send is returned unchanged. A draft with no `payment_method_id` needs `invoice:update`, `invoice:create`, or `payment:charge`; any other invoice needs `payment:charge`.
 
         Parameters
         ----------
@@ -1133,6 +1308,7 @@ class AsyncRawInvoicesClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
+        include_total_count: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Invoice, ListInvoicesResponse]:
         """
@@ -1170,6 +1346,9 @@ class AsyncRawInvoicesClient:
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
+        include_total_count : typing.Optional[bool]
+            Set to `true` to return the number of matching results in `page_info.total_count`. Send `first=0` as well to return the count without any results.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1196,6 +1375,7 @@ class AsyncRawInvoicesClient:
                 "after": after,
                 "last": last,
                 "before": before,
+                "include_total_count": include_total_count,
             },
             request_options=request_options,
         )
@@ -1230,6 +1410,7 @@ class AsyncRawInvoicesClient:
                             after=_parsed_next,
                             last=last,
                             before=before,
+                            include_total_count=include_total_count,
                             request_options=request_options,
                         )
 
@@ -1299,13 +1480,15 @@ class AsyncRawInvoicesClient:
         email_address: typing.Optional[str] = OMIT,
         mailing_address_id: typing.Optional[str] = OMIT,
         member_id: typing.Optional[str] = OMIT,
+        memo: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
+        payment_method_configuration: typing.Optional[CreateInvoicesRequestPaymentMethodConfiguration] = OMIT,
         payment_method_id: typing.Optional[str] = OMIT,
         recipient_emails: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Invoice]:
         """
-        Creates a draft invoice backed by a receipt, with saved items, quantities, prices, and recipients. Issue the draft to resolve final tax and open the invoice. The pay_ ID stays the same when paid.
+        Creates a draft invoice backed by a receipt, with saved items, quantities, prices, and recipients. Issue the draft to resolve final tax and open the invoice. The pay_ ID stays the same when paid. Needs `invoice:create` or `payment:charge`; a `payment_method_id` needs `payment:charge`.
 
         Parameters
         ----------
@@ -1313,13 +1496,13 @@ class AsyncRawInvoicesClient:
             The issuing account.
 
         items : typing.Sequence[CreateInvoicesRequestItemsItem]
-            The variants being invoiced, all in the same currency. Each variant may appear once; use quantity for multiple units. Product and price come from each variant; a recurring variant must belong to a product, bills its renewal price and, once the invoice is paid, renews as a subscription charged to the payment method that paid it. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
+            The variants being invoiced, all in the same currency. Each variant may appear once; use quantity for multiple units. Product and price come from each variant; a recurring variant must belong to a product, bills its renewal price and, once the invoice is paid, renews as a subscription collected by the `collection_method` the invoice was sent or issued with. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
 
         billing_address : typing.Optional[CreateInvoicesRequestBillingAddress]
             Create a billing address linked to this member.
 
         buyer_fee_percentage : typing.Optional[float]
-            The buyer's adjustable fee in percentage points, with at most two decimal places.
+            The buyer's adjustable fee in percentage points, with at most two decimal places: `0` for none, or between 5 and 100. The account keeps it, and Whop waives its take rate on the invoice.
 
         customer_name : typing.Optional[str]
             The contact name when creating an email-only member.
@@ -1334,13 +1517,19 @@ class AsyncRawInvoicesClient:
             An address associated with the member. Mutually exclusive with billing_address.
 
         member_id : typing.Optional[str]
-            The billed customer, a member of the account. Changing email recipients does not change this buyer.
+            The billed customer, a member of the account, prefixed `mber_`. It can't change once the draft is created. Changing email recipients does not change this buyer.
+
+        memo : typing.Optional[str]
+            A note to the customer, shown on the invoice email, PDF, and checkout page with its line breaks kept. Trimmed; `null` or blank clears it. Can be updated on draft, open, or uncollectible invoices.
 
         metadata : typing.Optional[typing.Dict[str, str]]
-            Up to 50 caller-owned string key/value pairs.
+            Up to 50 caller-owned string key/value pairs. The `invoice_memo` key is reserved and ignored; set `memo` instead.
+
+        payment_method_configuration : typing.Optional[CreateInvoicesRequestPaymentMethodConfiguration]
+            The payment methods the customer can choose from when paying through the invoice's checkout link, in the shape a variant or checkout configuration takes. It takes precedence over the invoice's variants and the account, and changes neither. Send both lists. `null` uses its variants' payment methods. Can be updated on drafts.
 
         payment_method_id : typing.Optional[str]
-            A saved payment method belonging to the member, prefixed `payt_`. Sending or issuing the invoice charges this method at the `charge_at` passed to that call, otherwise on `due_at`, or right away when there is no `due_at` or it has passed. Sending also emails the invoice now when the charge is later; issuing does not.
+            A saved payment method belonging to the member, prefixed `payt_`. Sending or issuing the invoice charges this method at the `charge_at` passed to that call, otherwise on `due_at`, or right away when there is no `due_at` or it has passed. Sending also emails the invoice now when the charge is later; issuing does not. Setting it needs `payment:charge`.
 
         recipient_emails : typing.Optional[typing.Sequence[str]]
             Email addresses saved for invoice delivery, independent of the billed customer. Saving them sends no email. Defaults to the customer email when omitted on create. Can be updated on draft, open, or uncollectible invoices.
@@ -1373,7 +1562,13 @@ class AsyncRawInvoicesClient:
                 ),
                 "mailing_address_id": mailing_address_id,
                 "member_id": member_id,
+                "memo": memo,
                 "metadata": metadata,
+                "payment_method_configuration": convert_and_respect_annotation_metadata(
+                    object_=payment_method_configuration,
+                    annotation=typing.Optional[CreateInvoicesRequestPaymentMethodConfiguration],
+                    direction="write",
+                ),
                 "payment_method_id": payment_method_id,
                 "recipient_emails": recipient_emails,
             },
@@ -1533,13 +1728,15 @@ class AsyncRawInvoicesClient:
         items: typing.Optional[typing.Sequence[UpdateInvoicesRequestItemsItem]] = OMIT,
         mailing_address_id: typing.Optional[str] = OMIT,
         member_id: typing.Optional[str] = OMIT,
+        memo: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
+        payment_method_configuration: typing.Optional[UpdateInvoicesRequestPaymentMethodConfiguration] = OMIT,
         payment_method_id: typing.Optional[str] = OMIT,
         recipient_emails: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Invoice]:
         """
-        Updates draft invoice items and billing fields. Recipient-only updates are also allowed on unpaid invoices. Edit customer contact details through the member API.
+        Updates draft invoice items and billing fields. Updates of only `recipient_emails` and `memo` are also allowed on unpaid invoices. The customer is set when the draft is created and can't change. To bill someone else, first void the draft. Then create a new invoice. Edit customer contact details through the member API. A draft with no saved payment method and no scheduled send needs `invoice:update`, `invoice:create`, or `payment:charge`; every other update, and setting `payment_method_id`, needs `payment:charge`.
 
         Parameters
         ----------
@@ -1550,25 +1747,31 @@ class AsyncRawInvoicesClient:
             Create a billing address linked to this member.
 
         buyer_fee_percentage : typing.Optional[float]
-            The buyer's adjustable fee in percentage points, with at most two decimal places.
+            The buyer's adjustable fee in percentage points, with at most two decimal places: `0` for none, or between 5 and 100. The account keeps it, and Whop waives its take rate on the invoice.
 
         due_at : typing.Optional[dt.datetime]
             When payment is due, as an ISO 8601 timestamp.
 
         items : typing.Optional[typing.Sequence[UpdateInvoicesRequestItemsItem]]
-            The variants being invoiced, all in the same currency. Each variant may appear once; use quantity for multiple units. Product and price come from each variant; a recurring variant must belong to a product, bills its renewal price and, once the invoice is paid, renews as a subscription charged to the payment method that paid it. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
+            The variants being invoiced, all in the same currency. Each variant may appear once; use quantity for multiple units. Product and price come from each variant; a recurring variant must belong to a product, bills its renewal price and, once the invoice is paid, renews as a subscription collected by the `collection_method` the invoice was sent or issued with. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
 
         mailing_address_id : typing.Optional[str]
             An address associated with the member. Mutually exclusive with billing_address.
 
         member_id : typing.Optional[str]
-            The billed customer, a member of the account. Changing email recipients does not change this buyer.
+            The billed customer, a member of the account, prefixed `mber_`. The customer is set when the draft is created and can't change, so pass the draft's current customer or omit this field. A draft saved without a customer can take one here. Changing email recipients does not change this buyer.
+
+        memo : typing.Optional[str]
+            A note to the customer, shown on the invoice email, PDF, and checkout page with its line breaks kept. Trimmed; `null` or blank clears it. Can be updated on draft, open, or uncollectible invoices.
 
         metadata : typing.Optional[typing.Dict[str, str]]
-            Up to 50 caller-owned string key/value pairs.
+            Up to 50 caller-owned string key/value pairs. The `invoice_memo` key is reserved and ignored; set `memo` instead.
+
+        payment_method_configuration : typing.Optional[UpdateInvoicesRequestPaymentMethodConfiguration]
+            The payment methods the customer can choose from when paying through the invoice's checkout link, in the shape a variant or checkout configuration takes. It takes precedence over the invoice's variants and the account, and changes neither. Send both lists. `null` uses its variants' payment methods. Can be updated on drafts.
 
         payment_method_id : typing.Optional[str]
-            A saved payment method belonging to the member, prefixed `payt_`. Sending or issuing the invoice charges this method at the `charge_at` passed to that call, otherwise on `due_at`, or right away when there is no `due_at` or it has passed. Sending also emails the invoice now when the charge is later; issuing does not.
+            A saved payment method belonging to the member, prefixed `payt_`. Sending or issuing the invoice charges this method at the `charge_at` passed to that call, otherwise on `due_at`, or right away when there is no `due_at` or it has passed. Sending also emails the invoice now when the charge is later; issuing does not. Setting it needs `payment:charge`.
 
         recipient_emails : typing.Optional[typing.Sequence[str]]
             Email addresses saved for invoice delivery, independent of the billed customer. Saving them sends no email. Defaults to the customer email when omitted on create. Can be updated on draft, open, or uncollectible invoices.
@@ -1598,7 +1801,13 @@ class AsyncRawInvoicesClient:
                 ),
                 "mailing_address_id": mailing_address_id,
                 "member_id": member_id,
+                "memo": memo,
                 "metadata": metadata,
+                "payment_method_configuration": convert_and_respect_annotation_metadata(
+                    object_=payment_method_configuration,
+                    annotation=typing.Optional[UpdateInvoicesRequestPaymentMethodConfiguration],
+                    direction="write",
+                ),
                 "payment_method_id": payment_method_id,
                 "recipient_emails": recipient_emails,
             },
@@ -1660,16 +1869,136 @@ class AsyncRawInvoicesClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    async def generate_pdf(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[InvoicePdf]:
+    async def charge(
+        self,
+        id: str,
+        *,
+        payment_method_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[Invoice]:
         """
-        Generates the invoice as a PDF and returns a short-lived link to download it. A draft shows its estimated totals. The buyer's name and email need `member:basic:read` and `member:email:read`, and the Pay now link on an open invoice needs `payment:charge`. Each call generates a new file and link, so this endpoint does not replay `Idempotency-Key` responses.
+        Charges an open invoice now to one of its customer's saved payment methods, canceling any charge scheduled for later. The charge completes asynchronously: the invoice becomes `paid`, or, if declined, stays `open` and its recipients are emailed the `checkout_link`. Refused for drafts and while another payment is in progress.
 
         Parameters
         ----------
         id : str
             The invoice's pay_ ID.
+
+        payment_method_id : typing.Optional[str]
+            The saved payment method to charge, prefixed `payt_`. It must belong to the invoice's customer and be chargeable without the customer present. Omit it to charge the invoice's own `payment_method_id`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[Invoice]
+            charge started
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"invoices/{encode_path_param(id)}/charge",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            json={
+                "payment_method_id": payment_method_id,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Invoice,
+                    parse_obj_as(
+                        type_=Invoice,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def generate_pdf(
+        self,
+        id: str,
+        *,
+        include_descriptions: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[InvoicePdf]:
+        """
+        Generates the invoice as a PDF and returns a short-lived link to download it. A draft shows its estimated totals. The buyer's name and email need `member:basic:read` and `member:email:read`, and the Pay now link on an open invoice needs `payment:charge`, or `invoice:create` or `invoice:update` when it has no `payment_method_id`. Each call generates a new file and link, so this endpoint does not replay `Idempotency-Key` responses.
+
+        Parameters
+        ----------
+        id : str
+            The invoice's pay_ ID.
+
+        include_descriptions : typing.Optional[bool]
+            Whether to print each line item's `description` under it. Defaults to `true`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1683,7 +2012,14 @@ class AsyncRawInvoicesClient:
             f"invoices/{encode_path_param(id)}/generate_pdf",
             base_url=self._client_wrapper.get_environment().api,
             method="POST",
+            json={
+                "include_descriptions": include_descriptions,
+            },
+            headers={
+                "content-type": "application/json",
+            },
             request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -1753,6 +2089,7 @@ class AsyncRawInvoicesClient:
         id: str,
         *,
         charge_at: typing.Optional[dt.datetime] = OMIT,
+        collection_method: typing.Optional[IssueInvoicesRequestCollectionMethod] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Invoice]:
         """
@@ -1765,6 +2102,9 @@ class AsyncRawInvoicesClient:
 
         charge_at : typing.Optional[dt.datetime]
             When to charge the draft's `payment_method_id`, as an ISO 8601 timestamp in the future. Only for a draft with a `payment_method_id` and a total above zero. Omit to charge on `due_at` if it is still ahead, or right away otherwise.
+
+        collection_method : typing.Optional[IssueInvoicesRequestCollectionMethod]
+            How the subscription this invoice starts collects each renewal. `charge_automatically` charges the payment method that paid the invoice each period: the draft's `payment_method_id`, or the one the customer pays the invoice link with. `send_invoice` issues a numbered invoice each period, due on the renewal date and emailed with its payment link to the latest invoice's `recipient_emails`, so it needs at least one recipient and isn't available for invoices billed to a business. Defaults to `charge_automatically`. Only for a draft with a recurring item. A scheduled send applies it when it fires (see `scheduled_collection_method`).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1780,6 +2120,7 @@ class AsyncRawInvoicesClient:
             method="POST",
             json={
                 "charge_at": charge_at,
+                "collection_method": collection_method,
             },
             headers={
                 "content-type": "application/json",
@@ -1954,11 +2295,12 @@ class AsyncRawInvoicesClient:
         id: str,
         *,
         charge_at: typing.Optional[dt.datetime] = OMIT,
+        collection_method: typing.Optional[SendInvoicesRequestCollectionMethod] = OMIT,
         send_at: typing.Optional[dt.datetime] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Invoice]:
         """
-        Issues a draft and emails it to its recipients, with reminders after the due date. A draft with a `payment_method_id` needs `payment:charge`: with a `charge_at`, or when its `due_at` is still ahead, it is emailed now and charged to that method at that time (see `scheduled_charge_at`); otherwise it is charged right away instead of emailed. Voiding the invoice, marking it uncollectible, or paying it first cancels the scheduled charge, and its recipients get the payment link if a charge fails. Sending an open invoice emails it again, up to three emails a day including the first send. With `send_at`, the draft is sent at that time instead, and cannot be edited, except its recipients, until it is sent or unscheduled. Each email, reminders included, is sent separately to the customer email shown on the invoice and to each address in `recipient_emails`, so recipients never see each other's addresses.
+        Issues a draft and emails it to its recipients, with reminders after the due date. A draft with no `payment_method_id` needs `invoice:update`, `invoice:create`, or `payment:charge`, and is never charged. A draft with a `payment_method_id` needs `payment:charge`: with a `charge_at`, or when its `due_at` is still ahead, it is emailed now and charged to that method at that time (see `scheduled_charge_at`); otherwise it is charged right away instead of emailed. Voiding the invoice, marking it uncollectible, or paying it first cancels the scheduled charge, and its recipients get the payment link if a charge fails. Sending an open invoice needs `payment:charge` and emails it again, up to three emails a day including the first send. With `send_at`, the draft is sent at that time instead, and cannot be edited, except its recipients, until it is sent or unscheduled. Each email, reminders included, is sent separately to the customer email shown on the invoice and to each address in `recipient_emails`, so recipients never see each other's addresses.
 
         Parameters
         ----------
@@ -1967,6 +2309,9 @@ class AsyncRawInvoicesClient:
 
         charge_at : typing.Optional[dt.datetime]
             When to charge the draft's `payment_method_id`, as an ISO 8601 timestamp in the future and no earlier than `send_at`. Only for a draft with a `payment_method_id` and a total above zero. Omit to charge on `due_at` if it is still ahead when the draft is sent, or right away otherwise. A scheduled send that runs after `charge_at` charges right away.
+
+        collection_method : typing.Optional[SendInvoicesRequestCollectionMethod]
+            How the subscription this invoice starts collects each renewal. `charge_automatically` charges the payment method that paid the invoice each period: the draft's `payment_method_id`, or the one the customer pays the invoice link with. `send_invoice` issues a numbered invoice each period, due on the renewal date and emailed with its payment link to the latest invoice's `recipient_emails`, so it needs at least one recipient and isn't available for invoices billed to a business. Defaults to `charge_automatically`. Only for a draft with a recurring item. A scheduled send applies it when it fires (see `scheduled_collection_method`).
 
         send_at : typing.Optional[dt.datetime]
             When to send the draft, as an ISO 8601 timestamp in the future. Omit to send now.
@@ -1985,6 +2330,7 @@ class AsyncRawInvoicesClient:
             method="POST",
             json={
                 "charge_at": charge_at,
+                "collection_method": collection_method,
                 "send_at": send_at,
             },
             headers={
@@ -2049,7 +2395,7 @@ class AsyncRawInvoicesClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[Invoice]:
         """
-        Cancels a draft's scheduled send, so it can be edited again. An invoice with no scheduled send is returned unchanged.
+        Cancels a draft's scheduled send, so it can be edited again. An invoice with no scheduled send is returned unchanged. A draft with no `payment_method_id` needs `invoice:update`, `invoice:create`, or `payment:charge`; any other invoice needs `payment:charge`.
 
         Parameters
         ----------

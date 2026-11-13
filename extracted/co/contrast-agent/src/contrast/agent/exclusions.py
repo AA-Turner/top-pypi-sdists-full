@@ -101,7 +101,7 @@ class Exclusions:
         if config["assess.enable"]:
             active_modes.add("assess")
         if config["protect.enable"]:
-            active_modes.add("defend")
+            active_modes.add("protect")
 
         def active(exclusions):
             return (
@@ -372,7 +372,7 @@ class UrlExclusion(BaseExclusion):
             else:
                 context.assess_enabled = False
 
-        if "defend" in self.modes:
+        if "protect" in self.modes:
             if self.protect_rules:
                 web_context.excluded_protect_rules.extend(self.protect_rules)
             else:

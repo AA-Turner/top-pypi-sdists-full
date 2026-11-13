@@ -25,7 +25,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-__version__='1.26.20260821'
+__version__='1.27.20261112'
 
 from Phidget22.PhidgetException import PhidgetException
 from Phidget22.NDEFRecords import NDEFURIRecord, NDEFTextRecord

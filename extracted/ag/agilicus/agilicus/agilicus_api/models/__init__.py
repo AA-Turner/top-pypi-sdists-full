@@ -340,6 +340,7 @@ from agilicus_api.model.form_injection import FormInjection
 from agilicus_api.model.form_injection_config import FormInjectionConfig
 from agilicus_api.model.forwarder_common_stats import ForwarderCommonStats
 from agilicus_api.model.forwarder_detailed_stats import ForwarderDetailedStats
+from agilicus_api.model.forwarder_resource_group_networks import ForwarderResourceGroupNetworks
 from agilicus_api.model.forwarder_stats_publish import ForwarderStatsPublish
 from agilicus_api.model.forwarder_summary_stats import ForwarderSummaryStats
 from agilicus_api.model.frame_options_settings import FrameOptionsSettings
@@ -832,6 +833,7 @@ from agilicus_api.model.service_account_spec import ServiceAccountSpec
 from agilicus_api.model.service_account_status import ServiceAccountStatus
 from agilicus_api.model.service_expose_config import ServiceExposeConfig
 from agilicus_api.model.service_forwarder import ServiceForwarder
+from agilicus_api.model.service_forwarder_mode import ServiceForwarderMode
 from agilicus_api.model.service_forwarder_spec import ServiceForwarderSpec
 from agilicus_api.model.service_forwarder_stats import ServiceForwarderStats
 from agilicus_api.model.service_forwarder_stats_group import ServiceForwarderStatsGroup

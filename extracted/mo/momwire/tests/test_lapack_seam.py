@@ -96,6 +96,13 @@ def fake_host(monkeypatch):
     yield _lapack.HOST_CALLS
 
 
+@pytest.fixture(autouse=True)
+def _condition_check_on(monkeypatch):
+    """These tests hold `solve` to scipy's contract, warning included, so the
+    opt-in condition estimate is on (`_lapack.condition_check`)."""
+    monkeypatch.setenv(_lapack.CONDITION_CHECK_ENV, "1")
+
+
 @pytest.fixture
 def no_host(monkeypatch):
     monkeypatch.delattr(sys, "_mw_host_lapack", raising=False)
@@ -524,6 +531,10 @@ ALLOWED = {
     # The MNA network solve: LAPACK's equilibrating expert driver zgesvx for
     # its scaled condition estimate, a routine the host table does not carry.
     ("networks/_reduce.py", "scipy.linalg.lapack.zgesvx"): 1,
+    # `terminate_ports`: (I + Y_LL Z) over the loaded ports only (L x L, L =
+    # the loads placed, typically 1 or 2), on an already-solved Y: never
+    # touches Z (momwire#1915).
+    ("_port_sites.py", "np.linalg.solve"): 1,
 }
 
 

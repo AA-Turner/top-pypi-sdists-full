@@ -6,13 +6,21 @@ numpy, because the pure python implementation is loaded before numpy is
 known to be available.
 """
 
+import ast
+import inspect
+import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import get_args
 
 import numpy as np
 import pytest
 
+import numpy_groupies
+import numpy_groupies as npg
+from numpy_groupies import functions, validation
 from numpy_groupies.driver import aliasing
+from numpy_groupies.npg_numpy.ops import _op_dict
 from numpy_groupies.registry import (
     FuncName,
     Registry,
@@ -24,10 +32,15 @@ from numpy_groupies.registry import (
     function_names,
     resolve_name,
 )
-from numpy_groupies.tests.helpers import aliasing_of, assert_same_result
+from numpy_groupies.tests.helpers import (
+    aliasing_of,
+    assert_same_result,
+    impl_name,
+    is_supported,
+)
 
 
-def test_the_names_of_the_literal_type_are_the_names_of_the_alias_table():
+def test_names_of_literal_type_are_names_of_alias_table():
     """The literal type of the func parameter names every function by name.
 
     A name the table does not hold would be one the type checker refuses
@@ -36,6 +49,7 @@ def test_the_names_of_the_literal_type_are_the_names_of_the_alias_table():
     """
     names = set(get_args(FuncName))
     assert names == {name for name in aliasing if isinstance(name, str)}
+    # the table without the numpy functions names the same functions
     assert names == {name for name in aliasing_py if isinstance(name, str)}
 
 
@@ -58,7 +72,7 @@ def test_build_dispatch_resolves_every_alias():
     assert dispatch["nansum"] == Resolved("nansum", None, None)
 
 
-def test_a_name_is_resolved_without_asking_its_func_for_a_hash():
+def test_name_is_resolved_without_asking_func_for_hash():
     """A func that cannot be a key names no function - and is not looked up to find
 
     that out.  ``resolve_name`` asks the type first, so the lookup that could not
@@ -71,7 +85,7 @@ def test_a_name_is_resolved_without_asking_its_func_for_a_hash():
     assert resolve_name(np.amin, aliasing) == "min"
 
 
-def test_a_func_that_is_neither_a_name_nor_a_callable_is_said_so():
+def test_func_neither_name_nor_callable_is_reported():
     for func in (42, [1, 2], {"a": 1}, np.array([1.0])):
         with pytest.raises(ValueError, match="neither a valid function string nor a callable object"):
             custom_callable(func)
@@ -91,7 +105,7 @@ def _registry():
     return Registry(op_dict, aliasing, custom)
 
 
-def test_the_registry_answers_both_kinds_of_func_with_one_lookup():
+def test_registry_answers_both_kinds_of_func_with_one_lookup():
     """A known function and a callable of the caller's own come out of one lookup.
 
     The registry holds the aliases of the known functions, and a func that names
@@ -116,7 +130,7 @@ def test_the_registry_answers_both_kinds_of_func_with_one_lookup():
     assert temporal_op is None
 
 
-def test_the_registry_answers_a_func_that_cannot_be_a_key():
+def test_registry_answers_unhashable_func():
     """A func the table cannot hold as a key names no known function either.
 
     A dict asks its keys for a hash, which an object that defines ``__eq__``
@@ -139,14 +153,14 @@ def test_the_registry_answers_a_func_that_cannot_be_a_key():
     assert temporal_op is None
 
 
-def test_a_func_that_named_nothing_is_said_so_by_the_factory():
+def test_func_named_nothing_is_reported_by_factory():
     """The factory of the backend tells a func that named nothing from one that can be run."""
     registry = _registry()
     with pytest.raises(ValueError, match="neither a valid function string nor a callable object"):
         registry[42]
 
 
-def test_the_functions_that_hold_a_none_match_the_registry():
+def test_functions_holding_none_match_registry():
     """The one function whose result holds a None is the object array.
 
     ``validation`` states which functions may be filled with a None - the
@@ -154,35 +168,80 @@ def test_the_functions_that_hold_a_none_match_the_registry():
     fill values knows every function of the package.  The two have to agree,
     or a function would be filled with a None its result cannot hold.
     """
-    from numpy_groupies import functions, validation
 
     assert validation.NONE_RESULT_FUNCTIONS == frozenset({"array"})
     assert frozenset(functions.default_fill_values) - validation.NONE_RESULT_FUNCTIONS
 
 
-def test_every_function_of_the_package_has_an_entry_point_on_every_backend():
+def test_every_function_of_package_has_entry_point_on_every_backend(impl):
     """Every function is reachable by its name, on every backend.
 
     The entry points of a backend are the functions of ``funcs_common`` and
     their nan-variants - so the list has to name every function of the
     package, or a function is reachable only through the ``func`` argument.
     """
-    from numpy_groupies import aggregate_numba, aggregate_numpy, aggregate_purepy
-    from numpy_groupies.aggregate_numpy.ops import _op_dict
 
-    for backend in (aggregate_numpy, aggregate_numba, aggregate_purepy):
-        for name in _op_dict:
-            assert hasattr(backend, name), f"{backend!r} has no entry point for {name}"
+    for name in _op_dict:
+        assert hasattr(impl._module, name), f"the {impl_name(impl)} backend has no entry point for {name}"
 
 
-def test_the_list_of_the_functions_names_every_function_of_the_package():
+def _the_support_matrix_of_the_docs():
+    """the table of the functions of the docs, as the backends and the names.
+
+    The table of ``docs/functions.md`` names every function of the package
+    and the backend that answers it - and a function that a backend has
+    learned since the table was written is a hole in the table.
+    """
+    docs = Path(__file__).parents[2] / "docs" / "functions.md"
+    if not docs.exists():  # pragma: no cover - the docs are not in the wheel
+        pytest.skip("the docs are not there")
+    columns = []
+    rows = []
+    for line in docs.read_text().splitlines():
+        match = re.match(r"\|\s*`([^`]+)`\s*\|\s*(x|-)\s*\|\s*(x|-)\s*\|\s*(x|-)\s*\|", line)
+        if match is None:
+            if not columns:
+                # the head of the table names the backends in its columns
+                head = re.match(r"\|\s*Function\s*\|(.+)\|", line)
+                if head and "numba" in head.group(1):
+                    columns = [name.strip() for name in head.group(1).split("|")]
+            continue
+        names, numpy, numba, purepy = match.groups()
+        if "…" in names or "variants" in names:
+            # the rows of the nan-variants and of the custom callables name
+            # no function of their own
+            continue
+        rows.append((tuple(n.strip() for n in names.split(",")), numpy, numba, purepy))
+    assert rows, "the table of the supported functions is not in the docs"
+    return columns, rows
+
+
+def test_support_matrix_of_docs_agrees_with_backends(impl):
+    """The table of the docs says what every backend answers - and it is right.
+
+    A function that a backend has learned since the table was written is a
+    hole in the table: the docs would send the reader to a backend that
+    refuses the function.
+    """
+    columns, rows = _the_support_matrix_of_the_docs()
+    # the columns of the table name the backends
+    columns_of_the_backends = {"numpy": "numpy", "numba": "numba", "purepy": "pure python"}
+    name_of_the_backend = impl_name(impl)
+    column = columns.index(columns_of_the_backends[name_of_the_backend])
+
+    for names, *marks in rows:
+        for name, mark in zip(names, marks):
+            supported = is_supported(impl, name)
+            assert supported == (marks[column] == "x"), f"{name} and the {name_of_the_backend} backend"
+
+
+def test_list_of_functions_names_every_function_of_package():
     """The list the entry points are built from names every function.
 
     ``funcs_common`` is the list of the functions of the package - the
     nan-variants are added to it, so a function is named by the one it skips
     the nans of.
     """
-    from numpy_groupies.aggregate_numpy.ops import _op_dict
 
     names = set(funcs_common)
     for name in _op_dict:
@@ -192,23 +251,20 @@ def test_the_list_of_the_functions_names_every_function_of_the_package():
     assert {"cumprod", "cummax", "cummin"} <= names
 
 
-def test_the_package_carries_the_functions_of_the_best_implementation():
+def test_package_carries_functions_of_best_implementation(impl):
     """Every function of the package is a name of the package itself.
 
     ``npg.mean(group_idx, a)`` is the mean of every group, computed by the
     best implementation available - and every backend has a name of its own,
     so that the implementation can be chosen explicitly.
     """
-    import numpy_groupies as npg
-    from numpy_groupies import aggregate_numpy, aggregate_purepy
 
     for name in funcs_common:
         assert hasattr(npg, name), f"the package has no {name}"
-        assert hasattr(aggregate_numpy, name), f"the numpy backend has no {name}"
-        assert hasattr(aggregate_purepy, name), f"the pure python backend has no {name}"
+        assert hasattr(impl._module, name), f"the {impl_name(impl)} backend has no {name}"
 
 
-def test_every_function_of_the_package_is_declared_for_the_type_checker():
+def test_every_function_of_package_is_declared_for_type_checker():
     """The names the package hands out are the names the type checker knows.
 
     The functions of the package are built at runtime, out of the table of
@@ -217,11 +273,6 @@ def test_every_function_of_the_package_is_declared_for_the_type_checker():
     the same: a function the type checker does not know is one the caller
     cannot use without an error.
     """
-    import ast
-    import inspect
-
-    import numpy_groupies
-
     tree = ast.parse(inspect.getsource(numpy_groupies))
     declared = {
         node.target.id
@@ -235,31 +286,27 @@ def test_every_function_of_the_package_is_declared_for_the_type_checker():
     assert declared == set(function_names())
 
 
-def test_the_package_carries_every_function_of_the_registry():
+def test_package_carries_every_function_of_registry(impl):
     """Every function of the registry is a name of the package itself.
 
     The nan variants are functions of the package, too - they are named by the
     function they skip the nans of, and the entry points are built out of the
     names of the registry.
     """
-    import numpy_groupies as npg
-    from numpy_groupies import aggregate_numpy, aggregate_purepy
 
     for name in function_names():
         assert hasattr(npg, name), f"the package has no {name}"
-        assert hasattr(aggregate_numpy, name), f"the numpy backend has no {name}"
-        assert hasattr(aggregate_purepy, name), f"the pure python backend has no {name}"
+        assert hasattr(impl._module, name), f"the {impl_name(impl)} backend has no {name}"
 
 
 @pytest.mark.parametrize("name", sorted(function_names()))
-def test_the_entry_point_of_the_package_answers_as_its_function(name):
+def test_entry_point_of_package_answers_as_function(name):
     """``npg.mean(group_idx, a)`` is ``npg.aggregate(group_idx, a, func="mean")``.
 
     The entry points are built at runtime, out of the table of the entry
     points of the backend - so the name in the package and the function of the
     aggregation have to be one and the same.
     """
-    import numpy_groupies as npg
 
     group_idx = np.array([0, 0, 1, 1, 1])
     a = np.array([1.0, 3.0, 5.0, 7.0, 9.0])
@@ -282,13 +329,12 @@ _ENTRY_POINT_ARGUMENTS = [
 
 
 @pytest.mark.parametrize(("name", "kwargs"), _ENTRY_POINT_ARGUMENTS)
-def test_the_entry_point_passes_the_arguments_of_its_function(name, kwargs):
+def test_entry_point_passes_arguments_of_function(name, kwargs):
     """The arguments of the function reach it through the entry point.
 
     The entry point of the package takes the arguments of its function - the
     ``ddof`` of the variance, the ``q`` of the quantile - and hands them on.
     """
-    import numpy_groupies as npg
 
     group_idx = np.array([0, 0, 1, 1, 1])
     a = np.array([1.0, 3.0, 5.0, 7.0, 9.0])
@@ -298,7 +344,7 @@ def test_the_entry_point_passes_the_arguments_of_its_function(name, kwargs):
 
 
 @pytest.mark.parametrize("alias", sorted(alias for alias in aliasing if isinstance(alias, str)))
-def test_every_alias_answers_like_the_function_it_names(impl, alias):
+def test_every_alias_answers_like_named_function(impl, alias):
     """Every alias of the package is another name of the function it names.
 
     The aliases are the names numpy knows - ``add`` for the sum, ``amin``

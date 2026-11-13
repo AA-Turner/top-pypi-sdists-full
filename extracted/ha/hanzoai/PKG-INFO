@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: hanzoai
-Version: 8.5.914
+Version: 8.5.1153
 Summary: The official Python library for the Hanzo API
 Project-URL: Homepage, https://github.com/hanzoai/python-sdk
 Project-URL: Repository, https://github.com/hanzoai/python-sdk
@@ -343,6 +343,7 @@ Apache 2.0 — see [LICENSE](https://github.com/hanzoai/python-sdk/tree/main/LIC
 same client in other languages:
 [TypeScript](https://github.com/hanzoai/js-sdk) ·
 [Go](https://github.com/hanzoai/go-sdk) ·
-[Java](https://github.com/hanzoai/java-sdk) ·
+[Java](https://github.com/hanzo-java/sdk) ·
+[C#](https://github.com/hanzo-csharp/sdk) ·
 [Kotlin](https://github.com/hanzoai/kotlin-sdk) ·
 [umbrella](https://github.com/hanzoai/sdk)

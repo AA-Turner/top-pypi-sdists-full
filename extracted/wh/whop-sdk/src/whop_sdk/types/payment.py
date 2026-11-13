@@ -9,6 +9,7 @@ from .currencies import Currencies
 from .friendly_receipt_status import FriendlyReceiptStatus
 from .money import Money
 from .payment_address import PaymentAddress
+from .payment_checkout_surface import PaymentCheckoutSurface
 from .payment_decline_codes import PaymentDeclineCodes
 from .payment_hold import PaymentHold
 from .payment_instrument import PaymentInstrument
@@ -60,6 +61,16 @@ class Payment(UniversalBaseModel):
     checkout_configuration_id: typing.Optional[str] = pydantic.Field(default=None)
     """
     The checkout configuration the buyer paid through, prefixed `ch_`, or null.
+    """
+
+    checkout_origin: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The scheme and host of the website where the buyer opened the checkout, such as `https://store.example.com`. Use it to tell apart payments from different websites on one account. Null when the website was not recorded, including for payments made without the buyer present.
+    """
+
+    checkout_surface: typing.Optional[PaymentCheckoutSurface] = pydantic.Field(default=None)
+    """
+    The checkout experience that produced this payment, such as `embedded_checkout` for a checkout on the account's own website or `off_session` for a subscription renewal. Null when the checkout was not recorded.
     """
 
     client_secret: typing.Optional[str] = pydantic.Field(default=None)
@@ -120,7 +131,7 @@ class Payment(UniversalBaseModel):
 
     ip_address: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The buyer's IP address at checkout, as identified by Whop's fraud screening. Null when the payment was not screened at checkout, such as a subscription renewal or a charge made without the buyer present.
+    The buyer's IP address at checkout: the one Whop's fraud screening identified, otherwise the one Whop captured from the buyer's browser at checkout. Null when the buyer was not present at checkout, such as a subscription renewal or a charge made without the buyer present.
     """
 
     last_payment_attempt_at: typing.Optional[str] = pydantic.Field(default=None)
@@ -144,6 +155,11 @@ class Payment(UniversalBaseModel):
     Your own key-value data attached when the payment was created.
     """
 
+    missing_tracking: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    True for a paid payment with a shipping address, no shipment, and no full refund. Null without the shipment:basic:read permission.
+    """
+
     needs_tracking: typing.Optional[bool] = pydantic.Field(default=None)
     """
     True when funds are held until the order ships and no tracking number has been added yet. Null without the shipment:basic:read permission.
@@ -161,7 +177,7 @@ class Payment(UniversalBaseModel):
 
     payment_instrument: typing.Optional[PaymentInstrument] = pydantic.Field(default=None)
     """
-    The instrument shaped for display: a buyer-facing name, the standard icon set, and the card's brand, last four and issuer identification number when it was a card.
+    The instrument shaped for display: a buyer-facing name, the standard icon set, and when it was a card, the card's brand, last four, issuer identification number, and the network transaction id the account uses for the card.
     """
 
     payment_method_id: typing.Optional[str] = pydantic.Field(default=None)
@@ -237,7 +253,7 @@ class Payment(UniversalBaseModel):
 
     retryable: bool = pydantic.Field()
     """
-    True when the payment is `open` and Whop can attempt the charge again — see `POST /payments/{id}/retry`.
+    True when the payment is `open` and can be retried by hand with `POST /payments/{id}/retry`: its membership is `active`, `trialing`, or `past_due` (or it is a failed first payment on a `drafted` membership), it is not paid through an invoice payment link, and its one manual retry is not used up. A retry can still be refused when the company cannot currently accept payments.
     """
 
     risk_score: typing.Optional[float] = pydantic.Field(default=None)
@@ -321,6 +337,11 @@ class Payment(UniversalBaseModel):
     The buyer. Null when the payment belongs to a company buyer rather than a user.
     """
 
+    user_agent: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The buyer's browser user agent at checkout. Null when the buyer was not present at checkout, such as a subscription renewal, or without the member:basic:read permission.
+    """
+
     variant_id: typing.Optional[str] = pydantic.Field(default=None)
     """
     The variant that was charged, prefixed `plan_`.
@@ -334,6 +355,11 @@ class Payment(UniversalBaseModel):
     voidable: bool = pydantic.Field()
     """
     True when the payment can be voided or canceled. The request is rejected if the payment is no longer eligible — see `POST /payments/{id}/void`.
+    """
+
+    wuid: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The Whop pixel's visitor ID for the buyer's browser at checkout, prefixed `wuid_`. Null when the checkout page had no Whop pixel, when the buyer was not present at checkout, or without the member:basic:read permission.
     """
 
     if IS_PYDANTIC_V2:

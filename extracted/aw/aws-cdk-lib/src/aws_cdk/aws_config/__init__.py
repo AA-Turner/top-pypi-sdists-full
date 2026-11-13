@@ -66,7 +66,7 @@ config.AccessKeysRotated(self, "AccessKeyRotated")
 #### CloudFormation Stack drift detection
 
 Checks whether your CloudFormation stack's actual configuration differs, or has drifted,
-from it's expected configuration.
+from its expected configuration.
 
 ```python
 # compliant if stack's status is 'IN_SYNC'

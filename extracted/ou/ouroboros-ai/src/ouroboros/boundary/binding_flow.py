@@ -31,7 +31,6 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 import json
 from pathlib import Path
-import shutil
 from typing import Any, Literal
 
 from ouroboros.boundary.acceptance import rerunnable_checks
@@ -52,18 +51,22 @@ from ouroboros.boundary.receipts import (
     CandidateVerification,
     CheckStatus,
 )
-from ouroboros.boundary.tree import copy_checkout, tree_digest
+from ouroboros.boundary.tree import copy_checkout, run_off_loop, tree_digest
 
 BASE_SNAPSHOT_DIR = "base_snapshot"
 
 
 def snapshot_base(base: Path, store_dir: Path) -> Path:
-    """Copy the base checkout under ``store_dir`` (for the base run of a declared binding)."""
+    """Copy the base checkout under ``store_dir`` (for the base run of a declared binding).
+
+    The snapshot is published only once the copy is complete, and an earlier
+    snapshot is replaced only then: a checkout that is written to during the
+    copy leaves the previous snapshot usable instead of a partial baseline
+    (#2808).
+    """
     snapshot = store_dir / BASE_SNAPSHOT_DIR
-    if snapshot.exists():
-        shutil.rmtree(snapshot)
     store_dir.mkdir(parents=True, exist_ok=True)
-    copy_checkout(base.resolve(), snapshot)
+    copy_checkout(base.resolve(), snapshot, replace=True)
     return snapshot
 
 
@@ -136,7 +139,9 @@ async def validate_declared_binding(
     )
     if not validation.valid or validation.binding is None:
         return DeclaredBindingResult(validation)
-    if expected_base_digest is not None and tree_digest(base) != expected_base_digest:
+    if expected_base_digest is not None and (
+        await run_off_loop(tree_digest, base) != expected_base_digest
+    ):
         return DeclaredBindingResult(
             validation.model_copy(
                 update={

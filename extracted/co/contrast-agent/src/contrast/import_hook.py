@@ -1,25 +1,35 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
+
 import importlib.abc
 import importlib.util
 import sys
-from types import ModuleType
+from typing import TYPE_CHECKING
 
 import contrast
 from contrast.agent import scope
-from contrast.agent.settings import Settings
+from contrast.agent.inventory.library_reader import observe_library
 from contrast.applies.assess import unsafe_code_execution
 from contrast_vendor.wrapt import importer as wrapt_importer
 
+if TYPE_CHECKING:
+    from types import ModuleType
 
-def register_path_finder():
+    from contrast.reporting.fireball import Client
+
+
+def register_path_finder() -> ContrastMetaPathFinder:
     """
-    Add the ContrastMetaPathFinder to the sys.meta_path if it is not already present.
+    Add the ContrastMetaPathFinder to the sys.meta_path if it is not already present,
+    and return it.
     """
-    if not any(
-        isinstance(path_finder, ContrastMetaPathFinder) for path_finder in sys.meta_path
-    ):
-        sys.meta_path.insert(0, ContrastMetaPathFinder())
+    for path_finder in sys.meta_path:
+        if isinstance(path_finder, ContrastMetaPathFinder):
+            return path_finder
+    path_finder = ContrastMetaPathFinder()
+    sys.meta_path.insert(0, path_finder)
+    return path_finder
 
 
 def remove_path_finder():
@@ -29,13 +39,19 @@ def remove_path_finder():
     for path_finder in sys.meta_path:
         if isinstance(path_finder, ContrastMetaPathFinder):
             sys.meta_path.remove(path_finder)
-            break
 
 
 class ContrastMetaPathFinder(importlib.abc.MetaPathFinder):
     def __init__(self) -> None:
         super().__init__()
         self.in_progress = {}
+        # None until library discovery has been reported, since Fireball drops
+        # observations of libraries that haven't been discovered yet. Stays None if
+        # library analysis is disabled.
+        self.fireball_client: Client | None = None
+
+    def enable_library_observations(self, fireball_client: Client) -> None:
+        self.fireball_client = fireball_client
 
     def find_spec(self, fullname, path, target=None):
         if fullname in self.in_progress:
@@ -50,7 +66,7 @@ class ContrastMetaPathFinder(importlib.abc.MetaPathFinder):
 
             loader = getattr(spec, "loader", None)
             if loader and not isinstance(loader, _ContrastImportHookChainedLoader):
-                spec.loader = _ContrastImportHookChainedLoader(loader)
+                spec.loader = _ContrastImportHookChainedLoader(loader, self)
 
             return spec
         finally:
@@ -69,18 +85,16 @@ def analyze_for_unsafe_code_execution(module_name: str):
 
 
 class _ContrastImportHookChainedLoader(wrapt_importer._ImportHookChainedLoader):
+    def __init__(self, loader, path_finder: ContrastMetaPathFinder) -> None:
+        super().__init__(loader)
+        self._self_path_finder = path_finder
+
     @scope.contrast_scope()
     @scope.observe_scope()  # don't report file-open-create for imported source files
     def _self_exec_module(self, module: ModuleType) -> None:
-        in_scope = False
         try:
             with scope.pop_contrast_scope():
-                in_scope = scope.in_contrast_scope()
                 return super()._self_exec_module(module)
         finally:
-            if (
-                not in_scope
-                and Settings().is_analyze_libs_enabled()
-                and (context := contrast.CONTEXT.get()) is not None
-            ):
-                context.observed_libraries.add_module(module)
+            if fireball_client := self._self_path_finder.fireball_client:
+                observe_library(fireball_client, module)

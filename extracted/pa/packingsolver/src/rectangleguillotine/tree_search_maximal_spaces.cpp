@@ -42,48 +42,70 @@ BranchingSchemeMaximalSpaces::BranchingSchemeMaximalSpaces(
     }
     copy_dependent_resource_consumptions_
         = copy_dependent_resource_consumptions(instance_)[bin_type_id];
+
+    // Reachable lengths. A row of items separated by cuts is as wide as the
+    // sum of the widths of its items plus a cut thickness per item, minus
+    // one cut thickness.
+    for (int dimension = 0; dimension < 2; ++dimension) {
+        Length bin_length = (dimension == 0)? bin_rect_.w: bin_rect_.h;
+        Length maximum_length = bin_length + cut_thickness_;
+        std::vector<uint8_t> reachable(maximum_length + 1, false);
+        reachable[0] = true;
+        for (ItemTypeId item_type_id = 0;
+                item_type_id < instance_.number_of_item_types();
+                ++item_type_id) {
+            const ItemType& item_type = instance_.item_type(item_type_id);
+            int number_of_rotations = item_type.oriented? 1: 2;
+            for (int rotation = 0; rotation < number_of_rotations; ++rotation) {
+                bool rotate = (rotation == 1);
+                Length item_length = cut_thickness_ + ((dimension == 0)?
+                        item_type.width(rotate):
+                        item_type.height(rotate));
+                if (item_length > maximum_length)
+                    continue;
+                ItemPos number_of_copies = (std::min)(
+                        item_type.copies,
+                        (ItemPos)(maximum_length / item_length));
+                for (ItemPos copy = 0; copy < number_of_copies; ++copy) {
+                    bool changed = false;
+                    for (Length length = maximum_length;
+                            length >= item_length;
+                            --length) {
+                        if (!reachable[length] && reachable[length - item_length]) {
+                            reachable[length] = true;
+                            changed = true;
+                        }
+                    }
+                    if (!changed)
+                        break;
+                }
+            }
+        }
+        std::vector<Length>& max_reachable_lengths = (dimension == 0)?
+            max_reachable_widths_:
+            max_reachable_heights_;
+        max_reachable_lengths.resize(bin_length + 1, 0);
+        Length max_reachable_length = 0;
+        for (Length length = 1; length <= bin_length; ++length) {
+            if (reachable[length + cut_thickness_])
+                max_reachable_length = length;
+            max_reachable_lengths[length] = max_reachable_length;
+        }
+    }
 }
 
 const std::vector<double>& BranchingSchemeMaximalSpaces::insertion_resource_consumption(
         const Node& node,
         const Block& block) const
 {
-    // 'Block::resource_consumption' is the consumption of the block alone in
-    // the bin. It differs for the item types whose consumption depends on the
-    // number of copies already in the bin.
-    bool shifted = false;
-    for (const std::pair<ItemTypeId, ItemPos>& item_copy: block.item_copies) {
-        if (copy_dependent_resource_consumptions_[item_copy.first]
-                && node.item_number_of_copies[item_copy.first] > 0) {
-            shifted = true;
-            break;
-        }
-    }
-    if (!shifted)
-        return block.resource_consumption;
-
-    BinTypeId bin_type_id = instance_.bin_type_id(0);
-    const BinType& bin_type = instance_.bin_type(bin_type_id);
-    insertion_resource_consumption_ = block.resource_consumption;
-    for (const std::pair<ItemTypeId, ItemPos>& item_copy: block.item_copies) {
-        ItemTypeId item_type_id = item_copy.first;
-        ItemPos number_of_copies_in_node = node.item_number_of_copies[item_type_id];
-        if (!copy_dependent_resource_consumptions_[item_type_id]
-                || number_of_copies_in_node == 0) {
-            continue;
-        }
-        const ItemType& item_type = instance_.item_type(item_type_id);
-        for (const ItemResourceConsumption& consumption: item_type.resources[bin_type_id]) {
-            const std::vector<double>& schedule = bin_type.resource(consumption.resource_id)
-                .item_consumptions[consumption.consumption_pos].second;
-            for (ItemPos copy = 0; copy < item_copy.second; ++copy) {
-                insertion_resource_consumption_[consumption.resource_id]
-                    += schedule_consumption(schedule, number_of_copies_in_node + copy)
-                    - schedule_consumption(schedule, copy);
-            }
-        }
-    }
-    return insertion_resource_consumption_;
+    return shifted_resource_consumption(
+            instance_,
+            instance_.bin_type_id(0),
+            copy_dependent_resource_consumptions_,
+            node.item_number_of_copies,
+            block.item_copies,
+            block.resource_consumption,
+            insertion_resource_consumption_);
 }
 
 bool BranchingSchemeMaximalSpaces::block_resource_feasible(
@@ -92,59 +114,89 @@ bool BranchingSchemeMaximalSpaces::block_resource_feasible(
 {
     if (!has_hard_resources_)
         return true;
-    const BinType& bin_type = instance_.bin_type(instance_.bin_type_id(0));
-    const std::vector<double>& block_resource_consumption
-        = insertion_resource_consumption(node, block);
-    for (ResourceId resource_id = 0;
-            resource_id < bin_type.number_of_resources();
-            ++resource_id) {
-        const Resource& resource = bin_type.resource(resource_id);
-        if (resource.penalize)
-            continue;
-        if (node.resource_consumption[resource_id]
-                + block_resource_consumption[resource_id]
-                > resource.capacity) {
-            return false;
-        }
-    }
-    return true;
+    return resource_feasible(
+            instance_,
+            instance_.bin_type_id(0),
+            node.resource_consumption,
+            insertion_resource_consumption(node, block));
 }
 
 Profit BranchingSchemeMaximalSpaces::insertion_profit(
         const Node& node,
         const Block& block) const
 {
-    Profit profit = block.item_profit;
-    const BinType& bin_type = instance_.bin_type(instance_.bin_type_id(0));
-    const std::vector<double>& block_resource_consumption
-        = insertion_resource_consumption(node, block);
-    for (ResourceId resource_id = 0;
-            resource_id < bin_type.number_of_resources();
-            ++resource_id) {
-        const Resource& resource = bin_type.resource(resource_id);
-        if (!resource.penalize)
-            continue;
-        double previous_consumption = node.resource_consumption[resource_id];
-        if (previous_consumption > resource.capacity)
-            continue;
-        if (previous_consumption + block_resource_consumption[resource_id]
-                > resource.capacity) {
-            profit -= resource.penalty;
-        }
+    if (node.resource_consumption.empty())
+        return block.item_profit;
+    return block.item_profit - resource_penalty(
+            instance_,
+            instance_.bin_type_id(0),
+            node.resource_consumption,
+            insertion_resource_consumption(node, block));
+}
+
+Area BranchingSchemeMaximalSpaces::usable_area(
+        Length width,
+        Length height) const
+{
+    if (width <= 0 || height <= 0)
+        return 0;
+    width = (std::min)(width, bin_rect_.w);
+    height = (std::min)(height, bin_rect_.h);
+    return (Area)max_reachable_widths_[width] * max_reachable_heights_[height];
+}
+
+double BranchingSchemeMaximalSpaces::insertion_loss_factor(
+        const EmptySpace& space,
+        const Block& block,
+        bool vertical_first) const
+{
+    Length right_width = space.width - block.rect.w - cut_thickness_;
+    Length above_height = space.height - block.rect.h - cut_thickness_;
+    Area area = block.item_area;
+    if (vertical_first) {
+        area += usable_area(right_width, space.height);
+        area += usable_area(block.rect.w, above_height);
+    } else {
+        area += usable_area(space.width, above_height);
+        area += usable_area(right_width, block.rect.h);
     }
-    return profit;
+    return (double)area / space.area();
 }
 
 double BranchingSchemeMaximalSpaces::insertion_guide(
         const Node& node,
-        const Block& block) const
+        const EmptySpace& space,
+        const Block& block,
+        bool vertical_first) const
 {
-    // The insertions of a node are all in the same space: dividing by the
-    // area of the space would order them by profit, so that the large blocks
-    // come first. The tree search only generates the first children of a
-    // node, and the insertions which lead to the good solutions might never
-    // be generated.
-    return (double)insertion_profit(node, block) / block.rect.area();
+    double profit = insertion_profit(node, block);
+    if (!parameters_.use_loss_factor) {
+        // The insertions of a node are all in the same space: dividing by
+        // the area of the space would order them by profit, so that the
+        // large blocks come first, whatever the waste they leave.
+        if (profit <= 0)
+            return profit / block.rect.area();
+        return (double)block.item_area / block.rect.area() * std::pow(
+                profit / block.item_area,
+                parameters_.profit_density_exponent);
+    }
+
+    // Fitness of Guesser et al. (2026), without the contact factor. The loss
+    // factor counts the waste of the block and the waste that it leaves in
+    // the two URSs of the insertion.
+    double value = profit;
+    if (value > 0) {
+        value = block.item_area * std::pow(
+                value / block.item_area,
+                parameters_.profit_density_exponent);
+    }
+    return value
+        * std::pow(
+                insertion_loss_factor(space, block, vertical_first),
+                parameters_.loss_factor_exponent)
+        * std::pow(
+                (double)block.number_of_items,
+                -parameters_.number_of_items_exponent);
 }
 
 bool BranchingSchemeMaximalSpaces::cut_is_vertical(
@@ -239,7 +291,6 @@ BranchingSchemeMaximalSpaces::insertions(
         const Block& block = blocks_[bin_type_id][block_id];
         if (block.rect.w > space.width || block.rect.h > space.height)
             continue;
-        double guide = insertion_guide(*parent, block);
         {
             Insertion ins;
             ins.block_id = block_id;
@@ -247,7 +298,11 @@ BranchingSchemeMaximalSpaces::insertions(
             ins.cut_orientation = generate_both?
                 CutOrientation::Vertical:
                 space.cut_orientation;
-            ins.guide = guide;
+            ins.guide = insertion_guide(
+                    *parent,
+                    space,
+                    block,
+                    cut_is_vertical(space.depth, ins.cut_orientation));
             insertions_.push_back(ins);
         }
         if (generate_both) {
@@ -255,7 +310,11 @@ BranchingSchemeMaximalSpaces::insertions(
             ins.block_id = block_id;
             ins.space_id = space_idx;
             ins.cut_orientation = CutOrientation::Horizontal;
-            ins.guide = guide;
+            ins.guide = insertion_guide(
+                    *parent,
+                    space,
+                    block,
+                    cut_is_vertical(space.depth, ins.cut_orientation));
             insertions_.push_back(ins);
         }
         if (generate_flipped) {
@@ -264,7 +323,11 @@ BranchingSchemeMaximalSpaces::insertions(
             ins.space_id = space_idx;
             ins.cut_orientation = space.cut_orientation;
             ins.flip_first_cut = true;
-            ins.guide = guide;
+            ins.guide = insertion_guide(
+                    *parent,
+                    space,
+                    block,
+                    cut_is_vertical(space.depth + 1, ins.cut_orientation));
             insertions_.push_back(ins);
         }
     }
@@ -308,7 +371,7 @@ BranchingSchemeMaximalSpaces::best_insertion(Node& node) const
         const Block& block = blocks_[bin_type_id][block_id];
         if (block.rect.w > space.width || block.rect.h > space.height)
             continue;
-        double guide = insertion_guide(node, block);
+        double guide = insertion_guide(node, space, block, cut_is_vertical(space.depth, co));
         if (guide > best_guide) {
             best_guide = guide;
             best.block_id = block_id;

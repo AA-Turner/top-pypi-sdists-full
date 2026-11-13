@@ -19,25 +19,38 @@ from __future__ import annotations
 import base64
 import json
 from typing import (
+    TYPE_CHECKING,
     Any,
     AsyncIterator,
     Dict,
     Generator,
     Iterator,
     List,
+    Literal,
     Mapping,
     Optional,
     Tuple,
+    Union,
+    overload,
 )
 
+from dashscope._logging import get_logger, request_id_from_headers
 from dashscope.errors import (
+    APIResponseValidationError,
     APIStatusError,
     DashScopeError,
     error_from_business_code,
     error_from_status,
 )
 from dashscope.resources._sse import _try_json
+from dashscope.transport._options import request_options
+from dashscope.types._parse import parse_model
 from dashscope.types.common import ResponseBase, response_body, with_headers
+
+if TYPE_CHECKING:
+    import httpx
+
+    from dashscope.transport._response import APIResponse
 
 __all__ = [
     "HttpSynthesis",
@@ -47,10 +60,48 @@ __all__ = [
 ]
 
 MODULE = "audio"
+_logger = get_logger("audio.http_tts")
 
 _SSE_HEADER = {"X-DashScope-SSE": "enable"}
 _DEFAULT_PATH = "/services/audio/tts/SpeechSynthesizer"
 _QWEN_PATH = "/services/aigc/multimodal-generation/generation"
+
+
+def _audio_body_request_id(body: Any) -> Optional[str]:
+    if not isinstance(body, dict):
+        return None
+    output = body.get("output")
+    for source in (body, output):
+        if isinstance(source, dict):
+            value = source.get("request_id")
+            if isinstance(value, str) and value.strip():
+                return value
+    return None
+
+
+def _log_audio_error(
+    error: Exception,
+    request_id: Optional[str] = None,
+    headers: Optional[Mapping[str, str]] = None,
+) -> None:
+    # Exception text may contain raw SSE/audio or credentials. Log metadata only.
+    body_request_id = _audio_body_request_id(getattr(error, "body", None))
+    if isinstance(error, APIResponseValidationError) and request_id:
+        body_request_id = request_id
+    request_id = (
+        body_request_id
+        or request_id
+        or request_id_from_headers(headers)
+        or request_id_from_headers(getattr(error, "headers", None))
+        or getattr(error, "request_id", None)
+    )
+    if not isinstance(request_id, str) or not request_id.strip():
+        request_id = None
+    _logger.error(
+        "HTTP TTS request failed: %s, request_id=%s",
+        type(error).__name__,
+        request_id or "unknown",
+    )
 
 
 _Frame = Tuple[bool, Optional[int], str]
@@ -123,7 +174,7 @@ def _with_audio_request_id(error: DashScopeError) -> DashScopeError:
     error.request_id = (
         body.get("request_id")
         or output.get("request_id")
-        or error.headers.get("x-request-id")
+        or request_id_from_headers(error.headers)
         or error.request_id
     )
     return error
@@ -260,47 +311,115 @@ class HttpSynthesisChunk(ResponseBase):
 def _synthesis_from_body(
     body: Dict[str, Any],
     header_request_id: str,
+    *,
+    strict: bool = False,
+    response: Optional["httpx.Response"] = None,
 ) -> HttpSynthesis:
     output = body.get("output")
-    return HttpSynthesis(
-        **{
+    return parse_model(
+        HttpSynthesis,
+        {
             **body,
             "output": output if isinstance(output, dict) else {},
             "usage": _usage_dict(body),
             "request_id": body.get("request_id") or header_request_id,
         },
+        strict=strict,
+        response=response,
     )
 
 
 def _chunk_from_data(
     data: str,
     header_request_id: str,
+    *,
+    strict: bool = False,
+    response: Optional["httpx.Response"] = None,
 ) -> HttpSynthesisChunk:
     try:
         body = json.loads(data)
     except ValueError as error:
         raise DashScopeError(
             f"invalid synthesis stream data: {data!r}",
+            request_id=header_request_id or None,
         ) from error
     if not isinstance(body, dict):
-        raise DashScopeError(f"invalid synthesis stream data: {data!r}")
+        raise DashScopeError(
+            f"invalid synthesis stream data: {data!r}",
+            request_id=header_request_id or None,
+        )
     output = body.get("output")
     output = output if isinstance(output, dict) else {}
     payload = _audio_dict(output).get("data")
-    chunk = HttpSynthesisChunk(
-        **{
+    chunk = parse_model(
+        HttpSynthesisChunk,
+        {
             **body,
             "output": output,
-            "audio": base64.b64decode(payload, validate=True)
-            if payload
-            else None,
+            "audio": (
+                base64.b64decode(payload, validate=True) if payload else None
+            ),
             "usage": _usage_dict(body),
             "request_id": body.get("request_id") or header_request_id,
         },
+        strict=strict,
+        response=response,
     )
     if chunk.status_code is not None and not 200 <= chunk.status_code < 300:
         chunk.is_error = True
     return chunk
+
+
+def _parse_stream_chunk(
+    data: str,
+    header_request_id: str,
+    request_id: Optional[str],
+    *,
+    strict: bool = False,
+    response: Optional["httpx.Response"] = None,
+) -> HttpSynthesisChunk:
+    chunk = _chunk_from_data(
+        data,
+        header_request_id,
+        strict=strict,
+        response=response,
+    )
+    if chunk.is_error:
+        _logger.error(
+            "HTTP TTS business error, request_id=%s",
+            request_id or "unknown",
+        )
+    return chunk
+
+
+def _synthesis_from_response(
+    response,
+    *,
+    raise_on_error: bool,
+    strict: bool = False,
+) -> HttpSynthesis:
+    request_id = request_id_from_headers(response.headers)
+    try:
+        body = response_body(response, raise_on_error=raise_on_error)
+        request_id = _audio_body_request_id(body) or request_id
+        result = with_headers(
+            _synthesis_from_body(
+                body,
+                response.headers.get("x-request-id", ""),
+                strict=strict,
+                response=response,
+            ),
+            response,
+        )
+        if result.is_error:
+            _logger.error(
+                "HTTP TTS business error, request_id=%s",
+                request_id or "unknown",
+            )
+        return result
+    except Exception as error:
+        _log_audio_error(error, request_id, response.headers)
+        raise
 
 
 class HttpSynthesisStream:
@@ -360,10 +479,16 @@ class AsyncHttpTts:
     def __init__(self, client) -> None:
         self._client = client
 
-    async def synthesize(self, text: str, **kwargs) -> HttpSynthesis:
+    async def synthesize(
+        self,
+        text: str,
+        **kwargs,
+    ) -> Union[HttpSynthesis, "APIResponse"]:
+        """Async twin of :meth:`HttpTts.synthesize`, ``raw`` included."""
         model = kwargs.pop("model")
         voice = kwargs.pop("voice")
-        response = await self._client.transport.request(
+        raw = kwargs.pop("raw", False)
+        resp = await self._client.transport.request_api(
             "POST",
             _path_for(model),
             json=_build_body(
@@ -386,16 +511,21 @@ class AsyncHttpTts:
             sdk_module=MODULE,
             api_key=kwargs.pop("api_key", None),
             workspace=kwargs.pop("workspace", None),
-        )
-        return with_headers(
-            _synthesis_from_body(
-                response_body(
-                    response,
-                    raise_on_error=self._client.raise_on_error,
-                ),
-                response.headers.get("x-request-id", ""),
+            options=request_options(
+                kwargs.pop("extra_headers", None),
+                kwargs.pop("extra_query", None),
+                kwargs.pop("extra_body", None),
+                max_retries=kwargs.pop("max_retries", None),
             ),
+            client=self._client,
+        )
+        if raw:
+            return resp
+        response = resp.http_response
+        return _synthesis_from_response(
             response,
+            raise_on_error=self._client.raise_on_error,
+            strict=self._client.config.strict_validation,
         )
 
     async def stream(self, text: str, **kwargs) -> AsyncHttpSynthesisStream:
@@ -403,34 +533,46 @@ class AsyncHttpTts:
         voice = kwargs.pop("voice")
         headers = dict(_SSE_HEADER)
         headers.update(kwargs.pop("headers", None) or {})
-        response = await self._client.transport.open_stream(
-            "POST",
-            _path_for(model),
-            json=_build_body(
-                text,
-                model=model,
-                voice=voice,
-                **{
-                    key: kwargs.pop(key, None)
-                    for key in (
-                        "format",
-                        "sample_rate",
-                        "language_type",
-                        "parameters",
-                        "extra_input",
-                    )
-                },
-            ),
-            headers=headers,
-            timeout=kwargs.pop("timeout", None),
-            sdk_module=MODULE,
-            api_key=kwargs.pop("api_key", None),
-            workspace=kwargs.pop("workspace", None),
-        )
+        try:
+            response = await self._client.transport.open_stream(
+                "POST",
+                _path_for(model),
+                json=_build_body(
+                    text,
+                    model=model,
+                    voice=voice,
+                    **{
+                        key: kwargs.pop(key, None)
+                        for key in (
+                            "format",
+                            "sample_rate",
+                            "language_type",
+                            "parameters",
+                            "extra_input",
+                        )
+                    },
+                ),
+                headers=headers,
+                timeout=kwargs.pop("timeout", None),
+                sdk_module=MODULE,
+                api_key=kwargs.pop("api_key", None),
+                workspace=kwargs.pop("workspace", None),
+                options=request_options(
+                    kwargs.pop("extra_headers", None),
+                    kwargs.pop("extra_query", None),
+                    kwargs.pop("extra_body", None),
+                    max_retries=kwargs.pop("max_retries", None),
+                ),
+            )
+        except APIStatusError as error:
+            _with_audio_request_id(error)
+            _log_audio_error(error)
+            raise
 
         async def events():
             decoder = _SSEDecoder()
             header_id = response.headers.get("x-request-id", "")
+            request_id = request_id_from_headers(response.headers)
             try:
                 media_type = response.headers.get("content-type", "")
                 media_type = media_type.split(";", 1)[0].strip().lower()
@@ -448,23 +590,46 @@ class AsyncHttpTts:
                     if frame is None:
                         continue
                     is_error, status, data = frame
+                    request_id = (
+                        _audio_body_request_id(_try_json(data)) or request_id
+                    )
                     if is_error:
                         raise _audio_stream_error(
                             status,
                             data,
                             response.headers,
                         )
-                    yield _chunk_from_data(data, header_id)
+                    yield _parse_stream_chunk(
+                        data,
+                        header_id,
+                        request_id,
+                        strict=self._client.config.strict_validation,
+                        response=response,
+                    )
                 frame = decoder.feed("")
                 if frame is not None:
                     is_error, status, data = frame
+                    request_id = (
+                        _audio_body_request_id(_try_json(data)) or request_id
+                    )
                     if is_error:
                         raise _audio_stream_error(
                             status,
                             data,
                             response.headers,
                         )
-                    yield _chunk_from_data(data, header_id)
+                    yield _parse_stream_chunk(
+                        data,
+                        header_id,
+                        request_id,
+                        strict=self._client.config.strict_validation,
+                        response=response,
+                    )
+            except Exception as error:
+                if isinstance(error, DashScopeError):
+                    _with_audio_request_id(error)
+                _log_audio_error(error, request_id, response.headers)
+                raise
             finally:
                 await response.aclose()
 
@@ -476,6 +641,54 @@ class HttpTts:
 
     def __init__(self, client) -> None:
         self._client = client
+
+    @overload
+    def synthesize(
+        self,
+        text: str,
+        *,
+        model: str,
+        voice: str,
+        format: Optional[str] = None,  # pylint: disable=redefined-builtin
+        sample_rate: Optional[int] = None,
+        language_type: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = None,
+        extra_input: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = None,
+        headers: Optional[Mapping[str, str]] = None,
+        api_key: Optional[str] = None,
+        workspace: Optional[str] = None,
+        extra_headers: Optional[Mapping[str, str]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+        max_retries: Optional[int] = None,
+        raw: Literal[False] = False,
+    ) -> HttpSynthesis:
+        ...
+
+    @overload
+    def synthesize(
+        self,
+        text: str,
+        *,
+        model: str,
+        voice: str,
+        format: Optional[str] = None,  # pylint: disable=redefined-builtin
+        sample_rate: Optional[int] = None,
+        language_type: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = None,
+        extra_input: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = None,
+        headers: Optional[Mapping[str, str]] = None,
+        api_key: Optional[str] = None,
+        workspace: Optional[str] = None,
+        extra_headers: Optional[Mapping[str, str]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+        max_retries: Optional[int] = None,
+        raw: Literal[True],
+    ) -> "APIResponse":
+        ...
 
     def synthesize(
         self,
@@ -492,9 +705,23 @@ class HttpTts:
         headers: Optional[Mapping[str, str]] = None,
         api_key: Optional[str] = None,
         workspace: Optional[str] = None,
-    ) -> HttpSynthesis:
-        """Synthesize in one POST; the audio comes back as a URL."""
-        response = self._client.transport.request(
+        extra_headers: Optional[Mapping[str, str]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+        max_retries: Optional[int] = None,
+        raw: bool = False,
+    ) -> Union[HttpSynthesis, "APIResponse"]:
+        """Synthesize in one POST; the audio comes back as a URL.
+
+        ``raw=True`` returns the :class:`~dashscope.transport.APIResponse`
+        before any error check, so a caller can read the status, headers and
+        ``elapsed`` of the response or re-parse it itself. The non-raw path
+        keeps ``response_body``'s envelope: it preserves non-JSON failure
+        bodies and injects ``status_code``/``request_id``/``is_error``.
+        :meth:`stream` has no ``raw`` -- a streaming body is never
+        materialized.
+        """
+        resp = self._client.transport.request_api(
             "POST",
             _path_for(model),
             json=_build_body(
@@ -512,16 +739,21 @@ class HttpTts:
             sdk_module=MODULE,
             api_key=api_key,
             workspace=workspace,
-        )
-        return with_headers(
-            _synthesis_from_body(
-                response_body(
-                    response,
-                    raise_on_error=self._client.raise_on_error,
-                ),
-                response.headers.get("x-request-id", ""),
+            options=request_options(
+                extra_headers,
+                extra_query,
+                extra_body,
+                max_retries=max_retries,
             ),
+            client=self._client,
+        )
+        if raw:
+            return resp
+        response = resp.http_response
+        return _synthesis_from_response(
             response,
+            raise_on_error=self._client.raise_on_error,
+            strict=self._client.config.strict_validation,
         )
 
     def stream(
@@ -539,6 +771,10 @@ class HttpTts:
         headers: Optional[Mapping[str, str]] = None,
         api_key: Optional[str] = None,
         workspace: Optional[str] = None,
+        extra_headers: Optional[Mapping[str, str]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+        max_retries: Optional[int] = None,
     ) -> HttpSynthesisStream:
         """Stream the synthesis over SSE, one chunk per part.
 
@@ -569,19 +805,41 @@ class HttpTts:
                 sdk_module=MODULE,
                 api_key=api_key,
                 workspace=workspace,
+                options=request_options(
+                    extra_headers,
+                    extra_query,
+                    extra_body,
+                    max_retries=max_retries,
+                ),
             )
         except APIStatusError as error:
             # >=400 is raised (and closed) before open_stream returns a response.
             _with_audio_request_id(error)
+            _log_audio_error(error)
             raise
         return HttpSynthesisStream(self._events(response), response)
 
     def _events(self, response) -> Generator[HttpSynthesisChunk, None, None]:
         header_request_id = response.headers.get("x-request-id", "")
+        request_id = request_id_from_headers(response.headers)
         try:
             for is_error, status, data in _iter_audio_sse(response):
+                request_id = (
+                    _audio_body_request_id(_try_json(data)) or request_id
+                )
                 if is_error:
                     raise _audio_stream_error(status, data, response.headers)
-                yield _chunk_from_data(data, header_request_id)
+                yield _parse_stream_chunk(
+                    data,
+                    header_request_id,
+                    request_id,
+                    strict=self._client.config.strict_validation,
+                    response=response,
+                )
+        except Exception as error:
+            if isinstance(error, DashScopeError):
+                _with_audio_request_id(error)
+            _log_audio_error(error, request_id, response.headers)
+            raise
         finally:
             response.close()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-spanner
-Version: 3.71.0
+Version: 3.72.0
 Summary: Google Cloud Spanner API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-spanner
 Author: Google LLC
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
 Requires-Python: >=3.10
@@ -39,6 +40,8 @@ Requires-Dist: google-cloud-monitoring>=2.28.0
 Requires-Dist: mmh3>=4.1.0
 Provides-Extra: libcst
 Requires-Dist: libcst>=0.2.5; extra == "libcst"
+Provides-Extra: omni
+Requires-Dist: cryptography>=44.0.0; extra == "omni"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: mock; extra == "test"

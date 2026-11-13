@@ -440,3 +440,43 @@ test("a crashed cell's multi-line error keeps its detail on the Why line", () =>
   const table = formatAggregateTable(deployments, [buildErrorSummary({ deploymentSlug: "dep", computeTier: "TIER_A", benchmarkType: "wait_write" }, error)]);
   assert.match(table, /^\*Why:\* PATCH \/resource-tiers failed: 409 \{ "detail": "Unable to resize the deployment database\." \}$/m);
 });
+
+const ROME = { "AuthenticAMD 143/49": 1 };
+const BROADWELL = { "GenuineIntel 6/79": 1 };
+const nightsOn = (serverCpus, ...values) => nights(...values).map((night) => ({ ...night, serverCpus }));
+
+test("a cell that moved to an older cpu says so and is not compared with the faster cpu's nights", () => {
+  const deployments = [{ slug: "serverless", name: "Serverless", tiers: ["SERVERLESS_M"] }];
+  const tonight = (targetVUs, serverCpus) => ({
+    capacity: { targetVUs },
+    serverCpus,
+    config: { deploymentSlug: "serverless", computeTier: "SERVERLESS_M", benchmarkType: "wait_write", k6Executor: "constant-arrival-rate" },
+  });
+  const history = { "serverless|SERVERLESS_M|wait_write": nightsOn(ROME, 40, 40, 40, 40, 40) };
+
+  const moved = formatAggregateTable(deployments, [tonight(25, BROADWELL)], [], NIGHT, history);
+  assert.doesNotMatch(moved, /Regressed:/, "against the rome nights this would be -37%");
+  assert.match(moved, /^\*New machine:\* Serverless M on intel broadwell \(was amd rome\) · compared only with nights on the same cpu$/m);
+  assert.match(moved, /^_0 of 5 nights of history on this cpu, no change flags yet_$/m);
+
+  const stayed = formatAggregateTable(deployments, [tonight(25, ROME)], [], NIGHT, history);
+  assert.match(stayed, /^\*Regressed:\* Serverless M wait 40 → 25 req\/s \(-37%\)$/m, "the same drop on the same cpu is still a regression");
+  assert.doesNotMatch(stayed, /New machine/);
+});
+
+test("the thread names each tier's cpu, per runner only where they differ", () => {
+  const deployments = [{ slug: "serverless", name: "Serverless", tiers: ["SERVERLESS_L", "SERVERLESS_S"] }];
+  const cell = (tier, benchmarkType, serverCpus) => ({
+    capacity: { targetVUs: 30, successfulRunsPerSec: 29.5 },
+    serverCpus,
+    config: { deploymentSlug: "serverless", computeTier: tier, benchmarkType, k6Executor: "constant-arrival-rate" },
+  });
+  const view = formatServerView(deployments, [
+    cell("SERVERLESS_L", "wait_write", ROME),
+    cell("SERVERLESS_L", "stream_write", ROME),
+    cell("SERVERLESS_L", "threads_search_metadata", ROME),
+    cell("SERVERLESS_S", "wait_write", BROADWELL),
+    cell("SERVERLESS_S", "stream_write", ROME),
+  ]);
+  assert.match(view, /^Machines: L amd rome · S intel broadwell \/ amd rome \/ -$/m);
+});

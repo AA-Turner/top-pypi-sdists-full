@@ -5,6 +5,8 @@ from sagemaker_studio.sql_engine.database_transformer import DatabaseTransformer
 
 class DynamoDBTransformer(DatabaseTransformer):
 
+    # No supports_row_limit: inherits False. PartiQL, not SQL.
+
     @classmethod
     def get_dialect(cls) -> Optional[str]:
         return None  # PartiQL not supported by sqlglot

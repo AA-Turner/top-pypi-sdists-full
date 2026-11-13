@@ -1,4 +1,5 @@
 import os
+from collections.abc import Sequence
 from enum import StrEnum
 from os import environ, getenv
 from typing import TYPE_CHECKING, Annotated, Literal, TypeVar, cast
@@ -17,6 +18,7 @@ from langgraph_api.config.schemas import (
     CorsConfig,
     EncryptionConfig,
     HttpConfig,
+    PriorityConfig,
     SerdeConfig,
     StoreConfig,
     ThreadTTLConfig,
@@ -318,6 +320,8 @@ JSON_THREAD_POOL_MINIMUM_SIZE_BYTES = 100 * 1024  # 100 KB
 HTTP_CONFIG = env("LANGGRAPH_HTTP", cast=_parse.parse_schema(HttpConfig), default=None)
 MCP_ENABLED = HTTP_CONFIG is None or not HTTP_CONFIG.get("disable_mcp")
 A2A_ENABLED = HTTP_CONFIG is None or not HTTP_CONFIG.get("disable_a2a")
+THREADS_ENABLED = HTTP_CONFIG is None or not HTTP_CONFIG.get("disable_threads")
+RUNS_ENABLED = HTTP_CONFIG is None or not HTTP_CONFIG.get("disable_runs")
 
 
 def _parse_tool_names(value: str) -> frozenset[str]:
@@ -340,7 +344,7 @@ STORE_CONFIG = env(
 )
 # When true, the Go core-server owns Postgres schema setup (DB migrations +
 # vector index)
-DB_MIGRATION_BY_CORE_API = env("DB_MIGRATION_BY_CORE_API", cast=bool, default=False)
+DB_MIGRATION_BY_CORE_API = env("DB_MIGRATION_BY_CORE_API", cast=bool, default=True)
 
 
 def _validate_mount_prefix(mount_prefix: str | None) -> str | None:
@@ -365,7 +369,10 @@ MOUNT_PREFIX: str | None = _validate_mount_prefix(
     or (HTTP_CONFIG.get("mount_prefix") if HTTP_CONFIG else None)
 )
 
-CORS_ALLOW_ORIGINS = env("CORS_ALLOW_ORIGINS", cast=CommaSeparatedStrings, default="*")
+ANY_ORIGIN = "*"
+CORS_ALLOW_ORIGINS = env(
+    "CORS_ALLOW_ORIGINS", cast=CommaSeparatedStrings, default=ANY_ORIGIN
+)
 CORS_CONFIG = env(
     "CORS_CONFIG", cast=_parse.parse_schema(CorsConfig), default=None
 ) or (HTTP_CONFIG.get("cors") if HTTP_CONFIG else None)
@@ -408,12 +415,35 @@ CORS_CONFIG = env(
     }
 }
 """
-if (
-    CORS_CONFIG is not None
-    and CORS_ALLOW_ORIGINS != "*"
-    and CORS_CONFIG.get("allow_origins") is None
-):
-    CORS_CONFIG["allow_origins"] = CORS_ALLOW_ORIGINS
+
+
+def _cors_settings(
+    cors_config: CorsConfig | None, allow_origins: Sequence[str]
+) -> CorsConfig:
+    origins = list(allow_origins)
+    if cors_config is None:
+        return {
+            "allow_origins": origins,
+            "allow_credentials": ANY_ORIGIN not in origins,
+            "allow_methods": ["*"],
+            "allow_headers": ["*"],
+            "expose_headers": [
+                "x-pagination-total",
+                "x-pagination-next",
+                "content-location",
+                "location",
+            ],
+        }
+    keeps_its_own_origins = cors_config.get("allow_origins") is not None
+    wildcard_would_widen_regex = cors_config.get(
+        "allow_origin_regex"
+    ) is not None and origins == [ANY_ORIGIN]
+    if keeps_its_own_origins or wildcard_would_widen_regex:
+        return cors_config
+    return {**cors_config, "allow_origins": origins}
+
+
+CORS_SETTINGS = _cors_settings(CORS_CONFIG, CORS_ALLOW_ORIGINS)
 
 # queue
 
@@ -471,7 +501,7 @@ class DispatchMode(StrEnum):
     """How background runs are dispatched.
 
     single-process: Python queue loop in the API process (default).
-    multi-process: Go queue worker claims runs and dispatches to Python runners.
+    multi-process: Go executor manager claims runs and dispatches to Python executors.
     """
 
     SINGLE_PROCESS = "single-process"
@@ -555,8 +585,6 @@ RESUME_DRAINED_RUNS = _resolve_resume_drained_runs(
     is_postgres=IS_POSTGRES_BACKEND,
     langgraph_supported=DRAIN_RESUME_SUPPORT,
 )
-# Not in public docs: internal feature flag
-FF_USE_REDIS_QUEUE = env("FF_USE_REDIS_QUEUE", cast=bool, default=True)
 
 
 # Internal flag intended for testing only
@@ -584,8 +612,17 @@ LANGGRAPH_AUTH = env(
 LANGGRAPH_ENCRYPTION = env(
     "LANGGRAPH_ENCRYPTION", cast=_parse.parse_schema(EncryptionConfig), default=None
 )
+# Not in public docs: populated by langgraph.json config, not set as env var directly
+LANGGRAPH_PRIORITY = env(
+    "LANGGRAPH_PRIORITY", cast=_parse.parse_schema(PriorityConfig), default=None
+)
+# Whether the deployment has a priority callback, the one source of run priority levels.
+# Per-level queue stats and metric labels are reported only then, so a deployment without
+# one keeps its metrics as they were.
+PRIORITY_CALLBACK_CONFIGURED = bool(LANGGRAPH_PRIORITY)
 # Not in public docs: set by SaaS control plane, not user-configurable
 LANGSMITH_TENANT_ID = env("LANGSMITH_TENANT_ID", cast=str, default=None)
+LANGSMITH_HOST_PROJECT_ID = env("LANGSMITH_HOST_PROJECT_ID", cast=str, default=None)
 LANGSMITH_AUTH_VERIFY_TENANT_ID = env(
     "LANGSMITH_AUTH_VERIFY_TENANT_ID",
     cast=bool,
@@ -797,6 +834,7 @@ traceblock.patch_requests()
 __all__ = [
     "AES_JSON_DISALLOWED_KEYS",
     "ALLOW_PRIVATE_NETWORK",
+    "ANY_ORIGIN",
     "API_VARIANT",
     "BG_JOB_HEARTBEAT",
     "BG_JOB_ISOLATED_LOOPS",
@@ -813,6 +851,7 @@ __all__ = [
     "CHECKPOINT_MAX_BATCH_SIZE",
     "CORS_ALLOW_ORIGINS",
     "CORS_CONFIG",
+    "CORS_SETTINGS",
     "CRON_SCHEDULER_BATCH_SIZE",
     "CRON_SCHEDULER_SLEEP_TIME",
     "DATABASE_URI",
@@ -831,7 +870,6 @@ __all__ = [
     "FF_PYSPY_PROFILING_ENABLED",
     "FF_PYSPY_PROFILING_MAX_DURATION_SECS",
     "FF_RESUME_DRAINED_RUNS",
-    "FF_USE_REDIS_QUEUE",
     "GRPC_CLIENT_HTTP2_INITIAL_WINDOW_SIZE",
     "GRPC_CLIENT_MAX_RECV_MSG_BYTES",
     "GRPC_CLIENT_MAX_SEND_MSG_BYTES",
@@ -853,6 +891,7 @@ __all__ = [
     "LANGGRAPH_METRICS_ENDPOINT",
     "LANGGRAPH_METRICS_EXPORT_INTERVAL_MS",
     "LANGGRAPH_POSTGRES_EXTENSIONS",
+    "LANGGRAPH_PRIORITY",
     "LANGSMITH_API_KEY",
     "LANGSMITH_AUTH_ENDPOINT",
     "LANGSMITH_AUTH_VERIFY_TENANT_ID",
@@ -871,6 +910,7 @@ __all__ = [
     "N_JOBS_PER_WORKER",
     "OTEL_ENABLED",
     "POSTGRES_POOL_MAX_SIZE",
+    "PRIORITY_CALLBACK_CONFIGURED",
     "PYTHON_GRPC_BIND_HOST",
     "PYTHON_GRPC_SERVER_ENABLED",
     "PYTHON_GRPC_SERVER_PORT",

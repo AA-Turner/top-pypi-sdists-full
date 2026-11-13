@@ -48,12 +48,9 @@ def test_nan_len(impl, rng):
     a = random_values(rng, group_idx.size)
     a[::4] = np.nan
     a[::5] = np.nan
-    res = impl.aggregate(group_idx, a, func="nanlen")
+    res = np.asarray(impl.aggregate(group_idx, a, func="nanlen"))
     ref = impl.aggregate(group_idx[~np.isnan(a)], 1, func="sum")
-    if isinstance(res, np.ndarray):
-        assert issubclass(res.dtype.type, np.integer)
-    else:
-        assert isinstance(res[0], int)
+    assert issubclass(res.dtype.type, np.integer)
     np.testing.assert_array_equal(res, ref)
 
 
@@ -111,7 +108,7 @@ _ARG_REDUCTION_CASES = [
 
 
 @pytest.mark.parametrize(("group_idx", "a", "expected"), _ARG_REDUCTION_CASES)
-def test_the_arg_reductions_of_a_group_with_nans(impl, group_idx, a, expected):
+def test_arg_reductions_of_group_with_nans(impl, group_idx, a, expected):
     """A nan in a group is a nan of the whole group, and the plain arg
     reductions have no extreme to point at.
 
@@ -216,7 +213,7 @@ def test_var_with_nan_fill_value(impl, ddof, nan_inds, func):
     np.testing.assert_equal(actual, expected)
 
 
-def test_sort_leaves_nan_at_the_end(impl):
+def test_sort_leaves_nan_at_end(impl):
     # numpy orders a nan as the largest value, so it ends up last - and since
     # the descending pass only flips the ordered part of a group, it stays last
     # there too.  The builtin sorted the pure python implementation orders with

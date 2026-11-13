@@ -6,6 +6,7 @@ import nox
 @nox.session
 def docs(session):
     session.install(
+        ".",
         "Django==5.2",
         "Sphinx>=7.4.7,<8",
         "sphinx_rtd_theme",
@@ -13,7 +14,7 @@ def docs(session):
         "django-ninja>=1.3.0,<2",
         "snowballstemmer<3",  # https://github.com/sphinx-doc/sphinx/issues/13533
     )
-    session.run("make", "docs")
+    session.run("make", "docs", external=True)
 
 
 @nox.session(tags=["lint"])
@@ -53,12 +54,12 @@ DJANGO_PYTHON_REQ = {
     "5.1": ("3.11", "3.12", "3.13"),
     "5.2": ("3.11", "3.12", "3.13", "3.14"),
     "6.0": ("3.12", "3.13", "3.14"),
-    "6.1": ("3.12", "3.13", "3.14"),
+    "6.1": ("3.12", "3.13", "3.14", "3.15"),
 }
 DJANGO_LTS = "5.2"
 
 
-@nox.session(python=["3.11", "3.12", "3.13", "3.14"])
+@nox.session(python=["3.11", "3.12", "3.13", "3.14", "3.15"])
 @nox.parametrize("django", list(DJANGO_PYTHON_REQ.keys()))
 @nox.parametrize(
     "project", ["regular", "headless_only", "account_only", "login_required_mw"]

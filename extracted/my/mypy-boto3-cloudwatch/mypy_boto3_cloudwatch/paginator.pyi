@@ -18,6 +18,7 @@ Usage::
         GetMetricDataPaginator,
         ListAlarmMuteRulesPaginator,
         ListDashboardsPaginator,
+        ListMetricDataQueryDefinitionsPaginator,
         ListMetricsPaginator,
     )
 
@@ -30,6 +31,7 @@ Usage::
     get_metric_data_paginator: GetMetricDataPaginator = client.get_paginator("get_metric_data")
     list_alarm_mute_rules_paginator: ListAlarmMuteRulesPaginator = client.get_paginator("list_alarm_mute_rules")
     list_dashboards_paginator: ListDashboardsPaginator = client.get_paginator("list_dashboards")
+    list_metric_data_query_definitions_paginator: ListMetricDataQueryDefinitionsPaginator = client.get_paginator("list_metric_data_query_definitions")
     list_metrics_paginator: ListMetricsPaginator = client.get_paginator("list_metrics")
     ```
 """
@@ -54,6 +56,8 @@ from .type_defs import (
     ListAlarmMuteRulesOutputTypeDef,
     ListDashboardsInputPaginateTypeDef,
     ListDashboardsOutputTypeDef,
+    ListMetricDataQueryDefinitionsInputPaginateTypeDef,
+    ListMetricDataQueryDefinitionsOutputTypeDef,
     ListMetricsInputPaginateTypeDef,
     ListMetricsOutputTypeDef,
 )
@@ -70,6 +74,7 @@ __all__ = (
     "GetMetricDataPaginator",
     "ListAlarmMuteRulesPaginator",
     "ListDashboardsPaginator",
+    "ListMetricDataQueryDefinitionsPaginator",
     "ListMetricsPaginator",
 )
 
@@ -179,6 +184,26 @@ class ListDashboardsPaginator(_ListDashboardsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/paginator/ListDashboards.html#CloudWatch.Paginator.ListDashboards.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/paginators/#listdashboardspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListMetricDataQueryDefinitionsPaginatorBase = Paginator[
+        ListMetricDataQueryDefinitionsOutputTypeDef
+    ]
+else:
+    _ListMetricDataQueryDefinitionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListMetricDataQueryDefinitionsPaginator(_ListMetricDataQueryDefinitionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/paginator/ListMetricDataQueryDefinitions.html#CloudWatch.Paginator.ListMetricDataQueryDefinitions)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/paginators/#listmetricdataquerydefinitionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListMetricDataQueryDefinitionsInputPaginateTypeDef]
+    ) -> PageIterator[ListMetricDataQueryDefinitionsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/paginator/ListMetricDataQueryDefinitions.html#CloudWatch.Paginator.ListMetricDataQueryDefinitions.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/paginators/#listmetricdataquerydefinitionspaginator)
         """
 
 if TYPE_CHECKING:

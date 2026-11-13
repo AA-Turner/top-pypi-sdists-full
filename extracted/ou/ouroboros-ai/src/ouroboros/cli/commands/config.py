@@ -11,6 +11,7 @@ from pathlib import Path
 import shutil
 from typing import Annotated, get_args, get_origin
 
+from pydantic import TypeAdapter, ValidationError
 from rich.markup import escape
 import typer
 import yaml
@@ -115,6 +116,7 @@ _CLI_PATH_ENV_BY_BACKEND = {
     "pi": "OUROBOROS_PI_CLI_PATH",
     "omp": "OUROBOROS_OMP_CLI_PATH",
     "zcode": "OUROBOROS_ZCODE_CLI_PATH",
+    "megacode": "OUROBOROS_MEGACODE_CLI_PATH",
 }
 
 
@@ -184,11 +186,6 @@ def _load_config(*, validate_event_store: bool = True) -> tuple[dict, Path]:
 
 def _database_file_path(data: dict, config_path: Path) -> Path:
     return event_store_path_from_config(data, config_path)
-
-
-def _save_config(data: dict, path: Path) -> None:
-    """Write config dict back to YAML."""
-    path.write_text(yaml.dump(data, default_flow_style=False, sort_keys=False), encoding="utf-8")
 
 
 def _resolve_cli_path(data: dict) -> str | None:
@@ -599,6 +596,41 @@ def _render_models_view(data: dict) -> None:
     )
 
 
+# These config.yaml fields are accepted by the schema but are not wired to the
+# corresponding evaluation pipeline controls. Keep in sync with the field
+# dispositions in docs/config-reference.md when wiring changes.
+_INERT_SETTINGS = {
+    "evaluation": frozenset(
+        {
+            "stage1_enabled",
+            "stage2_enabled",
+            "stage3_enabled",
+            "satisfaction_threshold",
+            "uncertainty_threshold",
+        }
+    ),
+    "consensus": frozenset({"min_models", "threshold", "diversity_required"}),
+}
+
+
+def _inert_settings(data: dict, section: str | None = None) -> list[str]:
+    """Identify only settings actually present in this config file."""
+    return [
+        f"{name}.{key}"
+        for name, keys in _INERT_SETTINGS.items()
+        if (section is None or name == section) and isinstance(data.get(name), dict)
+        for key in sorted(keys.intersection(data[name]))
+    ]
+
+
+def _warn_inert_settings(keys: list[str]) -> None:
+    if keys:
+        print_warning(
+            f"Saved {', '.join(keys)} does not affect runtime behavior. "
+            "See docs/config-reference.md for effective controls."
+        )
+
+
 def _effective_view_data(data: dict, config_path: Path) -> dict:
     """Machine-readable effective view (what `show --json` emits)."""
     from ouroboros.backends.model_catalog import installed_backends
@@ -797,8 +829,10 @@ def show(
             print_table(table)
         else:
             console.print(f"[cyan]{section}[/] = {section_data}")
+        _warn_inert_settings(_inert_settings(data, section))
     else:
         _render_effective_view(data, config_path)
+        _warn_inert_settings(_inert_settings(data))
 
 
 @app.command()
@@ -1156,7 +1190,14 @@ def set_value(
     parsed_value: str | int | float | bool = value
     if type_reference is not None:
         if isinstance(type_reference, bool):
-            parsed_value = value.lower() in ("true", "1", "yes")
+            try:
+                parsed_value = TypeAdapter(bool).validate_python(value)
+            except ValidationError:
+                print_error(
+                    f"Invalid boolean value for {key}. "
+                    "Use true/false, 1/0, yes/no, on/off, t/f, or y/n."
+                )
+                raise typer.Exit(1) from None
         elif isinstance(type_reference, int):
             try:
                 parsed_value = int(value)
@@ -1176,31 +1217,29 @@ def set_value(
         print_error(f"Invalid value — not saved.\n{exc}")
         raise typer.Exit(1) from None
 
-    original_bytes = config_path.read_bytes()
-    _save_config(data, config_path)
+    from ouroboros.config_tui.persistence import ConfigWriteError, save_config_with_backup
+    from ouroboros.core.errors import ConfigError
 
-    # Validate the written config loads without errors
     try:
-        from ouroboros.config.loader import load_config
-
-        load_config()
-    except Exception as exc:
-        # Preserve the original encoding, BOM, and line endings on rollback.
-        config_path.write_bytes(original_bytes)
-        print_error(f"Invalid value — rolled back.\n{exc}")
+        save_config_with_backup(data, config_path)
+    except (ConfigWriteError, OSError) as exc:
+        reason = "Invalid value." if isinstance(exc.__cause__, ConfigError) else "Save failed."
+        print_error(f"{reason}\n{exc}")
         raise typer.Exit(1) from None
 
     if old_value is not None:
         print_success(f"{key}: {old_value} → {parsed_value}")
     else:
         print_success(f"{key}: {parsed_value}")
+    if key in _inert_settings(data):
+        _warn_inert_settings([key])
 
 
 @app.command()
 def undo() -> None:
     """Restore the configuration saved before the last settings change.
 
-    Every successful save (GUI or `config set` via the settings layer)
+    Every successful settings GUI save or `config set`
     keeps the previous file as config.yaml.bak; undo swaps it back in,
     so running undo twice redoes the change.
     """
@@ -1248,21 +1287,30 @@ def validate() -> None:
     issues: list[str] = []
 
     # Check runtime backend
-    backend_val = data.get("orchestrator", {}).get("runtime_backend")
+    orchestrator = data.get("orchestrator") or {}
+    backend_val = orchestrator.get("runtime_backend")
     if not backend_val:
         issues.append("orchestrator.runtime_backend is not set")
     else:
         try:
             resolve_runtime_backend_name(str(backend_val))
         except ValueError:
-            issues.append(f"orchestrator.runtime_backend '{backend_val}' is not supported")
+            issues.append("orchestrator.runtime_backend is not supported")
 
     # Check CLI path exists
     capability = get_backend_capability(str(backend_val or ""))
     if capability is not None and capability.cli_config_key:
-        cli = data.get("orchestrator", {}).get(capability.cli_config_key)
-        if cli and not Path(cli).exists():
-            issues.append(f"{capability.name} CLI path does not exist: {cli}")
+        cli = orchestrator.get(capability.cli_config_key)
+        field = f"orchestrator.{capability.cli_config_key}"
+        if cli is not None and not isinstance(cli, str):
+            issues.append(f"{field} must be a string")
+        elif cli:
+            try:
+                exists = Path(cli).exists()
+            except (OSError, ValueError, RuntimeError):
+                exists = False
+            if not exists:
+                issues.append(f"{field} does not exist")
 
     # Try loading config through the validated schema
     try:
