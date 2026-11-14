@@ -29,11 +29,11 @@ class DescribeHistoryEventsRequest(DaraModel):
         # - **UnArchived**: unarchived
         # - **All**: all
         self.archive_status = archive_status
-        # The system event categorization. Valid values:
-        # - **Exception**: abnormal event
+        # The category of the system event. Valid values:
+        # - **Exception**: exception events
         # - **Optimize**: optimization events
-        # - **Notification**: notification event
-        # - **Maintenance**: scheduled maintenance event
+        # - **Notification**: notification events
+        # - **Maintenance**: scheduled maintenance events
         self.event_category = event_category
         # The ID of the event.
         self.event_id = event_id
@@ -56,21 +56,21 @@ class DescribeHistoryEventsRequest(DaraModel):
         # - **SystemMaintenance.Redeploy**: The instance undergoes redeployment due to system maintenance.
         # - **SystemFailure.Reboot**: The instance is restarted due to a system fault.
         # - **SystemFailure.Redeploy**: The instance undergoes redeployment due to a system fault.
-        # - **SystemFailure.Delete**: The instance is released because instance creation failed.
+        # - **SystemFailure.Delete**: The instance is released due to a failed creation.
         # - **InstanceFailure.Reboot**: The instance is restarted due to an instance fault.
         # - **InstanceExpiration.Stop**: The subscription instance is stopped due to expiration.
         # - **InstanceExpiration.Delete**: The subscription instance is released due to expiration.
         # - **AccountUnbalanced.Stop**: The pay-as-you-go instance is stopped due to an overdue payment.
         # - **AccountUnbalanced.Delete**: The pay-as-you-go instance is released due to an overdue payment.
-        # > You can specify only instance system events for this parameter. Disk system events are not supported.
+        # > This parameter can only be set to an instance system event, not a disk system event.
         self.event_type = event_type
-        # The start time of the time range to query the task start time. This parameter specifies that the start time of the task must be later than the specified time. Specify the time in the ISO 8601 standard in the `yyyy-MM-ddTHH:mm:ssZ` format. The time must be in `UTC +0`. The earliest supported time is 30 days ago. If the specified time is more than 30 days before the current time, it is automatically converted to 30 days ago.
+        # The start time of the time range to query tasks based on their start time. This parameter specifies that the start time of the task must be later than the specified time. Specify the time in the ISO 8601 standard in the `yyyy-MM-ddTHH:mm:ssZ` format. The time must be in UTC. The earliest supported time is 30 days ago. If the specified time is more than 30 days before the current time, it is automatically converted to 30 days ago.
         # 
         # This parameter is required.
         self.from_start_time = from_start_time
-        # The RDS instance ID.
+        # The ApsaraDB RDS instance ID.
         self.instance_id = instance_id
-        # The page number. The value must be greater than 0 and cannot exceed the maximum value of an integer. Default value: **1**.
+        # The page number. The value must be greater than 0 and cannot exceed the maximum value of the integer type. Default value: **1**.
         self.page_number = page_number
         # The number of entries per page. Default value: **30**.
         self.page_size = page_size
@@ -82,12 +82,12 @@ class DescribeHistoryEventsRequest(DaraModel):
         # - **Instance**: instance
         # - **Host**: host
         # - **User**: user
-        # > If you do not specify this parameter, all resource types are queried.
+        # > If this parameter is left empty, all resource types are queried.
         self.resource_type = resource_type
         self.security_token = security_token
         # The ID of the task. Specify this parameter to obtain the data of a specific task.
         self.task_id = task_id
-        # The end time of the time range to query the task start time. This parameter specifies that the start time of the task must be earlier than the specified time. Specify the time in the ISO 8601 standard in the `yyyy-MM-ddTHH:mm:ssZ` format. The time must be in `UTC +0`.
+        # The end time of the time range to query tasks based on their start time. This parameter specifies that the start time of the task must be earlier than the specified time. Specify the time in the ISO 8601 standard in the `yyyy-MM-ddTHH:mm:ssZ` format. The time must be in UTC.
         # 
         # This parameter is required.
         self.to_start_time = to_start_time

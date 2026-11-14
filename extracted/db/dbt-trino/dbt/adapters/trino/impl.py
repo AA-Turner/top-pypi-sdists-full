@@ -12,7 +12,7 @@ from dbt.adapters.capability import (
     CapabilitySupport,
     Support,
 )
-from dbt.adapters.catalogs import CatalogRelation
+from dbt.adapters.catalogs import CatalogRelation, CatalogV2
 from dbt.adapters.contracts.relation import RelationConfig
 from dbt.adapters.events.logging import AdapterLogger
 from dbt.adapters.sql import SQLAdapter
@@ -78,8 +78,17 @@ class TrinoAdapter(SQLAdapter):
                 support=Support.Unsupported
             ),
             Capability.MicrobatchConcurrency: CapabilitySupport(support=Support.Full),
+            Capability.CatalogsV2: CapabilitySupport(support=Support.Full),
         }
     )
+
+    # The metastore is configured on the Trino connector, so every
+    # metastore-backed v2 catalog type maps to the single `trino` integration.
+    _V2_TO_V1_TYPE: Dict[str, str] = {
+        "iceberg_rest": constants.TRINO_CATALOG_TYPE,
+        "glue": constants.TRINO_CATALOG_TYPE,
+        "hive_metastore": constants.TRINO_CATALOG_TYPE,
+    }
 
     def __init__(self, config, mp_context) -> None:
         super().__init__(config, mp_context)
@@ -101,8 +110,23 @@ class TrinoAdapter(SQLAdapter):
                     "or explicitly set `cert` configuration to `True` for security reasons. "
                     "You may receive an error after that if your SSL setup is incorrect."
                 ),
-            }
+            },
+            {  # type: ignore
+                "name": "use_concurrent_microbatch",
+                "default": False,
+                "description": (
+                    "Run microbatch batches concurrently across threads. "
+                    "Concurrent batches all write to the same table, and on some "
+                    "connectors, such as Iceberg, parallel commits can intermittently fail. "
+                    "Batches run sequentially unless this flag is enabled."
+                ),
+            },
         ]
+
+    def supports(self, capability: Capability) -> bool:  # type: ignore[override]
+        if capability == Capability.MicrobatchConcurrency:
+            return self.behavior.use_concurrent_microbatch.no_warn  # type: ignore[attr-defined]
+        return super().supports(capability)
 
     def pre_model_hook(self, config: Mapping[str, Any]) -> Optional[bool]:
         """Route this node's statements using its `client_tags` / `http_headers`.
@@ -412,3 +436,11 @@ class TrinoAdapter(SQLAdapter):
             catalog_integration = self.get_catalog_integration(catalog)
             return catalog_integration.build_relation(model)
         return None
+
+    def _v2_to_v1_type(self, catalog_type: str) -> str:
+        return self._V2_TO_V1_TYPE.get(catalog_type, catalog_type)
+
+    def _v2_table_format(self, catalog: CatalogV2) -> Optional[str]:  # type: ignore[override]
+        # `default` means "use the connector's table format", so no `type` property is set.
+        table_format = catalog.table_format.value
+        return None if table_format == "default" else table_format

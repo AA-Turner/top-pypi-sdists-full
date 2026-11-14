@@ -192,12 +192,25 @@ class LeftRunning(KeyboardInterrupt):
 
 
 class GpuCancelled(LeftRunning):
-    """Ctrl-C while `seq gpu add` waited for its GPUs to run: those not running yet removed, unbilled, and said by their ids
-    - with any whose removal was not answered, and how to end it - where "cancelled" alone would name none.
+    """Ctrl-C while `seq gpu add` waited for its GPUs to run: those not running yet removed, said by their ids with what each
+    was billed as the platform says it once removed (`billed`, by id: sequence_ai.gpu._billed's words - not billed, or the
+    seconds one of the places asked for it held a card) - and any whose removal was not answered, and how to end it -
+    where "cancelled" alone would name none.
 """
 
-    def __init__(self, cancelled: list[str], not_cancelled: list[str]) -> None:
-        said = f"cancelled: {', '.join(cancelled)} - not billed" if cancelled else "cancelled"
+    def __init__(self, cancelled: list[str], not_cancelled: list[str], billed: dict | None = None) -> None:
+        from sequence_ai.gpu import _billed
+
+        alike: dict[str, list[str]] = {}
+        own: list[str] = []
+        for i in cancelled:
+            words = _billed((billed or {}).get(i))
+            if words.startswith("billed "):
+                own.append(f"{i} - {words}")
+            else:
+                alike.setdefault(words, []).append(i)
+        parts = [f"{', '.join(ids)} - {words}" for words, ids in alike.items()] + own
+        said = f"cancelled: {'; '.join(parts)}" if cancelled else "cancelled"
         if not_cancelled:
             said += f"; not cancelled, still starting: {', '.join(not_cancelled)} - seq gpu remove <id> ends one"
         KeyboardInterrupt.__init__(self, said)

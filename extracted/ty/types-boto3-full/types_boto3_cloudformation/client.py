@@ -188,8 +188,10 @@ from .type_defs import (
     RegisterPublisherOutputTypeDef,
     RegisterTypeInputTypeDef,
     RegisterTypeOutputTypeDef,
+    RemoveAliasInputTypeDef,
     RollbackStackInputTypeDef,
     RollbackStackOutputTypeDef,
+    SetAliasInputTypeDef,
     SetStackPolicyInputTypeDef,
     SetTypeConfigurationInputTypeDef,
     SetTypeConfigurationOutputTypeDef,
@@ -1070,6 +1072,16 @@ class CloudFormationClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudformation/client/#register_type)
         """
 
+    def remove_alias(
+        self, **kwargs: Unpack[RemoveAliasInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Removes an alias from a stack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/remove_alias.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudformation/client/#remove_alias)
+        """
+
     def rollback_stack(
         self, **kwargs: Unpack[RollbackStackInputTypeDef]
     ) -> RollbackStackOutputTypeDef:
@@ -1079,6 +1091,14 @@ class CloudFormationClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/rollback_stack.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudformation/client/#rollback_stack)
+        """
+
+    def set_alias(self, **kwargs: Unpack[SetAliasInputTypeDef]) -> EmptyResponseMetadataTypeDef:
+        """
+        Assigns an alias to an existing stack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/set_alias.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudformation/client/#set_alias)
         """
 
     def set_stack_policy(

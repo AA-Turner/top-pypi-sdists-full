@@ -169,6 +169,7 @@ __all__ = (
     "GetImageRecipeRequestTypeDef",
     "GetImageRecipeResponseTypeDef",
     "GetImageRequestTypeDef",
+    "GetImageRequestWaitTypeDef",
     "GetImageResponseTypeDef",
     "GetInfrastructureConfigurationRequestTypeDef",
     "GetInfrastructureConfigurationResponseTypeDef",
@@ -367,6 +368,7 @@ __all__ = (
     "UpdateLifecyclePolicyResponseTypeDef",
     "VulnerabilityIdAggregationTypeDef",
     "VulnerablePackageTypeDef",
+    "WaiterConfigTypeDef",
     "WindowsConfigurationTypeDef",
     "WorkflowConfigurationOutputTypeDef",
     "WorkflowConfigurationTypeDef",
@@ -719,6 +721,11 @@ class GetImageRecipeRequestTypeDef(TypedDict):
 
 class GetImageRequestTypeDef(TypedDict):
     imageBuildVersionArn: str
+
+
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
 
 
 class GetInfrastructureConfigurationRequestTypeDef(TypedDict):
@@ -1717,6 +1724,11 @@ class ListWorkflowsRequestTypeDef(TypedDict):
     byName: NotRequired[bool]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+
+
+class GetImageRequestWaitTypeDef(TypedDict):
+    imageBuildVersionArn: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
 class ListImagePackagesResponseTypeDef(TypedDict):

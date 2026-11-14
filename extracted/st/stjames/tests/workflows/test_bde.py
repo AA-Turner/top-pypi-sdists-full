@@ -210,3 +210,23 @@ def test_new_methods(chloroethane: Molecule) -> None:
     assert repr(g_xtb__gfn2_xtb) == "<BDEWorkflow G_XTB//GFN2_XTB>"
     assert g_xtb.multistage_opt_settings is not None
     assert g_xtb__gfn2_xtb.multistage_opt_settings is not None
+
+
+@mark.parametrize("charge", [-2, 2])
+def test_charged_hydrogen_selection(chloroethane: Molecule, charge: int, simple_msos: MultiStageOptSettings) -> None:
+    """Select charged hydrogen loss and preserve it through JSON serialization."""
+    molecule = chloroethane.model_copy(update={"charge": charge})
+    wf = BDEWorkflow(initial_molecule=molecule, mode=Mode.RAPID, multistage_opt_settings=simple_msos, fragment_indices=((1, 2, 3, 4, 5, 6, 7),), all_CH=True)
+    assert wf.fragment_indices == ((1, 2, 3, 4, 5, 6, 7), (4,), (5,), (6,), (7,), (8,))
+    restored = BDEWorkflow.model_validate_json(wf.model_dump_json())
+    assert restored.initial_molecule.charge == charge
+    assert restored.fragment_indices == wf.fragment_indices
+
+
+def test_charged_non_hydrogen_rejected(chloroethane: Molecule, simple_msos: MultiStageOptSettings) -> None:
+    """Reject explicit and automatic non-hydrogen cleavage for charged parents."""
+    molecule = chloroethane.model_copy(update={"charge": 2})
+    with raises(ValueError):
+        BDEWorkflow(initial_molecule=molecule, mode=Mode.RAPID, multistage_opt_settings=simple_msos, atoms=(3,))
+    with raises(ValueError):
+        BDEWorkflow(initial_molecule=molecule, mode=Mode.RAPID, multistage_opt_settings=simple_msos, all_CH=True, all_CX=True)

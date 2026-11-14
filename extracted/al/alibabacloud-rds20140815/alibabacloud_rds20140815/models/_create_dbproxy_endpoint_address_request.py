@@ -32,11 +32,11 @@ class CreateDBProxyEndpointAddressRequest(DaraModel):
         # 
         # This parameter is required.
         self.dbproxy_connect_string_net_type = dbproxy_connect_string_net_type
-        # The ID of the database proxy endpoint. You can call the DescribeDBProxyEndpoint operation to query the ID.
+        # The ID of the database proxy endpoint. You can call the DescribeDBProxyEndpoint operation to query the endpoint ID.
         # 
         # This parameter is required.
         self.dbproxy_endpoint_id = dbproxy_endpoint_id
-        # A reserved parameter. No configuration is required.
+        # Reserved parameter. No configuration is required.
         self.dbproxy_engine_type = dbproxy_engine_type
         # The port number of the new database proxy endpoint. Default values:
         # 
@@ -45,13 +45,13 @@ class CreateDBProxyEndpointAddressRequest(DaraModel):
         self.dbproxy_new_connect_string_port = dbproxy_new_connect_string_port
         # The region ID. You can call the DescribeRegions operation to query the region ID.
         self.region_id = region_id
-        # The resource group ID.
+        # The ID of the resource group.
         self.resource_group_id = resource_group_id
-        # The VPC ID of the new database proxy endpoint. You can call the DescribeDBInstanceAttribute operation to query the VPC ID.
+        # The ID of the VPC to which the new database proxy endpoint belongs. You can call the DescribeDBInstanceAttribute operation to query the VPC ID.
         # 
         # > This parameter is required when **DBProxyConnectStringNetType** is set to **VPC**.
         self.vpcid = vpcid
-        # The vSwitch ID of the new database proxy endpoint. You can call the DescribeDBInstanceAttribute operation to query the vSwitch ID.
+        # The ID of the vSwitch to which the new database proxy endpoint belongs. You can call the DescribeDBInstanceAttribute operation to query the vSwitch ID.
         # 
         # > This parameter is required when **DBProxyConnectStringNetType** is set to **VPC**.
         self.v_switch_id = v_switch_id

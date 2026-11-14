@@ -19,9 +19,9 @@ class DescribeDBInstanceIPArrayListRequest(DaraModel):
         self.owner_account = owner_account
         self.resource_owner_id = resource_owner_id
         # The network type of the whitelist. Valid values:
-        # * **Classic**: the classic network in enhanced whitelist mode
-        # * **VPC**: the VPC in enhanced whitelist mode
-        # * **MIX**: the standard whitelist mode
+        # * **Classic**: classic network in enhanced whitelist mode
+        # * **VPC**: VPC in enhanced whitelist mode
+        # * **MIX**: standard whitelist mode
         # 
         # By default, the IP addresses in the whitelists of all network types are returned.
         self.whitelist_network_type = whitelist_network_type

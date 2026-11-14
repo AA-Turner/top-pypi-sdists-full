@@ -13,23 +13,23 @@ class SwitchDBInstanceVpcRequest(DaraModel):
         vpcid: str = None,
         v_switch_id: str = None,
     ):
-        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
+        # The instance ID. You can call the DescribeDBInstances operation to query the ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The private IP address of the instance. The IP address must be within the CIDR block of the vSwitch specified by the **VSwitchId** parameter.
-        # > You can call the DescribeVSwitches operation to query the CIDR block of the vSwitch.
+        # The private IP address of the instance. The IP address must fall within the CIDR block of the vSwitch specified by the **VSwitchId** parameter.
+        # > You can call the DescribeVSwitches operation to query the CIDR block of the destination vSwitch.
         self.private_ip_address = private_ip_address
         self.resource_owner_id = resource_owner_id
         # The VPC ID.
         # 
-        # > The VPC and the ApsaraDB RDS instance must be in the same region.
+        # > The VPC must reside in the same region as the ApsaraDB RDS instance.
         # 
         # This parameter is required.
         self.vpcid = vpcid
         # The vSwitch ID.
         # 
-        # > The vSwitch and the ApsaraDB RDS instance must be in the same zone.
+        # > The vSwitch must reside in the same zone as the ApsaraDB RDS instance.
         # 
         # This parameter is required.
         self.v_switch_id = v_switch_id

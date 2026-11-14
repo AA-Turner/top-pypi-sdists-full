@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-box
-Version: 8.0.0
+Version: 8.0.1
 Summary: Advanced Python dictionaries with dot notation access
 Author-email: Chris Griffith <chris@cdgriffith.com>
 License-Expression: MIT

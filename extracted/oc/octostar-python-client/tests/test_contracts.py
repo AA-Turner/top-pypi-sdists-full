@@ -119,6 +119,8 @@ SPEC_ROUTES_WITHOUT_SDK = {
     "/api/v2/report-export/download/{tracking_id}": "Composer temporary export download; no SDK export flow",
     "/api/v2/report-export/{os_workspace}/{entity_uid}": "Report export job started from the Composer (202; poll tasks/status)",
     # v2 Workspaces
+    "/api/v2/tags/{tag_uid}/apply": "Bulk apply of one tag to a search selection (frontend only; no SDK flow)",
+    "/api/v2/tags/{tag_uid}/remove": "Bulk remove of one tag from a search selection (frontend only; no SDK flow)",
     "/api/v2/workspaces/{os_workspace}": "Whole-workspace delete (202 background job; poll tasks/status)",
     # v2 Mounts (Phase 0 scaffold — 501 stubs, SDK wrappers land with each capability)
     "/api/v2/mounts": "Mount create/list",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: livekit-plugins-rime
-Version: 1.8.11
+Version: 1.8.12
 Summary: LiveKit Agents Plugin for Rime
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -16,13 +16,13 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
-Requires-Dist: livekit-agents[codecs]>=1.8.11
+Requires-Dist: livekit-agents[codecs]>=1.8.12
 Requires-Dist: protobuf>=5.29.6
 Requires-Dist: rime-api>=0.3.0
 Provides-Extra: realtime
 Requires-Dist: rimelabs-sdk>=0.1.0a29; (python_version >= '3.11') and extra == 'realtime'
 Provides-Extra: stt
-Requires-Dist: livekit-agents>=1.8.11; extra == 'stt'
+Requires-Dist: livekit-agents>=1.8.12; extra == 'stt'
 Requires-Dist: rimelabs-sdk>=0.1.0a29; (python_version >= '3.11') and extra == 'stt'
 Description-Content-Type: text/markdown
 

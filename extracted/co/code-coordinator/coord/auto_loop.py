@@ -104,9 +104,11 @@ FIX_DISPATCH_TYPES: frozenset[str] = frozenset({"work"}) | SEALED_PATH_AUTHOR_TY
 # #253), an advisory-only review advanced the pipeline (#476 — ``review_verdict``
 # flips to approve + ``review_state="done"`` so the merge gate unblocks; without
 # this the gate suppresses the fix but the advance is never persisted and the PR
-# silently can't merge), the work was found terminal (#522), or (#1663) a
+# silently can't merge), the work was found terminal (#522), (#1663) a
 # request-changes verdict was propagated onto the parent row without a fix
-# dispatch.
+# dispatch, or (#4002) a request-changes verdict against an already-approved
+# head was recorded on the review row (non-blocking, no fix round) rather
+# than discarded.
 #
 # #1622: module-level rather than a local in ``_run_for_review_transition``
 # because ``coord fix`` is now a second caller of
@@ -114,7 +116,7 @@ FIX_DISPATCH_TYPES: frozenset[str] = frozenset({"work"}) | SEALED_PATH_AUTHOR_TY
 # copies of this tuple is exactly the drift shape #1601/#1624 keep hitting.
 PERSIST_ACTION_KINDS: tuple[str, ...] = (
     "fix_dispatched", "approved", "approved_with_nits", "terminal_skip",
-    "verdict_propagated", "finisher_dispatched",
+    "verdict_propagated", "finisher_dispatched", "superseded_by_approval",
 )
 
 
@@ -372,6 +374,43 @@ def process_review_completion(
     # #253: persist the parsed verdict on the review assignment so the merge
     # gate can refuse to merge work whose review hasn't approved.
     review.review_verdict = findings.verdict
+
+    if findings.verdict == "request-changes":
+        # #4002: an approve on the current head is final. If some OTHER
+        # review already approved the EXACT commit `review` reviewed
+        # (`review.review_head_sha`), this request-changes must not reopen
+        # the item — no fix round, no `fix_rounds` increment. The merge
+        # gate's own `scan_approved_reviews` already reports this head
+        # approved regardless of what happens below (it only ever hunts
+        # for A matching approve in the chain, never the chain's "latest"
+        # verdict) — this is the OTHER half: making the fix loop ask the
+        # SAME question (`coord.merge_queue.head_already_approved`, #2096)
+        # instead of reaching the opposite conclusion from identical data,
+        # which is exactly how quadraui#2356's fix round 2 got dispatched
+        # against an already-approved commit.
+        work_for_gate = (
+            board.find_by_id(review.review_of_assignment_id)
+            if review.review_of_assignment_id
+            else None
+        )
+        if (
+            work_for_gate is not None
+            and review.review_head_sha
+            and _head_already_approved_elsewhere(review, work_for_gate, board)
+        ):
+            _post_superseded_by_approval_notice(review, work_for_gate, config)
+            return [LoopAction(
+                kind="superseded_by_approval",
+                assignment_id=review.assignment_id,
+                detail=(
+                    f"Review verdict: request-changes on commit "
+                    f"{review.review_head_sha[:12]} — but that exact commit "
+                    "already has an approving review elsewhere in this "
+                    "item's work chain (#4002: an approve on the current "
+                    "head is final). Findings recorded as non-blocking; no "
+                    "fix round dispatched, work row left approved."
+                ),
+            )]
 
     if findings.verdict == "approve":
         return _advance_pipeline(
@@ -879,6 +918,105 @@ def _post_advisory_nits_notice(
     except Exception as exc:  # noqa: BLE001
         log.warning(
             "auto_loop: failed to post advisory-advance notice for %s: %s",
+            work.assignment_id, exc,
+        )
+
+
+def _head_already_approved_elsewhere(
+    review: Assignment, work: Assignment, board: Board,
+) -> bool:
+    """#4002: is *review*'s own reviewed commit (``review.review_head_sha``)
+    already covered by an approving review somewhere else in *work*'s work
+    chain?
+
+    Thin wrapper over :func:`coord.merge_queue.head_already_approved` —
+    the SAME check the dispatch-side gate
+    (:func:`coord.review.claim_review_item_dispatch_gate`) and the merge
+    gate's own :func:`coord.merge_queue.has_approved_review` ultimately
+    answer from, so this function's verdict can never disagree with
+    either (#2096).
+
+    Deliberately checks ``review.review_head_sha`` — the exact commit
+    *review* was dispatched against (#821) — rather than refetching the
+    branch's live head: a request-changes verdict always refers to the
+    commit it actually reviewed. A later, genuinely new commit gets a
+    different ``review_head_sha`` and so is correctly treated as
+    unapproved here — the acceptance criterion that a fresh commit still
+    gets reviewed normally.
+
+    Residual ordering gap: this asks "does an approve already exist", not
+    "which of the two verdicts was dispatched first". The per-item lease
+    (:func:`coord.review.claim_review_item_dispatch_gate`) normally
+    prevents two reviews of the same commit from co-existing at all, but if
+    one somehow did and its request-changes leg *completes* before the
+    approve leg does, this function sees no approve yet and a fix round is
+    still dispatched — the dispatch-side lease is what is meant to make
+    that scenario unreachable, not this read.
+    """
+    from coord import merge_queue as mq  # noqa: PLC0415
+
+    return mq.head_already_approved(
+        board,
+        assignment_id=work.assignment_id,
+        branch=work.branch,
+        branch_head_sha=review.review_head_sha,
+    )
+
+
+def _post_superseded_by_approval_notice(
+    review: Assignment, work: Assignment, config: Config,
+) -> None:
+    """Post a short audit-trail comment when a request-changes verdict is
+    superseded by an earlier approval of the exact same commit (#4002).
+
+    Mirrors :func:`_post_advisory_nits_notice`'s shape and posture
+    (best-effort; a ``gh`` failure must never block the pipeline) — this is
+    the sibling notice for the #4002 "approve on the current head is
+    final" gate rather than the #476 "no blocking findings" one. The
+    findings are not discarded: the full review comment the reviewer's own
+    session already posted remains on the PR, and this comment records,
+    for the audit trail, that the coordinator read them as non-blocking
+    because a prior review already approved this exact commit.
+
+    Posted via :func:`coord.state.upsert_issue_comment` rather than a bare
+    ``post_issue_comment`` (#2109's marker-keyed edit-in-place) — this
+    outcome can legitimately be recomputed more than once for the SAME
+    review row (the #1582 ``review_done_no_verdict``/stalled-pipeline sweep
+    re-runs :func:`process_review_completion` whenever it still finds this
+    row's fix-less ``request-changes`` outstanding), and without upsert
+    each re-run would append another identical comment to the issue rather
+    than being a no-op.
+    """
+    repo = config.repo(work.repo_name)
+    if repo is None:
+        return
+    body = (
+        f"<!-- coord:event=auto_loop_superseded_by_approval "
+        f"assignment={work.assignment_id} review={review.assignment_id} -->\n"
+        f"## ⚠️ Review verdict superseded by an earlier approval\n\n"
+        f"- **This review's verdict:** `request-changes` "
+        f"(commit `{(review.review_head_sha or '?')[:12]}`)\n"
+        f"- **Effective state:** `approve` — a prior review already approved "
+        f"this EXACT commit elsewhere in this item's work chain\n\n"
+        f"Per #4002 (\"an approve on the current head is final\"), the "
+        f"coordinator is **not** dispatching another fix round: once a "
+        f"commit is approved, a later review of that SAME commit cannot "
+        f"reopen it. This review's findings are recorded here as "
+        f"non-blocking rather than discarded — the reviewer's own comment "
+        f"above still carries the full detail. If a finding here is in "
+        f"fact a must-fix, dispatch a fix manually with `coord assign` or "
+        f"`coord fix` before merging.\n"
+    )
+    try:
+        from coord.state import upsert_issue_comment  # noqa: PLC0415
+
+        upsert_issue_comment(
+            work.repo_name, work.issue_number, body, repo_github=repo.github,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "auto_loop: failed to post superseded-by-approval notice for "
+            "%s: %s",
             work.assignment_id, exc,
         )
 
@@ -1507,6 +1645,11 @@ def _build_fix_briefing(
     variant for the same reason one level up the pipeline — the diff is a
     specification (``contract.md`` + rendered mocks), not an
     implementation, so "run tests, make them pass" is equally wrong there.
+
+    For a plain work row, only the reviewer's blocking findings are required.
+    Non-blocking concerns and nits are optional and limited to small edits in
+    files the branch already changes, so a fix round stays close to the size
+    of what actually blocked the merge.
     """
     if work.type == "test-author":
         return _build_test_author_fix_briefing(work, findings, iteration, max_iter)
@@ -1529,12 +1672,27 @@ def _build_fix_briefing(
         "## Instructions",
         "",
         "1. Read the review findings above carefully.",
-        "2. Fix **every** issue identified by the reviewer.",
-        "3. Stay on the **same branch** — push your fixes to the existing branch.",
-        "4. Run the project test suite and ensure all tests pass before pushing.",
         (
-            f"5. This is fix iteration {iteration} of {max_iter} allowed. "
-            "Address all findings completely so the next review can approve."
+            "2. Fix **every** item under the reviewer's *Blocking findings*. "
+            "If the findings have no separate *Blocking findings* section, "
+            "treat every finding as blocking."
+        ),
+        (
+            "3. *Non-blocking concerns* and *Nits* are optional. Fix one only "
+            "when it is a small edit inside a file this branch already "
+            "changes. For a non-blocking item, do **not** add a new file, add "
+            "or change public API, or edit a crate, package or language this "
+            "branch does not already touch — leave it unfixed instead."
+        ),
+        (
+            "4. In your final message, list each non-blocking concern or nit "
+            "you did not fix, with one line on why."
+        ),
+        "5. Stay on the **same branch** — push your fixes to the existing branch.",
+        "6. Run the project test suite and ensure all tests pass before pushing.",
+        (
+            f"7. This is fix iteration {iteration} of {max_iter} allowed. "
+            "Fix every blocking finding completely so the next review can approve."
         ),
         "",
         "STATUS: reading review findings → implementing fixes → confidence: high",

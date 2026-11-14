@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: albumentationsx
-Version: 2.6.2
+Version: 2.6.3
 Summary: Fast, flexible, and advanced augmentation library for deep learning, computer vision, and medical imaging. Albumentations offers a wide range of transformations for both 2D (images, masks, bboxes, keypoints) and 3D (volume data, volumetric masks, keypoints) data, with optimized performance and seamless integration into ML workflows. Available under AGPL-3.0-only or a commercial license with agreed coverage for your team, products, and deployments.
 Project-URL: Homepage, https://albumentations.ai
 Project-URL: Documentation, https://albumentations.ai/docs/
@@ -41,7 +41,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.11
-Requires-Dist: albucore==0.3.5
+Requires-Dist: albucore==0.3.9
 Requires-Dist: numkong>=7.8.7
 Requires-Dist: numpy>=2.2.6
 Requires-Dist: pydantic>=2.12.4
@@ -317,7 +317,6 @@ See [data collection and opt-out](https://github.com/albumentations-team/Albumen
 - [InvertImg](https://albumentations.ai/explore/transform/InvertImg/)
 - [LensFlare](https://albumentations.ai/explore/transform/LensFlare/)
 - [MedianBlur](https://albumentations.ai/explore/transform/MedianBlur/)
-- [ModeFilter](https://albumentations.ai/explore/transform/ModeFilter/)
 - [MotionBlur](https://albumentations.ai/explore/transform/MotionBlur/)
 - [MultiplicativeNoise](https://albumentations.ai/explore/transform/MultiplicativeNoise/)
 - [Normalize](https://albumentations.ai/explore/transform/Normalize/)

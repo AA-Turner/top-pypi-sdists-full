@@ -19,12 +19,12 @@ class DescribeAvailableRecoveryTimeRequest(DaraModel):
         # 
         # This parameter is required.
         self.cross_backup_id = cross_backup_id
-        # The instance ID. You can call the DescribeDBInstances operation to query the instance ID.
+        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
         self.dbinstance_id = dbinstance_id
         self.owner_id = owner_id
         # The region ID.
         self.region_id = region_id
-        # The resource group ID.
+        # The ID of the resource group.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id

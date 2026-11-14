@@ -17,7 +17,7 @@ class DescribeSecurityGroupConfigurationResponseBody(DaraModel):
         # The instance ID.
         self.dbinstance_name = dbinstance_name
         self.items = items
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
 
     def validate(self):

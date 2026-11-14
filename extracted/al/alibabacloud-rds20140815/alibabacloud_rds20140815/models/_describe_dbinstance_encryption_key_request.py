@@ -23,12 +23,12 @@ class DescribeDBInstanceEncryptionKeyRequest(DaraModel):
         self.encryption_key = encryption_key
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The region ID of the instance. You can call the DescribeRegions operation to query the region ID.
+        # The region ID of the instance. You can call the DescribeRegions operation to obtain the region ID.
         self.region_id = region_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
         self.security_token = security_token
-        # The ID of the destination region. You can call the DescribeRegions operation to query the region ID.
+        # The ID of the destination region. You can call the DescribeRegions operation to obtain the region ID.
         self.target_region_id = target_region_id
 
     def validate(self):

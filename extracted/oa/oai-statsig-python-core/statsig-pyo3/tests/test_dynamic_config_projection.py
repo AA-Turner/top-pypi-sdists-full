@@ -16,14 +16,11 @@ from statsig_python_core import (
     StatsigOptions,
     StatsigUser,
 )
-from test_native_user_context import (
-    _event_payload,
-    _exposures,
-    make_sdk as make_native_sdk,
-)
+import test_native_user_context as native_context
 from utils import get_test_data_resource
 
 
+make_native_sdk = native_context.make_sdk
 PROJECTION_FLAG = "python_dynamic_config_field_projection"
 
 
@@ -83,7 +80,7 @@ def _wait_for_version(read, version):
 
 def _exposure_payloads(sdk, logs):
     assert sdk.flush_events().wait(10)
-    return [_event_payload(event) for event in _exposures(logs)]
+    return [native_context._event_payload(event) for event in native_context._exposures(logs)]
 
 
 @pytest.mark.parametrize("entry_limit", [None, 1024 * 1024, 128], ids=["no-cache", "admitted", "oversized"])

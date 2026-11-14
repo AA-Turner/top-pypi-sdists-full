@@ -18,7 +18,7 @@ use crate::StatsigErr;
 use crate::networking::{RequestArgs, ResponseData};
 
 use super::RemoteConfigValueHydrator;
-use super::errors::{HydrationFailureReason, hydration_error};
+use super::errors::{HydrationFailureReason, HydrationTimeoutStep, hydration_error};
 use super::metadata::{
     MAX_REMOTE_VALUE_BYTES, RemoteCompression, RemoteConfigValueMetadata, RemoteContentType,
     RemoteValueReference, Sha256Digest,
@@ -223,7 +223,7 @@ impl RemoteConfigValueHydrator {
         let started_at = Instant::now();
         let result = stream::iter(references.into_iter().map(|reference| async move {
             let sha256 = reference.metadata.sha256.to_string();
-            let value = self.download_one(&reference).await?;
+            let value = self.download_one(&reference, None).await?;
             Ok::<_, StatsigErr>((sha256, value))
         }))
         .buffer_unordered(DOWNLOAD_CONCURRENCY)
@@ -233,9 +233,58 @@ impl RemoteConfigValueHydrator {
         result
     }
 
+    pub(super) async fn download_all_allowing_fallback(
+        &self,
+        references: impl IntoIterator<Item = RemoteValueReference>,
+        partial_results_deadline: Option<tokio::time::Instant>,
+    ) -> Result<
+        (
+            HashMap<String, Arc<Vec<u8>>>,
+            HashMap<String, HydrationFailureReason>,
+        ),
+        StatsigErr,
+    > {
+        let Some(deadline) = partial_results_deadline else {
+            return self
+                .download_all(references)
+                .await
+                .map(|bodies| (bodies, HashMap::new()));
+        };
+
+        let started_at = Instant::now();
+        let mut downloads = stream::iter(references.into_iter().map(|reference| async move {
+            let sha256 = reference.metadata.sha256.to_string();
+            let result =
+                tokio::time::timeout_at(deadline, self.download_one(&reference, Some(deadline)))
+                    .await
+                    .unwrap_or_else(|_| {
+                        Err(self
+                            .total_timeout_error(started_at, HydrationTimeoutStep::DownloadWait))
+                    });
+            (sha256, result)
+        }))
+        .buffer_unordered(DOWNLOAD_CONCURRENCY);
+        let mut bodies = HashMap::new();
+        let mut failures = HashMap::new();
+        while let Some((sha256, result)) = downloads.next().await {
+            match result {
+                Ok(body) => {
+                    bodies.insert(sha256, body);
+                }
+                Err(error) => {
+                    let reason = HydrationFailureReason::recoverable(&error).ok_or(error)?;
+                    failures.insert(sha256, reason);
+                }
+            }
+        }
+        self.log_phase_latency(started_at.elapsed(), HydrationPhase::DownloadWait);
+        Ok((bodies, failures))
+    }
+
     pub(super) async fn download_one(
         &self,
         reference: &RemoteValueReference,
+        deadline: Option<tokio::time::Instant>,
     ) -> Result<Arc<Vec<u8>>, StatsigErr> {
         let key = SharedDownloadKey::from_reference(reference);
         let download = {
@@ -255,14 +304,26 @@ impl RemoteConfigValueHydrator {
 
         download
             .result
-            .get_or_init(|| self.download_one_uncached(reference))
-            .await
+            .get_or_try_init(|| async {
+                // A caller deadline must not become the shared result for a later waiter.
+                match self.download_one_uncached(reference, deadline).await {
+                    Err(e)
+                        if HydrationFailureReason::from_error(&e)
+                            == Some(HydrationFailureReason::TotalTimeout) =>
+                    {
+                        Err(e)
+                    }
+                    shared => Ok(shared),
+                }
+            })
+            .await?
             .clone()
     }
 
     async fn download_one_uncached(
         &self,
         reference: &RemoteValueReference,
+        deadline: Option<tokio::time::Instant>,
     ) -> Result<Arc<Vec<u8>>, StatsigErr> {
         let requested_bytes = u32::try_from(reference.metadata.byte_length)
             .ok()
@@ -276,9 +337,9 @@ impl RemoteConfigValueHydrator {
                     ),
                 )
             })?;
-        let started_at = Instant::now();
+        let queued_at = Instant::now();
         let slot = GLOBAL_DOWNLOAD_SLOTS.acquire().await;
-        self.log_phase_latency(started_at.elapsed(), HydrationPhase::DownloadSlotPermit);
+        self.log_phase_latency(queued_at.elapsed(), HydrationPhase::DownloadSlotPermit);
         let _download_slot = slot.map_err(|_| {
             hydration_error(
                 HydrationFailureReason::DownloadFailed,
@@ -294,13 +355,19 @@ impl RemoteConfigValueHydrator {
                 "remote value download byte budget is unavailable",
             )
         })?;
-        self.network
-            .retry_executor(RetryPolicy {
-                attempts: DOWNLOAD_RETRIES + 1,
-                jitter: false,
-            })
+        let retry = self.network.retry_executor(RetryPolicy {
+            attempts: DOWNLOAD_RETRIES + 1,
+            jitter: false,
+        });
+        retry
             .run(
                 |_, index| async move {
+                    if deadline.is_some_and(|cutoff| tokio::time::Instant::now() >= cutoff) {
+                        return Err(self.total_timeout_error(
+                            queued_at,
+                            HydrationTimeoutStep::DownloadPrecheck,
+                        ));
+                    }
                     let response = self
                         .network
                         .request_once(
@@ -349,6 +416,13 @@ impl RemoteConfigValueHydrator {
                 |error| retryable_state_error(error).then_some(u32::MAX),
                 |_| false,
                 || {
+                    if retry
+                        .deadline
+                        .is_some_and(|cutoff| tokio::time::Instant::now() >= cutoff)
+                    {
+                        return self
+                            .total_timeout_error(queued_at, HydrationTimeoutStep::DownloadWait);
+                    }
                     StatsigErr::NetworkError(NetworkError::ShutdownError(
                         reference.download_url.to_string(),
                     ))

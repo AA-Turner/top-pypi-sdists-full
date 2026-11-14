@@ -51,7 +51,6 @@ def evaluate(
 
     Examples
     --------
-
     >>> import gymnasium as gym
     >>> from river import bandit
 
@@ -114,7 +113,6 @@ def evaluate(
     1000
 
     """
-
     reward_stat = reward_stat or stats.Sum()
     rng = random.Random(seed)
 
@@ -196,7 +194,6 @@ def evaluate_offline(
 
     Examples
     --------
-
     >>> import random
     >>> from river import bandit
 
@@ -243,11 +240,10 @@ def evaluate_offline(
     References
     ----------
     [^1]: [Offline Evaluation of Multi-Armed Bandit Algorithms in Python using Replay](https://jamesrledoux.com/algorithms/offline-bandit-evaluation/)
-    [^2]: [Unbiased Offline Evaluation of Contextual-bandit-based News Article Recommendation Algorithms](https://arxiv.org/pdf/1003.5956.pdf)
+    [^2]: [Li, L., Chu, W., Langford, J. and Wang, X., 2011, February. Unbiased offline evaluation of contextual-bandit-based news article recommendation algorithms. In Proceedings of the fourth ACM international conference on Web search and data mining (pp. 297-306).](https://doi.org/10.1145/1935826.1935878)
     [^3]: [Understanding Inverse Propensity Score for Contextual Bandits](https://chanind.github.io/ai/2022/03/14/inverse-propensity-score-contextual-bandits.html)
 
     """
-
     if isinstance(history, bandit.datasets.BanditDataset):
         arms = history.arms
         history = ((arms, context, arm, reward) for context, arm, reward in history)

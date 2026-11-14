@@ -24,7 +24,7 @@ class DescribeDBInstancePerformanceRequest(DaraModel):
         # This parameter is required.
         self.end_time = end_time
         # The performance metrics that you want to query. Separate multiple values with commas (,). You can specify up to 30 metrics. For more information, see [Performance metrics](https://help.aliyun.com/document_detail/26316.html).
-        # >If **Key** is set to **MySQL_SpaceUsage** or **SQLServer_SpaceUsage**, you can query only the monitoring data collected within the last 24 hours.
+        # >If **Key** is set to **MySQL_SpaceUsage** or **SQLServer_SpaceUsage**, you can query only the monitoring data within the last 24 hours.
         # 
         # This parameter is required.
         self.key = key

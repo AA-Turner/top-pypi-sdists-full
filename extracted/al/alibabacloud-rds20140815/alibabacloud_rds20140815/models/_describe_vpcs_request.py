@@ -26,7 +26,7 @@ class DescribeVpcsRequest(DaraModel):
         self.page_number = page_number
         # The number of entries per page. Default value: 20.
         self.page_size = page_size
-        # The cloud product type.
+        # The cloud service type.
         self.product = product
         # The region ID.
         self.region_id = region_id

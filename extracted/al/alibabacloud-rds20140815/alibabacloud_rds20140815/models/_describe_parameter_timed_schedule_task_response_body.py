@@ -71,9 +71,9 @@ class DescribeParameterTimedScheduleTaskResponseBodyTaskList(DaraModel):
         # * **COMPLETED**: Completed.
         # * **EXECUTING**: Failed.
         self.status = status
-        # The effective period of the parameter modification.
+        # The effective period of the parameter modifications.
         self.switch_time = switch_time
-        # The ID of the scheduled parameter modification task.
+        # The ID of the scheduled task for modifying parameters.
         self.task_id = task_id
 
     def validate(self):

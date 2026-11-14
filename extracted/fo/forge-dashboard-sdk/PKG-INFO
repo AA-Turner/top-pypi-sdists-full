@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: forge-dashboard-sdk
-Version: 15.0.26
+Version: 15.0.30
 Summary: Python client for forge-dashboard's REST API
 Project-URL: Homepage, https://github.com/alrayyes/forge-dashboard-sdk-python
 Project-URL: Issues, https://github.com/alrayyes/forge-dashboard-sdk-python/issues
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.12
 Requires-Dist: attrs==26.1.0
-Requires-Dist: httpx==0.28.1
+Requires-Dist: httpx2==2.16.0
 Description-Content-Type: text/markdown
 
 # forge-dashboard-sdk-python
@@ -124,7 +124,7 @@ dashboard = response.parsed
 The client retries a `429` or `5xx` response with exponential backoff and
 jitter (honoring a server-sent `Retry-After`), and never retries any other
 `4xx`. Tune it by passing a `forge_dashboard.RetryConfig` as `retry=`, or
-swap the underlying `httpx.Client`/`httpx.AsyncClient` entirely with
+swap the underlying `httpx2.Client`/`httpx2.AsyncClient` entirely with
 `httpx_client=`/`httpx_async_client=`.
 
 ## Reports

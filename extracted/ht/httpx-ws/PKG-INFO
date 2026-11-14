@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: httpx-ws
-Version: 0.9.0
+Version: 0.10.0
 Summary: WebSockets support for HTTPX
 Project-URL: Documentation, https://frankie567.github.io/httpx-ws/
 Project-URL: Source, https://github.com/frankie567/httpx-ws
@@ -11,14 +11,14 @@ Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP :: Session
-Requires-Python: >=3.10
-Requires-Dist: anyio>=4
+Requires-Python: >=3.11
+Requires-Dist: anyio>=4.10.0
 Requires-Dist: httpcore>=1.0.4
 Requires-Dist: httpx>=0.23.1
 Requires-Dist: wsproto
@@ -109,6 +109,8 @@ This project follows the [all-contributors](https://github.com/all-contributors/
 
 We use [uv](https://docs.astral.sh/uv/) to manage the development environment and production build, and [just](https://github.com/casey/just) to manage command shortcuts. Ensure they are installed on your system.
 
+Run `just install` to install the development dependencies and pre-commit hooks.
+
 ### Run unit tests
 
 You can run all the tests with:
@@ -124,6 +126,24 @@ Execute the following command to apply linting and check typing:
 ```bash
 just lint
 ```
+
+### Documentation
+
+Use `just docs-serve` to preview the Zensical site and `just docs-build` to build it into `site/`.
+
+### Publishing a release
+
+1. Commit the release entries under `Unreleased` in [CHANGELOG.md](CHANGELOG.md).
+   From a clean release branch with Git signing configured, run `just version patch`,
+   `just version minor`, or `just version major`. The recipe updates the version,
+   changelog, and lockfile and creates a signed commit.
+2. Preview the release body with `just release-notes <version>`, then push the branch
+   and merge the release PR into `main`.
+3. With the GitHub CLI authenticated, run `just release <PR number>`. This signs and
+   pushes a tag for the exact commit that landed, even if `main` has advanced. CI
+   publishes to PyPI and creates a draft GitHub release after the checks pass.
+
+The PyPI Trusted Publisher must match `build.yml` and the GitHub `release` environment.
 
 ## License
 

@@ -178,6 +178,12 @@ class Trainer(object):
     def postprocess(self, words, preds, edits=None):
         """ Postprocess, mainly for handing edits. """
         assert len(words) == len(preds), "Lemma predictions must have same length as words."
+        # A prediction as long as max_dec_len means the decoder never
+        # produced an end of sequence, such as 19,250,000 turning into
+        # 19250000 followed by zeros up to the length limit.  Those are
+        # blanked so that they fall back to the word below
+        max_dec_len = self.args.get('max_dec_len', 50)
+        preds = ["" if len(p) >= max_dec_len else p for p in preds]
         edited = []
         if self.args.get('edit', False):
             assert edits is not None and len(words) == len(edits)
@@ -198,6 +204,29 @@ class Trainer(object):
 
     def has_contextual_lemmatizers(self):
         return self.contextual_lemmatizers is not None and len(self.contextual_lemmatizers) > 0
+
+    def is_contextual_target(self, word, upos):
+        """Whether a contextual lemmatizer decides this word, so the dict must not remember it.
+
+        Matches LemmaClassifier.target_indices: the word is compared
+        lowercased and the tag as given.
+        """
+        for contextual in self.contextual_lemmatizers:
+            if word.lower() in contextual.target_words and upos in contextual.target_upos:
+                return True
+        return False
+
+    def drop_contextual(self, triples):
+        """The (word, pos, lemma) triples a dict may remember, without the contextual ones.
+
+        A contextual lemmatizer answers from the sentence, so one word, pos
+        answer cannot stand for every occurrence: 's is have in one sentence
+        and be in the next. Caching the pre-contextual prediction would put a
+        lemma in the dict that the contextual lemmatizer exists to decide.
+        """
+        if not self.has_contextual_lemmatizers():
+            return list(triples)
+        return [triple for triple in triples if not self.is_contextual_target(triple[0], triple[1])]
 
     def predict_contextual(self, sentence_words, sentence_tags, preds):
         if len(self.contextual_lemmatizers) == 0:
@@ -307,6 +336,25 @@ class Trainer(object):
                 pos_entries = self.pos_dict.setdefault(pos, {})
                 if pos_independent.get(w) != l:
                     pos_entries[w] = l
+
+    def add_exact_entries(self, triples):
+        """
+        Add (word, pos, lemma) triples which only apply to their exact (word, pos)
+
+        Each entry replaces whatever the dictionary already has for that
+        (word, pos).  The pos-independent (_POS_INDEPENDENT) entries are
+        not changed, so the same word with any other pos is looked up as
+        before.  If a (word, pos) has more than one lemma, the most
+        frequent one wins.
+        """
+        ctr = Counter()
+        ctr.update([(p[0], p[1], p[2]) for p in triples])
+        seen_wp = set()
+        for (w, pos, l), _ in ctr.most_common():
+            if (w, pos) in seen_wp:
+                continue
+            seen_wp.add((w, pos))
+            self.pos_dict.setdefault(pos, {})[w] = l
 
     def predict_dict(self, pairs):
         """ Predict a list of lemmas using the dict model given (word, pos) pairs. """

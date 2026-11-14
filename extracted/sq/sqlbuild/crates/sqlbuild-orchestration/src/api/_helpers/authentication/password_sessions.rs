@@ -152,6 +152,10 @@ pub(crate) fn person_routes() -> Router<ControlStore> {
             get(crate::api::_helpers::resources::person_reads::job),
         )
         .route(
+            "/api/control/locations/{location_id}/targets/{target}/providers",
+            get(crate::api::_helpers::resources::person_reads::providers),
+        )
+        .route(
             "/api/control/locations/{location_id}/targets/{target}/triggers",
             get(crate::api::_helpers::resources::person_reads::triggers),
         )
@@ -206,6 +210,18 @@ pub(crate) fn person_routes() -> Router<ControlStore> {
         .route(
             "/api/control/locations/{location_id}/targets/{target}/runs/{run_id}/events",
             get(crate::api::_helpers::resources::person_reads::run_events),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/cost",
+            get(crate::api::_helpers::resources::person_reads::cost_summary),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/nodes/{node_key}/cost",
+            get(crate::api::_helpers::resources::person_reads::node_costs),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/runs/{run_id}/cost",
+            get(crate::api::_helpers::resources::person_reads::run_cost),
         )
         .route(
             "/api/control/locations/{location_id}/targets/{target}/runs/{run_id}/statements",

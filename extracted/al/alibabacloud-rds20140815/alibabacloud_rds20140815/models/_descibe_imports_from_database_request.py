@@ -21,17 +21,17 @@ class DescibeImportsFromDatabaseRequest(DaraModel):
         resource_owner_id: int = None,
         start_time: str = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the token, but you must make sure that the token is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can generate the value of this parameter on the client side. The value must be unique across different requests and can be up to 64 ASCII characters in length. The value cannot contain non-ASCII characters.
         self.client_token = client_token
-        # The instance ID. You can call DescribeDBInstances to query the instance ID.
+        # The ID of the instance. You can call the DescribeDBInstances operation to query the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The end time of the query. Format: <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z (UTC).
+        # The end time of the query. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z format. The time must be in UTC.
         # 
         # This parameter is required.
         self.end_time = end_time
-        # The database engine. Set the value to **MySQL**.
+        # The database engine type. Valid value: **MySQL**.
         # 
         # This parameter is required.
         self.engine = engine
@@ -39,7 +39,7 @@ class DescibeImportsFromDatabaseRequest(DaraModel):
         self.import_id = import_id
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The page number. Valid values: any non-zero positive integer that does not exceed the maximum value of the Integer data type.
+        # The page number. Valid values: any integer greater than 0 and less than or equal to the maximum integer value.
         # 
         # Default value: **1**.
         self.page_number = page_number
@@ -51,11 +51,11 @@ class DescibeImportsFromDatabaseRequest(DaraModel):
         # 
         # Default value: **30**.
         self.page_size = page_size
-        # The resource group ID. You can call DescribeDBInstanceAttribute to query the resource group ID.
+        # The ID of the resource group. You can call the DescribeDBInstanceAttribute operation to query the resource group ID.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The start time of the query. Format: <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z (UTC).
+        # The start time of the query. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z format. The time must be in UTC.
         # 
         # This parameter is required.
         self.start_time = start_time

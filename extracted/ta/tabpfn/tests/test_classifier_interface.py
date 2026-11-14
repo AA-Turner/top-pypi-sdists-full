@@ -640,6 +640,36 @@ def test__fit_preprocessors_and_low_memory_produce_equal_results(
 
 
 @pytest.mark.parametrize("model_version", list(ModelVersion))
+# Disable MPS as it doesn't support float64.
+@pytest.mark.parametrize("device", [d for d in get_pytest_devices() if d != "mps"])
+def test__predict_proba__single_row_vs_batch__equal_in_float64(
+    X_y: tuple[np.ndarray, np.ndarray], model_version: ModelVersion, device: str
+) -> None:
+    """Predicting a row alone must give the same result as predicting it in a batch.
+
+    The model treats test rows independently, but matrix products are summed in an
+    order that depends on the batch size. In float64 this changes results by about
+    1e-16, in lower precisions by up to about 1e-3, so this test forces float64.
+    """
+    X, y = X_y
+    tabpfn = TabPFNClassifier.create_default_for_version(
+        version=model_version,
+        n_estimators=2,
+        inference_precision=torch.float64,
+        random_state=0,
+        device=device,
+    )
+    tabpfn.fit(X, y)
+
+    batch_probs = tabpfn.predict_proba(X)
+    single_probs = np.concatenate(
+        [tabpfn.predict_proba(X[i : i + 1]) for i in range(len(X))]
+    )
+
+    np.testing.assert_allclose(single_probs, batch_probs, rtol=0, atol=1e-12)
+
+
+@pytest.mark.parametrize("model_version", list(ModelVersion))
 def test__fit_and_predict__on_demo_dataset__accuracy_reasonable(
     model_version: ModelVersion,
 ) -> None:
@@ -922,14 +952,21 @@ def test_pandas_output_config(X_y: tuple[np.ndarray, np.ndarray]):
         np.testing.assert_array_almost_equal(default_proba, polars_proba)
 
 
-def test_constant_feature_handling(X_y: tuple[np.ndarray, np.ndarray]) -> None:
+@pytest.mark.parametrize("polynomial_features", ["no", "all"])
+def test_constant_feature_handling(
+    X_y: tuple[np.ndarray, np.ndarray], polynomial_features: str
+) -> None:
     """Test that constant features are properly handled and
     don't affect predictions.
     """
     X, y = X_y
 
     # Create a TabPFNClassifier with fixed random state for reproducibility
-    model = TabPFNClassifier(n_estimators=2, random_state=42)
+    model = TabPFNClassifier(
+        n_estimators=2,
+        random_state=42,
+        inference_config={"POLYNOMIAL_FEATURES": polynomial_features},
+    )
     model.fit(X, y)
 
     # Get predictions on original data
@@ -947,7 +984,11 @@ def test_constant_feature_handling(X_y: tuple[np.ndarray, np.ndarray]) -> None:
     )
 
     # Create and fit a new model with the same random state
-    model_with_constants = TabPFNClassifier(n_estimators=2, random_state=42)
+    model_with_constants = TabPFNClassifier(
+        n_estimators=2,
+        random_state=42,
+        inference_config={"POLYNOMIAL_FEATURES": polynomial_features},
+    )
     model_with_constants.fit(X_with_constants, y)
 
     # Get predictions on data with constant features

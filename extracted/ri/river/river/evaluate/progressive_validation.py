@@ -101,9 +101,9 @@ def _progressive_validation(
 
         return state
 
-    # Fast path: no delay and no moment — the common case.
+    # Fast path: no delay — the common case.
     # Iterates the dataset directly, skipping simulate_qa and the preds dict.
-    if moment is None and delay is None and not active_learning:
+    if delay is None and not active_learning:
         extra: list
         for x, y, *extra in dataset:
             kwargs: dict = extra[0] if extra else {}
@@ -177,7 +177,7 @@ def iter_progressive_val_score(
     measure_memory=False,
     yield_predictions=False,
 ) -> typing.Generator:
-    """Evaluates the performance of a model on a streaming dataset and yields results.
+    """Evaluate the performance of a model on a streaming dataset and yields results.
 
     This does exactly the same as `evaluate.progressive_val_score`. The only difference is that
     this function returns an iterator, yielding results at every step. This can be useful if you
@@ -207,7 +207,7 @@ def iter_progressive_val_score(
         callable is passed, then it is expected to take as input a `dict` of features and the
         target. If a `str` is passed, then it will be used to access the relevant field from the
         features. If `None` is passed, then no delay will be used, which leads to doing standard
-        online validation.
+        online validation, and `moment` is ignored.
     step
         Iteration number at which to yield results. This only takes into account the
         predictions, and not the training steps.
@@ -221,7 +221,6 @@ def iter_progressive_val_score(
 
     Examples
     --------
-
     Take the following model:
 
     >>> from river import linear_model
@@ -281,7 +280,6 @@ def iter_progressive_val_score(
     [^2]: [Grzenda, M., Gomes, H.M. and Bifet, A., 2019. Delayed labelling evaluation for data streams. Data Mining and Knowledge Discovery, pp.1-30](https://link.springer.com/content/pdf/10.1007%2Fs10618-019-00654-y.pdf)
 
     """
-
     yield from _progressive_validation(
         dataset,
         model,
@@ -306,7 +304,7 @@ def progressive_val_score(
     show_memory=False,
     **print_kwargs,
 ) -> metrics.base.Metric:
-    """Evaluates the performance of a model on a streaming dataset.
+    """Evaluate the performance of a model on a streaming dataset.
 
     This method is the canonical way to evaluate a model's performance. When used correctly, it
     allows you to exactly assess how a model would have performed in a production scenario.
@@ -350,7 +348,7 @@ def progressive_val_score(
         callable is passed, then it is expected to take as input a `dict` of features and the
         target. If a `str` is passed, then it will be used to access the relevant field from the
         features. If `None` is passed, then no delay will be used, which leads to doing standard
-        online validation.
+        online validation, and `moment` is ignored.
     print_every
         Iteration number at which to print the current metric. This only takes into account the
         predictions, and not the training steps.
@@ -364,7 +362,6 @@ def progressive_val_score(
 
     Examples
     --------
-
     Take the following model:
 
     >>> from river import linear_model
@@ -451,7 +448,6 @@ def progressive_val_score(
     [^2]: [Grzenda, M., Gomes, H.M. and Bifet, A., 2019. Delayed labelling evaluation for data streams. Data Mining and Knowledge Discovery, pp.1-30](https://link.springer.com/content/pdf/10.1007%2Fs10618-019-00654-y.pdf)
 
     """
-
     checkpoints = iter_progressive_val_score(
         dataset=dataset,
         model=model,
@@ -493,7 +489,6 @@ def _build_clustering_closures(metric, model):
     Returns ``(predict, metric_update)`` where both closures share a single
     transform pass for pipelines, avoiding redundant work.
     """
-
     if isinstance(model, Pipeline):
         clusterer = model._last_step
         _predict = clusterer.predict_one

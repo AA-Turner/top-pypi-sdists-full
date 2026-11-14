@@ -18,25 +18,25 @@ class AllocateInstancePublicConnectionRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # The TDS port number of Babelfish for RDS PostgreSQL.
-        # > This parameter is applicable only to ApsaraDB RDS for PostgreSQL instances. For more information about Babelfish for RDS PostgreSQL, see [Introduction to Babelfish](https://help.aliyun.com/document_detail/428613.html).
+        # The TDS port number for Babelfish for ApsaraDB RDS for PostgreSQL.
+        # > This parameter applies only to ApsaraDB RDS for PostgreSQL instances. For more information about Babelfish for ApsaraDB RDS for PostgreSQL, see [Babelfish overview](https://help.aliyun.com/document_detail/428613.html).
         self.babelfish_port = babelfish_port
-        # The prefix of the public endpoint. The complete public endpoint is in the format of `Prefix.DPI engine.rds.aliyuncs.com`. Example: `test1234.mysql.rds.aliyuncs.com`.
+        # The prefix of the public endpoint. A complete public endpoint is in the following format: `Prefix.Engine name.rds.aliyuncs.com`. Example: `test1234.mysql.rds.aliyuncs.com`.
         # 
-        # > The prefix must be 5 to 40 characters in length and cannot contain Chinese characters or invalid characters (\\~!#%^&*=+|{}\\":",<>/?). The prefix can contain letters, digits, and hyphens (-).
+        # > The prefix must be 5 to 40 characters in length and cannot contain Chinese characters or invalid characters (\\~!#%^&*=+|{};:\\"",<>/?). Use letters, digits, and hyphens (-).
         # 
         # This parameter is required.
         self.connection_string_prefix = connection_string_prefix
-        # The instance ID. You can call DescribeDBInstances to query the instance ID.
+        # The ID of the instance. You can call the DescribeDBInstances operation to query the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The name of the group to which the general-purpose ApsaraDB RDS for MySQL instance in a dedicated cluster belongs.
+        # The name of the group to which the general-purpose ApsaraDB RDS for MySQL instance in the dedicated cluster belongs.
         self.general_group_name = general_group_name
         self.owner_account = owner_account
         self.owner_id = owner_id
         # The PgBouncer port.
-        # > This parameter is applicable only to ApsaraDB RDS for PostgreSQL instances.
+        # > This parameter applies only to ApsaraDB RDS for PostgreSQL instances.
         self.pgbouncer_port = pgbouncer_port
         # The public port. Valid values: **1000 to 5999**.
         # 

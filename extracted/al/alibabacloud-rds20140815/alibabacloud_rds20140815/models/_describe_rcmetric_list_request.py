@@ -18,7 +18,7 @@ class DescribeRCMetricListRequest(DaraModel):
         region_id: str = None,
         start_time: str = None,
     ):
-        # The dimensions used to query the monitoring data of specified resources in batches for Custom for SQL Server. Format: a collection of `key:value` pairs.
+        # The dimensions used to batch query the monitoring data of specified resources for Custom for SQL Server. Format: a collection of `key:value` pairs.
         self.dimensions = dimensions
         # The end time of the query. Format: `2024-08-06 10:15:00`. The end time must be later than the start time.
         self.end_time = end_time
@@ -26,9 +26,11 @@ class DescribeRCMetricListRequest(DaraModel):
         self.express = express
         # The instance ID. This parameter is required.
         self.instance_id = instance_id
-        # The number of records to return on each page for paging in a paged query. Default value: 1000.
+        # The number of records to return on each page for paging in a paged query.
+        # 
+        # Default value: 1000.
         self.length = length
-        # The [monitored metric](https://cms.console.aliyun.com/metric-meta/acs_ecs_dashboard/ecs).
+        # The [metrics to monitor](https://cms.console.aliyun.com/metric-meta/acs_ecs_dashboard/ecs).
         # 
         # This parameter is required.
         self.metric_name = metric_name

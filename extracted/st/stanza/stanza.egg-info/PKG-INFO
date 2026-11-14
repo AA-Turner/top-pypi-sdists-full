@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stanza
-Version: 1.15.0
+Version: 1.15.1
 Summary: A Python NLP Library for Many Human Languages, by the Stanford NLP Group
 Home-page: https://github.com/stanfordnlp/stanza
 Author: Stanford Natural Language Processing Group
@@ -64,6 +64,8 @@ Provides-Extra: matplotlib
 Requires-Dist: matplotlib; extra == "matplotlib"
 Provides-Extra: morphseg
 Requires-Dist: morphseg>=0.2.5.1; extra == "morphseg"
+Provides-Extra: wiktionary
+Requires-Dist: wiktionary_de_parser==0.16.0; python_version >= "3.13" and extra == "wiktionary"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -164,7 +166,7 @@ We welcome community contributions to Stanza in the form of bugfixes 🛠️ and
 
 ### pip
 
-Stanza supports Python 3.6 or later. We recommend that you install Stanza via [pip](https://pip.pypa.io/en/stable/installing/), the Python package manager. To install, simply run:
+Stanza supports Python 3.9 or later. We recommend that you install Stanza via [pip](https://pip.pypa.io/en/stable/installing/), the Python package manager. To install, simply run:
 ```bash
 pip install stanza
 ```

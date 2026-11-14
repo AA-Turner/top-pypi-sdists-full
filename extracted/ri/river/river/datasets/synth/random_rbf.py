@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import random
 import warnings
 
@@ -87,7 +88,7 @@ class RandomRBF(datasets.base.SyntheticDataset):
         for i in range(self.n_features):
             att_vals[i] = (rng_sample.random() * 2.0) - 1.0
             magnitude += att_vals[i] * att_vals[i]
-        magnitude = magnitude**0.5
+        magnitude = math.sqrt(magnitude)
         desired_mag = rng_sample.gauss(0, 1) * current_centroid.std_dev
         scale = desired_mag / magnitude
         x = {i: current_centroid.centre[i] + att_vals[i] * scale for i in range(self.n_features)}
@@ -95,7 +96,7 @@ class RandomRBF(datasets.base.SyntheticDataset):
         return x, y
 
     def _generate_centroids(self):
-        """Generates centroids
+        """Generate centroids.
 
         Sequentially creates all the centroids, choosing at random a center,
         a label, a standard deviation and a weight.
@@ -207,7 +208,7 @@ class RandomRBFDrift(RandomRBF):
             yield x, y
 
     def _generate_centroids(self):
-        """Generates centroids
+        """Generate centroids.
 
         The centroids are generated just as it is done in the parent class,
         an extra step is taken to introduce drift, if there is any.
@@ -228,7 +229,7 @@ class RandomRBFDrift(RandomRBF):
                 rand_speed[j] = rng_model.random()
                 norm_speed += rand_speed[j] * rand_speed[j]
 
-            norm_speed = norm_speed**0.5
+            norm_speed = math.sqrt(norm_speed)
 
             for j in range(self.n_features):
                 rand_speed[j] /= norm_speed

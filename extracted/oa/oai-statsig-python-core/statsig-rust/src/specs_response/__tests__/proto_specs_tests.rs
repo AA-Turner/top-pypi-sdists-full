@@ -9,9 +9,9 @@ use brotli::enc::BrotliEncoderParams;
 use prost::Message;
 
 use super::{
-    HydratedProtobufDataStoreCapture, ProtobufUpdate, SpecDecodeStats, SpecsFieldChecksums,
-    SpecsResponseFull, apply_entity_update, checksum_for_condition, checksum_for_param_store,
-    checksum_for_spec, condition_from_pb, deserialize_protobuf,
+    HydratedProtobufDataStoreCapture, ProtobufStoreParseBase, ProtobufUpdate, SpecDecodeStats,
+    SpecsFieldChecksums, SpecsResponseFull, apply_entity_update, checksum_for_condition,
+    checksum_for_param_store, checksum_for_spec, condition_from_pb, deserialize_protobuf,
     deserialize_protobuf_for_store_with_options, deserialize_protobuf_from_reader,
     deserialize_protobuf_with_options, pb, rules_from_pb, spec_from_pb, sum_checksums,
     validate_envelope_data,
@@ -192,9 +192,12 @@ async fn protobuf_parsers_tolerate_malformed_full_envelopes_but_reject_them_in_d
             let mut async_next = SpecsResponseFull::default();
             let sync_result = deserialize_protobuf_for_store_with_options(
                 &OpsStatsForInstance::new(),
-                &current,
-                SpecDecodeStats::default(),
-                &SpecsFieldChecksums::default(),
+                ProtobufStoreParseBase::new(
+                    &current,
+                    SpecDecodeStats::default(),
+                    &SpecsFieldChecksums::default(),
+                    &Default::default(),
+                ),
                 &mut sync_next,
                 &mut compressed_response(envelopes.clone()),
                 SpecsResponseParseOptions::default(),
@@ -746,9 +749,12 @@ async fn checksum_only_delta_defers_copy_prev_for_the_store() {
 
     let update = deserialize_protobuf_for_store_with_options(
         &OpsStatsForInstance::new(),
-        &current,
-        SpecDecodeStats::default(),
-        &SpecsFieldChecksums::from_specs(&current),
+        ProtobufStoreParseBase::new(
+            &current,
+            SpecDecodeStats::default(),
+            &SpecsFieldChecksums::from_specs(&current),
+            &Default::default(),
+        ),
         &mut next,
         &mut data,
         SpecsResponseParseOptions::default(),
@@ -862,9 +868,12 @@ fn store_decoder_rejects_stale_cached_field_checksums() {
 
     let result = deserialize_protobuf_for_store_with_options(
         &OpsStatsForInstance::new(),
-        &current,
-        SpecDecodeStats::default(),
-        &cached,
+        ProtobufStoreParseBase::new(
+            &current,
+            SpecDecodeStats::default(),
+            &cached,
+            &Default::default(),
+        ),
         &mut next,
         &mut data,
         SpecsResponseParseOptions::default(),

@@ -21,7 +21,7 @@ class ModifyDBNodeShrinkRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # Specifies whether to automatically pay for the order.
+        # Specifies whether to enable automatic payment.
         # Valid values:
         # 
         # 1. **true**: Automatic payment is enabled. Make sure that your account balance is sufficient.
@@ -40,31 +40,31 @@ class ModifyDBNodeShrinkRequest(DaraModel):
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The new instance storage capacity. Unit: GB. For details, see [Instance types](https://help.aliyun.com/document_detail/26312.html).
+        # The new instance storage capacity. Unit: GB. For details, see [Instance specifications](https://help.aliyun.com/document_detail/26312.html).
         self.dbinstance_storage = dbinstance_storage
         # The storage type of the instance. Valid values:
-        # * **cloud_essd**: PL1 ESSD.
-        # * **cloud_essd2**: PL2 ESSD.
-        # * **cloud_essd3**: PL3 ESSD.
+        # * **cloud_essd**: PL1 ESSD
+        # * **cloud_essd2**: PL2 ESSD
+        # * **cloud_essd3**: PL3 ESSD
         self.dbinstance_storage_type = dbinstance_storage_type
         # The node information.
         # > This parameter applies to ApsaraDB RDS for MySQL Cluster Edition instances.
         self.dbnode_shrink = dbnode_shrink
-        # Specifies whether to perform a precheck before the node modifications. Valid values:
-        # * **true**: A precheck is performed, but the modifications are not applied. The precheck includes checks on request parameters, request format, service limits, and inventory.
-        # * **false**: A normal request is sent, and the modifications are directly applied after the precheck is passed (default).
+        # Specifies whether to perform a precheck before the node modification. Valid values:
+        # * **true**: A precheck is performed, but the modification is not executed. The check items include request parameters, request format, business limits, and inventory.
+        # * **false**: A normal request is sent, and the modification is executed immediately after the request passes the precheck. This is the default value.
         self.dry_run = dry_run
         # The effective period. Valid values:
-        # * **Immediate** (default): The modifications immediately take effect.
+        # * **Immediate** (default): The modifications take effect immediately.
         # * **MaintainTime**: The modifications take effect within the maintenance window. For more information, see ModifyDBInstanceMaintainTime.
         self.effective_time = effective_time
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # Specifies whether to asynchronously apply the modifications. Valid values:
-        # * **true**: Only an order is generated, and the modifications are asynchronously applied (default).
-        # * **false**: The modifications are synchronously applied after the precheck is passed.
+        # Specifies whether to asynchronously execute the modification. Valid values:
+        # * **true**: Only an order is generated, and the modification is executed asynchronously. This is the default value.
+        # * **false**: The modification is executed synchronously after the request passes the check.
         # 
-        # > Default value: true. The modifications are asynchronously applied. If you set this parameter to false, the modifications are synchronously applied, and the API response time is relatively long.
+        # > Default value: true. The modification is executed asynchronously. If you set this parameter to false, the modification is executed synchronously, and the API response time is relatively long.
         self.produce_async = produce_async
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: diff_cover
-Version: 11.0.1
+Version: 11.0.2
 Summary: Run coverage and linting reports on diffs
 Project-URL: Homepage, https://github.com/Bachmann1234/diff-cover
 Project-URL: Repository, https://github.com/Bachmann1234/diff-cover

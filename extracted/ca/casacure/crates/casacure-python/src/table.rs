@@ -1708,8 +1708,13 @@ impl Table {
         self.colnames()
     }
 
-    /// `getcoldesc(column)` -> dict (python-casacore format).
-    fn getcoldesc(&self, py: Python<'_>, column: &str) -> PyResult<Py<PyAny>> {
+    /// `getcoldesc(column, actual=True)` -> dict (python-casacore format).
+    /// `actual` (casacore's default) reports the data manager the column is
+    /// bound to, from the table's dminfo; a table casacore wrote stores
+    /// `StandardStMan` in the column description itself, so the stored
+    /// fields are wrong for it (#42).
+    #[pyo3(signature = (column, actual = true))]
+    fn getcoldesc(&self, py: Python<'_>, column: &str, actual: bool) -> PyResult<Py<PyAny>> {
         let desc = self.desc();
         let col = desc
             .columns
@@ -1720,6 +1725,15 @@ impl Table {
             .parent()
             .map(|p| p.to_path_buf());
         let vt = self_coldesc(py, col, base.as_deref())?;
+        if actual {
+            for dm in self.dminfo_info()?.values() {
+                if dm.columns.iter().any(|c| c == column) {
+                    vt.set_item("dataManagerType", &dm.type_name)?;
+                    vt.set_item("dataManagerGroup", &dm.name)?;
+                    break;
+                }
+            }
+        }
         Ok(vt.into_any().unbind())
     }
 
@@ -1958,22 +1972,7 @@ impl Table {
 
     /// `getdminfo()` -> dict.
     fn getdminfo(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let inner = self.inner.lock().unwrap();
-        let info = match &*inner {
-            Inner::Read(t) => {
-                let dir = std::path::PathBuf::from(t.name());
-                core::get_dminfo(&dir, &t.dat).map_err(err)?
-            }
-            Inner::Write { shared, .. } => {
-                // Descriptors may carry unflushed structural changes
-                // (addcols/removecols/keywords), so persist before reading
-                // the on-disk metadata snapshot.
-                flush_if_dirty(&self.dir_of(), shared)?;
-                let s = shared.lock().unwrap();
-                let dir = PathBuf::from(s.read.name());
-                core::get_dminfo(&dir, &s.read.dat).map_err(err)?
-            }
-        };
+        let info = self.dminfo_info()?;
         let out = PyDict::new(py);
         for (key, dm) in &info {
             let d = PyDict::new(py);
@@ -2045,7 +2044,7 @@ impl Table {
         if !names.iter().any(|n| n == "DATA") {
             return Err(PyValueError::new_err("Column DATA does not exist"));
         }
-        let data_desc_obj = self.getcoldesc(py, "DATA")?;
+        let data_desc_obj = self.getcoldesc(py, "DATA", true)?;
         let data_desc = data_desc_obj.bind(py).cast::<PyDict>()?;
         // Whether DATA is tiled (python-casacore checks `dminfo['TYPE'][:5]
         // == 'Tiled'`).
@@ -2500,6 +2499,19 @@ impl Table {
             nrow as u64
         };
         let col_idx = self.col_index(column)?;
+        if nrow == 0 {
+            // casacore returns an empty 1-D array of the column type (a
+            // string column: an empty list), whatever the handle kind.
+            let desc = self.desc();
+            if let Some(cd) = desc.columns.get(col_idx) {
+                if let Some(arr) = zeros_for_column(py, cd, &[0])? {
+                    return Ok(arr);
+                }
+                if cd.data_type == core::record::DataType::String {
+                    return Ok(PyList::empty(py).into_any().unbind());
+                }
+            }
+        }
         // Clone the Arc out of the lock so concurrent reads through this
         // handle are not serialised on the inner mutex.
         let read_table = {
@@ -2510,12 +2522,6 @@ impl Table {
             }
         };
         if let Some(t) = &read_table {
-            if nrow == 0 {
-                // casacore returns an empty 1-D array of the column type.
-                if let Some(arr) = zeros_for_column(py, &t.dat.desc.columns[col_idx], &[0])? {
-                    return Ok(arr);
-                }
-            }
             // Typed fast path: allocate the result array and fill it
             // straight from the data files (see `getcolnp`).
             if startrow.saturating_add(nrow) <= t.nrows() && t.raw_column_supported(col_idx) {
@@ -3185,11 +3191,32 @@ impl Table {
         Ok(())
     }
 
-    /// `rownumbers()` -- the base-table row answering each row of this
-    /// table, in this table's order (python-casacore's
-    /// `table.rownumbers()`).  casacore reference tables route writes
-    /// through it; a table that is its own source answers 0..nrows.
-    fn rownumbers(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    /// `rownumbers(other=None)` — with no argument, the base-table row
+    /// answering each row of this table, in this table's order
+    /// (python-casacore's `table.rownumbers()`); a table that is its own
+    /// source answers 0..nrows.  With another table, each of this table's
+    /// rows as its row number in `other` (-1 where the row is absent, the
+    /// `sel.rownumbers(t)` / `t.rownumbers(sel)` pair).
+    #[pyo3(signature = (other = None))]
+    fn rownumbers(&self, py: Python<'_>, other: Option<&Table>) -> PyResult<Py<PyAny>> {
+        if let Some(o) = other {
+            let (base, mine) = self.rooted_rows()?;
+            let (o_base, theirs) = o.rooted_rows()?;
+            if base != o_base {
+                return Err(PyValueError::new_err(
+                    "rownumbers: tables do not share a base table",
+                ));
+            }
+            let mut index = std::collections::HashMap::with_capacity(theirs.len());
+            for (i, &r) in theirs.iter().enumerate() {
+                index.insert(r, i as i64);
+            }
+            let out: Vec<i64> = mine
+                .iter()
+                .map(|&r| index.get(&r).copied().unwrap_or(-1))
+                .collect();
+            return Ok(numpy::PyArray1::from_slice(py, &out).into_any().unbind());
+        }
         let total = self.row_count();
         let rows: Vec<u64> = {
             let inner = self.inner.lock().unwrap();
@@ -3202,6 +3229,21 @@ impl Table {
             }
         };
         Ok(numpy::PyArray1::from_slice(py, &rows).into_any().unbind())
+    }
+
+    /// This handle's rows rooted at the ultimate base table.
+    fn rooted_rows(&self) -> PyResult<(std::path::PathBuf, Vec<u64>)> {
+        let inner = self.inner.lock().unwrap();
+        match &*inner {
+            Inner::Read(t) => Ok(t.rooted_row_numbers()),
+            Inner::Write { shared, .. } => {
+                let (total, dir) = {
+                    let s = shared.lock().unwrap();
+                    (s.wt.col_len(0) as u64, s.wt.dir().to_path_buf())
+                };
+                Ok((dir, (0..total).collect()))
+            }
+        }
     }
 
     /// `putcol(column, value, startrow=0, nrow=0)` — ndarray or list.
@@ -5066,5 +5108,23 @@ impl Table {
             .iter()
             .position(|c| c.name == name)
             .ok_or_else(|| PyKeyError::new_err(format!("no such column: {name}")))
+    }
+
+    /// The core data-manager info, flushing a dirty write handle first
+    /// (descriptors may carry unflushed structural changes).
+    fn dminfo_info(&self) -> PyResult<std::collections::BTreeMap<String, core::DmInfo>> {
+        let inner = self.inner.lock().unwrap();
+        match &*inner {
+            Inner::Read(t) => {
+                let dir = std::path::PathBuf::from(t.name());
+                core::get_dminfo(&dir, &t.dat).map_err(err)
+            }
+            Inner::Write { shared, .. } => {
+                flush_if_dirty(&self.dir_of(), shared)?;
+                let s = shared.lock().unwrap();
+                let dir = PathBuf::from(s.read.name());
+                core::get_dminfo(&dir, &s.read.dat).map_err(err)
+            }
+        }
     }
 }

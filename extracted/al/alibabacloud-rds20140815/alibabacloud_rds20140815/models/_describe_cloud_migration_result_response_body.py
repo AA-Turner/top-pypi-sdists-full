@@ -109,10 +109,10 @@ class DescribeCloudMigrationResultResponseBodyItems(DaraModel):
         # 
         # - **precheck**: precheck
         # - **basebackup**: full backup
-        # - **startup**: link setup
+        # - **startup**: link building
         # - **increment**: incremental synchronization
-        # - **switch**: cloud cutover
-        # - **success**: cloud migration completed
+        # - **switch**: switchover
+        # - **success**: migration completed
         self.migrate_stage = migrate_stage
         # The replication task information.
         self.replication_info = replication_info
@@ -122,7 +122,7 @@ class DescribeCloudMigrationResultResponseBodyItems(DaraModel):
         # - **catchup**: catching up
         # - **streaming**: streaming
         # - **disconnect**: disconnected
-        # - **finish**: completed
+        # - **finish**: finished
         self.replication_state = replication_state
         # The username.
         self.source_account = source_account
@@ -137,9 +137,9 @@ class DescribeCloudMigrationResultResponseBodyItems(DaraModel):
         self.source_password = source_password
         # The port of the self-managed PostgreSQL database.
         self.source_port = source_port
-        # The cutover time.
+        # The switchover time.
         self.switch_time = switch_time
-        # A reserved parameter. The value is empty.
+        # A reserved parameter. The query result is empty.
         self.target_eip = target_eip
         # The instance ID of the target instance.
         self.target_instance_name = target_instance_name

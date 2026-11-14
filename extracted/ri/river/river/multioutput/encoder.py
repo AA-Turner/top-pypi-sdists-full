@@ -23,7 +23,6 @@ class MultiClassEncoder(base.MultiLabelClassifier):
 
     Examples
     --------
-
     >>> from river import forest
     >>> from river import metrics
     >>> from river import multioutput
@@ -44,7 +43,7 @@ class MultiClassEncoder(base.MultiLabelClassifier):
     ...    model.learn_one(x, y)
 
     >>> metric
-    MicroAverage(Jaccard): 95.10%
+    MicroAverage(Jaccard): 95.76%
 
     """
 

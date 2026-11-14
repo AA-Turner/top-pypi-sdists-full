@@ -411,6 +411,17 @@ def _required_text(entry: dict[str, object], key: str, index: int) -> str:
     return value
 
 
+def within_budget(diagnostics: Iterable[Diagnostic], budget: Budget) -> tuple[Diagnostic, ...]:
+    remaining = budget.counts.copy()
+    retained: list[Diagnostic] = []
+    for item in diagnostics:
+        fingerprint = item.fingerprint
+        if fingerprint is not None and remaining.get(fingerprint, 0) > 0:
+            retained.append(item)
+            remaining[fingerprint] -= 1
+    return tuple(retained)
+
+
 def render(
     diagnostics: Iterable[Diagnostic],
     *,
@@ -493,7 +504,9 @@ def remove_rules(
         "schemaVersion": SCHEMA_VERSION,
         "provenance": {
             "bundleVersion": bundle_version,
-            "consumerBaseSha": consumer_base_sha,
+            "consumerBaseSha": (
+                consumer_base_sha if document.provenance is None else document.provenance.consumer_base_sha
+            ),
             "catalogDigest": catalog_digest,
         },
         "diagnostics": preserved,

@@ -335,6 +335,8 @@ class TiktokExtractor(Extractor):
                 bitrate_info = [bitrate_info]
             bitrate_urls = {}
             for video_info in bitrate_info:
+                if video_info.get("Format", "").lower() == "dash":
+                    continue
                 play_addr = video_info["PlayAddr"]
                 width = text.parse_int(play_addr.get("Width"))
                 height = text.parse_int(play_addr.get("Height"))

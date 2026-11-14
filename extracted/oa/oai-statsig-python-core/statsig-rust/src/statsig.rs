@@ -74,9 +74,9 @@ use crate::user::StatsigUserInternal;
 use crate::utils::get_loggable_sdk_key;
 use crate::{
     ClientInitResponseOptions, GCIRResponseFormat, IdListsAdapter, InitializeDetails,
-    OpsStatsEventObserver, OverrideAdapter, PreparedUser, SpecsAdapter, SpecsInfo, SpecsSource,
-    SpecsUpdateListener, StatsigHttpIdListsAdapter, StatsigLocalOverrideAdapter, StatsigUser,
-    dyn_value, log_d, log_e, log_w,
+    OpsStatsEventObserver, OverrideAdapter, PreparedUser, SpecsAdapter, SpecsSource,
+    StatsigHttpIdListsAdapter, StatsigLocalOverrideAdapter, StatsigUser, dyn_value, log_d, log_e,
+    log_w,
 };
 use crate::{
     log_error_to_statsig_and_console,
@@ -182,7 +182,10 @@ fn lazy_id_list_spec_type_name(spec_type: &SpecType) -> &'static str {
 }
 
 fn mark_partial_id_list_evaluation(details: &mut EvaluationDetails, status: LazyIdListLoadStatus) {
-    if let Some(reason) = status.partial_evaluation_reason() {
+    if let Some(reason) = status
+        .partial_evaluation_reason()
+        .filter(|_| !details.is_blob_unavailable())
+    {
         details.reason = format!("{}:PartialEvaluation:{reason}", details.reason);
     }
 }
@@ -403,15 +406,9 @@ impl Statsig {
 
     /// Initializes the Statsig client and returns detailed information about the process.
     ///
-    /// This method returns a [`InitializeDetails`] struct, which includes metadata such as
-    /// the success status, initialization source, and any failure details. Even if initialization
-    /// fails, this method does not return an error; instead, the `init_success` field will be `false`
-    /// and `failure_details` may be populated.
-    ///
-    /// # Returns
-    ///
-    /// Returns a [`InitializeDetails`] struct, which includes metadata such as
-    /// the success status, initialization source, and any failure details.
+    /// [`InitializeDetails::is_config_spec_ready`] reports whether a complete snapshot loaded.
+    /// Independent inline and verified blob-backed configs can evaluate while this is false.
+    /// A rejected update populates `failure_details`. `init_success` can be true once background tasks start.
     pub async fn initialize_with_details(&self) -> Result<InitializeDetails, StatsigErr> {
         self.output_policy
             .scope(async {
@@ -474,9 +471,11 @@ impl Statsig {
         }
     }
 
+    /// Returns whether the SDK has a complete config snapshot. Services can
+    /// evaluate independent inline and verified blob-backed configs while missing blobs are repaired.
     pub fn is_config_spec_ready(&self) -> bool {
         let _output_scope = self.output_policy.enter();
-        let specs_info = self.spec_store.get_current_specs_info();
+        let specs_info = self.spec_store.readiness_specs_info();
         matches!(specs_info.lcut, Some(lcut) if lcut != 0)
     }
 
@@ -658,7 +657,7 @@ impl Statsig {
         match GCIRFormatter::generate_v1_format_with_plan(&mut context, options, plan) {
             Ok(mut response) => {
                 if response.has_updates {
-                    response.time = data.lcut();
+                    response.time = data.evaluation_lcut();
                 }
                 response
             }
@@ -701,7 +700,7 @@ impl Statsig {
         let data = self.spec_store.load_data();
 
         let mut context = self.create_gcir_eval_context(user_internal, &data, options);
-        let response_lcut = data.lcut();
+        let response_lcut = data.evaluation_lcut();
 
         match options.response_format {
             Some(GCIRResponseFormat::InitializeWithSecondaryExposureMapping) => self
@@ -1169,7 +1168,7 @@ impl Statsig {
                 self.get_parameter_store_override(user, parameter_store_name)
             {
                 let details = EvaluationDetails::recognized_but_overridden(
-                    data.lcut(),
+                    data.published_lcut(),
                     data.time_received_at,
                     override_result.override_reason.unwrap_or("Override"),
                     override_result.version,
@@ -1192,11 +1191,7 @@ impl Statsig {
                 return ParameterStore {
                     name: parameter_store_name.to_string(),
                     parameters: HashMap::new(),
-                    details: EvaluationDetails::unrecognized(
-                        &data.source,
-                        data.lcut(),
-                        data.time_received_at,
-                    ),
+                    details: data.unrecognized_details(),
                     options,
                     _statsig_ref: self,
                 };
@@ -1208,7 +1203,7 @@ impl Statsig {
                 parameters: store.parameters.clone(),
                 details: EvaluationDetails::recognized(
                     &data.source,
-                    data.lcut(),
+                    data.published_lcut(),
                     data.time_received_at,
                     &EvaluatorResult::default(),
                 ),
@@ -1218,11 +1213,7 @@ impl Statsig {
             None => ParameterStore {
                 name: parameter_store_name.to_string(),
                 parameters: HashMap::new(),
-                details: EvaluationDetails::unrecognized(
-                    &data.source,
-                    data.lcut(),
-                    data.time_received_at,
-                ),
+                details: data.unrecognized_details(),
                 options,
                 _statsig_ref: self,
             },
@@ -2170,35 +2161,38 @@ impl Statsig {
         let experiment_name = InternedString::from_str_ref(experiment_name);
         let experiment = data.snapshot.dynamic_configs.get(&experiment_name);
 
+        let unavailable = data
+            .unavailable_values()
+            .and_then(|values| values.get(&experiment_name));
         let Some(exp) = experiment else {
-            return result_factory(
-                None,
-                None,
-                EvaluationDetails::unrecognized(&data.source, data.lcut(), data.time_received_at),
-            );
+            let details = if unavailable.is_some() {
+                data.unavailable_details()
+            } else {
+                data.unrecognized_details()
+            };
+            return result_factory(None, None, details);
         };
 
         let spec = exp.view();
         for index in 0..spec.rules_len() {
             let rule = spec.rule(index);
             if rule_predicate(rule) {
+                if unavailable.is_some_and(|slots| slots.contains(&Some(index))) {
+                    return result_factory(None, None, data.unavailable_details());
+                }
                 return result_factory(
                     Some(spec),
                     Some(rule),
                     EvaluationDetails::recognized_without_eval_result(
                         &data.source,
-                        data.lcut(),
+                        data.published_lcut(),
                         data.time_received_at,
                     ),
                 );
             }
         }
 
-        result_factory(
-            None,
-            None,
-            EvaluationDetails::unrecognized(&data.source, data.lcut(), data.time_received_at),
-        )
+        result_factory(None, None, data.unrecognized_details())
     }
 }
 
@@ -3772,7 +3766,7 @@ impl Statsig {
             );
         }
 
-        let spec_info = self.spec_store.get_current_specs_info();
+        let spec_info = self.spec_store.readiness_specs_info();
         let duration = start_time.elapsed().as_millis() as u64;
 
         self.set_default_environment_from_server();
@@ -3841,12 +3835,7 @@ impl Statsig {
     fn log_init_details(&self, init_details: &Result<InitializeDetails, StatsigErr>) {
         match init_details {
             Ok(details) => {
-                self.log_init_finish(
-                    details.init_success,
-                    &None,
-                    &details.duration_ms,
-                    &self.spec_store.get_current_specs_info(),
-                );
+                self.log_init_finish(details);
                 if let Some(failure) = &details.failure_details {
                     log_error_to_statsig_and_console!(
                         self.ops_stats,
@@ -3880,6 +3869,8 @@ impl Statsig {
             self.should_user_third_party_parser(),
             true,
         );
+        context.unavailable_values = data.unavailable_values();
+        context.retained_conditions = data.retained_conditions();
         context.id_list_access_recorder = self
             .event_logger
             .id_list_access_recorder(self.output_policy);
@@ -3913,6 +3904,8 @@ impl Statsig {
             // exposures after evaluating them on the pinned snapshot.
             false,
         );
+        context.unavailable_values = data.unavailable_values();
+        context.retained_conditions = data.retained_conditions();
         context.id_list_access_recorder = self
             .event_logger
             .id_list_access_recorder(self.output_policy);
@@ -4040,25 +4033,9 @@ impl Statsig {
         disable_exposure_logging: bool,
     ) {
         for mut nested in std::mem::take(&mut context.nested_experiment_exposures) {
-            let details = if !nested.recognized {
-                EvaluationDetails::unrecognized(&data.source, data.lcut(), data.time_received_at)
-            } else if let Some(reason) = nested.result.override_reason {
-                EvaluationDetails::recognized_but_overridden(
-                    data.lcut(),
-                    data.time_received_at,
-                    reason,
-                    nested.result.version,
-                )
-            } else {
-                EvaluationDetails::recognized(
-                    &data.source,
-                    data.lcut(),
-                    data.time_received_at,
-                    &nested.result,
-                )
-            };
+            let details = Self::evaluation_details(data, nested.recognized, &nested.result);
 
-            let evaluation = if nested.recognized {
+            let evaluation = if nested.recognized && !nested.result.blob_unavailable {
                 Some(result_to_experiment_eval(
                     nested.experiment_name.as_str(),
                     None,
@@ -4102,31 +4079,38 @@ impl Statsig {
         spec_name: &str,
         spec_type: &SpecType,
     ) -> Result<EvaluationDetails, StatsigErr> {
-        let recognition = Evaluator::evaluate(ctx, spec_name, spec_type)?;
-
-        if recognition == Recognition::Unrecognized {
-            return Ok(EvaluationDetails::unrecognized(
-                &spec_store_data.source,
-                spec_store_data.lcut(),
-                spec_store_data.time_received_at,
-            ));
+        let recognized = Evaluator::evaluate(ctx, spec_name, spec_type)? == Recognition::Recognized;
+        let details = Self::evaluation_details(spec_store_data, recognized, &ctx.result);
+        if ctx.result.blob_unavailable {
+            ctx.result.clear_for_reuse();
         }
+        Ok(details)
+    }
 
-        if let Some(reason) = ctx.result.override_reason {
-            return Ok(EvaluationDetails::recognized_but_overridden(
-                spec_store_data.lcut(),
-                spec_store_data.time_received_at,
+    fn evaluation_details(
+        data: &SpecStoreData,
+        recognized: bool,
+        result: &EvaluatorResult,
+    ) -> EvaluationDetails {
+        if result.blob_unavailable {
+            data.unavailable_details()
+        } else if !recognized {
+            data.unrecognized_details()
+        } else if let Some(reason) = result.override_reason {
+            EvaluationDetails::recognized_but_overridden(
+                data.published_lcut(),
+                data.time_received_at,
                 reason,
-                ctx.result.version,
-            ));
+                result.version,
+            )
+        } else {
+            EvaluationDetails::recognized(
+                &data.source,
+                data.published_lcut(),
+                data.time_received_at,
+                result,
+            )
         }
-
-        Ok(EvaluationDetails::recognized(
-            &spec_store_data.source,
-            spec_store_data.lcut(),
-            spec_store_data.time_received_at,
-            &ctx.result,
-        ))
     }
 
     fn stringify_gcir_response<T: Serialize>(
@@ -4352,21 +4336,15 @@ impl Statsig {
         }
     }
 
-    fn log_init_finish(
-        &self,
-        success: bool,
-        error_message: &Option<String>,
-        duration_ms: &u64,
-        specs_info: &SpecsInfo,
-    ) {
-        let is_store_populated = specs_info.source != SpecsSource::NoValues;
-        let source_str = specs_info.source.to_string();
+    fn log_init_finish(&self, details: &InitializeDetails) {
+        let is_store_populated = details.source != SpecsSource::NoValues;
+        let source_str = details.source.to_string();
         let event = ObservabilityEvent::new_event(
             MetricType::Dist,
             "initialization".to_string(),
-            *duration_ms as f64,
+            details.duration_ms as f64,
             Some(HashMap::from([
-                ("init_success".to_owned(), success.to_string()),
+                ("init_success".to_owned(), details.init_success.to_string()),
                 ("source".to_owned(), source_str.clone()),
                 ("store_populated".to_owned(), is_store_populated.to_string()),
                 (
@@ -4375,7 +4353,7 @@ impl Statsig {
                 ),
                 (
                     "init_source_api".to_owned(),
-                    specs_info.source_api.clone().unwrap_or_default(),
+                    details.spec_source_api.clone().unwrap_or_default(),
                 ),
             ])),
         );
@@ -4385,18 +4363,10 @@ impl Statsig {
             return;
         }
         self.ops_stats.add_marker(
-            {
-                let marker = Marker::new(KeyType::Overall, ActionType::End, None)
-                    .with_is_success(success)
-                    .with_config_spec_ready(specs_info.source != SpecsSource::NoValues)
-                    .with_source(source_str);
-
-                if let Some(msg) = &error_message {
-                    marker.with_message(msg.to_string())
-                } else {
-                    marker
-                }
-            },
+            Marker::new(KeyType::Overall, ActionType::End, None)
+                .with_is_success(details.init_success)
+                .with_config_spec_ready(details.is_config_spec_ready)
+                .with_source(source_str),
             Some(ContextType::Initialize),
         );
         self.ops_stats

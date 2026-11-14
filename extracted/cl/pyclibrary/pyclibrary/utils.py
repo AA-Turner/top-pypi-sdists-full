@@ -85,7 +85,7 @@ def find_header(h_name, dirs=None):
             )
         )
 
-    if sys.platform == "linux2":
+    if sys.platform.startswith("linux"):
         dirs.extend(("/usr/local/include", "/usr/target/include", "/usr/include"))
 
     for d in dirs:
@@ -96,7 +96,7 @@ def find_header(h_name, dirs=None):
     raise OSError("Can't find header with h_name {}".format(h_name))
 
 
-LIBRARY_DIRS = []
+LIBRARY_DIRS: list[str] = []
 
 
 def add_library_locations(dir_list):
@@ -262,7 +262,7 @@ def get_shared_library_arch(filename):
         dos_headers = fp.read(64)
         fp.read(4)
 
-        magic, skip, offset = struct.unpack(str("2s58sl"), dos_headers)
+        magic, _skip, offset = struct.unpack(str("2s58sl"), dos_headers)
 
         if magic != b"MZ":
             raise Exception("Not an executable")
@@ -270,7 +270,7 @@ def get_shared_library_arch(filename):
         fp.seek(offset, io.SEEK_SET)
         pe_header = fp.read(6)
 
-        sig, skip, machine = struct.unpack(str("2s2sH"), pe_header)
+        sig, _skip, machine = struct.unpack(str("2s2sH"), pe_header)
 
         if sig != b"PE":
             raise Exception("Not a PE executable")
@@ -287,7 +287,7 @@ def check_output(*popenargs, **kwargs):
     Python 2.6.2
     """
     process = subprocess.Popen(stdout=subprocess.PIPE, *popenargs, **kwargs)
-    output, unused_err = process.communicate()
+    output, _unused_err = process.communicate()
     retcode = process.poll()
     if retcode:
         cmd = kwargs.get("args")

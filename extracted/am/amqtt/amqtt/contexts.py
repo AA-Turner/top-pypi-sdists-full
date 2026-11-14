@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field, fields, replace
 import logging
+from ssl import SSLContext
 import warnings
 
 try:
@@ -16,12 +17,20 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from dacite import Config as DaciteConfig, from_dict as dict_to_dataclass
 
-from amqtt.mqtt.constants import QOS_0, QOS_2
+from amqtt.mqtt.constants import (
+    DEFAULT_QOS1_PUBACK_TIMEOUT,
+    DEFAULT_QOS2_PUBCOMP_TIMEOUT,
+    DEFAULT_QOS2_PUBREC_TIMEOUT,
+    QOS_0,
+    QOS_2,
+)
 
 if TYPE_CHECKING:
     import asyncio
 
 logger = logging.getLogger(__name__)
+_SSL_CONTEXT_EXCLUSIVE_FIELDS = ("cafile", "capath", "certfile", "keyfile", "cadata")
+_SSL_CONTEXT_PATH_FIELDS = ("cafile", "capath", "certfile", "keyfile", "crlfile", "crlpath")
 
 
 class BaseContext:
@@ -50,6 +59,33 @@ class ListenerType(StrEnum):
     def __repr__(self) -> str:
         """Display the string value, instead of the enum member."""
         return f'"{self.value!s}"'
+
+
+class ListenerTLSVersion(StrEnum):
+    """TLS protocol version ceiling for a listener SSL context.
+
+    Limited to TLS 1.2+ because Python's default SSLContext minimum is TLS 1.2;
+    lower ceilings would leave maximum_version below minimum_version.
+    """
+
+    TLSV1_2 = "TLSv1_2"
+    TLSV1_3 = "TLSv1_3"
+
+
+class ListenerVerifyMode(StrEnum):
+    """TLS listener client certificate verify mode."""
+
+    NONE = "none"
+    OPTIONAL = "optional"
+    REQUIRED = "required"
+
+
+class ListenerVerifyFlags(StrEnum):
+    """TLS listener certificate revocation verify flags."""
+
+    NONE = "none"
+    LEAF = "leaf"
+    CHAIN = "chain"
 
 
 class Dictable:
@@ -117,27 +153,70 @@ class ListenerConfig(Dictable):
     certificates needed to establish the certificate's authenticity.)"""
     keyfile: str | Path | None = None
     """Full path to file in PEM format containing the server's private key."""
+    max_tls_version: ListenerTLSVersion | None = None
+    """Optional TLS protocol version ceiling for this listener: `TLSv1_2` or `TLSv1_3`.
+    When unset, Python's default SSL maximum version is used."""
+    ssl_context: SSLContext | None = None
+    """SSL context to use for the connection. Mutually exclusive with other ssl options.
+     API only; not applicable to yaml-config."""
+    client_cert: ListenerVerifyMode = ListenerVerifyMode.OPTIONAL
+    """Client certificate policy for TLS listeners: `none`, `optional`, or `required`."""
+    crlfile: str | Path | None = None
+    """Path to a file containing certificate revocation list material in PEM format."""
+    crlpath: str | Path | None = None
+    """Path to a directory containing certificate revocation list material."""
+    crl_check: ListenerVerifyFlags = ListenerVerifyFlags.NONE
+    """Certificate revocation check policy for TLS listeners: `none`, `leaf`, or `chain`."""
+
     reader: str | None = None
     writer: str | None = None
 
     def __post_init__(self) -> None:
         """Check config for errors and transform fields for easier use."""
+        self._validate()
+
+    def _validate(self) -> None:
+        """Validate listener configuration."""
+        if self.ssl_context is not None and any(getattr(self, fn) is not None for fn in _SSL_CONTEXT_EXCLUSIVE_FIELDS):
+            msg = "ListenerConfig: if specifying the 'ssl_context', other ssl options are not allowed."
+            raise ValueError(msg)
+
         if (self.certfile is None) ^ (self.keyfile is None):
             msg = "If specifying the 'certfile' or 'keyfile', both are required."
             raise ValueError(msg)
 
-        for fn in ("cafile", "capath", "certfile", "keyfile"):
+        if self.max_tls_version is not None:
+            try:
+                self.max_tls_version = ListenerTLSVersion(self.max_tls_version)
+            except ValueError as exc:
+                accepted = ", ".join(version.value for version in ListenerTLSVersion)
+                msg = (
+                    f"Invalid max_tls_version {self.max_tls_version!r}; "
+                    f"expected one of: {accepted}"
+                )
+                raise ValueError(msg) from exc
+
+        for fn in _SSL_CONTEXT_PATH_FIELDS:
             if isinstance(getattr(self, fn), str):
                 setattr(self, fn, Path(getattr(self, fn)))
             if getattr(self, fn) and not getattr(self, fn).exists():
                 msg = f"'{fn}' does not exist : {getattr(self, fn)}"
                 raise FileNotFoundError(msg)
 
+        if self.ssl_context is not None and not self.ssl:
+            msg = "ListenerConfig: if specifying the 'ssl_context', 'ssl' must be True."
+            raise ValueError(msg)
+
     def apply(self, other: "ListenerConfig") -> None:
         """Apply the field from 'other', if 'self' field is default."""
         for f in fields(self):
+            if self.ssl_context is not None and f.name in _SSL_CONTEXT_EXCLUSIVE_FIELDS:
+                continue
+            if f.name == "ssl_context" and any(getattr(self, fn) is not None for fn in _SSL_CONTEXT_EXCLUSIVE_FIELDS):
+                continue
             if getattr(self, f.name) == f.default:
                 setattr(self, f.name, other[f.name])
+        self._validate()
 
 
 def default_listeners() -> dict[str, Any]:
@@ -185,6 +264,18 @@ class BrokerConfig(Dictable):
      or `BaseTopicPlugin`; the value is a dictionary of configuration options for that plugin. See
      [custom plugins](../plugins/custom_plugins.md) for more information. `list[str | dict[str,Any]]` is deprecated but available
       to support legacy use cases."""
+    qos1_puback_timeout: int | float | None = DEFAULT_QOS1_PUBACK_TIMEOUT
+    """Timeout for peer PUBACKs after sending QoS 1 messages. Defaults to 5 seconds.
+    `None` waits indefinitely for PUBACK.
+    """
+    qos2_pubrec_timeout: int | float | None = DEFAULT_QOS2_PUBREC_TIMEOUT
+    """Timeout for peer PUBREC after sending QoS 2 messages. Defaults to 5 seconds.
+    `None` waits indefinitely for PUBREC.
+    """
+    qos2_pubcomp_timeout: int | float | None = DEFAULT_QOS2_PUBCOMP_TIMEOUT
+    """Timeout for peer PUBCOMP after sending QoS 2 messages. Defaults to 5 seconds.
+    `None` waits indefinitely for PUBCOMP.
+    """
 
     def __post_init__(self) -> None:
         """Check config for errors and transform fields for easier use."""
@@ -230,7 +321,7 @@ class BrokerConfig(Dictable):
         return dict_to_dataclass(data_class=BrokerConfig,
                                  data=d,
                                  config=DaciteConfig(
-                                     cast=[StrEnum, ListenerType],
+                                     cast=[StrEnum, ListenerType, ListenerVerifyMode, ListenerVerifyFlags, ListenerTLSVersion],
                                      strict=True,
                                      type_hooks={list[dict[str, Any]]: cls._coerce_lists}
                                  ))
@@ -320,8 +411,11 @@ class ClientConfig(Dictable):
 
     keep_alive: int | None = 10
     """Keep-alive timeout sent to the broker."""
-    ping_delay: int | None = 1
-    """Auto-ping delay before keep-alive timeout. Setting to 0 will disable which may lead to broker disconnection."""
+    ping_delay: int | None = None
+    """*Deprecated* Use `ping_margin` instead"""
+    ping_margin: int = 1
+    """Auto-ping before keep-alive times out. Setting to 0 will send ping equal to the connection's
+     keep-alive value which may lead to premature broker disconnection."""
     default_qos: int | None = QOS_0
     """Default QoS for messages published."""
     default_retain: bool | None = False
@@ -355,6 +449,18 @@ class ClientConfig(Dictable):
     will: WillConfig | None = None
     """Message, topic and flags that should be sent to if the client disconnects. See
     [`WillConfig`](client_config.md#amqtt.contexts.WillConfig) for more information."""
+    qos1_puback_timeout: int | float | None = DEFAULT_QOS1_PUBACK_TIMEOUT
+    """Timeout for peer PUBACKs after sending QoS 1 messages. Defaults to 5 seconds.
+    `None` waits indefinitely for PUBACK.
+    """
+    qos2_pubrec_timeout: int | float | None = DEFAULT_QOS2_PUBREC_TIMEOUT
+    """Timeout for peer PUBREC after sending QoS 2 messages. Defaults to 5 seconds.
+    `None` waits indefinitely for PUBREC.
+    """
+    qos2_pubcomp_timeout: int | float | None = DEFAULT_QOS2_PUBCOMP_TIMEOUT
+    """Timeout for peer PUBCOMP after sending QoS 2 messages. Defaults to 5 seconds.
+    `None` waits indefinitely for PUBCOMP.
+    """
 
     def __post_init__(self) -> None:
         """Check config for errors and transform fields for easier use."""
@@ -368,6 +474,12 @@ class ClientConfig(Dictable):
                           DeprecationWarning, stacklevel=2)
             self.connection = self.broker
 
+        if self.ping_delay is not None:
+            warnings.warn("'ping_delay' is deprecated, please use 'ping_margin' instead. "
+                          "Support for 'ping_delay' will be removed in a future release.",
+                          DeprecationWarning, stacklevel=2)
+            self.ping_margin = self.ping_delay
+
         if bool(not self.connection.keyfile) ^ bool(not self.connection.certfile):
             msg = "Connection key and certificate files are _both_ required."
             raise ValueError(msg)
@@ -377,6 +489,11 @@ class ClientConfig(Dictable):
         """Create a client config from a dictionary."""
         if d is None:
             return ClientConfig()
+
+        if "ping_delay" in d and "ping_margin" in d:
+            warnings.warn("'ping_delay' is deprecated and should not be used in conjunction with 'ping_margin'. ",
+                          DeprecationWarning, stacklevel=1)
+            del d["ping_delay"]
 
         return dict_to_dataclass(data_class=ClientConfig,
                                  data=d,

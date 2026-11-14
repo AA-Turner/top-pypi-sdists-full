@@ -2255,6 +2255,56 @@ def test_dispatch_review_sends_to_different_machine_and_appends_to_board(
     assert "# Project rules" in payload["briefing"]
 
 
+def test_dispatch_review_reclaims_a_leaked_claim_and_dispatches(
+    two_machine_config: Config,
+) -> None:
+    """#4003: a `review_claims` row that outlived the dispatch that took
+    it (no review row behind it, older than the grace window) must not
+    deny forever with the misleading "lost the atomic dispatch-claim
+    race — #3113" reason — the very next `dispatch_review` call reclaims
+    it and a review actually gets dispatched.
+    """
+    import time as time_mod
+
+    from coord.state import REVIEW_CLAIM_LEAK_GRACE_SECS, claim_review_dispatch, get_connection
+    from coord import sql as sql_mod
+
+    board = Board()
+    completed = _completed_assignment(machine="laptop")
+    client = _FakeHTTPClient({"id": "review-id-1"})
+
+    # Simulate a prior dispatcher that claimed the dispatch and then died
+    # (a `database is locked` collision right after the claim landed) —
+    # the row leaked, with no review assignment ever created behind it.
+    assert claim_review_dispatch(completed.assignment_id) is True
+    conn = get_connection()
+    sql_mod.execute(
+        conn,
+        "UPDATE review_claims SET claimed_at=? WHERE of_assignment_id=?",
+        (time_mod.time() - REVIEW_CLAIM_LEAK_GRACE_SECS - 1.0, completed.assignment_id),
+    )
+    conn.commit()
+
+    result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 42,
+            "url": "https://github.com/acme/api/pull/42",
+            "existed": True,
+        },
+        claude_md_reader=lambda p: "# Project rules\n",
+        issue_body_fetcher=lambda repo, num: "issue body text",
+        now=123.0,
+        remote_branch_checker=lambda repo, branch: True,
+    )
+
+    assert result is not None
+    assert result.type == "review"
+    assert result.review_of_assignment_id == completed.assignment_id
+    assert len(client.calls) == 1
+
+
 def test_dispatch_review_pins_first_review_to_configured_model(
     two_machine_config: Config,
 ) -> None:
@@ -6007,6 +6057,165 @@ def test_scoped_review_releases_claim_when_dispatch_raises(
         )
 
     assert has_review_claim("w1") is False
+
+
+# ── #4002: one per-item review lease + an approve on the current head is
+# final ───────────────────────────────────────────────────────────────────
+
+
+def test_claim_review_item_dispatch_gate_skips_lease_for_falsy_issue_number() -> None:
+    """`effective_issue_number` resolves to `0` for a row carrying neither
+    `issue_number` nor `for_issue_number` (coord/models.py) — every such
+    row would otherwise share the single lease key `item-lease:{repo}:0`,
+    turning the per-item lease into one shared global lock across
+    unrelated rows. The gate must skip taking the lease entirely rather
+    than claim that shared key, and must still allow the dispatch (there
+    is nothing to refuse it on)."""
+    from coord.review import claim_review_item_dispatch_gate
+    from coord.state import has_review_item_lease
+
+    board = Board()
+    allowed, reason = claim_review_item_dispatch_gate(
+        repo_name="api",
+        issue_number=0,
+        assignment_id="w1",
+        branch="worker/w1",
+        repo_github="acme/api",
+        board=board,
+    )
+    assert allowed is True
+    assert reason is None
+    assert has_review_item_lease("api", 0) is False
+
+
+def test_scoped_review_and_full_review_race_on_same_item_only_one_wins(
+    two_machine_config: Config,
+) -> None:
+    """quadraui#2356 repro: `dispatch_scoped_review` claims the ORIGINAL
+    leg's assignment id ("w1"); `dispatch_review` claims a DIFFERENT
+    assignment id — the completed FIX leg's ("abc123"). Before #4002 those
+    two per-assignment claims never contended with each other, so BOTH
+    dispatchers could win and two reviews of the same (repo, issue) went
+    out 90 seconds apart. The new per-item lease, keyed on (repo, issue)
+    rather than either assignment id, makes the second dispatcher lose
+    outright — exactly one review row results."""
+    board, entry = _scoped_race_fixture()
+    completed = _completed_assignment()  # repo=api, issue=1 — the SAME item
+
+    scoped_client = _FakeHTTPClient({"id": "scoped-winner"})
+    scoped_result = dispatch_scoped_review(
+        entry, _scoped_prior_review(), board, two_machine_config,
+        http_client=scoped_client, diff_fetcher=_scoped_diff_fetcher,
+    )
+    assert scoped_result is not None
+
+    full_client = _FakeHTTPClient({"id": "full-loser"})
+    full_result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=full_client,
+        pr_lookup=lambda repo_github, **kw: {"number": 1, "url": "u", "existed": True},
+        claude_md_reader=lambda p: None,
+        issue_body_fetcher=lambda repo, num: "",
+    )
+
+    assert full_result is None, (
+        "the second dispatcher must lose the per-item lease race even "
+        "though it claims a DIFFERENT assignment id than the first"
+    )
+    assert "#4002" in (completed.review_dispatch_reason or "")
+    assert full_client.calls == [], "the loser must never POST to an agent"
+
+
+def test_dispatch_review_refused_when_current_head_already_approved(
+    two_machine_config: Config,
+) -> None:
+    """#4002: an approve on the current head is final. A prior review in
+    *completed*'s work chain already approved the exact commit
+    `branch_sha_fetcher` reports as current — `dispatch_review` must
+    refuse rather than spend a second, possibly-contradicting review on
+    it."""
+    completed = _completed_assignment()
+    prior_approval = Assignment(
+        machine_name="laptop", repo_name="api", issue_number=1,
+        issue_title="[review] t", assignment_id="rev-approved", type="review",
+        status="done", review_of_assignment_id=completed.assignment_id,
+        review_verdict="approve", review_head_sha="deadbeef1234",
+        dispatched_at=5.0,
+    )
+    board = Board(completed=[prior_approval])
+
+    client = _FakeHTTPClient({"id": "should-not-be-used"})
+    result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {"number": 1, "url": "u", "existed": True},
+        claude_md_reader=lambda p: None,
+        issue_body_fetcher=lambda repo, num: "",
+        branch_sha_fetcher=lambda repo, branch: "deadbeef1234",
+    )
+
+    assert result is None
+    assert "#4002" in (completed.review_dispatch_reason or "")
+    assert "already has an approving review" in (completed.review_dispatch_reason or "")
+    assert client.calls == []
+
+
+def test_dispatch_review_proceeds_when_head_moved_past_prior_approval(
+    two_machine_config: Config,
+) -> None:
+    """#4002 acceptance: after a NEW commit lands (a different current head),
+    a review must still dispatch normally — only the EXACT previously
+    approved commit is refused."""
+    completed = _completed_assignment()
+    prior_approval = Assignment(
+        machine_name="laptop", repo_name="api", issue_number=1,
+        issue_title="[review] t", assignment_id="rev-approved", type="review",
+        status="done", review_of_assignment_id=completed.assignment_id,
+        review_verdict="approve", review_head_sha="deadbeef1234",
+        dispatched_at=5.0,
+    )
+    board = Board(completed=[prior_approval])
+
+    client = _FakeHTTPClient({"id": "fresh-review"})
+    result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {"number": 1, "url": "u", "existed": True},
+        claude_md_reader=lambda p: None,
+        issue_body_fetcher=lambda repo, num: "",
+        branch_sha_fetcher=lambda repo, branch: "freshcommitsha",  # a NEW commit
+    )
+
+    assert result is not None
+    assert client.calls != []
+
+
+def test_item_lease_released_through_terminal_status_release_hook(
+    two_machine_config: Config,
+) -> None:
+    """The per-item lease a successful dispatch holds is released the same
+    way the per-assignment claim is: through
+    `release_review_claim_if_row_is_review`, the one shared terminal-status
+    chokepoint — not by any new, independently-timed release path."""
+    from coord.state import has_review_item_lease, release_review_claim_if_row_is_review
+
+    completed = _completed_assignment()
+    board = Board()
+    result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=_FakeHTTPClient({"id": "lease-held"}),
+        pr_lookup=lambda repo_github, **kw: {"number": 1, "url": "u", "existed": True},
+        claude_md_reader=lambda p: None,
+        issue_body_fetcher=lambda repo, num: "",
+    )
+    assert result is not None
+    assert has_review_item_lease("api", 1) is True
+
+    release_review_claim_if_row_is_review(result.assignment_id)
+    assert has_review_item_lease("api", 1) is False, (
+        "the item lease must clear through the ordinary terminal-status "
+        "hook once the dispatched review reaches a terminal status"
+    )
 
 
 def test_completed_fix_scoped_dispatch_blocks_later_queue_sweep(

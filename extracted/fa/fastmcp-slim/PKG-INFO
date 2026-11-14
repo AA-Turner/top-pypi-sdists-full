@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: fastmcp-slim
-Version: 4.1.8
+Version: 4.2.0
 Summary: The dependency-slim FastMCP package.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/PrefectHQ/fastmcp
@@ -10,7 +10,6 @@ License-Expression: Apache-2.0
 Keywords: agent,fastmcp,llm,mcp,mcp client,mcp server,model context protocol
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -18,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: mcp-types<3.0.0,>=2.0.0
 Requires-Dist: platformdirs>=4.0.0
 Requires-Dist: pydantic-settings>=2.0.0
@@ -82,7 +81,7 @@ Requires-Dist: pyperclip>=1.9.0; extra == 'server'
 Requires-Dist: python-multipart>=0.0.26; extra == 'server'
 Requires-Dist: pyyaml<7.0,>=6.0; extra == 'server'
 Requires-Dist: starlette>=1.0.1; extra == 'server'
-Requires-Dist: uncalled-for>=0.4.0; extra == 'server'
+Requires-Dist: uncalled-for>=0.6.1; extra == 'server'
 Requires-Dist: uvicorn>=0.35; extra == 'server'
 Requires-Dist: watchfiles>=1.0.0; extra == 'server'
 Requires-Dist: websockets>=15.0.1; extra == 'server'
@@ -169,15 +168,17 @@ FastMCP has three pillars:
 
 Ready to build? Start with the [installation guide](https://gofastmcp.com/getting-started/installation) or jump straight to the [quickstart](https://gofastmcp.com/getting-started/quickstart).
 
-## Run FastMCP in production with Horizon
+<a id="run-fastmcp-in-production-with-horizon"></a>
 
-FastMCP is the standard way to build MCP servers. **[Prefect Horizon](https://www.prefect.io/horizon?utm_source=github&utm_medium=readme&utm_campaign=readme_horizon&utm_content=readme_body)** is the enterprise MCP gateway for running them safely.
+## Run FastMCP in production with FastMCP Gateway
 
-Built by the FastMCP team, Horizon packages the best practices we've learned shipping the world's most popular MCP framework.
+FastMCP is the standard way to build MCP servers. **[FastMCP Gateway](https://www.prefect.io/horizon?utm_source=github&utm_medium=readme&utm_campaign=readme_horizon&utm_content=readme_body)** is the enterprise MCP gateway for running them safely.
+
+Built by the FastMCP team, FastMCP Gateway applies the operational patterns we've developed while maintaining the world's most popular MCP framework.
 
 Deploy FastMCP servers from GitHub with branch previews and instant rollback. Create a private registry of every MCP your company uses. Secure access with SSO and tool-level RBAC. Get audit logs, observability, and governance across your MCP stack. Remix approved tools into purpose-built endpoints for teams and agents.
 
-Start with FastMCP. [Scale with Horizon →](https://www.prefect.io/horizon?utm_source=github&utm_medium=readme&utm_campaign=readme_horizon&utm_content=readme_cta)
+Start with FastMCP. [Scale with FastMCP Gateway →](https://www.prefect.io/horizon?utm_source=github&utm_medium=readme&utm_campaign=readme_horizon&utm_content=readme_cta)
 
 ## Installation
 

@@ -17,9 +17,9 @@ class DescribeSQLCollectorRetentionResponseBody(DaraModel):
         # * **1095**: 3 years.
         # * **1825**: 5 years.
         # 
-        # > Log retention period of SQL Explorer logs for ApsaraDB RDS for PostgreSQL and ApsaraDB RDS for SQL Server is fixed at 30 days.
+        # > Log retention period of SQL Explorer logs for ApsaraDB RDS for PostgreSQL and ApsaraDB RDS for SQL Server instances is fixed at 30 days.
         self.config_value = config_value
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
 
     def validate(self):

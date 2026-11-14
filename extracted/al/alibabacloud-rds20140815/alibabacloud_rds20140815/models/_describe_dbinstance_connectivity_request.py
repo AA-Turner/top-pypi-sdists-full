@@ -16,13 +16,13 @@ class DescribeDBInstanceConnectivityRequest(DaraModel):
         security_token: str = None,
         source_ip_address: str = None,
     ):
-        # The instance ID.
+        # The ID of the instance.
         # 
         # This parameter is required.
         self.db_instance_name = db_instance_name
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The resource group ID.
+        # The ID of the resource group.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id

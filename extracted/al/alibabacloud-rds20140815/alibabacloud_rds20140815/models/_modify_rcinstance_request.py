@@ -20,9 +20,9 @@ class ModifyRCInstanceRequest(DaraModel):
         region_id: str = None,
     ):
         # Specifies whether to enable automatic payment. Valid values:
-        # - **true** (default): enables automatic payment. Make sure that your account balance is sufficient.
-        # - **false**: generates an order without deducting fees.
-        # > If your account balance is insufficient, you can set the AutoPay parameter to false. An unpaid order is generated. You can log on to the ApsaraDB RDS console to complete the payment.
+        # - **true**: enables automatic payment. This is the default value. Make sure that your account balance is sufficient.
+        # - **false**: generates an unpaid order without deducting fees.
+        # > If the balance of your payment method is insufficient, you can set the AutoPay parameter to false to generate an unpaid order. Then, you can log on to the ApsaraDB RDS console to complete the payment.
         # >
         self.auto_pay = auto_pay
         # Specifies whether to automatically use coupons. Valid values:
@@ -32,14 +32,14 @@ class ModifyRCInstanceRequest(DaraModel):
         # > If you use a coupon and then downgrade the instance type, the amount deducted by the voucher is not refunded.
         self.auto_use_coupon = auto_use_coupon
         self.business_info = business_info
-        # The instance upgrade or downgrade type. Valid values:
-        # > You do not need to specify this parameter. The system automatically determines whether to upgrade or downgrade the instance type. If you want to specify it, follow these rules:
-        # - **Up** (default): upgrades the instance type. Make sure that your account balance is sufficient.
-        # - **Down**: downgrades the instance type. When the instance type specified in InstanceType is lower than the current instance type, set Direction to Down.
+        # The scaling direction. Valid values:
+        # > You do not need to specify this parameter. The system automatically determines whether to upgrade or downgrade the instance type. If you specify this parameter, follow these rules:
+        # - **Up**: upgrades the instance type. This is the default value. Make sure that your account balance is sufficient.
+        # - **Down**: downgrades the instance type. Set this parameter to Down when the instance type specified by InstanceType is lower than the current instance type.
         self.direction = direction
-        # Specifies whether to perform a precheck on the instance creation operation. Valid values:
-        # * **true**: performs a precheck without creating an instance. Check items include request parameters, request format, service limits, and inventory.
-        # * **false**: sends a normal request and directly creates the instance after the request passes the precheck. This is the default value.
+        # Specifies whether to perform a precheck on this operation. Valid values:
+        # * **true**: performs a precheck without modifying the instance type. The system checks items such as request parameters, request format, service limits, and inventory.
+        # * **false**: sends a normal request and modifies the instance type after the request passes the precheck. This is the default value.
         self.dry_run = dry_run
         # The instance ID.
         self.instance_id = instance_id
@@ -54,10 +54,10 @@ class ModifyRCInstanceRequest(DaraModel):
         self.reboot_time = reboot_time
         # Specifies whether to immediately restart the instance after the instance type change is complete. Valid values:
         # 
-        # - **true**: restarts the instance immediately. This is the default value.
-        # - **false**: does not restart the instance immediately.
+        # - **true**: immediately restarts the instance. This is the default value.
+        # - **false**: does not immediately restart the instance.
         # 
-        # > If the instance is in the **Stopped** state, it remains in the Stopped state and is not restarted even if you set RebootWhenFinished to true.
+        # > If the instance is in the **Stopped** state, it remains in the Stopped state and is not restarted even if you set `RebootWhenFinished` to true.
         self.reboot_when_finished = reboot_when_finished
         # The region ID of the instance.
         self.region_id = region_id

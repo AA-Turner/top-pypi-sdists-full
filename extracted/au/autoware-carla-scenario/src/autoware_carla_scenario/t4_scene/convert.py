@@ -253,6 +253,23 @@ class _Log:
         logged before the action moved it) or from its ``DespawnAction``'s."""
         return on_scene(self.spawned.get(actor_id), self.despawned.get(actor_id), frame)
 
+    def present(
+        self, states: npt.NDArray[np.float64], frame: int
+    ) -> npt.NDArray[np.bool_]:
+        """Which of the (N, 10) actor *states* of the tick on *frame* are road
+        users on the scene: recorded, not parked out of sight by a spawn or
+        despawn (:meth:`on_scene`) and not under the map -- a trajectory
+        entity's hiding records no despawn."""
+        return np.array(
+            [
+                int(state[0]) in self.actors
+                and self.on_scene(int(state[0]), frame)
+                and state[3] >= _HIDDEN_BELOW_M
+                for state in states
+            ],
+            dtype=bool,
+        ).reshape(-1)
+
 
 def _read_log(path: Path, step_frames: int) -> _Log:
     """Read the log at *path* a record at a time.
@@ -336,6 +353,23 @@ class _MapFrame:
         """(N, 3) CARLA rotations (roll, pitch, yaw; degrees) as map-frame
         Euler angles (radians) (:func:`t4_scene.frames.map_angles`)."""
         return map_angles(rpy_deg)
+
+
+def box_poses(
+    frame: _MapFrame, states: npt.NDArray[np.float64], actors: Sequence[_Actor]
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """The map-frame box centres (N, 3), headings (N,; radians, from x
+    counterclockwise) and roll/pitch/yaw angles (N, 3) of the (N, 10) actor
+    *states* of *actors*: each origin plus its box's ``center``, turned with
+    it."""
+    angles = frame.angles(states[:, 4:7])
+    turned = _rotations(angles)
+    # The box's centre is given in CARLA's (left-handed) actor frame.
+    centres = np.array([a.center for a in actors]).reshape(-1, 3) * _FLIP_Y
+    positions = frame.positions(states[:, 1:4]) + np.einsum(
+        "nij,nj->ni", turned, centres
+    )
+    return positions, np.arctan2(turned[:, 1, 0], turned[:, 0, 0]), angles
 
 
 def _array(
@@ -564,7 +598,8 @@ def _fill_metadata(scene: pb.T4Scene, log: _Log, stem: str) -> None:
     metadata.scene_id = stem
     if log.world.get("episode") is not None:
         metadata.recording_id = str(log.world["episode"])
-    metadata.tags.append("autoware_carla_scenario")
+    # Every tag is key:value: the devkit refuses a bare one (common/tags.py).
+    metadata.tags.append("source:autoware_carla_scenario")
     if log.map is not None and log.map.get("name"):
         metadata.tags.append(f"map:{log.map['name']}")
     if log.result is not None:
@@ -593,12 +628,15 @@ def _fill_ego(
     ``(rear_axle, 0, 0)``, all in the map frame (``driver.observation``'s
     ``ego_observation`` does the same in the rig frame).  Without it a turning
     ego's ``base_link`` would slide sideways at ``yaw_rate * rear_axle``.
+
+    The motion goes in the contract's 3D fields, all in the scene's axes:
+    ``poses_3d``, ``velocities_3d`` and ``angular_velocities_3d``.  The devkit
+    derives the planar pose, velocity and longitudinal speed from them, and
+    refuses a scene that also carries the legacy planar fields.
     """
     count = len(frames)
-    poses = np.zeros((count, 3))
     poses_3d = np.tile(np.eye(4), (count, 1, 1))
-    velocities = np.zeros((count, 2))
-    speeds = np.zeros(count)
+    velocities = np.zeros((count, 3))
     angular = np.zeros((count, 3))
     spun = np.zeros(count, dtype=bool)
     origins: list[Optional[npt.NDArray[np.float64]]] = [None] * count
@@ -616,27 +654,19 @@ def _fill_ego(
         if carla_angular is not None:
             omega = np.radians(np.array(carla_angular) * _FLIP_AXIAL)
             velocity = velocity + np.cross(omega, rotation[:, 0] * rear_axle)
-            angular[row] = rotation.T @ omega
+            angular[row] = omega
             spun[row] = True
-        poses[row] = (
-            base_link[0],
-            base_link[1],
-            math.atan2(rotation[1, 0], rotation[0, 0]),
-        )
         poses_3d[row, :3, :3] = rotation
         poses_3d[row, :3, 3] = base_link
-        velocities[row] = velocity[:2]
-        speeds[row] = float(velocity @ rotation[:, 0])
+        velocities[row] = velocity
         origins[row] = origin[:2]
     available = np.array([origin is not None for origin in origins])
     missing = ~available
     message = scene.ego
-    message.poses.CopyFrom(_array(poses, "f8", missing[:, None]))
     message.poses_3d.CopyFrom(_array(poses_3d, "f8", missing[:, None, None]))
-    message.velocities.CopyFrom(_array(velocities, "f8", missing[:, None]))
-    message.longitudinal_speeds.CopyFrom(_array(speeds, "f8", missing))
+    message.velocities_3d.CopyFrom(_array(velocities, "f8", missing[:, None]))
     if spun.any():
-        message.angular_velocities.CopyFrom(_array(angular, "f8", ~spun[:, None]))
+        message.angular_velocities_3d.CopyFrom(_array(angular, "f8", ~spun[:, None]))
     message.available.CopyFrom(_array(available, "?"))
     changes = log.turn_indicators.get(ego_id)
     if changes is not None:
@@ -681,13 +711,7 @@ def _fill_annotations(
     for row, carla_frame in enumerate(frames):
         states = log.states(carla_frame) if available[row] else _NO_STATES
         ids = states[:, 0].astype(np.int64)
-        keep = np.array(
-            [int(i) in others and log.on_scene(int(i), carla_frame) for i in ids],
-            dtype=bool,
-        )
-        # A road user parked under the map (hidden; a trajectory entity's
-        # hiding records no despawn) is out of the scene.
-        keep &= states[:, 3] >= _HIDDEN_BELOW_M
+        keep = log.present(states, carla_frame) & (ids != ego_id)
         origins = frame.positions(states[:, 1:4])
         centre = ego_origins[row]
         if max_distance_m is not None and centre is not None:
@@ -700,10 +724,7 @@ def _fill_annotations(
             )
         states, ids, origins = states[keep], ids[keep], origins[keep]
         actors = [others[int(i)] for i in ids]
-        angles = _MapFrame.angles(states[:, 4:7])
-        rotations = _rotations(angles)
-        # The box's centre is given in CARLA's (left-handed) actor frame.
-        centres = np.array([a.center for a in actors]).reshape(-1, 3) * _FLIP_Y
+        centres, headings, angles = box_poses(frame, states, actors)
         extents = np.array([a.extent for a in actors]).reshape(-1, 3)
         dimensions = 2.0 * extents[:, [1, 0, 2]]  # (width, length, height)
         labels = np.array(
@@ -724,9 +745,9 @@ def _fill_annotations(
                 labels[n] = t4_label(fault.category)
         rows.append(
             (
-                origins + np.einsum("nij,nj->ni", rotations, centres),
+                centres,
                 dimensions,
-                np.arctan2(rotations[:, 1, 0], rotations[:, 0, 0]),
+                headings,
                 states[:, 7:9] * _FLIP_Y[:2],
                 labels,
                 ids,
@@ -874,6 +895,16 @@ def trajectory_log_to_t4_scene(
     )
 
 
+def ego_poses(ego: pb.EgoSequence) -> npt.NDArray[np.float64]:
+    """The ego's planar ``base_link`` poses, ``[T, 3]`` x/y/yaw, from its
+    ``poses_3d``: the translation's x and y and the rotation's heading, as the
+    devkit derives them."""
+    rows = int(ego.poses_3d.shape[0])
+    transforms = np.frombuffer(ego.poses_3d.data, dtype="<f8").reshape(rows, 4, 4)
+    yaw = np.arctan2(transforms[:, 1, 0], transforms[:, 0, 0])
+    return np.column_stack([transforms[:, 0, 3], transforms[:, 1, 3], yaw])
+
+
 def driven_route(scene: pb.T4Scene, graph: RouteGraph) -> list[int]:
     """The lanelets the ego of *scene* drove along, in order: its ``base_link``
     on the rows it is on, a point every :data:`_ROUTE_SPACING_M` metres, walked
@@ -887,8 +918,7 @@ def driven_route(scene: pb.T4Scene, graph: RouteGraph) -> list[int]:
     have changed to.
     """
     ego = scene.ego
-    rows = int(scene.timestamps_ns.shape[0])
-    poses = np.frombuffer(ego.poses.data, dtype="<f8").reshape(rows, 3)
+    poses = ego_poses(ego)
     available = np.frombuffer(ego.available.data, dtype=np.bool_)
     kept: list[npt.NDArray[np.float64]] = []
     for xy in poses[available, :2]:

@@ -16,16 +16,16 @@ class DescribeAllWhitelistTemplateRequest(DaraModel):
         resource_owner_id: int = None,
         template_name: str = None,
     ):
-        # Specifies whether to enable fuzzy match. Valid values:
+        # Specifies whether to enable fuzzy search. Valid values:
         # 
-        # - **true**: Enabled.
-        # - **false**: Disabled.
+        # - **true**: enables fuzzy search.
+        # - **false**: disables fuzzy search.
         self.fuzzy_search = fuzzy_search
         # The number of entries per page. Valid values: 10, 30, and 50.
         # 
         # This parameter is required.
         self.max_records_per_page = max_records_per_page
-        # The current page number.
+        # The page number.
         # 
         # This parameter is required.
         self.page_numbers = page_numbers
@@ -35,7 +35,7 @@ class DescribeAllWhitelistTemplateRequest(DaraModel):
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The name of the whitelist template. Specify this parameter for fuzzy match. You can call the DescribeWhitelistTemplate operation to obtain the template name.
+        # The name of the whitelist template. Specify this parameter to perform a fuzzy search. You can call the DescribeWhitelistTemplate operation to obtain the template name.
         self.template_name = template_name
 
     def validate(self):

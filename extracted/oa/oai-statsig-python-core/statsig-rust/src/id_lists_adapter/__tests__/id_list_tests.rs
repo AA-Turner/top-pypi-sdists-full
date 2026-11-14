@@ -89,44 +89,43 @@ fn resident_membership_uses_sdk_storage_for_uniform_and_dense_lists() {
 }
 
 #[test]
-fn resident_membership_rejects_invalid_changes_atomically_and_preserves_clones() {
+fn resident_membership_applies_mixed_edits_and_rejects_invalid_utf8_atomically() {
     use crate::hashing::{HashUtil, IdListFingerprintWidth::Bits48};
 
     let key = HashUtil::new().id_list_key("alice", Bits48);
     assert_eq!(key, "K9gGyX8O");
-    let mut list = IdListMembership::default();
-    list.apply("employees", format!("+{key}").into_bytes())
+    let mut original = IdListMembership::default();
+    original
+        .apply("employees", format!("+{key}").into_bytes())
         .unwrap();
-    let original = list.clone();
 
-    for invalid in [
-        b"?AAAAAAAA".as_slice(),
-        b"+short",
-        b"+AAAAAAAAA",
-        b"+GTejfAo5NJE",            // 64-bit fingerprint
-        b"+GTejfAo5NJF+jVDrddBJGA", // 128-bit fingerprint
-        b"+!!!!!!!!",
-        b"+\xff",
+    let edits = format!("-{key}\n?ignored\n+side-hash-key\n");
+    for input in [
+        Cow::Borrowed(edits.as_bytes()),
+        Cow::Owned(edits.clone().into_bytes()),
     ] {
-        let mut changes = format!("-{key}\n").into_bytes();
-        changes.extend_from_slice(invalid);
-        for input in [
-            Cow::Borrowed(changes.as_slice()),
-            Cow::Owned(changes.clone()),
-        ] {
-            assert_eq!(
-                list.apply("employees", input).unwrap_err().kind(),
-                io::ErrorKind::InvalidData
-            );
-            assert!(Arc::ptr_eq(&list.ids, &original.ids));
-            assert!(list.contains(&key));
-        }
+        let mut list = original.clone();
+        list.apply("employees", input).unwrap();
+        assert!(!list.contains(&key));
+        assert!(list.contains("side-hash-key"));
+        assert!(!list.contains("ignored"));
     }
-
-    list.apply("employees", format!("-{key}").as_bytes())
-        .unwrap();
-    assert!(!list.contains(&key));
     assert!(original.contains(&key));
+    assert!(!original.contains("side-hash-key"));
+
+    let mut invalid = edits.into_bytes();
+    invalid.push(0xff);
+    for input in [
+        Cow::Borrowed(invalid.as_slice()),
+        Cow::Owned(invalid.clone()),
+    ] {
+        let mut list = original.clone();
+        assert_eq!(
+            list.apply("employees", input).unwrap_err().kind(),
+            io::ErrorKind::InvalidData
+        );
+        assert!(Arc::ptr_eq(&list.ids, &original.ids));
+    }
 }
 
 #[test]
@@ -188,4 +187,53 @@ fn ordinary_file_updates_share_membership_until_an_append_or_replacement_is_vali
         ..larger
     };
     assert!(stale.update_from(Some(first)).is_none());
+}
+
+#[test]
+fn ordinary_file_updates_match_sdk_edits_and_byte_cursor() {
+    let mut sdk = IdList::new(metadata());
+    let mut body = Vec::new();
+    let mut previous = None;
+    let mut resident = None;
+    for changes in [
+        "+AAAAAAAB\n",
+        "-AAAAAAAB\n?ignored\n+AAAAAAAC\n+side-hash-key\n",
+        "-side-hash-key\n+AAAAAAAD\n",
+    ] {
+        body.extend_from_slice(changes.as_bytes());
+        let version = IdListFileVersion {
+            file_id: Some("file-1"),
+            creation_time: 1,
+            size: body.len() as u64,
+        };
+        let updated = version
+            .update_from(previous)
+            .unwrap()
+            .apply_to_membership("employees", resident.as_ref(), &body)
+            .unwrap();
+        sdk.apply_update_with_encoding(
+            IdListEncoding::EliasFano,
+            IdListUpdate {
+                raw_changeset: Some(changes.into()),
+                new_metadata: metadata(),
+            },
+        );
+        assert_eq!(sdk.metadata.size, version.size);
+        assert_eq!(*updated.ids, *sdk.ids);
+        previous = Some(version);
+        resident = Some(updated);
+    }
+
+    body.extend_from_slice(b"-AAAAAAAD\n\xff");
+    let version = IdListFileVersion {
+        size: body.len() as u64,
+        ..previous.unwrap()
+    };
+    let result = version.update_from(previous).unwrap().apply_to_membership(
+        "employees",
+        resident.as_ref(),
+        &body,
+    );
+    assert_eq!(result.err().unwrap().kind(), io::ErrorKind::InvalidData);
+    assert!(resident.unwrap().contains("AAAAAAAD"));
 }

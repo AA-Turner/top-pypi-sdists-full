@@ -28,7 +28,7 @@ class EvaluateLocalExtendDiskRequest(DaraModel):
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The storage capacity after scaling. Unit: GB.
+        # The storage capacity after the expansion. Unit: GB.
         self.storage = storage
 
     def validate(self):

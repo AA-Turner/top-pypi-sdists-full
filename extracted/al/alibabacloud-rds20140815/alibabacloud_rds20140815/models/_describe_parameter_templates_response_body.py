@@ -18,7 +18,7 @@ class DescribeParameterTemplatesResponseBody(DaraModel):
     ):
         # The database engine.
         self.engine = engine
-        # The database engine version.
+        # The version of the database engine.
         self.engine_version = engine_version
         # The number of parameters.
         self.parameter_count = parameter_count

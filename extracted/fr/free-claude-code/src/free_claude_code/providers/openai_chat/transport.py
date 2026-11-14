@@ -5,9 +5,8 @@ import sys
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping
 from dataclasses import dataclass
-from enum import StrEnum
 from functools import partial
-from typing import Any, cast
+from typing import Any, assert_never, cast
 
 import httpx2
 from loguru import logger
@@ -43,6 +42,7 @@ from free_claude_code.core.gemini import GeminiConversionError, GeminiRequest
 from free_claude_code.core.gemini.replay import CallReplay, apply_call_replay
 from free_claude_code.core.gemini.request import build_gemini_chat_request
 from free_claude_code.core.history_replay import ReplayOrigin
+from free_claude_code.core.json_types import JsonObject
 from free_claude_code.core.openai_responses import (
     OpenAIResponsesRequest,
     ResponsesChatRequest,
@@ -63,25 +63,18 @@ from free_claude_code.core.stream_recovery import ContinuationSeed
 from free_claude_code.core.trace import provider_chat_body_snapshot, trace_event
 from free_claude_code.providers.admission import (
     ProviderAdmissionController,
-    ProviderAttempt,
     ProviderOperationKind,
+)
+from free_claude_code.providers.canonical_failures import (
+    context_window_exceeded_provider_failure,
+    is_context_window_finish_reason,
 )
 from free_claude_code.providers.continuation import (
     ContinuationRequest,
     SourceRecoveryState,
-    public_recovery,
-    public_stream_failure,
 )
 from free_claude_code.providers.endpoint import RequestEndpoint
 from free_claude_code.providers.endpoint_types import EndpointContext
-from free_claude_code.providers.failure_policy import (
-    classify_provider_failure,
-    context_window_exceeded_provider_failure,
-    is_context_window_finish_reason,
-    is_retryable_stream_error,
-    provider_authentication_status,
-    underlying_provider_error,
-)
 from free_claude_code.providers.history_negotiation import (
     HistoryModeCache,
     resolve_history_overrides,
@@ -92,7 +85,6 @@ from free_claude_code.providers.history_replay import (
 )
 from free_claude_code.providers.http import (
     ProviderAttemptScope,
-    close_provider_stream,
     maybe_await_aclose,
 )
 from free_claude_code.providers.openai_client import OpenAIRequestClient
@@ -101,19 +93,31 @@ from free_claude_code.providers.reasoning_compatibility import (
     ReasoningCorrection,
     prepare_messages_reasoning,
 )
+from free_claude_code.providers.request_correction import (
+    CorrectionStep,
+    Rejection,
+    RequestCorrector,
+)
 from free_claude_code.providers.request_recovery import (
-    RequestCorrections,
     RequestRecovery,
+)
+from free_claude_code.providers.stream_failure_resolution import (
+    Continue,
+    Fail,
+    Handoff,
+    Retry,
+    StreamFailure,
+    StreamFailurePolicy,
+    StreamFailureResolver,
 )
 from free_claude_code.providers.stream_recovery import (
     TruncatedProviderStreamError,
-    can_retry_undelivered_stream,
 )
 
 from .behavior import OpenAIChatBehavior
 from .gemini_output import GeminiChatStreamOutput
 from .native_output import NativeChatStreamOutput
-from .output_cap import clamp_output_tokens, parse_output_token_cap
+from .output_cap import OutputCapMemory
 from .profiles import OpenAIChatProfile
 from .reasoning_details import StructuredReasoningStream
 from .request_policy import (
@@ -157,17 +161,6 @@ class _OpenAIChatCompletion:
     provider_input_tokens: int | None
 
 
-class _OpenAIChatFailureOutcome(StrEnum):
-    RETRY = "retry"
-    RAISE = "raise"
-
-
-@dataclass(frozen=True, slots=True)
-class _OpenAIChatFailureResolution:
-    outcome: _OpenAIChatFailureOutcome
-    failure: ExecutionFailure | None = None
-
-
 def _reserved_anthropic_tool_ids(request: MessagesRequest) -> frozenset[str]:
     """Return prior tool-use IDs that generated output must not reuse."""
     return frozenset(
@@ -176,6 +169,60 @@ def _reserved_anthropic_tool_ids(request: MessagesRequest) -> frozenset[str]:
         if isinstance(message.content, list)
         for block in message.content
         if isinstance(block, ContentBlockToolUse) and block.id.strip()
+    )
+
+
+def _sdk_create_body(create_body: dict[str, Any]) -> dict[str, Any]:
+    """Move fields the SDK does not declare into ``extra_body``."""
+    sdk_fields = CompletionCreateParamsStreaming.__annotations__
+    passthrough = {"extra_body", "extra_headers"}
+    extras = {
+        key: value
+        for key, value in create_body.items()
+        if key not in sdk_fields and key not in passthrough
+    }
+    sent = {
+        key: value
+        for key, value in create_body.items()
+        if key in sdk_fields or key in passthrough
+    }
+    if extras:
+        sent["extra_body"] = {**extras, **sent.get("extra_body", {})}
+    return sent
+
+
+def _correction_steps(
+    provider_name: str, behavior: OpenAIChatBehavior, output_caps: OutputCapMemory
+) -> tuple[CorrectionStep, ...]:
+    """Chat's own corrections, in the order they are tried."""
+
+    def without_stream_usage(rejection: Rejection) -> JsonObject | None:
+        if not is_stream_usage_rejection(rejection.error):
+            return None
+        corrected = clone_without_stream_usage(rejection.body)
+        if corrected is not None:
+            logger.warning(
+                "{}_STREAM: retrying without stream_options.include_usage "
+                "after upstream rejection",
+                provider_name,
+            )
+        return corrected
+
+    return (
+        CorrectionStep(None, output_caps.correct),
+        CorrectionStep("stream_usage", without_stream_usage),
+        CorrectionStep(
+            "provider_specific",
+            lambda rejection: behavior.retry_request_body(
+                rejection.error, rejection.body
+            ),
+        ),
+        CorrectionStep(
+            "provider_late",
+            lambda rejection: behavior.retry_after_standard_corrections(
+                rejection.error, rejection.body
+            ),
+        ),
     )
 
 
@@ -529,7 +576,10 @@ class OpenAIChatTransport:
         self._endpoint_transport = endpoint_transport
         self._api_key_provider = api_key_provider
         self._validate_prepared_body = validate_prepared_body
-        self._model_output_caps: dict[str, int] = {}
+        self._output_caps = OutputCapMemory(self._provider_name)
+        self._correction_steps = _correction_steps(
+            self._provider_name, behavior, self._output_caps
+        )
 
     def _log_stream_transport_error(
         self,
@@ -631,261 +681,120 @@ class OpenAIChatTransport:
             tool_adapter=translated.tool_adapter,
         )
 
-    async def _create_stream(
+    async def _prepare_create(
         self,
         body: dict,
-        request_recovery: RequestRecovery,
         operation_kind: ProviderOperationKind,
         *,
-        corrections: RequestCorrections | None = None,
+        corrections: RequestCorrector,
         endpoint: RequestEndpoint | None = None,
         request_client: OpenAIRequestClient | None = None,
         extra_headers: Mapping[str, str] | None = None,
-        on_event: Callable[[Any], None] | None = None,
         on_origin: Callable[[ReplayOrigin], None] | None = None,
         call_replay: tuple[CallReplay, ...] = (),
         native_chat: bool = False,
-    ) -> tuple[Any, dict, ProviderAttempt, dict]:
-        """Create a streaming chat completion with bounded request fallbacks."""
-        execution = request_recovery.execution
-        body = self._apply_learned_output_cap(body)
-        if corrections is None:
-            corrections = RequestCorrections("chat")
-
-        while execution.can_attempt:
-            attempt = await execution.open_attempt(operation_kind)
-            stream: Any | None = None
-            retain_attempt = False
-            create_body = body
-            validating = False
-            try:
-                create_body = cast(
-                    dict[str, Any],
-                    resolve_history_overrides(
-                        body
-                        if native_chat
-                        else self._behavior.prepare_create_body(body)
-                    ),
-                )
-                client = self._client
-                if endpoint is not None:
-                    assert request_client is not None
-                    client = request_client.for_endpoint(
-                        self._client, await endpoint.resolve()
-                    )
-                elif self._api_key_provider is not None:
-                    # A borrowed view pins the same credential for provenance and
-                    # inference, without owning or closing the provider's HTTP pool.
-                    client = self._client.with_options(
-                        api_key=await self._api_key_provider()
-                    )
-                if extra_headers or endpoint is not None:
-                    create_body = create_body.copy()
-                    create_body["extra_headers"] = {
-                        **(create_body.get("extra_headers") or {}),
-                        **(extra_headers or {}),
-                        **(
-                            request_client.openai_headers()
-                            if request_client is not None
-                            else {}
-                        ),
-                    }
-                origin = replay_origin(
-                    self._provider_name,
-                    "chat",
-                    str(create_body["model"]),
-                    client=client,
-                    endpoint=endpoint.snapshot if endpoint is not None else None,
-                )
-                if on_origin is not None:
-                    on_origin(origin)
-                create_body = cast(
-                    dict[str, Any],
-                    corrections.prepare_history(
-                        create_body,
-                        origin,
-                        self._history_cache,
-                        reasoning_field=self._profile.request_policy.reasoning_replay.value,
-                        structured_details=self._profile.structured_reasoning_details,
-                        native_chat=native_chat,
-                        continuation=operation_kind
-                        is ProviderOperationKind.CONTINUATION,
-                        finalize=lambda projected, origin=origin: (
-                            self._behavior.prepare_history_body(
-                                cast(
-                                    dict[str, Any],
-                                    apply_call_replay(projected, origin, call_replay),
-                                )
-                                if call_replay
-                                else projected,
-                                origin,
-                            )
-                        ),
-                    ),
-                )
-                if self._validate_prepared_body is not None:
-                    validating = True
-                    await self._validate_prepared_body(create_body)
-                    validating = False
-
-                def observed(event: Any) -> None:
-                    if (
-                        getattr(event, "choices", None)
-                        or getattr(event, "usage", None) is not None
-                    ):
-                        corrections.accepted_history()
-                    if on_event is not None:
-                        on_event(event)
-
-                if native_chat:
-                    sdk_fields = CompletionCreateParamsStreaming.__annotations__
-                    extras = {
-                        key: value
-                        for key, value in create_body.items()
-                        if key not in sdk_fields
-                        and key not in {"extra_body", "extra_headers"}
-                    }
-                    create_body = {
-                        key: value
-                        for key, value in create_body.items()
-                        if key in sdk_fields or key in {"extra_body", "extra_headers"}
-                    }
-                    if extras:
-                        create_body["extra_body"] = {
-                            **extras,
-                            **create_body.get("extra_body", {}),
-                        }
-                stream = OpenAIStreamAdapter(
-                    await client.chat.completions.create(
-                        **create_body,
-                        stream=True,
-                    ),
-                    read_timeout_s=self._read_timeout_s,
-                    on_event=observed,
-                )
-                if not native_chat:
-                    stream = self._behavior.normalize_stream(stream, body)
-                retain_attempt = True
-                return stream, body, attempt, create_body
-            except asyncio.CancelledError:
-                raise
-            except Exception as error:
-                if validating:
-                    # No upstream response occurred. Abandon the permit without
-                    # teaching correction or recovery state about a rejection.
-                    raise
-                retry_body = await request_recovery.retry_request(
-                    error,
-                    provider_authentication_status(error),
-                    attempt,
-                    body,
-                    operation_kind=operation_kind,
-                    propose_correction=partial(
-                        corrections.next_body,
-                        error,
-                        body,
-                        sent_body=create_body,
-                        reasoning_error=error,
-                        reasoning_sent_body=create_body,
-                        after_common=partial(
-                            self._next_chat_retry_body,
-                            error,
-                            body,
-                            sent_body=create_body,
-                        ),
-                    ),
-                )
-                if retry_body is not None:
-                    body = self._apply_learned_output_cap(retry_body)
-                    continue
-                decision = await attempt.fail(
-                    error,
-                    provider_failure_override=self._behavior.failure_override,
-                )
-                if not decision.retry_allowed:
-                    if decision.error is not error:
-                        raise decision.error from error
-                    raise
-            finally:
-                if not retain_attempt:
-                    try:
-                        if stream is not None:
-                            await close_provider_stream(
-                                stream,
-                                active_error=sys.exception(),
-                                provider_name=self._provider_name,
-                                request_id=execution.request_id,
-                            )
-                    finally:
-                        await attempt.aclose()
-
-        if execution.last_failure is not None:
-            raise execution.last_failure
-        raise RuntimeError("provider execution ended without a final error")
-
-    def _next_chat_retry_body(
-        self,
-        error: Exception,
-        body: dict,
-        used_retry_kinds: set[str],
-        *,
-        sent_body: Mapping[str, Any] | None = None,
-    ) -> dict | None:
-        retry_body = self._retry_body_for_output_cap(error, body)
-        if retry_body is not None:
-            return retry_body
-
-        if "stream_usage" not in used_retry_kinds and is_stream_usage_rejection(error):
-            retry_body = clone_without_stream_usage(body)
-            if retry_body is not None:
-                used_retry_kinds.add("stream_usage")
-                logger.warning(
-                    "{}_STREAM: retrying without stream_options.include_usage "
-                    "after upstream rejection",
-                    self._provider_name,
-                )
-                return retry_body
-
-        if "provider_specific" not in used_retry_kinds:
-            retry_body = self._behavior.retry_request_body(error, body)
-            if retry_body is not None:
-                used_retry_kinds.add("provider_specific")
-                return retry_body
-
-        return self._behavior.retry_after_standard_corrections(
-            error, body, used_retry_kinds
+    ) -> tuple[dict, dict[str, Any], AsyncOpenAI]:
+        """Return the intended body, the body to send, and the client to send it."""
+        body = self._output_caps.clamp(body)
+        create_body = cast(
+            dict[str, Any],
+            resolve_history_overrides(
+                body if native_chat else self._behavior.prepare_create_body(body)
+            ),
         )
-
-    def _apply_learned_output_cap(self, body: dict) -> dict:
-        """Clamp output tokens to a previously learned cap for this model."""
-        model = body.get("model")
-        if not isinstance(model, str):
-            return body
-        cap = self._model_output_caps.get(model)
-        if cap is None:
-            return body
-        clamped = clamp_output_tokens(body, cap)
-        return clamped if clamped is not None else body
-
-    def _retry_body_for_output_cap(self, error: Exception, body: dict) -> dict | None:
-        """Learn an upstream output-token cap from a 400 and clamp for one retry."""
-        cap = parse_output_token_cap(error)
-        if cap is None:
-            return None
-        model = body.get("model")
-        if isinstance(model, str):
-            previous = self._model_output_caps.get(model)
-            cap = cap if previous is None else min(previous, cap)
-            self._model_output_caps[model] = cap
-        clamped = clamp_output_tokens(body, cap)
-        if clamped is None:
-            return None
-        logger.warning(
-            "{}_STREAM: clamping output tokens to {} after upstream cap rejection",
+        client = self._client
+        if endpoint is not None:
+            assert request_client is not None
+            client = request_client.for_endpoint(self._client, await endpoint.resolve())
+        elif self._api_key_provider is not None:
+            # A borrowed view pins the same credential for provenance and
+            # inference, without owning or closing the provider's HTTP pool.
+            client = self._client.with_options(api_key=await self._api_key_provider())
+        if extra_headers or endpoint is not None:
+            create_body = create_body.copy()
+            create_body["extra_headers"] = {
+                **(create_body.get("extra_headers") or {}),
+                **(extra_headers or {}),
+                **(
+                    request_client.openai_headers()
+                    if request_client is not None
+                    else {}
+                ),
+            }
+        origin = replay_origin(
             self._provider_name,
-            cap,
+            "chat",
+            str(create_body["model"]),
+            client=client,
+            endpoint=endpoint.snapshot if endpoint is not None else None,
         )
-        return clamped
+        if on_origin is not None:
+            on_origin(origin)
+        create_body = cast(
+            dict[str, Any],
+            corrections.prepare_history(
+                create_body,
+                origin,
+                self._history_cache,
+                reasoning_field=self._profile.request_policy.reasoning_replay.value,
+                structured_details=self._profile.structured_reasoning_details,
+                native_chat=native_chat,
+                continuation=operation_kind is ProviderOperationKind.CONTINUATION,
+                finalize=lambda projected, origin=origin: (
+                    self._behavior.prepare_history_body(
+                        cast(
+                            dict[str, Any],
+                            apply_call_replay(projected, origin, call_replay),
+                        )
+                        if call_replay
+                        else projected,
+                        origin,
+                    )
+                ),
+            ),
+        )
+        return body, create_body, client
+
+    async def _open_stream(
+        self,
+        scope: ProviderAttemptScope,
+        client: AsyncOpenAI,
+        create_body: dict[str, Any],
+        body: dict,
+        *,
+        corrections: RequestCorrector,
+        on_event: Callable[[Any], None] | None = None,
+        native_chat: bool = False,
+    ) -> Any:
+        """Open one streaming chat completion owned by an admitted attempt."""
+
+        def observed(event: Any) -> None:
+            if (
+                getattr(event, "choices", None)
+                or getattr(event, "usage", None) is not None
+            ):
+                corrections.accepted_history()
+            if on_event is not None:
+                on_event(event)
+
+        stream = scope.retain(
+            OpenAIStreamAdapter(
+                await client.chat.completions.create(**create_body, stream=True),
+                read_timeout_s=self._read_timeout_s,
+                on_event=observed,
+                transform_event=self._behavior.normalize_chunk,
+            )
+        )
+        if native_chat:
+            return stream
+        return scope.adopt(self._behavior.normalize_stream(stream, body))
+
+    def _corrector(
+        self, reasoning: ReasoningCorrection | None = None
+    ) -> RequestCorrector:
+        return RequestCorrector(
+            "chat", reasoning=reasoning, steps=self._correction_steps
+        )
 
     def stream_chat(
         self,
@@ -1190,7 +1099,7 @@ class _OpenAIChatStreamRunner:
         if not self._native_chat:
             request_stream_usage(body)
         output_reasoning = self._reasoning.output_enabled
-        corrections = RequestCorrections("chat", self._reasoning_correction)
+        corrections = self._transport._corrector(self._reasoning_correction)
         trace_event(
             lambda: {"body": provider_chat_body_snapshot(body)},
             stage="provider",
@@ -1205,10 +1114,28 @@ class _OpenAIChatStreamRunner:
             tool_count=len(body.get("tools", [])),
         )
 
+        resolver = StreamFailureResolver(
+            StreamFailurePolicy(
+                provider_name=tag,
+                read_timeout_s=self._transport._read_timeout_s,
+                request_id=self._request_id,
+                failure_override=self._transport._behavior.failure_override,
+                trace_error_message=self._transport._log_api_error_tracebacks,
+                report_terminal_error=partial(
+                    self._transport._log_stream_transport_error,
+                    tag,
+                    req_tag,
+                    request_id=self._request_id,
+                ),
+            ),
+            recovery=request_recovery,
+            continuation=continuation_request,
+        )
         source: SourceRecoveryState | None = None
         while True:
             presenter = self._new_stream_presenter(output_reasoning=output_reasoning)
             source = SourceRecoveryState(execution, previous=source)
+            sent_body = body
 
             def observe_chunk(
                 chunk: Any,
@@ -1257,26 +1184,43 @@ class _OpenAIChatStreamRunner:
                 )
 
             scope: ProviderAttemptScope | None = None
+            validating = False
             try:
-                stream, body, attempt, sent_body = await self._transport._create_stream(
+                if not execution.can_attempt:
+                    if execution.last_failure is not None:
+                        raise execution.last_failure
+                    raise RuntimeError("provider execution ended without a final error")
+                scope = ProviderAttemptScope(
+                    await execution.open_attempt(operation_kind),
+                    provider_name=tag,
+                    request_id=self._request_id,
+                )
+                body, sent_body, client = await self._transport._prepare_create(
                     body,
-                    request_recovery,
                     operation_kind,
                     corrections=corrections,
                     endpoint=self._endpoint,
                     request_client=self._request_client,
                     extra_headers=self._extra_headers,
-                    on_event=observe_chunk,
                     on_origin=partial(setattr, presenter.output, "replay_origin"),
                     call_replay=self._call_replay,
                     native_chat=self._native_chat,
                 )
-                scope = ProviderAttemptScope(
-                    attempt,
-                    provider_name=tag,
-                    request_id=self._request_id,
+                if self._transport._validate_prepared_body is not None:
+                    validating = True
+                    await self._transport._validate_prepared_body(sent_body)
+                    validating = False
+                if self._native_chat:
+                    sent_body = _sdk_create_body(sent_body)
+                stream = await self._transport._open_stream(
+                    scope,
+                    client,
+                    sent_body,
+                    body,
+                    corrections=corrections,
+                    on_event=observe_chunk,
+                    native_chat=self._native_chat,
                 )
-                stream = scope.retain(stream)
                 presenter.bind_tool_argument_aliases(self._tool_argument_aliases)
                 async for chunk in stream:
                     if not scope.attempt.accepted:
@@ -1295,6 +1239,10 @@ class _OpenAIChatStreamRunner:
             except asyncio.CancelledError, GeneratorExit:
                 raise
             except Exception as error:
+                if validating:
+                    # No upstream response occurred. Abandon the permit without
+                    # teaching correction or recovery state about a rejection.
+                    raise
                 if not (
                     isinstance(error, ExecutionFailure)
                     and error.stream_context
@@ -1302,65 +1250,37 @@ class _OpenAIChatStreamRunner:
                 ):
                     for output in presenter.abandon():
                         yield output
-                if scope is not None:
-                    corrected_body = await request_recovery.retry_request(
-                        error,
-                        provider_authentication_status(error),
-                        scope.attempt,
-                        body,
+                resolution = await resolver.resolve(
+                    StreamFailure(
+                        error=error,
+                        scope=scope,
+                        body=body,
                         operation_kind=operation_kind,
                         normal_stop_seen=presenter.normal_stop_seen,
-                        propose_correction=partial(
-                            corrections.next_body,
-                            error,
-                            body,
-                            sent_body=sent_body,
-                            reasoning_error=error,
-                            reasoning_sent_body=sent_body,
-                        ),
-                    )
-                    if corrected_body is not None:
-                        body = corrected_body
-                        continue
-                if (
-                    execution.delivery is not None
-                    and execution.delivery.content_released
-                ):
-                    if scope is not None:
-                        await scope.aclose(active_error=error)
-                    recovered = public_recovery(
-                        execution,
-                        body=body,
-                        request=continuation_request,
-                        retryable=is_retryable_stream_error(error),
-                        normal_stop_seen=presenter.normal_stop_seen,
                         source=source,
+                        propose_correction=partial(
+                            corrections.correct, Rejection(error, body, sent_body)
+                        ),
+                        failure_payload=presenter.output.failure_payload,
                     )
-                    if recovered is not None:
-                        if recovered.body is None:
-                            return
-                        body = recovered.body
+                )
+                match resolution:
+                    case Retry(body=next_body):
+                        body = next_body
+                        continue
+                    case Continue(body=next_body):
+                        body = next_body
                         operation_kind = ProviderOperationKind.CONTINUATION
-                        corrections = RequestCorrections(
-                            "chat", self._reasoning_correction
+                        corrections = self._transport._corrector(
+                            self._reasoning_correction
                         )
                         continue
-                resolution = await self._resolve_attempt_failure(
-                    error=error,
-                    scope=scope,
-                    presenter=presenter,
-                    source=source,
-                    body=body,
-                    request_recovery=request_recovery,
-                    req_tag=req_tag,
-                )
-                if resolution.outcome is _OpenAIChatFailureOutcome.RETRY:
-                    continue
-                if resolution.failure is None:
-                    raise AssertionError(
-                        "raise resolution requires a failure"
-                    ) from error
-                raise resolution.failure from error
+                    case Handoff():
+                        return
+                    case Fail(error=failure):
+                        raise failure from error
+                    case _:
+                        assert_never(resolution)
             finally:
                 if scope is not None:
                     await scope.aclose(active_error=sys.exception())
@@ -1448,105 +1368,6 @@ class _OpenAIChatStreamRunner:
         for event in presenter.terminal_events(usage=usage):
             for out_event in packet(event):
                 yield out_event
-
-    async def _resolve_attempt_failure(
-        self,
-        *,
-        error: Exception,
-        scope: ProviderAttemptScope | None,
-        presenter: _ChatStreamPresenter,
-        source: SourceRecoveryState,
-        body: dict[str, Any],
-        request_recovery: RequestRecovery,
-        req_tag: str,
-    ) -> _OpenAIChatFailureResolution:
-        """Resolve one failed generation attempt without owning retry policy."""
-        execution = request_recovery.execution
-        attempt_failure = None
-        if scope is not None and not scope.attempt.accepted:
-            if (
-                presenter.normal_stop_seen
-                and execution.delivery is not None
-                and not execution.delivery.content_released
-            ):
-                # The raw stop proves acceptance even if normalization rejected it.
-                # Do not reserve a retry probe for this terminal execution.
-                await scope.attempt.accept()
-            else:
-                attempt_failure = await scope.fail(
-                    error,
-                    provider_failure_override=self._transport._behavior.failure_override,
-                )
-                error = attempt_failure.error
-
-        retryable = (
-            attempt_failure.retryable
-            if attempt_failure is not None
-            else is_retryable_stream_error(error)
-        )
-        retry_allowed = (
-            can_retry_undelivered_stream(
-                execution.delivery,
-                retryable=retryable,
-                attempts_remaining=execution.attempts_remaining,
-                normal_stop_seen=presenter.normal_stop_seen,
-            )
-            and scope is not None
-        )
-        tag = self._transport._provider_name
-        if retry_allowed:
-            trace_event(
-                stage="provider",
-                event="provider.recovery.early_retry",
-                source="provider",
-                provider=tag,
-                request_id=self._request_id,
-                attempts_started=execution.attempts_started,
-                max_attempts=execution.max_attempts,
-                retryable=True,
-            )
-            return _OpenAIChatFailureResolution(outcome=_OpenAIChatFailureOutcome.RETRY)
-
-        reported_error = underlying_provider_error(error)
-        self._transport._log_stream_transport_error(
-            tag,
-            req_tag,
-            reported_error,
-            request_id=self._request_id,
-        )
-        failure = classify_provider_failure(
-            error,
-            provider_name=tag,
-            read_timeout_s=self._transport._read_timeout_s,
-            request_id=self._request_id,
-            provider_failure_override=self._transport._behavior.failure_override,
-        )
-        error_trace: dict[str, Any] = {
-            "stage": "provider",
-            "event": "provider.response.error",
-            "source": "provider",
-            "provider": tag,
-            "request_id": self._request_id,
-            "exc_type": type(reported_error).__name__,
-            "failure_kind": failure.kind.value,
-            "status_code": failure.status_code,
-            "provider_retryable": failure.retryable,
-        }
-        if self._transport._log_api_error_tracebacks:
-            error_trace["error_message"] = failure.message
-        trace_event(**error_trace)
-
-        return _OpenAIChatFailureResolution(
-            outcome=_OpenAIChatFailureOutcome.RAISE,
-            failure=public_stream_failure(
-                failure,
-                source=source,
-                body=body,
-                protocol="chat",
-                normal_stop_seen=presenter.normal_stop_seen,
-                responses_failure_payload=presenter.output.failure_payload(failure),
-            ),
-        )
 
     def _new_stream_presenter(self, *, output_reasoning: bool) -> _ChatStreamPresenter:
         def extra_reasoning_events(

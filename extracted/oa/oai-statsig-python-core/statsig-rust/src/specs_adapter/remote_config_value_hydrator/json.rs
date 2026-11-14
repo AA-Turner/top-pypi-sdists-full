@@ -1,4 +1,4 @@
-use std::collections::{HashMap, hash_map::Entry};
+use std::collections::{HashMap, HashSet, hash_map::Entry};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
@@ -17,7 +17,9 @@ use crate::interned_values::InternedStore;
 use crate::networking::ResponseData;
 use crate::specs_response::parse_options::{SpecsResponseParseOptions, with_parse_options};
 use crate::specs_response::proto_specs::VerifiedRemoteConfigValues;
-use crate::specs_response::spec_types::{Spec, SpecsResponseFull, SpecsResponseNoUpdates};
+use crate::specs_response::spec_types::{
+    Spec, SpecsResponseFull, SpecsResponseNoUpdates, UnavailableValues,
+};
 use crate::specs_response::specs_hash_map::{
     INLINE_ONLY_ENTITY_MAPS, SpecDecodeStats, SpecPointer, decode_raw_dynamic_configs,
     may_mention_remote_metadata, raw_map_has_unhydrated_remote_config_metadata, track_spec_decodes,
@@ -33,12 +35,21 @@ use super::metadata::{
 };
 use super::telemetry::{HydrationPhase, HydrationResult};
 use super::verified_values::{VerifiedRemoteValue, VerifiedRemoteValues};
-use super::{HYDRATION_TIMEOUT, RemoteConfigValueHydrator, StoreHydrationOptions, TAG};
+use super::{
+    HYDRATION_TIMEOUT, PartialHydration, RemoteConfigValueHydrator, StoreHydrationOptions, TAG,
+};
 
 pub(crate) struct HydratedJsonStoreUpdate {
     pub(crate) values: Box<SpecsResponseFull>,
     pub(crate) spec_decode_stats: SpecDecodeStats,
     pub(crate) verified_remote_values: VerifiedRemoteConfigValues,
+    pub(crate) partial_hydration: Option<PartialHydration>,
+}
+
+struct HydratedJsonSnapshot {
+    values: Box<SpecsResponseFull>,
+    verified: VerifiedRemoteConfigValues,
+    unavailable: UnavailableValues,
 }
 
 struct JsonConfigEntry {
@@ -60,6 +71,8 @@ struct PreparedJsonStoreUpdate {
     input: JsonHydrationInput,
     verified_values: VerifiedRemoteValues,
     downloaded_bodies: HashMap<String, Arc<Vec<u8>>>,
+    failed_values: HashMap<String, HydrationFailureReason>,
+    needs_sidecar_retry: bool,
     // Keep admission until the raw bodies are applied or this preparation is
     // cancelled.
     _download_reservation: Option<OwnedSemaphorePermit>,
@@ -105,23 +118,34 @@ pub(super) async fn hydrate_response_for_store(
     hydration_result: &mut HydrationResult<'_>,
 ) -> Result<Option<HydratedJsonStoreUpdate>, StatsigErr> {
     let started_at = Instant::now();
-    let prepared = timeout(
-        HYDRATION_TIMEOUT,
-        prepare_response_for_store(
-            hydrator,
-            data,
-            options,
-            current_verified_values,
-            response_has_updates,
-            hydration_result,
-        ),
-    )
-    .await
-    .map_err(|_| hydrator.total_timeout_error(started_at, HydrationTimeoutStep::Response))??;
+    let partial_results_deadline = (options.allow_partial_full_response
+        && data.get_header_ref("x-deltas-used").is_none())
+    .then(|| super::cold_start_hydration_deadline(started_at));
+    let preparation = prepare_response_for_store(
+        hydrator,
+        data,
+        options,
+        current_verified_values,
+        response_has_updates,
+        hydration_result,
+        partial_results_deadline,
+    );
+    // A response-wide timeout would discard completed downloads on a partial update.
+    let prepared = if partial_results_deadline.is_some() {
+        preparation.await?
+    } else {
+        timeout(HYDRATION_TIMEOUT, preparation)
+            .await
+            .map_err(|_| {
+                hydrator.total_timeout_error(started_at, HydrationTimeoutStep::Response)
+            })??
+    };
     let Some(PreparedJsonStoreUpdate {
         input,
         verified_values,
         downloaded_bodies,
+        failed_values,
+        needs_sidecar_retry,
         _download_reservation,
     }) = prepared
     else {
@@ -140,18 +164,26 @@ pub(super) async fn hydrate_response_for_store(
                     data,
                     verified_values,
                     downloaded_bodies,
-                    options.capture_data_store_bytes,
+                    &failed_values,
+                    options.capture_data_store_bytes && !needs_sidecar_retry,
                 )
             })
         })
     });
-    let (snapshot, verified_by_config) = candidate?;
+    let snapshot = candidate?;
     hydrator.log_phase_latency(started_at.elapsed(), HydrationPhase::JsonApply);
-    hydration_result.log_hydration_success(reference_count, total_bytes);
+    if failed_values.is_empty() {
+        hydration_result.log_hydration_success(reference_count, total_bytes);
+    }
     Ok(Some(HydratedJsonStoreUpdate {
-        values: snapshot,
+        values: snapshot.values,
         spec_decode_stats,
-        verified_remote_values: verified_by_config,
+        verified_remote_values: snapshot.verified,
+        partial_hydration: PartialHydration::from_failures(
+            snapshot.unavailable,
+            failed_values,
+            needs_sidecar_retry,
+        ),
     }))
 }
 
@@ -162,6 +194,7 @@ async fn prepare_response_for_store(
     current_verified_values: &VerifiedRemoteConfigValues,
     response_has_updates: Option<&AtomicBool>,
     hydration_result: &mut HydrationResult<'_>,
+    partial_results_deadline: Option<tokio::time::Instant>,
 ) -> Result<Option<PreparedJsonStoreUpdate>, StatsigErr> {
     let started_at = Instant::now();
     let Some(input) = parse_json_hydration_input(data, options.source_url, hydration_result)?
@@ -193,9 +226,7 @@ async fn prepare_response_for_store(
             let Some(metadata) = incoming_metadata.get(sha.as_str()) else {
                 continue;
             };
-            if !value.matches_metadata(metadata)
-                || (options.capture_data_store_bytes && !value.can_reuse_json_sidecar())
-            {
+            if !value.matches_metadata(metadata) {
                 continue;
             }
             incoming_metadata.remove(sha.as_str());
@@ -215,9 +246,7 @@ async fn prepare_response_for_store(
             let Some(value) = values.get(sha) else {
                 continue;
             };
-            if value.matches_metadata(&reference.metadata)
-                && (!options.capture_data_store_bytes || value.can_reuse_json_sidecar())
-            {
+            if value.matches_metadata(&reference.metadata) {
                 verified_values.insert(sha.to_owned(), Arc::clone(value));
             }
         }
@@ -225,29 +254,69 @@ async fn prepare_response_for_store(
     let missing_references: Vec<_> = input
         .references
         .iter()
-        .filter(|reference| !verified_values.contains_key(reference.metadata.sha256.as_str()))
+        .filter(|reference| {
+            verified_values
+                .get(reference.metadata.sha256.as_str())
+                .is_none_or(|proof| {
+                    options.capture_data_store_bytes && !proof.can_reuse_json_sidecar()
+                })
+        })
         .cloned()
         .collect();
     hydrator.log_phase_latency(started_at.elapsed(), HydrationPhase::JsonParse);
-    // Charge only original bodies that will actually be downloaded. An update
-    // composed entirely of verified values must not wait for download capacity.
-    let _download_reservation = if missing_references.is_empty() {
-        None
+    let (_download_reservation, admission_failure) = if missing_references.is_empty() {
+        (None, None)
     } else {
         let missing_bytes = missing_references
             .iter()
             .map(|reference| reference.metadata.byte_length)
             .sum();
-        Some(hydrator.reserve_response_bytes(missing_bytes).await?)
+        let reservation = hydrator.reserve_response_bytes(missing_bytes);
+        if let Some(deadline) = partial_results_deadline {
+            match tokio::time::timeout_at(deadline, reservation).await {
+                Ok(Ok(permit)) => (Some(permit), None),
+                Ok(Err(error)) => {
+                    let reason = HydrationFailureReason::recoverable(&error).ok_or(error)?;
+                    (None, Some(reason))
+                }
+                Err(_) => {
+                    hydrator.total_timeout_error(started_at, HydrationTimeoutStep::PermitWait);
+                    (None, Some(HydrationFailureReason::TotalTimeout))
+                }
+            }
+        } else {
+            (Some(reservation.await?), None)
+        }
     };
-    let downloaded_bodies = hydrator
-        .download_all(missing_references)
-        .await
-        .inspect_err(|error| hydration_result.record_download_error(error))?;
+    let (downloaded_bodies, mut failed_values) = if let Some(reason) = admission_failure {
+        (
+            HashMap::new(),
+            missing_references
+                .into_iter()
+                .map(|reference| (reference.metadata.sha256.to_string(), reason))
+                .collect(),
+        )
+    } else {
+        hydrator
+            .download_all_allowing_fallback(missing_references, partial_results_deadline)
+            .await
+            .inspect_err(|error| hydration_result.record_download_error(error))?
+    };
+    if options.capture_data_store_bytes && !downloaded_bodies.is_empty() {
+        verified_values.retain(|sha, _| !downloaded_bodies.contains_key(sha));
+    }
+    let failed_download_count = failed_values.len();
+    failed_values.retain(|sha, _| !verified_values.contains_key(sha));
+    let needs_sidecar_retry = failed_values.len() < failed_download_count;
+    for &reason in failed_values.values() {
+        hydration_result.record_unavailable_blob(reason);
+    }
     Ok(Some(PreparedJsonStoreUpdate {
         input,
         verified_values,
         downloaded_bodies,
+        failed_values,
+        needs_sidecar_retry,
         _download_reservation,
     }))
 }
@@ -257,8 +326,9 @@ fn build_hydrated_json_snapshot(
     data: &mut ResponseData,
     mut verified_values: VerifiedRemoteValues,
     downloaded_bodies: HashMap<String, Arc<Vec<u8>>>,
+    failed_values: &HashMap<String, HydrationFailureReason>,
     capture_data_store_bytes: bool,
-) -> Result<(Box<SpecsResponseFull>, VerifiedRemoteConfigValues), StatsigErr> {
+) -> Result<HydratedJsonSnapshot, StatsigErr> {
     let JsonHydrationInput {
         mut payload,
         configs,
@@ -266,6 +336,9 @@ fn build_hydrated_json_snapshot(
         ..
     } = input;
     for reference in references {
+        if failed_values.contains_key(reference.metadata.sha256.as_str()) {
+            continue;
+        }
         let sha = reference.metadata.sha256.to_string();
         if let Entry::Vacant(entry) = verified_values.entry(sha) {
             let body = hydrated_value(&downloaded_bodies, entry.key())?;
@@ -276,6 +349,7 @@ fn build_hydrated_json_snapshot(
             entry.insert(value);
         }
     }
+    let capture_data_store_bytes = capture_data_store_bytes && failed_values.is_empty();
     // Parsed values own their backing; only datastore capture needs raw bodies.
     let downloaded_bodies = capture_data_store_bytes.then_some(downloaded_bodies);
     // The store decoder has always appended dynamic_configs after the other fields.
@@ -322,19 +396,23 @@ fn build_hydrated_json_snapshot(
         });
     }
     let mut verified_by_config = VerifiedRemoteConfigValues::new();
+    let mut unavailable = UnavailableValues::new();
     for config in remote_configs {
         let key = InternedString::from_str_ref(&config.name);
         let Some((spec, provenance, sidecar)) = hydrate_remote_json_spec(
             &key,
             &config.raw_spec,
             &verified_values,
+            failed_values,
+            &mut unavailable,
             downloaded_bodies.as_ref(),
         )?
         else {
             continue;
         };
         snapshot.dynamic_configs.insert(key.clone(), spec);
-        if !provenance.is_empty() {
+        // Even a proofless attempt blocks legacy checksum-only reuse on a later protobuf retry.
+        if !provenance.is_empty() || unavailable.contains_key(&key) {
             verified_by_config.insert(key, Arc::new(provenance));
         }
         if let (Some(sidecar), Some((_, ordinary_configs))) = (sidecar, data_store_json.as_mut()) {
@@ -350,7 +428,11 @@ fn build_hydrated_json_snapshot(
             .map_err(|error| StatsigErr::SerializationError(error.to_string()))?;
         data.replace_bytes(bytes);
     }
-    Ok((snapshot, verified_by_config))
+    Ok(HydratedJsonSnapshot {
+        values: snapshot,
+        verified: verified_by_config,
+        unavailable,
+    })
 }
 
 type HydratedJsonSpec = (SpecPointer, VerifiedRemoteValues, Option<Box<RawValue>>);
@@ -359,13 +441,20 @@ fn hydrate_remote_json_spec(
     key: &InternedString,
     config: &RawValue,
     verified_values: &VerifiedRemoteValues,
+    failed_values: &HashMap<String, HydrationFailureReason>,
+    unavailable: &mut UnavailableValues,
     capture_bodies: Option<&HashMap<String, Arc<Vec<u8>>>>,
 ) -> Result<Option<HydratedJsonSpec>, StatsigErr> {
     let Some(mut config) = parse_optional_raw_json_object(config)? else {
         return Ok(None);
     };
     let mut provenance = VerifiedRemoteValues::new();
-    let mut resolve_verified_value = |metadata: RemoteConfigValueMetadata| {
+    let mut unavailable_slots = HashSet::new();
+    let mut resolve_verified_value = |metadata: RemoteConfigValueMetadata, slot| {
+        if failed_values.contains_key(metadata.sha256.as_str()) {
+            unavailable_slots.insert(slot);
+            return Ok(None);
+        }
         let value = verified_values
             .get(metadata.sha256.as_str())
             .ok_or_else(|| {
@@ -381,15 +470,16 @@ fn hydrate_remote_json_spec(
             ));
         }
         provenance.insert(metadata.sha256.to_string(), Arc::clone(value));
-        Ok(Arc::clone(value))
+        Ok(Some(Arc::clone(value)))
     };
-    let remote_default_value = raw_json_default_metadata(&config)?
-        .map(&mut resolve_verified_value)
-        .transpose()?;
-    if remote_default_value.is_some() {
+    let remote_default_value = if let Some(metadata) = raw_json_default_metadata(&config)? {
+        let value = resolve_verified_value(metadata, None)?;
         config.insert("defaultValue".to_string(), raw_json_value(&())?);
         config.remove("remoteConfigMetadata");
-    }
+        value
+    } else {
+        None
+    };
     let mut rules = config
         .get("rules")
         .map(parse_optional_raw_json_array)
@@ -397,24 +487,28 @@ fn hydrate_remote_json_spec(
         .flatten();
     let mut remote_rule_values = Vec::new();
     if let Some(rules) = rules.as_mut() {
+        let mut rules_changed = false;
         for (rule_index, rule) in rules.iter_mut().enumerate() {
             let Some(mut rule_object) = parse_optional_raw_json_object(rule)? else {
                 continue;
             };
-            let value = rule_object
+            let Some(metadata) = rule_object
                 .get("remoteConfigMetadata")
                 .map(parse_raw_json_metadata)
                 .transpose()?
-                .map(&mut resolve_verified_value)
-                .transpose()?;
+            else {
+                continue;
+            };
+            let value = resolve_verified_value(metadata, Some(rule_index))?;
+            rule_object.insert("returnValue".to_string(), raw_json_value(&())?);
+            rule_object.remove("remoteConfigMetadata");
+            *rule = raw_json_value(&rule_object)?;
+            rules_changed = true;
             if let Some(value) = value {
-                rule_object.insert("returnValue".to_string(), raw_json_value(&())?);
-                rule_object.remove("remoteConfigMetadata");
-                *rule = raw_json_value(&rule_object)?;
                 remote_rule_values.push((rule_index, value));
             }
         }
-        if !remote_rule_values.is_empty() {
+        if rules_changed {
             config.insert("rules".to_string(), raw_json_value(rules)?);
         }
     }
@@ -426,6 +520,13 @@ fn hydrate_remote_json_spec(
         .map(|(name, value)| (name.as_str(), value.as_ref()));
     let mut spec = match Spec::deserialize(MapDeserializer::new(fields)) {
         Ok(spec) => spec,
+        Err(error) if !unavailable_slots.is_empty() => {
+            // A per-config blob failure can be isolated only after its rules and dependencies parse.
+            return Err(StatsigErr::JsonParseError(
+                TAG.to_string(),
+                error.to_string(),
+            ));
+        }
         Err(error) => {
             log_e!(TAG, "Failed to deserialize spec: {}", error);
             return Ok(None);
@@ -461,9 +562,13 @@ fn hydrate_remote_json_spec(
     } else {
         None
     };
-    let pointer =
+    let pointer = if unavailable_slots.is_empty() {
         matching_preloaded_json_spec(key, &spec, &remote_default_value, &remote_rule_values)
-            .unwrap_or_else(|| SpecPointer::from_spec(spec));
+            .unwrap_or_else(|| SpecPointer::from_spec(spec))
+    } else {
+        unavailable.insert(key.clone(), unavailable_slots);
+        SpecPointer::from_spec(spec)
+    };
     Ok(Some((pointer, provenance, sidecar)))
 }
 

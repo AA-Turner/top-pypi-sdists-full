@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import ast
-from pathlib import Path
 from types import SimpleNamespace
+from typing import (
+    TYPE_CHECKING,
+    cast,
+)
 from unittest.mock import (
     MagicMock,
     create_autospec,
@@ -14,6 +17,7 @@ import warnings
 import pytest
 
 from pytest_gremlins import plugin as plugin_module
+from pytest_gremlins import verdicts as verdicts_module
 from pytest_gremlins.cache.incremental import IncrementalCache
 from pytest_gremlins.control_run import (
     ControlRunOutcome,
@@ -22,12 +26,9 @@ from pytest_gremlins.control_run import (
 from pytest_gremlins.coverage.prioritized_selector import PrioritizedSelector
 from pytest_gremlins.instrumentation.gremlin import Gremlin
 from pytest_gremlins.plugin import (
-    MAX_SELECTION_IDS_IN_MESSAGE,
-    UNMAPPED_SELECTION_PREFIX,
     GremlinSession,
     _build_filtered_test_command,
     _build_test_hashes_for_gremlin,
-    _immediate_result_if_selection_unrunnable,
     _node_ids_for_tests,
     _report_unmapped_selections,
     _run_batch_mutation_testing,
@@ -41,6 +42,16 @@ from pytest_gremlins.reporting.results import (
     GremlinResultStatus,
 )
 from pytest_gremlins.reporting.score import MutationScore
+from pytest_gremlins.verdicts import (
+    MAX_SELECTION_IDS_IN_MESSAGE,
+    UNMAPPED_SELECTION_PREFIX,
+    _immediate_result_if_selection_unrunnable,
+)
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from pytest_gremlins.cache.types import CachedGremlinResult
 
 MAPPED = 'tests/test_m.py::test_mapped'
 UNMAPPED = 'tests/test_m.py::test_unmapped[A]'
@@ -277,7 +288,7 @@ class DescribeControlRunIgnoresUnrunnableGremlins:
         control = create_autospec(
             run_control, return_value=ControlRunOutcome(loads_cleanly=True, output='', seconds=0.1)
         )
-        monkeypatch.setattr(plugin_module, 'run_control', control)
+        monkeypatch.setattr(verdicts_module, 'run_control', control)
         monkeypatch.setattr(plugin_module, '_get_rootdir', lambda _: tmp_path)
         session = _session([UNMAPPED])
         session.instrumented_dir = tmp_path
@@ -297,7 +308,10 @@ class DescribeCacheKeyAfterTheMarkerFix:
         after = GremlinSession(test_node_ids={parametrized: parametrized}, test_hashes={'t.py': 'file-hash'})
         cache = IncrementalCache(tmp_path)
         cache.cache_result(
-            'g001', 'src', _build_test_hashes_for_gremlin([parametrized], before), {'status': 'survived'}
+            'g001',
+            'src',
+            _build_test_hashes_for_gremlin([parametrized], before),
+            cast('CachedGremlinResult', {'status': 'survived'}),
         )
 
         replayed = cache.get_cached_result('g001', 'src', _build_test_hashes_for_gremlin([parametrized], after))

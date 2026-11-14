@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: connector-sdk-types
-Version: 0.83.0
+Version: 0.84.0
 Summary: Generated types for the Lumos Connector SDK
 Author-email: teamlumos <security@lumos.com>
 License-Expression: Apache-2.0
-Project-URL: Documentation, https://developers.lumos.com/reference/the-lumos-connector-api
+Project-URL: Documentation, https://docs.lumos.com/reference/the-lumos-connector-api
 Keywords: integrations,types
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python

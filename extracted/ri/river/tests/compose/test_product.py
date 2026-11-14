@@ -10,8 +10,7 @@ from river import compat, compose, datasets, preprocessing, stream
 
 def test_issue_1238():
     """
-
-    https://github.com/online-ml/river/issues/1238
+    See https://github.com/online-ml/river/issues/1238.
 
     >>> from river import compose
 
@@ -35,8 +34,7 @@ def test_issue_1238():
 
 def test_issue_1243():
     """
-
-    https://github.com/online-ml/river/issues/1243
+    See https://github.com/online-ml/river/issues/1243.
 
     >>> import random
     >>> import pandas as pd
@@ -45,7 +43,7 @@ def test_issue_1243():
     >>> rng = random.Random(42)
     >>> X = [{'x': rng.uniform(8, 12), 'z': 1 } for _ in range(6)]
 
-    >>> X = pd.DataFrame.from_dict(X)
+    >>> X = pd.DataFrame(X)
     >>> group1 = compose.Select('z')
     >>> group2 = compose.Select('x') | preprocessing.StandardScaler()
     >>> model = group1 + group2 + group1 * group2
@@ -64,8 +62,7 @@ def test_issue_1243():
 
 def test_issue_1253():
     """
-
-    https://github.com/online-ml/river/issues/1253
+    See https://github.com/online-ml/river/issues/1253.
 
     >>> import numpy as np
     >>> import pandas as pd
@@ -187,7 +184,6 @@ def test_suffixing():
 
 def test_one_many_consistent():
     """Checks that using transform_one or transform_many produces the same result."""
-
     product = (
         compose.Select("ordinal_date")
         + compose.Select("gallup", "ipsos") * compose.Select("morning_consult")

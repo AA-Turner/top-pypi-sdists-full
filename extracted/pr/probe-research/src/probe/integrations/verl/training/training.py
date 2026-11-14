@@ -21,13 +21,25 @@ from probe.sdk.run.samples.points import (
 )
 
 from .loss import CRITIC_PREFIX, ROW_FIELD, ReductionWatch, add_geo_mean_pg, read_geo_mean_fields, summarize_loss_call
-from .plan import MEGATRON_REASON, SUPPORTED_LOSS_MODES, build_critic_plan
+from .plan import (
+    DISTILLATION_MODES, DISTILLATION_POLICY_MODES, SUPPORTED_LOSS_MODES, build_critic_plan, get_megatron_reason,
+)
 
 logger = logging.getLogger(__name__)
 
 #: Where `TrainingWorker` lives (`workers/engine_workers.py:112`) and verl's own loss (`workers/utils/losses.py:56`).
 WORKER_MODULE = "verl.workers.engine_workers"
 LOSSES_MODULE = "verl.workers.utils.losses"
+#: The actor losses `init_model` may set (`engine_workers.py:682-689`), by module: score centering's and
+#: distillation's both end in `ppo_loss` (T2c).
+ACTOR_LOSSES = {
+    LOSSES_MODULE: "ppo_loss",
+    "verl.trainer.ppo.score_centering": "score_centering_ppo_loss",
+    "verl.trainer.distillation.losses": "distillation_ppo_loss",
+}
+#: The keyword a loss is called with when the engine runs it as its logits processor (`transformer_impl.py:1342`,
+#: `:1440`): top-k distillation and score centering; it returns per-token tensors, not (loss, metrics).
+LOGITS_PROCESSOR_ARGUMENT = "student_logits"
 #: The non-tensor field the driver puts on a step's batch (`driver.stamp_update_batch`): JSON of `StepFacts`.
 STEP_FIELD = "probe_points"
 #: Each worker rank writes as its own producer, never declared on the plan (sample capture is unchanged); a critic's
@@ -132,11 +144,13 @@ class VerlTraining:
         """The worker's loss function, recording each call made inside an update (an eval or log-prob pass that
         computes a loss outside one records nothing, D6). verl's return value is handed back as it came."""
 
+        signature = _get_signature(loss_function)
+
         @functools.wraps(loss_function)
         def call_loss(*args: Any, **kwargs: Any) -> Any:
             current = getattr(self._local, "current", None)
-            if current is None:
-                return loss_function(*args, **kwargs)
+            if current is None or is_logits_processor_call(signature, args, kwargs):
+                return loss_function(*args, **kwargs)  # a logits-processor call is no micro-batch: never counted
             index = current.log.count_call()  # counted before anything can fail: a lost call reads missing
             watch = ReductionWatch()
             calls = self.guard.call(WHAT, watch.start)
@@ -177,14 +191,13 @@ class VerlTraining:
             self.critic_sender.start(f"{CRITIC_PRODUCER_PREFIX}{rank}")
             self._send_critic_plan(worker, rank, None)
         else:
-            coefficients = {"actor/pg_loss": 1.0, "actor/entropy_loss": -float(getattr(config, "entropy_coeff", 0.0))}
-            if getattr(config, "use_kl_loss", False):
-                coefficients["actor/kl_loss"] = float(config.kl_loss_coef)
+            coefficients = get_actor_coefficients(worker.loss_fn)
             self.sender.start(f"{PRODUCER_PREFIX}{rank}")  # joins in the background while the step trains
         facts = StepFacts(step=int(sent["step"]), keys=list(sent["keys"]), updates_in_step=sent.get("updates_in_step"),
                           reduction=sent.get("reduction"), rank=rank, ranks=ranks,
                           coefficients=coefficients, role=role,
-                          geo_mean_config=config if get_loss_mode(config) == "geo_mean" else None)  # fmt: skip
+                          geo_mean_config=config if get_loss_mode(config) == "geo_mean" else None,
+                          next_update=int(sent.get("first_update") or 0))  # fmt: skip
         self.steps[id(worker)] = facts
         return facts
 
@@ -262,7 +275,7 @@ class VerlTraining:
     def _send_stop_reason(self, rank: int | None, reason: str) -> None:
         """The worker group's first process says once, under `*`, why this run records no per-sample training metrics,
         so every key's read answers "unsupported" with it (no other process joins the run). Never for a critic (its
-        value loss says nothing about the policy's); an actor's distillation or score-centering loss is the run's."""
+        value loss says nothing about the policy's); an actor's unproven loss or mode is the run's."""
         if rank != 0 or self._has_declared_stop:
             return
         self._has_declared_stop = True
@@ -272,13 +285,16 @@ class VerlTraining:
 
 def get_unsupported_reason(worker: Any) -> str | None:
     """Why this worker's update path is one the hook does not support (`plan.UNSUPPORTED` says why each is out): an
-    actor's loss must be verl's `ppo_loss` in a proven mode (`plan.LOSS_MODES`), a critic's verl's `value_loss`."""
+    actor's loss must be verl's `ppo_loss` (or score centering's or distillation's, `ACTOR_LOSSES`) in a proven mode
+    (`plan.LOSS_MODES`, `plan.DISTILLATION_MODES`), a critic's verl's `value_loss`."""
     loss_function = getattr(worker.loss_fn, HOOKED_LOSS, worker.loss_fn)
     wanted = "value_loss" if is_critic(worker) else "ppo_loss"
     expected = getattr(sys.modules.get(LOSSES_MODULE), wanted, None)
     if expected is None:
         return f"verl's losses module ({LOSSES_MODULE}) is not loaded, so its {wanted} cannot be recognised"
-    if getattr(loss_function, "func", None) is not expected:
+    accepted = [expected] if wanted == "value_loss" else [
+        found for module, name in ACTOR_LOSSES.items() if (found := getattr(sys.modules.get(module), name, None))]
+    if not any(getattr(loss_function, "func", None) is loss for loss in accepted):
         func = getattr(loss_function, "func", loss_function)
         name = getattr(func, "__qualname__", None) or type(func).__name__
         found = ".".join(filter(None, (getattr(func, "__module__", None), name)))
@@ -286,12 +302,60 @@ def get_unsupported_reason(worker: Any) -> str | None:
     mode = get_loss_mode(_get_loss_config(loss_function))
     if wanted == "ppo_loss" and mode not in SUPPORTED_LOSS_MODES:
         return f"policy loss mode {mode!r}"
+    distillation = _get_distillation_settings(loss_function)
+    if distillation is not None:
+        reason = get_distillation_reason(distillation)
+        if reason is not None:
+            return reason
     engine_module = type(worker.engine).__module__
-    if "megatron" in engine_module:
-        return f"the Megatron engine: {MEGATRON_REASON}"
+    if "megatron" in engine_module:  # only the configurations a GPU proof ran (D18), read off this worker at run time
+        reason = get_megatron_reason(getattr(worker, "engine_config", None), getattr(worker, "model_config", None),
+                                     CRITIC if wanted == "value_loss" else ACTOR,
+                                     read_data_parallel_size(worker.engine))  # fmt: skip
+        return None if reason is None else f"the Megatron engine: {reason}"
     if "fsdp" not in engine_module:
         return f"engine {type(worker.engine).__name__} (only the FSDP engine is proven)"
     return get_critic_path_reason(worker) if wanted == "value_loss" else None
+
+
+def get_distillation_reason(settings: Any) -> str | None:
+    """Why this distillation loss sends nothing: a `loss_mode` or a policy-gradient mode no run proved."""
+    mode = str(getattr(settings, "loss_mode", "k3"))
+    if mode not in DISTILLATION_MODES:
+        return f"distillation loss mode {mode!r}"
+    policy_mode = str(getattr(settings, "policy_loss_mode", "vanilla"))
+    if getattr(settings, "use_policy_gradient", False) and policy_mode not in DISTILLATION_POLICY_MODES:
+        return f"distillation policy loss mode {policy_mode!r} (use_policy_gradient)"
+    return None
+
+
+def get_actor_coefficients(loss_function: Any) -> dict[str, float]:
+    """How each actor term enters the loss (`losses.py:160-178`); under distillation (`distillation_ppo_loss`,
+    `distillation/losses.py:241-259`) its term is x `distillation_loss_coef` with task rewards, else x 1, and the
+    policy terms are zeroed without task rewards (computed under `use_policy_gradient`, else not at all)."""
+    config = _get_loss_config(loss_function)
+    found = {"actor/pg_loss": 1.0, "actor/entropy_loss": -float(getattr(config, "entropy_coeff", 0.0))}
+    if getattr(config, "use_kl_loss", False):
+        found["actor/kl_loss"] = float(config.kl_loss_coef)
+    settings = _get_distillation_settings(loss_function)
+    if settings is None:
+        return found
+    if not settings.use_task_rewards:
+        found = dict.fromkeys(found, 0.0) if settings.use_policy_gradient else {}
+    found["actor/distillation/loss"] = float(settings.distillation_loss_coef) if settings.use_task_rewards else 1.0
+    return found
+
+
+def is_logits_processor_call(signature: inspect.Signature | None, args: tuple, kwargs: dict) -> bool:
+    """A call the engine makes inside the forward with `student_logits` (`LOGITS_PROCESSOR_ARGUMENT`)."""
+    if kwargs.get(LOGITS_PROCESSOR_ARGUMENT) is not None:
+        return True
+    if signature is None or not args:
+        return False
+    try:
+        return signature.bind_partial(*args, **kwargs).arguments.get(LOGITS_PROCESSOR_ARGUMENT) is not None
+    except TypeError:  # not a call this loss takes: verl raises it itself
+        return False
 
 
 def get_critic_path_reason(worker: Any) -> str | None:
@@ -318,6 +382,15 @@ def get_recording_place(engine: Any) -> tuple[int, int] | None:
     return int(engine.get_data_parallel_rank()), int(engine.get_data_parallel_size())
 
 
+def read_data_parallel_size(engine: Any) -> int | None:
+    """The engine's data-parallel size (Megatron: `mpu.get_data_parallel_world_size()`, `transformer_impl.py:737-741`;
+    the step gate runs after `initialize`), None when it cannot be read: the gate then refuses (D18 fails closed)."""
+    try:
+        return int(engine.get_data_parallel_size())
+    except Exception:  # noqa: BLE001 -- not initialised, or not an engine verl's base class describes
+        return None
+
+
 def get_loss_mode(config: Any) -> str:
     """The actor's `policy_loss.loss_mode` (verl's default: vanilla)."""
     policy_loss = getattr(config, "policy_loss", None)
@@ -329,8 +402,27 @@ def _get_loss_config(loss_function: Any) -> Any:
     return (getattr(loss_function, "keywords", None) or {}).get("config")
 
 
+def _get_distillation_settings(loss_function: Any) -> Any:
+    """`distillation_config.distillation_loss` of a `distillation_ppo_loss` partial, else None."""
+    loss_function = getattr(loss_function, HOOKED_LOSS, loss_function)
+    config = (getattr(loss_function, "keywords", None) or {}).get("distillation_config")
+    return getattr(config, "distillation_loss", None)
+
+
+def _get_signature(function: Any) -> inspect.Signature | None:
+    try:
+        return inspect.signature(function)
+    except (TypeError, ValueError):  # a callable with no signature: its calls are taken by keyword only
+        return None
+
+
 def _take_non_tensor(data: Any, name: str) -> Any:
-    """A non-tensor field taken off the batch (verl's `tu.pop`), so it never travels on to the engine."""
+    """A non-tensor field taken off the batch (verl's `tu.pop`), so it never travels on to the engine. A V1 critic's
+    worker is handed the `KVBatchMeta` itself (`v1/trainer_base.py:1831`; `tqbridge` turns its `extra_info` into the
+    TensorDict's non-tensor fields later): the field is taken off its `extra_info`."""
+    extra = getattr(data, "extra_info", None)
+    if isinstance(extra, dict) and not callable(getattr(data, "keys", None)):
+        return extra.pop(name, None)
     try:
         keys = data.keys()
     except Exception:  # noqa: BLE001 -- not a TensorDict: nothing stamped

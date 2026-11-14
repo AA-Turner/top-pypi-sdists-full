@@ -1,3 +1,4 @@
+import keyword
 import re
 import typing as t
 
@@ -67,9 +68,23 @@ def _nsid_name_to_module_name(name: str) -> str:
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s).lower()
 
 
+def _to_module_name(name: str) -> str:
+    # NSID segments may hold hyphens, start with a digit, or be Python keywords.
+    # Mirrors atproto_codegen.utils.to_identifier, which decides the module and package names.
+    # Keep the two in sync!
+    module_name = re.sub(r'\W', '_', name)
+    if not module_name or module_name[0].isdigit():
+        module_name = f'_{module_name}'
+    if keyword.iskeyword(module_name):
+        module_name = f'{module_name}_'
+
+    return module_name
+
+
 def _module_path_from_nsid(package_name: str, nsid: str) -> str:
     *namespace, name = nsid.split('.')
-    return '.'.join([package_name, *namespace, _nsid_name_to_module_name(name)])
+    module_name = _to_module_name(_nsid_name_to_module_name(name))
+    return '.'.join([package_name, *(_to_module_name(segment) for segment in namespace), module_name])
 
 
 def _model_aliases(package: 'ModuleType') -> t.List[str]:
@@ -77,6 +92,7 @@ def _model_aliases(package: 'ModuleType') -> t.List[str]:
     if ids is None:
         return []
 
+    # the entries that the registry inherits are permission sets, which have no model module
     return [alias for alias in vars(type(ids)) if not alias.startswith('_')]
 
 
@@ -97,9 +113,8 @@ def make_lazy_accessors(
     def __getattr__(name: str) -> t.Any:
         package = importlib.import_module(package_name)
 
-        # aliases never start with an underscore, while dunders like `__module__` resolve on `ids` too
-        nsid = None if name.startswith('_') else getattr(package.__dict__.get('ids'), name, None)
-        if nsid is not None:
+        if name in _model_aliases(package):
+            nsid = getattr(package.__dict__['ids'], name)
             module = importlib.import_module(_module_path_from_nsid(package_name, nsid))
             prepare_model_module(module, package)
             package.__dict__[name] = module

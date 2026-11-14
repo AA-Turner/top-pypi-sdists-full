@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: u-msgpack-python
-Version: 2.8.0
+Version: 2.9.0
 Summary: A portable, lightweight MessagePack serializer and deserializer written in pure Python.
 Home-page: https://github.com/vsergeev/u-msgpack-python
 Author: vsergeev
@@ -15,6 +15,17 @@ Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
-u-msgpack-python is a lightweight `MessagePack <http://msgpack.org/>`_ serializer and deserializer module written in pure Python, compatible with both Python 2 and Python 3, as well as CPython and PyPy implementations of Python. u-msgpack-python is fully compliant with the latest `MessagePack specification <https://github.com/msgpack/msgpack/blob/master/spec.md>`_. In particular, it supports the new binary, UTF-8 string, and application-defined ext types. See https://github.com/vsergeev/u-msgpack-python for more information.
+u-msgpack-python is a lightweight `MessagePack <http://msgpack.org/>`_ serializer and deserializer module written in pure Python, compatible with both Python 2 and Python 3, as well as CPython and PyPy implementations of Python. u-msgpack-python is fully compliant with the latest `MessagePack specification <https://github.com/msgpack/msgpack/blob/master/spec.md>`_. In particular, it supports the new binary, UTF-8 string, application-defined ext, and timestamp types. See https://github.com/vsergeev/u-msgpack-python for more information.

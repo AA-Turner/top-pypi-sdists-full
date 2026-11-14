@@ -24,22 +24,22 @@ class DescribeInstanceCrossBackupPolicyResponseBody(DaraModel):
         retent_type: int = None,
         retention: int = None,
     ):
-        # The status of the cross-region backup feature. Valid values:
-        # * **Disable**: disabled.
-        # * **Enable**: enabled.
+        # Indicates whether the cross-region backup feature is enabled. Valid values:
+        # * **Disable**: Disabled.
+        # * **Enable**: Enabled.
         self.backup_enabled = backup_enabled
         # The time when cross-region backup was enabled. The time follows the ISO 8601 standard in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time is displayed in UTC.
         self.backup_enabled_time = backup_enabled_time
         # The ID of the destination region for cross-region backup.
         self.cross_backup_region = cross_backup_region
-        # The storage type for cross-region backup. Default value: **1**, which indicates that each backup is retained.
+        # The retention type of cross-region backups. Default value: **1**, which indicates that all backups are retained.
         self.cross_backup_type = cross_backup_type
-        # The instance name. The name is 2 to 256 characters in length and can contain letters, digits, underscores (_), and hyphens (-). The name must start with a letter or a Chinese character.
-        # >The name cannot start with http:// or https://.
+        # The instance name. The name must be 2 to 256 characters in length. It must start with a letter or a Chinese character and can contain letters, Chinese characters, digits, underscores (_), and hyphens (-).
+        # >It cannot start with http:// or https://.
         self.dbinstance_description = dbinstance_description
         # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # The instance status. For more information, see [Instance states](https://help.aliyun.com/document_detail/26315.html).
+        # The instance status. For more information, see [Instance statuses](https://help.aliyun.com/document_detail/26315.html).
         self.dbinstance_status = dbinstance_status
         # The database engine.
         self.engine = engine
@@ -48,13 +48,13 @@ class DescribeInstanceCrossBackupPolicyResponseBody(DaraModel):
         # The lock status of the instance. Valid values:
         # * **Unlock**: The instance is not locked.
         # * **ManualLock**: The instance is manually locked.
-        # * **LockByExpiration**: The instance is automatically locked due to instance expiration.
+        # * **LockByExpiration**: The instance is automatically locked because it has expired.
         # * **LockByRestoration**: The instance is automatically locked before a rollback.
-        # * **LockByDiskQuota**: The instance is automatically locked because the storage space is exhausted. The instance is inaccessible.
+        # * **LockByDiskQuota**: The instance is automatically locked because its storage space is exhausted. In this case, the instance is inaccessible.
         self.lock_mode = lock_mode
-        # The status of the cross-region log backup feature. Valid values:
-        # * **Disable**: disabled.
-        # * **Enable**: enabled.
+        # Indicates whether cross-region log backup is enabled. Valid values:
+        # * **Disable**: Disabled.
+        # * **Enable**: Enabled.
         self.log_backup_enabled = log_backup_enabled
         # The time when cross-region log backup was enabled. The time follows the ISO 8601 standard in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time is displayed in UTC.
         self.log_backup_enabled_time = log_backup_enabled_time
@@ -62,9 +62,9 @@ class DescribeInstanceCrossBackupPolicyResponseBody(DaraModel):
         self.region_id = region_id
         # The request ID.
         self.request_id = request_id
-        # The retention method for cross-region backup. Default value: **1**, which indicates that backups are retained based on the specified retention period.
+        # The retention method for cross-region backups. Default value: **1**, which indicates that backups are retained based on a specified retention period.
         self.retent_type = retent_type
-        # The number of days for which cross-region backups are retained. Valid values: **7 to 1825**.
+        # The retention period of cross-region backups. Valid values: **7 to 1825**. Unit: days.
         self.retention = retention
 
     def validate(self):

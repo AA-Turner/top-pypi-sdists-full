@@ -15,15 +15,15 @@ class RevokeAccountPrivilegeRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # The account name.
+        # The name of the account.
         # 
         # This parameter is required.
         self.account_name = account_name
-        # The instance ID. You can call DescribeDBInstances to query the instance ID.
+        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The database name. All permissions of the account on this database are revoked. Separate multiple database names with commas (,).
+        # The name of the database from which you want to revoke all permissions of the account. Separate multiple database names with commas (,).
         # 
         # This parameter is required.
         self.dbname = dbname

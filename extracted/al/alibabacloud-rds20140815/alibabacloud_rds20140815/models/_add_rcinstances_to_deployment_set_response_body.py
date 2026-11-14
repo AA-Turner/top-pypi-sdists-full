@@ -68,8 +68,8 @@ class AddRCInstancesToDeploymentSetResponseBodyResults(DaraModel):
         # The instance IDs.
         self.rcinstance_id = rcinstance_id
         # The node status. Valid values:
-        # * **Success**: Successful.
-        # * **Failed**: Failed.
+        # * **Success**: The operation succeeded.
+        # * **Failed**: The operation failed.
         self.status = status
 
     def validate(self):

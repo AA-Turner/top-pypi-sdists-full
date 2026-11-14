@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 /// assert_eq!(running_variance.get(), 0.);
 /// ```
 /// # References
-/// [^1]: [Wikipedia article on algorithms for calculating variance](https://www.wikiwand.com/en/Algorithms_for_calculating_variance#/Covariance)
+/// [^1]: [Wikipedia article on algorithms for calculating variance](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Covariance)
 ///
 /// [^2]: [Chan, T.F., Golub, G.H. and LeVeque, R.J., 1983. Algorithms for computing the sample variance: Analysis and recommendations. The American Statistician, 37(3), pp.242-247.](https://amstat.tandfonline.com/doi/abs/10.1080/00031305.1983.10483115)
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -42,6 +42,31 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign> Variance<F> {
             ddof,
             state: F::from_f64(0.).unwrap(),
         }
+    }
+
+    #[inline(always)]
+    pub fn update_weighted(&mut self, x: F, weight: F) {
+        let mean_old = self.mean.get();
+        self.mean.update_weighted(x, weight);
+        let mean_new = self.mean.get();
+        let contribution = weight * (x - mean_old) * (x - mean_new);
+        if contribution.is_nan() && x != mean_old {
+            self.state = F::infinity();
+        } else {
+            self.state += contribution.max(F::zero());
+        }
+    }
+
+    #[inline(always)]
+    pub fn revert_weighted(&mut self, x: F, weight: F) -> Result<(), &'static str> {
+        let mean_old = self.mean.get();
+        self.mean.revert_weighted(x, weight)?;
+        let mean_new = self.mean.get();
+        self.state -= weight * (x - mean_old) * (x - mean_new);
+        if self.state < F::zero() {
+            self.state = F::zero();
+        }
+        Ok(())
     }
 }
 
@@ -89,3 +114,40 @@ impl<F: Float + FromPrimitive + AddAssign + SubAssign> Revertable<F> for Varianc
 }
 
 impl<F: Float + FromPrimitive + AddAssign + SubAssign> RollableUnivariate<F> for Variance<F> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn weighted_update_matches_repetition() {
+        let mut weighted = Variance::default();
+        let mut repeated = Variance::default();
+        for (value, weight) in [(1.0, 2), (3.0, 1), (-2.0, 4)] {
+            weighted.update_weighted(value, weight as f64);
+            for _ in 0..weight {
+                repeated.update(value);
+            }
+        }
+        assert!((weighted.mean.get() - repeated.mean.get()).abs() < 1e-12);
+        assert!((weighted.get() - repeated.get()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn weighted_revert_matches_repetition() {
+        let mut weighted = Variance::default();
+        let mut repeated = Variance::default();
+        for (value, weight) in [(1.0, 2), (3.0, 1), (-2.0, 4)] {
+            weighted.update_weighted(value, weight as f64);
+            for _ in 0..weight {
+                repeated.update(value);
+            }
+        }
+        weighted.revert_weighted(-2.0, 3.0).unwrap();
+        for _ in 0..3 {
+            repeated.revert(-2.0).unwrap();
+        }
+        assert!((weighted.mean.get() - repeated.mean.get()).abs() < 1e-12);
+        assert!((weighted.get() - repeated.get()).abs() < 1e-12);
+    }
+}

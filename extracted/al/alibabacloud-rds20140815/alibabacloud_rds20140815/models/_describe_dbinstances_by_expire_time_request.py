@@ -20,16 +20,16 @@ class DescribeDBInstancesByExpireTimeRequest(DaraModel):
         tags: str = None,
         proxy_id: str = None,
     ):
-        # The number of remaining available days of the instance. Valid values: **0** to **180**.
+        # The number of remaining available days for the instance. Valid values: **0** to **180**.
         self.expire_period = expire_period
         # The expiration status of the instance. Valid values:
         # 
-        # - **True**: The instance has expired.
-        # - **False**: The instance has not expired.
+        # - **True**: Expired.
+        # - **False**: Not expired.
         self.expired = expired
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The page number. Valid values: an integer greater than **0** and less than or equal to the maximum value of the Integer data type.
+        # The page number. Valid values: any integer greater than **0** and up to the maximum value of the Integer type.
         # 
         # Default value: **1**.
         self.page_number = page_number
@@ -39,11 +39,11 @@ class DescribeDBInstancesByExpireTimeRequest(DaraModel):
         self.page_size = page_size
         # The region ID. You can call the DescribeRegions operation to query the region ID.
         self.region_id = region_id
-        # The resource group ID. You can call the DescribeDBInstanceAttribute operation to query the resource group ID.
+        # The ID of the resource group. You can call the DescribeDBInstanceAttribute operation to query the resource group ID.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The tags added to the instances to be queried, including TagKey and TagValue. You can specify up to 5 tags in a single request. Format: `{"key1":"value1","key2":"value2"...}`.
+        # The tags of the instances to be queried, including TagKey and TagValue. You can specify up to 5 tags in a single request. Format: `{"key1":"value1","key2":"value2"...}`.
         self.tags = tags
         # **[Deprecated]** This parameter is deprecated and does not need to be configured.
         self.proxy_id = proxy_id

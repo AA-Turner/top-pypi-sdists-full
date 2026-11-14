@@ -23,6 +23,9 @@ from tabpfn.preprocessing.torch.pipeline_interface import (
 from tabpfn.preprocessing.torch.torch_quantile_transformer import (
     TorchQuantileTransformer,
 )
+from tabpfn.preprocessing.torch.torch_safe_power_transformer import (
+    TorchSafePowerTransformer,
+)
 from tabpfn.preprocessing.torch.torch_soft_clip_outliers import TorchSoftClipOutliers
 from tabpfn.preprocessing.torch.torch_squashing_scaler import TorchSquashingScaler
 from tabpfn.preprocessing.torch.torch_standard_scaler import TorchStandardScaler
@@ -31,6 +34,66 @@ from tabpfn.preprocessing.torch.torch_svd import (
     TorchTruncatedSVD,
 )
 from tabpfn.utils import infer_random_state
+
+
+class TorchRandomSignFlipStep(TorchPreprocessingStep):
+    """Randomly negate columns with signs shared across rows."""
+
+    def __init__(self, random_state: int | np.random.Generator | None) -> None:
+        super().__init__()
+        # A fixed seed also preserves signs when inference recomputes preprocessing.
+        self.seed, _ = infer_random_state(random_state)
+
+    @override
+    def fit_transform(
+        self,
+        x: torch.Tensor,
+        column_indices: list[int],
+        num_train_rows: int,
+        fitted_cache: dict[str, torch.Tensor] | None = None,
+    ) -> TorchPreprocessingStepResult:
+        if fitted_cache is None:
+            # Fitting needs only the shape; slicing avoids gathering the table.
+            fitted_cache = self._fit(x[:0, :, : len(column_indices)])
+
+        if column_indices == list(range(x.shape[-1])):
+            transformed, _, _ = self._transform(x, fitted_cache)
+        else:
+            transformed = x.clone()
+            signs = fitted_cache["signs"].to(x)
+            start = 0
+            while start < len(column_indices):
+                end = start + 1
+                stride = (
+                    max(1, column_indices[end] - column_indices[start])
+                    if end < len(column_indices)
+                    else 1
+                )
+                while (
+                    end < len(column_indices)
+                    and column_indices[end] == column_indices[end - 1] + stride
+                ):
+                    end += 1
+                transformed[
+                    ..., column_indices[start] : column_indices[end - 1] + 1 : stride
+                ].mul_(signs[..., start:end])
+                start = end
+
+        return TorchPreprocessingStepResult(x=transformed, fitted_cache=fitted_cache)
+
+    @override
+    def _fit(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
+        rng = np.random.default_rng(self.seed)
+        signs = rng.integers(0, 2, size=(1, x.shape[1], x.shape[2])).astype(np.int8)
+        signs *= -2
+        signs += 1
+        return {"signs": torch.as_tensor(signs, device=x.device)}
+
+    @override
+    def _transform(
+        self, x: torch.Tensor, fitted_cache: dict[str, torch.Tensor]
+    ) -> tuple[torch.Tensor, None, None]:
+        return x * fitted_cache["signs"].to(x), None, None
 
 
 class TorchQuantileTransformerStep(TorchPreprocessingStep):
@@ -159,11 +222,13 @@ class TorchSelectiveQuantileTransformerStep(TorchPreprocessingStep):
         n_quantiles: int,
         target_column_indices: list[int],
         extrapolate_ratio: float | None = None,
+        output_distribution: Literal["uniform", "normal"] = "uniform",
     ) -> None:
         super().__init__()
         self._qt = TorchQuantileTransformer(
             n_quantiles=n_quantiles,
             extrapolate_ratio=extrapolate_ratio,
+            output_distribution=output_distribution,
         )
         self._target_column_indices = target_column_indices
 
@@ -178,27 +243,26 @@ class TorchSelectiveQuantileTransformerStep(TorchPreprocessingStep):
         """Override to select only target columns for quantile transform."""
         del column_indices
         orig_device = x.device
-        target_x = x[:, :, self._target_column_indices]
 
         # The quantile transform uses many small ops (searchsorted, gather,
         # where) that are faster on CPU than on MPS due to per-kernel launch
         # overhead.  On CUDA the GPU is preferred.
         run_on_cpu = orig_device.type == "mps"
-        if run_on_cpu:
-            target_x = target_x.cpu()
-
+        compute_device = torch.device("cpu") if run_on_cpu else orig_device
+        target_x = x[:, :, self._target_column_indices].to(compute_device)
         if fitted_cache is None:
             fitted_cache = self._qt.fit(target_x[:num_train_rows])
         else:
-            fitted_cache = _move_cache_to_device(fitted_cache, target_x.device)
+            fitted_cache = _move_cache_to_device(fitted_cache, compute_device)
 
-        transformed = self._qt.transform(target_x, fitted_cache=fitted_cache)
-
-        if run_on_cpu:
-            transformed = transformed.to(orig_device)
+        # Written over its own input, so the transform's intermediates sit next
+        # to this one target-sized buffer only, and never next to the clone.
+        target_x = self._qt.transform(
+            target_x, fitted_cache=fitted_cache, out=target_x
+        ).to(orig_device)
 
         x = x.clone()
-        x[:, :, self._target_column_indices] = transformed
+        x[:, :, self._target_column_indices] = target_x
 
         return TorchPreprocessingStepResult(x=x, fitted_cache=fitted_cache)
 
@@ -284,6 +348,62 @@ class TorchSelectiveSquashingScalerStep(TorchPreprocessingStep):
         fitted_cache: dict[str, torch.Tensor],
     ) -> tuple[torch.Tensor, torch.Tensor | None, FeatureModality | None]:
         return self._scaler.transform(x, fitted_cache=fitted_cache), None, None
+
+
+class TorchSelectiveSafePowerStep(TorchPreprocessingStep):
+    """Safe power transform that only transforms specified column indices.
+
+    Register with ``modalities=None``, like
+    :class:`TorchSelectiveQuantileTransformerStep`.
+    """
+
+    def __init__(self, target_column_indices: list[int]) -> None:
+        super().__init__()
+        self._transformer = TorchSafePowerTransformer()
+        self._target_column_indices = target_column_indices
+
+    @override
+    def fit_transform(
+        self,
+        x: torch.Tensor,
+        column_indices: list[int],
+        num_train_rows: int,
+        fitted_cache: dict[str, torch.Tensor] | None = None,
+    ) -> TorchPreprocessingStepResult:
+        """Override to select only target columns for the power transform."""
+        del column_indices
+        orig_device = x.device
+        target_x = x[:, :, self._target_column_indices]
+
+        # MPS has no float64.
+        run_on_cpu = orig_device.type == "mps"
+        if run_on_cpu:
+            target_x = target_x.cpu()
+
+        if fitted_cache is None:
+            fitted_cache = self._transformer.fit(target_x[:num_train_rows])
+        else:
+            fitted_cache = _move_cache_to_device(fitted_cache, target_x.device)
+
+        transformed = self._transformer.transform(target_x, fitted_cache=fitted_cache)
+        del target_x  # free before the full-size clone below
+
+        x = x.clone()
+        x[:, :, self._target_column_indices] = transformed.to(orig_device)
+
+        return TorchPreprocessingStepResult(x=x, fitted_cache=fitted_cache)
+
+    @override
+    def _fit(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
+        return self._transformer.fit(x)
+
+    @override
+    def _transform(
+        self,
+        x: torch.Tensor,
+        fitted_cache: dict[str, torch.Tensor],
+    ) -> tuple[torch.Tensor, torch.Tensor | None, FeatureModality | None]:
+        return self._transformer.transform(x, fitted_cache=fitted_cache), None, None
 
 
 class TorchShuffleFeaturesStep(TorchPreprocessingStep):

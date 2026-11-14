@@ -21,7 +21,6 @@ all = [
   "burli",
   "crc32fast",
   "bytes",
-  "bzip2",
   "dirs",
   "flate2",
   "fnv",
@@ -92,7 +91,6 @@ aws-lc-rs = ["ryo3-reqwest/aws-lc-rs"]
 aws-lc = ["dep:ryo3-aws-lc"]
 brotli = ["dep:ryo3-brotli"]
 burli = ["dep:ryo3-burli"]
-bzip2 = ["dep:ryo3-bzip2"]
 bytes = ["dep:ryo3-bytes"]
 cookie = ["dep:ryo3-cookie"]
 crc32fast = ["dep:ryo3-crc32fast"]
@@ -146,7 +144,6 @@ ryo3-aws-lc = { workspace = true, optional = true }
 ryo3-brotli = { workspace = true, optional = true }
 ryo3-burli = { workspace = true, optional = true }
 ryo3-bytes = { workspace = true, optional = true }
-ryo3-bzip2 = { workspace = true, optional = true }
 ryo3-cookie = { workspace = true, optional = true }
 ryo3-crc32fast = { workspace = true, optional = true }
 ryo3-dirs = { workspace = true, optional = true }

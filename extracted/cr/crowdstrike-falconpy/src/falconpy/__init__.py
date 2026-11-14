@@ -111,7 +111,7 @@ from .admission_control_policies import AdmissionControlPolicies
 from .agent_invocation import AgentInvocation
 from .agent_templates import AgentTemplates
 from .agent_versions import AgentVersions
-from .agentic_studio import AgenticStudio
+from .charlotte import Charlotte
 from .agents import Agents
 from .aidr import AIDR
 from .alerts import Alerts
@@ -164,6 +164,11 @@ from .device_control_policies import DeviceControlPolicies
 from .discover import Discover
 from .downloads import Downloads
 from .drift_indicators import DriftIndicators
+from .eval_cases import EvalCases
+from .eval_dataset_entries import EvalDatasetEntries
+from .eval_datasets import EvalDatasets
+from .eval_evaluators import EvalEvaluators
+from .eval_runs import EvalRuns
 from .event_streams import EventStreams
 from .exposure_management import ExposureManagement
 from .faas_execution import FaaSExecution
@@ -328,13 +333,17 @@ __all__ = [
     "CodeSecurity", "NetworkContainment",
     "NetworkScanDetections", "Skills",
     "Guardian", "Seraphic",
-    "AgenticStudio",
+    "Charlotte",
     "ContainerSecurity",
     "Spotlight",
     "Serverless",
     "Firewall",
-    "Foundry"
+    "Foundry", "EvalCases",
+    "EvalDatasetEntries", "EvalDatasets",
+    "EvalEvaluators", "EvalRuns",
+    "AgenticStudio"
     ]
+AgenticStudio = Charlotte
 Seraphic = BrowserSecurity
 Guardian = AIDR
 """

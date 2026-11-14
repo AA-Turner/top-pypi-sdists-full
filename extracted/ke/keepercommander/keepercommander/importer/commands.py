@@ -19,7 +19,12 @@ from typing import Optional, List, Dict
 
 from . import imp_exp
 from .. import api, record_types
-from .importer import SharedFolder, Team, Permission, PathDelimiter, replace_email_domain, BaseDownloadMembership, BaseDownloadRecordType, RecordType
+from .importer import (SharedFolder, Team, Permission, Record, PathDelimiter, normalize_folder_path,
+                       path_components, replace_email_domain, BaseDownloadMembership,
+                       BaseDownloadRecordType, RecordType)
+from .pam_membership import (membership_safe_name, apply_pam_project_prefix,
+                             filter_shared_folders_by_safes, apply_pam_project_to_folders,
+                             PAM_ROOT_FOLDER_NAME)
 from .json.json import KeeperJsonImporter, KeeperJsonExporter
 from ..commands.base import dump_report_data, raise_parse_exception, suppress_exit, user_choice, Command
 from ..commands.enterprise_common import EnterpriseCommand
@@ -63,6 +68,17 @@ def _cyberark_skip_arg(value):
     return ",".join(skip_targets)
 
 
+
+def _workers_arg(value):
+    try:
+        workers = int(value)
+    except (TypeError, ValueError):
+        raise argparse.ArgumentTypeError('must be an integer')
+    if not 1 <= workers <= 16:
+        raise argparse.ArgumentTypeError('--workers must be between 1 and 16')
+    return workers
+
+
 def _positive_int_arg(value):
     try:
         depth = int(value)
@@ -97,6 +113,9 @@ import_parser.add_argument('--folder-depth', dest='folder_depth', action='store'
                            help='NSF only: maximum resulting folder depth (default 5); folders beyond this depth '
                                 'are attached directly at the deepest allowed level, keeping their own name and '
                                 'records - names are never merged or renamed')
+import_parser.add_argument('--include-empty-folders', dest='include_empty_folders', action='store_true',
+                           help='create folders that contain no records (classic and --nsf). '
+                                'Requires an export made with --include-empty-folders (json, csv, keepass)')
 import_parser.add_argument('--output', dest='output', action='store',
                            help='NSF only: write a report of the resulting Keeper folder structure (original path '
                                 '-> new path -> folder UID) to CSV file; use --output=table to print a table. '
@@ -120,9 +139,14 @@ import_parser.add_argument('--new-domain', '-nd', dest='new_domain', action='sto
 import_parser.add_argument('--file-cache', dest='tmpdir', action='store',
                            help='temp directory used to cache encrypted attachment imports')
 import_parser.add_argument('--show-skipped', dest='show_skipped', action='store_true',
-                           help='display skipped records (always enabled for CyberArk imports)')
+                           help='display skipped records (always enabled for CyberArk and Thycotic imports)')
 import_parser.add_argument('--secret-ids', dest='secret_ids', action='store',
                            help='Comma separated list of secret IDs to fetch (Thycotic)')
+import_parser.add_argument('--add-users', dest='add_users', action='store_true',
+                           help='provision source users as pre-activated Keeper enterprise users')
+import_parser.add_argument('--add-teams', dest='add_teams', action='store_true',
+                           help='create Keeper teams from source groups and add members '
+                                'who already exist as Keeper users')
 import_parser.add_argument('--target-node', '--node', dest='target_node', action='store',
                            help='node name or ID for CyberArk-provisioned users, teams, and roles (default: root node)')
 import_parser.add_argument('--skip', dest='skip', action='store', type=_cyberark_skip_arg,
@@ -153,6 +177,8 @@ export_parser.add_argument('--zip', dest='zip_archive', action='store_true',
                            help='Create ZIP archive for file attachments. JSON only')
 export_parser.add_argument('--owned-only', dest='owned_only', action='store_true',
                            help='Only export owned records')
+export_parser.add_argument('--include-empty-folders', dest='include_empty_folders', action='store_true',
+                           help='Also export folders that contain no records (classic and Nested Share Folders). json, csv, keepass')
 export_parser.add_argument('--save-in-vault', dest='save_in_vault', action='store_true',
                            help='Stores exports file as a record attachment. KeePass only')
 export_parser.add_argument('--force', dest='force', action='store_true', help='Suppress user interaction. Assume "yes"')
@@ -175,6 +201,9 @@ download_membership_parser.add_argument('--sub-folder', '-sf', dest='sub_folder'
 download_membership_parser.add_argument('name', type=str, nargs='?', help='Output file name. "shared_folder_membership.json" if omitted.')
 download_membership_parser.add_argument('--timeout', dest='timeout', action='store', type=int, default=10, help='Timeout in seconds for network requests. Currently, supported for cyberark. Default: 10')
 download_membership_parser.add_argument('--api-page-size-limit', dest='api_page_size_limit', action='store', type=int, default=200, help='Page size limit for API requests. Currently, supported for cyberark. Default: 200')
+download_membership_parser.add_argument('--workers', dest='workers', action='store', type=_workers_arg, default=None,
+                                        help='Parallel requests when loading secret permissions (1-16). '
+                                             'Currently, supported for thycotic. Default: 4')
 download_membership_parser.error = raise_parse_exception
 download_membership_parser.exit = suppress_exit
 
@@ -182,6 +211,13 @@ download_membership_parser.exit = suppress_exit
 apply_membership_parser = argparse.ArgumentParser(prog='apply-membership', description='Loads shared folder membership from JSON file')
 apply_membership_parser.add_argument('--full-sync', dest='full_sync', action='store_true', help='Update and remove membership also.')
 apply_membership_parser.add_argument('--unsafe', dest='unsafe', action='store_true', help='Combined with --full-sync. Will remove yourself from folders where you have no permission.')
+apply_membership_parser.add_argument('--pam-project', dest='pam_project', action='store',
+                                    help='Map bare CyberArk safe paths under PAM Environments/{project}/ '
+                                         '(for membership after pam project cyberark-import --folder-mode safe).')
+apply_membership_parser.add_argument('--safes', dest='safes', action='store',
+                                    help='Apply membership only to matching safes (comma-separated, supports globs).')
+apply_membership_parser.add_argument('--list-safes', dest='list_safes', action='store_true',
+                                    help='List membership safe names (and PAM paths when --pam-project is set), then exit.')
 apply_membership_parser.add_argument('name', type=str, nargs='?', help='Input file name. "shared_folder_membership.json" if omitted.')
 apply_membership_parser.error = raise_parse_exception
 apply_membership_parser.exit = suppress_exit
@@ -421,7 +457,7 @@ class RecordExportCommand(ImporterCommand):
                 raise CommandError(
                     'export',
                     'Service Mode permits only JSON export to the API response. '
-                    'Use export --format=json with optional --folder and --owned-only; '
+                    'Use export --format=json with optional --folder, --owned-only and --include-empty-folders; '
                     'do not specify an output filename or other options.',
                 )
             kwargs['_service_mode_record_limit'] = imp_exp.SERVICE_MODE_EXPORT_MAX_RECORDS
@@ -464,6 +500,12 @@ def set_permission(perm, user, permit, restrict, perm_name):
     setattr(perm, perm_name, p)
 
 
+def _share_record_key(record):
+    """Identity of a share record in the membership file: all its folder paths plus title."""
+    paths = tuple(sorted({normalize_folder_path(folder.path) for folder in record.folders or []}))
+    return (paths or ('',), (record.title or '').casefold())
+
+
 class DownloadMembershipCommand(Command):
     def get_parser(self):  # type: () -> Optional[argparse.ArgumentParser]
         return download_membership_parser
@@ -499,6 +541,7 @@ class DownloadMembershipCommand(Command):
 
         added_folders = []  # type: List[SharedFolder]
         added_teams = []    # type: List[Team]
+        added_records = []  # type: List[Record]
 
         try:
             full_name = f'keepercommander.importer.{"json" if source == "keeper" else source}'
@@ -512,7 +555,7 @@ class DownloadMembershipCommand(Command):
             logging.warning('Error loading membership plugin: %s', source)
             return
 
-        download_membership = plugin.download_membership(params, folders_only=folders_only,timeout=kwargs.get('timeout'), api_page_size_limit=kwargs.get('api_page_size_limit'))
+        download_membership = plugin.download_membership(params, folders_only=folders_only,timeout=kwargs.get('timeout'), api_page_size_limit=kwargs.get('api_page_size_limit'), workers=kwargs.get('workers'))
 
         for obj in download_membership:
             if isinstance(obj, SharedFolder):
@@ -539,6 +582,14 @@ class DownloadMembershipCommand(Command):
                     obj.members = [replace_email_domain(x, old_domain, new_domain) for x in obj.members]
                 if obj.name:
                     added_teams.append(obj)
+            elif isinstance(obj, Record) and obj.shares:
+                if old_domain and new_domain:
+                    for share in obj.shares:
+                        share.name = replace_email_domain(share.name, old_domain, new_domain)
+                if import_into:
+                    for folder in obj.folders or []:
+                        folder.path = PathDelimiter.join([import_into, folder.path]) if folder.path else import_into
+                added_records.append(obj)
 
         # process shared sub folders
         sub_folder_action = kwargs.get('sub_folder') or 'ignore'
@@ -566,6 +617,7 @@ class DownloadMembershipCommand(Command):
 
         shared_folders = {}  # type: Dict[str, SharedFolder]
         teams = {}           # type: Dict[str, Team]
+        existing_records = []  # type: List[Record]
 
         json_importer = KeeperJsonImporter()
         if os.path.exists(file_name):
@@ -577,28 +629,36 @@ class DownloadMembershipCommand(Command):
                     elif isinstance(obj, Team):
                         if obj.uid:
                             teams[obj.uid] = obj
+                    elif isinstance(obj, Record) and obj.shares:
+                        existing_records.append(obj)
             except:
                 pass
 
-        if added_folders or added_teams:
+        if added_folders or added_teams or added_records:
             for sf in added_folders:
                 if sf.uid and sf.uid in shared_folders:
                     del shared_folders[sf.uid]
             for t in added_teams:
                 if t.uid and t.uid in teams:
                     del teams[t.uid]
+            replaced = {_share_record_key(record) for record in added_records}
+            existing_records = [record for record in existing_records if _share_record_key(record) not in replaced]
 
             memberships = []
             memberships.extend(shared_folders.values())
             memberships.extend(teams.values())
+            memberships.extend(existing_records)
             memberships.extend(added_folders)
             memberships.extend(added_teams)
+            memberships.extend(added_records)
             json_exporter = KeeperJsonExporter()
             json_exporter.do_export(file_name, memberships)
             if len(added_folders) > 0:
                 logging.info('%d shared folder memberships added.', len(added_folders))
             if len(added_teams) > 0:
                 logging.info('%d team memberships added.', len(added_teams))
+            if len(added_records) > 0:
+                logging.info('%d secret permission lists added.', len(added_records))
         else:
             logging.info('No folder memberships downloaded.')
 
@@ -615,6 +675,7 @@ class ApplyMembershipCommand(Command):
 
         shared_folders = []  # type: List[SharedFolder]
         teams = []     # type: List[Team]
+        secret_records = []  # type: List[Record]
 
         json_importer = KeeperJsonImporter()
         for obj in json_importer.do_import(file_name, users_only=True):
@@ -622,6 +683,30 @@ class ApplyMembershipCommand(Command):
                 shared_folders.append(obj)
             if isinstance(obj, Team):
                 teams.append(obj)
+            if isinstance(obj, Record) and obj.shares:
+                secret_records.append(obj)
+
+        safes_pattern = kwargs.get('safes') or ""
+        if safes_pattern:
+            before = len(shared_folders)
+            shared_folders = filter_shared_folders_by_safes(shared_folders, safes_pattern)
+            logging.info('Safe filter matched %d of %d shared folder(s).', len(shared_folders), before)
+
+        pam_project = (kwargs.get('pam_project') or "").strip()
+        if pam_project:
+            shared_folders = apply_pam_project_to_folders(shared_folders, pam_project)
+
+        if kwargs.get('list_safes') is True:
+            if not shared_folders:
+                logging.info('No shared folders to list.')
+                return
+            for folder in shared_folders:
+                name = membership_safe_name(folder.path)
+                if pam_project:
+                    print(f'{name}\t{folder.path}')
+                else:
+                    print(name)
+            return
 
         full_sync = kwargs.get('full_sync') is True
         unsafe = kwargs.get('unsafe') is True
@@ -630,6 +715,9 @@ class ApplyMembershipCommand(Command):
 
         if len(teams) > 0:
             imp_exp.import_teams(params, teams, full_sync)
+
+        if len(secret_records) > 0:
+            imp_exp.apply_secret_share_records(params, secret_records)
 
 
 class DownloadRecordTypeCommand(EnterpriseCommand):

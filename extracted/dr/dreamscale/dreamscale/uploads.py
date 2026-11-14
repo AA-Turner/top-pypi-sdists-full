@@ -5,9 +5,14 @@ only for the blobs your organization doesn't already have, so a re-run of an unc
 folder sends nothing. Local state under ``~/.dreamscale/uploads/`` keeps each file's hash
 (by size and mtime, so a re-run doesn't re-read it) and, per blob, the parts already sent:
 an interrupted upload resumes where it stopped when the server hands back the same
-multipart upload. A link storage refuses (it expired, or another upload of the same blob
-finished it first: uploads in one organization resume each other's open ones) is renewed by
-registering the upload again, which keeps the parts already sent.
+multipart upload. Uploads at once on one machine (threads or processes) share that state: each
+read and save holds a lock, and a save merges its own entries into what is saved, through a
+temporary file of its own, so none fails on another's file or drops the entries another saved.
+A blob's parts sent are in a file of its own, so saving a part never reads the files' hashes.
+The state is a cache: where the disk refuses it, uploads go on without it (a warning says so).
+A link storage refuses (it expired, or another upload of the same blob finished it first:
+uploads in one organization resume each other's open ones) is renewed by registering the upload
+again, which keeps the parts already sent.
 
 A blob may also be a slice of a larger file (``Slice``): an ABC-VLA ``.pt`` checkpoint sends
 only the stored members its build reads, each as its own blob, never its optimizer state.
@@ -22,21 +27,36 @@ resume works from any machine.
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import errno
 import hashlib
 import json
+import logging
 import os
 import platform
+import re
 import ssl
+import tempfile
+import threading
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 import httpx
 
 from dreamscale import errors
 from dreamscale.config import dreamscale_home
+
+try:  # POSIX
+    import fcntl
+except ImportError:  # pragma: no cover - Windows
+    fcntl = None
+try:  # Windows
+    import msvcrt
+except ImportError:
+    msvcrt = None
 
 CONCURRENCY = 4
 DATASET_CONCURRENCY = 8
@@ -65,27 +85,237 @@ class Slice:
 
 
 def _state_path() -> Path:
+    """The files' saved hashes (``files``: by path, each with its size, mtime and sha256)."""
     return dreamscale_home() / "uploads" / "state.json"
 
 
-def _load() -> dict[str, Any]:
+_SHA256 = re.compile(r"[0-9a-f]{64}")
+
+
+def _parts_path(sha: str) -> Path:
+    """A blob's parts sent, in a small file of its own beside the hashes: saving a part reads and
+    writes this file only, however many files' hashes are saved. ``sha`` is one of this upload's
+    own (``_ours``): never a name the server chose."""
+    if not isinstance(sha, str) or not _SHA256.fullmatch(sha):
+        raise ValueError(f"not a sha256: {sha!r:.80}")
+    return _state_path().parent / "parts" / f"{sha}.json"
+
+
+def _refused_answer(problem: str) -> errors.DreamscaleError:
+    return errors.DreamscaleError(
+        errors.ErrorInfo(
+            code="invalid_server_answer",
+            problem=problem,
+            cause="the server's answer names a file outside what this command handles; nothing "
+                  "was read, written or deleted for it",
+            fix="update the SDK and retry; if it keeps happening, email team@dreamscalelabs.com",
+        )
+    )
+
+
+def _ours(blob: Any, mine: Mapping[str, Any]) -> str:
+    """The sha256 of a blob the server says is missing, refused unless it is one of this upload's
+    own (64 lowercase hex characters, in its manifest) before it names any file."""
+    sha = blob.get("sha256") if isinstance(blob, dict) else None
+    if not isinstance(sha, str) or not _SHA256.fullmatch(sha) or sha not in mine:
+        raise _refused_answer(f"the server asked for a file this upload doesn't send "
+                              f"({sha!r:.80})")
+    return sha
+
+
+def bare_name(name: Any) -> str:
+    """A file or folder name the server chose (a training download's file, a dataset's folder),
+    refused unless it is a bare name: no ``/``, ``\\``, drive, ``.`` or ``..``. It then names a
+    place in the folder the user is in or chose, never elsewhere."""
+    if (not isinstance(name, str) or name in ("", ".", "..")
+            or any(char in name for char in "/\\\0") or PureWindowsPath(name).drive):
+        raise _refused_answer(f"the server named a file outside the folder ({name!r:.80})")
+    return name
+
+
+def _inside(dest: Path, name: Any) -> Path:
+    """Where a downloaded file goes: ``name`` (the server's) as a path inside ``dest``, refused
+    unless it is a plain relative path that stays there (no absolute path, drive, ``..``, ``.``,
+    empty part or backslash)."""
+    parts = name.split("/") if isinstance(name, str) else []
+    if (
+        not parts or any(part in ("", ".", "..") for part in parts)
+        or "\\" in name or "\0" in name
+        or PurePosixPath(name).is_absolute() or PureWindowsPath(name).drive
+        or not (dest / name).resolve().is_relative_to(dest.resolve())
+    ):
+        raise _refused_answer(f"the server listed a file outside the folder ({name!r:.80})")
+    return dest / name
+
+
+log = logging.getLogger(__name__)
+_warned = False
+
+
+def _warn(error: OSError) -> None:
+    """Say once that the saved state can't be read or written: it's a cache, so uploads go on."""
+    global _warned
+    if not _warned:
+        _warned = True
+        log.warning("Couldn't save upload progress in %s (%s); uploads go on, but a rerun may "
+                    "hash or send again what this one did.", _state_path().parent, error)
+
+
+def _read_json(path: Path) -> dict[str, Any]:
     try:
-        state = json.loads(_state_path().read_text())
+        data = json.loads(path.read_text())
     except (OSError, ValueError):
-        state = {}
-    if not isinstance(state, dict):
-        state = {}
-    state.setdefault("files", {})
-    state.setdefault("parts", {})
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _load() -> dict[str, Any]:
+    """The saved hashes, as read (call under ``_locked``: a reader then never holds the file
+    while a writer replaces it, which Windows refuses)."""
+    state = _read_json(_state_path())
+    if not isinstance(state.get("files"), dict):
+        state["files"] = {}
     return state
 
 
-def _save(state: dict[str, Any]) -> None:
+# This process's threads take turns on the state; other processes wait on the lock file's lock.
+_THREADS = threading.Lock()
+
+
+def _lock_file(handle: Any) -> bool:
+    """Take the lock file's lock: flock on POSIX, msvcrt's on Windows. False where there is none
+    (no msvcrt or fcntl, or a file system without locks: ENOLCK on NFS, ENOSYS): this process's
+    lock alone holds then, so another process's save can drop an entry, never fail on it."""
+    try:
+        if fcntl is not None:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            return True
+        if msvcrt is not None:  # pragma: no cover - Windows
+            handle.seek(0)
+            while True:
+                try:  # its first byte; LK_LOCK gives up after 10 tries a second apart
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+                    return True
+                except OSError as error:
+                    if error.errno != errno.EDEADLOCK:  # not the lock being held: say so
+                        raise
+    except OSError:
+        return False
+    return False
+
+
+def _unlock_file(handle: Any) -> None:
+    if fcntl is not None:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    elif msvcrt is not None:  # pragma: no cover - Windows
+        handle.seek(0)
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+
+
+@contextlib.contextmanager
+def _locked() -> Iterator[None]:
+    """Hold the state's lock (``state.json.lock`` beside it) for one read or read-modify-write."""
     path = _state_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(state, separators=(",", ":")))
-    os.replace(temporary, path)
+    with _THREADS, open(path.with_name(path.name + ".lock"), "a+b") as handle:
+        held = _lock_file(handle)
+        try:
+            yield
+        finally:
+            if held:
+                _unlock_file(handle)
+
+
+def _guarded(change: Callable[[], Any], default: Any = None) -> Any:
+    """``change()`` (a read, or a read-modify-write, of the saved state) under the state's lock.
+    The state is a cache: where the disk refuses (read-only, full, a file another process holds
+    open on Windows), it warns once and answers ``default``."""
+    try:
+        with _locked():
+            return change()
+    except OSError as error:
+        _warn(error)
+        return default
+
+
+def _write(path: Path, data: dict[str, Any]) -> None:
+    """Replace ``path``, through a temporary file of this write's own in its folder, flushed to
+    disk before it takes the name."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(handle, "w") as out:
+            out.write(json.dumps(data, separators=(",", ":")))
+            out.flush()
+            os.fsync(out.fileno())
+        os.replace(temporary, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(temporary)
+        raise
+
+
+def _read_hashes() -> dict[str, Any]:
+    """The files' saved hashes (by path key)."""
+    return _guarded(lambda: _load()["files"], {})
+
+
+def _save_hashes(hashed: Mapping[str, dict[str, Any]]) -> None:
+    """Record the files hashed (their path's key: size, mtime and sha256), keeping what other
+    uploads saved meanwhile."""
+    if not hashed:
+        return
+
+    def change() -> None:
+        state = _load()
+        state.pop("parts", None)  # an older SDK's parts: each blob keeps its own file now
+        state["files"].update(hashed)
+        _write(_state_path(), state)
+
+    _guarded(change)
+
+
+def _read_parts(shas: Iterable[str]) -> dict[str, dict[str, Any]]:
+    """These blobs' saved parts, each ``{upload_id, etags}`` (no etags: none saved)."""
+    shas = list(shas)
+
+    def read() -> dict[str, dict[str, Any]]:
+        out = {}
+        for sha in shas:
+            saved = _read_json(_parts_path(sha))
+            etags = saved.get("etags")
+            out[sha] = {"upload_id": saved.get("upload_id"),
+                        "etags": dict(etags) if isinstance(etags, dict) else {}}
+        return out
+
+    return _guarded(read, {sha: {"upload_id": None, "etags": {}} for sha in shas})
+
+
+def _save_parts(blobs: Mapping[str, dict[str, Any]]) -> None:
+    """Record these blobs' parts sent (``{upload_id, etags}`` each, in each blob's own file):
+    merged with the parts saved for the same multipart upload (another upload sending it too),
+    else replacing them (the server handed this upload another one)."""
+    def change() -> None:
+        for sha, ours in blobs.items():
+            path = _parts_path(sha)
+            saved = _read_json(path)
+            etags = dict(ours["etags"])
+            if saved.get("upload_id") == ours.get("upload_id") and isinstance(
+                    saved.get("etags"), dict):
+                etags = {**saved["etags"], **etags}
+            _write(path, {"upload_id": ours.get("upload_id"), "etags": etags})
+
+    _guarded(change)
+
+
+def _forget_parts(blobs: Iterable[str]) -> None:
+    """Drop these blobs' saved parts (they're stored now)."""
+    def change() -> None:
+        for sha in blobs:
+            with contextlib.suppress(FileNotFoundError):
+                _parts_path(sha).unlink()
+
+    _guarded(change)
 
 
 def _sha256(path: Path, advance: Callable[[int], None], offset: int = 0,
@@ -109,8 +339,8 @@ def manifest(
     """``[{path, size, sha256}]`` for ``files`` under ``root`` (or, for a path in ``slices``,
     its slice of a file); unchanged files reuse their saved hash."""
     slices = slices or {}
-    state = _load()
-    cache = state["files"]
+    cache = _read_hashes()
+    hashed: dict[str, dict[str, Any]] = {}
     total, done = sum(size for _, size in files), 0
 
     def advance(count: int) -> None:
@@ -136,9 +366,10 @@ def manifest(
             advance(size)
         else:
             sha = _sha256(path, advance, offset, size if part is not None else None)
-            cache[key] = {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns, "sha256": sha}
+            cache[key] = hashed[key] = {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns,
+                                        "sha256": sha}
         out.append({"path": rel, "size": size, "sha256": sha})
-    _save(state)
+    _save_hashes(hashed)
     return out
 
 
@@ -224,8 +455,10 @@ async def upload(
         if entry["path"] in slices else (root / entry["path"], 0)
         for entry in files
     }
-    # Read once: another upload on this machine saving its own parts doesn't lose ours.
-    state = _load()
+    # Each blob's parts sent, read once (when the server first names it missing); each save
+    # merges into its blob's own file, so another upload on this machine saving its parts
+    # meanwhile loses none of ours, nor we of theirs. The disk work runs off the event loop.
+    sent_parts: dict[str, dict[str, Any]] = {}
     sent = 0
     tried: set[str] = set()  # blobs of any round, whose saved parts go once complete
 
@@ -237,17 +470,24 @@ async def upload(
             files, kind=kind, **({"base_model": base_model} if base_model is not None else {})
         )
         missing = [blob for blob in created.get("missing") or [] if isinstance(blob, dict)]
+        for blob in missing:  # before any of its names becomes a path
+            _ours(blob, paths)
         tried.update(blob["sha256"] for blob in missing)
         total = sum(int(blob["size"]) for blob in missing)
         done = landed = 0
         refused: tuple[Path, str] | None = None
         jobs = []
+        unread = [blob["sha256"] for blob in missing if blob["sha256"] not in sent_parts]
+        if unread:
+            sent_parts.update(await asyncio.to_thread(_read_parts, unread))
         for blob in missing:
             sha, part_size = blob["sha256"], int(blob["part_size"])
-            saved = state["parts"].get(sha) or {}
+            saved = sent_parts[sha]
             if saved.get("upload_id") != blob.get("upload_id"):
+                # Another multipart upload: the parts saved went to the old one. The first part
+                # landing replaces them on disk.
                 saved = {"upload_id": blob.get("upload_id"), "etags": {}}
-                state["parts"][sha] = saved
+                sent_parts[sha] = saved
             for part in blob.get("parts") or []:
                 number = int(part["number"])
                 offset = (number - 1) * part_size
@@ -258,7 +498,6 @@ async def upload(
                     jobs.append((sha, number, part["url"], offset, length))
         if progress is not None:
             progress(done, total)
-        _save(state)
         limit = asyncio.Semaphore(CONCURRENCY)
 
         async def send(http: httpx.AsyncClient, sha: str, number: int, url: str, offset: int,
@@ -274,8 +513,11 @@ async def upload(
                 except _Expired as error:
                     refused = refused or (path, str(error))
                     return
-            state["parts"][sha]["etags"][str(number)] = etag
-            _save(state)
+            saved = sent_parts[sha]
+            saved["etags"][str(number)] = etag
+            # Its own file only, off the loop (a copy: other parts land meanwhile).
+            await asyncio.to_thread(_save_parts, {sha: {"upload_id": saved["upload_id"],
+                                                        "etags": dict(saved["etags"])}})
             done += length
             sent += length
             landed += 1
@@ -306,16 +548,13 @@ async def upload(
         blob["sha256"]: [
             {"number": int(number), "etag": etag}
             for number, etag in sorted(
-                state["parts"][blob["sha256"]]["etags"].items(), key=lambda item: int(item[0])
+                sent_parts[blob["sha256"]]["etags"].items(), key=lambda item: int(item[0])
             )
         ]
         for blob in missing
     }
     completed = await client.complete_upload(created["id"], parts, kind=kind)
-    state = _load()
-    for sha in tried:
-        state["parts"].pop(sha, None)
-    _save(state)
+    await asyncio.to_thread(_forget_parts, tried)
     return {**completed, "id": completed.get("id") or created["id"], "sent": sent}
 
 
@@ -431,8 +670,8 @@ async def upload_dataset(
     started = time.monotonic()
     upload = await client.create_dataset_upload(ref, size=total)
     upload_id = upload["id"]
-    state = _load()
-    cache = state["files"]
+    cache = await asyncio.to_thread(_read_hashes)
+    hashed: dict[str, dict[str, Any]] = {}
     checked = sent = 0
     paths: dict[str, Path] = {}
     entries: dict[str, dict[str, Any]] = {}
@@ -494,7 +733,7 @@ async def upload_dataset(
             parts[sha].append({"number": number, "etag": etag})
 
     def send_blob(group: asyncio.TaskGroup, blob: dict[str, Any]) -> None:
-        sha = blob["sha256"]
+        sha = _ours(blob, paths)
         if sha in seen:
             return
         seen.add(sha)
@@ -536,7 +775,8 @@ async def upload_dataset(
         else:
             async with hashing:
                 sha = await asyncio.to_thread(_sha256, path, lambda _count: None)
-            cache[key] = {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns, "sha256": sha}
+            cache[key] = hashed[key] = {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns,
+                                        "sha256": sha}
         entry = {"path": rel, "size": stat.st_size, "sha256": sha}
         paths.setdefault(sha, path)
         entries.setdefault(sha, entry)
@@ -558,7 +798,7 @@ async def upload_dataset(
     except BaseExceptionGroup as failed:  # the first failed part says what went wrong
         raise failed.exceptions[0] from None
     finally:
-        _save(state)
+        await asyncio.to_thread(_save_hashes, hashed)
     done = await client.complete_dataset_upload(
         ref, upload_id,
         {sha: sorted(listed, key=lambda p: p["number"]) for sha, listed in parts.items()},
@@ -596,6 +836,12 @@ async def download_dataset(
         cursor = page.get("next_cursor")
         if cursor is None:
             break
+    # Each file's place and the .part it arrives in, checked before anything is read or written
+    # (a link already in the folder doesn't lead either outside it).
+    places = []
+    for entry in listed:
+        name = entry.get("path") if isinstance(entry, dict) else None
+        places.append((_inside(dest, name), _inside(dest, f"{name}.part")))
     total = sum(int(f["size"]) for f in listed)
     done = fetched = 0
     gate = asyncio.Semaphore(DOWNLOAD_CONCURRENCY)
@@ -633,14 +879,12 @@ async def download_dataset(
                     raise _download_failed(path, str(error)) from None
                 await asyncio.sleep(RETRY_BACKOFF_S[min(attempt, len(RETRY_BACKOFF_S) - 1)])
 
-    async def get_file(http, entry: dict[str, Any]) -> None:
-        path = dest / entry["path"]
+    async def get_file(http, entry: dict[str, Any], path: Path, partial: Path) -> None:
         size = int(entry["size"])
         if await asyncio.to_thread(_same_file, path, size, entry["sha256"]):
             advance(size)
             return
         path.parent.mkdir(parents=True, exist_ok=True)
-        partial = path.with_name(path.name + ".part")
         with partial.open("wb") as handle:
             handle.truncate(size)
         if size:
@@ -650,7 +894,7 @@ async def download_dataset(
                 for start in range(0, size, DOWNLOAD_RANGE)
             ))
         if await asyncio.to_thread(_sha256, partial, lambda _count: None) != entry["sha256"]:
-            partial.unlink(missing_ok=True)
+            await asyncio.to_thread(partial.unlink, missing_ok=True)
             raise _download_failed(path, "what arrived differs from what's stored")
         os.replace(partial, path)
 
@@ -660,8 +904,8 @@ async def download_dataset(
             as http,
             asyncio.TaskGroup() as group,
         ):
-            for entry in listed:
-                group.create_task(get_file(http, entry))
+            for entry, (path, partial) in zip(listed, places, strict=True):
+                group.create_task(get_file(http, entry, path, partial))
     except BaseExceptionGroup as failed:
         raise failed.exceptions[0] from None
     return {"files": len(listed), "bytes": total, "sent": fetched}

@@ -1,0 +1,1 @@
+import{c as t,r as a}from"./index-97eL3NRY.js";function i({embedded:r=!1}){const e=t();return a.useEffect(()=>{e({to:r?"/plugins/embed":"/plugins",replace:!0})},[r,e]),null}export{i as PluginMirrorsPage};

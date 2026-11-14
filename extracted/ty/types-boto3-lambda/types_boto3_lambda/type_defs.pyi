@@ -195,6 +195,7 @@ __all__ = (
     "FunctionConfigurationTypeDef",
     "FunctionEventInvokeConfigResponseTypeDef",
     "FunctionEventInvokeConfigTypeDef",
+    "FunctionRuntimeConfigTypeDef",
     "FunctionScalingConfigTypeDef",
     "FunctionUrlConfigTypeDef",
     "FunctionVersionsByCapacityProviderListItemTypeDef",
@@ -582,6 +583,10 @@ class EnvironmentTypeDef(TypedDict):
 
 class EphemeralStorageTypeDef(TypedDict):
     Size: int
+
+class FunctionRuntimeConfigTypeDef(TypedDict):
+    RuntimeArn: str
+    RuntimeAlias: str
 
 class LoggingConfigTypeDef(TypedDict):
     LogFormat: NotRequired[LogFormatType]
@@ -1887,6 +1892,7 @@ class CreateFunctionRequestTypeDef(TypedDict):
     TenancyConfig: NotRequired[TenancyConfigTypeDef]
     CapacityProviderConfig: NotRequired[CapacityProviderConfigTypeDef]
     DurableConfig: NotRequired[DurableConfigTypeDef]
+    RuntimeConfig: NotRequired[FunctionRuntimeConfigTypeDef]
 
 class UpdateFunctionConfigurationRequestTypeDef(TypedDict):
     FunctionName: str
@@ -1910,6 +1916,7 @@ class UpdateFunctionConfigurationRequestTypeDef(TypedDict):
     LoggingConfig: NotRequired[LoggingConfigTypeDef]
     CapacityProviderConfig: NotRequired[CapacityProviderConfigTypeDef]
     DurableConfig: NotRequired[DurableConfigTypeDef]
+    RuntimeConfig: NotRequired[FunctionRuntimeConfigTypeDef]
 
 class InvokeWithResponseStreamResponseTypeDef(TypedDict):
     StatusCode: int
@@ -1982,6 +1989,7 @@ class FunctionConfigurationResponseTypeDef(TypedDict):
     CapacityProviderConfig: CapacityProviderConfigTypeDef
     ConfigSha256: str
     DurableConfig: DurableConfigTypeDef
+    RuntimeConfig: FunctionRuntimeConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class FunctionConfigurationTypeDef(TypedDict):
@@ -2025,6 +2033,7 @@ class FunctionConfigurationTypeDef(TypedDict):
     CapacityProviderConfig: NotRequired[CapacityProviderConfigTypeDef]
     ConfigSha256: NotRequired[str]
     DurableConfig: NotRequired[DurableConfigTypeDef]
+    RuntimeConfig: NotRequired[FunctionRuntimeConfigTypeDef]
 
 class EventTypeDef(TypedDict):
     EventType: NotRequired[EventTypeType]

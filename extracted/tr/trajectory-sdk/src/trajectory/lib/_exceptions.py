@@ -4,7 +4,7 @@ from collections.abc import Sequence
 
 from trajectory._exceptions import TrajectoryError
 from trajectory._models import BaseModel
-from trajectory.types.batch_item_failure import BatchItemFailure
+from trajectory.types import BatchItemFailure
 
 
 class WorkflowError(TrajectoryError):

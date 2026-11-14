@@ -42,7 +42,7 @@ _BR_UNTIL_DOC = """Only rows with activity before this time; the same forms as `
 
 _BR_LATEST_METRICS_DOC = """mode=runs only: metric keys (at most 50); each run row gains `latest_metrics` {key: {last, min, max, last_step}}, the values `metric.<key>` filters and sorts on. `latest_metrics_partial`: a W&B run whose values are not known here; `latest_metrics_locked`: past the plan's retention window."""
 
-_BR_QUERY_DOC = """mode=notes: literal text to find in note bodies, titles and project/experiment/run titles -- not a wildcard, not ranked. Omit (or "") to list every note. mode=datasets / sources: matches a name, key, uri or title."""
+_BR_QUERY_DOC = """mode=projects / runs / sessions / files / datasets / checkpoints / sources: matches names loosely (typos ok), best first, one page; `query_note` says when none matched. mode=notes: literal text to find in note bodies, titles and project/experiment/run titles -- not a wildcard, not ranked. Omit (or "") to list every note. mode=people: teammates it names by name or email (loosely, as `owner`), best first."""
 
 # -- the data catalog modes' filters (the routes' own query parameters) --------
 _BR_PROJECT_DOC = """One project, by slug or uuid. mode=projects: its experiments, direct runs and its parts (projects linked `part_of` it). mode=runs / datasets / checkpoints: only its."""

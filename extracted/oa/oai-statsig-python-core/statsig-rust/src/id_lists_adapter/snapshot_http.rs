@@ -1,45 +1,12 @@
 use super::*;
 use crate::id_lists_adapter::IdListIds;
 use crate::id_lists_adapter::shared_id_list_format::{IdListImage, digest, hex};
-use crate::portable_id_list_ef::{MAX_IMAGE_BYTES, RECORD_BYTES};
+use crate::portable_id_list_ef::{MAX_IMAGE_BYTES, MEDIA_TYPE, RECORD_BYTES};
 use std::io::{self, Read};
-
-#[derive(Clone, Copy)]
-enum SnapshotFormat {
-    EliasFanoV1,
-}
-
-const SUPPORTED_FORMATS: [SnapshotFormat; 1] = [SnapshotFormat::EliasFanoV1];
-
-impl SnapshotFormat {
-    fn media_type(self) -> &'static str {
-        match self {
-            Self::EliasFanoV1 => crate::portable_id_list_ef::MEDIA_TYPE,
-        }
-    }
-
-    fn from_content_type(value: &str) -> Option<Self> {
-        SUPPORTED_FORMATS
-            .into_iter()
-            .find(|format| format.media_type() == value)
-    }
-
-    fn decode(self, bytes: Vec<u8>, raw_end: u64) -> io::Result<IdListImage> {
-        match self {
-            Self::EliasFanoV1 => IdListImage::from_ef_v1_snapshot(bytes, raw_end),
-        }
-    }
-}
-
-pub(super) fn accept_header_value() -> String {
-    SUPPORTED_FORMATS.map(SnapshotFormat::media_type).join(", ")
-}
 
 #[cfg(not(feature = "custom_network_provider"))]
 pub(crate) fn accepts_snapshot(value: &str) -> bool {
-    value
-        .split(',')
-        .any(|entry| SnapshotFormat::from_content_type(entry.trim()).is_some())
+    value.split(',').any(|entry| entry.trim() == MEDIA_TYPE)
 }
 
 pub(super) fn supports_snapshots(endpoint: &url::Url) -> bool {
@@ -50,14 +17,6 @@ pub(super) fn supports_snapshots(endpoint: &url::Url) -> bool {
         && endpoint.fragment().is_none()
 }
 
-pub(super) fn source_changed(
-    current: Option<&IdListMetadata>,
-    target: &IdListMetadata,
-    private_target: bool,
-) -> bool {
-    current.is_some_and(|old| old.url != target.url && (private_target || private_generation(old)))
-}
-
 fn is_sha256(value: &str) -> bool {
     value.len() == 64
         && value
@@ -65,19 +24,10 @@ fn is_sha256(value: &str) -> bool {
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
-pub(super) fn private_generation(metadata: &IdListMetadata) -> bool {
-    metadata
-        .file_id
-        .as_deref()
-        .is_some_and(|id| private_generation_url(&metadata.url, id))
-}
-
 pub(super) fn is_snapshot_response(body: &ResponseData) -> bool {
     body.header_values("content-type").any(|value| {
-        let name = media_type_without_parameters(value);
-        SUPPORTED_FORMATS.iter().any(|format| {
-            name.eq_ignore_ascii_case(media_type_without_parameters(format.media_type()))
-        })
+        media_type_without_parameters(value)
+            .eq_ignore_ascii_case(media_type_without_parameters(MEDIA_TYPE))
     }) || [
         "x-statsig-id-list-raw-end",
         "x-statsig-id-list-file-id",
@@ -89,40 +39,6 @@ pub(super) fn is_snapshot_response(body: &ResponseData) -> bool {
 
 fn media_type_without_parameters(value: &str) -> &str {
     value.split_once(';').map_or(value, |(name, _)| name).trim()
-}
-
-fn private_generation_url(raw: &str, generation: &str) -> bool {
-    let Ok(url) = url::Url::parse(raw) else {
-        return false;
-    };
-    let Some(encoded) = url.path().strip_prefix("/v1/download_id_list_file/") else {
-        return false;
-    };
-    let Some((scope, file)) = encoded.split_once("%2F") else {
-        return false;
-    };
-    let valid_segment = |s: &str| {
-        !s.is_empty()
-            && !matches!(s, "." | "..")
-            && s.bytes()
-                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
-    };
-    let Some((base, account)) = file.split_once(".regional.") else {
-        return false;
-    };
-    valid_segment(scope)
-        && !scope.contains(".regional.")
-        && valid_segment(base)
-        && (3..=24).contains(&account.len())
-        && account
-            .bytes()
-            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
-        && file == generation
-        && matches!(url.scheme(), "http" | "https")
-        && url.username().is_empty()
-        && url.password().is_none()
-        && url.query() == Some("private=true")
-        && url.fragment().is_none()
 }
 
 fn read_verified_snapshot(body: &mut ResponseData, expected_digest: &str) -> io::Result<Vec<u8>> {
@@ -168,15 +84,16 @@ impl StatsigHttpIdListsAdapter {
             let first = values.next()?;
             values.next().is_none().then_some(first)
         };
-        let format = header("content-type")
-            .and_then(SnapshotFormat::from_content_type)
+        let file_id = header("x-statsig-id-list-file-id")
+            .filter(|id| !id.is_empty())
             .ok_or_else(invalid)?;
         if response.status_code != Some(200)
+            || header("content-type") != Some(MEDIA_TYPE)
             || body.get_header_ignore_ascii_case("content-range").is_some()
             || body
                 .get_header_ignore_ascii_case("content-encoding")
                 .is_some()
-            || header("x-statsig-id-list-file-id") != job.metadata.file_id.as_deref()
+            || Some(file_id) != job.metadata.file_id.as_deref()
         {
             return Err(invalid());
         }
@@ -204,7 +121,7 @@ impl StatsigHttpIdListsAdapter {
                 return Err(StatsigHttpIdListsAdapter::publication_stopped());
             }
             let image = read_verified_snapshot(&mut body, &expected)
-                .and_then(|bytes| format.decode(bytes, end));
+                .and_then(|bytes| IdListImage::from_ef_v1_snapshot(bytes, end));
             Ok(image)
         })
         .await

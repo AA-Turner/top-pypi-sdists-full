@@ -1,13 +1,19 @@
 [project]
 name = "e2b-dockerfile-utils"
-version = "0.1.1"
+version = "0.1.2"
 description = "E2B Dockerfile utils - Dockerfile parser, shell lexer and .dockerignore matcher ported from BuildKit and Moby"
-authors = [{ name = "e2b", email = "hello@e2b.dev" }]
 license = "Apache-2.0"
-license-files = ["LICENSE", "NOTICE"]
+license-files = [
+    "LICENSE",
+    "NOTICE",
+]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
+
+[[project.authors]]
+name = "e2b"
+email = "hello@e2b.dev"
 
 [project.urls]
 Homepage = "https://e2b.dev/?utm_source=pypi&utm_medium=referral&utm_campaign=package_homepage&utm_content=e2b-dockerfile-utils"
@@ -22,7 +28,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.10.0,<0.11.0"]
+requires = ["uv_build>=0.13.4,<0.14.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]

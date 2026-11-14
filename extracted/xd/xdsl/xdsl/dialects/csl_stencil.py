@@ -5,7 +5,6 @@ from typing import TypeAlias, cast
 from xdsl.dialects import builtin, memref, stencil
 from xdsl.dialects.builtin import (
     I64,
-    AnyTensorTypeConstr,
     DenseArrayBase,
     Float16Type,
     Float32Type,
@@ -21,14 +20,13 @@ from xdsl.dialects.utils import AbstractYieldOperation
 from xdsl.ir import (
     Attribute,
     Dialect,
-    Operation,
+    OperandArg,
     ParametrizedAttribute,
     SSAValue,
 )
 from xdsl.irdl import (
     AttrSizedOperandSegments,
     IRDLOperation,
-    Operand,
     irdl_attr_definition,
     irdl_op_definition,
     lazy_traits_def,
@@ -123,9 +121,7 @@ class PrefetchOp(IRDLOperation):
 
     name = "csl_stencil.prefetch"
 
-    input_stencil = operand_def(
-        stencil.StencilTypeConstr | MemRefType.constr() | AnyTensorTypeConstr
-    )
+    input_stencil = operand_def(stencil.StencilTypeConstr | MemRefType | TensorType)
 
     swaps = prop_def(builtin.ArrayAttr[ExchangeDeclarationAttr])
 
@@ -133,11 +129,11 @@ class PrefetchOp(IRDLOperation):
 
     num_chunks = prop_def(IntegerAttr)
 
-    result = result_def(MemRefType.constr() | AnyTensorTypeConstr)
+    result = result_def(MemRefType | TensorType)
 
     def __init__(
         self,
-        input_stencil: SSAValue | Operation,
+        input_stencil: OperandArg,
         topo: dmp.RankTopoAttr,
         num_chunks: IntegerAttr,
         swaps: Sequence[ExchangeDeclarationAttr],
@@ -447,9 +443,7 @@ class AccessOp(IRDLOperation):
     """
 
     name = "csl_stencil.access"
-    op = operand_def(
-        MemRefType.constr() | stencil.StencilTypeConstr | AnyTensorTypeConstr
-    )
+    op = operand_def(stencil.StencilTypeConstr | MemRefType | TensorType)
     offset = prop_def(stencil.IndexAttr)
     offset_mapping = opt_prop_def(stencil.IndexAttr)
     result = result_def(TensorType | MemRefType)
@@ -458,7 +452,7 @@ class AccessOp(IRDLOperation):
 
     def __init__(
         self,
-        op: Operand,
+        op: SSAValue,
         offset: stencil.IndexAttr,
         result_type: TensorType[Attribute] | MemRefType,
         offset_mapping: stencil.IndexAttr | None = None,

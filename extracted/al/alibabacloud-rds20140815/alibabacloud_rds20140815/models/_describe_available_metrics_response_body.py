@@ -86,17 +86,17 @@ class DescribeAvailableMetricsResponseBodyItems(DaraModel):
         # The description of the enhanced monitoring metric.
         self.description = description
         # The category of the enhanced monitoring metric. Valid values:
-        # - **os**: operating system metrics
-        # - **db**: database metrics
+        # - **os**: operating system metrics.
+        # - **db**: database metrics.
         self.dimension = dimension
         # The key of the group to which the enhanced monitoring metric belongs.
         self.group_key = group_key
         # The name of the group to which the enhanced monitoring metric belongs.
         self.group_key_type = group_key_type
-        # The statistical method of the enhanced monitoring metric. Valid values:
-        # - **avg**: average value
-        # - **min**: minimum value
-        # - **max**: maximum value
+        # The statistical method for the enhanced monitoring metric. Valid values:
+        # - **avg**: average value.
+        # - **min**: minimum value.
+        # - **max**: maximum value.
         self.method = method
         # The key of the enhanced monitoring metric.
         self.metrics_key = metrics_key

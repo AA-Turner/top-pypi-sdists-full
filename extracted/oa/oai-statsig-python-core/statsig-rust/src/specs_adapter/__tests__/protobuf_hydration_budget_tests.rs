@@ -13,19 +13,6 @@ fn lookup_test_hydrator(instance_id: &str) -> RemoteConfigValueHydrator {
     hydrator
 }
 
-fn remote_spec(body: &[u8]) -> (pb::Spec, String) {
-    let sha = lowercase_hex(&Sha256::digest(body));
-    let spec = pb::Spec {
-        entity: pb::EntityType::EntityDynamicConfig as i32,
-        default_value: Some(raw_return_value(
-            serde_json::to_vec(&format!("{DOWNLOAD_PATH_PREFIX}{sha}")).unwrap(),
-        )),
-        remote_config_metadata: Some(protobuf_metadata(sha.clone(), body.len())),
-        ..Default::default()
-    };
-    (spec, sha)
-}
-
 fn verified_previous_values(
     hydrator: &RemoteConfigValueHydrator,
     bodies: &[&[u8]],
@@ -38,13 +25,108 @@ fn verified_previous_values(
         assert!(first.seed_verified_values(HashMap::from([(sha, Arc::new(body.to_vec()))])));
         previous.extend(
             first
-                .take_verified_spec_values(&mut spec)
+                .take_resolved_spec_values(&mut spec)
                 .unwrap()
                 .provenance,
         );
     }
     first.finish(Ok(()));
     previous
+}
+
+#[tokio::test(start_paused = true)]
+async fn download_deadline_defers_only_unresolved_full_and_delta_values() {
+    let hydrator = lookup_test_hydrator("partial-delta-deadline");
+    let verified = verified_previous_values(&hydrator, &[b"{}"]);
+    let (ready, ready_sha) = remote_spec(b"{}");
+    let name = crate::interned_string::InternedString::from_str_ref("pending");
+    let (missing, _) = remote_spec(b"[]");
+    // Occupy the response budget so admission deterministically expires without network I/O.
+    let _held = hydrator
+        .response_budget
+        .bytes
+        .acquire_many(MAX_IN_FLIGHT_HYDRATION_BYTES as u32)
+        .await
+        .unwrap();
+    let refresh = PartialBlobRefresh::new(None);
+    for warm_delta in [false, true] {
+        let mut partial = hydrator.begin_protobuf_hydration(SOURCE_URL);
+        if warm_delta {
+            partial.retain_previous_configs(&refresh);
+        } else {
+            partial.enable_partial_hydration();
+        }
+        partial.set_previous_values(verified.clone());
+        assert!(partial.register_spec_references(&ready).unwrap());
+        assert!(!partial.register_spec_references(&missing).unwrap());
+        partial.download_registered_references().await.unwrap();
+        assert_eq!(
+            partial.failed_value_reasons(),
+            vec![HydrationFailureReason::TotalTimeout]
+        );
+        let unresolved = partial
+            .take_resolved_spec_values(&mut missing.clone())
+            .unwrap();
+        assert!(unresolved.unavailable_slots.contains(&None));
+        assert!(unresolved.provenance.is_empty());
+        assert!(
+            partial
+                .take_resolved_spec_values(&mut ready.clone())
+                .unwrap()
+                .unavailable_slots
+                .is_empty()
+        );
+        let (mut later, _) = remote_spec(b"true");
+        later.rules.push(pb::Rule {
+            return_value: ready.default_value.clone(),
+            remote_config_metadata: ready.remote_config_metadata.clone(),
+            ..Default::default()
+        });
+        assert!(!partial.register_spec_references(&later).unwrap());
+        partial.download_registered_references().await.unwrap();
+        let mut envelope = pb::SpecsEnvelope {
+            data: Some(later.encode_to_vec()),
+            ..Default::default()
+        };
+        let values = partial.take_resolved_spec_values(&mut later).unwrap();
+        assert!(values.unavailable_slots.contains(&None));
+        if warm_delta {
+            partial.defer_config(&name, &mut envelope, values);
+        }
+        partial.finish(Ok(()));
+    }
+
+    let mut strict = hydrator.begin_protobuf_hydration(SOURCE_URL);
+    strict.register_spec_references(&missing).unwrap();
+    let error = strict.download_registered_references().await.unwrap_err();
+    assert!(error.to_string().contains("total_timeout"));
+    strict.finish(Err(&error));
+
+    // A published value with the same SHA but a different transport tuple cannot
+    // satisfy this request. The pending config's own rule still has its exact proof.
+    let previous = refresh.take_incomplete().unwrap();
+    let retry = PartialBlobRefresh::new(Some(&previous));
+    let mut metadata = valid_metadata(ready_sha.clone(), 2);
+    metadata.compression = super::super::metadata::RemoteCompression::Gzip;
+    let other = Arc::new(VerifiedRemoteValue::from_verified_body(metadata, b"{}").unwrap());
+    let mut session = hydrator.begin_protobuf_hydration(SOURCE_URL);
+    session.retain_previous_configs(&retry);
+    session.set_previous_values(HashMap::from([(ready_sha, other)]));
+    assert!(!session.register_spec_references(&ready).unwrap());
+    session.download_registered_references().await.unwrap();
+    assert!(
+        session
+            .register_config_references(&name, &ready, None)
+            .unwrap()
+    );
+    assert!(
+        session
+            .take_resolved_spec_values(&mut ready.clone())
+            .unwrap()
+            .unavailable_slots
+            .is_empty()
+    );
+    session.finish(Ok(()));
 }
 
 #[tokio::test]
@@ -83,7 +165,7 @@ async fn protobuf_mmap_fallback_only_retains_registered_sparse_values() {
     }
     session.advance_download_window().await.unwrap();
     session.download_registered_references().await.unwrap();
-    let values = session.take_verified_spec_values(&mut spec).unwrap();
+    let values = session.take_resolved_spec_values(&mut spec).unwrap();
     assert_eq!(values.provenance.len(), 1);
     assert!(Arc::ptr_eq(&values.provenance[&sha], &mmap_values[&sha]));
     assert!(values.default_value.is_some());
@@ -112,7 +194,7 @@ async fn protobuf_current_verified_values_take_precedence_over_mmap_fallback() {
     session.set_previous_values(current_values);
     session.set_previous_mmap_values(Some(mmap_values));
     assert!(session.register_spec_references(&spec).unwrap());
-    let values = session.take_verified_spec_values(&mut spec).unwrap();
+    let values = session.take_resolved_spec_values(&mut spec).unwrap();
     assert!(Arc::ptr_eq(&values.provenance[&sha], &current));
     assert_eq!(Arc::strong_count(&mmap_values[&sha]), 1);
     session.finish(Ok(()));
@@ -240,7 +322,7 @@ async fn new_reference_after_fully_reused_prefix_waits_for_response_budget() {
     let mut hydrated_spec = new_spec.clone();
     assert!(
         refresh
-            .take_verified_spec_values(&mut hydrated_spec)
+            .take_resolved_spec_values(&mut hydrated_spec)
             .unwrap()
             .default_value
             .is_some()
@@ -267,7 +349,7 @@ async fn resolved_seeded_bodies_still_require_response_budget_expansion() {
     assert!(session.seed_verified_values(HashMap::from([(sha, Arc::new(body.to_vec()))])));
     let mut resolved_spec = spec.clone();
     session
-        .take_verified_spec_values(&mut resolved_spec)
+        .take_resolved_spec_values(&mut resolved_spec)
         .unwrap();
 
     let occupied = budget
@@ -483,7 +565,7 @@ async fn queued_downloads_preserve_partial_seeding_dedup_and_in_flight_readiness
     session.download_registered_references().await.unwrap();
     for (spec, _) in &specs {
         let mut resolved = spec.clone();
-        let values = session.take_verified_spec_values(&mut resolved).unwrap();
+        let values = session.take_resolved_spec_values(&mut resolved).unwrap();
         assert_eq!(values.provenance.len(), 1);
         assert!(values.default_value.is_some());
         assert!(values.rule_values[0].is_some());
@@ -536,7 +618,7 @@ async fn rejected_metadata_conflict_can_be_retried_without_stale_registration_st
     for mut spec in [spec, other] {
         assert!(
             session
-                .take_verified_spec_values(&mut spec)
+                .take_resolved_spec_values(&mut spec)
                 .unwrap()
                 .default_value
                 .is_some()

@@ -11,13 +11,13 @@ class CreateDocumentCollectionResponseBody(DaraModel):
         request_id: str = None,
         status: str = None,
     ):
-        # The response message.
+        # The returned message.
         self.message = message
         # The request ID.
         self.request_id = request_id
-        # The API execution status. Valid values:
-        # - **success**: The operation was successful.
-        # - **fail**: The operation failed.
+        # The execution status of the operation. Valid values:
+        # - **success**: The operation is successful.
+        # - **fail**: The operation fails.
         self.status = status
 
     def validate(self):

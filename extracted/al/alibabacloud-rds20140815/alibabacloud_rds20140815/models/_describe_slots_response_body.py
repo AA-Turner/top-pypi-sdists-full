@@ -13,9 +13,9 @@ class DescribeSlotsResponseBody(DaraModel):
         request_id: str = None,
         slots: List[main_models.DescribeSlotsResponseBodySlots] = None,
     ):
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
-        # The list of replication slots for the instance.
+        # The list of replication slots of the instance.
         self.slots = slots
 
     def validate(self):
@@ -66,25 +66,25 @@ class DescribeSlotsResponseBodySlots(DaraModel):
     ):
         # The name of the database where the replication slot resides.
         self.database = database
-        # The plugin used by the replication slot.
+        # The plug-in used by the replication slot.
         self.plugin = plugin
         # The name of the replication slot.
         self.slot_name = slot_name
         # The status of the replication slot. Valid values:
-        # - ACTIVE: active
-        # - INACTIVE: inactive
+        # - ACTIVE: Active.
+        # - INACTIVE: Inactive.
         self.slot_status = slot_status
         # The type of the replication slot. Valid values:
-        # - physical: physical
-        # - logical: logical
+        # - physical: Physical.
+        # - logical: Logical.
         self.slot_type = slot_type
-        # The latency of the logical subscription for the subscriber that corresponds to the current replication slot, in seconds.
+        # The logical subscription latency of the subscriber corresponding to the replication slot. Unit: seconds.
         self.sub_replay_lag = sub_replay_lag
-        # Indicates whether the replication slot is temporary. Valid values:
+        # Specifies whether the replication slot is temporary. Valid values:
         # - true: Yes.
         # - false: No.
         self.temporary = temporary
-        # The volume of accumulated logs in the replication slot.
+        # The amount of accumulated logs in the replication slot.
         self.wal_delay = wal_delay
 
     def validate(self):

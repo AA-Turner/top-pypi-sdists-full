@@ -4,8 +4,10 @@ use serde_json::{Value, json};
 use std::cell::Cell;
 use uuid::Uuid;
 
+use sqlbuild_core::fingerprint_identity::main::recorded_model_local_hash::recorded_model_local_hash;
+
 use crate::credentials::models::{AuditContext, DefaultRole};
-use crate::runs::tests::helpers::snapshot;
+use crate::runs::tests::helpers::{request, request_run, snapshot};
 use crate::snapshots::main::publish_snapshot::publish_snapshot;
 use crate::snapshots::models::SnapshotInput;
 use crate::snapshots::models::SnapshotNode;
@@ -21,8 +23,8 @@ use crate::warehouse_metadata::main::{
 };
 use crate::warehouse_metadata::models::{MetadataBatch, NodeStatusQuery};
 
-/// Statements a catalog listing issues besides one build read per 100 nodes: 7 fixed, 1 per extra namespace shape.
-const WIDE_LISTING_FIXED_STATEMENTS: usize = 8;
+/// Statements a catalog listing issues besides one build read per 100 nodes: 8 fixed, 1 per extra namespace shape.
+const WIDE_LISTING_FIXED_STATEMENTS: usize = 9;
 
 pub(crate) async fn node_status_reads(
     store: &ControlStore,
@@ -53,7 +55,7 @@ pub(crate) async fn node_status_reads(
             python_source: None,
         },
     );
-    publish_snapshot(store, &input)
+    let published = publish_snapshot(store, &input)
         .await
         .expect("identity snapshot");
     let options = NodeStatusQuery {
@@ -236,6 +238,15 @@ pub(crate) async fn node_status_reads(
     );
     assert_eq!(orders["dependencies"], json!(["source:raw_orders"]));
     assert_eq!(
+        orders["definition_changed"], true,
+        "the listing compares definitions like the node status"
+    );
+    assert_eq!(
+        orders["last_outcome"],
+        json!({"status": "success", "at": changed.records[0]["ts"], "run_id": null}),
+        "a build outside the scheduler is a success"
+    );
+    assert_eq!(
         listed_node("udf:orders")["last_build"]["run_id"],
         "orders-function-run",
         "a same-named function keeps its own build"
@@ -248,12 +259,21 @@ pub(crate) async fn node_status_reads(
     );
     assert!(!json!(listed).to_string().contains("metadata_json"));
     listing_ignores_build_history(store, credentials, (location, &listed)).await;
+    listing_reports_scheduler_attempts(
+        store,
+        credentials,
+        (location, published.snapshot_id),
+        serde_json::from_value(changed.records[0]["ts"].clone()).expect("build time"),
+    )
+    .await;
     listing_wide_targets_is_batched_without_super_linear_growth(
         store,
         credentials,
         (location, input.clone()),
     )
     .await;
+    fingerprint_scheme_change_reads(store, credentials, (location, session_id), input.clone())
+        .await;
     assert!(matches!(
         read_person_node_status(
             store,
@@ -365,6 +385,82 @@ async fn listing_ignores_build_history(
         listed.len(),
         templates.len() * (copies + 1),
         timings[1]
+    );
+}
+
+/// A failed scheduler attempt replaces the outcome only when it ended after the newest build, and stays after quicker runs.
+async fn listing_reports_scheduler_attempts(
+    store: &ControlStore,
+    credentials: (&AuditContext, Uuid),
+    (location, snapshot_id): (Uuid, Uuid),
+    built_at: chrono::DateTime<chrono::Utc>,
+) {
+    let outcome = || async {
+        let listed = list_person_catalog_nodes(
+            store,
+            credentials,
+            (location, "development"),
+            DefaultRole::None,
+        )
+        .await
+        .expect("catalog nodes");
+        let orders = listed
+            .into_iter()
+            .find(|node| node.node_key == "model:orders")
+            .expect("orders listed");
+        json!(orders.last_outcome)
+    };
+    for (id, ended_at, expected) in [
+        (
+            0x0f01,
+            built_at - chrono::Duration::hours(1),
+            json!({"status": "success", "at": built_at, "run_id": null}),
+        ),
+        (
+            0x0f02,
+            built_at + chrono::Duration::hours(1),
+            json!({"status": "failed", "at": built_at + chrono::Duration::hours(1),
+                "run_id": Uuid::from_u128(0x0f02)}),
+        ),
+    ] {
+        let run = request((location, snapshot_id), id, 0, &["model:orders"]);
+        request_run(store, &run).await.expect("queue attempt");
+        let transaction = begin(store, TransactionMode::Write).await.expect("begin");
+        let (transaction, _) = query(
+            transaction,
+            "UPDATE sqb_run_nodes SET status='failed',started_at=$1,ended_at=$2,finished_storage_id=$3 WHERE run_id=$4",
+            vec![
+                Parameter::Time(ended_at - chrono::Duration::minutes(5)),
+                Parameter::Time(ended_at),
+                Parameter::Integer(i64::try_from(id).expect("storage id")),
+                Parameter::Id(run.run_id),
+            ],
+        )
+        .await
+        .expect("finish attempt");
+        let (transaction, _) = query(
+            transaction,
+            "UPDATE sqb_runs SET status='failed' WHERE run_id=$1",
+            vec![Parameter::Id(run.run_id)],
+        )
+        .await
+        .expect("fail run");
+        commit(transaction).await.expect("commit attempt");
+        assert_eq!(outcome().await, expected, "attempt ending at {ended_at}");
+    }
+    for id in 0x0f10..0x0f10 + 25 {
+        request_run(
+            store,
+            &request((location, snapshot_id), id, 0, &["customers"]),
+        )
+        .await
+        .expect("newer run of another node");
+    }
+    assert_eq!(
+        outcome().await,
+        json!({"status": "failed", "at": built_at + chrono::Duration::hours(1),
+            "run_id": Uuid::from_u128(0x0f02)}),
+        "a failure stays reported after more than 25 newer runs"
     );
 }
 
@@ -519,4 +615,130 @@ async fn list_wide_target(
         })
         .await;
     (timings[1], statements)
+}
+
+/// A build recorded under an earlier fingerprint scheme reads as unchanged until its SQL changes.
+async fn fingerprint_scheme_change_reads(
+    store: &ControlStore,
+    credentials: (&AuditContext, Uuid),
+    (location, session_id): (Uuid, Uuid),
+    input: SnapshotInput,
+) {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../benchmarks/duckshop/edge_cases/orchestration");
+    let data: Value = serde_json::from_str(
+        &std::fs::read_to_string(root.join("fingerprint_scheme_change.json")).expect("fixture"),
+    )
+    .expect("scheme change inputs");
+    let text = |key: &str| data[key].as_str().expect(key).to_owned();
+    let metadata: String = data["metadata"].to_string();
+    let current_hash: String = recorded_model_local_hash(
+        &sqlquack_fingerprint::query_fingerprint(
+            &text("definition"),
+            sqlquack_fingerprint::FingerprintDialect::DuckDB,
+        )
+        .expect("current fingerprint"),
+        &metadata,
+    )
+    .expect("current local hash");
+    let with_dialect: Value = json!({"local_hash": current_hash, "dialect": data["dialect"]});
+    let without_dialect: Value = json!({"local_hash": current_hash});
+    let publish = |identity: &Value, generation: i64| {
+        let mut input = input.clone();
+        input.generation = generation;
+        input.nodes.insert("model:scheme_orders".into(), SnapshotNode {
+            kind: "model".into(),
+            definition: json!({"name":"scheme_orders","destination":{"database":null,"schema":"main","name":"scheme_orders"},
+                "planner_identity":identity,"deps":[]}),
+            raw_sql: None, compiled_sql: None, python_source: None,
+        });
+        input
+    };
+    publish_snapshot(store, &publish(&with_dialect, 50))
+        .await
+        .expect("snapshot with dialect");
+    let build = |generation: i64, event: &str, definition: &str, ts: &str| -> MetadataBatch {
+        serde_json::from_value(json!({"kind":"fingerprints","session_id":session_id,"generation":generation,"records":[{
+            "event_id": event, "state_database": null, "state_schema": "build_history", "node_type": "model",
+            "node_name": "scheme_orders", "target_database": null, "target_schema": "main", "target_name": "scheme_orders",
+            "run_id": event, "definition_hash": data["old_scheme_hash"], "version_hash": "scheme-version",
+            "schema_fingerprint": "scheme-schema", "definition": definition, "metadata_json": metadata, "ts": ts}]}))
+        .expect("scheme build")
+    };
+    ingest_fingerprints(
+        store,
+        (location, "development"),
+        &build(
+            50,
+            "scheme-built",
+            &text("definition"),
+            "2026-01-06T10:00:00Z",
+        ),
+    )
+    .await
+    .expect("pre-upgrade build");
+    let options = NodeStatusQuery {
+        node_key: "model:scheme_orders".into(),
+    };
+    let status = || async {
+        let status = json!(
+            read_person_node_status(
+                store,
+                credentials,
+                (location, "development", &options),
+                DefaultRole::None
+            )
+            .await
+            .expect("scheme status")
+        );
+        let listed = list_person_catalog_nodes(
+            store,
+            credentials,
+            (location, "development"),
+            DefaultRole::None,
+        )
+        .await
+        .expect("scheme listing")
+        .into_iter()
+        .map(|node| json!(node))
+        .find(|node| node["node_key"] == "model:scheme_orders")
+        .expect("scheme node listed");
+        (
+            status["definition"]["status"].clone(),
+            listed["definition_changed"].clone(),
+        )
+    };
+    assert_eq!(
+        status().await,
+        (json!("matched"), json!(false)),
+        "the recorded SQL fingerprints like the current SQL under the snapshot's dialect"
+    );
+    publish_snapshot(store, &publish(&without_dialect, 51))
+        .await
+        .expect("snapshot without dialect");
+    assert_eq!(
+        status().await,
+        (json!("changed"), json!(true)),
+        "without a dialect the recorded hash is compared as stored"
+    );
+    publish_snapshot(store, &publish(&with_dialect, 52))
+        .await
+        .expect("snapshot with dialect again");
+    ingest_fingerprints(
+        store,
+        (location, "development"),
+        &build(
+            52,
+            "scheme-edited",
+            &text("edited_definition"),
+            "2026-01-07T10:00:00Z",
+        ),
+    )
+    .await
+    .expect("build of edited SQL");
+    assert_eq!(
+        status().await,
+        (json!("changed"), json!(true)),
+        "a recorded build of different SQL still reads as changed"
+    );
 }

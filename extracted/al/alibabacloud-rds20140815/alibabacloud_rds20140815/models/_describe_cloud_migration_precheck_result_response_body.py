@@ -16,7 +16,7 @@ class DescribeCloudMigrationPrecheckResultResponseBody(DaraModel):
         request_id: str = None,
         total_size: int = None,
     ):
-        # The list of pre-check reports for one-click cloud migration.
+        # The list of cloud migration precheck reports.
         self.items = items
         # The page number.
         self.page_number = page_number
@@ -24,7 +24,7 @@ class DescribeCloudMigrationPrecheckResultResponseBody(DaraModel):
         self.page_size = page_size
         # The ID of the request.
         self.request_id = request_id
-        # The total number of entries returned.
+        # The total number of returned entries.
         self.total_size = total_size
 
     def validate(self):
@@ -95,7 +95,7 @@ class DescribeCloudMigrationPrecheckResultResponseBodyItems(DaraModel):
         task_id: int = None,
         task_name: str = None,
     ):
-        # The content of the pre-check report for cloud migration.
+        # The content of the cloud migration precheck report.
         self.detail = detail
         # The time when the task was created.
         self.gmt_created = gmt_created

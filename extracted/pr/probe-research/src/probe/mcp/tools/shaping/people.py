@@ -7,8 +7,9 @@ from typing import Any
 _PERSON_FIELDS = ("name", "email", "user_id")
 
 #: What a read filtered by person or time says about the filter (people and time filters D4, D8):
-#: who `owner` matched, how many rows have no known person, and which corpora a person cannot filter.
-_OWNER_ECHO_FIELDS = ("owner_matched", "unowned_count", "owner_note")
+#: who `owner` matched, how many rows have no known person, and which corpora a person cannot filter; plus
+#: `query_note`, the line a name `query` gets when nothing matched or the page is full.
+_OWNER_ECHO_FIELDS = ("owner_matched", "unowned_count", "owner_note", "query_note")
 
 
 def to_person_card(value: Any, *, show_id: bool = True) -> dict | None:
@@ -39,7 +40,8 @@ def get_owner_echo(payload: Any) -> dict:
     unowned = payload.get("unowned_count")
     if isinstance(unowned, int) and not isinstance(unowned, bool) and unowned > 0:
         echo["unowned_count"] = unowned
-    note = payload.get("owner_note")
-    if isinstance(note, str) and note.strip():
-        echo["owner_note"] = note.strip()
+    for key in ("owner_note", "query_note"):
+        note = payload.get(key)
+        if isinstance(note, str) and note.strip():
+            echo[key] = note.strip()
     return {key: echo[key] for key in _OWNER_ECHO_FIELDS if key in echo}

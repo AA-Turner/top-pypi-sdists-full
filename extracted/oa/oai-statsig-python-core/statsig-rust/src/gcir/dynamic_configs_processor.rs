@@ -20,7 +20,7 @@ use crate::{
         secondary_exposure_key::SecondaryExposureKey,
     },
     gcir::{
-        secondary_exposure_hashing::hash_secondary_exposures,
+        gcir_formatter::GCIRHashable, secondary_exposure_hashing::hash_secondary_exposures,
         target_app_id_utils::should_filter_config_for_app,
     },
     interned_string::InternedString,
@@ -69,6 +69,7 @@ pub(crate) fn get_dynamic_config_evaluations(
         None => return Ok(result),
     };
 
+    let mut cmab_hashes = Vec::new();
     for config_name in cmab_configs.keys() {
         let hashed_name = context
             .hashing
@@ -90,7 +91,11 @@ pub(crate) fn get_dynamic_config_evaluations(
             continue;
         }
         context.reset_result();
-        let _ = Evaluator::evaluate(context, config_name.as_str(), &SpecType::Experiment);
+        let name = InternedString::from_str_ref(config_name);
+        let _ = Evaluator::evaluate_with_name(context, &name, &SpecType::Experiment);
+        if context.result.blob_unavailable {
+            continue;
+        }
         hash_secondary_exposures(
             &mut context.result,
             context.hashing,
@@ -98,9 +103,17 @@ pub(crate) fn get_dynamic_config_evaluations(
             sec_expo_hash_memo,
         );
         let eval = factory("autotune", &hashed_name, context);
+        if options.previous_response_hash.is_some() {
+            cmab_hashes.push(eval.create_hash(&name));
+        }
         result.insert(hashed_name, eval);
     }
 
+    if !cmab_hashes.is_empty() {
+        context
+            .gcir_hashes
+            .push(crate::hashing::hash_unordered(cmab_hashes));
+    }
     Ok(result)
 }
 
@@ -145,6 +158,7 @@ pub(crate) fn get_dynamic_config_evaluations_with_plan(
         None => return Ok(result),
     };
 
+    let mut cmab_hashes = Vec::new();
     for planned in &plan.cmab_configs {
         let should_filter = gcir_time!("cmab.filtering", {
             let is_filtered_by_experiment = options
@@ -172,6 +186,9 @@ pub(crate) fn get_dynamic_config_evaluations_with_plan(
         gcir_time!("cmab.evaluate", {
             let _ = Evaluator::evaluate_with_name(context, &planned.name, &SpecType::Experiment);
         });
+        if context.result.blob_unavailable {
+            continue;
+        }
         gcir_time!("cmab.hash_secondary_exposures", {
             hash_secondary_exposures(
                 &mut context.result,
@@ -184,11 +201,19 @@ pub(crate) fn get_dynamic_config_evaluations_with_plan(
         let eval = gcir_time!("cmab.result_factory", {
             factory("autotune", hashed_name, context)
         });
+        if options.previous_response_hash.is_some() {
+            cmab_hashes.push(eval.create_hash(&planned.name));
+        }
         gcir_time!("cmab.result_insert", {
             result.insert(hashed_name.clone(), eval)
         });
     }
 
+    if !cmab_hashes.is_empty() {
+        context
+            .gcir_hashes
+            .push(crate::hashing::hash_unordered(cmab_hashes));
+    }
     Ok(result)
 }
 
@@ -257,6 +282,9 @@ pub(crate) fn get_dynamic_config_evaluations_v2(
         }
         context.reset_result();
         let _ = Evaluator::evaluate(context, config_name.as_str(), &SpecType::Experiment);
+        if context.result.blob_unavailable {
+            continue;
+        }
         hash_secondary_exposures(
             &mut context.result,
             context.hashing,
@@ -357,6 +385,9 @@ pub(crate) fn get_dynamic_config_evaluations_init_v2(
         }
         context.reset_result();
         let _ = Evaluator::evaluate(context, config_name.as_str(), &SpecType::Experiment);
+        if context.result.blob_unavailable {
+            continue;
+        }
 
         let mut evaluation = result_to_experiment_eval_init_v2(
             Some("autotune"),

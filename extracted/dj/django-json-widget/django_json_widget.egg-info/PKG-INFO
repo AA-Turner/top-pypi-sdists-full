@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-json-widget
-Version: 2.1.1
+Version: 2.2.0
 Summary: Django json widget is an alternative widget that makes it easy to edit the jsonfield field of django.
 Home-page: https://github.com/jmrivas86/django-json-widget
 Author: José Manuel Rivas
@@ -9,16 +9,11 @@ License: MIT
 Keywords: django-json-widget
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -97,6 +92,39 @@ You can also add the widget in your forms.py:
                 'jsonfield': JSONEditorWidget
             }
 
+Wagtail
+-------
+
+For a Django ``JSONField`` on a Wagtail page or snippet, pass the widget to
+``FieldPanel``. Add ``django_json_widget`` to ``INSTALLED_APPS`` as above.
+
+.. code-block:: python
+
+    from django.db import models
+    from wagtail.admin.panels import FieldPanel
+    from wagtail.models import Page
+    from django_json_widget.widgets import JSONEditorWidget
+
+
+    class ConfigurationPage(Page):
+        configuration = models.JSONField(default=dict, blank=True)
+
+        content_panels = Page.content_panels + [
+            FieldPanel(
+                'configuration',
+                widget=JSONEditorWidget(width='100%'),
+            ),
+        ]
+
+Wagtail includes the widget's JavaScript and CSS through form media. The same
+``FieldPanel`` configuration can be used on a child model displayed through
+``InlinePanel``; editors initialize when rows are added. Django validates the
+submitted JSON, including invalid or cleared input.
+
+This integration is tested with Wagtail 7.2 and Django 5.2. It covers model
+fields rendered by panels. Using the widget inside a custom ``StreamField``
+block requires a Wagtail Telepath widget adapter.
+
 Configuration
 -------------
 
@@ -107,6 +135,30 @@ You can customize the JSONEditorWidget with the following options:
 * **options**: A dict of options accepted by the `JSON editor`_. Options that require functions (eg. onError) are not supported.
 * **mode (deprecated)**: The default editor mode. This argument is redundant because it can be specified as a part of ``options``.  Preserved for backwards compatibility with version 0.2.0.
 * **attrs**: HTML attributes to be applied to the wrapper element. See the `Django Widget documentation`_.
+
+Content Security Policy
+-----------------------
+
+The widget loads its executable initialization code from a static JavaScript
+file. Its initial value is embedded in a non-executable ``application/json``
+script element. However, the bundled JSONEditor and its Ace code editor are
+not fully compatible with a strict Content Security Policy (CSP):
+
+* The widget and editor use inline styles, and Ace injects style elements.
+  A policy that disallows inline styles can prevent the editor from displaying
+  correctly.
+* The default ``code`` mode creates a ``blob:`` worker. A restrictive
+  ``worker-src`` can block it.
+* JSON schema validation compiles schemas using JavaScript's ``Function``
+  constructor. A ``script-src`` that disallows ``'unsafe-eval'`` blocks this.
+
+Consequently, allowing only ``'self'`` for scripts and styles is not sufficient
+for all widget features. The CSP directives and relaxations needed depend on
+the chosen editor modes and options; test the actual configuration with CSP
+enforcement before deploying. Allowing inline styles, ``blob:`` workers, or
+``'unsafe-eval'`` weakens a policy, so projects that cannot accept those
+exceptions should use a different editor or provide compatible assets via
+``JSON_EDITOR_JS`` and ``JSON_EDITOR_CSS``.
 
 Accessing JsonEditor Instance
 -----------------------------
@@ -168,6 +220,13 @@ Tools used in rendering this package:
 =========
 Changelog
 =========
+
+2.2.0 (2026-11-13)
+------------------
+
+* Added CSP guide.
+* Implemented Wagtail support.
+* Fixed inline editors.
 
 2.1.1 (2025-12-12)
 ------------------

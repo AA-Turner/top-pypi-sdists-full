@@ -18,15 +18,15 @@ class ModifyADInfoRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # The username of the Active Directory (AD) domain.
+        # The username of the AD domain account.
         self.adaccount_name = adaccount_name
-        # The Domain Name System (DNS) name of the Active Directory (AD) domain.
+        # The Domain Name System (DNS) name of the AD domain.
         self.addns = addns
-        # The password of the Active Directory (AD) domain.
+        # The password of the AD domain account.
         self.adpassword = adpassword
-        # The IP address of the Active Directory (AD) domain.
+        # The IP address of the AD domain.
         self.adserver_ip_address = adserver_ip_address
-        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can generate the value of this parameter on the client side. The value must be unique across different requests and can be up to 64 ASCII characters in length. The value cannot contain non-ASCII characters.
+        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can generate the token on the client side. The token must be unique across different requests. It can be up to 64 ASCII characters in length and cannot contain non-ASCII characters.
         self.client_token = client_token
         # The instance ID. You can call the DescribeDBInstances operation to query the instance ID.
         # 

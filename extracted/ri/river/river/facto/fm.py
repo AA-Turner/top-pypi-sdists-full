@@ -58,7 +58,7 @@ class FM(BaseFM):
 
     @classmethod
     def _unit_test_params(cls):
-        yield {"seed": 42}
+        yield {"sample_normalization": True, "seed": 42}
 
     def _unit_test_skips(self):
         # Latent factors are initialised lazily, the first time each feature is encountered. Their
@@ -104,13 +104,13 @@ class FM(BaseFM):
 
 
 class FMRegressor(FM, base.Regressor):
-    """Factorization Machine for regression.
+    r"""Factorization Machine for regression.
 
     The model equation is defined as:
 
-    $$\\hat{y}(x) = w_{0} + \\sum_{j=1}^{p} w_{j} x_{j}  + \\sum_{j=1}^{p} \\sum_{j'=j+1}^{p} \\langle \\mathbf{v}_j, \\mathbf{v}_{j'} \\rangle x_{j} x_{j'}$$
+    $$\hat{y}(x) = w_{0} + \sum_{j=1}^{p} w_{j} x_{j}  + \sum_{j=1}^{p} \sum_{j'=j+1}^{p} \langle \mathbf{v}_j, \mathbf{v}_{j'} \rangle x_{j} x_{j'}$$
 
-    Where $\\mathbf{v}_j$ and $\\mathbf{v}_{j'}$ are $j$ and $j'$ latent vectors, respectively.
+    Where $\mathbf{v}_j$ and $\mathbf{v}_{j'}$ are $j$ and $j'$ latent vectors, respectively.
 
     For more efficiency, this model automatically one-hot encodes strings features considering them
     as categorical variables.
@@ -161,7 +161,6 @@ class FMRegressor(FM, base.Regressor):
 
     Examples
     --------
-
     >>> from river import facto
 
     >>> dataset = (
@@ -242,17 +241,17 @@ class FMRegressor(FM, base.Regressor):
 
     def predict_one(self, x):
         x = self._ohe_cat_features(x)
-        return self._raw_dot(x).item()
+        return float(self._raw_dot(x))
 
 
 class FMClassifier(FM, base.Classifier):
-    """Factorization Machine for binary classification.
+    r"""Factorization Machine for binary classification.
 
     The model equation is defined as:
 
-    $$\\hat{y}(x) = w_{0} + \\sum_{j=1}^{p} w_{j} x_{j}  + \\sum_{j=1}^{p} \\sum_{j'=j+1}^{p} \\langle \\mathbf{v}_j, \\mathbf{v}_{j'} \\rangle x_{j} x_{j'}$$
+    $$\hat{y}(x) = w_{0} + \sum_{j=1}^{p} w_{j} x_{j}  + \sum_{j=1}^{p} \sum_{j'=j+1}^{p} \langle \mathbf{v}_j, \mathbf{v}_{j'} \rangle x_{j} x_{j'}$$
 
-    Where $\\mathbf{v}_j$ and $\\mathbf{v}_{j'}$ are $j$ and $j'$ latent vectors, respectively.
+    Where $\mathbf{v}_j$ and $\mathbf{v}_{j'}$ are $j$ and $j'$ latent vectors, respectively.
 
     For more efficiency, this model automatically one-hot encodes strings features considering them
     as categorical variables.
@@ -303,7 +302,6 @@ class FMClassifier(FM, base.Classifier):
 
     Examples
     --------
-
     >>> from river import facto
 
     >>> dataset = (

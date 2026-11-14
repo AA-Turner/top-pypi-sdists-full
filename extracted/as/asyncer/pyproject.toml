@@ -13,7 +13,7 @@ license-files = [
 dynamic = []
 description = "Asyncer, async and await, focused on developer experience."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "Sebastián Ramírez", email = "tiangolo@gmail.com" },
 ]
@@ -27,7 +27,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Intended Audience :: System Administrators",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -41,7 +40,7 @@ dependencies = [
     "sniffio >=1.1",
     "typing_extensions >=4.12.0",
 ]
-version = "0.0.19"
+version = "0.0.20"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/asyncer"

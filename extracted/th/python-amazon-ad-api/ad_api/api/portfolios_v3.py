@@ -2,9 +2,20 @@ from ad_api.base import Client, sp_endpoint, ApiResponse, Utils
 
 
 class PortfoliosV3(Client):
-    """ """
+    r"""
+    Amazon Ads API v3 - portfolios, under /portfolios.
+
+    Deprecated: Amazon moved portfolios into the unified v1 generation.
+    Use ad_api.api.v1.Portfolios, on /adsApi/v1/create|query|update/portfolios,
+    which adds budget sharing between the campaigns of a portfolio and per
+    marketplace overrides on a global portfolio.
+
+    The routes here still match the contract they were built on; they are kept
+    for anyone pinning an older release.
+    """
 
     @sp_endpoint('/portfolios/list', method='POST')
+    @Utils.deprecated
     def list_portfolios(self, version: int = 3, prefer: bool = False, **kwargs) -> ApiResponse:
         r"""
         Lists portfolios. Replaces the retired ``GET /v2/portfolios``.
@@ -45,6 +56,7 @@ class PortfoliosV3(Client):
 
 
     @sp_endpoint('/portfolios', method='POST')
+    @Utils.deprecated
     def create_portfolios(self, version: int = 3, prefer: bool = False, **kwargs) -> ApiResponse:
         r"""
         Creates portfolios.
@@ -93,6 +105,7 @@ class PortfoliosV3(Client):
         return self._request(kwargs.pop('path'), data=Utils.convert_body(kwargs.pop('body'), False), params=kwargs, headers=headers)
 
     @sp_endpoint('/portfolios', method='PUT')
+    @Utils.deprecated
     def edit_portfolios(self, version: int = 3, prefer: bool = False, **kwargs) -> ApiResponse:
         r"""
         Updates portfolios.
@@ -133,6 +146,7 @@ class PortfoliosV3(Client):
 
 
     @sp_endpoint('/portfolios/budget/usage', method='POST')
+    @Utils.deprecated
     def get_budget_usage_for_portfolios(self, version: int = 1, **kwargs) -> ApiResponse:
         r"""
         Reports how much of each portfolio budget has been spent.

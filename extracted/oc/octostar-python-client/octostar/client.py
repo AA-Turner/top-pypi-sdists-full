@@ -40,7 +40,7 @@ from urllib.parse import urlparse, urlunparse
 import jwt
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, Union, List, TypeVar
+from typing import Any, Callable, Dict, Optional, Union, List, TypeVar
 from functools import wraps
 import attr
 import hashlib
@@ -157,7 +157,7 @@ def is_valid_jwt(token: str) -> bool:
 class AuthenticatedClient(Client):
     """A Client which has been authenticated for use on secured endpoints"""
 
-    fixed_token: str = None
+    fixed_token: Optional[str] = None
     prefix: str = "Bearer"
     auth_header_name: str = "Authorization"
 
@@ -434,13 +434,14 @@ def impersonating_running_user(**client_kwargs):
 
 def as_running_user(force_refresh=False):
     try:
-        from octostar_streamlit.desktop import Whoami
-        import streamlit as st
-        from streamlit.runtime.scriptrunner import get_script_run_ctx
+        # Optional 'streamlit' extra: not installed in the api venv.
+        from octostar_streamlit.desktop import Whoami  # pyright: ignore[reportMissingImports]
+        import streamlit as st  # pyright: ignore[reportMissingImports]
+        from streamlit.runtime.scriptrunner import get_script_run_ctx  # pyright: ignore[reportMissingImports]
     except ImportError as e:
         raise RuntimeError(
             "Running user integration requires the 'streamlit' extra. "
-            "Install with `pip install octostar-python-client[streamlit]`."
+            + "Install with `pip install octostar-python-client[streamlit]`."
         ) from e
 
     script_ctx = get_script_run_ctx()

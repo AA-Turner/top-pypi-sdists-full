@@ -5,47 +5,30 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .doc_ai_classify_category import DocAiClassifyCategory
-from .doc_ai_page_range import DocAiPageRange
-from .doc_ai_split_config_method import DocAiSplitConfigMethod
-from .doc_ai_split_config_remainder import DocAiSplitConfigRemainder
-from .doc_ai_split_trigger import DocAiSplitTrigger
+from .doc_ai_page_ranges import DocAiPageRanges
+from .doc_ai_review_policy import DocAiReviewPolicy
+from .doc_ai_split_constraints import DocAiSplitConstraints
 
 
 class DocAiSplitConfig(UniversalBaseModel):
-    """
-    Split options. `fixed_pages` needs `pages_per_segment`, `page_ranges` needs `segment_ranges` and `triggers` needs `split_on`.
-    """
-
-    method: typing.Optional[DocAiSplitConfigMethod] = None
     classify_segments: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    Label each child document. Supply `categories` when `true`; omit them when `false`.
+    Classify each document (default) or split only. With `false`, omit `categories`.
     """
 
     categories: typing.Optional[typing.List[DocAiClassifyCategory]] = pydantic.Field(default=None)
     """
-    Categories to label each child document with, each with a `type` and a `description`. Required when `classify_segments` is `true`.
+    Categories to label each document. `identifier_key` fills each document's `identifier`.
     """
 
-    pages_per_segment: typing.Optional[int] = pydantic.Field(default=None)
+    instructions: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Pages in each document, for `fixed_pages`.
-    """
-
-    remainder: typing.Optional[DocAiSplitConfigRemainder] = pydantic.Field(default=None)
-    """
-    For `fixed_pages`. `keep` keeps the final smaller group; `error` rejects the request when pages do not divide evenly.
+    Your own instructions, up to 8,000 characters.
     """
 
-    segment_ranges: typing.Optional[typing.List[DocAiPageRange]] = pydantic.Field(default=None)
-    """
-    For `page_ranges`. Ranges must cover the selected pages exactly once, in order.
-    """
-
-    split_on: typing.Optional[typing.List[DocAiSplitTrigger]] = pydantic.Field(default=None)
-    """
-    Markers, for `triggers`.
-    """
+    page_ranges: typing.Optional[DocAiPageRanges] = None
+    constraints: typing.Optional[DocAiSplitConstraints] = None
+    review_policy: typing.Optional[DocAiReviewPolicy] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

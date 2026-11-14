@@ -16,10 +16,10 @@ class DescribeDBInstanceNetInfoForChannelResponseBody(DaraModel):
     ):
         self.dbinstance_net_infos = dbinstance_net_infos
         # The network type of the instance. Valid values:
-        # * **VPC**: virtual private cloud (VPC).
+        # * **VPC**: VPC.
         # * **Classic**: classic network.
         self.instance_network_type = instance_network_type
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
 
     def validate(self):

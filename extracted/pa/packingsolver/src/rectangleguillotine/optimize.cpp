@@ -188,13 +188,17 @@ void optimize_onedimensional_bound(
     onedim_parameters.verbosity_level = 0;
     onedim_parameters.timer = parameters.timer;
     onedim_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
-    onedim_parameters.optimization_mode = OptimizationMode::NotAnytime;
+    onedim_parameters.optimization_mode
+        = (parameters.optimization_mode == OptimizationMode::NotAnytimeSequential)?
+        OptimizationMode::NotAnytimeSequential:
+        OptimizationMode::NotAnytime;
     onedim_parameters.linear_programming_solver_name = parameters.linear_programming_solver_name;
     onedimensional::TrivialBoundParameters onedim_trivial_bound_parameters;
     onedim_trivial_bound_parameters.verbosity_level = 0;
     onedim_trivial_bound_parameters.timer = parameters.timer;
     onedim_trivial_bound_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
     onedim_trivial_bound_parameters.linear_programming_solver_name = parameters.linear_programming_solver_name;
+    onedim_trivial_bound_parameters.optimization_mode = onedim_parameters.optimization_mode;
     // With many item types, solving the onedimensional instance may take a
     // long time (e.g. column generation), so only its trivial bound is
     // computed.
@@ -367,6 +371,13 @@ void optimize_tree_search_hypergraph(
     tsh_parameters.verbosity_level = 0;
     tsh_parameters.timer = parameters.timer;
     tsh_parameters.linear_programming_solver_name = parameters.linear_programming_solver_name;
+    if (parameters.optimization_mode != OptimizationMode::Anytime
+            && parameters.optimization_mode != OptimizationMode::Exact
+            && parameters.not_anytime_tree_search_hypergraph_number_of_operations_per_item >= 0) {
+        tsh_parameters.maximum_number_of_operations
+            = parameters.not_anytime_tree_search_hypergraph_number_of_operations_per_item
+            * instance.number_of_items();
+    }
     tsh_parameters.best_known_profit = [&algorithm_formatter]()
     {
         return algorithm_formatter.best_solution_profit();
@@ -444,7 +455,7 @@ bool tree_search_maximal_spaces_supported(
 {
     return instance.number_of_stages_unlimited()
         && instance.number_of_defects() == 0
-        && instance.number_of_stacks() == instance.number_of_item_types()
+        && instance.number_of_non_empty_stacks() == instance.number_of_item_types()
         && instance.parameters().minimum_waste_length == 0
         && instance.parameters().minimum_distance_1_cuts == 0
         && instance.parameters().maximum_distance_1_cuts == -1
@@ -496,6 +507,8 @@ void optimize_sequential_single_knapsack(
                 kp_parameters.not_anytime_tree_search_queue_size = queue_size;
                 kp_parameters.not_anytime_tree_search_maximal_spaces_queue_size = queue_size_ms;
                 kp_parameters.linear_programming_solver_name = parameters.linear_programming_solver_name;
+                kp_parameters.not_anytime_tree_search_hypergraph_number_of_operations_per_item
+                    = parameters.not_anytime_tree_search_hypergraph_number_of_operations_per_item;
                 auto kp_output = optimize(kp_instance, kp_parameters);
                 return kp_output.solution_pool;
             };
@@ -562,6 +575,8 @@ void optimize_sequential_value_correction(
             kp_parameters.not_anytime_tree_search_maximal_spaces_queue_size
                 = parameters.sequential_value_correction_subproblem_tree_search_maximal_spaces_queue_size;
             kp_parameters.linear_programming_solver_name = parameters.linear_programming_solver_name;
+            kp_parameters.not_anytime_tree_search_hypergraph_number_of_operations_per_item
+                = parameters.not_anytime_tree_search_hypergraph_number_of_operations_per_item;
             auto kp_output = optimize(kp_instance, kp_parameters);
             return kp_output.solution_pool;
         };
@@ -676,6 +691,8 @@ void optimize_column_generation(
             kp_parameters.not_anytime_tree_search_maximal_spaces_queue_size
                 = parameters.column_generation_subproblem_tree_search_maximal_spaces_queue_size;
             kp_parameters.linear_programming_solver_name = parameters.linear_programming_solver_name;
+            kp_parameters.not_anytime_tree_search_hypergraph_number_of_operations_per_item
+                = parameters.not_anytime_tree_search_hypergraph_number_of_operations_per_item;
             kp_parameters.tree_search_hypergraph_maximum_number_of_states
                 = parameters.tree_search_hypergraph_maximum_number_of_states;
             // 'PricingType::Dual' calls are rare and exist to prove a bound:
@@ -684,7 +701,11 @@ void optimize_column_generation(
             // bypassing the regular (heuristic) automatic algorithm
             // selection, when it supports the instance.
             // In 'Exact' mode, also solved in 'Exact' mode so that the bound
-            // is actually proven.
+            // is actually proven. In the other modes, its work is limited as
+            // in the other pricing calls (see
+            // 'not_anytime_tree_search_hypergraph_number_of_operations_per_item'):
+            // the bound helps, but the time is better spent finding
+            // solutions.
             if (pricing_type == PricingType::Dual
                     && tree_search_hypergraph_supported(kp_instance)
                     && tree_search_hypergraph_number_of_states(kp_instance)
@@ -937,7 +958,7 @@ packingsolver::rectangleguillotine::Output packingsolver::rectangleguillotine::o
                     && bin_area <= parameters.tree_search_hypergraph_infinite_copies_maximum_bin_area
                     && instance.number_of_stages_unlimited()
                     && instance.number_of_defects() == 0
-                    && instance.number_of_stacks() == instance.number_of_item_types()
+                    && instance.number_of_non_empty_stacks() == instance.number_of_item_types()
                     && instance.parameters().minimum_waste_length == 0
                     && instance.parameters().minimum_distance_1_cuts == 0
                     && instance.parameters().maximum_distance_1_cuts == -1
@@ -962,7 +983,7 @@ packingsolver::rectangleguillotine::Output packingsolver::rectangleguillotine::o
                     && (instance.parameters().number_of_stages <= 2
                         || instance.parameters().number_of_stages == 3 && instance.parameters().cut_type == CutType::Homogenous)
                     && instance.number_of_defects() == 0
-                    && instance.number_of_stacks() == instance.number_of_item_types()
+                    && instance.number_of_non_empty_stacks() == instance.number_of_item_types()
                     && instance.parameters().minimum_waste_length == 0
                     && instance.parameters().maximum_number_1_cuts == -1
                     && instance.parameters().maximum_number_2_cuts == -1
@@ -990,11 +1011,15 @@ packingsolver::rectangleguillotine::Output packingsolver::rectangleguillotine::o
             } else {
                 use_tree_search = true;
             }
-            // In 'Exact' mode, the 'tree_search_hypergraph' algorithm proves
-            // the optimality (or the infeasibility) of the solutions, while
-            // the other algorithms find good solutions quickly, from which
-            // it starts.
-            if (parameters.optimization_mode == OptimizationMode::Exact
+            // For the 'Knapsack' objective, the 'tree_search_hypergraph'
+            // algorithm finds and proves the optimal solutions quickly when
+            // few patterns have a profit close to the bound; otherwise, it
+            // improves the bound while the other algorithms find good
+            // solutions. In 'Exact' mode, it proves the optimality (or the
+            // infeasibility) of the solutions, while the other algorithms
+            // find good solutions quickly, from which it starts.
+            if ((parameters.optimization_mode == OptimizationMode::Exact
+                        || instance.objective() == Objective::Knapsack)
                     && tree_search_hypergraph_supported(instance)
                     && tree_search_hypergraph_number_of_states(instance)
                     <= parameters.tree_search_hypergraph_maximum_number_of_states) {
@@ -1085,7 +1110,7 @@ packingsolver::rectangleguillotine::Output packingsolver::rectangleguillotine::o
                     use_sequential_value_correction = true;
                 }
                 if (instance.objective() == Objective::BinPacking
-                        && instance.number_of_stacks() == instance.number_of_item_types()) {
+                        && instance.number_of_non_empty_stacks() == instance.number_of_item_types()) {
                     use_column_generation = true;
                 }
             } else {
@@ -1096,7 +1121,7 @@ packingsolver::rectangleguillotine::Output packingsolver::rectangleguillotine::o
                 } else {
                     use_sequential_value_correction = true;
                     if (instance.objective() == Objective::BinPacking
-                            && instance.number_of_stacks() == instance.number_of_item_types()) {
+                            && instance.number_of_non_empty_stacks() == instance.number_of_item_types()) {
                         use_column_generation = true;
                     }
                 }

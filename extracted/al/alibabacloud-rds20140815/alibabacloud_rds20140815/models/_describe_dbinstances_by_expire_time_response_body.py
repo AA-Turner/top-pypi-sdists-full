@@ -17,13 +17,13 @@ class DescribeDBInstancesByExpireTimeResponseBody(DaraModel):
         total_record_count: int = None,
     ):
         self.items = items
-        # The page number. Valid values: an integer greater than **0** and less than or equal to the maximum value of the Integer data type.
+        # The page number. Valid values: any integer greater than **0** and up to the maximum value of the Integer type.
         # 
         # Default value: **1**.
         self.page_number = page_number
         # The number of instances on the current page.
         self.page_record_count = page_record_count
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
         # The total number of entries.
         self.total_record_count = total_record_count

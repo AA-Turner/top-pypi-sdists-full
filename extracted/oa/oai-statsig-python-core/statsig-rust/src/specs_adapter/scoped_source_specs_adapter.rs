@@ -401,7 +401,11 @@ impl ScopedSourceSpecsAdapter {
             return Ok(false);
         }
 
-        if current.lcut.is_some_and(|lcut| metadata.lcut < lcut) {
+        if listener
+            .get_published_specs_info()
+            .lcut
+            .is_some_and(|lcut| metadata.lcut < lcut)
+        {
             return Ok(false);
         }
 
@@ -563,7 +567,7 @@ impl ScopedSourceSpecsAdapter {
             ),
         )
         .await?;
-        let applied = listener.get_current_specs_info();
+        let applied = listener.get_published_specs_info();
         Self::validate_specs_version(applied.lcut, applied.checksum.as_deref(), metadata)
     }
 
@@ -703,6 +707,10 @@ impl SpecsAdapter for ScopedSourceSpecsAdapter {
 
 #[cfg(test)]
 mod tests {
+    mod cold_start_hydration_tests {
+        include!("__tests__/scoped_cold_start_hydration_tests.rs");
+    }
+
     use super::{
         SYNC_INTERVAL, ScopedConfigMetadata, ScopedConfigSource, ScopedSourceSpecsAdapter,
     };
@@ -751,8 +759,19 @@ mod tests {
     }
 
     struct CursorRecordingSource {
-        source: Arc<CountingSource>,
+        source: Arc<dyn ScopedConfigSource>,
         cursors: Mutex<Vec<SpecsInfo>>,
+        payload_fetches: AtomicUsize,
+    }
+
+    impl CursorRecordingSource {
+        fn new(source: Arc<dyn ScopedConfigSource>) -> Arc<Self> {
+            Arc::new(Self {
+                source,
+                cursors: Mutex::default(),
+                payload_fetches: AtomicUsize::default(),
+            })
+        }
     }
 
     #[async_trait]
@@ -838,6 +857,10 @@ mod tests {
 
     #[async_trait]
     impl ScopedConfigSource for CursorRecordingSource {
+        fn trusted_hydration_source_url(&self) -> Option<&str> {
+            self.source.trusted_hydration_source_url()
+        }
+
         async fn fetch_metadata(&self) -> Result<ScopedConfigMetadata, StatsigErr> {
             Err(StatsigErr::InvalidOperation(
                 "cursor-aware metadata fetch was not used".to_string(),
@@ -856,7 +879,15 @@ mod tests {
             &self,
             metadata: &ScopedConfigMetadata,
         ) -> Result<ResponseData, StatsigErr> {
+            self.payload_fetches.fetch_add(1, Ordering::Relaxed);
             self.source.fetch_payload(metadata).await
+        }
+
+        async fn fetch_fallback_payload(
+            &self,
+            _: &ScopedConfigMetadata,
+        ) -> Result<Option<ResponseData>, StatsigErr> {
+            panic!("unexpected fallback during cursor-aware sync")
         }
     }
 
@@ -1348,10 +1379,7 @@ mod tests {
     #[tokio::test]
     async fn metadata_requests_receive_the_listener_owned_cursor() {
         for (initial_lcut, initial_checksum) in [(None, None), (Some(123), Some("same-checksum"))] {
-            let source = Arc::new(CursorRecordingSource {
-                source: source(123, "same-checksum"),
-                cursors: Mutex::new(Vec::new()),
-            });
+            let source = CursorRecordingSource::new(source(123, "same-checksum"));
             let (adapter, _) =
                 adapter_fixture(source.clone(), initial_lcut, initial_checksum, "scope");
 

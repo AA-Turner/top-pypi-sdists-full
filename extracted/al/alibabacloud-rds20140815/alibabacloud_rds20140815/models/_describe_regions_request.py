@@ -11,8 +11,8 @@ class DescribeRegionsRequest(DaraModel):
         resource_owner_id: int = None,
     ):
         # Specifies the language of the **LocalName** parameter in the response. Valid values:
-        # * **zh-CN**: Chinese
-        # * **en-US**: English
+        # * **zh-CN**: Chinese.
+        # * **en-US**: English.
         # 
         # Default value: **en-US**.
         self.accept_language = accept_language

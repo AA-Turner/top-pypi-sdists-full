@@ -1,13 +1,16 @@
 Metadata-Version: 2.5
 Name: pypura
-Version: 4.0.1
-Summary: Python package for interacting with Pura smart fragrance diffusers over the cloud
+Version: 4.1.0
+Summary: Python package for interacting with Pura smart fragrance diffusers over the cloud and Bluetooth
 Author-email: Nathan Spencer <natekspencer@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: >=3.11
 Requires-Dist: aiohttp>=3.12.15
+Requires-Dist: bleak-retry-connector>=3.10
+Requires-Dist: bleak>=1.0
 Requires-Dist: boto3>=1.28
+Requires-Dist: cbor2>=5.6
 Requires-Dist: pycognito>=2024.2.0
 Requires-Dist: pyjwt>=2.0
 Requires-Dist: requests>=2.0

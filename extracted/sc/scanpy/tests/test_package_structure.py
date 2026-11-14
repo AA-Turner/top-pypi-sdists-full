@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import sys
 from collections import defaultdict
 from inspect import Parameter, signature
 from pathlib import Path
@@ -8,13 +9,13 @@ from typing import TYPE_CHECKING, TypedDict
 
 import pytest
 from anndata import AnnData
+from scverse_misc.constants import ATTR_DEPRECATED_ARG
 
 # CLI is locally not imported by default but on travis it is?
 import scanpy.cli
 from scanpy._utils import _docs, descend_classes_and_funcs, import_name
 
 if TYPE_CHECKING:
-    from types import FunctionType
     from typing import Any
 
 mod_dir = Path(scanpy.__file__).parent
@@ -30,7 +31,7 @@ api_module_names = [
     "sc.external.pp",
     "sc.external.tl",
     "sc.external.pl",
-    "sc.external.exporting",
+    "sc.io",
     "sc.get",
     "sc.logging",
     # "sc.neighbors",  # Not documented
@@ -50,14 +51,59 @@ api_functions = [
     for mod_name, mod in api_modules.items()
     for name in sorted(mod.__all__)
     if callable(func := getattr(mod, name)) and func.__module__.startswith("scanpy.")
-    if not (isinstance(func, type) and issubclass(func, dict))  # TypedDict
+    if not (
+        isinstance(func, type) and issubclass(func, dict | tuple)
+    )  # TypedDict, NamedTuple
 ]
+
+
+# `out=True` returns a `…Result` NamedTuple, a mapping `out` is typed as the `…Out` TypedDict
+api_results = [
+    pytest.param(
+        getattr(mod, name),
+        getattr(mod, f"{name.removesuffix('Result')}Out", None),
+        id=f"{mod_name}.{name}",
+    )
+    for mod_name, mod in api_modules.items()
+    for name in sorted(mod.__all__)
+    if name.endswith("Result") and issubclass(getattr(mod, name), tuple)
+]
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason="needs `annotationlib`")
+@pytest.mark.parametrize(("result", "out"), api_results)
+def test_result_out_fields_match(result: type, out: type | None) -> None:
+    from annotationlib import Format, get_annotations
+
+    assert out is not None, f"{result.__name__} has no matching …Out TypedDict"
+    assert tuple(out.__annotations__) == tuple(result.__annotations__)
+
+    # functions taking the `…Out` mapping take a single accessor for the primary (first) output, if any
+    fields = get_annotations(out, format=Format.STRING)
+    primary = _union(next(iter(fields.values())))
+    funcs = {
+        qualname: _union(param.annotation) - {out.__name__, "bool", "Default"}
+        for f, qualname in (p.values for p in api_functions)
+        if (param := signature(f).parameters.get("out"))
+        and out.__name__ in _union(param.annotation)
+    }
+    assert funcs, f"no function takes `out: {out.__name__}`"
+    for qualname, single in funcs.items():
+        assert single in ({*()}, primary), qualname
 
 
 @pytest.mark.xfail(reason="TODO: unclear if we want this to totally match, let’s see")
 def test_descend_classes_and_funcs():
     funcs = set(descend_classes_and_funcs(scanpy, "scanpy"))
     assert {p.values[0] for p in api_functions} == funcs
+
+
+@pytest.mark.parametrize(
+    ("f", "qualname"),
+    [p for p in api_functions if p.id.startswith("sc.external.")],
+)
+def test_external_funcs_are_deprecated(f, qualname) -> None:
+    assert getattr(f, "__deprecated__", None), f"{qualname} is not deprecated"
 
 
 @pytest.mark.filterwarnings("error::FutureWarning:.*Import anndata.*")
@@ -74,15 +120,6 @@ def param_is_pos(p: Parameter) -> bool:
     }
 
 
-def is_deprecated(f: FunctionType) -> bool:
-    # TODO: use deprecated decorator instead
-    # https://github.com/scverse/scanpy/issues/2505
-    return f.__name__ in {
-        "normalize_per_cell",
-        "filter_genes_dispersion",
-    }
-
-
 class ExpectedSig(TypedDict):
     first_name: str
     copy_default: Any
@@ -94,22 +131,21 @@ copy_sigs: defaultdict[str, ExpectedSig | None] = defaultdict(
 )
 # full exceptions
 copy_sigs["sc.external.tl.phenograph"] = None  # external
-copy_sigs["sc.pp.filter_genes_dispersion"] = None  # deprecated
 copy_sigs["sc.pp.filter_cells"] = None  # unclear `inplace` situation
 copy_sigs["sc.pp.filter_genes"] = None  # unclear `inplace` situation
 copy_sigs["sc.pp.subsample"] = None  # returns indices along matrix
 copy_sigs["sc.pp.sample"] = None  # returns indices along matrix
 # partial exceptions: “data” instead of “adata”
 copy_sigs["sc.pp.log1p"]["first_name"] = "data"
-copy_sigs["sc.pp.normalize_per_cell"]["first_name"] = "data"
 copy_sigs["sc.pp.pca"]["first_name"] = "data"
 copy_sigs["sc.pp.scale"]["first_name"] = "data"
 copy_sigs["sc.pp.sqrt"]["first_name"] = "data"
 # other partial exceptions
-copy_sigs["sc.pp.normalize_total"]["return_ann"] = copy_sigs[
-    "sc.experimental.pp.normalize_pearson_residuals"
-]["return_ann"] = "AnnData | dict[str, np.ndarray] | None"
 copy_sigs["sc.external.pp.magic"]["copy_default"] = None
+
+
+def _union(ann: str) -> set[str]:
+    return set(ann.split(" | "))
 
 
 @pytest.mark.parametrize(("f", "qualname"), api_functions)
@@ -117,9 +153,8 @@ def test_sig_conventions(f, qualname):
     sig = signature(f)
 
     # TODO: replace the following check with lint rule for all funtions eventually
-    if not is_deprecated(f):
-        n_pos = sum(1 for p in sig.parameters.values() if param_is_pos(p))
-        assert n_pos <= 3, "Public functions should have <= 3 positional parameters"
+    n_pos = sum(1 for p in sig.parameters.values() if param_is_pos(p))
+    assert n_pos <= 3, "Public functions should have <= 3 positional parameters"
 
     first_param = next(iter(sig.parameters.values()), None)
     if first_param is None:
@@ -144,9 +179,12 @@ def test_sig_conventions(f, qualname):
         expected_sig = expected_sig.copy()
         if expected_sig["return_ann"] is None:
             expected_sig["return_ann"] = f"{first_param.annotation} | None"
+        if "copy" in {d.arg for d in getattr(f, ATTR_DEPRECATED_ARG, [])}:
+            # `@deprecated_copy`: `copy=True` returns the data, writing returns `None`,
+            # and `out=True` returns whatever the function computes.
+            assert _union(s.pop("return_ann")) >= _union(expected_sig.pop("return_ann"))
         assert s == expected_sig
-        if not is_deprecated(f):
-            assert not param_is_pos(copy_param)
+        assert not param_is_pos(copy_param)
 
 
 def getsourcefile(obj):
@@ -182,6 +220,12 @@ ALL_SPS = [_docs.ScipySparse(fmt) for fmt in ("csr", "csc")]
             "",
             [_docs.Numpy(), _docs.DaskArray(_docs.Numpy())],
             id="dask_inherits",
+        ),
+        pytest.param(
+            "np xp da",
+            "",
+            [_docs.Numpy(), _docs.ArrayApi(), _docs.DaskArray(_docs.Numpy())],
+            id="dask_skips_xp",
         ),
         pytest.param(
             "sp da[sp[csr]]",

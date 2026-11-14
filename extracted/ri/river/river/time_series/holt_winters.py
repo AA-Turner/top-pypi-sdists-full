@@ -122,7 +122,6 @@ class HoltWinters(time_series.base.Forecaster):
 
     Examples
     --------
-
     >>> from river import datasets
     >>> from river import evaluate
     >>> from river import metrics
@@ -161,7 +160,7 @@ class HoltWinters(time_series.base.Forecaster):
 
     References
     ----------
-    [^1]: [Exponential smoothing — Wikipedia](https://www.wikiwand.com/en/Exponential_smoothing)
+    [^1]: [Exponential smoothing — Wikipedia](https://en.wikipedia.org/wiki/Exponential_smoothing)
     [^2]: [Exponential smoothing — Forecasting: Principles and Practice](https://otexts.com/fpp2/expsmooth.html)
     [^3]: [What is Exponential Smoothing? — Engineering statistics handbook](https://www.itl.nist.gov/div898/handbook/pmc/section4/pmc43.htm)
 
@@ -223,7 +222,10 @@ class HoltWinters(time_series.base.Forecaster):
         if self.trend is not None:
             self.trend.append(statistics.mean(diffs))
         if self.season is not None:
-            self.season.extend([y / self.level[-1] for y in self._first_values])
+            if self.multiplicative:
+                self.season.extend([y / self.level[-1] for y in self._first_values])
+            else:
+                self.season.extend([y - self.level[-1] for y in self._first_values])
 
         self._initialized = True
 

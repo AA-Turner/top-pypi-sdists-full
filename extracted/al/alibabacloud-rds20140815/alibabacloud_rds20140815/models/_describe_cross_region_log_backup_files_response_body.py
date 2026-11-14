@@ -22,22 +22,22 @@ class DescribeCrossRegionLogBackupFilesResponseBody(DaraModel):
     ):
         # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # The end time of the query. Format: <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z (UTC).
+        # The end time of the query. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
         self.end_time = end_time
         self.items = items
-        # The page number. The value must be a positive integer that does not exceed the maximum value of the Integer data type.
+        # The page number. Valid values: integers greater than 0 and up to the maximum integer value.
         # 
         # Default value: **1**.
         self.page_number = page_number
-        # The number of backup files on the current page.
+        # The number of backup files returned on the current page.
         self.page_record_count = page_record_count
         # The region ID of the instance.
         self.region_id = region_id
         # The request ID.
         self.request_id = request_id
-        # The start time of the query. Format: <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z (UTC).
+        # The start time of the query. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
         self.start_time = start_time
-        # The total number of records.
+        # The total number of entries.
         self.total_record_count = total_record_count
 
     def validate(self):

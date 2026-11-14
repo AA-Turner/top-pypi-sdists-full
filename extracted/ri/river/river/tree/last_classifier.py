@@ -79,14 +79,12 @@ class LASTClassifier(HoeffdingTreeClassifier, base.Classifier):
 
     References
     ----------
-
     [^1]: Daniel Nowak Assis, Jean Paul Barddal, and Fabrício Enembreck.
     Just Change on Change: Adaptive Splitting Time for Decision Trees in
     Data Stream Classification . In Proceedings of ACM SAC Conference (SAC’24).
 
     Examples
     --------
-
     >>> from river.datasets import synth
     >>> from river import evaluate
     >>> from river import metrics
@@ -146,6 +144,7 @@ class LASTClassifier(HoeffdingTreeClassifier, base.Classifier):
         )
         self.change_detector = change_detector if change_detector is not None else drift.ADWIN()
         self.track_error = track_error
+        self._change_detector_split_criterion = None
 
         # To keep track of the observed classes
         self.classes: set = set()
@@ -155,6 +154,9 @@ class LASTClassifier(HoeffdingTreeClassifier, base.Classifier):
         return {}
 
     def _new_leaf(self, initial_stats=None, parent=None):
+        if not self.track_error and self._change_detector_split_criterion is None:
+            self._change_detector_split_criterion = self._new_split_criterion()
+
         if initial_stats is None:
             initial_stats = {}
         if parent is None:
@@ -168,7 +170,6 @@ class LASTClassifier(HoeffdingTreeClassifier, base.Classifier):
                 depth,
                 self.splitter,
                 self.change_detector.clone(),
-                split_criterion=self._new_split_criterion() if not self.track_error else None,
             )
         elif self._leaf_prediction == self._NAIVE_BAYES:
             return LeafNaiveBayesWithDetector(
@@ -176,7 +177,6 @@ class LASTClassifier(HoeffdingTreeClassifier, base.Classifier):
                 depth,
                 self.splitter,
                 self.change_detector.clone(),
-                split_criterion=self._new_split_criterion() if not self.track_error else None,
             )
         else:  # Naives Bayes Adaptive (default)
             return LeafNaiveBayesAdaptiveWithDetector(
@@ -184,7 +184,6 @@ class LASTClassifier(HoeffdingTreeClassifier, base.Classifier):
                 depth,
                 self.splitter,
                 self.change_detector.clone(),
-                split_criterion=self._new_split_criterion() if not self.track_error else None,
             )
 
     def _new_split_criterion(self):
@@ -203,6 +202,9 @@ class LASTClassifier(HoeffdingTreeClassifier, base.Classifier):
             split_criterion = InfoGainSplitCriterion(self.min_branch_fraction)
 
         return split_criterion
+
+    def _change_detector_merit(self, stats):
+        return self._change_detector_split_criterion.current_merit(stats)
 
     def _attempt_to_split(self, leaf: HTLeaf, parent: DTBranch, parent_branch: int, **kwargs):
         """Attempt to split a leaf.
@@ -299,7 +301,6 @@ class LASTClassifier(HoeffdingTreeClassifier, base.Classifier):
         * If growth is allowed then attempt
           to split.
         """
-
         # Updates the set of observed classes
         self.classes.add(y)
 

@@ -14,6 +14,7 @@ from ..types.voice_cloning_stream_codec import VoiceCloningStreamCodec
 from ..types.voice_library_create_response import VoiceLibraryCreateResponse
 from ..types.voice_library_detail_response import VoiceLibraryDetailResponse
 from ..types.voice_library_list_response import VoiceLibraryListResponse
+from ..types.watermark_detect_response import WatermarkDetectResponse
 from .raw_client import AsyncRawVoiceCloningClient, RawVoiceCloningClient
 from .types.gender import Gender
 from .types.style import Style
@@ -390,6 +391,48 @@ class VoiceCloningClient:
             remove_background_noise=remove_background_noise,
             request_options=request_options,
         )
+        return _response.data
+
+    def detect_watermark(
+        self, *, file: core.File, request_options: typing.Optional[RequestOptions] = None
+    ) -> WatermarkDetectResponse:
+        """
+        **Beta.** Detects whether an audio clip carries the Sarvam STFT watermark embedded by Instant Voice Cloning generation.
+
+        Upload a clip produced by `POST /voices/clone` (or stream / WebSocket) to check whether Sarvam generated it. Clips shorter than about 5 seconds usually return `inconclusive` — there is not enough signal to be confident.
+
+        Accepts `multipart/form-data` with a single `file` upload.
+
+        **Base URL:** `https://api.sarvam.ai`.
+        **Auth:** send your key in the `api-subscription-key` header.
+
+        **Limits:** max file size 10 MB; analysis is capped at 120 seconds of audio. Rate limited to 5 requests per minute.
+
+        **Billing:** free — this endpoint consumes no credits.
+
+        Parameters
+        ----------
+        file : core.File
+            See core.File for more documentation
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        WatermarkDetectResponse
+            Detection completed.
+
+        Examples
+        --------
+        from sarvamai import SarvamAI
+
+        client = SarvamAI(
+            api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
+        )
+        client.voice_cloning.detect_watermark()
+        """
+        _response = self._raw_client.detect_watermark(file=file, request_options=request_options)
         return _response.data
 
     def list_voices(
@@ -916,6 +959,56 @@ class AsyncVoiceCloningClient:
             remove_background_noise=remove_background_noise,
             request_options=request_options,
         )
+        return _response.data
+
+    async def detect_watermark(
+        self, *, file: core.File, request_options: typing.Optional[RequestOptions] = None
+    ) -> WatermarkDetectResponse:
+        """
+        **Beta.** Detects whether an audio clip carries the Sarvam STFT watermark embedded by Instant Voice Cloning generation.
+
+        Upload a clip produced by `POST /voices/clone` (or stream / WebSocket) to check whether Sarvam generated it. Clips shorter than about 5 seconds usually return `inconclusive` — there is not enough signal to be confident.
+
+        Accepts `multipart/form-data` with a single `file` upload.
+
+        **Base URL:** `https://api.sarvam.ai`.
+        **Auth:** send your key in the `api-subscription-key` header.
+
+        **Limits:** max file size 10 MB; analysis is capped at 120 seconds of audio. Rate limited to 5 requests per minute.
+
+        **Billing:** free — this endpoint consumes no credits.
+
+        Parameters
+        ----------
+        file : core.File
+            See core.File for more documentation
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        WatermarkDetectResponse
+            Detection completed.
+
+        Examples
+        --------
+        import asyncio
+
+        from sarvamai import AsyncSarvamAI
+
+        client = AsyncSarvamAI(
+            api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.voice_cloning.detect_watermark()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.detect_watermark(file=file, request_options=request_options)
         return _response.data
 
     async def list_voices(

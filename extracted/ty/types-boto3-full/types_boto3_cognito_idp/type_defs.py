@@ -36,6 +36,7 @@ from .literals import (
     ChallengeNameType,
     ChallengeNameTypeType,
     ChallengeResponseType,
+    ClientTypeTypeType,
     ColorSchemeModeTypeType,
     CompromisedCredentialsEventActionTypeType,
     DefaultEmailOptionTypeType,
@@ -196,6 +197,9 @@ __all__ = (
     "CustomDomainConfigTypeTypeDef",
     "CustomEmailLambdaVersionConfigTypeTypeDef",
     "CustomSMSLambdaVersionConfigTypeTypeDef",
+    "DcrConfigurationTypeOutputTypeDef",
+    "DcrConfigurationTypeTypeDef",
+    "DcrConfigurationTypeUnionTypeDef",
     "DeleteGroupRequestTypeDef",
     "DeleteIdentityProviderRequestTypeDef",
     "DeleteManagedLoginBrandingRequestTypeDef",
@@ -951,6 +955,22 @@ class CustomSMSLambdaVersionConfigTypeTypeDef(TypedDict):
     LambdaArn: str
 
 
+class DcrConfigurationTypeOutputTypeDef(TypedDict):
+    EnableStatus: NotRequired[StatusTypeType]
+    OpenDcrEnabled: NotRequired[bool]
+    AuthenticatedGrantTypes: NotRequired[list[OAuthFlowTypeType]]
+    OpenDcrGrantTypes: NotRequired[list[OAuthFlowTypeType]]
+    AllowedScopes: NotRequired[list[str]]
+
+
+class DcrConfigurationTypeTypeDef(TypedDict):
+    EnableStatus: NotRequired[StatusTypeType]
+    OpenDcrEnabled: NotRequired[bool]
+    AuthenticatedGrantTypes: NotRequired[Sequence[OAuthFlowTypeType]]
+    OpenDcrGrantTypes: NotRequired[Sequence[OAuthFlowTypeType]]
+    AllowedScopes: NotRequired[Sequence[str]]
+
+
 class DeleteGroupRequestTypeDef(TypedDict):
     GroupName: str
     UserPoolId: str
@@ -1291,6 +1311,7 @@ class ListUserPoolClientsRequestTypeDef(TypedDict):
     UserPoolId: str
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    ClientType: NotRequired[ClientTypeTypeType]
 
 
 class UserPoolClientDescriptionTypeDef(TypedDict):
@@ -1715,6 +1736,7 @@ class ListResourceServersRequestPaginateTypeDef(TypedDict):
 
 class ListUserPoolClientsRequestPaginateTypeDef(TypedDict):
     UserPoolId: str
+    ClientType: NotRequired[ClientTypeTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -2012,6 +2034,7 @@ class ResourceServerTypeTypeDef(TypedDict):
     Identifier: NotRequired[str]
     Name: NotRequired[str]
     Scopes: NotRequired[list[ResourceServerScopeTypeTypeDef]]
+    ManagedBy: NotRequired[Literal["COGNITO"]]
 
 
 class UpdateResourceServerRequestTypeDef(TypedDict):
@@ -2147,6 +2170,7 @@ class UserPoolClientTypeTypeDef(TypedDict):
     EnablePropagateAdditionalUserContextData: NotRequired[bool]
     AuthSessionValidity: NotRequired[int]
     RefreshTokenRotation: NotRequired[RefreshTokenRotationTypeTypeDef]
+    ClientType: NotRequired[ClientTypeTypeType]
 
 
 class CreateUserPoolReplicaResponseTypeDef(TypedDict):
@@ -2168,6 +2192,11 @@ class ListUserPoolReplicasResponseTypeDef(TypedDict):
 class UpdateUserPoolReplicaResponseTypeDef(TypedDict):
     UserPoolReplica: UserPoolReplicaTypeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+DcrConfigurationTypeUnionTypeDef = Union[
+    DcrConfigurationTypeTypeDef, DcrConfigurationTypeOutputTypeDef
+]
 
 
 class SmsConfigurationTypeTypeDef(TypedDict):
@@ -2642,6 +2671,7 @@ class UserPoolTypeTypeDef(TypedDict):
     CustomDomain: NotRequired[str]
     AdminCreateUserConfig: NotRequired[AdminCreateUserConfigTypeTypeDef]
     UserPoolAddOns: NotRequired[UserPoolAddOnsTypeTypeDef]
+    DcrConfiguration: NotRequired[DcrConfigurationTypeOutputTypeDef]
     UsernameConfiguration: NotRequired[UsernameConfigurationTypeTypeDef]
     Arn: NotRequired[str]
     AccountRecoverySetting: NotRequired[AccountRecoverySettingTypeOutputTypeDef]
@@ -2771,6 +2801,7 @@ class CreateUserPoolRequestTypeDef(TypedDict):
     AdminCreateUserConfig: NotRequired[AdminCreateUserConfigTypeTypeDef]
     Schema: NotRequired[Sequence[SchemaAttributeTypeTypeDef]]
     UserPoolAddOns: NotRequired[UserPoolAddOnsTypeTypeDef]
+    DcrConfiguration: NotRequired[DcrConfigurationTypeUnionTypeDef]
     UsernameConfiguration: NotRequired[UsernameConfigurationTypeTypeDef]
     AccountRecoverySetting: NotRequired[AccountRecoverySettingTypeUnionTypeDef]
     UserPoolTier: NotRequired[UserPoolTierTypeType]
@@ -2798,6 +2829,7 @@ class UpdateUserPoolRequestTypeDef(TypedDict):
     UserPoolTags: NotRequired[Mapping[str, str]]
     AdminCreateUserConfig: NotRequired[AdminCreateUserConfigTypeTypeDef]
     UserPoolAddOns: NotRequired[UserPoolAddOnsTypeTypeDef]
+    DcrConfiguration: NotRequired[DcrConfigurationTypeUnionTypeDef]
     AccountRecoverySetting: NotRequired[AccountRecoverySettingTypeUnionTypeDef]
     PoolName: NotRequired[str]
     UserPoolTier: NotRequired[UserPoolTierTypeType]

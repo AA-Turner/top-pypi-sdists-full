@@ -127,3 +127,98 @@ def test_deprecated_wrapper_forwards_shuffle(
     with pytest.warns(DeprecationWarning):
         rows = list(iter_fn(b.frame(FEATURES), b.series(TARGET), shuffle=True, seed=42))
     assert sorted(rows, key=lambda row: row[0]["x1"]) == EXPECTED
+
+
+@pytest.mark.parametrize(("n_x", "n_y"), [(3, 2), (2, 3)])
+@pytest.mark.parametrize("shuffle", [False, True])
+@pytest.mark.parametrize("multioutput", [False, True])
+def test_mismatched_feature_target_lengths(
+    frame_backend: FrameBackend,
+    n_x: int,
+    n_y: int,
+    shuffle: bool,
+    multioutput: bool,
+) -> None:
+    X = frame_backend.frame({"x": list(range(n_x))})
+
+    y: typing.Any
+    if multioutput:
+        y = frame_backend.frame(
+            {
+                "y1": list(range(n_y)),
+                "y2": list(range(n_y)),
+            }
+        )
+    else:
+        y = frame_backend.series(list(range(n_y)))
+
+    with pytest.raises(ValueError, match="X and y must have the same length"):
+        list(stream.iter_frame(X, y, shuffle=shuffle, seed=42))
+
+
+@pytest.mark.parametrize(
+    ("dtype", "values", "scalar_type"),
+    [
+        ("Int64", [2**53 + 1, -(2**53) - 1], int),
+        ("UInt64", [2**63 + 1, 2**63 + 3], int),
+        ("Float64", [1.5, -2.5], float),
+        ("boolean", [True, False], bool),
+    ],
+)
+@pytest.mark.parametrize("target_kind", ["none", "series", "frame"])
+def test_pandas_nullable_native_scalars(
+    dtype: str, values: list[typing.Any], scalar_type: type[object], target_kind: str
+) -> None:
+    pd = pytest.importorskip("pandas")
+    expected_values = [values[0], None, values[1]]
+    X = pd.DataFrame({"x": pd.Series(expected_values, dtype=dtype)})
+    if target_kind == "none":
+        y = None
+    elif target_kind == "series":
+        y = X["x"]
+    else:
+        y = X.rename(columns={"x": "y"})
+
+    rows = list(stream.iter_frame(X, y))
+
+    for (features, target), expected in zip(rows, expected_values, strict=True):
+        if expected is None:
+            assert features["x"] is None
+        else:
+            assert type(features["x"]) is scalar_type
+            assert features["x"] == expected
+        if target_kind == "frame":
+            target = target["y"]
+        if target_kind == "none" or expected is None:
+            assert target is None
+        else:
+            assert type(target) is scalar_type
+            assert target == expected
+
+
+def test_pandas_nullable_rows_across_batches() -> None:
+    pd = pytest.importorskip("pandas")
+    values: list[int | None] = [2**63 + i for i in range(1025)]
+    values[512] = None
+    X = pd.DataFrame({"x": pd.Series(values, dtype="UInt64")})
+
+    rows = list(stream.iter_frame(X, X["x"], shuffle=True, seed=7))
+    repeated = list(stream.iter_frame(X, X["x"], shuffle=True, seed=7))
+
+    assert rows == repeated
+    assert len(rows) == len(values)
+    assert {features["x"] for features, _ in rows} == set(values)
+    assert all(features["x"] == target for features, target in rows)
+    assert all(type(target) is int or target is None for _, target in rows)
+
+
+@pytest.mark.parametrize("name", [None, "", 0, "target"])
+def test_pandas_nullable_series_target_names(name: typing.Any) -> None:
+    pd = pytest.importorskip("pandas")
+    X = pd.DataFrame({"x": [1, 2]})
+    y = pd.Series([2**53 + 1, None], dtype="Int64", name=name)
+
+    rows = list(stream.iter_frame(X, y))
+
+    assert rows == [({"x": 1}, 2**53 + 1), ({"x": 2}, None)]
+    assert type(rows[0][1]) is int

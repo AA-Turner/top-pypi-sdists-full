@@ -6,7 +6,10 @@ import io
 import itertools
 import os
 import typing
+import warnings
 from collections.abc import Callable
+from fractions import Fraction
+from functools import partial
 from typing import Any, Literal
 from unittest import mock
 
@@ -403,6 +406,35 @@ def test__fit_preprocessors_and_low_memory_produce_equal_results(
 
 
 @pytest.mark.parametrize("model_version", list(ModelVersion))
+# Disable MPS as it doesn't support float64.
+@pytest.mark.parametrize("device", [d for d in get_pytest_devices() if d != "mps"])
+def test__predict__single_row_vs_batch__equal_in_float64(
+    X_y: tuple[np.ndarray, np.ndarray], model_version: ModelVersion, device: str
+) -> None:
+    """Predicting a row alone must give the same result as predicting it in a batch.
+
+    The model treats test rows independently, but matrix products are summed in an
+    order that depends on the batch size. In float64 this changes results by about
+    1e-15 relative, in lower precisions by up to about 1e-3, so this test forces
+    float64. The tolerance is relative because predictions can be large.
+    """
+    X, y = X_y
+    tabpfn = TabPFNRegressor.create_default_for_version(
+        version=model_version,
+        n_estimators=2,
+        inference_precision=torch.float64,
+        random_state=0,
+        device=device,
+    )
+    tabpfn.fit(X, y)
+
+    batch_preds = tabpfn.predict(X)
+    single_preds = np.concatenate([tabpfn.predict(X[i : i + 1]) for i in range(len(X))])
+
+    np.testing.assert_allclose(single_preds, batch_preds, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.parametrize("model_version", list(ModelVersion))
 def test__fit_and_predict__on_demo_dataset__r2_reasonable(
     model_version: ModelVersion,
 ) -> None:
@@ -779,7 +811,10 @@ def test_pandas_output_config():
         np.testing.assert_array_almost_equal(default_pred, polars_pred)
 
 
-def test_constant_feature_handling(X_y: tuple[np.ndarray, np.ndarray]) -> None:
+@pytest.mark.parametrize("polynomial_features", ["no", "all"])
+def test_constant_feature_handling(
+    X_y: tuple[np.ndarray, np.ndarray], polynomial_features: str
+) -> None:
     """Test that constant features are properly handled and don't affect predictions."""
     X, y = X_y
 
@@ -788,7 +823,7 @@ def test_constant_feature_handling(X_y: tuple[np.ndarray, np.ndarray]) -> None:
         n_estimators=1,
         random_state=42,
         inference_config={
-            "POLYNOMIAL_FEATURES": "no",
+            "POLYNOMIAL_FEATURES": polynomial_features,
             # Set to False to avoid different fingerprint features for tiny
             # numerical variations e.g. from non-deterministic algorithms in
             # preprocessing steps before adding the fingerprint feature.
@@ -815,7 +850,7 @@ def test_constant_feature_handling(X_y: tuple[np.ndarray, np.ndarray]) -> None:
         n_estimators=1,
         random_state=42,
         inference_config={
-            "POLYNOMIAL_FEATURES": "no",
+            "POLYNOMIAL_FEATURES": polynomial_features,
             "FINGERPRINT_FEATURE": False,  # see above for why
         },
     )
@@ -1172,6 +1207,17 @@ def test__fit_with_differentiable_input__grad_flows_to_upstream_module(
     assert grad.norm().item() > 0, "gradient norm is zero — graph was detached"
 
 
+def test__fit_with_differentiable_input__target_sign_flip__warns() -> None:
+    reg = TabPFNRegressor(
+        n_estimators=1,
+        device="cpu",
+        differentiable_input=True,
+        inference_config={"REGRESSION_TARGET_SIGN_FLIP": True},
+    )
+    with pytest.warns(UserWarning, match="REGRESSION_TARGET_SIGN_FLIP is ignored"):
+        reg.fit_with_differentiable_input(torch.randn(20, 3), torch.randn(20))
+
+
 def test__fit__differentiable_input_true__raises_helpful_error() -> None:
     """Calling .fit() (instead of fit_with_differentiable_input) when
     differentiable_input=True must raise a clear error pointing users to the
@@ -1450,6 +1496,236 @@ def test__predict_batched__uses_fitted_target_transforms() -> None:
         np.testing.assert_allclose(batched[i], ref.predict(X_tests[i]), atol=1e-4)
 
 
+def test__predict_batched__datasets_with_different_target_scales() -> None:
+    """Each dataset's borders must be mapped back in its own target frame.
+
+    The worker is refitted per dataset, so its own `y_train_mean_`/`y_train_std_`
+    only ever hold the last dataset's. Targets that differ by six orders of
+    magnitude make a leaked frame impossible to miss.
+    """
+    X, y = _mk_reg_dataset(0)
+    scales = [1e-3, 1.0, 1e6]
+    X_list = [X] * len(scales)
+    y_list = [y * scale for scale in scales]
+    X_tests = [X[:5]] * len(scales)
+
+    kwargs = {
+        "n_estimators": 4,
+        "device": "cpu",
+        "random_state": 42,
+        "inference_precision": torch.float32,
+    }
+    batched = TabPFNRegressor(**kwargs).predict_batched(X_list, y_list, X_tests)
+
+    for i, scale in enumerate(scales):
+        ref = TabPFNRegressor(**kwargs)
+        ref.fit(X_list[i], y_list[i])
+        np.testing.assert_allclose(
+            batched[i], ref.predict(X_tests[i]), rtol=1e-4, atol=1e-6 * scale
+        )
+
+
+def test__fit__member_target_is_the_znormalized_target() -> None:
+    """Without subsampling or a preset, model inputs match global standardization."""
+    X, y = _mk_reg_dataset(0)
+    reg = TabPFNRegressor(
+        n_estimators=1,
+        device="cpu",
+        random_state=42,
+        inference_config={"REGRESSION_Y_PREPROCESS_TRANSFORMS": (None,)},
+    )
+    reg.fit(X, y)
+
+    member_y = np.asarray(reg.executor_.ensemble_members[0].y_train)
+
+    assert np.array_equal(member_y, (y - np.mean(y)) / (np.std(y) + 1e-20))
+
+
+@pytest.mark.parametrize("preset", [None, "log"])
+def test__fit__target_sign_flip__members_see_the_negated_pipeline_output(
+    preset: str | None,
+) -> None:
+    """The flip comes after the pipeline, so `log` still sees the raw target."""
+    X, y = _mk_reg_dataset(0)
+    y = np.abs(y) + 1.0
+
+    def fit(*, flip: bool) -> TabPFNRegressor:
+        return TabPFNRegressor(
+            n_estimators=4,
+            device="cpu",
+            random_state=42,
+            inference_config={
+                "REGRESSION_Y_PREPROCESS_TRANSFORMS": (preset,),
+                "REGRESSION_TARGET_SIGN_FLIP": flip,
+            },
+        ).fit(X, y)
+
+    members = fit(flip=True).executor_.ensemble_members
+    plain = fit(flip=False).executor_.ensemble_members
+
+    assert {m.config.flip_target for m in members} == {False, True}
+    for member, reference in zip(members, plain, strict=True):
+        target = np.asarray(member.y_train)
+        expected = np.asarray(reference.y_train)
+        assert np.isfinite(target).all()
+        np.testing.assert_allclose(
+            target, -expected if member.config.flip_target else expected
+        )
+
+
+def test__predict__target_sign_flip__predicts_in_the_original_sign() -> None:
+    """Negating y swaps which members see the negated target.
+
+    So the difference of the two fits must match the same difference without the
+    option.
+    """
+    X, y = _mk_reg_dataset(0)
+    X_train, X_test, y_train = X[:45], X[45:], y[:45]
+
+    def predict(target: np.ndarray, *, flip: bool) -> np.ndarray:
+        return (
+            TabPFNRegressor(
+                n_estimators=2,
+                device="cpu",
+                random_state=42,
+                inference_config={
+                    "REGRESSION_Y_PREPROCESS_TRANSFORMS": (None,),
+                    "REGRESSION_TARGET_SIGN_FLIP": flip,
+                },
+            )
+            .fit(X_train, target)
+            .predict(X_test)
+        )
+
+    flipped = predict(y_train, flip=True) - predict(-y_train, flip=True)
+    plain = predict(y_train, flip=False) - predict(-y_train, flip=False)
+
+    np.testing.assert_allclose(flipped, plain, atol=1e-2 * np.abs(plain).max())
+
+
+def _mk_skewed_reg_dataset(
+    seed: int, n: int = 200, f: int = 5
+) -> tuple[np.ndarray, np.ndarray]:
+    """A strictly positive, right-skewed target -- the log-transform case."""
+    r = np.random.RandomState(seed)
+    X = r.randn(n, f)
+    y = np.exp(1.5 + X @ np.array([1.0, -0.5, 0.3, 0.0, 0.2]) + 0.3 * r.randn(n))
+    return X, y
+
+
+def test__fit__target_transform__applied_to_the_unnormalized_target() -> None:
+    """Apply log1p to raw targets before standardizing model inputs."""
+    X, y = _mk_skewed_reg_dataset(0)
+    reg = TabPFNRegressor(
+        n_estimators=1,
+        device="cpu",
+        random_state=42,
+        inference_config={"REGRESSION_Y_PREPROCESS_TRANSFORMS": ("1_plus_log",)},
+    )
+    reg.fit(X, y)
+
+    expected = np.log1p(y)
+    expected = (expected - expected.mean()) / expected.std()
+    member_y = np.asarray(reg.executor_.ensemble_members[0].y_train)
+
+    np.testing.assert_allclose(member_y, expected, rtol=1e-8)
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("offset", [0.0, 1e6])
+@pytest.mark.parametrize("transform", ["power", "safepower"])
+def test__fit__power_standardizes_before_fitting(
+    dtype: type[np.floating], offset: float, transform: str
+) -> None:
+    X, y = _mk_skewed_reg_dataset(0)
+    y = (y + offset).astype(dtype)
+    reg = TabPFNRegressor(
+        n_estimators=1,
+        device="cpu",
+        random_state=42,
+        inference_config={"REGRESSION_Y_PREPROCESS_TRANSFORMS": (transform,)},
+    )
+    reg.fit(X, y)
+
+    preset = reg.executor_.ensemble_members[0].config.target_transform.named_steps[
+        "target_transform"
+    ]
+    standardized = (y - float(np.mean(y))) / (float(np.std(y)) + 1e-20)
+    np.testing.assert_array_equal(
+        preset.named_steps["standardize_input"].transform(y.reshape(-1, 1)).ravel(),
+        standardized,
+    )
+    expected = regressor_module.get_all_reshape_feature_distribution_preprocessors(
+        num_examples=len(y), random_state=42
+    )[transform].fit_transform(standardized.reshape(-1, 1))
+    np.testing.assert_array_equal(preset.transform(y.reshape(-1, 1)), expected)
+    pipeline = reg.executor_.ensemble_members[0].config.target_transform
+    np.testing.assert_allclose(
+        pipeline.inverse_transform(pipeline.transform(y.reshape(-1, 1))).ravel(),
+        y,
+        rtol=1e-5,
+    )
+
+
+def test__fit__none_preset_is_resolved_to_no_transform() -> None:
+    """`"none"` is the identity, so it must not cost an extra pass."""
+    X, y = _mk_skewed_reg_dataset(0)
+    reg = TabPFNRegressor(
+        n_estimators=1,
+        device="cpu",
+        random_state=42,
+        inference_config={"REGRESSION_Y_PREPROCESS_TRANSFORMS": ("none",)},
+    )
+    reg.fit(X, y)
+
+    pipeline = reg.executor_.ensemble_members[0].config.target_transform
+    assert list(pipeline.named_steps) == ["standardize_target"]
+    assert np.array_equal(
+        np.asarray(reg.executor_.ensemble_members[0].y_train),
+        (y - np.mean(y)) / (np.std(y) + 1e-20),
+    )
+
+
+@pytest.mark.parametrize("transform", ["1_plus_log", "log", "safepower"])
+def test__predict__target_transform__predictions_are_finite_and_accurate(
+    transform: str,
+) -> None:
+    """Target transformation and inverse border mapping preserve prediction quality."""
+    X, y = _mk_skewed_reg_dataset(0)
+    X_train, X_test, y_train, y_test = X[:150], X[150:], y[:150], y[150:]
+    reg = TabPFNRegressor(
+        n_estimators=2,
+        device="cpu",
+        # Keep transform accuracy independent of CPU bfloat16 support.
+        inference_precision=torch.float32,
+        random_state=42,
+        inference_config={"REGRESSION_Y_PREPROCESS_TRANSFORMS": (transform,)},
+    )
+    reg.fit(X_train, y_train)
+    pred = reg.predict(X_test)
+
+    assert np.isfinite(pred).all()
+    assert r2_score(y_test, pred) > 0.7
+
+
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+def test__fit__target_frame_is_independent_of_the_target_units(dtype: str) -> None:
+    """Rescaling the target changes its frame but preserves standardized inputs."""
+    X, y = _mk_reg_dataset(0)
+    y = y.astype(dtype)
+    members = []
+    for scale in (1.0, 1e6):
+        scaled_y = y * scale
+        reg = TabPFNRegressor(n_estimators=1, device="cpu", random_state=42)
+        reg.fit(X, scaled_y)
+        # Compute from the actual input: scaling and reduction round differently.
+        assert reg.y_train_mean_ == float(np.mean(scaled_y))
+        assert reg.y_train_std_ == float(np.std(scaled_y)) + 1e-20
+        members.append(np.asarray(reg.executor_.ensemble_members[0].y_train))
+
+    np.testing.assert_allclose(members[0], members[1], rtol=1e-5)
+
+
 @pytest.mark.parametrize("device", devices)
 def test__predict_batched__matches_per_dataset_dataframe(device: str) -> None:
     """Batched prediction matches per-dataset on non-numeric DataFrame inputs.
@@ -1674,6 +1950,32 @@ def test__predict_batched__float64_inputs_match_per_dataset() -> None:
         ref = TabPFNRegressor(**kwargs)
         ref.fit(X, y)
         np.testing.assert_allclose(batched[i], ref.predict(X_tests[i]), rtol=1e-4)
+
+
+@pytest.mark.parametrize("batched", [False, True])
+def test__predict__quantiles_accept_any_real_type_and_reject_out_of_range(
+    batched: bool,
+) -> None:
+    X, y = _mk_reg_dataset(0, n=40)
+    reg = TabPFNRegressor(n_estimators=1, device="cpu", random_state=42)
+    if batched:
+        predict = partial(reg.predict_batched, [X], [y], [X[:3]])
+    else:
+        reg.fit(X, y)
+        predict = partial(reg.predict, X[:3])
+
+    expected = predict(
+        output_type="quantiles", quantiles=[0.0, 0.5, 0.5, 1.0, 0.0, 1.0]
+    )
+    got = predict(
+        output_type="quantiles",
+        quantiles=[0, np.float32(0.5), Fraction(1, 2), 1, False, True],
+    )
+    for e, g in zip(expected, got, strict=True):
+        np.testing.assert_allclose(g, e)
+
+    with pytest.raises(regressor_module.TabPFNValidationError, match="between 0 and 1"):
+        predict(output_type="quantiles", quantiles=[5, 95])
 
 
 def test__predict_batched__rejects_bad_arguments() -> None:
@@ -2100,3 +2402,56 @@ def test__eval_metric_and_tuning_config__round_trip_through_sklearn_clone(
     round_tripped = TabPFNRegressor().set_params(**params)
     assert round_tripped.eval_metric == eval_metric
     assert round_tripped.tuning_config == tuning_config
+
+
+@pytest.mark.parametrize(
+    ("transform", "minimum", "domain"),
+    [
+        ("log", 0.0, "strictly positive"),
+        ("log", -1.0, "strictly positive"),
+        ("1_plus_log", -1.0, "greater than -1"),
+        ("1_plus_log", -2.0, "greater than -1"),
+    ],
+)
+def test__fit__invalid_log_target__raises_clear_error(
+    transform: str, minimum: float, domain: str
+) -> None:
+    X, y = _mk_skewed_reg_dataset(0)
+    y[0] = minimum
+    reg = TabPFNRegressor(
+        n_estimators=1,
+        device="cpu",
+        inference_config={"REGRESSION_Y_PREPROCESS_TRANSFORMS": (transform,)},
+    )
+    with pytest.raises(ValueError, match=f"{transform}.*{domain}"):
+        reg.fit(X, y)
+
+
+@pytest.mark.parametrize(
+    ("maximum", "warns"),
+    [
+        (1.0, False),
+        (88.0, False),
+        (np.nextafter(np.log(np.finfo(np.float32).max), np.float32(-np.inf)), False),
+        (np.log(np.finfo(np.float32).max), True),
+        (90.0, True),
+    ],
+)
+def test__fit__exp_target__warns_only_for_float32_overflow(
+    maximum: float, warns: bool
+) -> None:
+    X, y = _mk_skewed_reg_dataset(0)
+    reg = TabPFNRegressor(
+        n_estimators=1,
+        device="cpu",
+        inference_config={"REGRESSION_Y_PREPROCESS_TRANSFORMS": ("exp",)},
+    )
+    y = y / y.max()
+    y[-1] = maximum
+    if warns:
+        with pytest.warns(UserWarning, match="exp.*1 of .*overflow in float32"):
+            reg.fit(X, y)
+    else:
+        with warnings.catch_warnings():
+            warnings.filterwarnings("error", message=".*exp.*", category=UserWarning)
+            reg.fit(X, y)

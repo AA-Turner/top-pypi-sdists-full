@@ -128,6 +128,41 @@ def test_move_refuses_a_fact_placed_by_topic_and_moves_nothing(tmp_path, capsys)
     assert _slugs(levels["a"]) == ["feedback-py-rule"]
 
 
+
+def test_move_refusal_for_a_one_line_fact_says_its_line_stays_and_the_route_works(tmp_path, capsys):
+    """A fact placed at one level only has one line: un-binding it collapses nothing, its line
+    stays where it is. The refusal said its lines collapse to one at the tree top."""
+    anchor, levels = _rendered(tmp_path)
+    rs = _level(anchor, "a/rs", ("rust",))
+    _fact(anchor, "feedback-rs-rule", ("rust",))
+    E.render_topics(anchor)
+    assert "feedback-rs-rule" in _slugs(rs) and "feedback-rs-rule" not in _slugs(anchor)
+    capsys.readouterr()
+    rc = E.main(["move", "--from-level", rs, "--to-level", levels["a"],
+                 "--slug", "feedback-rs-rule"])
+    out = capsys.readouterr().out
+    assert rc == 2 and "is placed by topic" in out, out
+    assert "collapse" not in out and "its one line stays at %s" % rs in out, out
+    route = re.search(r"(hooks/memory_engine\.py set-topics --proj \S+ --slug feedback-rs-rule "
+                      r"--clear)", out)
+    assert route is not None, out
+    rc, said = _run_route(tmp_path, route.group(1))
+    assert rc == 0, said
+    assert "feedback-rs-rule" in _slugs(rs) and "feedback-rs-rule" not in _slugs(anchor)
+    assert E.main(["move", "--from-level", rs, "--to-level", levels["a"],
+                   "--slug", "feedback-rs-rule"]) == 0
+    assert "feedback-rs-rule" in _slugs(levels["a"])
+
+
+def test_move_refusal_for_a_fact_with_several_lines_says_they_collapse_at_the_top(tmp_path,
+                                                                                 capsys):
+    anchor, levels = _rendered(tmp_path)
+    capsys.readouterr()
+    assert E.main(["move", "--from-level", levels["a/py"], "--to-level", levels["a"],
+                   "--slug", "feedback-py-rule"]) == 2
+    out = capsys.readouterr().out
+    assert "its 2 lines collapse to one at the tree top" in out, out
+
 def test_a_set_holding_one_placed_fact_is_refused_whole(tmp_path):
     _anchor, levels = _rendered(tmp_path)
     _fact(levels["a/py"], "feedback-local")
@@ -326,9 +361,11 @@ def test_a_set_names_the_first_placed_member_in_the_order_given(tmp_path):
 
 
 @pytest.mark.parametrize("shape", ["pinned-elsewhere", "untitled"])
-def test_add_of_a_bound_fact_the_renderer_does_not_manage_is_written_as_before(tmp_path, shape):
+def test_add_of_a_bound_fact_the_renderer_does_not_manage_takes_the_path_any_fact_does(tmp_path,
+                                                                                       shape):
     """Not placed by topic, so an add from a level without its line is not PlacedElsewhere: it
-    takes the path any fact does (from the top, whose chain holds no line of it, an adoption)."""
+    takes the path any fact does. From the top, a level of the tree holds its line, so that add is
+    SlugOwnedElsewhere and writes nothing; from the level holding the line it is an update."""
     anchor, levels = _rendered(tmp_path)
     _fact(levels["a/py"], "feedback-odd")
     if shape == "untitled":
@@ -339,5 +376,11 @@ def test_add_of_a_bound_fact_the_renderer_does_not_manage_is_written_as_before(t
     else:
         _bind_raw(anchor, "feedback-odd", ("python",))
         us.add_pointer(levels["b"], "feedback-odd", "T feedback-odd", HOOK, pin=True)
-    E.add_or_update_entry(anchor, title="T feedback-odd", hook=HOOK, slug="feedback-odd")
-    assert "feedback-odd" in _slugs(anchor)
+    before = _snapshot(anchor)
+    with pytest.raises(E.SlugOwnedElsewhere) as exc:
+        E.add_or_update_entry(anchor, title="T feedback-odd", hook=HOOK, slug="feedback-odd")
+    assert not isinstance(exc.value, E.PlacedElsewhere)
+    assert str(levels["a/py"]) in exc.value.levels
+    assert _snapshot(anchor) == before
+    E.add_or_update_entry(levels["a/py"], title="T feedback-odd", hook=HOOK, slug="feedback-odd")
+    assert "feedback-odd" in _slugs(levels["a/py"]) and "feedback-odd" not in _slugs(anchor)

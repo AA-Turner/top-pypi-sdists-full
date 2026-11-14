@@ -247,6 +247,7 @@ impl PersistentValuesManager {
             is_experiment_group: true,
 
             unsupported: false,
+            blob_unavailable: false,
             is_in_layer: false,
             rule_id_suffix: None,
             override_reason: None,

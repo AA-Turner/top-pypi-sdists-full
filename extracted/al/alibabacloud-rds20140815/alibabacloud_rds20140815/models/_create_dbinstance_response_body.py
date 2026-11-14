@@ -20,43 +20,43 @@ class CreateDBInstanceResponseBody(DaraModel):
     ):
         # The internal endpoint of the instance.
         self.connection_string = connection_string
-        # The instance ID. If the **Amount** parameter is set to a value greater than **1**, the number of instance IDs returned corresponds to the value, separated by commas.
+        # The ID of the instance. If the **Amount** parameter is set to a value greater than **1**, the IDs of the corresponding number of instances are returned and separated by commas.
         # 
         # For example, if the **Amount** parameter is set to **3**, three instance IDs are returned. Example:
-        # `rm-uf6wjk5*****1, rm-uf6wjk5*****2, rm-uf6wjk5*****3`
+        # `rm-uf6wjk5*****1,rm-uf6wjk5*****2,rm-uf6wjk5*****3`
         self.dbinstance_id = dbinstance_id
-        # Indicates whether the current request requires a precheck before creating the instance.
+        # Indicates that the current request requires a precheck before creating the instance.
         # 
-        # * The return value is fixed to **true**.
-        # * If no precheck is performed, this parameter is not returned.
+        # * The value is always **true**.
+        # * This parameter is not returned if the precheck is not performed.
         self.dry_run = dry_run
-        # Indicates whether the precheck for creating the instance is successful. Valid values:
+        # Indicates whether the precheck for creating the instance passed. Valid values:
         # * **true**: Passed.
         # * **false**: Failed.
         # 
-        # > * If no precheck is performed, this parameter is not returned.
+        # > * This parameter is not returned if the precheck is not performed.
         # > * If the precheck fails, the corresponding error is returned.
         self.dry_run_result = dry_run_result
         # The prompt message for the batch creation task.
         # 
         # > This parameter is returned only when the **Amount** parameter is greater than 1.
         self.message = message
-        # The order ID.
+        # The ID of the order.
         self.order_id = order_id
-        # The port number corresponding to the internal endpoint of the instance.
+        # The port number of the internal endpoint of the instance.
         self.port = port
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
-        # Indicates whether the instance is successfully tagged. Valid values:
-        # * **true**: Succeeded.
+        # Indicates whether the instance was successfully tagged. Valid values:
+        # * **true**: Successful.
         # * **false**: Failed.
         # 
-        # > If no tag is bound to the instance, this parameter is not returned.
+        # > This parameter is not returned if no tags are bound to the instance.
         self.tag_result = tag_result
-        # The task ID of the batch creation task.
+        # The ID of the batch creation task.
         # 
         # * This parameter is returned only when the **Amount** parameter is greater than 1.
-        # * Currently, you cannot view the task by using the value of **TaskId**.
+        # * Currently, querying tasks by **TaskId** is not supported.
         self.task_id = task_id
 
     def validate(self):

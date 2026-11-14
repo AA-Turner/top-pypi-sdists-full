@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -7,6 +9,7 @@ import pytest
 from trajectory import Client, omit
 from trajectory._base_client import SyncPage
 from trajectory._testing import client_for
+from trajectory.lib.auth.device import DeviceAuth
 
 
 def test_generic_get_preserves_query_in_path() -> None:
@@ -119,3 +122,21 @@ def test_inference_respects_explicit_idempotency_key_or_opt_out(
       client.responses.with_raw_response.create(model="model", input="hello", idempotency_key=key)
   assert len(requests) == 1
   assert requests[0].headers.get("Idempotency-Key") == key
+
+
+def test_client_and_device_login_send_the_published_api_version() -> None:
+  spec = json.loads((Path(__file__).parents[1] / "docs" / "openapi.json").read_text())
+  published = spec["info"]["x-trajectory-api-version"]
+  sent: list[str] = []
+
+  def handle(request: httpx2.Request) -> httpx2.Response:
+    sent.append(request.headers["Trajectory-API-Version"])
+    return httpx2.Response(200, json={"organization_id": "org_a"})
+
+  with httpx2.Client(transport=httpx2.MockTransport(handle)) as http:
+    DeviceAuth("https://api.trajectory.ai", http).whoami("tj_test")
+  with client_for({}, 200) as (client, requests):
+    client.agents.with_raw_response.list()
+
+  assert sent == [published]
+  assert requests[0].headers["Trajectory-API-Version"] == published

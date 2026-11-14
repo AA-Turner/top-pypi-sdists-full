@@ -29,7 +29,7 @@ from tabulate import tabulate
 
 from .. import api, crypto, utils, vault, resources, error
 from ..params import KeeperParams
-from ..subfolder import try_resolve_path, BaseFolderNode
+from ..subfolder import try_resolve_path, FolderPathAmbiguousError, BaseFolderNode
 
 aliases = {}                 # type: Dict[str, str]
 commands = {}                # type: Dict[str, Command]
@@ -773,9 +773,12 @@ class Command(CliCommand):
             envvars = params.environment_variables
             args = '' if args is None else args
             if parser:
-                # Update prog to match alias name (e.g., 'find-password' instead of 'clipboard-copy')
+                # Update prog to match alias name (e.g., 'find-password' instead of 'clipboard-copy').
+                # `command` is the first word the user typed, also for sub-commands of a command group
+                # ('pam' for 'pam project import'): never replace the full name of a group sub-command
+                # ('pam project import') with that first word, or its usage shows only 'usage: pam ...'.
                 alias_cmd = d.get('command')
-                if alias_cmd and alias_cmd != parser.prog:
+                if alias_cmd and alias_cmd != parser.prog and alias_cmd != parser.prog.split()[0]:
                     parser.prog = alias_cmd
                 command_tokens = tokenize_command_args(args, envvars)
                 if self.support_extra_parameters():
@@ -1071,7 +1074,11 @@ class FolderMixin:
         if folder_name in params.folder_cache:
             return folder_name
         else:
-            rs = try_resolve_path(params, folder_name)
+            try:
+                rs = try_resolve_path(
+                    params, folder_name, raise_on_ambiguous=True)
+            except FolderPathAmbiguousError as e:
+                raise error.CommandError('', str(e))
             if rs is not None:
                 folder, record_name = rs
                 if folder and not record_name:

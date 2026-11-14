@@ -2,6 +2,7 @@ import os
 import typing as t
 from pathlib import Path
 
+from pydantic import ValidationError
 from pydantic_core import from_json
 
 from atproto_lexicon import models
@@ -11,6 +12,17 @@ _PATH_TO_LEXICONS = Path(__file__).parent.parent.parent.joinpath('lexicons').abs
 _LEXICON_FILE_EXT = '.json'
 
 L = t.TypeVar('L')
+
+
+def _describe_error(error: Exception) -> str:
+    if not isinstance(error, ValidationError):
+        return str(error)
+
+    reasons = []
+    for details in error.errors(include_url=False, include_input=False):
+        location = '.'.join(str(part) for part in details['loc'])
+        reasons.append(f'{location}: {details["msg"]}' if location else details['msg'])
+    return '; '.join(reasons)
 
 
 def lexicon_parse(data: t.Dict[str, t.Any], model_class: t.Type[L] = models.LexiconDoc) -> L:
@@ -26,12 +38,22 @@ def lexicon_parse_file(lexicon_path: t.Union[Path, str], *, soft_fail: bool = Fa
         if soft_fail:
             return None
 
-        raise LexiconParsingError("Can't parse lexicon") from e
+        raise LexiconParsingError(f"Can't parse lexicon '{lexicon_path}': {_describe_error(e)}") from e
 
 
 def lexicon_parse_dir(
-    lexicon_dir: t.Optional[t.Union[Path, str]] = None, *, soft_fail: bool = False
+    lexicon_dir: t.Optional[t.Union[Path, str]] = None,
+    *,
+    soft_fail: bool = False,
+    on_error: t.Optional[t.Callable[[Path, LexiconParsingError], None]] = None,
 ) -> t.List[models.LexiconDoc]:
+    """Parse every lexicon of a directory tree.
+
+    Args:
+        lexicon_dir: Directory to parse. Defaults to the lexicons shipped with the SDK.
+        soft_fail: Silently leave out the lexicons that can not be parsed.
+        on_error: Called with each lexicon that can not be parsed, which is then left out.
+    """
     lexicon_dir_path = Path(lexicon_dir) if isinstance(lexicon_dir, str) else lexicon_dir
     if lexicon_dir_path is None:
         lexicon_dir_path = _PATH_TO_LEXICONS
@@ -44,7 +66,14 @@ def lexicon_parse_dir(
                 continue
 
             lexicon_path = Path(root).joinpath(lexicon)
-            parsed_lexicon = lexicon_parse_file(lexicon_path, soft_fail=soft_fail)
+            try:
+                parsed_lexicon = lexicon_parse_file(lexicon_path, soft_fail=soft_fail)
+            except LexiconParsingError as e:
+                if on_error is None:
+                    raise
+                on_error(lexicon_path, e)
+                continue
+
             if parsed_lexicon:
                 parsed_lexicons.append(parsed_lexicon)
 

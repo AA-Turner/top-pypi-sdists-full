@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 
-import httpx
+import httpx2
 
 from ._generated.api.health import get_version as _get_version
 from ._generated.api.health import health as _get_health
@@ -52,18 +52,18 @@ class ForgeDashboardClient:
         *,
         api_token: str | None = None,
         retry: RetryConfig = DEFAULT_RETRY_CONFIG,
-        httpx_client: httpx.Client | None = None,
-        httpx_async_client: httpx.AsyncClient | None = None,
+        httpx_client: httpx2.Client | None = None,
+        httpx_async_client: httpx2.AsyncClient | None = None,
         raise_on_unexpected_status: bool = False,
     ) -> None:
         token = api_token if api_token is not None else os.environ.get(API_TOKEN_ENV_VAR)
-        # HTTP header names are case-insensitive (RFC 7230) and httpx
+        # HTTP header names are case-insensitive (RFC 7230) and httpx2
         # normalizes lookups, so a casing mutant on "Authorization" below
         # is behaviorally equivalent -- pragma'd rather than chasing it.
         headers = {"Authorization": f"Bearer {token}"} if token else {}  # pragma: no mutate
 
         # headers isn't passed here, and base_url is never read back off
-        # self._raw afterward either: this Client's own lazy httpx-client
+        # self._raw afterward either: this Client's own lazy httpx2-client
         # construction is never reached -- set_httpx_client/
         # set_async_httpx_client below always override it -- so the base
         # URL and the auth header both have to be applied to whichever
@@ -77,7 +77,7 @@ class ForgeDashboardClient:
 
         sync_client = httpx_client
         if sync_client is None:
-            sync_client = httpx.Client(base_url=base_url, transport=RetryTransport(retry=retry))
+            sync_client = httpx2.Client(base_url=base_url, transport=RetryTransport(retry=retry))
         # Apply the bearer token directly to whichever client will actually
         # send requests -- a caller-supplied httpx_client bypasses the
         # generated Client's own lazy header construction, so the header
@@ -87,7 +87,7 @@ class ForgeDashboardClient:
 
         async_client = httpx_async_client
         if async_client is None:
-            async_client = httpx.AsyncClient(base_url=base_url, transport=AsyncRetryTransport(retry=retry))
+            async_client = httpx2.AsyncClient(base_url=base_url, transport=AsyncRetryTransport(retry=retry))
         async_client.headers.update(headers)
         self._raw.set_async_httpx_client(async_client)
 
@@ -162,7 +162,7 @@ class ForgeDashboardClient:
         return self
 
     def __exit__(self, *exc_info: object) -> None:
-        # httpx.BaseTransport's own __exit__ ignores exc_info and just
+        # httpx2.BaseTransport's own __exit__ ignores exc_info and just
         # closes -- our RetryTransport doesn't override that -- so there's
         # nothing this needs from *exc_info beyond letting `with` call it.
         self.close()

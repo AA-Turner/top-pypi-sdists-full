@@ -7,36 +7,64 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .doc_ai_classify_config import DocAiClassifyConfig
 from .doc_ai_classify_job_request_reasoning_input import DocAiClassifyJobRequestReasoningInput
 from .doc_ai_classify_output import DocAiClassifyOutput
-from .doc_ai_page_range import DocAiPageRange
+from .doc_ai_processor import DocAiProcessor
+from .doc_ai_routing_profile import DocAiRoutingProfile
 
 
 class DocAiClassifyJobRequest(UniversalBaseModel):
+    config: typing.Optional[DocAiClassifyConfig] = None
+    config_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The JSON `request` part of a Classify submission.
+    Saved configuration ID. Exactly one of `config`, `config_id` and `processor`.
     """
 
-    config: typing.Optional[DocAiClassifyConfig] = None
+    processor: typing.Optional[DocAiProcessor] = None
+    max_pages: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Read the first N pages. Cannot be sent with `config.page_ranges`.
+    """
+
     language: typing.Optional[str] = pydantic.Field(default=None)
     """
     Language of the document in BCP-47 format, e.g. `en-IN`. When omitted, the Indic OCR default is used.
     """
 
+    context: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Background text for the model.
+    """
+
     reasoning_input: typing.Optional[DocAiClassifyJobRequestReasoningInput] = pydantic.Field(default=None)
     """
-    How the model reads pages. Image modes (`images_for_scans`, `vision`) are available only when listed by `GET /doc-ai/v1/capabilities`.
+    How the model reads pages. Image modes are available only where `/doc-ai/v1/capabilities` lists them.
     """
 
-    execution: typing.Optional[typing.Literal["auto"]] = pydantic.Field(default=None)
+    read_ref: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Set `auto` to wait briefly for a single document and receive the finished result with HTTP 200; otherwise the job is returned to poll. Not supported for multi-document submissions.
-    """
-
-    pages: typing.Optional[typing.List[DocAiPageRange]] = pydantic.Field(default=None)
-    """
-    Restrict the job to these page ranges.
+    Reuse an earlier reading of the same document.
     """
 
+    routing_profile: typing.Optional[DocAiRoutingProfile] = None
     output: typing.Optional[DocAiClassifyOutput] = None
+    metadata: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    """
+    Any object; returned with the result.
+    """
+
+    webhook_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    HTTPS URL, 9-2,048 characters.
+    """
+
+    webhook_secret: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    32-512 characters.
+    """
+
+    webhook_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    A saved webhook, instead of `webhook_url` + `webhook_secret`.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

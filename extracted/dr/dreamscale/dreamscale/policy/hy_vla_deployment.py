@@ -2,15 +2,18 @@
 
 Hy-VLA predicts end-effector poses: each request carries a 20-value pose state (per arm, the
 model's order: TCP xyz, rotation-matrix rows 0-1, gripper 0-1), the instruction, and per
-camera one strip of the frames at 25, 20, 15, 10 and 5 executed ticks back that exist, then
-the current one (``context.TickHistory``; the server fills missing older frames with
-black). Each chunk row is 40 values: the poses of both arms relative to the request's state
-(values 0-19), then absolute in each arm's base frame (values 20-39). The robot side turns
-those into joint targets; this module never sees joints.
+camera (the export's, 1-4) one strip of the frames at 25, 20, 15, 10 and 5 executed ticks back
+that exist, then the current one (``context.TickHistory``; the server fills missing older
+frames with black). Each chunk row is 40 values: the poses of both arms relative to the
+request's state (values 0-19), then absolute in each arm's base frame (values 20-39). The robot
+side turns those into joint targets; this module never sees joints. A session paces at its
+deployment's own rate (the block's ``action_hz``, 1-100 Hz, from the export or its create):
+ticks are rows at that rate, so the history spans its rows whatever the rate.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -18,17 +21,18 @@ import numpy as np
 from dreamscale_transport.hy_vla_deploy import (
     ACTION_DIM,
     ACTION_HORIZON,
-    ACTION_HZ,
-    CAMERA_FEATURES,
     DENOISING_STEPS,
     HISTORY_OFFSETS,
     HY_VLA_BASE_MODEL,
     HY_VLA_SOURCE_FORMAT,
     IMAGE_SIZE,
+    MAX_CAMERAS,
+    MAX_HZ,
     MAX_INSTRUCTION_CHARS,
     MAX_INSTRUCTION_TOKENS,
     MAX_LABELS,
     MAX_TRAINED_RTC_DELAY,
+    MIN_HZ,
     POSE_WIDTH,
     PRESETS,
     STATE_DIM,
@@ -118,9 +122,11 @@ class HyVlaSessionDeployment:
             ))
             or type(result.executed_actions) is not int
             or not 1 <= result.executed_actions <= ACTION_HORIZON
+            # The record's rate, any the server accepted (MIN_HZ-MAX_HZ).
             or isinstance(result.action_hz, bool)
             or not isinstance(result.action_hz, int | float)
-            or result.action_hz != ACTION_HZ
+            or not math.isfinite(result.action_hz)
+            or not MIN_HZ <= result.action_hz <= MAX_HZ
             or result.action_space != "model_defined"
             or result.history_offsets != HISTORY_OFFSETS
             or data.get("history_padding", "black") != "black"
@@ -129,7 +135,9 @@ class HyVlaSessionDeployment:
             or data.get("denoising_steps", DENOISING_STEPS) != DENOISING_STEPS
             or type(trained) is not int or not 0 <= trained <= MAX_TRAINED_RTC_DELAY
             or (result.step is not None and (type(result.step) is not int or result.step < 0))
-            or tuple(camera.feature for camera in result.cameras) != CAMERA_FEATURES
+            # The export's cameras, in its order: 1-MAX_CAMERAS, each filled once.
+            or not 1 <= len(result.cameras) <= MAX_CAMERAS
+            or len({camera.feature for camera in result.cameras}) != len(result.cameras)
             or len(set(result.camera_keys)) != len(result.cameras)
             or len(result.arms) != 2 or len(set(result.arms)) != 2
             or not all(isinstance(arm, str) and arm for arm in result.arms)

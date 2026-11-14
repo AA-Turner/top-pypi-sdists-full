@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: agent_runtimes
-Version: 1.6.38
+Version: 1.6.49
 Summary: Agent Runtimes
 Project-URL: Homepage, https://github.com/datalayer/agent-runtimes
 Project-URL: Documentation, https://agent-runtimes.datalayer.tech
@@ -22,7 +22,7 @@ Requires-Python: >=3.11
 Requires-Dist: agent-codemode>=1.1.0
 Requires-Dist: agent-skills>=1.4.0
 Requires-Dist: agent-teams<2,>=1.1.5
-Requires-Dist: agentspecs>=0.0.182
+Requires-Dist: agentspecs>=0.0.187
 Requires-Dist: code-sandboxes>=1.12.0
 Requires-Dist: croniter
 Requires-Dist: datalayer-agent-shield<0.3,>=0.2.18
@@ -45,7 +45,7 @@ Requires-Dist: opentelemetry-instrumentation-httpx<1.0,>=0.66b0
 Requires-Dist: opentelemetry-instrumentation<1.0,>=0.66b0
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.45.0
 Requires-Dist: opentelemetry-semantic-conventions<1.0,>=0.66b0
-Requires-Dist: personal-agent-protocol[ui]<0.36,>=0.33.0
+Requires-Dist: personal-agent-protocol[ui]<0.36,>=0.35.0
 Requires-Dist: psycopg[binary]>=3.2.8
 Requires-Dist: pydantic-ai-slim[mcp]<2.60,>=2.35.0
 Requires-Dist: pydantic-graph<3,>=2.35.0

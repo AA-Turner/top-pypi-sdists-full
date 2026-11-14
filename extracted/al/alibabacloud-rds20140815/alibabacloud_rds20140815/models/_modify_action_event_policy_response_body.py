@@ -11,9 +11,9 @@ class ModifyActionEventPolicyResponseBody(DaraModel):
         region_id: str = None,
         request_id: str = None,
     ):
-        # The status of the historical events feature.
+        # Indicates whether the event history feature is enabled.
         self.enable_event_log = enable_event_log
-        # The region ID for which the historical events feature is enabled or disabled.
+        # The ID of the region where the event history feature is enabled or disabled.
         self.region_id = region_id
         # The request ID.
         self.request_id = request_id

@@ -1323,6 +1323,48 @@ class Client:
             f"data_domains/{data_domain_id}", method="PATCH", **kwargs
         )
 
+    def list_insights(
+        self,
+        table_id: int | None = None,
+        data_domain_id: int | None = None,
+        created_after: datetime | str | None = None,
+        include_duplicates: bool = False,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> Any:
+        """
+        List the organization's insights, newest first, as summaries.
+
+        Arguments:
+            table_id: Only insights about this table.
+            data_domain_id: Only insights about this data domain, and about the tables
+                in it.
+            created_after: Only insights created at or after this time, as a datetime
+                or an ISO 8601 string, read as UTC when it names no zone. The server
+                defaults to one week ago.
+            include_duplicates: Also list insights that restate an earlier one.
+            limit: The page size. Every matching insight is returned when neither
+                `limit` nor `offset` is passed.
+            offset: The number of insights to skip.
+        """
+        return self._api_call(
+            "insights",
+            method="GET",
+            table_id=table_id,
+            data_domain_id=data_domain_id,
+            created_after=(
+                created_after.isoformat()
+                if isinstance(created_after, datetime)
+                else created_after
+            ),
+            include_duplicates=include_duplicates,
+            limit=limit,
+            offset=offset,
+        )
+
+    def get_insight(self, insight_id: int) -> Any:
+        return self._api_call(f"insights/{insight_id}", method="GET")
+
     def get_notification_channel(self, channel_id):
         return self._api_call(
             f"notification_channels/{channel_id}",

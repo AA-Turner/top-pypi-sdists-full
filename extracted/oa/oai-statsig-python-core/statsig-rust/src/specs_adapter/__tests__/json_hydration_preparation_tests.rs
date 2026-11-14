@@ -15,6 +15,9 @@ mod realistic_benchmark;
 #[path = "json_hydration_discovery_filter_tests.rs"]
 mod discovery_filter;
 
+#[path = "json_cold_start_fallback_tests.rs"]
+mod cold_start_fallback;
+
 #[derive(Clone, Copy, Debug)]
 enum Entrypoint {
     Rewrite,
@@ -640,6 +643,7 @@ fn json_hydration_store_preserves_full_response_recursion_boundary() {
             &mut data,
             VerifiedRemoteValues::new(),
             downloaded_bodies.clone(),
+            &HashMap::new(),
             false,
         );
         assert_eq!(candidate.is_ok(), baseline.is_ok(), "store depth {depth}");

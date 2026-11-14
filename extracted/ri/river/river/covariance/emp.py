@@ -9,29 +9,35 @@ import numpy as np
 from river import stats, utils
 
 if typing.TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from narwhals.stable.v2.typing import IntoDataFrame
+    from numpy.typing import NDArray
+
+# We currently use Any instead of Hashable (i.e FeatureName)
+# because the 2 key elements are used for comparison
+# and Hashable is not comparable.
+MatrixKey = tuple[typing.Any, typing.Any]
+
+_ValueT = typing.TypeVar("_ValueT")
 
 
-class SymmetricMatrix(abc.ABC):
+class SymmetricMatrix(abc.ABC, typing.Generic[_ValueT]):
     _fmt = ",.3f"
 
     @property
     @abc.abstractmethod
-    def matrix(self) -> dict: ...
+    def matrix(self) -> dict[MatrixKey, _ValueT]: ...
 
-    def __getitem__(self, key):
-        """
-
-        A covariance matrix is symmetric. For ease of use we make the __getitem__ method symmetric.
-
-        """
+    def __getitem__(self, key: MatrixKey) -> _ValueT:
+        # A covariance matrix is symmetric. For ease of use we make the __getitem__ method symmetric.
         i, j = key
         try:
             return self.matrix[i, j]
         except KeyError:
             return self.matrix[j, i]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         names = sorted({i for i, _ in self.matrix})
         if not names:
             return f"{type(self).__name__} (empty)"
@@ -42,11 +48,8 @@ class SymmetricMatrix(abc.ABC):
             column = []
             for row in names:
                 try:
-                    val = (
-                        self[row, col].get()
-                        if isinstance(self[row, col], stats.base.Statistic)
-                        else self[row, col]
-                    )
+                    entry = self[row, col]
+                    val = entry.get() if isinstance(entry, stats.base.Statistic) else entry
                     column.append(f"{val:{self._fmt}}")
                 except KeyError:
                     column.append("")
@@ -55,7 +58,11 @@ class SymmetricMatrix(abc.ABC):
         return utils.pretty.print_table(headers, columns)
 
 
-class EmpiricalCovariance(SymmetricMatrix):
+# We currently use Any for the value type because it can be both
+# a stats.Var (diagonal entries) or a stats.Cov (non-diagonal entries)
+# and these 2 statistics have quite different interfaces (univariate
+# vs. bivariate) so using a union type would heavily burden call sites.
+class EmpiricalCovariance(SymmetricMatrix[typing.Any]):
     """Empirical covariance matrix.
 
     Parameters
@@ -65,7 +72,6 @@ class EmpiricalCovariance(SymmetricMatrix):
 
     Examples
     --------
-
     >>> import numpy as np
     >>> import pandas as pd
     >>> from river import covariance
@@ -114,24 +120,26 @@ class EmpiricalCovariance(SymmetricMatrix):
 
     """
 
-    def __init__(self, ddof=1):
+    def __init__(self, ddof: int = 1) -> None:
         self.ddof = ddof
-        self._cov = {}
-        self._cached_keys: tuple = ()
-        self._cached_pairs: list[tuple] = []
+        self._cov: dict[MatrixKey, typing.Any] = {}
+        self._cached_keys: tuple[typing.Any, ...] = ()
+        self._cached_pairs: list[MatrixKey] = []
 
     @property
-    def matrix(self):
+    def matrix(self) -> dict[MatrixKey, typing.Any]:
         return self._cov
 
-    def _pairs_for(self, x: dict):
+    def _pairs_for(
+        self, x: dict[typing.Any, float]
+    ) -> tuple[tuple[typing.Any, ...], list[MatrixKey]]:
         keys = tuple(sorted(x))
         if keys != self._cached_keys:
             self._cached_keys = keys
             self._cached_pairs = list(itertools.combinations(keys, 2))
         return self._cached_keys, self._cached_pairs
 
-    def update(self, x: dict, w: float = 1.0):
+    def update(self, x: dict[typing.Any, float], w: float = 1.0) -> None:
         """Update with a single sample.
 
         Parameters
@@ -160,7 +168,7 @@ class EmpiricalCovariance(SymmetricMatrix):
                 cov_dict[key] = var
             var.update(x[i], w)
 
-    def revert(self, x: dict, w: float = 1.0):
+    def revert(self, x: dict[typing.Any, float], w: float = 1.0) -> None:
         """Downdate with a single sample.
 
         Parameters
@@ -179,7 +187,7 @@ class EmpiricalCovariance(SymmetricMatrix):
         for i in keys:
             cov_dict[i, i].revert(x[i], w)
 
-    def update_many(self, X: IntoDataFrame):
+    def update_many(self, X: IntoDataFrame) -> None:
         """Update with a dataframe of samples.
 
         Any [narwhals](https://github.com/narwhals-dev/narwhals)-compatible eager dataframe
@@ -191,7 +199,6 @@ class EmpiricalCovariance(SymmetricMatrix):
             A dataframe of samples.
 
         """
-
         frame = utils.dataframe.into_frame(X)
         columns = list(frame.columns)
         X_arr = utils.dataframe.to_numpy(frame)
@@ -207,7 +214,9 @@ class EmpiricalCovariance(SymmetricMatrix):
 
         self._update_from_state(n=n, mean=mean, cov=cov)
 
-    def _update_from_state(self, n: int, mean: dict, cov: float | dict):
+    def _update_from_state(
+        self, n: int, mean: dict[typing.Any, float], cov: float | dict[MatrixKey, float]
+    ) -> None:
         """Update from state information.
 
         Parameters
@@ -220,7 +229,7 @@ class EmpiricalCovariance(SymmetricMatrix):
             A dictionary of covariance or variance values.
 
         Raises
-        ----------
+        ------
             KeyError: If an element in `mean` or `cov` is missing.
 
         """
@@ -253,7 +262,14 @@ class EmpiricalCovariance(SymmetricMatrix):
             self._cov[i, i] += stats.Var._from_state(n=n, m=mean[i], var=cov_, ddof=self.ddof)
 
     @classmethod
-    def _from_state(cls, n: int, mean: dict, cov: float | dict, *, ddof=1):
+    def _from_state(
+        cls,
+        n: int,
+        mean: dict[typing.Any, float],
+        cov: float | dict[MatrixKey, float],
+        *,
+        ddof: int = 1,
+    ) -> typing.Self:
         """Create a new instance from state information.
 
         Parameters
@@ -270,7 +286,7 @@ class EmpiricalCovariance(SymmetricMatrix):
             Degrees of freedom for covariance calculation. Defaults to 1.
 
         Returns
-        ----------
+        -------
             cls: A new instance of the class with updated covariance matrix.
 
         """
@@ -279,7 +295,7 @@ class EmpiricalCovariance(SymmetricMatrix):
         return new
 
 
-class EmpiricalPrecision(SymmetricMatrix):
+class EmpiricalPrecision(SymmetricMatrix[float]):
     """Empirical precision matrix.
 
     The precision matrix is the inverse of the covariance matrix.
@@ -290,7 +306,6 @@ class EmpiricalPrecision(SymmetricMatrix):
 
     Examples
     --------
-
     >>> import numpy as np
     >>> import pandas as pd
     >>> from river import covariance
@@ -325,15 +340,15 @@ class EmpiricalPrecision(SymmetricMatrix):
     ----------
     [^1]: [Online Estimation of the Inverse Covariance Matrix - Markus Thill](https://markusthill.github.io/math/stats/ml/online-estimation-of-the-inverse-covariance-matrix/)
     [^2]: [Fast rank-one updates to matrix inverse? - Tim Vieira](https://timvieira.github.io/blog/post/2021/03/25/fast-rank-one-updates-to-matrix-inverse/)
-    [^3]: [Woodbury matrix identity](https://www.wikiwand.com/en/Woodbury_matrix_identity)
+    [^3]: [Woodbury matrix identity](https://en.wikipedia.org/wiki/Woodbury_matrix_identity)
 
     """
 
-    def __init__(self):
-        self._idx: dict = {}
-        self._loc_arr = np.zeros(0, dtype=np.float64)
-        self._w_arr = np.zeros(0, dtype=np.float64)
-        self._inv_cov_mat = np.zeros((0, 0), dtype=np.float64, order="F")
+    def __init__(self) -> None:
+        self._idx: dict[typing.Any, int] = {}
+        self._loc_arr: NDArray[np.float64] = np.zeros(0, dtype=np.float64)
+        self._w_arr: NDArray[np.float64] = np.zeros(0, dtype=np.float64)
+        self._inv_cov_mat: NDArray[np.float64] = np.zeros((0, 0), dtype=np.float64, order="F")
         self._cap = 0
 
     def _grow(self, needed: int) -> None:
@@ -350,7 +365,7 @@ class EmpiricalPrecision(SymmetricMatrix):
         self._inv_cov_mat = new_inv
         self._cap = new_cap
 
-    def _ensure_features(self, features) -> np.ndarray:
+    def _ensure_features(self, features: Iterable[typing.Any]) -> NDArray[np.intp]:
         idx = self._idx
         ids = []
         for f in features:
@@ -364,25 +379,25 @@ class EmpiricalPrecision(SymmetricMatrix):
         return np.asarray(ids, dtype=np.intp)
 
     @property
-    def matrix(self) -> dict:
+    def matrix(self) -> dict[MatrixKey, float]:
         mat = self._inv_cov_mat
         features = list(self._idx)
-        out = {}
+        out: dict[MatrixKey, float] = {}
         for ai, fa in enumerate(features):
             for bi in range(ai, len(features)):
                 fb = features[bi]
                 out[min((fa, fb), (fb, fa))] = mat[ai, bi]
         return out
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: MatrixKey) -> float:
         i, j = key
         ai = self._idx.get(i)
         bi = self._idx.get(j)
         if ai is None or bi is None:
             raise KeyError(key)
-        return self._inv_cov_mat[ai, bi]
+        return typing.cast(float, self._inv_cov_mat[ai, bi])
 
-    def update(self, x):
+    def update(self, x: dict[typing.Any, float]) -> None:
         """Update with a single sample.
 
         Parameters
@@ -414,7 +429,7 @@ class EmpiricalPrecision(SymmetricMatrix):
         self._w_arr[ids] = w
         self._inv_cov_mat[ix] = 0.5 * (block + block.T)
 
-    def update_many(self, X: IntoDataFrame):
+    def update_many(self, X: IntoDataFrame) -> None:
         """Update with a dataframe of samples.
 
         Any [narwhals](https://github.com/narwhals-dev/narwhals)-compatible eager dataframe

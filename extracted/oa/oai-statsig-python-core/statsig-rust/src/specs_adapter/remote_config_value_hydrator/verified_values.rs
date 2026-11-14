@@ -133,6 +133,10 @@ impl VerifiedRemoteValue {
         self.metadata == *metadata
     }
 
+    pub(super) fn byte_length(&self) -> u64 {
+        self.metadata.byte_length
+    }
+
     pub(super) fn sha256(&self) -> &str {
         self.metadata.sha256.as_str()
     }

@@ -16,9 +16,9 @@ class DeleteDBInstanceSecurityGroupRuleRequest(DaraModel):
         resource_owner_id: int = None,
         security_group_rule_ids: str = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the token, but you must make sure that the token is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the token, but you must ensure that the token is unique across different requests. The token can contain a maximum of 64 ASCII characters and cannot contain non-ASCII characters.
         self.client_token = client_token
-        # The instance ID. You can call [DescribeDBInstances](https://help.aliyun.com/document_detail/2628785.html) to obtain the instance ID.
+        # The instance ID. You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/2628785.html) operation to query the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
@@ -28,7 +28,7 @@ class DeleteDBInstanceSecurityGroupRuleRequest(DaraModel):
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The security group rule ID. You can call [DescribeDBInstanceSecurityGroupRule](https://help.aliyun.com/document_detail/2834044.html) to obtain the security group rule ID.
+        # The security group rule IDs. You can call the [DescribeDBInstanceSecurityGroupRule](https://help.aliyun.com/document_detail/2834044.html) operation to query the security group rule IDs.
         # 
         # This parameter is required.
         self.security_group_rule_ids = security_group_rule_ids

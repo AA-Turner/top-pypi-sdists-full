@@ -7,8 +7,8 @@ use mockito::{Matcher, Mock, Server};
 use serde_json::json;
 
 const KEY: &str = "test-id-list-snapshot-key";
-const GEN: &str = "g1.regional.east";
-const RAW: &str = "/v1/download_id_list_file/company%2Fg1.regional.east?private=true";
+const GEN: &str = "g1";
+const RAW: &str = "/v1/download_id_list_file/company%2Fusers";
 const RECORD: &str = "+AAAAAAAA\n";
 
 fn client(server: &Server) -> (StatsigHttpIdListsAdapter, Arc<SpecStore>) {
@@ -42,11 +42,29 @@ fn store_client(options: StatsigOptions) -> (StatsigHttpIdListsAdapter, Arc<Spec
 }
 
 fn manifest(server: &mut Server, generation: &str, size: usize) -> Mock {
-    let path = RAW.replace(GEN, generation);
-    server.mock("POST", "/manifest").with_body(json!({
-        "users": {"name":"users", "url":format!("https://fixture{path}"), "fileID":generation,
-                  "creationTime":1,"size":size}
-    }).to_string()).create()
+    manifest_at(
+        server,
+        &format!("https://fixture{RAW}"),
+        generation,
+        1,
+        size,
+    )
+}
+
+fn manifest_at(
+    server: &mut Server,
+    url: &str,
+    generation: &str,
+    creation_time: i64,
+    size: usize,
+) -> Mock {
+    let row = json!({
+        "name": "users", "url": url, "fileID": generation, "creationTime": creation_time, "size": size
+    });
+    server
+        .mock("POST", "/manifest")
+        .with_body(json!({"users": row}).to_string())
+        .create()
 }
 
 fn offer(server: &mut Server, path: &str) -> Mock {
@@ -129,9 +147,9 @@ async fn id_list_snapshot_publishes_800_then_requests_raw_tail_on_next_poll() {
         assert!(!list.ids.contains("AAAAAAAA"));
         assert!(first.id_lists["users"].ids.contains("AAAAAAAA"));
         row.remove();
-        let replacement = "g2.regional.west";
+        let replacement = "g2";
         let _row = manifest(&mut server, replacement, 1000);
-        let new_file = offer(&mut server, &RAW.replace(GEN, replacement))
+        let new_file = offer(&mut server, RAW)
             .with_body("+DDDDDDDD\n".repeat(100))
             .create();
         adapter.sync_id_lists().await.unwrap();
@@ -242,11 +260,7 @@ async fn id_list_snapshot_invalid_representation_retries_only_authorized_raw() {
             )
             .with_header(
                 "x-statsig-id-list-file-id",
-                if defect == "generation" {
-                    "g2.regional.east"
-                } else {
-                    GEN
-                },
+                if defect == "generation" { "g2" } else { GEN },
             )
             .with_header(
                 "x-statsig-id-list-raw-end",
@@ -286,6 +300,65 @@ async fn id_list_snapshot_invalid_representation_retries_only_authorized_raw() {
         assert!(data.id_lists["users"].ids.contains("BBBBBBBB"), "{defect}");
         assert!(!data.id_lists["users"].ids.contains("AAAAAAAA"));
     }
+}
+
+#[tokio::test]
+async fn id_list_snapshot_without_a_file_id_retries_raw() {
+    let mut server = Server::new_async().await;
+    let (adapter, store) = client(&server);
+    let _row = server.mock("POST", "/manifest").with_body(json!({
+        "users": {"name":"users", "url":format!("https://fixture{RAW}"), "size":10, "creationTime":1}
+    }).to_string()).create();
+    let (_, bytes) = encode_prefix_v1(RECORD.as_bytes(), 0).unwrap().unwrap();
+    let image = offer(&mut server, RAW)
+        .with_header("content-type", MEDIA_TYPE)
+        .with_header("x-statsig-id-list-raw-end", "10")
+        .with_header("x-statsig-id-list-sha256", &hex(&digest(&bytes)))
+        .with_body(bytes)
+        .expect(1)
+        .create();
+    let raw = raw_request(&mut server, RAW, 0)
+        .with_body("+BBBBBBBB\n")
+        .expect(1)
+        .create();
+    adapter.sync_id_lists().await.unwrap();
+    image.assert();
+    raw.assert();
+    let data = store.load_data();
+    assert!(data.id_lists["users"].ids.contains("BBBBBBBB"));
+    assert!(!data.id_lists["users"].ids.contains("AAAAAAAA"));
+}
+
+#[tokio::test]
+async fn id_list_snapshot_cdn_fallback_uses_raw_after_primary_exhaustion() {
+    let mut proxy = Server::new_async().await;
+    let mut cdn = Server::new_async().await;
+    let (adapter, store) = store_client(StatsigOptions {
+        id_lists_url: Some(format!("{}/manifest", proxy.url())),
+        download_id_list_file_api: Some(proxy.url()),
+        enable_id_list_elias_fano: Some(true),
+        fallback_to_statsig_api: Some(true),
+        state_read_primary_attempts: Some(1),
+        ..Default::default()
+    });
+    let (adapter, _provider) = super::tests::with_local_cdn(adapter, &cdn);
+    let path = "/v1/download_id_list_file/company%2Fg1.regional.east?private=true";
+    let _row = manifest_at(
+        &mut proxy,
+        &format!("https://statsigcdn.openai.com{path}"),
+        "g1.regional.east",
+        1,
+        10,
+    );
+    let primary = offer(&mut proxy, path).with_status(503).expect(1).create();
+    let fallback = raw_request(&mut cdn, path, 0)
+        .with_body(RECORD)
+        .expect(1)
+        .create();
+    adapter.sync_id_lists().await.unwrap();
+    primary.assert();
+    fallback.assert();
+    assert!(store.load_data().id_lists["users"].ids.contains("AAAAAAAA"));
 }
 
 #[tokio::test]
@@ -642,86 +715,51 @@ async fn id_list_snapshot_gateway_allows_legacy_encoded_percent_and_rejects_enco
 }
 
 #[tokio::test]
-async fn id_list_snapshot_same_file_id_at_another_source_restarts_membership() {
-    let other_private = RAW.replace("company", "another");
-    for (path, size) in [
-        (other_private.as_str(), 10),
-        ("/raw-only", 10),
-        ("/raw-only", 20),
-    ] {
-        let mut server = Server::new_async().await;
-        let (adapter, store) = client(&server);
-        let (_, image) = encode_prefix_v1(RECORD.as_bytes(), 0).unwrap().unwrap();
-        let first = manifest(&mut server, GEN, 10);
-        let _image = image_headers(offer(&mut server, RAW), &image, 10)
-            .with_body(image)
-            .create();
-        adapter.sync_id_lists().await.unwrap();
-        first.remove();
-        let old = store.load_data().id_lists["users"].metadata.clone();
-        let target = IdListMetadata {
-            url: format!("https://fixture{path}"),
-            size: size as u64,
-            ..old.clone()
-        };
-        assert!(!adapter.lazy_list_ready(store.as_ref(), Some(&old), &target));
-        let _new = server
-            .mock("POST", "/manifest")
-            .with_body(json!({"users": target}).to_string())
-            .create();
-        if path == "/raw-only" && size == 20 {
-            let mut foreign = Server::new_async().await;
-            let leak = foreign.mock("GET", "/escaped").expect(0).create();
-            let redirect = raw_request(&mut server, path, 0)
-                .with_status(307)
-                .with_header("location", &format!("{}/escaped", foreign.url()))
-                .create();
-            assert!(adapter.sync_id_lists().await.is_err());
-            leak.assert();
-            redirect.remove();
-        }
-        let request = if path == other_private {
-            offer(&mut server, path)
-        } else {
-            raw_request(&mut server, path, 0)
-        };
-        let raw = request
-            .with_body("+BBBBBBBB\n".repeat(size / 10))
-            .expect(1)
-            .create();
-        adapter.sync_id_lists().await.unwrap();
-        raw.assert();
+async fn id_list_snapshot_url_change_uses_the_normal_file_generation() {
+    let mut server = Server::new_async().await;
+    let (adapter, store) = client(&server);
+    let first = manifest(&mut server, GEN, 10);
+    let (_, image) = encode_prefix_v1(RECORD.as_bytes(), 0).unwrap().unwrap();
+    let initial = image_headers(offer(&mut server, RAW), &image, 10)
+        .with_body(image)
+        .create();
+    adapter.sync_id_lists().await.unwrap();
+    initial.assert();
+    first.remove();
+
+    let path = "/renewed?version=2";
+    let url = format!("https://fixture{path}");
+    let renewed = manifest_at(&mut server, &url, GEN, 1, 20);
+    let append = raw_request(&mut server, path, 10)
+        .with_status(206)
+        .with_header("content-range", "bytes 10-19/20")
+        .with_body("+BBBBBBBB\n")
+        .expect(1)
+        .create();
+    adapter.sync_id_lists().await.unwrap();
+    append.assert();
+    {
         let data = store.load_data();
         let list = &data.id_lists["users"];
-        assert_eq!(list.metadata.size, size as u64);
-        assert!(list.ids.contains("BBBBBBBB"));
-        assert!(!list.ids.contains("AAAAAAAA"));
+        assert_eq!(list.metadata.size, 20);
+        assert_eq!(list.metadata.creation_time, 1);
+        assert!(list.ids.contains("AAAAAAAA") && list.ids.contains("BBBBBBBB"));
     }
-}
+    renewed.remove();
 
-#[test]
-fn id_list_snapshot_accepts_only_the_manifest_private_generation() {
-    let metadata = |path: &str| IdListMetadata {
-        name: "users".into(),
-        size: 10,
-        creation_time: 1,
-        file_id: Some(GEN.into()),
-        url: format!("https://fixture{path}"),
-    };
-    assert!(snapshot_http::private_generation(&metadata(RAW)));
-    for path in [
-        RAW.replace("g1.", "g2."),
-        RAW.replace("%2F", "/"),
-        RAW.replace("company", "company.regional.other"),
-        format!("{RAW}&private=false"),
-        format!("{RAW}&k={KEY}"),
-        format!("{RAW}#fragment"),
-    ] {
-        assert!(
-            !snapshot_http::private_generation(&metadata(&path)),
-            "{path}"
-        );
-    }
+    let _replacement = manifest_at(&mut server, &url, GEN, 2, 20);
+    let replay = offer(&mut server, path)
+        .with_body("+CCCCCCCC\n".repeat(2))
+        .expect(1)
+        .create();
+    adapter.sync_id_lists().await.unwrap();
+    replay.assert();
+    let data = store.load_data();
+    let list = &data.id_lists["users"];
+    assert_eq!(list.metadata.size, 20);
+    assert_eq!(list.metadata.creation_time, 2);
+    assert!(list.ids.contains("CCCCCCCC"));
+    assert!(!list.ids.contains("AAAAAAAA") && !list.ids.contains("BBBBBBBB"));
 }
 
 struct FixedLimitProvider(

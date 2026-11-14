@@ -25,42 +25,42 @@ class DescribeRenewalPriceRequest(DaraModel):
     ):
         # The business extension parameters.
         self.business_info = business_info
-        # Ensures the idempotence of the request.
+        # The client token that is used to ensure the idempotence of the request.
         self.client_token = client_token
-        # The instance type. For more information about instance types, see [Primary instance types](https://help.aliyun.com/document_detail/26312.html). Default value: the current instance type.
+        # The instance type. For more information about instance types, see [Primary ApsaraDB RDS instance types](https://help.aliyun.com/document_detail/26312.html). Default value: the current instance type.
         self.dbinstance_class = dbinstance_class
-        # Instance ID of the instance. You can call the DescribeDBInstances operation to obtain instance ID.
+        # The instance ID. You can call the DescribeDBInstances operation to query the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The order type. Valid value: **BUY**.
+        # The order type. Set the value to **BUY**.
         self.order_type = order_type
         self.owner_account = owner_account
         self.owner_id = owner_id
         # The billing method of the instance. Valid values:
         # 
-        # * **Postpaid**: pay-as-you-go.
-        # * **Prepaid**: subscription.
+        # * **Postpaid**: pay-as-you-go
+        # * **Prepaid**: subscription
         self.pay_type = pay_type
         # The number of instances. Default value: **1**.
         self.quantity = quantity
-        # The ID of the region. You can call the DescribeRegions operation to obtain the ID.
+        # The region ID. You can call the DescribeRegions operation to query the region ID.
         self.region_id = region_id
-        # The ID of the resource group. You can call the DescribeDBInstanceAttribute operation to obtain the ID.
+        # The resource group ID. You can call the DescribeDBInstanceAttribute operation to query the resource group ID.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The unit of the subscription duration. Valid values:
+        # The subscription type of the instance. Valid values:
         # 
-        # * **Year**: year.
-        # * **Month**: month.
+        # * **Year**: yearly
+        # * **Month**: monthly
         # 
         # This parameter is required.
         self.time_type = time_type
         # The subscription duration of the instance. Valid values:
         # 
-        # * If the **TimeType** parameter is set to **Year**, valid values are **1 to 3**.
-        # * If the **TimeType** parameter is set to **Month**, valid values are **1 to 9**.
+        # * If the **TimeType** parameter is set to **Year**, valid values are **1** to **3**.
+        # * If the **TimeType** parameter is set to **Month**, valid values are **1** to **9**.
         # 
         # This parameter is required.
         self.used_time = used_time

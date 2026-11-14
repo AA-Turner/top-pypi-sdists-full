@@ -12,8 +12,8 @@ class DeleteRCSnapshotRequest(DaraModel):
         snapshot_id: str = None,
     ):
         # Specifies whether to force delete a snapshot that has been used to create a cloud disk. Valid values:
-        # - **true**: Force deletes the snapshot. After the snapshot is forcefully deleted, the cloud disk cannot be reinitialized.
-        # - **false** (default): Does not force delete the snapshot.
+        # - **true**: force deletes the snapshot. After the snapshot is forcibly deleted, the cloud disk cannot be reinitialized.
+        # - **false** (default): does not force delete the snapshot.
         self.force = force
         # The region ID.
         # 

@@ -1,10 +1,10 @@
 Metadata-Version: 2.5
 Name: vercel-headers
-Version: 0.7.2
+Version: 0.8.0
 Summary: Request header helpers for Vercel Python applications
 License-Expression: MIT
 License-File: LICENSE
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 
 # Headers

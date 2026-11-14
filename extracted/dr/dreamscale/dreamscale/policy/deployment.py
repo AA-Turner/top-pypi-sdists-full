@@ -32,8 +32,10 @@ from dreamscale.policy.exported_deployments import exported_base
 # released by close() or exit, so the control plane's idle reap passes it by.
 # Then the catalog models' own client features no family declares.
 # Each deployment family's own features come from its transport contract module (the family
-# manifest's ``contract``): its runtime contract, then RTC, then the catalog models it serves.
-_FAMILY_FEATURES = ("CLIENT_FEATURE", "RTC_CLIENT_FEATURE", "CATALOG_CLIENT_FEATURE")
+# manifest's ``contract``): its runtime contract, a later revision of it, then RTC, then the
+# catalog models it serves.
+_FAMILY_FEATURES = ("CLIENT_FEATURE", "CLIENT_FEATURE_V2", "RTC_CLIENT_FEATURE",
+                    "CATALOG_CLIENT_FEATURE")
 
 
 def _family_features() -> tuple[str, ...]:

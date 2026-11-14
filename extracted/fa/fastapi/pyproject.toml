@@ -13,7 +13,7 @@ license = "MIT"
 license-files = [
     "LICENSE",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "Sebastián Ramírez", email = "tiangolo@gmail.com" },
 ]
@@ -37,7 +37,6 @@ classifiers = [
     "Framework :: Pydantic :: 2",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -55,7 +54,7 @@ dependencies = [
     "annotated-doc>=0.0.2",
     "opentelemetry-api>=1.44.0",
 ]
-version = "0.162.5"
+version = "0.162.7"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/fastapi"
@@ -122,7 +121,7 @@ dev = [
     { include-group = "translations" },
     "playwright >=1.57.0",
     "prek >=0.2.22",
-    "zizmor >=1.23.1",
+    "zizmor >=1.32.0",
 ]
 docs = [
     { include-group = "docs-tests" },
@@ -358,6 +357,12 @@ ignore = [
 ]
 "docs_src/server_sent_events/tutorial001.py" = [
     "UP028",
+]
+"tests/test_no_schema_split.py" = [
+    "UP042",
+]
+"tests/test_schema_compat_pydantic_v2.py" = [
+    "UP042",
 ]
 
 [tool.ruff.lint.isort]

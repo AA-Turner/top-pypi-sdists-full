@@ -12,12 +12,12 @@ class CheckBackupEncryptionAuthorizedResponseBody(DaraModel):
         role_arn: str = None,
     ):
         # Indicates whether the account is authorized. Valid values:
-        # * 0: Not authorized.
-        # * 1: Authorized.
+        # - 0: Not authorized.
+        # - 1: Authorized.
         self.authorization_state = authorization_state
         # The request ID.
         self.request_id = request_id
-        # The ARN of the backup encryption service-linked role.
+        # The ARN of the service-linked role for backup encryption.
         self.role_arn = role_arn
 
     def validate(self):

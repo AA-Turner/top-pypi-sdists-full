@@ -1,6 +1,8 @@
 """TrainingRecorder: one TRL process's per-sample training metrics (plan rl-trajectory-metrics T4). It places each loss
 call the hook saw (`LossBatch`) inside the optimizer update (train) or `evaluate()` pass (eval) it belongs to, and
-sends the rows and the update's own records as producer `trl-train-<rank>` from a background thread (`PointsSender`).
+sends the rows and the update's own records as producer `trl-train-<rank>` from a background thread (`PointsSender`);
+a context-parallel rank sends its slices of each example as fragments (`trl-train-<rank>-<fragment>`), the records
+from fragment 0 only.
 Every process sends its own rows; the others find the main process's run through the job's key-value store
 (`handoff`), never a collective, so a process that skips `track()` is never waited on."""
 
@@ -23,7 +25,7 @@ from probe.generated.samples.points import RollupSource
 
 from .declarations import EVAL_KEY_PREFIX, EVAL_LOSSES, MAX_EVAL_PREFIXES, get_logging_window, make_plan
 from .handoff import Handoff
-from .hook import LossBatch, LossHook
+from .hook import LossBatch, LossHook, Place
 from .hooks import pick_hook
 
 PRODUCER_PREFIX = "trl-train-"
@@ -129,8 +131,8 @@ class TrainingRecorder:
             self.reasons = hook.get_reasons()
         #: None: this run's trainer or settings are out of reach (`unsupported` says why); nothing is wrapped.
         self.hook: LossHook | None = hook if hook is not None and not self.unsupported else None
-        #: (rank, ranks) this process sends as; None: another process sends its rows (a TP rank past 0).
-        self.place: tuple[int, int] | None = (hook or LossHook(self.trainer, self)).get_place()
+        #: Where this process sends as; None: another process sends its rows (a TP rank past 0).
+        self.place: Place | None = (hook or LossHook(self.trainer, self)).get_place()
         #: Found while training (too many eval prefixes): declared unsupported once found.
         self.found_unsupported: list[str] = []
         #: The `evaluate()` prefixes seen, each with its own eval rollups (`eval` always).
@@ -142,6 +144,8 @@ class TrainingRecorder:
         #: other tensors (`LossBatch.dtypes`).
         self.dtype: Dtype | None = None
         self.dtypes: dict[str, Dtype] = {}
+        #: A loss call returned a bf16 / fp16 loss: the plan was sent again with its loss rollups approximate.
+        self._is_loss_rounded = False
         self._is_started = False
         self._is_training = False
         self._has_trained = False
@@ -163,6 +167,14 @@ class TrainingRecorder:
     @property
     def world(self) -> int:
         return self.place[1] if self.place is not None else 1
+
+    @property
+    def fragment(self) -> int:
+        return self.place.fragment if self.place is not None else 0
+
+    @property
+    def fragments(self) -> int:
+        return self.place.fragments if self.place is not None else 1
 
     @property
     def is_training(self) -> bool:
@@ -303,7 +315,9 @@ class TrainingRecorder:
         self.dtype = get_lowest_dtype([dtype for dtype in (self.dtype, batch.dtype) if dtype is not None])
         for key, dtype in batch.dtypes.items():
             self.dtypes[key] = get_lowest_dtype([found for found in (self.dtypes.get(key), dtype) if found is not None])
-        if (self.dtype, {key: self.dtypes[key] for key in batch.dtypes}) != declared:
+        is_new_rounding = batch.is_loss_rounded and not self._is_loss_rounded
+        self._is_loss_rounded = self._is_loss_rounded or batch.is_loss_rounded
+        if is_new_rounding or (self.dtype, {key: self.dtypes[key] for key in batch.dtypes}) != declared:
             self._send_plan()  # the tensors' own precision, not the mixed-precision flag's guess
 
     def close(self) -> None:
@@ -340,10 +354,15 @@ class TrainingRecorder:
         if not self._is_started:
             self._is_started = True
             self.join.run = self.tracker.run if is_main else None
-            self.sender.start(f"{PRODUCER_PREFIX}{self.rank}")
+            self.sender.start(self._get_producer())
             if is_main:
                 self.guard.call("the run id handoff", self.join.handoff.save, str(self.tracker.run.id))
         return not self.sender.is_disabled
+
+    def _get_producer(self) -> str:
+        """`trl-train-<rank>`; a context-parallel rank `trl-train-<rank>-<fragment>`: every process its own producer."""
+        suffix = f"-{self.fragment}" if self.fragments > 1 else ""
+        return f"{PRODUCER_PREFIX}{self.rank}{suffix}"
 
     def _get_output_dir(self) -> str | None:
         return getattr(self.trainer.args, "output_dir", None)
@@ -430,7 +449,10 @@ class TrainingRecorder:
     def _send_pass(self, current: Pass, *, optimizer_step: int | None, should_declare: bool = True,
                    whole: dict | None = None) -> None:  # fmt: skip
         """The pass's rows, then (declared) this process's rank and micro-batch records and the whole pass's, as one
-        queued send: the training thread never waits on the network."""
+        queued send: the training thread never waits on the network. Records come from fragment 0 alone (every
+        fragment of a data-parallel rank makes the same calls over the same examples)."""
+        should_declare = should_declare and self.fragment == 0
+        whole = whole if self.fragment == 0 else None
         if not current.calls and not (should_declare and (whole is not None or current.count)):
             return
         rows: list[dict] = []
@@ -476,6 +498,8 @@ class TrainingRecorder:
             agg = {f"{prefix}{name}": extremes[name] for name in summary.metrics if name in extremes}
             if agg:
                 row["agg"] = agg
+            if batch.fragments > 1:
+                row.update(fragment=self.fragment, fragments_expected=batch.fragments)
             if current.split == SampleSplit.TRAIN:
                 row.update(update=0, weights_version=current.weights_version, optimizer_step=optimizer_step)
             else:

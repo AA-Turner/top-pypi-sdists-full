@@ -19,7 +19,7 @@ class DescribeDBProxyRequest(DaraModel):
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # This parameter is deprecated. You do not need to configure it.
+        # Deprecated. You do not need to configure this parameter.
         self.dbproxy_engine_type = dbproxy_engine_type
         self.owner_id = owner_id
         # The region ID. You can call the DescribeRegions operation to query the ID.

@@ -13,11 +13,11 @@ class MigrateConnectionToOtherZoneRequest(DaraModel):
         resource_owner_id: int = None,
         zone_id: str = None,
     ):
-        # The endpoint of the instance. This endpoint is specified during creation and is used to generate a connection string.
+        # The connection endpoint of the instance. This endpoint is specified during creation and is used to generate a connection string.
         # 
         # This parameter is required.
         self.connection_string = connection_string
-        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
+        # The instance ID. You can call the DescribeDBInstances operation to query the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id

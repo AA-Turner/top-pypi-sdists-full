@@ -21,13 +21,13 @@ class DescribeModifyParameterLogRequest(DaraModel):
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The end time of the query. Format: <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z (UTC).
+        # The end time of the query. Format: <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z (UTC time).
         # 
         # This parameter is required.
         self.end_time = end_time
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The page number. Valid values: any integer greater than 0 that does not exceed the maximum value of Integer.
+        # The page number. Valid values: greater than 0 and no more than the maximum value of the Integer type.
         # 
         # Default value: **1**.
         self.page_number = page_number
@@ -40,7 +40,7 @@ class DescribeModifyParameterLogRequest(DaraModel):
         self.page_size = page_size
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The start time of the query. Format: <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z (UTC).
+        # The start time of the query. Format: <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z (UTC time).
         # 
         # This parameter is required.
         self.start_time = start_time

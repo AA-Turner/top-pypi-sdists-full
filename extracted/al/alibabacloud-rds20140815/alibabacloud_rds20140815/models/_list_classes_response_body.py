@@ -81,18 +81,18 @@ class ListClassesResponseBodyItems(DaraModel):
         self.class_code = class_code
         # The instance family. For more information, see [Instance families](https://help.aliyun.com/document_detail/57184.html).
         self.class_group = class_group
-        # The number of CPU cores for the instance type. Unit: cores.
+        # The number of CPU cores for the instance type.
         self.cpu = cpu
         # The encrypted memory size of the security-enhanced instance family. Unit: GB.
         self.encrypted_memory = encrypted_memory
-        # The architecture type of the instance type. Valid values:
+        # The architecture type of the instance type.
         # 
         # - If the instance uses the **x86** architecture, this parameter is left empty by default.
         # - If the instance uses the **arm** architecture, **arm** is returned.
         self.instruction_set_arch = instruction_set_arch
         # The maximum number of connections for the instance type.
         self.max_connections = max_connections
-        # The maximum I/O bandwidth for the instance type. Unit: Mbps.
+        # The maximum I/O bandwidth for the instance type. Unit: Mbit/s.
         self.max_iombps = max_iombps
         # The maximum IOPS for the instance type. Unit: operations per second.
         self.max_iops = max_iops
@@ -101,10 +101,10 @@ class ListClassesResponseBodyItems(DaraModel):
         # The price of the instance type.
         # 
         # <props="china">
-        # * Unit: cents (CNY).
+        # * Unit: cent (CNY).
         # 
         # <props="intl">
-        # * Unit: cents (USD).
+        # * Unit: cent (USD).
         # 
         # 
         # > * If you specify a pay-as-you-go commodity code for the **CommodityCode** parameter, this parameter displays the hourly price.
@@ -112,15 +112,15 @@ class ListClassesResponseBodyItems(DaraModel):
         self.reference_price = reference_price
         # The instance edition. Valid values:
         # * Regular instances
-        #     * **Basic**: Basic Edition.
-        #     * **HighAvailability**: High-availability Edition.
-        #     * **cluster**: Cluster Edition for MySQL or PostgreSQL.
-        #     * **AlwaysOn**: Cluster Edition for SQL Server.
-        #     * **Finance**: RDS Enterprise Edition.
+        #     * **Basic**: Basic Edition
+        #     * **HighAvailability**: high-availability series
+        #     * **cluster**: Cluster Edition for MySQL or PostgreSQL
+        #     * **AlwaysOn**: Cluster Edition for SQL Server
+        #     * **Finance**: RDS Enterprise Edition
         # * Serverless instances
-        #     * **serverless_basic**: Serverless Basic Edition. (Applicable only to MySQL and PostgreSQL)
-        #     * **serverless_standard**: Serverless High-availability Edition. (Applicable only to MySQL and PostgreSQL)
-        #     * **serverless_ha**: Serverless High-availability Edition for SQL Server.
+        #     * **serverless_basic**: Serverless Basic Edition (applicable only to MySQL and PostgreSQL)
+        #     * **serverless_standard**: Serverless high-availability series (applicable only to MySQL and PostgreSQL)
+        #     * **serverless_ha**: SQL Server Serverless high-availability series
         self.category = category
         # The instance storage type.
         self.storage_type = storage_type

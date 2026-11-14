@@ -20,9 +20,9 @@ class CreateMigrateTaskResponseBody(DaraModel):
         self.backup_mode = backup_mode
         # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # The name of the database.
+        # The database name.
         self.dbname = dbname
-        # The ID of the migration task.
+        # The migration task ID.
         self.migrate_task_id = migrate_task_id
         # The request ID.
         self.request_id = request_id

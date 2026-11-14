@@ -101,8 +101,6 @@ class AgentGrants:
     admin: bool = False
     # manage simulations and scenarios for evaluating agents
     simulation_admin: bool = False
-    # access the project's agent databases
-    database_admin: bool = False
     # manage the project's agent dispatch queue
     dispatch_admin: bool = False
 
@@ -130,6 +128,21 @@ class AgentThreadGrants:
     write: bool = False
     read: bool = False
     delete: bool = False
+    # open a covered thread's database, whose id is the thread's
+    sql: bool = False
+
+
+@dataclass
+class AgentDatabaseGrants:
+    # databases that may be read, written and deleted
+    database_ids: Optional[List[str]] = None
+    read: bool = False
+    write: bool = False
+    delete: bool = False
+    # create databases in the project
+    create: bool = False
+    # list the project's databases
+    list: bool = False
 
 
 @dataclass
@@ -145,6 +158,7 @@ class Claims:
     agent: Optional[AgentGrants] = None
     agent_endpoint: Optional[AgentEndpointGrants] = None
     agent_thread: Optional[AgentThreadGrants] = None
+    agent_database: Optional[AgentDatabaseGrants] = None
     attributes: Optional[dict[str, str]] = None
     sha256: Optional[str] = None
     room_preset: Optional[str] = None
@@ -215,6 +229,10 @@ class AccessToken:
 
     def with_agent_thread_grants(self, grants: AgentThreadGrants) -> "AccessToken":
         self.claims.agent_thread = grants
+        return self
+
+    def with_agent_database_grants(self, grants: AgentDatabaseGrants) -> "AccessToken":
+        self.claims.agent_database = grants
         return self
 
     def with_identity(self, identity: str) -> "AccessToken":
@@ -308,46 +326,21 @@ class TokenVerifier:
                 leeway=self._leeway.total_seconds(),
                 options={"verify_signature": False},
             )
-        video_dict = claims.get("video", dict())
-        video_dict = {camel_to_snake(k): v for k, v in video_dict.items()}
-        video_dict = {k: v for k, v in video_dict.items() if k in VideoGrants.__dataclass_fields__}
-        video = VideoGrants(**video_dict)
-
-        sip_dict = claims.get("sip", dict())
-        sip_dict = {camel_to_snake(k): v for k, v in sip_dict.items()}
-        sip_dict = {k: v for k, v in sip_dict.items() if k in SIPGrants.__dataclass_fields__}
-        sip = SIPGrants(**sip_dict)
-
-        inference_dict = claims.get("inference", dict())
-        inference_dict = {camel_to_snake(k): v for k, v in inference_dict.items()}
-        inference_dict = {
-            k: v for k, v in inference_dict.items() if k in InferenceGrants.__dataclass_fields__
-        }
-        inference = InferenceGrants(**inference_dict)
-
-        observability_dict = claims.get("observability", dict())
-        observability_dict = {camel_to_snake(k): v for k, v in observability_dict.items()}
-        observability_dict = {
-            k: v
-            for k, v in observability_dict.items()
-            if k in ObservabilityGrants.__dataclass_fields__
-        }
-        observability = ObservabilityGrants(**observability_dict)
-
         grant_claims = Claims(
             identity=claims.get("sub", ""),
             name=claims.get("name", ""),
             kind=claims.get("kind", ""),
-            video=video,
-            sip=sip,
-            inference=inference,
-            observability=observability,
+            video=_parse_grants(claims, "video", VideoGrants),
+            sip=_parse_grants(claims, "sip", SIPGrants),
+            inference=_parse_grants(claims, "inference", InferenceGrants),
+            observability=_parse_grants(claims, "observability", ObservabilityGrants),
             attributes=claims.get("attributes", {}),
             metadata=claims.get("metadata", ""),
             sha256=claims.get("sha256", ""),
             agent=_parse_grants(claims, "agent", AgentGrants),
             agent_endpoint=_parse_grants(claims, "agentEndpoint", AgentEndpointGrants),
             agent_thread=_parse_grants(claims, "agentThread", AgentThreadGrants),
+            agent_database=_parse_grants(claims, "agentDatabase", AgentDatabaseGrants),
         )
 
         if claims.get("roomPreset"):

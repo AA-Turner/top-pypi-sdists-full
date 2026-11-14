@@ -24,14 +24,13 @@ class DescribeImportTaskResponseBody(DaraModel):
         self.account = account
         # The kernel version number.
         self.db_version = db_version
-        # The task details.
+        # The detailed information about the task.
         self.detail = detail
         # The request ID.
         self.request_id = request_id
         # The category of the source instance. Valid values:
-        # 
-        # - **ECS**: Alibaba Cloud ECS.
-        # - **other**: Other.
+        # - **ECS**: an Alibaba Cloud ECS instance.
+        # - **other**: an instance of another type.
         self.source_category = source_category
         # The source IP address.
         self.source_ip = source_ip
@@ -39,13 +38,13 @@ class DescribeImportTaskResponseBody(DaraModel):
         self.source_port = source_port
         # The task status.
         self.status = status
-        # The name of the destination disaster recovery instance for the switchover.
+        # The name of the target disaster recovery instance for the switchover.
         self.target_instance_name = target_instance_name
         # The task ID.
         self.task_id = task_id
         # The task name.
         self.task_name = task_name
-        # The task type, which is used to query tasks of specific types. Separate multiple values with commas (,). A maximum of 30 values are supported. By default, this parameter is left empty, which indicates that no limit is applied.
+        # The task type. This parameter is used to query tasks of a specific type. Separate multiple task types with commas (,). You can specify up to 30 task types. By default, this parameter is left empty, which indicates that no limit is applied.
         self.task_type = task_type
 
     def validate(self):

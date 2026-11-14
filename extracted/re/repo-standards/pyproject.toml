@@ -1,6 +1,6 @@
 [project]
 name = "repo-standards"
-version = "7.0.0"
+version = "8.0.0"
 description = "Deterministic pull-request sizing and reviewed repository policy"
 license = "MIT"
 license-files = ["LICENSE"]

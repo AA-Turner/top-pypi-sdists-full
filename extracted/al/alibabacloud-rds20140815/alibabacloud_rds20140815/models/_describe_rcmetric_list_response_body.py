@@ -17,9 +17,9 @@ class DescribeRCMetricListResponseBody(DaraModel):
     ):
         # The returned status code.
         self.code = code
-        # The monitoring data points.
+        # The list of monitoring data.
         self.datapoints = datapoints
-        # The returned message.
+        # The message returned for the request.
         # 
         # > If the request is successful, **Successful** is returned. If the request fails, an error message such as an error code is returned.
         self.message = message

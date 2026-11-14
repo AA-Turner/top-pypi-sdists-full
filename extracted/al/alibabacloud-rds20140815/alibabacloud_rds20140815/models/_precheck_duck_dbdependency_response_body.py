@@ -13,12 +13,12 @@ class PrecheckDuckDBDependencyResponseBody(DaraModel):
         failed_check_items: List[main_models.PrecheckDuckDBDependencyResponseBodyFailedCheckItems] = None,
         result: bool = None,
     ):
-        # The check items that do not meet the prerequisites for creating a DuckDB-based analytical instance.
+        # The items that do not meet the prerequisites for creating a DuckDB-based analytical instance.
         self.failed_check_items = failed_check_items
-        # Indicates whether the precheck for creating a DuckDB-based analytical instance is passed. Valid values:
+        # Specifies whether the primary instance passes the precheck for creating a DuckDB-based analytical instance. Valid values:
         # 
-        # - **true**: Yes.
-        # - **false**: No.
+        # - **true**: yes.
+        # - **false**: no.
         self.result = result
 
     def validate(self):
@@ -64,13 +64,13 @@ class PrecheckDuckDBDependencyResponseBodyFailedCheckItems(DaraModel):
         required_value: str = None,
         type: str = None,
     ):
-        # Indicates whether the issue can be fixed with one click.
+        # Specifies whether the item can be fixed with one click.
         # 
-        # - **true**: Yes. You can call the [ModifyDBInstanceConfig](https://help.aliyun.com/document_detail/2623684.html) operation to fix the issue with one click.
+        # - **true**: Yes. You can call the [ModifyDBInstanceConfig](https://help.aliyun.com/document_detail/2623684.html) operation to fix the item with one click.
         # - **false**: No.
         # 
         # 
-        # >Notice: If the major version of the database instance does not meet the requirements, you must [manually upgrade](https://help.aliyun.com/document_detail/2623684.html) the major version.
+        # >Notice: If the major engine version of the database instance does not meet the requirements, you must [manually upgrade](https://help.aliyun.com/document_detail/2623684.html) the instance.
         self.allow_auto_modify = allow_auto_modify
         # The current value of the check item.
         self.current_value = current_value
@@ -82,7 +82,7 @@ class PrecheckDuckDBDependencyResponseBodyFailedCheckItems(DaraModel):
         # 
         # - **Parameter**: parameter.
         # - **MinorVersion**: minor engine version.
-        # - **MajorVersion**: major database version.
+        # - **MajorVersion**: major engine version.
         self.type = type
 
     def validate(self):

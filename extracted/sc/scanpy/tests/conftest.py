@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, TypedDict, cast
 import pytest
 
 # just import for the IMPORTED check
+from scanpy._compat import pkg_version  # noqa: F401
 
 if TYPE_CHECKING:  # So editors understand that we’re using those fixtures
     import os
@@ -24,7 +25,7 @@ IMPORTED = frozenset(sys.modules.keys())
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _manage_log_handlers() -> Generator[None, None, None]:
+def _manage_log_handlers() -> Generator[None]:
     """Remove handlers from all loggers on session teardown.
 
     Fixes <https://github.com/scverse/scanpy/issues/1736>.
@@ -50,7 +51,7 @@ def _manage_log_handlers() -> Generator[None, None, None]:
 
 
 @pytest.fixture(autouse=True)
-def _caplog_adapter(caplog: pytest.LogCaptureFixture) -> Generator[None, None, None]:
+def _caplog_adapter(caplog: pytest.LogCaptureFixture) -> Generator[None]:
     """Allow use of scanpy’s logger with caplog."""
     import scanpy as sc
 
@@ -62,6 +63,11 @@ def _caplog_adapter(caplog: pytest.LogCaptureFixture) -> Generator[None, None, N
 @pytest.fixture(scope="session")
 def imported_modules():
     return IMPORTED
+
+
+@pytest.fixture(scope="session")
+def project_dir() -> Path:
+    return HERE.parent
 
 
 @pytest.fixture(scope="session")

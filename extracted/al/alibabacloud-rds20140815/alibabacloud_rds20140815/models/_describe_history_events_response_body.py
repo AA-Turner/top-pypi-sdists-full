@@ -22,7 +22,7 @@ class DescribeHistoryEventsResponseBody(DaraModel):
         self.page_number = page_number
         # The number of entries per page.
         self.page_size = page_size
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
         # The total number of entries.
         self.total_count = total_count
@@ -215,11 +215,11 @@ class DescribeHistoryEventsResponseBodyItemsData(DaraModel):
         self.detail_reason = detail_reason
         # The end time of the alert.
         self.end_time = end_time
-        # The system event categorization. Valid values:
-        # - **Exception**: abnormal event
+        # The category of the system event. Valid values:
+        # - **Exception**: exception events
         # - **Optimize**: optimization events
-        # - **Notification**: notification event
-        # - **Maintenance**: scheduled maintenance event
+        # - **Notification**: notification events
+        # - **Maintenance**: scheduled maintenance events
         self.event_category = event_category
         # The event code.
         self.event_code = event_code
@@ -249,7 +249,7 @@ class DescribeHistoryEventsResponseBodyItemsData(DaraModel):
         # - **SystemMaintenance.Redeploy**: The instance undergoes redeployment due to system maintenance.
         # - **SystemFailure.Reboot**: The instance is restarted due to a system fault.
         # - **SystemFailure.Redeploy**: The instance undergoes redeployment due to a system fault.
-        # - **SystemFailure.Delete**: The instance is released because instance creation failed.
+        # - **SystemFailure.Delete**: The instance is released due to a failed creation.
         # - **InstanceFailure.Reboot**: The instance is restarted due to an instance fault.
         # - **InstanceExpiration.Stop**: The subscription instance is stopped due to expiration.
         # - **InstanceExpiration.Delete**: The subscription instance is released due to expiration.
@@ -268,9 +268,9 @@ class DescribeHistoryEventsResponseBodyItemsData(DaraModel):
         self.instance_id = instance_id
         # The name of the instance.
         self.instance_name = instance_name
-        # Indicates whether the event is successfully closed. Valid values:
-        # - **0**: closed
-        # - **1**: open
+        # Indicates whether the event is closed. Valid values:
+        # - **0**: no
+        # - **1**: yes
         self.is_closed = is_closed
         # The name of the product.
         self.product = product

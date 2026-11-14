@@ -9,6 +9,7 @@ import ast
 import json
 from pathlib import Path
 import subprocess
+from typing import cast
 from unittest.mock import patch
 
 import pytest
@@ -22,12 +23,14 @@ from pytest_gremlins.node_id_file import NODE_IDS_FILE_OPTION
 from pytest_gremlins.plugin import (
     GremlinSession,
     _build_filtered_test_command,
-    _collect_unmutated,
-    _confirm_timeout_kill,
 )
 from pytest_gremlins.reporting.results import (
     GremlinResult,
     GremlinResultStatus,
+)
+from pytest_gremlins.verdicts import (
+    _collect_unmutated,
+    _confirm_timeout_kill,
 )
 
 WINDOWS_MAX_CMDLINE = 32_767
@@ -44,7 +47,7 @@ TEST_NAMES = [f'test_entity_for_route_maps_registry_key_{i}' for i in range(430)
 
 def _node_ids_in_file(command: list[str]) -> list[str]:
     option = next(argument for argument in command if argument.startswith(f'{NODE_IDS_FILE_OPTION}='))
-    return json.loads(Path(option.split('=', 1)[1]).read_text(encoding='utf-8'))
+    return cast('list[str]', json.loads(Path(option.split('=', 1)[1]).read_text(encoding='utf-8')))
 
 
 @pytest.fixture
@@ -107,7 +110,7 @@ class DescribeRunUnmutated:
         def capture(command: list[str], **_kwargs: object) -> None:
             captured.extend(command)
 
-        with patch('pytest_gremlins.control_run.subprocess.run', autospec=True, side_effect=capture):
+        with patch('pytest_gremlins.process_tree.run_bounded', autospec=True, side_effect=capture):
             run_unmutated(BASE_COMMAND, node_ids, tmp_path, {}, timeout=5, **kwargs)
         return captured
 
@@ -132,7 +135,7 @@ class DescribeRunControlCommand:
             captured.append(command)
             return subprocess.CompletedProcess(command, 0, b'', b'')
 
-        with patch('pytest_gremlins.control_run.subprocess.run', autospec=True, side_effect=finish):
+        with patch('pytest_gremlins.process_tree.run_bounded', autospec=True, side_effect=finish):
             run_control(BASE_COMMAND, node_ids, tmp_path, {}, timeout=5, **kwargs)
         return captured
 
@@ -157,7 +160,7 @@ class DescribeRunControlCommand:
     def it_reports_a_launch_failure_as_a_run_that_does_not_load(self, tmp_path: Path) -> None:
         too_long = OSError(206, 'The filename or extension is too long')
 
-        with patch('pytest_gremlins.control_run.subprocess.run', autospec=True, side_effect=too_long):
+        with patch('pytest_gremlins.process_tree.run_bounded', autospec=True, side_effect=too_long):
             outcome = run_control(BASE_COMMAND, [], tmp_path, {}, timeout=5)
 
         assert outcome.loads_cleanly is False
@@ -173,7 +176,7 @@ class DescribeCollectUnmutatedCommand:
             captured.extend(command)
             return subprocess.CompletedProcess(command, 0, b'', b'')
 
-        with patch('pytest_gremlins.control_run.subprocess.run', autospec=True, side_effect=finish):
+        with patch('pytest_gremlins.process_tree.run_bounded', autospec=True, side_effect=finish):
             _collect_unmutated(session, tmp_path, REPORTED_NODE_IDS)
 
         assert not set(REPORTED_NODE_IDS) & set(captured)
@@ -198,7 +201,7 @@ class DescribeTimeoutConfirmationCommand:
             captured.extend(command)
             return subprocess.CompletedProcess(command, 0)
 
-        with patch('pytest_gremlins.control_run.subprocess.run', autospec=True, side_effect=finish):
+        with patch('pytest_gremlins.process_tree.run_bounded', autospec=True, side_effect=finish):
             _confirm_timeout_kill(
                 GremlinResult(gremlin=gremlin, status=GremlinResultStatus.TIMEOUT),
                 REPORTED_NODE_IDS,

@@ -15,6 +15,7 @@ from cpython.bytes cimport PyBytes_AsStringAndSize, PyBytes_FromStringAndSize
 from cpython.list cimport PyList_New, PyList_SET_ITEM
 from libc cimport limits
 from libc.stdint cimport int32_t, uint64_t, uint8_t
+from libc.stdlib cimport free
 
 from collections import namedtuple
 
@@ -74,6 +75,10 @@ cdef extern from "pg_query.h" nogil:
     ctypedef struct PgQueryFingerprintResult:
         char* fingerprint_str
         char* stderr_buffer
+        PgQueryError* error
+
+    ctypedef struct PgQueryNormalizeResult:
+        char* normalized_query
         PgQueryError* error
 
     ctypedef struct PgQuerySplitStmt:
@@ -139,6 +144,10 @@ cdef extern from "pg_query.h" nogil:
     PgQueryFingerprintResult pg_query_fingerprint(const char* input)
     void pg_query_free_fingerprint_result(PgQueryFingerprintResult result)
 
+    PgQueryNormalizeResult pg_query_normalize(const char* input)
+    PgQueryNormalizeResult pg_query_normalize_utility(const char* input)
+    void pg_query_free_normalize_result(PgQueryNormalizeResult result)
+
     PgQueryDeparseCommentsResult pg_query_deparse_comments_for_query(const char* query)
     void pg_query_free_deparse_comments_result(PgQueryDeparseCommentsResult result)
 
@@ -170,6 +179,7 @@ cdef extern from "src/pg_query_internal.h" nogil:
     void pg_query_exit_memory_context(MemoryContext ctx)
 
     PgQueryInternalParsetreeAndError pg_query_raw_parse(const char* input, int parser_options)
+    void pg_query_free_error(PgQueryError* error)
 
 
 LONG_MAX = limits.LONG_MAX
@@ -239,6 +249,13 @@ cdef class Displacements:
         return offset
 
 
+cdef _error_index(str s, int cursorpos):
+    # PostgreSQL reports the position of an error as a 1-based index of the character in the
+    # statement, not as an offset in its UTF-8 encoded bytes
+    cdef long index = cursorpos - 1
+    return index if 0 <= index < len(s) else None
+
+
 def get_postgresql_version():
     "Return the ``PostgreSQL`` version as a tuple (`major`, `minor`)."
 
@@ -276,9 +293,13 @@ def parse_sql(str query):
             return ()
         else:
             message = parsed.error.message.decode('utf-8')
-            raise ParseError(message, offset_to_index(parsed.error.cursorpos-1))
+            raise ParseError(message, _error_index(query, parsed.error.cursorpos))
     finally:
-        pg_query_exit_memory_context(mctx);
+        with nogil:
+            if parsed.error is not NULL:
+                pg_query_free_error(parsed.error)
+            free(parsed.stderr_buffer)
+            pg_query_exit_memory_context(mctx);
 
 
 def parse_sql_json(str query):
@@ -296,8 +317,7 @@ def parse_sql_json(str query):
     try:
         if parsed.error:
             message = parsed.error.message.decode('utf-8')
-            offset_to_index = Displacements(query)
-            raise ParseError(message, offset_to_index(parsed.error.cursorpos-1))
+            raise ParseError(message, _error_index(query, parsed.error.cursorpos))
 
         return parsed.parse_tree.decode('utf-8')
     finally:
@@ -321,8 +341,7 @@ def parse_sql_protobuf(str query):
         if parsed.error:
             message = parsed.error.message.decode('utf-8')
             cursorpos = parsed.error.cursorpos
-            offset_to_index = Displacements(query)
-            raise ParseError(message, offset_to_index(parsed.error.cursorpos-1))
+            raise ParseError(message, _error_index(query, parsed.error.cursorpos))
 
         return PyBytes_FromStringAndSize(parsed.parse_tree.data, parsed.parse_tree.len)
     finally:
@@ -345,8 +364,7 @@ def parse_plpgsql_json(str query):
     try:
         if parsed.error:
             message = parsed.error.message.decode('utf-8')
-            offset_to_index = Displacements(query)
-            raise ParseError(message, offset_to_index(parsed.error.cursorpos-1))
+            raise ParseError(message, _error_index(query, parsed.error.cursorpos))
 
         return parsed.plpgsql_funcs.decode('utf-8')
     finally:
@@ -369,13 +387,38 @@ def fingerprint(str query):
     try:
         if result.error:
             message = result.error.message.decode('utf-8')
-            offset_to_index = Displacements(query)
-            raise ParseError(message, offset_to_index(result.error.cursorpos-1))
+            raise ParseError(message, _error_index(query, result.error.cursorpos))
 
         return result.fingerprint_str.decode('ascii')
     finally:
         with nogil:
             pg_query_free_fingerprint_result(result)
+
+
+def normalize(str query, bint utility_only=False):
+    "Replace the constants in the given ``SQL`` `query` with ``$n`` parameters."
+
+    cdef PgQueryNormalizeResult result
+    cdef const char *cstring
+
+    utf8 = query.encode('utf-8')
+    cstring = utf8
+
+    with nogil:
+        if utility_only:
+            result = pg_query_normalize_utility(cstring)
+        else:
+            result = pg_query_normalize(cstring)
+
+    try:
+        if result.error:
+            message = result.error.message.decode('utf-8')
+            raise ParseError(message, _error_index(query, result.error.cursorpos))
+
+        return result.normalized_query.decode('utf-8')
+    finally:
+        with nogil:
+            pg_query_free_normalize_result(result)
 
 
 def split(str stmts, bint with_parser=True, bint only_slices=False):
@@ -413,8 +456,7 @@ def split(str stmts, bint with_parser=True, bint only_slices=False):
     try:
         if splitted.error:
             message = splitted.error.message.decode('utf-8')
-            offset_to_index = Displacements(stmts)
-            raise ParseError(message, offset_to_index(splitted.error.cursorpos-1))
+            raise ParseError(message, _error_index(stmts, splitted.error.cursorpos))
 
         result = []
         if only_slices:
@@ -461,7 +503,7 @@ def comments(str query):
     try:
         if comments.error:
             message = comments.error.message.decode('utf-8')
-            raise ParseError(message, offset_to_index(comments.error.cursorpos-1))
+            raise ParseError(message, _error_index(query, comments.error.cursorpos))
 
         result = []
         while i < comments.comment_count:
@@ -532,7 +574,7 @@ def scan(str query):
     try:
         if scan.error:
             message = scan.error.message.decode('utf-8')
-            raise ParseError(message, offset_to_index(scan.error.cursorpos-1))
+            raise ParseError(message, _error_index(query, scan.error.cursorpos))
 
         result = PyList_New(scan.n_tokens)
 

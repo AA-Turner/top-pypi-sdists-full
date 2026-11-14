@@ -40,7 +40,6 @@ class BernoulliNB(base.BaseNB):
 
     Examples
     --------
-
     >>> import pandas as pd
     >>> from river import compose
     >>> from river import feature_extraction
@@ -100,10 +99,8 @@ class BernoulliNB(base.BaseNB):
     0  0.116846  0.883154
     1  0.047269  0.952731
 
-    >>> model.predict_many(unseen)
-    0    yes
-    1    yes
-    dtype: object
+    >>> model.predict_many(unseen).tolist()
+    ['yes', 'yes']
 
     References
     ----------
@@ -118,7 +115,7 @@ class BernoulliNB(base.BaseNB):
         self.feature_counts = collections.defaultdict(collections.Counter)
 
     def learn_one(self, x, y):
-        """Updates the model with a single observation.
+        """Update the model with a single observation.
 
         Parameters
         ----------
@@ -147,7 +144,7 @@ class BernoulliNB(base.BaseNB):
         )
 
     def joint_log_likelihood(self, x):
-        """Computes the joint log likelihood of input features.
+        """Compute the joint log likelihood of input features.
 
         Parameters
         ----------
@@ -242,7 +239,7 @@ class BernoulliNB(base.BaseNB):
         return smooth_fc.subtract(smooth_cc.values)
 
     def joint_log_likelihood_many(self, X: pd.DataFrame) -> pd.DataFrame:
-        """Computes the joint log likelihood of input features.
+        """Compute the joint log likelihood of input features.
 
         Parameters
         ----------

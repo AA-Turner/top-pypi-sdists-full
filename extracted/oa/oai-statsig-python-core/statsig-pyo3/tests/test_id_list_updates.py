@@ -76,8 +76,9 @@ def _specs():
     "use_evaluation_cache", [False, True], ids=["uncached", "cached"]
 )
 @pytest.mark.parametrize("elias_fano", [None, True], ids=["default", "elias-fano"])
+@pytest.mark.parametrize("lazy", [False, True], ids=["eager", "lazy"])
 def test_membership_append_remove_and_new_file_reset(
-    httpserver, use_evaluation_cache, elias_fano
+    httpserver, use_evaluation_cache, elias_fano, lazy
 ):
     specs = _specs()
     # Real targeting hashes are eight ASCII bytes. Include fallback parser keys
@@ -138,6 +139,7 @@ def test_membership_append_remove_and_new_file_reset(
             specs_sync_interval_ms=60_000,
             id_lists_sync_interval_ms=1000,
             enable_id_lists=True,
+            lazy_load_id_lists=lazy,
             enable_id_list_elias_fano=elias_fano,
             fallback_to_statsig_api=False,
             output_log_level="none",
@@ -155,7 +157,9 @@ def test_membership_append_remove_and_new_file_reset(
             sdk.get_feature_gate_with_context(
                 context, "membership", user_id=user_id, options=gate_options
             ).value,
-            sdk.get_dynamic_config(user, "membership", config_options).value["member"],
+            sdk.get_dynamic_config(user, "membership", config_options).value.get(
+                "member", False
+            ),
         )
 
     def wait_for(expected):
@@ -211,5 +215,77 @@ def test_membership_append_remove_and_new_file_reset(
             sdk.get_feature_gate(StatsigUser("bob"), "membership").details.lcut
             == specs["time"]
         )
+    finally:
+        assert sdk.shutdown().wait(10)
+
+
+@pytest.mark.parametrize("lazy", [None, False, True], ids=["unset", "eager", "lazy"])
+def test_lazy_loading_downloads_only_evaluated_lists(httpserver, lazy):
+    """Exercise the option through initialization and the synchronous Python getter."""
+    body = f"+{_member_key('alice')}\n".encode()
+    downloads = []
+    lock = Lock()
+    httpserver.expect_request("/v2/download_config_specs").respond_with_json(_specs())
+    httpserver.expect_request("/v1/log_event").respond_with_json({"success": True})
+    httpserver.expect_request("/v1/get_id_lists").respond_with_json(
+        {
+            name: {
+                "name": name,
+                "url": httpserver.url_for(f"/lists/{name}"),
+                "size": len(body),
+                "creationTime": 1,
+                "fileID": name,
+            }
+            for name in ("members", "unused")
+        }
+    )
+
+    def download(request):
+        with lock:
+            downloads.append(request.path)
+        return Response(
+            body,
+            status=206,
+            headers={"Content-Range": f"bytes 0-{len(body) - 1}/{len(body)}"},
+        )
+
+    for name in ("members", "unused"):
+        httpserver.expect_request(f"/lists/{name}").respond_with_handler(download)
+
+    sdk = Statsig(
+        "secret-local-lazy-test",
+        StatsigOptions(
+            specs_url=httpserver.url_for("/v2/download_config_specs"),
+            id_lists_url=httpserver.url_for("/v1/get_id_lists"),
+            log_event_url=httpserver.url_for("/v1/log_event"),
+            specs_sync_interval_ms=60_000,
+            id_lists_sync_interval_ms=60_000,
+            enable_id_lists=True,
+            enable_id_list_elias_fano=True,
+            fallback_to_statsig_api=False,
+            output_log_level="none",
+            **({"lazy_load_id_lists": lazy} if lazy is not None else {}),
+        ),
+    )
+    try:
+        assert sdk.initialize().wait(10) and sdk.is_initialized()
+        with lock:
+            assert sorted(downloads) == (
+                [] if lazy else ["/lists/members", "/lists/unused"]
+            )
+
+        # Only call the public synchronous getter: it must initiate the load itself.
+        # A cold call may hit its 30 ms budget on a busy test host. The background
+        # load must still finish, and subsequent evaluations must reuse that body.
+        deadline = monotonic() + 5
+        user = StatsigUser("alice")
+        while not sdk.get_dynamic_config(user, "membership").value.get("member", False):
+            assert monotonic() < deadline
+            sleep(0.01)
+        for _ in range(5):
+            assert sdk.get_dynamic_config(user, "membership").value["member"] is True
+        with lock:
+            assert downloads.count("/lists/members") == 1
+            assert downloads.count("/lists/unused") == (0 if lazy else 1)
     finally:
         assert sdk.shutdown().wait(10)

@@ -8,9 +8,9 @@ import pytest
 from anndata import AnnData
 from matplotlib import colormaps
 
-from scanpy.plotting._anndata import _check_if_annotations
-from scanpy.plotting._tools.scatterplots import _get_palette
-from scanpy.plotting._utils import validate_palette
+from scanpy.plotting.legacy._anndata import _check_if_annotations
+from scanpy.plotting.legacy._tools.scatterplots import _get_palette
+from scanpy.plotting.legacy._utils import validate_palette
 
 if TYPE_CHECKING:
     from typing import Any, Literal
@@ -77,9 +77,10 @@ def test_get_palette_bool_colors_from_palette_argument_after_subset():
 )
 def test_check_all_in_axis(
     *, axis_name: Literal["obs", "var"], args: dict[str, Any], expected: bool
-):
+) -> None:
+    rng = np.random.default_rng()
     raw = AnnData(
-        np.random.randn(10, 20),
+        rng.standard_normal((10, 20)),
         dict(obs_a=range(10), obs_names=list(ascii_lowercase[:10])),
         dict(var_a=range(20), var_names=list(ascii_uppercase[:20])),
     )

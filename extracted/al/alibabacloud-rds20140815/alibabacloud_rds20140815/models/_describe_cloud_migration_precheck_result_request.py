@@ -16,11 +16,11 @@ class DescribeCloudMigrationPrecheckResultRequest(DaraModel):
         task_id: int = None,
         task_name: str = None,
     ):
-        # The instance ID of the target instance. You can invoke the DescribeDBInstances operation to query the instance ID.
+        # The ID of the target instance. You can invoke the DescribeDBInstances operation to query the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_name = dbinstance_name
-        # The page number. Valid values: any positive integer up to the maximum value of the Integer type. Default value: **1**.
+        # The page number. Valid values: integers greater than 0 and up to the maximum value of the Integer data type. Default value: **1**.
         # 
         # This parameter is required.
         self.page_number = page_number
@@ -30,16 +30,16 @@ class DescribeCloudMigrationPrecheckResultRequest(DaraModel):
         # This parameter is required.
         self.page_size = page_size
         self.resource_owner_id = resource_owner_id
-        # The internal IP address or public IP address of the self-managed PostgreSQL database.
+        # The internal or public IP address of the self-managed PostgreSQL database.
         # 
-        # - In the one-click cloud migration scenario for a self-managed PostgreSQL database on an ECS instance, set this parameter to the private IP address of the ECS instance. For more information about how to obtain the IP address, see [View IP addresses](https://help.aliyun.com/document_detail/273914.html).
-        # - In the one-click cloud migration scenario for a self-managed PostgreSQL database in a data center, set this parameter to the internal IP address of the data center.
+        # - For the cloud migration of a self-managed PostgreSQL database on an ECS instance, set this parameter to the private IP address of the ECS instance. For more information about how to obtain the IP address, see [View IP addresses](https://help.aliyun.com/document_detail/273914.html).
+        # - For the cloud migration of a self-managed PostgreSQL database in a data center, set this parameter to the internal IP address of the data center.
         self.source_ip_address = source_ip_address
         # The port of the self-managed PostgreSQL database. You can run the `netstat -a | grep PGSQL` command to view the port.
         self.source_port = source_port
-        # The ID of the task. You can obtain the task ID from the response message when you call the CreateCloudMigrationPrecheckTask operation to create a pre-check task for one-click cloud migration.
+        # The ID of the task. You can obtain the task ID from the response when you call the CreateCloudMigrationPrecheckTask operation to create a cloud migration precheck task.
         self.task_id = task_id
-        # The name of the task. You can obtain the task name from the response message when you call the CreateCloudMigrationPrecheckTask operation to create a pre-check task for one-click cloud migration.
+        # The name of the task. You can obtain the task name from the response when you call the CreateCloudMigrationPrecheckTask operation to create a cloud migration precheck task.
         self.task_name = task_name
 
     def validate(self):

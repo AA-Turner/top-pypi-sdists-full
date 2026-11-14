@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: fastmcp-tasks
-Version: 4.1.8
+Version: 4.2.0
 Summary: Background task execution for FastMCP servers via the io.modelcontextprotocol/tasks extension (SEP-2663).
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/PrefectHQ/fastmcp
@@ -10,7 +10,6 @@ License-Expression: Apache-2.0
 Keywords: background tasks,fastmcp,fastmcp tasks,mcp,model context protocol
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -18,9 +17,9 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: cryptography>=43.0.0
-Requires-Dist: fastmcp-slim[server]==4.1.8
+Requires-Dist: fastmcp-slim[server]==4.2.0
 Requires-Dist: pydocket>=0.26.1
 Requires-Dist: redis!=8.1.0
 Description-Content-Type: text/markdown

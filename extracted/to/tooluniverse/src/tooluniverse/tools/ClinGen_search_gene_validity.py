@@ -14,14 +14,14 @@ def ClinGen_search_gene_validity(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> list[Any] | dict[str, Any]:
     """
     Search ClinGen gene-disease validity curations by gene symbol. Returns classification (Definitive...
 
     Parameters
     ----------
     gene : str
-        Gene symbol to search (e.g., BRCA1, TP53, CFTR)
+        Gene symbol to search (e.g., BRCA1, TP53, CFTR). HGNC symbol only (e.g. BRCA1...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -31,7 +31,7 @@ def ClinGen_search_gene_validity(
 
     Returns
     -------
-    list[Any]
+    list[Any] | dict[str, Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

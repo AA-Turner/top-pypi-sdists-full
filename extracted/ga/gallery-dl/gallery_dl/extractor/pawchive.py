@@ -53,10 +53,10 @@ class PawchiveExtractor(Extractor):
         self.api = PawchiveAPI(self)
         self._find_inline = text.re(
             r'src="(?:https?://(?:pawchive\.(?:pw|st)))?(/inline/[^"]+'
-            r'|/[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{64}\.[^"]+)').findall
+            r'|/[0-9a-f]{2,4}/[0-9a-f]{2}/[0-9a-f]{64}\.[^"]+)').findall
 
     def items(self):
-        find_hash = text.re(r"/[0-9a-f]{2}/[0-9a-f]{2}/([0-9a-f]{64})").match
+        find_hash = text.re(r"/[0-9a-f]{2,4}/[0-9a-f]{2}/([0-9a-f]{64})").match
         generators = self._build_file_generators(self.config("files"))
         archives = True if self.config("archives") else False
         archives_type = dict if self.config("archives-format") in {

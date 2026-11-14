@@ -93,6 +93,9 @@ from .literals import (
     ClusterInterfaceTypeType,
     ClusterKubernetesTaintEffectType,
     ClusterNodeRecoveryType,
+    ClusterOnDrainTimeoutType,
+    ClusterOperationStatusType,
+    ClusterOperationTypeType,
     ClusterPatchingStrategyType,
     ClusterSlurmConfigStrategyType,
     ClusterSlurmNodeTypeType,
@@ -130,6 +133,7 @@ from .literals import (
     ExecutionRoleIdentityConfigType,
     ExecutionRoleSessionNameModeType,
     ExecutionStatusType,
+    ExtensionHealthIssueCodeType,
     ExtensionStatusType,
     FailureHandlingPolicyType,
     FairShareType,
@@ -615,6 +619,7 @@ __all__ = (
     "ClusterCapacityRequirementsOutputTypeDef",
     "ClusterCapacityRequirementsTypeDef",
     "ClusterCapacityRequirementsUnionTypeDef",
+    "ClusterDrainPolicyTypeDef",
     "ClusterEbsVolumeConfigTypeDef",
     "ClusterEventDetailTypeDef",
     "ClusterEventSummaryTypeDef",
@@ -638,6 +643,9 @@ __all__ = (
     "ClusterNetworkInterfaceTypeDef",
     "ClusterNodeDetailsTypeDef",
     "ClusterNodeSummaryTypeDef",
+    "ClusterOperationScalingConfigurationTypeDef",
+    "ClusterOperationScalingDetailsTypeDef",
+    "ClusterOperationSummaryTypeDef",
     "ClusterOrchestratorEksConfigTypeDef",
     "ClusterOrchestratorSlurmConfigTypeDef",
     "ClusterOrchestratorTypeDef",
@@ -990,6 +998,8 @@ __all__ = (
     "DescribeClusterExtensionResponseTypeDef",
     "DescribeClusterNodeRequestTypeDef",
     "DescribeClusterNodeResponseTypeDef",
+    "DescribeClusterOperationRequestTypeDef",
+    "DescribeClusterOperationResponseTypeDef",
     "DescribeClusterRequestTypeDef",
     "DescribeClusterResponseTypeDef",
     "DescribeClusterSchedulerConfigRequestTypeDef",
@@ -1215,8 +1225,11 @@ __all__ = (
     "ExtendTrainingPlanRequestTypeDef",
     "ExtendTrainingPlanResponseTypeDef",
     "ExtensionDetailsTypeDef",
+    "ExtensionHealthIssueTypeDef",
+    "ExtensionHealthTypeDef",
     "ExtensionNodeSummaryTypeDef",
     "ExtensionSummaryTypeDef",
+    "ExtensionVersionSummaryTypeDef",
     "FSxLustreConfigTypeDef",
     "FSxLustreFileSystemConfigTypeDef",
     "FSxLustreFileSystemTypeDef",
@@ -1346,7 +1359,9 @@ __all__ = (
     "InferenceSpecificationUnionTypeDef",
     "InfraCheckConfigTypeDef",
     "InputConfigTypeDef",
+    "InstanceGroupHealthCheckConfigurationOutputTypeDef",
     "InstanceGroupHealthCheckConfigurationTypeDef",
+    "InstanceGroupHealthCheckConfigurationUnionTypeDef",
     "InstanceGroupMetadataTypeDef",
     "InstanceGroupScalingMetadataTypeDef",
     "InstanceGroupTypeDef",
@@ -1446,12 +1461,18 @@ __all__ = (
     "ListClusterEventsRequestPaginateTypeDef",
     "ListClusterEventsRequestTypeDef",
     "ListClusterEventsResponseTypeDef",
+    "ListClusterExtensionVersionsRequestPaginateTypeDef",
+    "ListClusterExtensionVersionsRequestTypeDef",
+    "ListClusterExtensionVersionsResponseTypeDef",
     "ListClusterExtensionsRequestPaginateTypeDef",
     "ListClusterExtensionsRequestTypeDef",
     "ListClusterExtensionsResponseTypeDef",
     "ListClusterNodesRequestPaginateTypeDef",
     "ListClusterNodesRequestTypeDef",
     "ListClusterNodesResponseTypeDef",
+    "ListClusterOperationsRequestPaginateTypeDef",
+    "ListClusterOperationsRequestTypeDef",
+    "ListClusterOperationsResponseTypeDef",
     "ListClusterSchedulerConfigsRequestPaginateTypeDef",
     "ListClusterSchedulerConfigsRequestTypeDef",
     "ListClusterSchedulerConfigsResponseTypeDef",
@@ -3078,6 +3099,11 @@ class ClusterAccountingDatabaseTypeDef(TypedDict):
     Name: NotRequired[str]
 
 
+class ClusterDrainPolicyTypeDef(TypedDict):
+    DrainTimeoutInSeconds: NotRequired[int]
+    OnDrainTimeout: NotRequired[ClusterOnDrainTimeoutType]
+
+
 class ClusterPatchScheduleDetailsTypeDef(TypedDict):
     NextPatchDate: NotRequired[datetime]
 
@@ -3120,6 +3146,7 @@ class ClusterEventSummaryTypeDef(TypedDict):
     InstanceId: NotRequired[str]
     Description: NotRequired[str]
     EventLevel: NotRequired[ClusterEventLevelType]
+    OperationId: NotRequired[str]
 
 
 class ClusterFsxLustreConfigTypeDef(TypedDict):
@@ -3199,6 +3226,24 @@ UltraServerInfoTypeDef = TypedDict(
     {
         "Id": NotRequired[str],
         "Type": NotRequired[str],
+    },
+)
+
+
+class ClusterOperationScalingConfigurationTypeDef(TypedDict):
+    CurrentCount: NotRequired[int]
+    TargetCount: NotRequired[int]
+    MinCount: NotRequired[int]
+
+
+ClusterOperationSummaryTypeDef = TypedDict(
+    "ClusterOperationSummaryTypeDef",
+    {
+        "OperationId": NotRequired[str],
+        "ClusterArn": NotRequired[str],
+        "Type": NotRequired[ClusterOperationTypeType],
+        "Status": NotRequired[ClusterOperationStatusType],
+        "CreationTime": NotRequired[datetime],
     },
 )
 
@@ -4244,6 +4289,17 @@ class DescribeClusterNodeRequestTypeDef(TypedDict):
     NodeLogicalId: NotRequired[str]
 
 
+class DescribeClusterOperationRequestTypeDef(TypedDict):
+    ClusterName: str
+    OperationId: str
+
+
+class InstanceGroupHealthCheckConfigurationOutputTypeDef(TypedDict):
+    InstanceGroupName: str
+    DeepHealthChecks: list[DeepHealthCheckTypeType]
+    InstanceIds: NotRequired[list[str]]
+
+
 class DescribeClusterRequestTypeDef(TypedDict):
     ClusterName: str
 
@@ -5088,12 +5144,22 @@ class ExtendTrainingPlanRequestTypeDef(TypedDict):
     TrainingPlanExtensionOfferingId: str
 
 
+class ExtensionHealthIssueTypeDef(TypedDict):
+    Code: ExtensionHealthIssueCodeType
+    Message: str
+    NodeCount: int
+
+
 class ExtensionSummaryTypeDef(TypedDict):
     ExtensionArn: str
     ExtensionName: str
     ExtensionVersion: str
     Status: ExtensionStatusType
     CreationTime: NotRequired[datetime]
+
+
+class ExtensionVersionSummaryTypeDef(TypedDict):
+    ExtensionVersion: str
 
 
 class FailStepMetadataTypeDef(TypedDict):
@@ -5511,6 +5577,12 @@ class ListCandidatesForAutoMLJobRequestTypeDef(TypedDict):
     CandidateNameEquals: NotRequired[str]
     SortOrder: NotRequired[AutoMLSortOrderType]
     SortBy: NotRequired[CandidateSortByType]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListClusterExtensionVersionsRequestTypeDef(TypedDict):
+    ExtensionName: str
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
@@ -8320,6 +8392,19 @@ class ClusterNodeSummaryTypeDef(TypedDict):
     ImageVersionStatus: NotRequired[ClusterImageVersionStatusType]
 
 
+class ClusterOperationScalingDetailsTypeDef(TypedDict):
+    InstanceGroupName: NotRequired[str]
+    Status: NotRequired[ClusterOperationStatusType]
+    Original: NotRequired[ClusterOperationScalingConfigurationTypeDef]
+    Desired: NotRequired[ClusterOperationScalingConfigurationTypeDef]
+
+
+class ListClusterOperationsResponseTypeDef(TypedDict):
+    ClusterOperationSummaries: list[ClusterOperationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ClusterPatchScheduleTypeDef(TypedDict):
     NextPatchDate: NotRequired[TimestampTypeDef]
 
@@ -8441,6 +8526,7 @@ class ListClusterEventsRequestTypeDef(TypedDict):
     SortBy: NotRequired[Literal["EventTime"]]
     SortOrder: NotRequired[SortOrderType]
     ResourceType: NotRequired[ClusterEventResourceTypeType]
+    OperationId: NotRequired[str]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
@@ -8463,6 +8549,22 @@ class ListClusterNodesRequestTypeDef(TypedDict):
     SortBy: NotRequired[ClusterSortByType]
     SortOrder: NotRequired[SortOrderType]
     IncludeNodeLogicalIds: NotRequired[bool]
+
+
+ListClusterOperationsRequestTypeDef = TypedDict(
+    "ListClusterOperationsRequestTypeDef",
+    {
+        "ClusterName": str,
+        "Status": NotRequired[ClusterOperationStatusType],
+        "Type": NotRequired[ClusterOperationTypeType],
+        "CreationTimeAfter": NotRequired[TimestampTypeDef],
+        "CreationTimeBefore": NotRequired[TimestampTypeDef],
+        "SortBy": NotRequired[Literal["CreationTime"]],
+        "SortOrder": NotRequired[SortOrderType],
+        "MaxResults": NotRequired[int],
+        "NextToken": NotRequired[str],
+    },
+)
 
 
 class ListClusterSchedulerConfigsRequestTypeDef(TypedDict):
@@ -9556,6 +9658,12 @@ class ListClusterEventsRequestPaginateTypeDef(TypedDict):
     SortBy: NotRequired[Literal["EventTime"]]
     SortOrder: NotRequired[SortOrderType]
     ResourceType: NotRequired[ClusterEventResourceTypeType]
+    OperationId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListClusterExtensionVersionsRequestPaginateTypeDef(TypedDict):
+    ExtensionName: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -9575,6 +9683,21 @@ class ListClusterNodesRequestPaginateTypeDef(TypedDict):
     SortOrder: NotRequired[SortOrderType]
     IncludeNodeLogicalIds: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+ListClusterOperationsRequestPaginateTypeDef = TypedDict(
+    "ListClusterOperationsRequestPaginateTypeDef",
+    {
+        "ClusterName": str,
+        "Status": NotRequired[ClusterOperationStatusType],
+        "Type": NotRequired[ClusterOperationTypeType],
+        "CreationTimeAfter": NotRequired[TimestampTypeDef],
+        "CreationTimeBefore": NotRequired[TimestampTypeDef],
+        "SortBy": NotRequired[Literal["CreationTime"]],
+        "SortOrder": NotRequired[SortOrderType],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
 
 
 class ListClusterSchedulerConfigsRequestPaginateTypeDef(TypedDict):
@@ -10603,12 +10726,6 @@ class DeploymentStageStatusSummaryTypeDef(TypedDict):
     DeploymentStatus: EdgeDeploymentStatusTypeDef
 
 
-class DescribeClusterExtensionResponseTypeDef(TypedDict):
-    ExtensionDetails: ExtensionDetailsTypeDef
-    NodeSummary: ExtensionNodeSummaryTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class DescribeDeviceResponseTypeDef(TypedDict):
     DeviceArn: str
     DeviceName: str
@@ -11077,8 +11194,18 @@ class ModelConfigurationTypeDef(TypedDict):
     CompilationJobName: NotRequired[str]
 
 
+class ExtensionHealthTypeDef(TypedDict):
+    Issues: list[ExtensionHealthIssueTypeDef]
+
+
 class ListClusterExtensionsResponseTypeDef(TypedDict):
     Extensions: list[ExtensionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListClusterExtensionVersionsResponseTypeDef(TypedDict):
+    ExtensionVersions: list[ExtensionVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -11286,9 +11413,9 @@ class ListInferenceRecommendationsJobsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class StartClusterHealthCheckRequestTypeDef(TypedDict):
-    ClusterName: str
-    DeepHealthCheckConfigurations: Sequence[InstanceGroupHealthCheckConfigurationTypeDef]
+InstanceGroupHealthCheckConfigurationUnionTypeDef = Union[
+    InstanceGroupHealthCheckConfigurationTypeDef, InstanceGroupHealthCheckConfigurationOutputTypeDef
+]
 
 
 class InstancePlacementConfigOutputTypeDef(TypedDict):
@@ -12381,6 +12508,19 @@ class ListClusterNodesResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+DescribeClusterOperationResponseTypeDef = TypedDict(
+    "DescribeClusterOperationResponseTypeDef",
+    {
+        "OperationId": str,
+        "ClusterArn": str,
+        "Type": ClusterOperationTypeType,
+        "Status": ClusterOperationStatusType,
+        "CreationTime": datetime,
+        "ScalingDetails": list[ClusterOperationScalingDetailsTypeDef],
+        "DeepHealthCheckDetails": list[InstanceGroupHealthCheckConfigurationOutputTypeDef],
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 InferenceExperimentScheduleUnionTypeDef = Union[
     InferenceExperimentScheduleTypeDef, InferenceExperimentScheduleOutputTypeDef
 ]
@@ -12576,6 +12716,13 @@ class RecommendationJobInferenceBenchmarkTypeDef(TypedDict):
     FailureReason: NotRequired[str]
     InvocationEndTime: NotRequired[datetime]
     InvocationStartTime: NotRequired[datetime]
+
+
+class DescribeClusterExtensionResponseTypeDef(TypedDict):
+    ExtensionDetails: ExtensionDetailsTypeDef
+    NodeSummary: ExtensionNodeSummaryTypeDef
+    Health: ExtensionHealthTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SearchExpressionPaginatorTypeDef(TypedDict):
@@ -13042,6 +13189,11 @@ class InferenceComponentDeploymentConfigOutputTypeDef(TypedDict):
 class InferenceComponentDeploymentConfigTypeDef(TypedDict):
     RollingUpdatePolicy: InferenceComponentRollingUpdatePolicyTypeDef
     AutoRollbackConfiguration: NotRequired[AutoRollbackConfigTypeDef]
+
+
+class StartClusterHealthCheckRequestTypeDef(TypedDict):
+    ClusterName: str
+    DeepHealthCheckConfigurations: Sequence[InstanceGroupHealthCheckConfigurationUnionTypeDef]
 
 
 class ResourceConfigOutputTypeDef(TypedDict):
@@ -13921,6 +14073,8 @@ class ClusterAutoPatchConfigDetailsTypeDef(TypedDict):
     CurrentPatchSchedule: NotRequired[ClusterPatchScheduleDetailsTypeDef]
     DesiredPatchSchedule: NotRequired[ClusterPatchScheduleDetailsTypeDef]
     DeploymentConfig: NotRequired[DeploymentConfigurationOutputTypeDef]
+    IdleWaitWindowInSeconds: NotRequired[int]
+    DrainPolicy: NotRequired[ClusterDrainPolicyTypeDef]
 
 
 class ScheduledUpdateConfigOutputTypeDef(TypedDict):
@@ -15088,6 +15242,8 @@ class ClusterAutoPatchConfigTypeDef(TypedDict):
     PatchingStrategy: ClusterPatchingStrategyType
     PatchSchedule: NotRequired[ClusterPatchScheduleTypeDef]
     DeploymentConfig: NotRequired[DeploymentConfigurationUnionTypeDef]
+    IdleWaitWindowInSeconds: NotRequired[int]
+    DrainPolicy: NotRequired[ClusterDrainPolicyTypeDef]
 
 
 class ScheduledUpdateConfigTypeDef(TypedDict):
@@ -15702,6 +15858,7 @@ class ClusterEventDetailTypeDef(TypedDict):
     EventDetails: NotRequired[EventDetailsTypeDef]
     Description: NotRequired[str]
     EventLevel: NotRequired[ClusterEventLevelType]
+    OperationId: NotRequired[str]
 
 
 class CreateDomainRequestTypeDef(TypedDict):

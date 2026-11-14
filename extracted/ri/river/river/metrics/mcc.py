@@ -20,7 +20,6 @@ class MCC(metrics.base.BinaryMetric):
 
     Examples
     --------
-
     >>> from river import metrics
 
     >>> y_true = [True, True, True, False]
@@ -36,7 +35,7 @@ class MCC(metrics.base.BinaryMetric):
 
     References
     ----------
-    [^1]: [Wikipedia article](https://www.wikiwand.com/en/Matthews_correlation_coefficient)
+    [^1]: [Wikipedia article](https://en.wikipedia.org/wiki/Phi_coefficient)
 
     """
 

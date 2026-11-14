@@ -20,6 +20,7 @@ from pglast.parser import comments
 from pglast.parser import deparse_protobuf
 from pglast.parser import fingerprint
 from pglast.parser import get_postgresql_version
+from pglast.parser import normalize
 from pglast.parser import parse_sql_json
 from pglast.parser import parse_sql_protobuf
 from pglast.parser import scan
@@ -93,6 +94,23 @@ def test_fingerprint():
     assert fingerprint(sql1) == fingerprint(sql2)
 
 
+def test_normalize():
+    assert normalize("SELECT * FROM x WHERE y = 'foo' AND z = 42") == (
+        'SELECT * FROM x WHERE y = $1 AND z = $2')
+    assert normalize("SELECT $1, 'a'") == 'SELECT $1, $2'
+    assert normalize("CREATE ROLE foo PASSWORD 'secret'") == 'CREATE ROLE foo PASSWORD $1'
+
+    assert normalize("SELECT 'a'", utility_only=True) == "SELECT 'a'"
+    assert normalize("CREATE ROLE foo PASSWORD 'secret'", utility_only=True) == (
+        'CREATE ROLE foo PASSWORD $1')
+
+    with pytest.raises(ParseError) as exc:
+        normalize('SELECT 1, FROM x')
+    errmsg, index = exc.value.args
+    assert errmsg == 'syntax error at or near "FROM"'
+    assert index == 10
+
+
 def test_errors():
     with pytest.raises(Error) as exc:
         parse_sql('FooBar')
@@ -124,6 +142,28 @@ def test_errors():
     errmsg, index = exc.value.args
     assert errmsg == 'syntax error at or near "bar"'
     assert index == 16
+
+
+def test_error_position_after_multibyte_characters():
+    # PostgreSQL reports the position of an error in characters, not in UTF-8 bytes
+    for sql in ("SELECT 'éé', FROM x", "SELECT '한글', FROM x", "SELECT '😀', FROM x"):
+        with pytest.raises(ParseError) as exc:
+            parse_sql(sql)
+        assert exc.value.args[1] == sql.index('FROM')
+
+    sql = "SELECT '한글' || 'x"
+    for function in (parse_sql, fingerprint, normalize, scan, comments):
+        with pytest.raises(ParseError) as exc:
+            function(sql)
+        assert exc.value.args[1] == sql.index("'x")
+
+    with pytest.raises(ParseError) as exc:
+        split("SELECT '한글'; SELECT 1, FROM x")
+    assert exc.value.args[1] == 23
+
+    with pytest.raises(ParseError) as exc:
+        parse_sql("SELECT '한글' ||")
+    assert exc.value.args[1] is None
 
 
 def test_unicode():

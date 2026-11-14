@@ -96,6 +96,8 @@ Usage::
         DescribeNetworkInsightsPathsPaginator,
         DescribeNetworkInterfacePermissionsPaginator,
         DescribeNetworkInterfacesPaginator,
+        DescribeNetworkingFlexCostAllocationPoliciesPaginator,
+        DescribeNetworkingFlexCostAllocationPolicyAssociationsPaginator,
         DescribePrefixListsPaginator,
         DescribePrincipalIdFormatPaginator,
         DescribePublicIpv4PoolsPaginator,
@@ -363,6 +365,8 @@ Usage::
     describe_network_insights_paths_paginator: DescribeNetworkInsightsPathsPaginator = client.get_paginator("describe_network_insights_paths")
     describe_network_interface_permissions_paginator: DescribeNetworkInterfacePermissionsPaginator = client.get_paginator("describe_network_interface_permissions")
     describe_network_interfaces_paginator: DescribeNetworkInterfacesPaginator = client.get_paginator("describe_network_interfaces")
+    describe_networking_flex_cost_allocation_policies_paginator: DescribeNetworkingFlexCostAllocationPoliciesPaginator = client.get_paginator("describe_networking_flex_cost_allocation_policies")
+    describe_networking_flex_cost_allocation_policy_associations_paginator: DescribeNetworkingFlexCostAllocationPolicyAssociationsPaginator = client.get_paginator("describe_networking_flex_cost_allocation_policy_associations")
     describe_prefix_lists_paginator: DescribePrefixListsPaginator = client.get_paginator("describe_prefix_lists")
     describe_principal_id_format_paginator: DescribePrincipalIdFormatPaginator = client.get_paginator("describe_principal_id_format")
     describe_public_ipv4_pools_paginator: DescribePublicIpv4PoolsPaginator = client.get_paginator("describe_public_ipv4_pools")
@@ -537,6 +541,8 @@ from .paginator import (
     DescribeMovingAddressesPaginator,
     DescribeNatGatewaysPaginator,
     DescribeNetworkAclsPaginator,
+    DescribeNetworkingFlexCostAllocationPoliciesPaginator,
+    DescribeNetworkingFlexCostAllocationPolicyAssociationsPaginator,
     DescribeNetworkInsightsAccessScopeAnalysesPaginator,
     DescribeNetworkInsightsAccessScopesPaginator,
     DescribeNetworkInsightsAnalysesPaginator,
@@ -784,6 +790,8 @@ __all__ = (
     "DescribeNetworkInsightsPathsPaginator",
     "DescribeNetworkInterfacePermissionsPaginator",
     "DescribeNetworkInterfacesPaginator",
+    "DescribeNetworkingFlexCostAllocationPoliciesPaginator",
+    "DescribeNetworkingFlexCostAllocationPolicyAssociationsPaginator",
     "DescribePrefixListsPaginator",
     "DescribePrincipalIdFormatPaginator",
     "DescribePublicIpv4PoolsPaginator",

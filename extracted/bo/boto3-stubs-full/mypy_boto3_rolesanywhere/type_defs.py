@@ -137,6 +137,9 @@ class CrlDetailTypeDef(TypedDict):
     trustAnchorArn: NotRequired[str]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
+    aliasName: NotRequired[str]
+    aliasArn: NotRequired[str]
+    previousAliasName: NotRequired[str]
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -282,6 +285,7 @@ class UpdateProfileRequestTypeDef(TypedDict):
     managedPolicyArns: NotRequired[Sequence[str]]
     durationSeconds: NotRequired[int]
     acceptRoleSessionName: NotRequired[bool]
+    aliasName: NotRequired[str]
 
 
 class AttributeMappingTypeDef(TypedDict):
@@ -299,6 +303,7 @@ class UpdateCrlRequestTypeDef(TypedDict):
     crlId: str
     name: NotRequired[str]
     crlData: NotRequired[BlobTypeDef]
+    aliasName: NotRequired[str]
 
 
 class CreateProfileRequestTypeDef(TypedDict):
@@ -311,6 +316,7 @@ class CreateProfileRequestTypeDef(TypedDict):
     enabled: NotRequired[bool]
     tags: NotRequired[Sequence[TagTypeDef]]
     acceptRoleSessionName: NotRequired[bool]
+    aliasName: NotRequired[str]
 
 
 class ImportCrlRequestTypeDef(TypedDict):
@@ -319,6 +325,7 @@ class ImportCrlRequestTypeDef(TypedDict):
     trustAnchorArn: str
     enabled: NotRequired[bool]
     tags: NotRequired[Sequence[TagTypeDef]]
+    aliasName: NotRequired[str]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -410,6 +417,9 @@ class ProfileDetailTypeDef(TypedDict):
     durationSeconds: NotRequired[int]
     acceptRoleSessionName: NotRequired[bool]
     attributeMappings: NotRequired[list[AttributeMappingTypeDef]]
+    aliasName: NotRequired[str]
+    aliasArn: NotRequired[str]
+    previousAliasName: NotRequired[str]
 
 
 class SubjectDetailResponseTypeDef(TypedDict):
@@ -424,6 +434,7 @@ class CreateTrustAnchorRequestTypeDef(TypedDict):
     crlDpRevocationEnabled: NotRequired[bool]
     tags: NotRequired[Sequence[TagTypeDef]]
     notificationSettings: NotRequired[Sequence[NotificationSettingTypeDef]]
+    aliasName: NotRequired[str]
 
 
 class TrustAnchorDetailTypeDef(TypedDict):
@@ -436,6 +447,9 @@ class TrustAnchorDetailTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
     notificationSettings: NotRequired[list[NotificationSettingDetailTypeDef]]
+    aliasName: NotRequired[str]
+    aliasArn: NotRequired[str]
+    previousAliasName: NotRequired[str]
 
 
 class UpdateTrustAnchorRequestTypeDef(TypedDict):
@@ -443,6 +457,7 @@ class UpdateTrustAnchorRequestTypeDef(TypedDict):
     name: NotRequired[str]
     source: NotRequired[SourceTypeDef]
     crlDpRevocationEnabled: NotRequired[bool]
+    aliasName: NotRequired[str]
 
 
 class DeleteAttributeMappingResponseTypeDef(TypedDict):

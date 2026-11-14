@@ -1,15 +1,15 @@
 Metadata-Version: 2.5
 Name: vercel-blob
-Version: 0.5.1
+Version: 0.6.0
 Summary: Python SDK for Vercel Blob
 License-Expression: MIT
 License-File: LICENSE
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: anyio<5,>=4.0.0
 Requires-Dist: httpx2>=2
 Requires-Dist: pydantic<3,>=2.7.0
-Requires-Dist: vercel-internal-core<0.3.0,>=0.2.2
-Requires-Dist: vercel-oidc>=0.11.0
+Requires-Dist: vercel-internal-core<0.4.0,>=0.3.0
+Requires-Dist: vercel-oidc>=0.12.0
 Description-Content-Type: text/markdown
 
 # Vercel Blob Python SDK

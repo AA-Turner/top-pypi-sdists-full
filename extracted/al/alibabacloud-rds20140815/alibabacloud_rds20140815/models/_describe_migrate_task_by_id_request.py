@@ -14,11 +14,11 @@ class DescribeMigrateTaskByIdRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
+        # Instance ID of the instance. You can call the DescribeDBInstances operation to obtain instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The ID of the OSS backup migration task. You can call the DescribeMigrateTasks operation to query the ID.
+        # The ID of the backup-to-cloud task. You can call the DescribeMigrateTasks operation to query the ID.
         # 
         # This parameter is required.
         self.migrate_task_id = migrate_task_id

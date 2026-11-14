@@ -3,13 +3,13 @@
 
 from __future__ import annotations
 
-import httpx
+import httpx2
 
 from forge_dashboard.errors import APIError, decode_error
 
 
-def _response(status_code: int, body: bytes = b"", headers: dict[str, str] | None = None) -> httpx.Response:
-    return httpx.Response(status_code, content=body, headers=headers or {})
+def _response(status_code: int, body: bytes = b"", headers: dict[str, str] | None = None) -> httpx2.Response:
+    return httpx2.Response(status_code, content=body, headers=headers or {})
 
 
 def test_decode_error_returns_none_below_400() -> None:

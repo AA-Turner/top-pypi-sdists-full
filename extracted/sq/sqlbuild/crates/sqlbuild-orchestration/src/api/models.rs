@@ -33,11 +33,15 @@ use crate::api::_helpers::resources::{
     person_reads::node_runs,
     person_reads::run_events,
     person_reads::run_statements,
+    person_reads::run_cost,
+    person_reads::cost_summary,
+    person_reads::node_costs,
     person_reads::run_statement_sql,
     person_reads::run_output,
     person_reads::run_node_error,
     person_reads::jobs,
     person_reads::job,
+    person_reads::providers,
     person_reads::triggers,
     person_reads::ticks,
     person_reads::trigger_changes,
@@ -128,6 +132,14 @@ pub(crate) struct ReadQuery {
     pub(crate) limit: Option<u32>,
 }
 
+/// A cost read's window in days (default 7, at most 90) and, for history, its row limit.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct CostQuery {
+    pub(crate) days: Option<u32>,
+    pub(crate) limit: Option<u32>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct RunEventsQuery {
@@ -211,6 +223,8 @@ pub enum LoginMode {
     Password,
     TrustedProxy,
     Oidc,
+    /// `sqb dev` on loopback: no sign-in, every request acts as the local development person.
+    Disabled,
 }
 
 /// What the UI needs first: how people sign in, and what this person may see and do.
@@ -232,6 +246,8 @@ pub struct DevelopmentScope {
     pub location_id: uuid::Uuid,
     pub target: String,
     pub triggers: bool,
+    /// The local person every loopback request acts as.
+    pub principal_id: uuid::Uuid,
 }
 
 /// The one way people sign in to this server, if any.
@@ -516,6 +532,7 @@ pub struct ServerFacts {
     pub audit: crate::credentials::models::AuditRetention,
     pub statistics: crate::warehouse_metadata::models::StatisticsRetention,
     pub snapshots: crate::snapshots::models::SnapshotRetention,
+    pub run_logs: crate::runs::models::RunLogRetention,
 }
 
 /// The server's version, storage, sign-in and retention, for administrators.
@@ -536,6 +553,10 @@ pub struct ServerRetention {
     pub statistics_days: i64,
     /// Publications kept per location target.
     pub snapshots_kept: i64,
+    /// Days a finished run keeps its log of events, statements and output.
+    pub run_log_days: i64,
+    /// Finished runs per location target that keep their logs.
+    pub run_logs_kept: i64,
     pub platform_alert_days: i64,
     pub heartbeat_days: i64,
     pub location_health_days: i64,

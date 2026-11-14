@@ -40,15 +40,17 @@ if TYPE_CHECKING:
 def _targets_in_estimator_space(
     y_Q: torch.Tensor, config: RegressorEnsembleConfig
 ) -> torch.Tensor:
-    """Map z-scored targets into the space the estimator predicts in.
+    """Map raw targets into the space the estimator predicts in.
 
     Members with a target transform (the default ensemble's "safepower") saw
     transformed context targets, so their loss must use transformed targets too.
     """
     if config.target_transform is None:
-        return y_Q
+        raise ValueError("A fitted target pipeline is required for regression loss.")
     y_np = config.target_transform.transform(y_Q.cpu().numpy().reshape(-1, 1))
-    return torch.as_tensor(y_np.ravel(), dtype=y_Q.dtype, device=y_Q.device)
+    if config.flip_target:
+        y_np = -y_np
+    return torch.as_tensor(y_np.ravel(), device=y_Q.device)
 
 
 def _compute_regression_loss(  # noqa: C901
@@ -368,7 +370,7 @@ class FinetunedTabPFNRegressor(FinetunedTabPFNBase, RegressorMixin):
 
     @override
     def _setup_batch(self, batch: RegressorBatch) -> None:  # type: ignore[override]
-        """Set up bar distribution for this batch."""
+        """Set up the bar distributions for this batch."""
         self.finetuned_estimator_.raw_space_bardist_ = batch.raw_space_bardist
         self.finetuned_estimator_.bardist_ = batch.znorm_space_bardist
         self._bardist_loss = batch.znorm_space_bardist
@@ -390,6 +392,12 @@ class FinetunedTabPFNRegressor(FinetunedTabPFNBase, RegressorMixin):
 
         _, per_estim_logits, _ = self._training_forward(X_query_batch)
         # per_estim_logits is a list (per estimator) of tensors with shape [Q, B(=1), L]
+        # forward() mirrors the buckets of a member that saw the negated target;
+        # undo that, so its loss pairs its own buckets with its negated target.
+        per_estim_logits = [
+            logits.flip(-1) if c[0].flip_target else logits
+            for logits, c in zip(per_estim_logits, batch.configs, strict=True)
+        ]
 
         # shape suffix: Q=n_queries, B=batch(=1), E=estimators, L=logits
         logits_QBEL = torch.stack(per_estim_logits, dim=2)
@@ -406,8 +414,11 @@ class FinetunedTabPFNRegressor(FinetunedTabPFNBase, RegressorMixin):
         logits_BQL = logits_QBEL.permute(1, 2, 0, 3).reshape(B * E, Q, L)
 
         targets_BQ = torch.stack(
-            [_targets_in_estimator_space(y_query_batch[0], c[0]) for c in batch.configs]
-        ).to(self.device)
+            [
+                _targets_in_estimator_space(batch.y_query_raw[0], c[0])
+                for c in batch.configs
+            ]
+        ).to(device=self.device, dtype=y_query_batch.dtype)
 
         return _compute_regression_loss(
             logits_BQL=logits_BQL,

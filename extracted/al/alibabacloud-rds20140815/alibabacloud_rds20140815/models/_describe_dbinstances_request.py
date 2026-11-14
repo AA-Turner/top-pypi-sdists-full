@@ -42,9 +42,9 @@ class DescribeDBInstancesRequest(DaraModel):
         zone_id: str = None,
         proxy_id: str = None,
     ):
-        # The instance series. Valid values:
+        # The instance edition. Valid values:
         # - **Basic**: Basic Edition
-        # - **HighAvailability**: high availability series
+        # - **HighAvailability**: High-availability Edition
         # - **cluster**: Cluster Edition
         # - **serverless_basic**: Serverless
         self.category = category
@@ -90,15 +90,15 @@ class DescribeDBInstancesRequest(DaraModel):
         # * **True**: The instance has expired.
         # * **False**: The instance has not expired.
         self.expired = expired
-        # The JSON string of instance filter parameters and their values.
+        # The filter conditions and their values in JSON format.
         self.filter = filter
         # Specifies whether to return the instance edition information. Valid values:
         # * **0**: no
         # * **1**: yes
         self.instance_level = instance_level
         # The network type of the instance. Valid values:
-        # * **VPC**: VPC
-        # * **Classic**: classic network
+        # * **VPC**: instances in a VPC
+        # * **Classic**: instances in the classic network
         # 
         # By default, instances of all network types are returned.
         self.instance_network_type = instance_network_type
@@ -107,11 +107,11 @@ class DescribeDBInstancesRequest(DaraModel):
         # Default value: **30**.
         # > If you specify this parameter, the **PageSize** and **PageNumber** parameters become invalid.
         self.max_results = max_results
-        # The pagination token. The value is the **NextToken** parameter value returned from the previous call to the **DescribeDBInstances** operation. If the results are displayed across multiple pages, you can pass this value in the next call to display the next page.
+        # The pagination token. The value is the **NextToken** parameter value returned from the previous call to the **DescribeDBInstances** operation. If the results are paginated, you can pass this value in the next call to retrieve the next page of results.
         self.next_token = next_token
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The page number. Valid values: any integer greater than 0 and less than or equal to the maximum value of the Integer type.
+        # The page number. Valid values: any integer greater than 0 and less than or equal to the maximum integer value.
         # 
         # Default value: **1**.
         self.page_number = page_number
@@ -123,9 +123,9 @@ class DescribeDBInstancesRequest(DaraModel):
         # * **Postpaid**: pay-as-you-go
         # * **Prepaid**: subscription
         self.pay_type = pay_type
-        # Reserved parameter. You do not need to configure this parameter.
+        # Reserved parameter. No configuration is required.
         self.query_auto_renewal = query_auto_renewal
-        # The region ID. You can call the DescribeRegions operation to obtain the region ID.
+        # The region ID. You can call the DescribeRegions operation to query available regions.
         # 
         # This parameter is required.
         self.region_id = region_id
@@ -133,9 +133,9 @@ class DescribeDBInstancesRequest(DaraModel):
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The search key. You can perform a fuzzy search based on the instance ID or instance description.
+        # The search key. You can perform a fuzzy search based on the instance ID or description.
         self.search_key = search_key
-        # The tags that are added to the instances to be queried, including TagKey and TagValue. You can specify up to 5 tags in a single request. Format: {"key1":"value1","key2":"value2"...}. If an instance matches any of the specified tags, the instance information is returned.
+        # The tags used to query instances. Each tag includes a tag key and a tag value. You can specify up to 5 tags in a single request. Format: {"key1":"value1","key2":"value2"...}. If an instance matches any of the specified tags, the instance information is returned.
         self.tags = tags
         # The vSwitch ID.
         self.v_switch_id = v_switch_id
@@ -143,7 +143,7 @@ class DescribeDBInstancesRequest(DaraModel):
         self.vpc_id = vpc_id
         # The zone ID.
         self.zone_id = zone_id
-        # **[Deprecated]** You do not need to configure this parameter.
+        # **[Deprecated]** This parameter is deprecated and does not need to be configured.
         self.proxy_id = proxy_id
 
     def validate(self):

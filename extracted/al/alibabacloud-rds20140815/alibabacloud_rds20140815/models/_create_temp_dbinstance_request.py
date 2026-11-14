@@ -16,8 +16,8 @@ class CreateTempDBInstanceRequest(DaraModel):
         resource_owner_id: int = None,
         restore_time: str = None,
     ):
-        # The backup set ID. You can call the DescribeBackups operation to query the backup set ID.
-        # >You must specify at least one of **BackupId** and **RestoreTime**.
+        # The ID of the backup set. You can call the DescribeBackups operation to query the ID.
+        # >You must specify at least one of the **BackupId** and **RestoreTime** parameters.
         self.backup_id = backup_id
         # The instance ID.
         # 
@@ -29,10 +29,10 @@ class CreateTempDBInstanceRequest(DaraModel):
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # A point in time within the backup retention period. Format: <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z (UTC).
+        # The point in time to which you want to restore the data. The point in time must be within the backup retention period. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
         # 
-        # > * You can specify any point in time within the last 7 days that is at least 30 minutes earlier than the current time. The default time zone is UTC.
-        # > * You must specify at least one of **BackupId** and **RestoreTime**.
+        # > * You can specify any point in time within the last seven days. The point in time must be at least 30 minutes earlier than the current time. The default time zone is UTC.
+        # > * You must specify at least one of the **BackupId** and **RestoreTime** parameters.
         self.restore_time = restore_time
 
     def validate(self):

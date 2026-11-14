@@ -75,6 +75,7 @@ def isolate_server_subprocess(
         {
             "ISOLATE_SHUTDOWN_GRACE_PERIOD": "2",
             "ISOLATE_AGENT_IDLE_TIMEOUT_SECONDS": str(idle_timeout_seconds),
+            "ISOLATE_CONTROLLER_AUTH_KEY": "test-secret",
         }
     )
 
@@ -178,7 +179,9 @@ def test_exit_on_client_close(isolate_server_subprocess):
 
         time.sleep(30)  # Simulate long-running task
 
-    responses = stub.Run(create_run_request(fn))
+    responses = stub.Run(
+        create_run_request(fn), metadata=[("controller-token", "test-secret")]
+    )
     consume_responses(responses)
 
     # Give task time to start
@@ -236,7 +239,8 @@ def test_running_function_receives_sigterm(isolate_server_subprocess, tmp_path):
     assert not sigterm_file_path.exists()
 
     responses = stub.Run(
-        create_run_request(func_with_sigterm_handler, str(sigterm_file_path))
+        create_run_request(func_with_sigterm_handler, str(sigterm_file_path)),
+        metadata=[("controller-token", "test-secret")],
     )
     consume_responses(responses)
     time.sleep(2)  # Give task time to start
@@ -332,7 +336,9 @@ def test_idle_timeout_server_handle(isolate_server_subprocess):
         time.sleep(5)  # longer than the idle timeout
         print("Function finished")
 
-    responses = stub.Run(create_run_request(fn))
+    responses = stub.Run(
+        create_run_request(fn), metadata=[("controller-token", "test-secret")]
+    )
     consume_responses(responses, wait=True)
 
     # Send the first request to start the agent
@@ -346,6 +352,8 @@ def test_idle_timeout_server_handle(isolate_server_subprocess):
     ), "Agent process should have terminated after idle timeout"
 
     # Server should be able to handle a new request after the idle timeout
-    responses = stub.Run(create_run_request(fn))
+    responses = stub.Run(
+        create_run_request(fn), metadata=[("controller-token", "test-secret")]
+    )
     consume_responses(responses, wait=True)
     assert len(p.children()) == 1, "Server should have one agent process"

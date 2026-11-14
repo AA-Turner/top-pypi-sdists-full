@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytorch-metric-learning
-Version: 3.0.2
+Version: 3.0.3
 Summary: Composable metric learning losses, miners, distances, samplers, and retrieval metrics for PyTorch.
 Author: Kevin Musgrave
 License-Expression: MIT

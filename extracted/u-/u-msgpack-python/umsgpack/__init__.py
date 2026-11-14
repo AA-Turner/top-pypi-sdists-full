@@ -1,16 +1,17 @@
-# u-msgpack-python v2.8.0 - v at sergeev.io
+# u-msgpack-python v2.9.0 - v at sergeev.io
 # https://github.com/vsergeev/u-msgpack-python
 #
 # u-msgpack-python is a lightweight MessagePack serializer and deserializer
-# module, compatible with both Python 2 and 3, as well CPython and PyPy
+# module, compatible with both Python 2 and 3, as well as CPython and PyPy
 # implementations of Python. u-msgpack-python is fully compliant with the
-# latest MessagePack specification.com/msgpack/msgpack/blob/master/spec.md). In
-# particular, it supports the new binary, UTF-8 string, and application ext
-# types.
+# latest MessagePack specification
+# (https://github.com/msgpack/msgpack/blob/master/spec.md). In particular, it
+# supports the new binary, UTF-8 string, application-defined ext, and
+# timestamp types.
 #
 # MIT License
 #
-# Copyright (c) 2013-2023 vsergeev / Ivan (Vanya) A. Sergeev
+# Copyright (c) 2013-2026 vsergeev / Ivan (Vanya) A. Sergeev
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -31,20 +32,22 @@
 # THE SOFTWARE.
 #
 """
-u-msgpack-python v2.8.0 - v at sergeev.io
+u-msgpack-python v2.9.0 - v at sergeev.io
 https://github.com/vsergeev/u-msgpack-python
 
 u-msgpack-python is a lightweight MessagePack serializer and deserializer
-module, compatible with both Python 2 and 3, as well CPython and PyPy
+module, compatible with both Python 2 and 3, as well as CPython and PyPy
 implementations of Python. u-msgpack-python is fully compliant with the
-latest MessagePack specification.com/msgpack/msgpack/blob/master/spec.md). In
-particular, it supports the new binary, UTF-8 string, and application ext
+latest MessagePack specification
+(https://github.com/msgpack/msgpack/blob/master/spec.md). In particular, it
+supports the new binary, UTF-8 string, application-defined ext, and timestamp
 types.
 
 License: MIT
 """
 import struct
 import collections
+import functools
 import datetime
 import sys
 import io
@@ -54,10 +57,11 @@ if sys.version_info[0:2] >= (3, 3):
 else:
     from collections import Hashable
 
-__version__ = "2.8.0"
+
+__version__ = "2.9.0"
 "Module version string"
 
-version = (2, 8, 0)
+version = (2, 9, 0)
 "Module version tuple"
 
 
@@ -91,10 +95,10 @@ class Ext(object):
         Example:
             >>> foo = umsgpack.Ext(5, b"\\x01\\x02\\x03")
             >>> umsgpack.packb({u"special stuff": foo, u"awesome": True})
-            '\\x82\\xa7awesome\\xc3\\xadspecial stuff\\xc7\\x03\\x05\\x01\\x02\\x03'
+            b'\\x82\\xadspecial stuff\\xc7\\x03\\x05\\x01\\x02\\x03\\xa7awesome\\xc3'
             >>> bar = umsgpack.unpackb(_)
             >>> print(bar["special stuff"])
-            Ext Object (Type: 5, Data: 01 02 03)
+            Ext Object (Type: 5, Data: 0x01 0x02 0x03)
         """
         # Check type is type int and in range
         if not isinstance(type, int):
@@ -236,6 +240,10 @@ class UnhashableKeyException(UnpackException):
 
 class DuplicateKeyException(UnpackException):
     "Duplicate key encountered during map unpacking."
+
+
+class MaximumDepthException(UnpackException):
+    "Maximum nesting depth exceeded during unpacking."
 
 
 # Backwards compatibility
@@ -442,7 +450,7 @@ def _pack_map(obj, fp, options):
     elif obj_len < 2**32:
         fp.write(b"\xdf" + struct.pack(">I", obj_len))
     else:
-        raise UnsupportedTypeException("huge array")
+        raise UnsupportedTypeException("huge map")
 
     for k, v in obj.items():
         pack(k, fp, **options)
@@ -480,8 +488,6 @@ def _pack2(obj, fp, **options):
         >>> f = open('test.bin', 'wb')
         >>> umsgpack.pack({u"compact": True, u"schema": 0}, f)
     """
-    global compatibility
-
     ext_handlers = options.get("ext_handlers")
 
     if obj is None:
@@ -566,8 +572,6 @@ def _pack3(obj, fp, **options):
         >>> f = open('test.bin', 'wb')
         >>> umsgpack.pack({u"compact": True, u"schema": 0}, f)
     """
-    global compatibility
-
     ext_handlers = options.get("ext_handlers")
 
     if obj is None:
@@ -777,7 +781,6 @@ def _unpack_string(code, fp, options):
         raise Exception("logic error, not string: 0x{:02x}".format(ord(code)))
 
     # Always return raw bytes in compatibility mode
-    global compatibility
     if compatibility:
         return _read_except(fp, length)
 
@@ -868,7 +871,7 @@ def _unpack_ext_timestamp(ext_data, options):
                                        microseconds=microseconds)
 
 
-def _unpack_array(code, fp, options):
+def _unpack_array(code, fp, options, depth=None):
     if (ord(code) & 0xf0) == 0x90:
         length = (ord(code) & ~0xf0)
     elif code == b'\xdc':
@@ -879,9 +882,12 @@ def _unpack_array(code, fp, options):
         raise Exception("logic error, not array: 0x{:02x}".format(ord(code)))
 
     if options.get('use_tuple'):
-        return tuple((_unpack(fp, options) for i in xrange(length)))
+        return tuple((_unpack(fp, options) if depth is None
+                      else _unpack_depth(fp, options, depth)
+                      for i in xrange(length)))
 
-    return [_unpack(fp, options) for i in xrange(length)]
+    return [_unpack(fp, options) if depth is None
+            else _unpack_depth(fp, options, depth) for i in xrange(length)]
 
 
 def _deep_list_to_tuple(obj):
@@ -890,7 +896,7 @@ def _deep_list_to_tuple(obj):
     return obj
 
 
-def _unpack_map(code, fp, options):
+def _unpack_map(code, fp, options, depth=None):
     if (ord(code) & 0xf0) == 0x80:
         length = (ord(code) & ~0xf0)
     elif code == b'\xde':
@@ -903,7 +909,8 @@ def _unpack_map(code, fp, options):
     d = {} if not options.get('use_ordered_dict') else collections.OrderedDict()
     for _ in xrange(length):
         # Unpack key
-        k = _unpack(fp, options)
+        k = _unpack(fp, options) if depth is None \
+            else _unpack_depth(fp, options, depth)
 
         if isinstance(k, list):
             # Attempt to convert list into a hashable tuple
@@ -916,7 +923,8 @@ def _unpack_map(code, fp, options):
                 "encountered duplicate key: \"{:s}\" ({:s})".format(str(k), str(type(k))))
 
         # Unpack value
-        v = _unpack(fp, options)
+        v = _unpack(fp, options) if depth is None \
+            else _unpack_depth(fp, options, depth)
 
         try:
             d[k] = v
@@ -929,6 +937,33 @@ def _unpack_map(code, fp, options):
 def _unpack(fp, options):
     code = _read_except(fp, 1)
     return _unpack_dispatch_table[code](code, fp, options)
+
+
+def _unpack_depth(fp, options, depth):
+    code = _read_except(fp, 1)
+    return _unpack_depth_dispatch_table[code](code, fp, options, depth)
+
+
+def _limit_depth(unpack_container):
+    """Wrap a depth-aware container unpacker to enforce options['max_depth'].
+
+    depth is passed as a local argument and incremented on entry.
+    """
+    @functools.wraps(unpack_container)
+    def wrapper(code, fp, options, depth):
+        depth += 1
+        if depth > options['max_depth']:
+            raise MaximumDepthException("maximum nesting depth exceeded")
+        return unpack_container(code, fp, options, depth)
+    return wrapper
+
+
+def _ignore_depth(unpacker):
+    """Adapt a scalar (non-container) unpacker to the depth dispatch signature."""
+    @functools.wraps(unpacker)
+    def wrapper(code, fp, options, depth):
+        return unpacker(code, fp, options)
+    return wrapper
 
 ########################################
 
@@ -951,6 +986,10 @@ def _unpack2(fp, **options):
         allow_invalid_utf8 (bool): unpack invalid strings into instances of
                                    :class:`InvalidString`, for access to the
                                    bytes (default False)
+        max_depth (int): maximum nesting depth of arrays/maps to unpack; when
+                         exceeded, :class:`MaximumDepthException` is raised. If
+                         None (default), depth is bounded only by the
+                         interpreter's recursion limit.
 
     Returns:
         Python object
@@ -969,13 +1008,23 @@ def _unpack2(fp, **options):
             The serialized map cannot be deserialized into a Python dictionary.
         DuplicateKeyException(UnpackException):
             Duplicate key encountered during map unpacking.
+        MaximumDepthException(UnpackException):
+            Maximum nesting depth exceeded while unpacking a deeply-nested
+            object, or the configured limit was exceeded (when ``max_depth`` is
+            set).
 
     Example:
         >>> f = open('test.bin', 'rb')
-        >>> umsgpack.unpackb(f)
+        >>> umsgpack.unpack(f)
         {u'compact': True, u'schema': 0}
     """
-    return _unpack(fp, options)
+    try:
+        return _unpack(fp, options) if options.get('max_depth') is None \
+            else _unpack_depth(fp, options, 0)
+    except RuntimeError as e:
+        if "maximum recursion depth" in str(e):
+            raise MaximumDepthException("maximum nesting depth exceeded")
+        raise
 
 
 def _unpack3(fp, **options):
@@ -996,6 +1045,10 @@ def _unpack3(fp, **options):
         allow_invalid_utf8 (bool): unpack invalid strings into instances of
                                    :class:`InvalidString`, for access to the
                                    bytes (default False)
+        max_depth (int): maximum nesting depth of arrays/maps to unpack; when
+                         exceeded, :class:`MaximumDepthException` is raised. If
+                         None (default), depth is bounded only by the
+                         interpreter's recursion limit.
 
     Returns:
         Python object
@@ -1014,13 +1067,21 @@ def _unpack3(fp, **options):
             The serialized map cannot be deserialized into a Python dictionary.
         DuplicateKeyException(UnpackException):
             Duplicate key encountered during map unpacking.
+        MaximumDepthException(UnpackException):
+            Maximum nesting depth exceeded while unpacking a deeply-nested
+            object, or the configured limit was exceeded (when ``max_depth`` is
+            set).
 
     Example:
         >>> f = open('test.bin', 'rb')
-        >>> umsgpack.unpackb(f)
+        >>> umsgpack.unpack(f)
         {'compact': True, 'schema': 0}
     """
-    return _unpack(fp, options)
+    try:
+        return _unpack(fp, options) if options.get('max_depth') is None \
+            else _unpack_depth(fp, options, 0)
+    except RecursionError:
+        raise MaximumDepthException("maximum nesting depth exceeded")
 
 
 # For Python 2, expects a str object
@@ -1042,6 +1103,10 @@ def _unpackb2(s, **options):
         allow_invalid_utf8 (bool): unpack invalid strings into instances of
                                    :class:`InvalidString`, for access to the
                                    bytes (default False)
+        max_depth (int): maximum nesting depth of arrays/maps to unpack; when
+                         exceeded, :class:`MaximumDepthException` is raised. If
+                         None (default), depth is bounded only by the
+                         interpreter's recursion limit.
 
     Returns:
         Python object
@@ -1062,6 +1127,10 @@ def _unpackb2(s, **options):
             The serialized map cannot be deserialized into a Python dictionary.
         DuplicateKeyException(UnpackException):
             Duplicate key encountered during map unpacking.
+        MaximumDepthException(UnpackException):
+            Maximum nesting depth exceeded while unpacking a deeply-nested
+            object, or the configured limit was exceeded (when ``max_depth`` is
+            set).
 
     Example:
         >>> umsgpack.unpackb(b'\\x82\\xa7compact\\xc3\\xa6schema\\x00')
@@ -1069,7 +1138,13 @@ def _unpackb2(s, **options):
     """
     if not isinstance(s, (str, bytearray)):
         raise TypeError("packed data must be type 'str' or 'bytearray'")
-    return _unpack(io.BytesIO(s), options)
+    try:
+        return _unpack(io.BytesIO(s), options) if options.get('max_depth') is None \
+            else _unpack_depth(io.BytesIO(s), options, 0)
+    except RuntimeError as e:
+        if "maximum recursion depth" in str(e):
+            raise MaximumDepthException("maximum nesting depth exceeded")
+        raise
 
 
 # For Python 3, expects a bytes object
@@ -1091,6 +1166,10 @@ def _unpackb3(s, **options):
         allow_invalid_utf8 (bool): unpack invalid strings into instances of
                                    :class:`InvalidString`, for access to the
                                    bytes (default False)
+        max_depth (int): maximum nesting depth of arrays/maps to unpack; when
+                         exceeded, :class:`MaximumDepthException` is raised. If
+                         None (default), depth is bounded only by the
+                         interpreter's recursion limit.
 
     Returns:
         Python object
@@ -1111,6 +1190,10 @@ def _unpackb3(s, **options):
             The serialized map cannot be deserialized into a Python dictionary.
         DuplicateKeyException(UnpackException):
             Duplicate key encountered during map unpacking.
+        MaximumDepthException(UnpackException):
+            Maximum nesting depth exceeded while unpacking a deeply-nested
+            object, or the configured limit was exceeded (when ``max_depth`` is
+            set).
 
     Example:
         >>> umsgpack.unpackb(b'\\x82\\xa7compact\\xc3\\xa6schema\\x00')
@@ -1118,7 +1201,11 @@ def _unpackb3(s, **options):
     """
     if not isinstance(s, (bytes, bytearray)):
         raise TypeError("packed data must be type 'bytes' or 'bytearray'")
-    return _unpack(io.BytesIO(s), options)
+    try:
+        return _unpack(io.BytesIO(s), options) if options.get('max_depth') is None \
+            else _unpack_depth(io.BytesIO(s), options, 0)
+    except RecursionError:
+        raise MaximumDepthException("maximum nesting depth exceeded")
 
 #############################################################################
 # Module Initialization
@@ -1194,7 +1281,7 @@ def __init():
     # Build a dispatch table for fast lookup of unpacking function
 
     _unpack_dispatch_table = {}
-    # Fix uint
+    # Positive fixint
     for code in range(0, 0x7f + 1):
         _unpack_dispatch_table[struct.pack("B", code)] = _unpack_integer
     # Fix map
@@ -1243,6 +1330,18 @@ def __init():
     # Negative fixint
     for code in range(0xe0, 0xff + 1):
         _unpack_dispatch_table[struct.pack("B", code)] = _unpack_integer
+
+    # Parallel dispatch table for the optional max_depth path. The array/map
+    # entries are the same container functions as the default table, wrapped by
+    # _limit_depth; scalar unpackers are adapted to accept (and ignore) the
+    # depth argument so _unpack() can dispatch uniformly with no per-code switch.
+    global _unpack_depth_dispatch_table
+    _unpack_depth_dispatch_table = {}
+    for code_bytes, unpacker in _unpack_dispatch_table.items():
+        if unpacker is _unpack_array or unpacker is _unpack_map:
+            _unpack_depth_dispatch_table[code_bytes] = _limit_depth(unpacker)
+        else:
+            _unpack_depth_dispatch_table[code_bytes] = _ignore_depth(unpacker)
 
 
 __init()

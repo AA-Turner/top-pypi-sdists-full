@@ -22,8 +22,11 @@ delegable:
   - id: document.summarise
   - id: document.extract
 
-enabled: false
+# In the galleries (the user, 14 November 2026): the Accountant segment's agent.
+enabled: true
 model: "bedrock:us.anthropic.claude-sonnet-4-6"
+model_additionals:
+  - "alibaba:qwen-max"
 harness: pydantic-ai
 runtime_engine: datalayer
 identity: datalayer-acting-agent

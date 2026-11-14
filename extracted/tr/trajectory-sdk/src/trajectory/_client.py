@@ -24,7 +24,6 @@ if TYPE_CHECKING:
   from trajectory.resources.beta.beta import Beta
   from trajectory.resources.billing import Billing
   from trajectory.resources.chat.chat import Chat
-  from trajectory.resources.datasets import Datasets
   from trajectory.resources.deployments import Deployments
   from trajectory.resources.diagnostics import Diagnostics
   from trajectory.resources.evals.evals import Evals
@@ -81,7 +80,7 @@ class Client(APIClient):
   def default_headers(self) -> dict[str, str]:
     return _merge_headers(
       super().default_headers,
-      {"Trajectory-API-Version": "tmp-contract"},
+      {"Trajectory-API-Version": "2026-10-14"},
       self.auth_headers,
       self._custom_headers,
     )
@@ -261,9 +260,3 @@ class Client(APIClient):
     from trajectory.resources.trajectories.trajectories import Trajectories
 
     return Trajectories(self)
-
-  @cached_property
-  def datasets(self) -> Datasets:
-    from trajectory.resources.datasets import Datasets
-
-    return Datasets(self)

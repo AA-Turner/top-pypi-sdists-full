@@ -145,6 +145,13 @@ pub struct StatsigOptionsPy {
     pub event_logging_max_pending_batch_queue_size: Option<u32>,
     #[pyo3(get, set)]
     pub enable_id_lists: Option<bool>,
+    /// Fetch the manifest at initialization and load list bodies on first evaluation.
+    /// True opts in when enable_id_lists is enabled; False or None keeps eager loading.
+    /// Cold evaluations wait up to 30 ms for loading, then return a partial result
+    /// while the download continues. Read when the SDK is constructed; recreate
+    /// the SDK to change this setting. This does not change the synchronous API.
+    #[pyo3(get, set)]
+    pub lazy_load_id_lists: Option<bool>,
     /// Use Elias–Fano for this instance’s private ID lists and shared ID-list files. False or unset selects the hash format.
     #[pyo3(get, set)]
     pub enable_id_list_elias_fano: Option<bool>,
@@ -275,6 +282,7 @@ impl StatsigOptionsPy {
         disable_remote_telemetry=None,
         id_list_init_build_concurrency=None,
         enable_id_list_access_metrics=None,
+        lazy_load_id_lists=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -334,6 +342,7 @@ impl StatsigOptionsPy {
         disable_remote_telemetry: Option<bool>,
         id_list_init_build_concurrency: Option<Py<PyInt>>,
         enable_id_list_access_metrics: Option<bool>,
+        lazy_load_id_lists: Option<bool>,
     ) -> Self {
         Self {
             specs_url,
@@ -349,6 +358,7 @@ impl StatsigOptionsPy {
             event_logging_max_queue_size,
             event_logging_max_pending_batch_queue_size,
             enable_id_lists,
+            lazy_load_id_lists,
             enable_id_list_elias_fano,
             id_list_init_build_concurrency,
             enable_id_list_access_metrics,
@@ -518,7 +528,7 @@ fn create_inner_statsig_options(
         event_logging_max_queue_size: opts.event_logging_max_queue_size,
         event_logging_max_pending_batch_queue_size: opts.event_logging_max_pending_batch_queue_size,
         enable_id_lists: opts.enable_id_lists,
-        lazy_load_id_lists: None,
+        lazy_load_id_lists: opts.lazy_load_id_lists,
         enable_id_list_elias_fano: opts.enable_id_list_elias_fano,
         id_list_init_build_concurrency: opts
             .id_list_init_build_concurrency

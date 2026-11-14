@@ -1,10 +1,10 @@
 Metadata-Version: 2.5
 Name: llama-index-llms-google-genai
-Version: 0.11.3
+Version: 0.12.0
 Summary: llama-index llms google genai integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT
-Requires-Python: <4.0,>=3.10
+Requires-Python: <4.0,>=3.11
 Requires-Dist: google-genai<3,>=1.52.0
 Requires-Dist: llama-index-core<0.15,>=0.14.5
 Requires-Dist: pillow>=10.2.0

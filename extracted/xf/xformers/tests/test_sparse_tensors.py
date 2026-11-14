@@ -13,7 +13,6 @@ from xformers.sparse import BlockSparseTensor
 
 from .utils import disable_tf32
 
-cuda_only = pytest.mark.skipif(not torch.cuda.is_available(), reason="requires CUDA")
 _devices = (
     ["cpu", "cuda:0"] if torch.cuda.is_available() and torch.version.cuda else ["cpu"]
 )

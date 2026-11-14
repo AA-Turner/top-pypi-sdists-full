@@ -11,7 +11,7 @@ __all__ = [
 
 
 def safe_div(a, b):
-    """Returns a if b is nil, else divides a by b.
+    """Return a if b is nil, else divides a by b.
 
     When scaling, sometimes a denominator might be nil. For instance, during standard scaling
     the denominator can be nil if a feature has no variance.
@@ -30,7 +30,6 @@ class TargetStandardScaler(compose.TargetTransformRegressor):
 
     Examples
     --------
-
     >>> from river import datasets
     >>> from river import evaluate
     >>> from river import linear_model
@@ -59,10 +58,10 @@ class TargetStandardScaler(compose.TargetTransformRegressor):
         self.var.update(y)
 
     def _scale(self, y):
-        return safe_div(y - self.var.mean.get(), self.var.get() ** 0.5)
+        return safe_div(y - self.var.mean.get(), math.sqrt(self.var.get()))
 
     def _unscale(self, y):
-        return y * self.var.get() ** 0.5 + self.var.mean.get()
+        return y * math.sqrt(self.var.get()) + self.var.mean.get()
 
 
 class TargetMinMaxScaler(compose.TargetTransformRegressor):
@@ -75,7 +74,6 @@ class TargetMinMaxScaler(compose.TargetTransformRegressor):
 
     Examples
     --------
-
     >>> from river import datasets
     >>> from river import evaluate
     >>> from river import linear_model

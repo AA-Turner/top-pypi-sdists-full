@@ -16,12 +16,12 @@ class DescribeAccountsRequest(DaraModel):
     ):
         # The name of the database account.
         self.account_name = account_name
-        # The instance ID. You can call DescribeDBInstances to obtain the instance ID.
-        # >SQL Server 2017 Cluster Edition instances are not supported.
+        # Instance ID of the instance. You can call the DescribeDBInstances operation to obtain instance ID.
+        # > ApsaraDB RDS for SQL Server 2017 Cluster Edition instances are not supported.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The page number. Default value: **1**. The value must be a positive integer that does not exceed the maximum value of the Integer data type.
+        # The page number. Default value: **1**. The value must be a positive integer that does not exceed the maximum value of the Integer type.
         self.page_number = page_number
         # The number of entries per page. Valid values: **30** to **200**. Default value: **30**.
         self.page_size = page_size

@@ -109,7 +109,6 @@ class DescribeRCImageListResponseBodyImages(DaraModel):
         usage: str = None,
     ):
         # The system architecture of the image. Valid values:
-        # 
         # - x86_64
         # - arm64
         self.architecture = architecture
@@ -117,7 +116,7 @@ class DescribeRCImageListResponseBodyImages(DaraModel):
         self.creation_time = creation_time
         # The description of the image.
         self.description = description
-        # The mapping between cloud disks and snapshots included in the image.
+        # The mappings between cloud disks and snapshots in the image.
         self.disk_device_mappings = disk_device_mappings
         # The image ID.
         self.image_id = image_id
@@ -126,12 +125,10 @@ class DescribeRCImageListResponseBodyImages(DaraModel):
         # The image version.
         self.image_version = image_version
         # Indicates whether the image is a public image. Public images include public images provided by Alibaba Cloud and custom images that you have published as community images. Valid values:
-        # 
         # - **true**: The image is a public image.
         # - **false**: The image is not a public image.
         self.is_public = is_public
         # Indicates whether the image supports RDS Custom instances. Valid values:
-        # 
         # - **true**: Yes.
         # - **false**: No.
         self.is_support_rds_custom = is_support_rds_custom
@@ -140,7 +137,6 @@ class DescribeRCImageListResponseBodyImages(DaraModel):
         # The English display name of the operating system.
         self.osname_en = osname_en
         # The operating system type. Valid values:
-        # 
         # - **windows**
         # - **linux**
         self.ostype = ostype
@@ -149,14 +145,12 @@ class DescribeRCImageListResponseBodyImages(DaraModel):
         # The size of the image. Unit: GiB.
         self.size = size
         # The status of the image. Valid values:
-        # 
         # - **UnAvailable**: The image is unavailable.
         # - **Available**: The image is available.
         # - **Creating**: The image is being created.
         # - **CreateFailed**: The image failed to be created.
         self.status = status
         # Indicates whether the image is used by RDS Custom instances. Valid values:
-        # 
         # - **instance**: One or more RDS Custom instances are created.
         # - **none**: No RDS Custom instances are created.
         self.usage = usage
@@ -286,14 +280,13 @@ class DescribeRCImageListResponseBodyImagesDiskDeviceMappings(DaraModel):
         size: str = None,
         type: str = None,
     ):
-        # The device information of the cloud disk, such as `/dev/xvdb`.
+        # The device name of the cloud disk, such as `/dev/xvdb`.
         self.device = device
         # The size of the cloud disk. Unit: GiB.
         self.size = size
-        # The property of the cloud disk. Valid values:
-        # 
-        # - **system**: System cloud disk.
-        # - **data**: Data cloud disk.
+        # The type of the cloud disk. Valid values:
+        # - **system**: system cloud disk
+        # - **data**: data cloud disk
         self.type = type
 
     def validate(self):

@@ -30,7 +30,7 @@ authors = [
     { name = "Tobias Callies" },
     { name = "Tom White" },
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
@@ -43,38 +43,37 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Visualization",
 ]
 dynamic = [ "version" ]
 dependencies = [
-    "anndata>=0.10.8",
-    "certifi",
-    "fast-array-utils[accel,sparse]>=1.4",
-    "h5py>=3.11",
+    "anndata>=0.12.14",
+    "array-api-compat",
+    "fast-array-utils[accel,sparse]>=1.5",
+    "h5py>=3.12.1",
     "joblib",
-    "legacy-api-wrap>=1.5",                     # for positional API deprecations
     "matplotlib>=3.10",
     "natsort",
-    "networkx>=2.8.8",
-    "numba>=0.60",
-    "numpy>=2",
+    "networkx>=3.4",
+    "numba>=0.61.2",
+    "numpy>=2.2.5",
     "packaging>=25",
     "pandas>=2.3",
     "patsy",
     "pynndescent>=0.5.13",
     "scikit-learn>=1.6",
-    "scipy>=1.13",
-    "scverse-misc>=0.0.6",
+    "scipy>=1.15",
+    "scverse-misc[datasets,settings]>=0.1.6",
     "seaborn>=0.13.2",
     "session-info2",
     "statsmodels>=0.14.5",
     "tqdm",
-    "typing-extensions; python_version<'3.13'",
     "umap-learn>=0.5.12",
+    "zarr>=3.2",
 ]
 urls.Bluesky = "https://bsky.app/profile/scverse.bsky.social"
 urls.Discourse = "https://discourse.scverse.org/c/help/scanpy/37"
@@ -86,58 +85,68 @@ scripts.scanpy = "scanpy.cli:console_main"
 
 [project.optional-dependencies]
 bbknn = [ "bbknn" ]
-dask = [ "anndata[dask]", "dask[array]>=2024.5.1" ]
+dask = [ "anndata[dask]", "dask[array]>=2024.10" ]
 # PCA acceleration
 dask-ml = [ "dask-ml", "scanpy[dask]" ]
-harmony = [ "harmonypy" ]
-leiden = [ "igraph>=0.10.8", "leidenalg>=0.10.1" ]
+leiden = [ "igraph>=1", "leidenalg>=0.11" ]
+networkit = [ "networkit>=11.3" ]
 louvain = [ "igraph", "louvain>=0.8.2", "setuptools" ]
 magic = [ "magic-impute>=2.0.4" ]
 paga = [ "igraph" ]
 plotting = [ "colour-science" ]
-# Neighbors acceleration
-rapids = [ "cudf>=0.9", "cugraph>=0.9", "cuml>=0.9" ]
 scanorama = [ "scanorama" ]
-scrublet = [ "scikit-image>=0.23.1" ]
+scrublet = [ "scikit-image>=0.25" ]
 # highly_variable_genes method 'seurat_v3'
 skmisc = [ "scikit-misc>=0.5.1" ]
+illico = [ "illico>=0.6" ]
+scanpy2 = [
+    "anndata>=0.13.3",
+    "holoviews>=1.23.2",
+    "hv-anndata>=0.0.3a5",
+    "igraph>=1",
+    "matplotlib>=3.11",
+    "scanpy[illico]",
+    "scikit-misc>=0.5.1",
+]
 
 [dependency-groups]
 dev = [
-    "scipy-stubs", # static typing and IDE support
-    "towncrier",   # release note management
+    "scipy-stubs",     # static typing and IDE support
+    "towncrier",       # release note management
+    "types-array-api",
 ]
 test = [
+    "jax",                          # Array API tests
     "scanpy[dask-ml]",
     "scanpy[dask]",
+    "scanpy[illico]",
     "scanpy[leiden]",
+    "scanpy[networkit]",
     "scanpy[plotting]",
     "scanpy[scrublet]",
     "scanpy[skmisc]",
-    "zarr>=2.18.7",
     { include-group = "test-min" },
 ]
-doc = [
-    "ipython>=7.20",                        # for nbsphinx code highlighting
+docs = [
+    "ipython>=8.27",                                         # for nbsphinx code highlighting
     "myst-nb>=1.4",
     "myst-parser>=2",
     "nbsphinx>=0.9",
-    "sam-algorithm",
+    "numpy>=2.4",                                            # type aliases
+    "plotly",
     # TODO: remove necessity for being able to import doc-linked classes
-    "scanpy[dask-ml,leiden,paga,plotting]",
-    "scanpydoc>=0.16.1",
+    "scanpy[dask-ml,leiden,paga,plotting,scanpy2,scrublet]",
+    "scverse-doc[full]>=0.4",
+    "scverse-misc[sphinx]>=0.1.7",
     "sphinx>=9.1",
-    "sphinx-autodoc-typehints>=1.25.2",
-    "sphinx-book-theme>=1.1",
-    "sphinx-copybutton",
-    "sphinx-design",
+    "sphinx-autodoc-typehints>=3.13.5",
+    "sphinx-exec-jupyter[holoviews]>=0.4.2",
     "sphinx-issues>=5.0.1",
     "sphinxcontrib-bibtex",
-    "sphinxcontrib-katex",
-    "sphinxext-opengraph",                  # for nice cards when sharing on social
 ]
 test-min = [
     "dependency-groups",    # for CI scripts doctests
+    "pooch",
     "pytest",
     "pytest-cov",           # only for use from VS Code
     "pytest-mock",
@@ -169,6 +178,8 @@ lint.select = [
     "ICN",    # Follow import conventions
     "ISC",    # Implicit string concatenation
     "N",      # Naming conventions
+    "NPY",    # Numpy-specific rules
+    "PD",     # Pandas
     "PERF",   # Performance
     "PIE",    # Syntax simplifications
     "PL",     # Pylint
@@ -204,9 +215,10 @@ lint.per-file-ignores."src/scanpy/tools/_sim.py" = [ "N" ]
 # D*: No need for docstrings for all test modules and test functions
 # PLR0913: Test may use many fixtures
 lint.per-file-ignores."tests/**/*.py" = [ "D100", "D101", "D103", "PLR0913" ]
-lint.allowed-confusables = [ "×", "–", "’", "α" ]
-lint.external = [ "PLR0917" ]
+lint.allowed-confusables = [ "×", "–", "‘", "’", "α" ]
+lint.flake8-bugbear.extend-immutable-calls = [ "scanpy._settings.Default" ]
 lint.flake8-type-checking.exempt-modules = []
+lint.flake8-type-checking.runtime-evaluated-base-classes = [ "scverse_misc.Settings" ]
 lint.flake8-type-checking.strict = true
 lint.isort.known-first-party = [ "scanpy", "testing.scanpy" ]
 lint.isort.required-imports = [ "from __future__ import annotations" ]
@@ -215,17 +227,24 @@ lint.pylint.max-args = 10
 lint.pylint.max-positional-args = 5
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"legacy_api_wrap.legacy_api".msg = "Use scanpy._compat.old_positionals instead"
 "numba.jit".msg = "Use `fast_array_utils.numba.njit` instead"
 "numba.njit".msg = "Use `fast_array_utils.numba.njit` instead"
 "numpy.bool_".msg = "Use `np.bool` instead"
 "pandas.api.types.is_categorical_dtype".msg = "Use isinstance(s.dtype, CategoricalDtype) instead"
 "pandas.value_counts".msg = "Use pd.Series(a).value_counts() instead"
 "pytest.importorskip".msg = "Use the “@needs” decorator/mark instead"
-"scipy.sparse.csc_array".msg = "Use _compat.CSCBase or _compat.CSBase for typing/type checks and add `# noqa: TID251` when constructing"
-"scipy.sparse.csc_matrix".msg = "Use _compat.CSCBase or _compat.CSBase for typing/type checks and add `# noqa: TID251` when constructing"
-"scipy.sparse.csr_array".msg = "Use _compat.CSRBase or _compat.CSBase for typing/type checks and add `# noqa: TID251` when constructing"
-"scipy.sparse.csr_matrix".msg = "Use _compat.CSRBase or _compat.CSBase for typing/type checks and add `# noqa: TID251` when constructing"
+"scipy.sparse.csc_array".msg = """\
+    Use _compat.CSCBase or _compat.CSBase for typing/type checks and add `# noqa: TID251` when constructing\
+    """
+"scipy.sparse.csc_matrix".msg = """\
+    Use _compat.CSCBase or _compat.CSBase for typing/type checks and add `# noqa: TID251` when constructing\
+    """
+"scipy.sparse.csr_array".msg = """\
+    Use _compat.CSRBase or _compat.CSBase for typing/type checks and add `# noqa: TID251` when constructing\
+    """
+"scipy.sparse.csr_matrix".msg = """\
+    Use _compat.CSRBase or _compat.CSBase for typing/type checks and add `# noqa: TID251` when constructing\
+    """
 "scipy.sparse.issparse".msg = "Use isinstance(_, _compat.CSBase) or isinstance(_, _compat.SpBase) instead"
 "scipy.sparse.sparray".msg = "Use _compat.SpBase instead"
 "scipy.sparse.spmatrix".msg = "Use _compat.SpBase instead"
@@ -267,13 +286,21 @@ filterwarnings = [
     "ignore:is_categorical_dtype is deprecated:FutureWarning",
     # Ignore numba PEP 456 warning specific to ARM machines
     "ignore:FNV hashing is not implemented in Numba.*:UserWarning",
+    # Ignore numba macOS warnings
+    "ignore:Detected unsupported threading environment:UserWarning",
     # we want to see and eventually fix these
     "default::numba.core.errors.NumbaPerformanceWarning",
-    "default:.*TSNE.*random.*to.*pca:FutureWarning",                                         # we should set init=obsm["X_pca"] or so
-    # igraph vs leidenalg warning
-    "ignore:The `igraph` implementation of leiden clustering:UserWarning",
+    # we should set init=obsm["X_pca"] or so
+    "default:.*TSNE.*random.*to.*pca:FutureWarning",
+    # igraph/networkit vs leidenalg warning
+    "ignore:The `igraph` and `networkit` implementations of leiden clustering:UserWarning",
     # everybody uses this zarr 3 feature, including us, XArray, lots of data out there …
     "ignore:Consolidated metadata is currently not part:UserWarning",
+    # joblib fallback to serial mode in restricted multiprocessing environments
+    "ignore:.*joblib will operate in serial mode:UserWarning",
+    # anndata≤0.13.4 accesses options deprecated in pandas 3.1
+    # (no `::anndata` module filter: `pytest.warns` re-emits warnings with module="warnings")
+    "ignore:The '(future\\.infer_string|mode\\.chained_assignment)' option is deprecated",
     # anndata≤0.13.4 uses `inplace=True` when reading legacy zarr (fixed in scverse/anndata#2671)
     "ignore:The inplace keyword in DataFrame\\.set_index is deprecated::anndata\\.",
     # anndata<0.12.18 passes arguments deprecated in scverse-misc 0.1
@@ -290,11 +317,11 @@ strict = true
 testpaths = [ "./tests", "./ci", "scanpy" ]
 
 [tool.coverage]
+run.source_pkgs = [ "scanpy" ]
+run.omit = [ "src/testing/*", "tests/*" ]
 run.concurrency = [ "multiprocessing" ]
 run.data_file = "test-data/raw-coverage"
-run.omit = [ "src/testing/*", "tests/*" ]
 run.patch = [ "subprocess" ]
-run.source_pkgs = [ "scanpy" ]
 paths.source = [ "src", "**/site-packages" ]
 report.exclude_also = [
     # https://github.com/numba/numba/issues/4268

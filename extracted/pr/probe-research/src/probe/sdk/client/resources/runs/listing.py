@@ -102,6 +102,7 @@ class RunListingMixin:
         owner: str | None = None,
         since: str | None = None,
         until: str | None = None,
+        query: str | None = None,
     ) -> Page:
         """One page of ``GET /v1/runs``, newest first. ``project_id`` returns ALL the project's runs --
         project-direct AND experiment-attached (0054); ``direct=True`` narrows to experiment-less runs.
@@ -115,20 +116,23 @@ class RunListingMixin:
         raises ``CapabilityUnavailable`` rather than answer an unfiltered list.
 
         ``owner`` (a user id, an email, a name or ``me``), ``since`` / ``until`` (ISO 8601 or ``24h``,
-        ``7d``, ``2w``) and ``order="recent"`` pass as given; the server reads them (``people_filters``)."""
-        query = self._build_runs_query(
+        ``7d``, ``2w``) and ``order="recent"`` pass as given; the server reads them (``people_filters``).
+
+        ``query`` matches run names and slugs LOOSELY (typos, part of a word, any order), best first, one page
+        and no cursor (``browse_name_query``); ``name`` stays the exact lookup a ``name:`` ref resolves by."""
+        parameters = self._build_runs_query(
             experiment_id=experiment_id, project_id=project_id, direct=direct, tags=tags, status=status,
             active=active, name=name, foreign_key=foreign_key, created_by_kind=created_by_kind,
             exclude_origin_session=exclude_origin_session, include_lineage_descendants=include_lineage_descendants,
             filter=filter, order=order, latest_metrics=latest_metrics, view=view,
-            owner=owner, since=since, until=until,
+            owner=owner, since=since, until=until, name_query=query,
         )
         if limit is not None:
-            query["limit"] = limit
+            parameters["limit"] = limit
         if cursor:
-            query["cursor"] = cursor
-        page = self.transport.get_page("/v1/runs", params=query or None)
-        self._check_run_rows(page.items, query)
+            parameters["cursor"] = cursor
+        page = self.transport.get_page("/v1/runs", params=parameters or None)
+        self._check_run_rows(page.items, parameters)
         return page
 
     def iter_runs(
@@ -202,16 +206,18 @@ class RunListingMixin:
         owner: str | None = None,
         since: str | None = None,
         until: str | None = None,
+        query: str | None = None,
     ) -> dict:
         """``GET /v1/runs/counts``: ``{total, by_status}`` for the runs `list_runs` lists with these
-        filters. A server without the route answers 404."""
-        query = self._build_runs_query(
+        filters (``query``: every loose name match, with ``query_note`` when there is none). A server
+        without the route answers 404."""
+        parameters = self._build_runs_query(
             experiment_id=experiment_id, project_id=project_id, direct=direct, tags=tags, status=status,
             active=active, name=name, foreign_key=foreign_key, created_by_kind=created_by_kind,
             exclude_origin_session=exclude_origin_session, include_lineage_descendants=include_lineage_descendants,
-            filter=filter, owner=owner, since=since, until=until,
+            filter=filter, owner=owner, since=since, until=until, name_query=query,
         )
-        return self.transport.get("/v1/runs/counts", params=query or None)
+        return self.transport.get("/v1/runs/counts", params=parameters or None)
 
     def _build_runs_query(
         self,
@@ -223,6 +229,7 @@ class RunListingMixin:
         owner: str | None = None,
         since: str | None = None,
         until: str | None = None,
+        name_query: str | None = None,
         **flat: Any,
     ) -> dict:
         """The `GET /v1/runs` query for `list_runs`'s keywords: unset ones dropped, booleans as the server
@@ -253,13 +260,17 @@ class RunListingMixin:
         if order == RECENT_ORDER:
             people["order"] = order
         _require_people_filters(self, people, PEOPLE_FILTERS_FEATURE, "listing runs")
+        name_query = name_query.strip() if name_query else None  # blank is no filter, as the server reads it
+        # An older server refuses `query` as an unknown param (422): say why instead.
+        _require_people_filters(self, {"query": name_query}, BROWSE_NAME_QUERY_FEATURE, "listing runs")
         if extra and not self.supports_feature(RUN_LIST_QUERY_FEATURE):
             raise errors.CapabilityUnavailable(
                 RUN_LIST_QUERY_FEATURE,
                 f"this Probe server cannot {_describe_asks(extra)} when listing runs yet, and would answer every run "
                 "instead; upgrade the server, or list without them.",
             )
-        return query | extra | {name: value for name, value in people.items() if value}
+        named = {"query": name_query} if name_query else {}
+        return query | extra | {name: value for name, value in people.items() if value} | named
 
     def _check_run_rows(self, rows: list, query: dict) -> None:
         """Refuse rows an older backend sent while ignoring a filter, rather than mislabel them."""
@@ -364,6 +375,7 @@ def _describe_asks(extra: dict[str, str]) -> str:
 
 from probe.sdk.client.ids import _is_uuid, _same_id  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.client.resources.reads import (  # noqa: E402 -- pieces need each other; the front door loads this one first
+    BROWSE_NAME_QUERY_FEATURE,
     PEOPLE_FILTERS_FEATURE,
     _require_people_filters,
 )

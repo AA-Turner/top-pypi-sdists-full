@@ -14,7 +14,7 @@ class DescribeDedicatedHostsResponseBody(DaraModel):
         dedicated_hosts: main_models.DescribeDedicatedHostsResponseBodyDedicatedHosts = None,
         request_id: str = None,
     ):
-        # The host group ID.
+        # The dedicated host group ID.
         self.dedicated_host_group_id = dedicated_host_group_id
         self.dedicated_hosts = dedicated_hosts
         # The request ID.

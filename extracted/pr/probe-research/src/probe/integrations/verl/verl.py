@@ -70,7 +70,8 @@ class VerlSession:
         self.recorder.set_mapper(build_mapper(trainer))
         self.recorder.plan_steps(family.get_total_steps(trainer))
         if not self._is_rollouter:  # what the worker ranks send per sample, and what they cannot (T3)
-            self.samples.plan(training=build_training_plan(getattr(trainer, "config", None)))
+            self.samples.plan(training=build_training_plan(getattr(trainer, "config", None),
+                                                           family.get_unsupported(trainer)))  # fmt: skip
         unsupported = build_unsupported(getattr(trainer, "config", None), getattr(trainer, "tokenizer", None))
         if unsupported:  # what the agent loops' capture cannot hold for this layout (`tool_loop/plan.py`)
             self.samples.plan(unsupported=unsupported)

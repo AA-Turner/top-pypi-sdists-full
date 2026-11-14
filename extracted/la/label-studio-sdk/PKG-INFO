@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: label-studio-sdk
-Version: 2.1.4
+Version: 2.1.5
 Summary: 
 Requires-Python: >=3.11,<4
 Classifier: Intended Audience :: Developers

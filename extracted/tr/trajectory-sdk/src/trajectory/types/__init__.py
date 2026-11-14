@@ -13,7 +13,6 @@ from trajectory.types.artifacts.artifact import Artifact as Artifact
 from trajectory.types.artifacts.artifact_download import ArtifactDownload as ArtifactDownload
 from trajectory.types.async_failure import AsyncFailure as AsyncFailure
 from trajectory.types.base_model_slug import BaseModelSlug as BaseModelSlug
-from trajectory.types.batch_item_failure import BatchItemFailure as BatchItemFailure
 from trajectory.types.benchmark_diagnostic_status_response import (
   BenchmarkDiagnosticStatusResponse as BenchmarkDiagnosticStatusResponse,
 )
@@ -134,7 +133,6 @@ from trajectory.types.create_training_run_response import (
 from trajectory.types.create_trajectory_response import (
   CreateTrajectoryResponse as CreateTrajectoryResponse,
 )
-from trajectory.types.datasets.dataset_metadata import DatasetMetadata as DatasetMetadata
 from trajectory.types.delete_agent_response import DeleteAgentResponse as DeleteAgentResponse
 from trajectory.types.delete_benchmark_response import (
   DeleteBenchmarkResponse as DeleteBenchmarkResponse,
@@ -244,9 +242,6 @@ from trajectory.types.paginated_response_benchmark_runtime import (
 from trajectory.types.paginated_response_benchmark_spec_task import (
   PaginatedResponseBenchmarkSpecTask as PaginatedResponseBenchmarkSpecTask,
 )
-from trajectory.types.paginated_response_dataset_metadata import (
-  PaginatedResponseDatasetMetadata as PaginatedResponseDatasetMetadata,
-)
 from trajectory.types.paginated_response_eval_run import (
   PaginatedResponseEvalRun as PaginatedResponseEvalRun,
 )
@@ -325,6 +320,7 @@ from trajectory.types.start_benchmark_diagnostics_response import (
 from trajectory.types.start_deploy_response import StartDeployResponse as StartDeployResponse
 from trajectory.types.start_eval_response import StartEvalResponse as StartEvalResponse
 from trajectory.types.task_split import TaskSplit as TaskSplit
+from trajectory.types.telemetry_events_ingest_response import BatchItemFailure as BatchItemFailure
 from trajectory.types.telemetry_events_ingest_response import (
   TelemetryEventsIngestResponse as TelemetryEventsIngestResponse,
 )
@@ -365,10 +361,6 @@ from trajectory.types.trajectory_rollout_status import (
 )
 from trajectory.types.trajectory_termination_subreason import (
   TrajectoryTerminationSubreason as TrajectoryTerminationSubreason,
-)
-from trajectory.types.trajectory_upload_response import TrajectoryUploadItem as TrajectoryUploadItem
-from trajectory.types.trajectory_upload_response import (
-  TrajectoryUploadResponse as TrajectoryUploadResponse,
 )
 from trajectory.types.undeploy_response import UndeployResponse as UndeployResponse
 from trajectory.types.usage import CompletionTokensDetails as CompletionTokensDetails
@@ -446,7 +438,6 @@ __all__ = [
   "CreateSecretResponse",
   "CreateTrainingRunResponse",
   "CreateTrajectoryResponse",
-  "DatasetMetadata",
   "DeleteAgentResponse",
   "DeleteBenchmarkResponse",
   "DeleteEvalRunResponse",
@@ -493,7 +484,6 @@ __all__ = [
   "PaginatedResponseBenchmarkListItem",
   "PaginatedResponseBenchmarkRuntime",
   "PaginatedResponseBenchmarkSpecTask",
-  "PaginatedResponseDatasetMetadata",
   "PaginatedResponseEvalRun",
   "PaginatedResponseStep",
   "PaginatedResponseTrainingCheckpointResponse",
@@ -564,8 +554,6 @@ __all__ = [
   "TrajectoryRewardComponent",
   "TrajectoryRolloutStatus",
   "TrajectoryTerminationSubreason",
-  "TrajectoryUploadItem",
-  "TrajectoryUploadResponse",
   "UndeployResponse",
   "Usage",
 ]

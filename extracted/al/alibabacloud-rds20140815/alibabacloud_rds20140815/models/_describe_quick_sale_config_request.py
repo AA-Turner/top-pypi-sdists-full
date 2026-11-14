@@ -17,13 +17,13 @@ class DescribeQuickSaleConfigRequest(DaraModel):
         # 
         # - bards: pay-as-you-go
         self.commodity = commodity
-        # The database engine type. Valid values:
+        # The database engine. Valid values:
         # * **MySQL**
         # * **SQLServer**
         # * **PostgreSQL**
         # * **MariaDB**
         self.engine = engine
-        # The region ID. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/26243.html) operation to query the region ID.
+        # The region ID. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/26243.html) operation to query available regions.
         self.region_id = region_id
 
     def validate(self):

@@ -50,7 +50,9 @@ class BDE(BaseModel):
 class BDEWorkflow(MoleculeWorkflow, MultiStageOptMixin):
     """Bond-dissociation energy (BDE) workflow.
 
-    Uses the modes from MultiStageOptSettings to compute BDEs.
+    Uses the modes from MultiStageOptSettings to compute BDEs. Charged singlets
+    support only hydrogen-atom loss, with neutral H and the full parent charge
+    retained by the other fragment.
 
     Attributes:
         initial_molecule: Molecule of interest
@@ -125,11 +127,11 @@ class BDEWorkflow(MoleculeWorkflow, MultiStageOptMixin):
 
     @field_validator("initial_molecule", mode="before")
     @classmethod
-    def no_charge_or_spin(cls, val: Molecule | dict[str, Any]) -> Molecule | dict[str, Any]:
-        """Ensure the molecule has no charge or spin.
+    def no_open_shell(cls, val: Molecule | dict[str, Any]) -> Molecule | dict[str, Any]:
+        """Require singlet starting molecules.
 
         Args:
-            val: molecule to check for charge and spin
+            val: molecule to check for spin
         """
         if isinstance(val, dict):
             mol = Molecule(**val)
@@ -138,8 +140,8 @@ class BDEWorkflow(MoleculeWorkflow, MultiStageOptMixin):
         else:
             raise ValueError(f"{val=} is not a Molecule.")
 
-        if mol.charge != 0 or mol.multiplicity != 1:
-            raise ValueError("Charge and spin partitioning undefined for BDE, only neutral singlet molecules supported.")
+        if mol.multiplicity != 1:
+            raise ValueError("Only singlet molecules are supported for BDE.")
 
         return val
 
@@ -201,6 +203,21 @@ class BDEWorkflow(MoleculeWorkflow, MultiStageOptMixin):
         self.fragment_indices = self.fragment_indices + tuple((a,) for a in self.atoms)
         assert isinstance(self.fragment_indices, tuple)
         self.fragment_indices = tuple(sorted(set(self.fragment_indices)))
+
+        if self.initial_molecule.charge:
+            if self.all_CX:
+                raise ValueError("Charged BDEs only support bonds to hydrogen; all_CX is unsupported.")
+            atomic_numbers = self.initial_molecule.atomic_numbers
+            all_indices = set(range(1, len(self.initial_molecule) + 1))
+            for fragment_idxs in self.fragment_indices:
+                selected = set(fragment_idxs)
+                fragments = (selected, all_indices - selected)
+                if (
+                    len(selected) != len(fragment_idxs)
+                    or not any(z != 1 for z in atomic_numbers)
+                    or not any(len(fragment) == 1 and atomic_numbers[next(iter(fragment)) - 1] == 1 for fragment in fragments)
+                ):
+                    raise ValueError("Charged BDEs only support hydrogen-atom loss, with the charge retained by the non-H fragment.")
 
         return self
 

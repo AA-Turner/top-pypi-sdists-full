@@ -353,6 +353,7 @@ impl OpsStatsForInstance {
                 | "remote_config_hydration.latency"
                 | "remote_config_hydration.bytes"
                 | "remote_config_hydration.result"
+                | "remote_config_hydration.unavailable_blob"
         ) {
             return;
         }

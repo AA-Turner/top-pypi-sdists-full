@@ -4118,6 +4118,109 @@ def needs_redesign_escalation(
     return reason
 
 
+def claim_review_item_dispatch_gate(
+    *,
+    repo_name: str,
+    issue_number: int,
+    assignment_id: str,
+    branch: str | None,
+    repo_github: str | None,
+    board: Board,
+    branch_sha_fetcher=None,
+    head_sha: str | None = None,
+    check_already_approved: bool = True,
+) -> tuple[bool, str | None]:
+    """The ONE pre-dispatch gate every review dispatcher routes through
+    before spending a metered review (#4002): :func:`dispatch_review`,
+    :func:`dispatch_scoped_review`, and
+    ``coord.commands.dispatch_workers._dispatch_review_of``.
+
+    Enforces both rules the dispatch-side half of #4002 needs:
+
+    1. **One review per item at a time.** Claims
+       :func:`coord.state.claim_review_item_lease` on *(repo_name,
+       issue_number)* — not on any one assignment id, so two dispatchers
+       that would otherwise take two DIFFERENT per-assignment claims (one
+       keyed on a completed fix leg's id, the other on the original leg's)
+       still contend with each other for the same item.
+    2. **An approve on the current head is final.** Once the lease is
+       held, resolves *branch*'s live head SHA (*head_sha* when the caller
+       already fetched it this pass — every existing dispatcher already
+       does, for its own ``review_head_sha`` bookkeeping — else
+       *branch_sha_fetcher*, default :func:`coord.github_ops.get_branch_sha`)
+       and refuses when :func:`coord.merge_queue.head_already_approved`
+       already covers it — the SAME :func:`coord.merge_queue.
+       scan_approved_reviews` walk the merge gate itself answers from
+       (#2096: one question, one answer), not a second implementation.
+
+    *check_already_approved* (default ``True``) lets a caller that has
+    ALREADY established, through a more rigorous check than a bare SHA
+    match, that the current head genuinely needs a fresh review skip rule
+    2 above. :func:`dispatch_scoped_review`'s ``is_base_move`` path
+    (#3917/#3935/#3948) is the one such caller today: there, the branch's
+    own SHA never moved — only its BASE did — so the cheap SHA-match this
+    gate would otherwise run says "approved" while a live
+    ``EntryTruth`` read (which the caller already performed, upstream of
+    this call) says the approval is stale. Passing ``False`` here does
+    NOT weaken rule 1 (the per-item lease) at all — only the narrower
+    approval re-check.
+
+    Returns ``(allowed, deny_reason)``.
+
+    * ``allowed=False``: the lease this call itself took, if any, has
+      ALREADY been released — the caller must not release it again.
+    * ``allowed=True``: the lease is HELD. The caller owns it from here —
+      release it via :func:`coord.state.release_review_item_lease` on
+      every one of ITS OWN deny paths from this point on (mirroring the
+      existing per-assignment ``claim_review_dispatch``/``_claim_held``
+      pattern each dispatcher already has). It is released automatically,
+      without further caller action, only once the dispatched review
+      assignment itself reaches a terminal status
+      (:func:`coord.state.release_review_claim_if_row_is_review`).
+    """
+    from coord.state import claim_review_item_lease, release_review_item_lease  # noqa: PLC0415
+    from coord import merge_queue as mq  # noqa: PLC0415
+
+    # A row with neither `issue_number` nor `for_issue_number` set resolves
+    # `effective_issue_number` to `0` (coord/models.py) — every such row
+    # would otherwise share the single lease key `item-lease:{repo}:0`,
+    # turning this into one shared global lock across unrelated rows
+    # instead of a per-item one. Skip the lease (never take it, nothing to
+    # release) rather than claim that shared key; `issue_number=0` is
+    # vanishingly unlikely for a real work row.
+    _lease_held = bool(issue_number)
+    if _lease_held and not claim_review_item_lease(repo_name, issue_number):
+        return False, (
+            f"a review is already in flight for {repo_name}#{issue_number} "
+            "(lost the per-item dispatch-lease race — #4002)"
+        )
+
+    resolved_head_sha = head_sha
+    if resolved_head_sha is None and branch and repo_github:
+        _get_sha = branch_sha_fetcher or github_ops.get_branch_sha
+        try:
+            resolved_head_sha = _get_sha(repo_github, branch)
+        except Exception:  # noqa: BLE001 — fail-safe: unknown head never blocks
+            resolved_head_sha = None
+
+    if check_already_approved and branch and mq.head_already_approved(
+        board,
+        assignment_id=assignment_id,
+        branch=branch,
+        branch_head_sha=resolved_head_sha,
+    ):
+        if _lease_held:
+            release_review_item_lease(repo_name, issue_number)
+        return False, (
+            f"{repo_name}#{issue_number}'s current head "
+            f"{(resolved_head_sha or '?')[:12]} already has an approving "
+            "review in its work chain — refusing a new review (#4002: an "
+            "approve on the current head is final)"
+        )
+
+    return True, None
+
+
 def dispatch_review(
     completed: Assignment,
     board: Board,
@@ -4253,6 +4356,18 @@ def dispatch_review(
     # wrong type/status, no branch, already-in-flight) never held it, so
     # this is a no-op for those.
     _claim_held = False
+    # #4002: the per-item lease's (repo_name, issue_number) key once
+    # `claim_review_item_dispatch_gate` has claimed it — `None` until then
+    # and after `_deny` releases it, mirroring `_claim_held` above exactly.
+    _item_lease_key: tuple[str, int] | None = None
+
+    def _release_item_lease() -> None:
+        nonlocal _item_lease_key
+        if _item_lease_key is not None:
+            from coord.state import release_review_item_lease  # noqa: PLC0415
+
+            release_review_item_lease(*_item_lease_key)
+            _item_lease_key = None
 
     def _deny(reason: str) -> None:
         nonlocal _claim_held
@@ -4265,6 +4380,7 @@ def dispatch_review(
 
             release_review_dispatch_claim(completed.assignment_id)
             _claim_held = False
+        _release_item_lease()
         return None
 
     if not config.reviews.enabled or not config.reviews.auto_dispatch:
@@ -4402,6 +4518,35 @@ def dispatch_review(
         repo = config.repo(completed.repo_name)
         if repo is None:
             return _deny(f"repo {completed.repo_name!r} not found in config")
+
+        # #821: capture branch HEAD SHA once here — ahead of its previous
+        # spot further down — so it can be threaded into the #4002 gate
+        # below as `head_sha` instead of making the gate do its own
+        # `get_branch_sha` round trip; `dispatch_scoped_review`'s call
+        # already reuses its own `review_head_sha` the same way.
+        _get_sha = branch_sha_fetcher or github_ops.get_branch_sha
+        review_head_sha: str | None = None
+        try:
+            review_head_sha = _get_sha(repo.github, completed.branch)
+        except Exception:  # noqa: BLE001 — fail-safe: missing SHA is not blocking
+            pass
+
+        # #4002: the per-item gate — one review per (repo, issue) in flight
+        # at a time, and never against a head already approved in this
+        # work's chain. See `claim_review_item_dispatch_gate`'s docstring.
+        _item_allowed, _item_deny_reason = claim_review_item_dispatch_gate(
+            repo_name=completed.repo_name,
+            issue_number=effective_issue_number(completed),
+            assignment_id=completed.assignment_id,
+            branch=completed.branch,
+            repo_github=repo.github,
+            board=board,
+            branch_sha_fetcher=branch_sha_fetcher,
+            head_sha=review_head_sha,
+        )
+        if not _item_allowed:
+            return _deny(_item_deny_reason)
+        _item_lease_key = (completed.repo_name, effective_issue_number(completed))
 
         # #522: the review chokepoint. Never (re)dispatch a review for work that
         # is already done on GitHub — issue closed OR PR merged. This is the second
@@ -4819,13 +4964,8 @@ def dispatch_review(
         )
         review_model_wire = config.models.resolve(review_model_alias)
 
-        # #821: capture branch HEAD SHA once; staleness detected post-review.
-        _get_sha = branch_sha_fetcher or github_ops.get_branch_sha
-        review_head_sha: str | None = None
-        try:
-            review_head_sha = _get_sha(repo.github, completed.branch)
-        except Exception:  # noqa: BLE001 — fail-safe: missing SHA is not blocking
-            pass
+        # #821: branch HEAD SHA — captured once, above, ahead of the #4002
+        # gate call; staleness detected post-review.
 
         # #1475: fingerprint the *full* merge-base diff (`full_diff_text`, computed
         # above) — not the display-truncated `diff_text` — so this matches the
@@ -5282,6 +5422,10 @@ def dispatch_review(
 
             release_review_dispatch_claim(completed.assignment_id)
             _claim_held = False
+        # #4002: same reasoning as the per-assignment claim above — this
+        # tail doesn't go through `_deny`, but it's still a "no review
+        # dispatched" path, so the item lease must be released here too.
+        _release_item_lease()
         return None
     except Exception:
         # #3113: any unhandled exception in the ~500 lines between the
@@ -5301,6 +5445,8 @@ def dispatch_review(
 
             release_review_dispatch_claim(completed.assignment_id)
             _claim_held = False
+        # #4002: the item lease needs the same release-then-reraise safety net.
+        _release_item_lease()
         raise
 
 
@@ -6698,7 +6844,9 @@ def dispatch_scoped_review(
     from coord.state import (  # noqa: PLC0415
         claim_review_dispatch,
         release_review_dispatch_claim,
+        release_review_item_lease,
     )
+    from coord.models import effective_issue_number  # noqa: PLC0415
 
     _claim_held = False
     if parent_id and not parent_claim_held:
@@ -6712,11 +6860,45 @@ def dispatch_scoped_review(
             return None
         _claim_held = True
 
-    def _release_claim() -> None:
-        nonlocal _claim_held
+    # #4002: the per-item gate — one review per (repo, issue) in flight at a
+    # time, and never against a head already approved in this work's chain.
+    # Reuses `review_head_sha`, already fetched above for this scoped
+    # review's own bookkeeping, instead of a second GET.
+    _item_issue = effective_issue_number(entry)
+    _item_allowed, _item_deny_reason = claim_review_item_dispatch_gate(
+        repo_name=entry.repo_name,
+        issue_number=_item_issue,
+        assignment_id=entry.assignment_id,
+        branch=entry.branch,
+        repo_github=repo.github,
+        board=board,
+        head_sha=review_head_sha,
+        # #3917/#3935/#3948: `is_base_move` means the caller already
+        # established, via a live EntryTruth read, that this SHA-unmoved
+        # head is actually stale (the BASE moved) — skip the gate's own
+        # cheaper SHA-match re-check, which would otherwise see the
+        # unmoved SHA's prior approval and wrongly refuse this dispatch.
+        check_already_approved=not is_base_move,
+    )
+    if not _item_allowed:
+        log.info(
+            "[review] not dispatching scoped review for merge entry %s: %s",
+            entry.assignment_id, _item_deny_reason,
+        )
         if _claim_held:
             release_review_dispatch_claim(parent_id)
             _claim_held = False
+        return None
+    _item_lease_key = (entry.repo_name, _item_issue)
+
+    def _release_claim() -> None:
+        nonlocal _claim_held, _item_lease_key
+        if _claim_held:
+            release_review_dispatch_claim(parent_id)
+            _claim_held = False
+        if _item_lease_key is not None:
+            release_review_item_lease(*_item_lease_key)
+            _item_lease_key = None
 
     client = http_client or httpx
     try:

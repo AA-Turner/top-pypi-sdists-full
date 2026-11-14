@@ -5,6 +5,7 @@ import functools
 import random
 
 from river import base
+from river.utils.vectordict import euclidean_distance_squared_dict
 
 __all__ = ["KMeans"]
 
@@ -45,7 +46,6 @@ class KMeans(base.Clusterer):
 
     Examples
     --------
-
     In the following example the cluster assignments are exactly the same as when using
     `sklearn`'s batch implementation. However, changing the `halflife` parameter will
     produce different outputs.
@@ -106,7 +106,6 @@ class KMeans(base.Clusterer):
 
     def learn_predict_one(self, x):
         """Equivalent to `k_means.learn_one(x).predict_one(x)`, but faster."""
-
         # Find the cluster with the closest center
         closest = self.predict_one(x)
 
@@ -122,6 +121,11 @@ class KMeans(base.Clusterer):
     def predict_one(self, x):
         def get_distance(c):
             center = self.centers[c]
+            if self.p == 2 and isinstance(x, dict):
+                if not x.keys() <= center.keys():
+                    for k in {*center.keys(), *x.keys()}:
+                        center[k]
+                return euclidean_distance_squared_dict(center, x)
             return sum(
                 (abs(center[k] - x.get(k, 0))) ** self.p for k in {*center.keys(), *x.keys()}
             )

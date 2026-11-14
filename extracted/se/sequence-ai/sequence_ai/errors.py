@@ -258,25 +258,24 @@ class GpuBadRequest(InvalidRequest):
     """A `sequence_ai.gpu` call refused for what it asked: a place outside the United States, a card or a count no GPU has,
     ports or ranges that cannot be had, a snapshot of no such name in your account or one still saving or failed, a
     snapshot name you have already (without `replace`) or held by something else of yours, a GPU saving one already or not
-    running to save, one removed while it saves (without `force`). Its `details["reason"]` says which. `seq gpu` exits 2
-    for it."""
-
-    exit_code = 2
+    running to save, one removed while it saves (without `force`). Its `details["reason"]` says which, and its `code` what
+    the platform answered: `seq gpu` exits by that code, as every `seq` command does - 2 invalid_request, 4 not_found, 5
+    conflict.
+"""
 
 
 class GpuOverLimit(SequencesError):
-    """A `sequence_ai.gpu` call refused at one of your account's limits - its GPUs, CPU cores, memory or storage - or because
-    it can spend no more (its `code` then `insufficient_credit`). Nothing was added. `seq gpu` exits 3 for it."""
+    """A `sequence_ai.gpu` call refused at one of your account's limits - its GPUs, CPU cores, memory or storage (its `code`
+    then `conflict`) - or because it can spend no more (`insufficient_credit`). Nothing was added. `seq gpu` exits by its
+    code, as every `seq` command does: 5 at a limit, 6 at the credit."""
 
     default_code = "conflict"
-    exit_code = 3
 
 
 class GpuNoCard(Unavailable):
     """No card for a GPU: none near its place for it right now, or none within the 20 minutes the platform gives one to
-    start. None of it is billed; add it again later, or near another place. `seq gpu` exits 4 for it."""
-
-    exit_code = 4
+    start. None of it is billed; add it again later, or near another place - `seq gpu` exits 7 for it, worth retrying,
+    as for every `unavailable`."""
 
 
 class StreamRefused(SequencesError):

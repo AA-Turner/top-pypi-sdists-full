@@ -13,7 +13,7 @@ class ListImportTasksRequest(DaraModel):
         owner_id: int = None,
         region_id: str = None,
     ):
-        # The instance ID. You can call the DescribeDBInstances operation to obtain the instance ID.
+        # The instance ID. You can call the DescribeDBInstances operation to query the ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id

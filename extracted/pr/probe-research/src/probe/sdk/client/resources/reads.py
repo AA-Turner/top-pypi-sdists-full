@@ -24,6 +24,11 @@ from ... import errors
 PEOPLE_FILTERS_FEATURE = "people_filters"
 #: The server feature behind `owner`, `since`, `until` and `sort` on `POST /v1/search` (S2).
 SEARCH_PEOPLE_FILTERS_FEATURE = "search_people_filters"
+#: The server feature behind `query` on `GET /v1/browse`: top-level projects by name or slug.
+BROWSE_PROJECT_QUERY_FEATURE = "browse_project_query"
+#: The server feature behind the LOOSE name `query` (typos, part of a word, any order; best first, one page) on
+#: browse, runs (+ counts), sessions, Shared files and the catalog's datasets, checkpoints and sources.
+BROWSE_NAME_QUERY_FEATURE = "browse_name_query"
 
 
 class ReadsMixin:
@@ -198,6 +203,7 @@ class ReadsMixin:
         since: str | None = None,
         until: str | None = None,
         order: str | None = None,
+        query: str | None = None,
     ) -> dict:
         """``GET /v1/browse``: the structured "what exists" tree.
 
@@ -234,9 +240,15 @@ class ReadsMixin:
 
         ``owner``, ``since``, ``until`` and ``order="recent"`` pass through as :meth:`search` takes them,
         gated on ``people_filters``.
+
+        ``query`` keeps the top-level projects whose name or slug matches it (loosely, best first, one
+        page, on a server with ``browse_name_query``), gated on ``browse_project_query``: an older server
+        ignores it and lists every project.
         """
         people_filters = {"owner": owner, "since": since, "until": until, "order": order}
         _require_people_filters(self, people_filters, PEOPLE_FILTERS_FEATURE, "browse")
+        query = query.strip() if query else None  # blank is no filter, as the server reads it
+        _require_people_filters(self, {"query": query}, BROWSE_PROJECT_QUERY_FEATURE, "browse")
         params: dict[str, Any] = {}
         optional = {
             "scope": scope,
@@ -255,6 +267,7 @@ class ReadsMixin:
             "continuation_handles": continuation_handles,
             "exclude_origin_session": exclude_origin_session,
             **people_filters,
+            "query": query or None,
         }
         params.update({k: v for k, v in optional.items() if v is not None})
         return self.transport.get("/v1/browse", params=params or None)
@@ -506,7 +519,7 @@ class ReadsResource(Resource):
         cursor: str | None = None, runs_cursor: str | None = None,
         subprojects_cursor: str | None = None, continuation_handles: bool | None = None,
         exclude_origin_session: str | None = None, owner: str | None = None, since: str | None = None,
-        until: str | None = None, order: str | None = None,
+        until: str | None = None, order: str | None = None, query: str | None = None,
     ) -> BrowseResponse:
         """`Client.browse` as a `BrowseResponse`."""
         return self._to_model(
@@ -516,7 +529,7 @@ class ReadsResource(Resource):
                 limit=limit, cursor=cursor, runs_cursor=runs_cursor,
                 subprojects_cursor=subprojects_cursor, continuation_handles=continuation_handles,
                 exclude_origin_session=exclude_origin_session, owner=owner, since=since, until=until,
-                order=order,
+                order=order, query=query,
             ),
         )
 

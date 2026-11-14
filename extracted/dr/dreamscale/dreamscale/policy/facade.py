@@ -1677,7 +1677,7 @@ class AsyncPolicy:
             name: getattr(inner, name, None)
             for name in (
                 "session_id", "region", "speed", "engine", "engine_reason", "transport_mode",
-                "action_hz",
+                "fallback_reason", "action_hz",
                 "native_action_hz", "chunk_size", "runtime_contract",
                 "resolved_optimization_config", "runtime_stats", "context", "control",
                 "deployment", "observation_history",
@@ -2190,7 +2190,10 @@ async def aconnect(
     ``next_action()`` runs chunks, ``"sync"`` (each to its end) or ``"async"`` (replanning);
     ``"auto"`` takes the model's own (sync for Praxis-1, async for the rest). ``engine``
     (Praxis-1, experimental): ``"standard"`` (the default) or ``"lightning"``, the same actions
-    faster; ``policy.engine_reason`` is ``"unavailable"`` when standard serves instead."""
+    faster; ``policy.engine_reason`` says why standard serves instead: ``"unavailable"`` (no
+    lightning server could take the session), ``"busy"`` (every lightning server was in use) or,
+    on a deployment, ``"deployment_standard"`` (its own engine setting is standard:
+    ``dreamscale deployments engine``)."""
     from dreamscale.policy.remote import _aconnect
 
     _check_legacy_kwargs(legacy)

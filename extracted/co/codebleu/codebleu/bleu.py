@@ -8,6 +8,7 @@
 # For license information, see LICENSE.TXT
 
 """BLEU score implementation."""
+
 import math
 from collections import Counter
 
@@ -141,7 +142,7 @@ def corpus_bleu(
     hyp_lengths, ref_lengths = 0, 0
 
     assert len(list_of_references) == len(hypotheses), (
-        "The number of hypotheses and their reference(s) should be the " "same "
+        "The number of hypotheses and their reference(s) should be the same "
     )
 
     # Iterate through each hypothesis and their corresponding references.

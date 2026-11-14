@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling>=1.28.0", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
@@ -20,55 +20,66 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
+    "Typing :: Typed",
 ]
-dependencies = ["pydantic>2.0.0", "numpy>=2.0.0", "packaging>=21.0"]
+dependencies = [
+    # >= 2.12 for the MISSING sentinel (experimental there, stable in 2.14;
+    # pydantic_zarr.core imports whichever spelling exists). The floor stays
+    # below 2.13 so pydantic-zarr remains co-installable with downstreams
+    # that cap pydantic (ome-zarr-models, and through it ome-zarr-py).
+    "pydantic>=2.12",
+    "numpy>=2.0.0",
+    "packaging>=21.0",
+    "zarr-metadata>=0.8.0",
+    "typing-extensions>=4.6",
+]
 
 [project.urls]
 Documentation = "https://pydantic-zarr.readthedocs.io/"
+Changelog = "https://pydantic-zarr.readthedocs.io/en/latest/release-notes/"
 Issues = "https://github.com/zarr-developers/pydantic-zarr/issues"
 Source = "https://github.com/zarr-developers/pydantic-zarr"
 
 [project.optional-dependencies]
 zarr = ["zarr>=3.0.0"]
-# pytest pin is due to https://github.com/pytest-dev/pytest-cov/issues/693
-test-base = [
-    "coverage",
-    "pytest<8.4",
-    "pytest-cov",
-    "pytest-examples",
-    "xarray==2025.10.0",
-    "dask==2025.11.0"
-    ]
-test = ["pydantic-zarr[test-base,zarr]"]
-docs = [
-    "mkdocs-material",
-    "mkdocstrings[python]",
-    "pytest-examples",
-    "pydantic==2.12.*",
-    "zarr>=3.1.0",
-    "towncrier",
-]
 
 [dependency-groups]
-zarr = ["zarr>=3.0.0"]
-# pytest pin is due to https://github.com/pytest-dev/pytest-cov/issues/693
 test-base = [
     "coverage",
-    "pytest<8.4",
+    "hypothesis>=6.100",
+    # the testing extra holds zarr-metadata's own strategies, which draw the
+    # documents the property tests check the readers against
+    # (tests/test_pydantic_zarr/test_zarr_metadata_strategies.py); the floor
+    # is the runtime floor
+    "zarr-metadata[testing]>=0.8",
+    "pytest==9.1.0",
     "pytest-cov",
     "pytest-examples",
-    "xarray==2025.10.0",
-    "dask==2025.11.0",
+    "xarray>=2025.10.0",
+    "dask>=2025.11.0",
 ]
 test = [
     {include-group = "test-base"},
-    {include-group = "zarr"},
+    "pydantic-zarr[zarr]",
 ]
 docs = [
-    "pydantic_zarr[docs]"
+    {include-group = "test-base"},
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "pytest-examples",
+    # docs pages embed pydantic error URLs (errors.pydantic.dev/<version>/...)
+    # in print-checked output, so the docs build pins the minor version; it
+    # cannot move past 2.12 while ome-zarr (via ome-zarr-models) caps pydantic
+    "pydantic==2.12.*",
+    "zarr>=3.1.0",
+    "towncrier",
+    # reference implementations the example scripts compare their output
+    # against (xarray comes from the test-base group)
+    "ome-zarr>=0.21",
+    "ngff-zarr>=0.50",
 ]
 dev = [
-    "pydantic-zarr[test]",
+    {include-group = "test"},
 ]
 
 [tool.hatch]
@@ -76,7 +87,7 @@ version.source = "vcs"
 build.hooks.vcs.version-file = "src/pydantic_zarr/_version.py"
 
 [tool.hatch.envs.test]
-features = ["test"]
+dependency-groups = ["test"]
 dependencies = [
     "zarr~={matrix:zarr}",
 ]
@@ -84,25 +95,31 @@ dependencies = [
 [tool.hatch.envs.test.scripts]
 test = "pytest tests/test_pydantic_zarr/"
 test-cov = "pytest --cov-config=pyproject.toml --cov=pkg --cov-report html --cov=src tests/test_pydantic_zarr"
-list-env = "pip list"
+list-env = "{env:HATCH_UV} pip list"
 
 [[tool.hatch.envs.test.matrix]]
 python = ["3.12", "3.13", "3.14"]
-zarr = ["3.0.10", "3.1.0"]
+zarr = ["3.0.10", "3.1.0", "3.3.0", "3.4.1"]
 
 [tool.hatch.envs.test-base]
-features = ["test-base"]
+dependency-groups = ["test-base"]
 
 [tool.hatch.envs.test-base.scripts]
 test = "pytest tests/test_pydantic_zarr/"
 test-cov = "pytest --cov-config=pyproject.toml --cov=pkg --cov-report html --cov=src tests/test_pydantic_zarr"
-list-env = "pip list"
+list-env = "{env:HATCH_UV} pip list"
 
 [[tool.hatch.envs.test-base.matrix]]
 python = ["3.12", "3.13", "3.14"]
 
+[tool.hatch.envs.default]
+installer = "uv"
+
 [tool.hatch.envs.docs]
-features = ['docs']
+dependency-groups = ['docs']
+python = "3.12"
+# pip's resolver gives up on the dask/ngff-zarr combination that uv resolves
+installer = "uv"
 
 [tool.hatch.envs.docs.scripts]
 build = "mkdocs build --clean --strict"
@@ -111,9 +128,21 @@ deploy = "mkdocs gh-deploy"
 test = "pytest tests/test_docs"
 
 [tool.hatch.envs.types]
-extra-dependencies = ["mypy>=1.0.0", "pydantic"]
+dependency-groups = ["test"]
+# three checkers on purpose, each covering the others' blind spots: pyrefly
+# (the project checker) is variance-lenient, so an invariant TypeVar bound
+# refusing narrowed downstream parameterizations (#190) was invisible to it
+# (and to mypy, which does not apply PEP 696 defaults inside lazy `type`
+# aliases). ty and pyright both catch that class of bug and check the
+# downstream-shaped tests/typing_conformance.py; pyright because it is what
+# pyright-checked downstreams run, ty also over the modules it is clean on
+# today (TODO: widen ty's scope as it and the zarr/numpy stubs mature).
+extra-dependencies = ["pyrefly==1.4.0", "ty==0.0.93", "pyright==1.1.414"]
 [tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:src/pydantic_zarr tests}"
+check = ["check-pyrefly", "check-ty", "check-conformance"]
+check-pyrefly = "pyrefly check {args:}"
+check-ty = "ty check src/pydantic_zarr/core.py src/pydantic_zarr/_metadata.py tests/typing_conformance.py"
+check-conformance = "pyright tests/typing_conformance.py"
 
 [tool.coverage.run]
 source_pkgs = ["pydantic_zarr", "tests"]
@@ -206,18 +235,27 @@ ignore = [
 
 [tool.ruff.lint.extend-per-file-ignores]
 "tests/**" = ["ANN001", "ANN201", "RUF029", "SIM117", "SIM300"]
+# example scripts assert on refused ValidationErrors by design (they are not
+# pytest tests), and their literate sections import the reference libraries
+# where the rendered docs section uses them
+"examples/**" = ["PT017", "E402"]
 
-[tool.mypy]
-python_version = "3.12"
-ignore_missing_imports = true
-namespace_packages = false
-warn_unreachable = true
-plugins = "pydantic.mypy"
-enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
-strict = true
-# TODO: remove each of these and fix any errors:
-disallow_any_generics = false
-warn_return_any = false
+[tool.pyrefly]
+project-includes = ["src", "tests", "examples"]
+search-path = ["src", "tests", "examples"]
+# the reference implementations the example scripts import are docs-only
+# dependencies; the types environment does not install them
+replace-imports-with-any = ["ome_zarr.*", "ngff_zarr", "ome_zarr"]
+python-version = "3.12"
+
+[tool.pyrefly.errors]
+# TODO: enable each of these and fix any errors. They are the pyrefly counterparts
+# of the mypy settings this project ran with before switching
+# (disallow_any_generics = false, warn_return_any = false).
+implicit-any-type-argument = false
+implicit-any-lambda = false
+no-any-return-explicit = false
+no-any-return-implicit = false
 
 [tool.pytest.ini_options]
 minversion = "7"
@@ -231,12 +269,17 @@ filterwarnings = [
     "ignore:The `order` keyword argument has no effect for Zarr format 3 arrays:RuntimeWarning",
     # Because AsyncArray.config is only present in zarr >= 3.1.0, ignore the warning until our
     # zarr min version is 3.1.0
-    "ignore:Use AsyncArray.config instead"
+    "ignore:Use AsyncArray.config instead",
+    # numpy 2.5 deprecates unit-less np.datetime64("NaT") / np.timedelta64("NaT"), which zarr-python
+    # and xarray still call internally. Remove once those libraries no longer trigger the warning.
+    "ignore:The 'generic' unit for NumPy timedelta is deprecated:DeprecationWarning",
 ]
 
 [tool.repo-review]
 ignore = [
+    "MY100",  # type checking uses pyrefly, ty and pyright, not mypy
     "PC111",  # black formatting for docs, not sure if want,
+    "PC140",  # type checking (pyrefly) runs via the `types` hatch env and the typecheck CI job, not pre-commit
     "PC180",  # markdown formatter, no thanks
     "RTD100", # read the docs, no thanks,
     "RTD101", # read the docs, no thanks
@@ -262,6 +305,7 @@ checks = [
 
 [tool.towncrier]
 directory = 'changes'
+name = "pydantic-zarr"
 package = 'pydantic_zarr'
 package_dir = 'src'
 filename = "docs/release-notes.md"

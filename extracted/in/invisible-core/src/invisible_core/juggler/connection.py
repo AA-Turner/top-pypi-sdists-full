@@ -39,6 +39,7 @@ import subprocess
 import sys
 import threading
 import time
+import weakref
 from typing import Any, Callable, Optional
 
 from .. import _engine_env
@@ -222,6 +223,74 @@ class ProcessOutput:
             return list(self._lines)[-n:]
 
 
+class DeadlineClock:
+    """ONE long-lived thread that calls each registered function when its deadline comes, for everything a connection has to do LATER.
+
+    ⛔ WHY IT IS ONE THREAD STARTED ONCE, AND NOT A `threading.Timer` PER NEED. A listener runs on the connection's reader thread, and
+    `Thread.start` does not return until the new thread is running (`self._started.wait()`): on Windows under load that wait is
+    milliseconds, measured as 75% of the reader's delay, and each millisecond the reader is late moves the quiet that `networkidle` is
+    measured from (7 misses in 400 with four browsers at once; none in 400 when the start did not wait). The rule is that no thread is
+    started on the reader: the thread that serves the deadlines is made and started in `Connection.__init__`, BEFORE the reader thread
+    exists, so a listener on the reader can build a page (`Lifecycle`) at any time and only writes a deadline and wakes it.
+
+    A deadline belongs to a key (the lifecycle that asked): setting it again moves it, `cancel` takes it away. The function is called
+    OUTSIDE this lock, on this thread, one at a time, in the order of the deadlines; one that raises does not stop the others.
+    """
+
+    def __init__(self) -> None:
+        self._cv = threading.Condition()
+        self._due: dict = {}
+        self._stopped = False
+        self._thread = threading.Thread(target=self._run, daemon=True, name="juggler-deadlines")
+        self._thread.start()
+
+    def set(self, key: Any, delay: float, fn: Callable[[], None]) -> None:
+        """Call `fn()` in `delay` seconds, in place of what `key` had pending."""
+        with self._cv:
+            if self._stopped:
+                return
+            self._due[key] = (time.monotonic() + delay, fn)
+            self._cv.notify()
+
+    def cancel(self, key: Any) -> None:
+        with self._cv:
+            self._due.pop(key, None)
+
+    def stop(self) -> None:
+        """No deadline is called from now on and the thread ends."""
+        with self._cv:
+            self._stopped = True
+            self._due.clear()
+            self._cv.notify()
+
+    def join(self, timeout: Optional[float] = None) -> None:
+        """Wait for the thread to end after `stop` (never from the thread itself: a deadline that closes its connection)."""
+        if threading.current_thread() is not self._thread:
+            self._thread.join(timeout)
+
+    def _run(self) -> None:
+        while True:
+            with self._cv:
+                while True:
+                    if self._stopped:
+                        return
+                    if not self._due:
+                        self._cv.wait()
+                        continue
+                    key = min(self._due, key=lambda k: self._due[k][0])
+                    when, fn = self._due[key]
+                    left = when - time.monotonic()
+                    if left > 0:
+                        self._cv.wait(left)
+                        continue
+                    del self._due[key]
+                    break
+            try:
+                fn()
+            except Exception:
+                pass
+
+
 class EventListeners:
     """Who is subscribed to a connection's events, and how one is delivered.
 
@@ -274,6 +343,29 @@ class EventListeners:
         self.gone = False
         #: session -> which of its events end its waits (`end_waits_when`)
         self._ends_waits: dict = {}
+        self._deadlines: Optional[DeadlineClock] = None
+        self._deadlines_lock = threading.Lock()
+
+    def deadlines(self) -> DeadlineClock:
+        """The connection's ONE thread of deadlines (`DeadlineClock`).
+
+        ⛔ A `Connection` has it BEFORE its reader exists (`Connection.__init__` calls `start_deadlines`), so a `Lifecycle` built by a
+        listener ON the reader (the wrapper and the client build the page inside `Browser.attachedToTarget`, so that its listeners exist
+        before the session's next event is delivered) only uses it: nothing is created and nothing is started on the reader. A stand-in
+        connection (no reader, never closed) makes it here, on its first page, and the clock ends when the connection is collected."""
+        clock = self._deadlines
+        if clock is None:
+            clock = self.start_deadlines()
+        return clock
+
+    def start_deadlines(self) -> DeadlineClock:
+        """Make and start the clock once (under a lock, so two callers share it). Ends with `announce_closed` or the collection."""
+        with self._deadlines_lock:
+            if self._deadlines is None:
+                clock = DeadlineClock()
+                weakref.finalize(self, clock.stop)
+                self._deadlines = clock
+            return self._deadlines
 
     def end_waits_when(self, session: str,
                        predicate: Optional[Callable[[str, dict], bool]]) -> None:
@@ -326,6 +418,9 @@ class EventListeners:
                 return
             self.gone = True
             listeners = list(self._close_listeners)
+            clock = self._deadlines
+        if clock is not None:
+            clock.stop()
         for fn in listeners:
             try:
                 fn()
@@ -442,6 +537,8 @@ class Connection(EventListeners):
         #: The launch's deadline, from `launch`; no limit for a connection
         #: that `launch` did not make. Read by `startup_send`.
         self._startup = Deadline(None)
+        # ⛔ THE CLOCK BEFORE THE READER: no thread is ever started on the reader (see `DeadlineClock`), and a page may be built on it.
+        self.start_deadlines()
         self._reader = threading.Thread(target=self._read_loop, daemon=True)
         self._reader.start()
 
@@ -791,6 +888,11 @@ class Connection(EventListeners):
             fd, self._to_browser = self._to_browser, -1
             if fd >= 0:
                 os.close(fd)
+        # The connection's clock ends with it, and no thread of it is left alive after `close`.
+        clock = self._deadlines
+        if clock is not None:
+            clock.stop()
+            clock.join(timeout)
         p = self._process
         if not p:
             return

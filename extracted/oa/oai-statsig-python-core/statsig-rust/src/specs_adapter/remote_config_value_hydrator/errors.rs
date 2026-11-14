@@ -23,7 +23,7 @@ impl HydrationTimeoutStep {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum HydrationFailureReason {
+pub(crate) enum HydrationFailureReason {
     TotalTimeout,
     DownloadFailed,
     BodyReadFailed,
@@ -97,7 +97,25 @@ impl HydrationFailureReason {
         .find(|candidate| candidate.as_str() == reason)
     }
 
-    pub(super) const fn as_str(self) -> &'static str {
+    /// Only failures of a referenced value can leave the remaining specs usable.
+    pub(super) fn recoverable(error: &StatsigErr) -> Option<Self> {
+        Self::from_error(error).filter(|reason| {
+            matches!(
+                reason,
+                Self::TotalTimeout
+                    | Self::DownloadFailed
+                    | Self::BodyReadFailed
+                    | Self::EmptyResponse
+                    | Self::MissingResponseContentType
+                    | Self::ByteLengthMismatch
+                    | Self::ResponseContentTypeMismatch
+                    | Self::ChecksumMismatch
+                    | Self::InvalidJson
+            )
+        })
+    }
+
+    pub(crate) const fn as_str(self) -> &'static str {
         match self {
             Self::TotalTimeout => "total_timeout",
             Self::DownloadFailed => "download_failed",

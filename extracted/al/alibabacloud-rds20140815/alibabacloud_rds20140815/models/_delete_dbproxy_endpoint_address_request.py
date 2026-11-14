@@ -18,7 +18,7 @@ class DeleteDBProxyEndpointAddressRequest(DaraModel):
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         # The network type of the database proxy endpoint that you want to delete. Valid values:
-        # * **Public**: public network
+        # * **Public**: Internet
         # * **VPC**: internal network (VPC)
         # * **Classic**: internal network (classic network)
         # 
@@ -29,11 +29,11 @@ class DeleteDBProxyEndpointAddressRequest(DaraModel):
         # 
         # This parameter is required.
         self.dbproxy_connect_string_net_type = dbproxy_connect_string_net_type
-        # The ID of the database proxy endpoint. You can call the DescribeDBProxyEndpoint operation to query the ID.
+        # The ID of the database proxy endpoint. You can call the DescribeDBProxyEndpoint operation to query the endpoint ID.
         # 
         # This parameter is required.
         self.dbproxy_endpoint_id = dbproxy_endpoint_id
-        # **[Deprecated]** This parameter is deprecated. You do not need to configure it.
+        # **[Deprecated]** This parameter is deprecated and does not need to be configured.
         self.dbproxy_engine_type = dbproxy_engine_type
         # The region ID. You can call the DescribeRegions operation to query the region ID.
         self.region_id = region_id

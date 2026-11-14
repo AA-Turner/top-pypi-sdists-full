@@ -1,4 +1,4 @@
-"""A Praxis-1 deployment's server-described contract (DSL-422): each session's deployment block
+"""A Praxis-1 deployment's server-described contract: each session's deployment block
 is its checkpoint's own robot (cameras by role, widths, joint names, grippers, units), read as
 the server sends it.
 
@@ -7,7 +7,7 @@ every executed step's frames ride ahead (``episode_tick_steps`` 1), each request
 states of the steps executed since the last one (``measured_state_steps`` 24), and the robot
 replans with rows still queued (``min_replan_steps``); 24 rows a chunk, at most 21 executed.
 
-RTC is off, or trained (DSL-422 T2, experimental): the shared late-bound prefix contract, each
+RTC is off, or trained (experimental): the shared late-bound prefix contract, each
 request carrying at most ``rtc_max_delay`` committed rows, the deployment's cap in whole 4-row
 action tokens within what its export trained."""
 

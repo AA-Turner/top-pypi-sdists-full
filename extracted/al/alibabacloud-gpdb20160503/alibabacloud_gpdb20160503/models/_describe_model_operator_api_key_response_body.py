@@ -15,7 +15,7 @@ class DescribeModelOperatorApiKeyResponseBody(DaraModel):
         request_id: str = None,
         status: str = None,
     ):
-        # The content of the API key.
+        # The plaintext API key. This field is returned only when Status is Running.
         self.api_key = api_key
         # The API key ID.
         self.api_key_id = api_key_id
@@ -23,11 +23,18 @@ class DescribeModelOperatorApiKeyResponseBody(DaraModel):
         self.create_time = create_time
         # The description.
         self.description = description
-        # The endpoint.
+        # The endpoint of the model operator service. This field is returned only when Status is Running.
         self.endpoint = endpoint
         # The request ID.
         self.request_id = request_id
-        # The status of the API key. Valid values: Creating, Running, Locked, and Deleting.
+        # The status of the API key. Valid values:
+        # 
+        # - Creating: The API key is being created.
+        # - Running: The API key is running.
+        # - Locked: The API key is locked and cannot be used to call the model operator service.
+        # - Deleting: The API key is being deleted. You can still query it by calling this operation, but it is no longer displayed in the results of ListModelOperatorApiKeys.
+        # 
+        # The plaintext API key and endpoint are returned only when Status is Running. After the deletion is complete, this operation returns a resource not found error. The status indicates the processing result of the control plane. A short propagation delay may occur before the status takes effect on the data plane.
         self.status = status
 
     def validate(self):

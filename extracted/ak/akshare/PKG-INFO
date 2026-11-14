@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: akshare
-Version: 1.20.42
+Version: 1.20.51
 Summary: AKShare is an elegant and simple financial data interface library for Python, built for human beings!
 Author-email: AKFamily <albertandking@gmail.com>
 License: MIT
@@ -145,8 +145,8 @@ Code:
 ```python
 import akshare as ak
 
-stock_zh_a_hist_df = ak.stock_zh_a_hist(symbol="000001", period="daily", start_date="20170301", end_date="20231022", adjust="")
-print(stock_zh_a_hist_df)
+stock_zh_a_hist_em_df = ak.stock_zh_a_hist_em(symbol="000001", period="daily", start_date="20170301", end_date="20231022", adjust="")
+print(stock_zh_a_hist_em_df)
 ```
 
 Output:
@@ -192,9 +192,9 @@ Output:
 ```
                       接口名    类目                                                       描述  有无文档   匹配分
 0             bond_cb_jsl  bond  集思录可转债实时数据，包含行情数据（涨跌幅，成交量和换手率等）及可转债基本信息（转股价，溢价率和到期收益率等）  True  27.0
-1      bond_zh_hs_cov_min  bond                                           东方财富网-可转债-分时行情  True  20.0
-2  bond_zh_hs_cov_pre_min  bond                                      东方财富网-可转债-分时行情-盘前分时  True  20.0
-3     bond_cov_comparison  bond                                   东方财富网-行情中心-债券市场-可转债比价表  True  17.0
+1      bond_cb_hist_min_em  bond                                           东方财富网-可转债-分时行情  True  20.0
+2  bond_cb_pre_min_em  bond                                      东方财富网-可转债-分时行情-盘前分时  True  20.0
+3     bond_cb_comparison_em  bond                                   东方财富网-行情中心-债券市场-可转债比价表  True  17.0
 4        fund_etf_spot_em  fund                                            东方财富-ETF 实时行情  True  17.0
 ```
 
@@ -212,10 +212,10 @@ Code:
 import akshare as ak
 import mplfinance as mpf  # Please install mplfinance as follows: pip install mplfinance
 
-stock_us_daily_df = ak.stock_us_daily(symbol="AAPL", adjust="qfq")
-stock_us_daily_df = stock_us_daily_df.set_index(["date"])
-stock_us_daily_df = stock_us_daily_df["2020-04-01": "2020-04-29"]
-mpf.plot(stock_us_daily_df, type="candle", mav=(3, 6, 9), volume=True, show_nontrading=False)
+stock_us_daily_sina_df = ak.stock_us_daily_sina(symbol="AAPL", adjust="qfq")
+stock_us_daily_sina_df = stock_us_daily_sina_df.set_index(["date"])
+stock_us_daily_sina_df = stock_us_daily_sina_df["2020-04-01": "2020-04-29"]
+mpf.plot(stock_us_daily_sina_df, type="candle", mav=(3, 6, 9), volume=True, show_nontrading=False)
 ```
 
 ## Features

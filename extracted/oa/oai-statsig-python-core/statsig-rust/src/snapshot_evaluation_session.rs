@@ -14,7 +14,9 @@ use crate::evaluation::evaluator_result::{
 use crate::gcir::gcir_formatter::{GCIRFormatter, GCIRHashable};
 use crate::hashing::{self, HashAlgorithm, HashUtil};
 use crate::interned_string::InternedString;
-use crate::spec_store::{SpecStoreData, build_live_overlay_target_app_index};
+use crate::spec_store::{
+    ConditionMap, SpecStoreData, build_live_overlay_target_app_index, resolve_condition,
+};
 use crate::specs_response::spec_types::SpecsResponseFull;
 use crate::user::StatsigUserInternal;
 use crate::{
@@ -385,17 +387,17 @@ impl<'statsig> SnapshotEvaluationSession<'statsig> {
 
         let snapshot = self.data.snapshot.as_ref();
         [
-            &snapshot.feature_gates,
-            &snapshot.dynamic_configs,
-            &snapshot.layer_configs,
+            (&snapshot.feature_gates, None),
+            (&snapshot.dynamic_configs, self.data.retained_conditions()),
+            (&snapshot.layer_configs, None),
         ]
         .into_iter()
-        .any(|specs| {
-            specs.iter().any(|(_, spec)| {
-                spec.as_spec_ref()
-                    .rules
-                    .iter()
-                    .any(|rule| rule_references_any_condition_field(snapshot, rule, fields))
+        .any(|(specs, retained)| {
+            specs.iter().any(|(name, spec)| {
+                let conditions = retained.and_then(|configs| configs.get(name));
+                spec.as_spec_ref().rules.iter().any(|rule| {
+                    rule_references_any_condition_field(snapshot, rule, fields, conditions)
+                })
             })
         }) || snapshot
             .override_rules
@@ -403,7 +405,7 @@ impl<'statsig> SnapshotEvaluationSession<'statsig> {
             .is_some_and(|override_rules| {
                 override_rules
                     .values()
-                    .any(|rule| rule_references_any_condition_field(snapshot, rule, fields))
+                    .any(|rule| rule_references_any_condition_field(snapshot, rule, fields, None))
             })
     }
 
@@ -435,6 +437,8 @@ impl<'statsig> SnapshotEvaluationSession<'statsig> {
             self.should_use_third_party_parser,
             false,
         );
+        context.unavailable_values = self.data.unavailable_values();
+        context.retained_conditions = self.data.retained_conditions();
         let mut evaluator = SnapshotEvaluator {
             context: &mut context,
             data: self.data.as_ref(),
@@ -501,6 +505,7 @@ impl SnapshotEvaluator<'_> {
 
         if Evaluator::evaluate(self.context, gate_name, &SpecType::Gate)?
             == Recognition::Unrecognized
+            || self.context.result.blob_unavailable
         {
             return Ok(SnapshotGateEvaluation {
                 evaluation: None,
@@ -531,6 +536,7 @@ impl SnapshotEvaluator<'_> {
         self.context.reset_result();
         if Evaluator::evaluate_with_name(self.context, name, spec_type)?
             == Recognition::Unrecognized
+            || self.context.result.blob_unavailable
         {
             return Ok(SnapshotConfigEvaluation {
                 evaluation: None,
@@ -570,6 +576,7 @@ impl SnapshotEvaluator<'_> {
         self.context.reset_result();
         if Evaluator::evaluate_with_name(self.context, name, &SpecType::Layer)?
             == Recognition::Unrecognized
+            || self.context.result.blob_unavailable
         {
             return Ok(None);
         }
@@ -598,7 +605,7 @@ impl SnapshotEvaluator<'_> {
         self.context.override_adapter = override_adapter;
         let mut response = response?;
         if response.has_updates {
-            response.time = self.data.lcut();
+            response.time = self.data.evaluation_lcut();
         }
         Ok(response)
     }
@@ -623,13 +630,16 @@ fn rule_references_any_condition_field(
     snapshot: &SpecsResponseFull,
     rule: &crate::specs_response::spec_types::Rule,
     fields: &HashSet<String>,
+    retained_conditions: Option<&ConditionMap>,
 ) -> bool {
     rule.conditions.iter().any(|condition_id| {
-        snapshot
-            .condition_map
-            .get(condition_id)
-            .and_then(|condition| condition.field.as_ref())
-            .is_some_and(|field| fields.contains(field.lowercased_value.as_str()))
+        resolve_condition(
+            condition_id.into(),
+            &snapshot.condition_map,
+            retained_conditions,
+        )
+        .and_then(|condition| condition.field.as_ref())
+        .is_some_and(|field| fields.contains(field.lowercased_value.as_str()))
     })
 }
 

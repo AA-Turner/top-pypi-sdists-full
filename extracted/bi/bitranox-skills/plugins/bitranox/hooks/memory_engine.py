@@ -97,6 +97,23 @@ class SlugCollision(ValueError):
 _ENGINE_ROUTE = "hooks/memory_engine.py"
 
 
+class SlugOwnedElsewhere(SlugCollision):
+    """Raised when `add` names a slug whose pointer another level of the same tree holds (a
+    sibling, an ancestor or a descendant). Adopting the body here would add a second line and
+    overwrite the owner's body with this one. The message names the owning level(s) and the
+    route that updates the fact there; `levels` carries them, top first. A SlugCollision, so
+    every caller that reports a collision reports this."""
+
+    def __init__(self, slug, levels, suggestion):
+        levels = sorted(levels, key=lambda level: Path(os.path.abspath(str(level))).parts)
+        ValueError.__init__(self, "slug %r is owned by another level of this tree: %s. To update "
+                                  "that fact, write it from there (%s add --proj %s --slug %s "
+                                  "...); for a new fact pick another slug (suggested: %r)"
+                            % (slug, ", ".join(str(level) for level in levels), _ENGINE_ROUTE,
+                               levels[0], slug, suggestion))
+        self.slug, self.suggestion, self.levels = slug, suggestion, levels
+
+
 class PlacedElsewhere(SlugCollision):
     """Raised when `add` names a fact that is placed by topic from a level holding none of its
     lines. Adopting it there would add a line the placement does not have; the write goes to a
@@ -175,8 +192,20 @@ def _same_level(a, b):
 _PLACED_BY_TOPIC = ("%r is placed by topic: where it is read follows its topics and the levels' "
                     "(set-topics, set-level-topics, then render-topics). To place it by hand, "
                     "un-bind it first: " + _ENGINE_ROUTE + " set-topics --proj %s --slug %s "
-                    "--clear (its lines collapse to one at the tree top, where a move or "
-                    "relocate takes it)")
+                    "--clear (%s, where a move or relocate takes it)")
+
+
+def _placed_by_topic(slug, anchor):
+    """The move/relocate refusal for `slug`, a fact placed by topic, saying where its line is
+    once the named `set-topics --clear` un-binds it: a fact with lines at several levels collapses
+    to one at the tree top (`_collapse_plan`), and a fact with one line keeps it where it is.
+    Walks the tree's levels once, on the refusal path only."""
+    holders = [level for level, _ptr in _copies_of(anchor, slug)]
+    if len(holders) == 1:
+        where = "its one line stays at %s" % holders[0]
+    else:
+        where = "its %d lines collapse to one at the tree top" % len(holders)
+    return _PLACED_BY_TOPIC % (slug, anchor, slug, where)
 
 
 # A slug that is not a plain filename (`uuid_store.is_valid_slug`). Defined by the store, whose path
@@ -689,7 +718,10 @@ def upsert_entry(proj, title, hook, body="", type_=None, pin=False,
     A fact placed by topic (see `_placed_slugs`) is written only from a level holding one of its
     lines, else `PlacedElsewhere`; the write then refreshes its other lines too. Pinning one raises
     TopicRefusal. A level whose path below the anchor crosses a directory the level walk prunes
-    raises `NonLevelDir`. All three before any write. A fact whose body is bound to a topic is
+    raises `NonLevelDir`. All three before any write. A slug whose pointer another level of the
+    tree holds (a sibling, an ancestor or a child of the owner), while this level holds none,
+    raises `SlugOwnedElsewhere` naming the owning level(s), before any write; a body no level
+    points at is adopted. A fact whose body is bound to a topic is
     decided and written under the tree's placement lock (`_placement_lock_if_bound`), so its
     lines change with no render or set-topics half done; PlacementLockBusy when it stays held.
 
@@ -766,15 +798,20 @@ def _upsert_checked(proj, anchor, slug, title, hook, body, type_, pin, scope_def
     store_existed = store_dir.exists()
     lock_target = sig.claude_local_md_path(proj)
     with sig.memory_lock(lock_target):
+        # Before the level is scaffolded, so the refusal writes nothing: a slug another level of
+        # the tree points at is that level's fact, wherever the level sits.
+        owners = _slug_owned_elsewhere(anchor, proj, slug)
+        if owners:
+            raise SlugOwnedElsewhere(slug, owners, _free_slug(anchor, slug))
         ensure_level(proj, scope_default=scope_default, _locked=True)
         scope, entries, bodies = read_store(proj)
         by_slug = {e.slug: e for e in entries}
-        if slug not in by_slug and us.body_path(anchor, slug).is_file() \
-                and not _slug_owned_elsewhere(anchor, proj, slug):
+        if slug not in by_slug and us.body_path(anchor, slug).is_file():
             # A DANGLING body (its pointer was lost - e.g. a formatter wrapped the line and a heal
-            # round-trip then dropped it) is safe to ADOPT here rather than leave the fact stuck
-            # (invisible, yet un-recreatable because the body registers the slug). Reconstruct its
-            # Entry so the update path below re-attaches a pointer at this level.
+            # round-trip then dropped it; no level points at it, checked above) is safe to ADOPT
+            # here rather than leave the fact stuck (invisible, yet un-recreatable because the
+            # body registers the slug). Reconstruct its Entry so the update path below
+            # re-attaches a pointer at this level.
             adopted = _entry_from_body(anchor, slug)
             if adopted is not None:
                 entries.append(adopted)
@@ -796,6 +833,10 @@ def _upsert_checked(proj, anchor, slug, title, hook, body, type_, pin, scope_def
                 # that always lands on "project".
                 kept_skill = skill or _body_skill(body) or _body_skill(e.body)
                 framed = _framed_body(slug, e.hook, type_ or _body_type(e.body), body)
+                # A body that brings its own frame sets only the keys it names: a partial frame
+                # (`name:` and `topics:`) replaced the stored one whole and dropped `description:`
+                # and `metadata:`, so the body yielded no line and stopped being placed by topic.
+                framed = _with_stored_frame_keys(framed, e.body)
                 # The stored topics line wins over whatever the new body's frame says or lacks:
                 # topics change only through set-topics (`e.body` is still the stored body here).
                 e.body = _with_stored_topics(_with_skill(_synced_frame(slug, e.hook, type_, framed),
@@ -815,8 +856,8 @@ def _upsert_checked(proj, anchor, slug, title, hook, body, type_, pin, scope_def
                 _archive_legacy_body(anchor, e)      # moves to the slug path, the old file archives
                 e.legacy, e.uuid = False, ""
         else:
-            # Tree-unique slugs: the body file is the registry. A body that exists while ANOTHER level
-            # owns the slug (checked just above) is a real collision - refuse with a suggestion.
+            # Tree-unique slugs: the body file is the registry. A body still here was neither owned
+            # by another level (refused above) nor adoptable - refuse with a suggestion.
             if us.body_path(anchor, slug).is_file():
                 raise SlugCollision(slug, _free_slug(anchor, slug))
             e = Entry(slug=slug, title=title, hook=hook,
@@ -960,26 +1001,25 @@ def amend_pinned_entry(proj, slug, hook=None, body=None, title=None, type_=None)
 
 
 def _slug_owned_elsewhere(anchor, proj, slug):
-    """True when a level OTHER than `proj` in proj's altitude chain still points at `slug` (the slug is
-    owned elsewhere, not a dangling body). Chain-scoped by design: a rare cross-sibling re-capture at
-    worst makes a duplicate the dream merges - never corruption - and this stays off the hot path."""
-    try:
-        chain = sig.altitude_chain(proj)
-    except Exception:                                # noqa: BLE001 - never block an add
-        return False
+    """The levels OTHER than `proj` anywhere in the tree under `anchor` (siblings, ancestors and
+    descendants alike) that point at `slug`, when `proj` itself does not and the slug has a body;
+    else []. A non-empty answer means an add at `proj` would take over another level's fact:
+    adopting the body here wrote a second line and overwrote that fact's body with the new one,
+    so `add` refuses instead. [] means `proj` owns the slug (the update path), the slug is free,
+    or its body is dangling (no level points at it) and safe to adopt.
+
+    Reads `proj`'s own block, and walks the tree's levels (`_copies_of`) only when the body exists
+    and `proj` holds no line of it - a new slug and an update at the owning level never walk.
+
+    A level that cannot be read raises TreeWalkError (from the walk): whether it owns the slug is
+    unknown, and "not owned" is the answer that lets add adopt a body another level points at."""
+    if not us.body_path(anchor, slug).is_file():
+        return []
+    _s, here = us.parse_pointer_index(read_store_text(sig.claude_local_md_path(proj)))
+    if any(p.slug == slug for p in here):
+        return []
     pnorm = Path(proj).resolve()
-    for lvl in chain:
-        try:
-            if Path(lvl).resolve() == pnorm:
-                continue
-        except OSError:
-            continue
-        # A level that cannot be read raises TreeWalkError: whether it owns the slug is unknown,
-        # and "not owned" is the answer that lets add adopt a body another level still points at.
-        _s, ptrs = us.parse_pointer_index(read_store_text(sig.claude_local_md_path(lvl)))
-        if any(p.slug == slug for p in ptrs):
-            return True
-    return False
+    return [level for level, _ptr in _copies_of(anchor, slug) if Path(level).resolve() != pnorm]
 
 
 def _body_description(text):
@@ -1150,6 +1190,76 @@ def _with_stored_topics(text, stored):
     if topics is not None:
         return _with_topics(text, topics)
     return _with_topics_line(text, _body_topics_line(stored))
+
+
+_FRAME_KEY_RX = re.compile(r"([A-Za-z_][\w-]*):")
+_FRAME_SUBKEY_RX = re.compile(r"[ \t]+([A-Za-z_][\w-]*):")
+
+
+def _frame_blocks(inner):
+    """[(key, [lines])] of a frontmatter's inner text: each top-level `key:` line with the
+    indented and blank lines below it. Lines before the first key go under key None."""
+    blocks = []
+    for line in inner.splitlines(True):
+        m = _FRAME_KEY_RX.match(line)
+        if m or not blocks:
+            blocks.append((m.group(1) if m else None, [line]))
+        else:
+            blocks[-1][1].append(line)
+    return blocks
+
+
+def _merged_metadata(new_lines, stored_lines):
+    """The `metadata:` block `new_lines` with each sub-key line of `stored_lines` it does not set
+    appended (a sub-key's own continuation lines come with it)."""
+    def indent(line):
+        return len(line) - len(line.lstrip(" \t"))
+
+    have = {m.group(1) for m in map(_FRAME_SUBKEY_RX.match, new_lines[1:]) if m}
+    subs = [line for line in stored_lines[1:] if _FRAME_SUBKEY_RX.match(line)]
+    level = min(map(indent, subs), default=0)    # a sub-key's own indent; deeper is its value
+    out, carry = list(new_lines), False
+    for line in stored_lines[1:]:
+        m = _FRAME_SUBKEY_RX.match(line)
+        if m and indent(line) == level:
+            carry = m.group(1) not in have
+        if carry:
+            out.append(line if line.endswith("\n") else line + "\n")
+    return out
+
+
+def _with_stored_frame_keys(text, stored):
+    """Return framed `text` with every frontmatter key of the `stored` body that its own frame
+    does not set: a missing top-level key (`description:`, `title:`, `topics:`, `metadata:`)
+    comes over whole, and a `metadata:` both carry gains the sub-keys (`type:`, `skill:`) only
+    the stored one has. The result follows the stored key order, then the keys only `text` has;
+    a key `text` sets keeps its value. The prose is untouched; an unframed `text` or `stored` is
+    returned unchanged.
+
+    For an UPDATE whose body brings its own frame: the frame says what it sets, never what it
+    drops. The callers then sync `name:` and `description:` to this write and re-apply the stored
+    `topics:` line, so those three stay theirs whatever either frame said."""
+    head, m = _frontmatter(text)
+    _shead, sm = _frontmatter(stored)
+    if m is None or sm is None:
+        return text
+    new_blocks = _frame_blocks(m.group(1) or "")
+    new = {key: lines for key, lines in new_blocks if key is not None}
+    merged = [line for key, lines in new_blocks if key is None for line in lines]
+    used = {None}
+    for key, lines in _frame_blocks(sm.group(1) or ""):
+        if key is None:
+            continue
+        if key == "metadata" and key in new:
+            merged.extend(_merged_metadata(new[key], lines))
+        else:
+            merged.extend(new.get(key, lines))
+        used.add(key)
+    for key, lines in new_blocks:
+        if key not in used:
+            merged.extend(lines)
+    merged = [line if line.endswith("\n") else line + "\n" for line in merged]
+    return _with_frame(head, m, "".join(merged))
 
 
 def _with_topics_line(text, line):
@@ -1524,7 +1634,7 @@ def move_entry(from_level, to_level, slug, force=False):
     placed = _placed_slugs(a_from, slugs)
     if placed:
         s = next(s for s in slugs if s in placed)       # the first in the caller's order
-        rep["refused"] = _PLACED_BY_TOPIC % (s, a_from, s)
+        rep["refused"] = _placed_by_topic(s, a_from)
         return rep
 
     if rep["direction"] == "down":
@@ -2010,7 +2120,7 @@ def relocate_entry(from_level, to_level, slug, force=False):
         return rep
     if _placed_slugs(a_from, [slug]):
         # its other lines would stay behind in the source tree, pointing at an archived body
-        rep["refused"] = _PLACED_BY_TOPIC % (slug, a_from, slug)
+        rep["refused"] = _placed_by_topic(slug, a_from)
         return rep
 
     # Slugs are TREE-unique, so a divergent slug already in the target tree is a different fact.

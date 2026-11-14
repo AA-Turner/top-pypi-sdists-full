@@ -11,6 +11,7 @@ from ._client import OPERATION
 from ._client import ClientBase as _ClientBase
 from ._pipeline import RequestPipelineBase, is_retryable
 from .deserializers import DeserializeableShape
+from .exceptions import ResourceLifecycleError
 from .interceptors import Interceptor, RequestContext
 from .interfaces import (
     ClientProtocol,
@@ -30,6 +31,7 @@ from .utils import read_streaming_blob
 __all__ = ["AUTH_SCHEME", "OPERATION", "Client", "ClientCall", "RequestPipeline"]
 
 AUTH_SCHEME = PropertyKey(key="auth_scheme", value_type=AuthScheme[Any, Any, Any, Any])
+"""Property key for the auth scheme selected for the call."""
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -139,7 +141,7 @@ class Client[C](_ClientBase[C]):
 
     def __enter__(self) -> Self:
         if self._closed:
-            raise RuntimeError("Cannot enter a client that has been closed.")
+            raise ResourceLifecycleError("Cannot enter a client that has been closed.")
         return self
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
@@ -160,7 +162,7 @@ class Client[C](_ClientBase[C]):
 
     def _invoke[I: SerializeableShape, O: DeserializeableShape](
         self,
-        input: I | None,
+        input: I | dict[str, Any] | None,
         operation: APIOperation[I, O],
         default_plugins: list[Callable[[C], None]],
         plugins: list[Callable[[C], None]] | None,
@@ -170,13 +172,14 @@ class Client[C](_ClientBase[C]):
 
     def _prepare_call[I: SerializeableShape, O: DeserializeableShape](
         self,
-        input: I | None,
+        input: I | dict[str, Any] | None,
         operation: APIOperation[I, O],
         default_plugins: list[Callable[[C], None]],
         plugins: list[Callable[[C], None]] | None,
     ) -> tuple[RequestPipeline[Any, Any], ClientCall[I, O]]:
+        model = self._build_input(input, operation)
         self._raise_if_closed()
         config = self._ensure_setup()
         return run_program(
-            self._prepare(config, input, operation, default_plugins, plugins)
+            self._prepare(config, model, operation, default_plugins, plugins)
         )

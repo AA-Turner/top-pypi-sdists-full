@@ -426,7 +426,8 @@ class DeviantartExtractor(Extractor):
                     "</div></section></div></div>")):
                 return {"html": html}
 
-            if (pos := page.find(' data-editor-viewer="1"')) >= 0:
+            if (pos := page.find(' data-editor-viewer="1"')) >= 0 and \
+                    page.find(' data-editor-viewer="1"', pos+24) >= 0:
                 if html := text.rextr(
                         page, ">", '</div></div></div><div class="', pos):
                     return {"html": html}
@@ -497,8 +498,8 @@ class DeviantartExtractor(Extractor):
 
     def _find_folder(self, folders, name, uuid):
         if uuid.isdecimal():
-            match = text.re(
-                "(?i)" + name.replace("-", "[^a-z0-9]+") + "$").match
+            name = text.re_module.escape(name).replace("\\-", "[^a-z0-9]+")
+            match = text.re(f"(?i){name}$").match
             for folder in folders:
                 if match(folder["name"]):
                     return folder
@@ -793,7 +794,7 @@ class DeviantartFolderExtractor(DeviantartExtractor):
         DeviantartExtractor.__init__(self, match)
         self.folder = None
         self.folder_id = match[3]
-        self.folder_name = match[4]
+        self.folder_name = text.unquote(match[4])
 
     def deviations(self):
         folders = self.cache(self.api.gallery_folders, self.user)
@@ -927,7 +928,7 @@ class DeviantartCollectionExtractor(DeviantartExtractor):
         DeviantartExtractor.__init__(self, match)
         self.collection = None
         self.collection_id = match[3]
-        self.collection_name = match[4]
+        self.collection_name = text.unquote(match[4])
 
     def deviations(self):
         folders = self.cache(self.api.collections_folders, self.user)

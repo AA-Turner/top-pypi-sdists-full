@@ -12,7 +12,7 @@ class SwitchReplicationLinkResponseBody(DaraModel):
         task_id: int = None,
         task_name: str = None,
     ):
-        # The instance ID of the disaster recovery instance.
+        # The disaster recovery instance ID.
         self.dbinstance_id = dbinstance_id
         # The request ID.
         self.request_id = request_id

@@ -25,9 +25,9 @@ class DescribeHistoryTasksRequest(DaraModel):
         to_exec_time: int = None,
         to_start_time: str = None,
     ):
-        # The minimum execution duration of the task. This parameter is used to filter tasks whose execution duration is greater than the specified value. Unit: seconds. Default value: 0, which indicates no limit.
+        # The minimum execution duration of the task. This parameter is used to filter tasks whose execution duration is greater than this value. Unit: seconds. Default value: 0, which indicates no limit.
         self.from_exec_time = from_exec_time
-        # The start time of the time range to query the task start time. This parameter specifies that the start time of the task is later than the specified time. Specify the time in the ISO 8601 standard in the yyyy-MM-ddTHH:mm:ssZ format. The time must be in UTC. The earliest supported time is 30 days ago. If the specified time is more than 30 days ago, it is automatically converted to 30 days ago.
+        # The start time of the task start time range. This parameter specifies that only tasks whose start time is later than this time are queried. Specify the time in the ISO 8601 standard in the yyyy-MM-ddTHH:mm:ssZ format. The time must be in UTC. The earliest supported time is 30 days ago. If the specified time is more than 30 days ago, it is automatically converted to 30 days ago.
         # 
         # This parameter is required.
         self.from_start_time = from_start_time
@@ -36,7 +36,7 @@ class DescribeHistoryTasksRequest(DaraModel):
         # The instance type. Only Instance is supported.
         self.instance_type = instance_type
         self.owner_id = owner_id
-        # The page number of the query result. Valid values: positive integers.
+        # The page number of the returned page. Valid values: positive integers.
         # Default value: **1**.
         self.page_number = page_number
         # The number of entries per page. Valid values: **10 to 100**. Default value: **10**.
@@ -50,9 +50,9 @@ class DescribeHistoryTasksRequest(DaraModel):
         self.security_token = security_token
         # The task status. Valid values:
         # - **Scheduled**: Pending execution.
-        # - **Running**: Running.
-        # - **Succeed**: Succeeded.
-        # - **Failed**: Failed.
+        # - **Running**: Executing.
+        # - **Succeed**: Executed successfully.
+        # - **Failed**: Execution failed.
         # - **Cancelling**: Cancelling.
         # - **Canceled**: Canceled.
         # - **Waiting**: Waiting for the scheduled time.
@@ -63,9 +63,9 @@ class DescribeHistoryTasksRequest(DaraModel):
         self.task_id = task_id
         # The task type, which is used to query tasks of a specific type. Separate multiple task types with commas (,). You can specify up to 30 task types. If this parameter is left empty, no limit is applied.
         self.task_type = task_type
-        # The maximum execution duration of the task. This parameter is used to filter tasks whose execution duration is greater than or equal to the specified value. Unit: seconds. Default value: 0, which indicates no limit.
+        # The maximum execution duration of the task. This parameter is used to filter tasks whose execution duration is not less than this value. Unit: seconds. Default value: 0, which indicates no limit.
         self.to_exec_time = to_exec_time
-        # The end time of the time range to query the task start time. This parameter specifies that the start time of the task is earlier than the specified time. Specify the time in the ISO 8601 standard in the yyyy-MM-ddTHH:mm:ssZ format. The time must be in UTC.
+        # The end time of the task start time range. This parameter specifies that only tasks whose start time is earlier than this time are queried. Specify the time in the ISO 8601 standard in the yyyy-MM-ddTHH:mm:ssZ format. The time must be in UTC.
         # 
         # This parameter is required.
         self.to_start_time = to_start_time

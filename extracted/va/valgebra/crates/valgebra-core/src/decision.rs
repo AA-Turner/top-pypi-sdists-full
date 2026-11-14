@@ -16,6 +16,8 @@ mod lengths;
 mod literals;
 mod products;
 mod readings;
+#[cfg(test)]
+pub(crate) use readings::a_meet_of_sequences_as_one;
 mod records;
 
 use std::cell::{Cell, OnceCell, RefCell};
@@ -23,10 +25,11 @@ use std::sync::Arc;
 
 use rustc_hash::FxHashMap;
 
-use crate::descr::budget;
 use crate::descr::lower::{
-    Constants, WORK, an_empty_reading_stands, lower_unfolded, parts_a_cut_reaches, read_widened,
+    Constants, UNFOLDS, WORK, an_empty_reading_stands, lower, lower_unfolded, parts_a_cut_reaches,
+    read_widened,
 };
+use crate::descr::{Descr, budget};
 use crate::ir::{Constraint, DefIx, Members, Polarity, Schema, SeqShape};
 use crate::kind::{Region, Regions};
 use crate::unordered_pairs;
@@ -130,11 +133,24 @@ pub(crate) const RESPELLING_AGAIN: u32 = 65_536;
 const LEAF_READING: u32 = 64;
 
 thread_local! {
+    /// Whether a split of a pair on a set is under way on this thread
+    /// ([`Schema::split_on_a_set_it_negates`]): a half is not split again, so a
+    /// query splits once, and a supertype negating many sets costs `SPLITS`
+    /// pairs of halves rather than a tree of them.
+    static SPLITTING: Cell<bool> = const { Cell::new(false) };
     /// The respelling allowance of the asking a question on this thread is in:
     /// [`RESPELLING`], or [`RESPELLING_AGAIN`] while [`asked_again`] asks a
     /// second time.
     static RESPELLING_NOW: Cell<u32> = const { Cell::new(RESPELLING) };
 }
+
+/// The sets a pair is split on, at most, where every decider declined it
+/// ([`Schema::split_on_a_set_it_negates`]).
+///
+/// **This bound is cost.** Each split asks two halves under the respelling's
+/// allowance; the supertypes a translation from JSON Schema writes negate one
+/// set, a nested `not` two.
+const SPLITS: usize = 4;
 
 /// The steps a pair respelled may spend in the asking under way.
 pub(super) fn respelling() -> u32 {
@@ -578,15 +594,19 @@ fn flat_members(members: &[Schema]) -> impl Iterator<Item = &Schema> {
     })
 }
 
-/// A meet narrowed by the complements beside its unions ([`narrowed_meet`]),
-/// the same set, below `other`; `Unknown` where nothing narrows.
+/// A meet respelled as the same set below `other`: narrowed by the complements
+/// beside its unions ([`narrowed_meet`]), then, a meet of sequences, read as the
+/// one sequence of its items' meet ([`one_sequence_below`]); `Unknown` where
+/// neither answers.
 ///
-/// Asked under an allowance of its own, [`RESPELLING`] steps of what the query
-/// has left, as a respelled pair is: the meet arm asks it last, and a narrowed
-/// meet that declines spent the steps the readings after the arm -- the
-/// subject's own emptiness among them -- would have decided the pair with.
+/// Each is asked under an allowance of its own, [`RESPELLING`] steps of what the
+/// query has left, as a respelled pair is: the meet arm asks them last, and a
+/// respelling that declines spent the steps the readings after the arm -- the
+/// subject's own emptiness among them -- would have decided the pair with. Asked
+/// with the query's steps, the one sequence starved them of 49 refutations over
+/// 60,000 drawn Boolean combinations of lists.
 ///
-/// A narrowed meet asked inside another's question is asked with that
+/// A respelled meet asked inside another's question is asked with that
 /// question's steps and its trail, and is given no allowance of its own
 /// ([`NARROWING`]). Given one, its steps were counted by nothing above it, and
 /// a fixpoint met with the complement of its own lists, `μt. (int | list[t] |
@@ -596,7 +616,7 @@ fn flat_members(members: &[Schema]) -> impl Iterator<Item = &Schema> {
 /// question's trail, the goal met again is the assumption it is, and the pair
 /// is `subset`.
 ///
-/// A narrowed meet asked outside another's question is asked once a query for
+/// A respelled meet asked outside another's question is asked once a query for
 /// a supertype and an allowance, and its answer read back after
 /// ([`ASKED_NARROWED`]). The question runs on a trail and a budget of its own
 /// and nothing it spends is charged to the query, so its answer rests on no
@@ -610,12 +630,14 @@ fn flat_members(members: &[Schema]) -> impl Iterator<Item = &Schema> {
 /// Out of line, since the meet arm it is asked from is inlined into the goal
 /// recursion, and a meet with no union answers at the first look.
 #[inline(never)]
-fn narrowed_meet_below(members: &Members, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+fn a_meet_respelled_below(members: &Members, other: &Schema, cx: &mut Cx<'_>) -> Relation {
     let query = cx.query();
     if NARROWING.with(Cell::get) == query {
-        return narrowed_meet(members, cx).map_or(Relation::Unknown, |narrowed| {
-            narrowed.is_subtype_rec(other, cx)
-        });
+        return narrowed_meet(members, cx)
+            .map_or(Relation::Unknown, |narrowed| {
+                narrowed.is_subtype_rec(other, cx)
+            })
+            .or_else(|| one_sequence_below(members, other, cx));
     }
     let given = cx.budget.left().min(respelling());
     let key = (query, Arc::as_ptr(members).cast::<Schema>().addr(), given);
@@ -630,11 +652,17 @@ fn narrowed_meet_below(members: &Members, other: &Schema, cx: &mut Cx<'_>) -> Re
     if let Some(answer) = asked {
         return answer;
     }
-    let answer = narrowed_meet(members, cx).map_or(Relation::Unknown, |narrowed| {
-        let allowance = Budget::new(given);
-        let _open = Narrowing::open(query);
-        narrowed.is_subtype_rec(other, &mut cx.within_this_query(&allowance))
-    });
+    let answer = narrowed_meet(members, cx)
+        .map_or(Relation::Unknown, |narrowed| {
+            let allowance = Budget::new(given);
+            let _open = Narrowing::open(query);
+            narrowed.is_subtype_rec(other, &mut cx.within_this_query(&allowance))
+        })
+        .or_else(|| {
+            let allowance = Budget::new(given);
+            let _open = Narrowing::open(query);
+            one_sequence_below(members, other, &mut cx.within_this_query(&allowance))
+        });
     ASKED_NARROWED.with_borrow_mut(|asked| {
         if asked.len() >= READINGS_HELD {
             asked.clear();
@@ -647,7 +675,28 @@ fn narrowed_meet_below(members: &Members, other: &Schema, cx: &mut Cx<'_>) -> Re
     answer
 }
 
-/// The narrowed meet's question open on this thread, closed when dropped: the
+/// A meet of sequences of one container below `other`, asked as the one sequence of
+/// its items' meet under every bound of the meet
+/// ([`readings::a_meet_of_sequences_as_one`]), the same set: an `allOf` of arrays is
+/// one array of the items' meet wherever it stands [HSHP20, §4.2]. A meet below a
+/// record's field, a list's items or a mapping's values is a goal of its own, so the
+/// reading is asked at every goal: `dict[str, J] & {"a?": list[J] & list[str] &
+/// Annotated[list[Any], MaxLen(5)]}`, for `J` the JSON value, is below `{"a?":
+/// Annotated[list[str], MaxLen(5)]}` by its field's one sequence, which no member of
+/// the field's meet is below alone.
+///
+/// The one sequence is a goal of the closure the termination argument counts, each
+/// item a meet of the items the members hold at one position [LN26, §5.1]. Asked
+/// after every reading of the meet as written, and under the allowance a respelled
+/// meet is given ([`a_meet_respelled_below`]); a meet holding fewer than two
+/// sequences is counted and left at the first look.
+#[inline(never)]
+fn one_sequence_below(members: &[Schema], other: &Schema, cx: &mut Cx<'_>) -> Relation {
+    readings::a_meet_of_sequences_as_one(members, cx.defs)
+        .map_or(Relation::Unknown, |one| one.is_subtype_rec(other, cx))
+}
+
+/// A respelled meet's question open on this thread, closed when dropped: the
 /// query that was open before is open again.
 struct Narrowing(u64);
 
@@ -868,7 +917,8 @@ impl Schema {
     /// bottom empties its record, so a deeper unfolding could find a value this
     /// one does not, but the wider term spends [`BUDGET`](crate::descr::lower)
     /// first: two unfoldings left 17% more of a corpus of recursive lists and
-    /// maps undecided.
+    /// maps undecided. [`refuted_narrowed_deeper`](Self::refuted_narrowed_deeper)
+    /// asks the second, past every other reading.
     #[inline(never)]
     pub(crate) fn refuted_narrowed(
         &self,
@@ -877,10 +927,55 @@ impl Schema {
         defs: &[Schema],
         pool: &dyn Constants,
     ) -> Relation {
+        Self::refuted_below(
+            || lower_unfolded(self, defs, Polarity::Narrow, pool),
+            read,
+            side,
+            defs,
+            pool,
+        )
+    }
+
+    /// `Fails` where a value of the subject outside the supertype lies one
+    /// unfolding past [`refuted_narrowed`](Self::refuted_narrowed)'s reading:
+    /// the subject's references unfolded twice before the cut.
+    ///
+    /// A recursive set holds every value built by finitely many unfoldings of its
+    /// body [FCB08, §4.3], so the subject narrowed through two unfoldings lies
+    /// inside it as it does through one, and a value its difference with the
+    /// supertype holds is a value of the real difference: the JSON values are
+    /// outside the mappings whose key `bar` holds a list, on `{"bar": None}`,
+    /// which one unfolding cuts to the empty mapping. Asked once, at the root, of
+    /// a query every reading left undecided and whose subject holds a reference,
+    /// with the definitions it names, so a decided pair pays one comparison and
+    /// an answer the one unfolding gives is never asked of the deeper term,
+    /// which spends the build budget first.
+    #[inline(never)]
+    fn refuted_narrowed_deeper(
+        &self,
+        other: &Schema,
+        pool: &dyn Constants,
+        defs: &[Schema],
+    ) -> Relation {
+        let (read, side) = other.read_as_a_supertype();
+        let deeper = || lower(&self.unfolded(defs, UNFOLDS + 1, Polarity::Narrow), pool);
+        Self::refuted_below(deeper, read, side, defs, pool)
+    }
+
+    /// `Fails` where the narrowed subject `mine` lowers to holds a value outside
+    /// the supertype `read`, read on `side` as
+    /// [`read_as_a_supertype`](Self::read_as_a_supertype) gives it.
+    fn refuted_below(
+        mine: impl FnOnce() -> Option<Descr>,
+        read: &Schema,
+        side: Polarity,
+        defs: &[Schema],
+        pool: &dyn Constants,
+    ) -> Relation {
         #[cfg(test)]
         goal_tests::goals::read_by_the_sets();
         let refuted = || {
-            let mine = lower_unfolded(self, defs, Polarity::Narrow, pool)?;
+            let mine = mine()?;
             let theirs = lower_unfolded(read, defs, side.flipped(), pool)?;
             budget::under(WORK, || {
                 let difference = if side == Polarity::Narrow {
@@ -997,15 +1092,20 @@ impl Schema {
         let first = self
             .is_subtype_rec(other, &mut cx)
             .or_else(|| self.decided_by_sets(other, &mut cx, true));
-        if first == Relation::Unknown && asks_again(met, &budget) {
-            return asked_again(|budget| {
+        let answer = if first == Relation::Unknown && asks_again(met, &budget) {
+            asked_again(|budget| {
                 let mut cx = Cx::new(oracle, defs, budget);
                 self.is_subtype_rec(other, &mut cx)
                     .or_else(|| self.a_side_with_no_value(other, &mut cx))
                     .or_else(|| self.decided_past_the_whole_pair(other, &mut cx, true))
-            });
+            })
+        } else {
+            first
+        };
+        if answer == Relation::Unknown && !defs.is_empty() && self.has_reference() {
+            return self.refuted_narrowed_deeper(other, oracle, defs);
         }
-        first
+        answer
     }
 
     /// The set representation of the pair, then both deciders asked of its
@@ -1042,9 +1142,11 @@ impl Schema {
     ) -> Relation {
         self.a_plain_value_outside_a_table(other, cx)
             .or_else(|| self.decided_by_parts(other, cx, by_branch))
+            .or_else(|| self.inside_what_it_complements(other, cx))
             .or_else(|| {
                 if by_branch {
                     self.decided_as_respelled(other, cx)
+                        .or_else(|| self.split_on_a_set_it_negates(other, cx))
                 } else {
                     Relation::Unknown
                 }
@@ -1428,6 +1530,119 @@ impl Schema {
             })
     }
 
+    /// The pair asked of the subject split on a set the supertype holds under a
+    /// complement.
+    ///
+    /// `U ⊆ T` holds exactly where `U ∧ C ⊆ T` and `U ∧ ¬C ⊆ T` both do, `C` any
+    /// set, since `U` is the union of the two [FCB08, §6.9]. It is the split a
+    /// normal form makes on every atom, made here on one, the step a binary
+    /// decision diagram is built from, and it is made on a `C` the supertype holds
+    /// under a complement, as a member or a conjunct of one, so that one half
+    /// meets `C` and the other `¬C`: `J ⊆ Y ∪ (J ∧ ¬Y)` holds for every `Y`, and
+    /// a translation from JSON Schema writes `anyOf [Y, not Y]` so, `J` the JSON
+    /// values. Either half refuted refutes the pair, since each is a part of `U`.
+    /// `C` must denote a set: a predicate answering two calls apart obeys no
+    /// excluded middle. Both goals are meets of signed subterms, asked of the
+    /// rules and the set representation for every set first, and only where none
+    /// decided there of their parts ([`decided_by_parts`](Self::decided_by_parts)):
+    /// a union supertype narrowed to the branches the half meets, a meet one
+    /// conjunct at a time. Not of the respellings, which would ask a half below
+    /// the complement of another and so past the closure; a half already holding
+    /// `C` or `¬C` is not split on it again. A supertype that is itself `¬C` is
+    /// not split: its halves ask the pair again.
+    #[inline(never)]
+    fn split_on_a_set_it_negates(&self, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+        fn read<'a>(schema: &'a Schema, out: &mut Vec<&'a Schema>) {
+            if let Schema::Complement(inner) = schema {
+                out.push(inner);
+            }
+        }
+        if SPLITTING.with(Cell::get) {
+            return Relation::Unknown;
+        }
+        let mut negated: Vec<&Schema> = Vec::new();
+        match other {
+            Schema::Union(members) | Schema::Intersection(members) => {
+                for member in members.iter() {
+                    read(member, &mut negated);
+                    if let Schema::Intersection(conjuncts) = member {
+                        for conjunct in conjuncts.iter() {
+                            read(conjunct, &mut negated);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+        let held = |set: &Schema| match self {
+            Schema::Intersection(members) => members.iter().any(|member| {
+                member == set
+                    || matches!(member, Schema::Complement(inner) if inner.as_ref() == set)
+            }),
+            subject => subject == set,
+        };
+        negated.retain(|set| !held(set) && denotes_a_set_within(set, cx.oracle, cx.defs));
+        negated.truncate(SPLITS);
+        let allowance = Budget::new(cx.budget.left().min(respelling()));
+        let cx = &mut cx.within_this_query(&allowance);
+        // Every set's halves are asked of the rules and the set representation
+        // first, and of their parts only where none decided: a half the parts
+        // decline spends what a later set's halves prove with.
+        for by_parts in [false, true] {
+            for set in &negated {
+                let mut halves = [(*set).clone(), (*set).clone().complement()]
+                    .into_iter()
+                    .map(|side| {
+                        let half = Schema::meet_within([self.clone(), side], cx.defs);
+                        half.is_subtype_rec(other, cx)
+                            .or_else(|| half.descriptor_contained_in(other, cx.oracle, cx.defs))
+                            .or_else(|| {
+                                if by_parts {
+                                    half.decided_by_parts(other, cx, true)
+                                } else {
+                                    Relation::Unknown
+                                }
+                            })
+                    });
+                SPLITTING.with(|splitting| splitting.set(true));
+                let answer = Relation::all(&mut halves);
+                SPLITTING.with(|splitting| splitting.set(false));
+                if answer != Relation::Unknown {
+                    return answer;
+                }
+            }
+        }
+        Relation::Unknown
+    }
+
+    /// A subject the set representation places inside `c`, against `¬c`.
+    ///
+    /// `a ⊆ ¬c` is `a ∧ c = ∅` [FCB08, §4.1], and `a ⊆ c` makes that meet `a`
+    /// itself, so the pair holds exactly where `a` is empty and is refuted on any
+    /// value of `a`. The rules' complement arm reads this from their own proof of
+    /// `a ⊆ c`; this asks `a ⊆ c` as the relation does past them, the set
+    /// representation and the readings after it, under the respelling's
+    /// allowance: a constant record below a record of patterns over the JSON
+    /// values, which a translation from JSON Schema writes under `not`, is proved
+    /// there and declined by the rules. The goal is a pair of subterms.
+    #[inline(never)]
+    fn inside_what_it_complements(&self, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+        let Schema::Complement(inner) = other else {
+            return Relation::Unknown;
+        };
+        let allowance = Budget::new(cx.budget.left().min(respelling()));
+        let inside = {
+            let cx = &mut cx.within_this_query(&allowance);
+            self.is_subtype_rec(inner, cx)
+                .or_else(|| self.decided_by_sets(inner, cx, true))
+        };
+        if inside.holds() {
+            Relation::of_mismatch(self.verdict_rec(cx))
+        } else {
+            Relation::Unknown
+        }
+    }
+
     /// The pair asked of its parts, where both deciders declined it whole.
     ///
     /// A union subject is below a supertype where each member is, and outside
@@ -1570,6 +1785,7 @@ impl Schema {
                     None => self.is_subtype_rec(member, cx),
                 }
                 .or_else(|| self.descriptor_contained_in(member, cx.oracle, cx.defs))
+                .or_else(|| self.inside_what_it_complements(member, cx))
             }));
         }
         let Schema::Union(branches) = other else {
@@ -1693,13 +1909,45 @@ impl Schema {
             {
                 return answer;
             }
-            let verdict = self.verdict_rec(cx);
+            let verdict = match self.verdict_rec(cx) {
+                Verdict::Unknown => self.verdict_as_one_sequence(cx),
+                verdict => verdict,
+            };
             if verdict == Verdict::Unknown && cx.reads_leaves {
                 return self.a_meet_read_by_its_member(cx);
             }
             return Relation::of_mismatch(verdict);
         }
         answer
+    }
+
+    /// A meet of sequences read as the one sequence of its items' meet, where the meet's
+    /// own reading leaves its emptiness open: the one sequence is the meet's set, an
+    /// `allOf` of arrays being one array of the items' meet [HSHP20, §4.2]
+    /// ([`readings::a_meet_of_sequences_as_one`]). A refutation the one sequence reaches ([`one_sequence_below`])
+    /// stands on a value of it: `list[J] & ([] | list[str]) & Annotated[list[Any],
+    /// MinLen(1)]`, for `J` the JSON value, reads as neither empty nor inhabited as
+    /// written, and its one sequence holds `[""]`.
+    ///
+    /// Read as a respelled meet is asked ([`a_meet_respelled_below`]): inside another's
+    /// question with its steps, and outside one under an allowance of its own and on a
+    /// trail of its own, so its verdict rests on no hypothesis of the query's. Read with
+    /// the query's steps, it starved a refutation the readings after it reach.
+    #[inline(never)]
+    fn verdict_as_one_sequence(&self, cx: &mut Cx<'_>) -> Verdict {
+        let Schema::Intersection(members) = self else {
+            return Verdict::Unknown;
+        };
+        let Some(one) = readings::a_meet_of_sequences_as_one(members, cx.defs) else {
+            return Verdict::Unknown;
+        };
+        let query = cx.query();
+        if NARROWING.with(Cell::get) == query {
+            return one.verdict_rec(cx);
+        }
+        let allowance = Budget::new(cx.budget.left().min(respelling()));
+        let _open = Narrowing::open(query);
+        one.verdict_rec(&mut cx.within_this_query(&allowance))
     }
 
     /// A meet read as one of its members holds what that member holds, where the
@@ -2660,7 +2908,8 @@ impl Schema {
             // what a record's tag narrows to, and is asked as one once the
             // member rule has not placed it, and a meet a complement beside its
             // union narrows is the narrowed meet, the same set, asked after
-            // every other reading (`narrowed_meet_below`). A meet of keyed maps is one record,
+            // every other reading, and a meet of sequences the one sequence of
+            // its items' meet (`a_meet_respelled_below`). A meet of keyed maps is one record,
             // their pointwise meet, asked below a map or a union of maps; and a
             // meet below a complement is a meet sharing no value with its inner,
             // asked as the arm below asks it of any other subject.
@@ -2668,7 +2917,7 @@ impl Schema {
                 .meet_below(other, members, cx)
                 .or_else(|| finite_meet_below(members, other, cx.oracle))
                 .or_else(|| self.a_meet_read_whole(members, other, cx))
-                .or_else(|| narrowed_meet_below(members, other, cx)),
+                .or_else(|| a_meet_respelled_below(members, other, cx)),
             // A table of constants is a union of literals, and holds no kind of
             // infinitely many values whole, which the branches read alone
             // cannot say; asked where the branches have declined.
@@ -3164,10 +3413,10 @@ thread_local! {
     static READINGS: RefCell<Readings> = RefCell::new(Readings::default());
     /// The pairs the last askings on this thread read by the sets, by query number.
     static LEAVES: RefCell<Leaves> = RefCell::new(Leaves::default());
-    /// The query whose narrowed meet is being asked on this thread, or zero
-    /// where none is ([`narrowed_meet_below`]). Held beside the query for the
+    /// The query whose respelled meet is being asked on this thread, or zero
+    /// where none is ([`a_meet_respelled_below`]). Held beside the query for the
     /// reason [`Readings`] is, and by number, so a query a callback starts
-    /// inside the question asks its own narrowed meets as a query of its own.
+    /// inside the question asks its own respelled meets as a query of its own.
     static NARROWING: Cell<u64> = const { Cell::new(0) };
     /// The number the next query to read on this thread is given.
     static QUERIES: Cell<u64> = const { Cell::new(0) };
@@ -3189,8 +3438,8 @@ thread_local! {
     /// kept, and the members' storage is held, so no other meet's members are
     /// at that address while the record stands.
     static HELD: RefCell<Option<Held>> = const { RefCell::new(None) };
-    /// The answers of the narrowed meets the queries on this thread asked
-    /// outside another's question ([`narrowed_meet_below`]): by the query's
+    /// The answers of the respelled meets the queries on this thread asked
+    /// outside another's question ([`a_meet_respelled_below`]): by the query's
     /// number, the address of the meet's members and the allowance the
     /// question ran under, each supertype asked beside its answer. Held beside
     /// the query for the reason [`Readings`] is, and by number; the members'

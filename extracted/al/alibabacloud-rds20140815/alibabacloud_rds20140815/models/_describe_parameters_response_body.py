@@ -22,7 +22,7 @@ class DescribeParametersResponseBody(DaraModel):
         self.engine = engine
         # The database engine version.
         self.engine_version = engine_version
-        # The information about the parameter template.
+        # The parameter template information.
         self.param_group_info = param_group_info
         # The ID of the request.
         self.request_id = request_id

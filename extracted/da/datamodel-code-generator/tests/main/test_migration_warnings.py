@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import importlib
 import shlex
 import shutil
+import sys
 import warnings
 from pathlib import Path
 
@@ -206,3 +208,70 @@ def test_optional_dependency_notices_deduplicated_in_one_cli_invocation(tmp_path
         warnings.simplefilter("always", FutureWarning)
         run_main_with_args(["--all-jobs"], use_builtin_default_formatter=False)
     assert_output(_optional_dependency_notices(recorded), name="notices")
+
+
+@pytest.mark.parametrize(
+    "requirement",
+    [
+        pytest.param("datamodel-code-generator[genson]>=0.95", id="genson-extra"),
+        pytest.param("Datamodel__Code.Generator[Ruff, ALL]", id="all-extra-normalized"),
+        pytest.param("datamodel-code-generator[genson-dev]", id="other-extra"),
+        pytest.param('datamodel-code-generator[genson]; sys_platform == "never"', id="marker"),
+        pytest.param('datamodel-code-generator[genson]; extra == "codegen"', id="own-extra"),
+        pytest.param("datamodel-code-generator", id="no-extra"),
+    ],
+)
+def test_genson_notice_for_installed_requirements(
+    requirement: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An installed package that requires the genson extra unconditionally has done what the Genson notice asks.
+
+    An interrupted installation without METADATA and one whose METADATA is not UTF-8 are skipped.
+    """
+    (tmp_path / "dependent-1.0.dist-info").mkdir()
+    (tmp_path / "dependent-1.0.dist-info" / "METADATA").write_text(
+        f"Name: dependent\nVersion: 1.0\nRequires-Dist: {requirement}\n", encoding="utf-8"
+    )
+    (tmp_path / "unfinished-1.0.dist-info").mkdir()
+    (tmp_path / "latin-1.0.dist-info").mkdir()
+    (tmp_path / "latin-1.0.dist-info" / "METADATA").write_bytes(b"Name: latin\nVersion: 1\nSummary: caf\xe9\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always", FutureWarning)
+        generate({"a": 1}, config=GenerateConfig(input_file_type="dict", formatters=["builtin"]))
+    assert_output(_optional_dependency_notices(recorded), name="notices")
+
+
+def test_migration_notices_name_the_code_that_called_generate(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A notice that ``generate()`` emits names the module that called it, here while that module is imported.
+
+    Neither the frames of the package nor the import machinery's own frames between the module and the test are named,
+    so a ``module=`` filter for the calling module matches the notices.
+    """
+    (tmp_path / "notice_caller.py").write_text(
+        "from datamodel_code_generator import InputFileType, generate\n\n"
+        "generate({'a': 1}, input_file_type=InputFileType.Dict)\n",
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(tmp_path)
+
+    def notices(*module_filters: str) -> list[warnings.WarningMessage]:
+        sys.modules.pop("notice_caller", None)
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always", FutureWarning)
+            for module in module_filters:
+                warnings.filterwarnings("ignore", category=FutureWarning, module=module)
+            try:
+                importlib.import_module("notice_caller")
+            finally:
+                sys.modules.pop("notice_caller", None)
+        return [item for item in recorded if str(item.message).startswith(("Genson", "Default formatters"))]
+
+    left = notices("notice_caller")
+    assert_output(
+        "".join(
+            f"{Path(item.filename).relative_to(tmp_path)}:{item.lineno}: {str(item.message).split('. ')[0]}\n"
+            for item in notices()
+        )
+        + f"left by a module filter for the caller: {len(left)}\n"
+    )

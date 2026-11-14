@@ -70,14 +70,14 @@ class DescribeRCInstanceIpAddressResponseBodyRCInstanceList(DaraModel):
         instance_type: str = None,
         ip_address_config: List[main_models.DescribeRCInstanceIpAddressResponseBodyRCInstanceListIpAddressConfig] = None,
     ):
-        # The instance ID of the RDS Custom instance.
+        # The instance ID of the Custom instance.
         self.instance_id = instance_id
         # The name of the RDS Custom instance.
         self.instance_name = instance_name
         # The DDoS mitigation status of the instance. Valid values:
         # 
-        # - **normal**: Normal.
-        # - **abnormal**: Under attack.
+        # - **normal**: Normal
+        # - **abnormal**: Under attack
         self.instance_status = instance_status
         # The type of the assets that are assigned public IP addresses. Set the value to **ecs**.
         self.instance_type = instance_type
@@ -150,13 +150,13 @@ class DescribeRCInstanceIpAddressResponseBodyRCInstanceListIpAddressConfig(DaraM
         is_full_protection: int = None,
         region_id: str = None,
     ):
-        # The basic protection Mitigation Threshold for the assets that are assigned public IP addresses. Unit: Mbit/s.
+        # The basic DDoS mitigation threshold of the assets that are assigned public IP addresses. Unit: Mbit/s.
         self.blackhole_threshold = blackhole_threshold
-        # The traffic scrubbing threshold for the assets that are assigned public IP addresses. Unit: Mbit/s.
+        # The traffic scrubbing threshold of the assets that are assigned public IP addresses. Unit: Mbit/s.
         self.defense_bps_threshold = defense_bps_threshold
-        # The packet rate scrubbing threshold for the assets that are assigned public IP addresses. Unit: pps.
+        # The packet count scrubbing threshold of the assets that are assigned public IP addresses. Unit: pps.
         self.defense_pps_threshold = defense_pps_threshold
-        # The burstable Mitigation Threshold for the assets that are assigned public IP addresses. Unit: Mbit/s.
+        # The burstable DDoS mitigation threshold of the assets that are assigned public IP addresses. Unit: Mbit/s.
         self.elastic_threshold = elastic_threshold
         # The IP address of the assets that are assigned public IP addresses.
         self.instance_ip = instance_ip
@@ -166,17 +166,17 @@ class DescribeRCInstanceIpAddressResponseBodyRCInstanceListIpAddressConfig(DaraM
         # - **blackholed**: Black Hole Activated
         # - **normal**: Normal
         self.ip_status = ip_status
-        # The IP version of the instance. Valid values:
+        # The IP protocol version of the instance. Valid values:
         # 
         # - **v4**
         # - **v6**
         self.ip_version = ip_version
-        # Indicates whether the public IP asset is attached to Anti-DDoS Origin. Valid values:
+        # Indicates whether the asset that is assigned a public IP address is bound to Anti-DDoS Origin. Valid values:
         # 
         # - **true**: Yes.
         # - **false**: No.
         self.is_bgppack = is_bgppack
-        # Indicates whether best-effort protection is enabled for the assets that are assigned public IP addresses in Anti-DDoS Origin. Valid values:
+        # Indicates whether the asset that is assigned a public IP address is protected by the best-effort protection feature of Anti-DDoS Origin. Valid values:
         # 
         # - **0**: Best-effort protection is disabled.
         # - **1**: Best-effort protection is enabled.

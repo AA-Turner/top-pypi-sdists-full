@@ -78,12 +78,18 @@ mod test_person_location_work;
 mod test_person_plans;
 #[path = "test_person_sessions.rs"]
 mod test_person_sessions;
+#[path = "test_providers.rs"]
+mod test_providers;
 #[path = "test_proxy.rs"]
 mod test_proxy;
 #[path = "test_publish_encoding.rs"]
 mod test_publish_encoding;
 #[path = "test_reads.rs"]
 mod test_reads;
+#[path = "test_resource_costs.rs"]
+mod test_resource_costs;
+#[path = "test_run_ids.rs"]
+mod test_run_ids;
 #[path = "test_server_errors.rs"]
 mod test_server_errors;
 #[path = "test_statistics_recovery.rs"]

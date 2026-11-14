@@ -32,6 +32,8 @@ def main():
             except Exception as exc:
                 config.log.error(exc)
         if args.config_load:
+            if args.config_strict:
+                os.environ["GDL_CONFIG_STRICT"] = "1"
             config.load()
         if args.configs_extra:
             config.load(args.configs_extra, strict=True)
@@ -193,7 +195,7 @@ def main():
 
             log.debug("Configuration Files %s", config._files)
 
-        if args.cache_file:
+        if args.cache_file is not None:
             config.set(("cache",), "file", args.cache_file)
 
         if args.cache_status:

@@ -1,5 +1,5 @@
 """Unit tests for the retry transport against a fake/mocked transport
-(``httpx.MockTransport``), per rules/sdk-generation.md's "unit-test only
+(``httpx2.MockTransport``), per rules/sdk-generation.md's "unit-test only
 the hand-written parts" -- this never exercises a real network call or the
 generated client.
 """
@@ -10,7 +10,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
 
-import httpx
+import httpx2
 import pytest
 
 from forge_dashboard.retry import (
@@ -23,16 +23,16 @@ from forge_dashboard.retry import (
 )
 
 
-def _counting_handler(statuses: list[int], headers: list[dict[str, str]] | None = None) -> httpx.MockTransport:
+def _counting_handler(statuses: list[int], headers: list[dict[str, str]] | None = None) -> httpx2.MockTransport:
     calls = {"n": 0}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         i = min(calls["n"], len(statuses) - 1)
         calls["n"] += 1
         h = headers[i] if headers else {}
-        return httpx.Response(statuses[i], headers=h, request=request)
+        return httpx2.Response(statuses[i], headers=h, request=request)
 
-    transport = httpx.MockTransport(handler)
+    transport = httpx2.MockTransport(handler)
     transport.calls = calls  # type: ignore[attr-defined]
     return transport
 
@@ -43,7 +43,7 @@ def test_retries_5xx_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
 
     mock = _counting_handler([500, 500, 200])
     retry_transport = RetryTransport(transport=mock, retry=RetryConfig(max_retries=3, base_seconds=0.01))
-    request = httpx.Request("GET", "https://example.test/api/version")
+    request = httpx2.Request("GET", "https://example.test/api/version")
 
     response = retry_transport.handle_request(request)
 
@@ -58,7 +58,7 @@ def test_never_retries_other_4xx(monkeypatch: pytest.MonkeyPatch) -> None:
 
     mock = _counting_handler([404, 200])
     retry_transport = RetryTransport(transport=mock, retry=RetryConfig(max_retries=3, base_seconds=0.01))
-    request = httpx.Request("GET", "https://example.test/api/repos/nope")
+    request = httpx2.Request("GET", "https://example.test/api/repos/nope")
 
     response = retry_transport.handle_request(request)
 
@@ -72,7 +72,7 @@ def test_exhausts_max_retries_and_returns_last_response(monkeypatch: pytest.Monk
 
     mock = _counting_handler([500, 500, 500, 500, 500])
     retry_transport = RetryTransport(transport=mock, retry=RetryConfig(max_retries=2, base_seconds=0.01))
-    request = httpx.Request("GET", "https://example.test/api/version")
+    request = httpx2.Request("GET", "https://example.test/api/version")
 
     response = retry_transport.handle_request(request)
 
@@ -87,16 +87,16 @@ def test_retries_transport_error_then_succeeds(monkeypatch: pytest.MonkeyPatch) 
 
     calls = {"n": 0}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         calls["n"] += 1
         if calls["n"] == 1:
-            raise httpx.ConnectError("connection reset", request=request)
-        return httpx.Response(200, request=request)
+            raise httpx2.ConnectError("connection reset", request=request)
+        return httpx2.Response(200, request=request)
 
     retry_transport = RetryTransport(
-        transport=httpx.MockTransport(handler), retry=RetryConfig(max_retries=2, base_seconds=0.01)
+        transport=httpx2.MockTransport(handler), retry=RetryConfig(max_retries=2, base_seconds=0.01)
     )
-    request = httpx.Request("GET", "https://example.test/api/version")
+    request = httpx2.Request("GET", "https://example.test/api/version")
 
     response = retry_transport.handle_request(request)
 
@@ -113,16 +113,16 @@ def test_transport_error_exhausts_retries_after_correct_attempt_count(monkeypatc
 
     calls = {"n": 0}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         calls["n"] += 1
-        raise httpx.ConnectError("connection reset", request=request)
+        raise httpx2.ConnectError("connection reset", request=request)
 
     retry_transport = RetryTransport(
-        transport=httpx.MockTransport(handler), retry=RetryConfig(max_retries=2, base_seconds=0.01)
+        transport=httpx2.MockTransport(handler), retry=RetryConfig(max_retries=2, base_seconds=0.01)
     )
 
-    with pytest.raises(httpx.ConnectError):
-        retry_transport.handle_request(httpx.Request("GET", "https://example.test/api/version"))
+    with pytest.raises(httpx2.ConnectError):
+        retry_transport.handle_request(httpx2.Request("GET", "https://example.test/api/version"))
 
     # first attempt + 2 retries, no more, no fewer -- pins the attempt
     # counter's increment (not a no-op or an off-by-N step) against the
@@ -137,7 +137,7 @@ def test_retry_after_seconds_header_takes_priority_over_backoff(monkeypatch: pyt
     mock = _counting_handler([429, 200], headers=[{"Retry-After": "7"}, {}])
     retry_transport = RetryTransport(transport=mock, retry=RetryConfig(max_retries=3, base_seconds=100.0))
 
-    response = retry_transport.handle_request(httpx.Request("GET", "https://example.test/api/repos"))
+    response = retry_transport.handle_request(httpx2.Request("GET", "https://example.test/api/repos"))
 
     assert response.status_code == 200
     assert sleeps == [7.0]
@@ -146,7 +146,7 @@ def test_retry_after_seconds_header_takes_priority_over_backoff(monkeypatch: pyt
 def test_retry_after_seconds_helper_parses_http_date() -> None:
     future = datetime.now(UTC) + timedelta(seconds=5)
     header = format_datetime(future, usegmt=True)
-    response = httpx.Response(429, headers={"Retry-After": header})
+    response = httpx2.Response(429, headers={"Retry-After": header})
 
     delay = _retry_after_seconds(response)
 
@@ -155,17 +155,17 @@ def test_retry_after_seconds_helper_parses_http_date() -> None:
 
 
 def test_retry_after_seconds_helper_returns_none_when_absent() -> None:
-    assert _retry_after_seconds(httpx.Response(500)) is None
+    assert _retry_after_seconds(httpx2.Response(500)) is None
 
 
 def test_retry_after_seconds_helper_ignores_garbage() -> None:
-    assert _retry_after_seconds(httpx.Response(429, headers={"Retry-After": "not-a-date"})) is None
+    assert _retry_after_seconds(httpx2.Response(429, headers={"Retry-After": "not-a-date"})) is None
 
 
 def test_retry_after_seconds_helper_parses_naive_http_date() -> None:
     # A date string with no zone parses to a naive datetime -- exercises
     # the tzinfo-is-None branch that assumes UTC.
-    response = httpx.Response(429, headers={"Retry-After": "Mon, 01 Jan 2035 00:00:00"})
+    response = httpx2.Response(429, headers={"Retry-After": "Mon, 01 Jan 2035 00:00:00"})
 
     delay = _retry_after_seconds(response)
 
@@ -177,7 +177,7 @@ def test_retry_after_seconds_helper_clamps_past_date_to_zero() -> None:
     past = datetime.now(UTC) - timedelta(seconds=30)
     header = format_datetime(past, usegmt=True)
 
-    assert _retry_after_seconds(httpx.Response(429, headers={"Retry-After": header})) == 0.0
+    assert _retry_after_seconds(httpx2.Response(429, headers={"Retry-After": header})) == 0.0
 
 
 def test_should_retry_raises_without_response_or_exception() -> None:
@@ -213,17 +213,17 @@ def test_async_retries_5xx_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> Non
 
     calls = {"n": 0}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         i = min(calls["n"], 2)
         calls["n"] += 1
-        return httpx.Response([500, 500, 200][i], request=request)
+        return httpx2.Response([500, 500, 200][i], request=request)
 
     transport = AsyncRetryTransport(
-        transport=httpx.MockTransport(handler), retry=RetryConfig(max_retries=3, base_seconds=0.01)
+        transport=httpx2.MockTransport(handler), retry=RetryConfig(max_retries=3, base_seconds=0.01)
     )
 
-    async def run() -> httpx.Response:
-        return await transport.handle_async_request(httpx.Request("GET", "https://example.test/api/version"))
+    async def run() -> httpx2.Response:
+        return await transport.handle_async_request(httpx2.Request("GET", "https://example.test/api/version"))
 
     response = asyncio.run(run())
 
@@ -235,16 +235,16 @@ def test_async_retries_5xx_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_async_never_retries_other_4xx() -> None:
     calls = {"n": 0}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         calls["n"] += 1
-        return httpx.Response(403, request=request)
+        return httpx2.Response(403, request=request)
 
     transport = AsyncRetryTransport(
-        transport=httpx.MockTransport(handler), retry=RetryConfig(max_retries=3, base_seconds=0.01)
+        transport=httpx2.MockTransport(handler), retry=RetryConfig(max_retries=3, base_seconds=0.01)
     )
 
-    async def run() -> httpx.Response:
-        return await transport.handle_async_request(httpx.Request("GET", "https://example.test/api/repos"))
+    async def run() -> httpx2.Response:
+        return await transport.handle_async_request(httpx2.Request("GET", "https://example.test/api/repos"))
 
     response = asyncio.run(run())
 
@@ -262,18 +262,18 @@ def test_async_retries_transport_error_then_succeeds(monkeypatch: pytest.MonkeyP
 
     calls = {"n": 0}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         calls["n"] += 1
         if calls["n"] == 1:
-            raise httpx.ConnectError("connection reset", request=request)
-        return httpx.Response(200, request=request)
+            raise httpx2.ConnectError("connection reset", request=request)
+        return httpx2.Response(200, request=request)
 
     transport = AsyncRetryTransport(
-        transport=httpx.MockTransport(handler), retry=RetryConfig(max_retries=2, base_seconds=0.01)
+        transport=httpx2.MockTransport(handler), retry=RetryConfig(max_retries=2, base_seconds=0.01)
     )
 
-    async def run() -> httpx.Response:
-        return await transport.handle_async_request(httpx.Request("GET", "https://example.test/api/version"))
+    async def run() -> httpx2.Response:
+        return await transport.handle_async_request(httpx2.Request("GET", "https://example.test/api/version"))
 
     response = asyncio.run(run())
 
@@ -291,18 +291,18 @@ def test_async_transport_error_exhausts_retries_after_correct_attempt_count(monk
 
     calls = {"n": 0}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         calls["n"] += 1
-        raise httpx.ConnectError("connection reset", request=request)
+        raise httpx2.ConnectError("connection reset", request=request)
 
     transport = AsyncRetryTransport(
-        transport=httpx.MockTransport(handler), retry=RetryConfig(max_retries=2, base_seconds=0.01)
+        transport=httpx2.MockTransport(handler), retry=RetryConfig(max_retries=2, base_seconds=0.01)
     )
 
-    async def run() -> httpx.Response:
-        return await transport.handle_async_request(httpx.Request("GET", "https://example.test/api/version"))
+    async def run() -> httpx2.Response:
+        return await transport.handle_async_request(httpx2.Request("GET", "https://example.test/api/version"))
 
-    with pytest.raises(httpx.ConnectError):
+    with pytest.raises(httpx2.ConnectError):
         asyncio.run(run())
 
     assert calls["n"] == 3
@@ -318,20 +318,20 @@ def test_async_exhausts_max_retries_and_returns_last_response(monkeypatch: pytes
 
     calls = {"n": 0}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         calls["n"] += 1
         # A Retry-After header makes the delay depend on *this* response
         # object specifically -- a huge base_seconds means any fallback
         # to the generic backoff (or to no response at all) would sleep
         # far longer than 9 seconds, so pytest.approx below would fail.
-        return httpx.Response(500, headers={"Retry-After": "9"}, request=request)
+        return httpx2.Response(500, headers={"Retry-After": "9"}, request=request)
 
     transport = AsyncRetryTransport(
-        transport=httpx.MockTransport(handler), retry=RetryConfig(max_retries=2, base_seconds=1000.0)
+        transport=httpx2.MockTransport(handler), retry=RetryConfig(max_retries=2, base_seconds=1000.0)
     )
 
-    async def run() -> httpx.Response:
-        return await transport.handle_async_request(httpx.Request("GET", "https://example.test/api/version"))
+    async def run() -> httpx2.Response:
+        return await transport.handle_async_request(httpx2.Request("GET", "https://example.test/api/version"))
 
     response = asyncio.run(run())
 
@@ -345,39 +345,39 @@ def test_async_exhausts_max_retries_and_returns_last_response(monkeypatch: pytes
 
 
 def test_default_sync_transport_is_a_real_http_transport() -> None:
-    assert isinstance(RetryTransport()._transport, httpx.HTTPTransport)
+    assert isinstance(RetryTransport()._transport, httpx2.HTTPTransport)
 
 
 def test_default_async_transport_is_a_real_http_transport() -> None:
-    assert isinstance(AsyncRetryTransport()._transport, httpx.AsyncHTTPTransport)
+    assert isinstance(AsyncRetryTransport()._transport, httpx2.AsyncHTTPTransport)
 
 
 def test_sync_transport_error_raises_once_retries_exhausted(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("forge_dashboard.retry.time.sleep", lambda _seconds: None)
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        raise httpx.ConnectError("connection reset", request=request)
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        raise httpx2.ConnectError("connection reset", request=request)
 
     retry_transport = RetryTransport(
-        transport=httpx.MockTransport(handler), retry=RetryConfig(max_retries=1, base_seconds=0.01)
+        transport=httpx2.MockTransport(handler), retry=RetryConfig(max_retries=1, base_seconds=0.01)
     )
 
-    with pytest.raises(httpx.ConnectError):
-        retry_transport.handle_request(httpx.Request("GET", "https://example.test/api/version"))
+    with pytest.raises(httpx2.ConnectError):
+        retry_transport.handle_request(httpx2.Request("GET", "https://example.test/api/version"))
 
 
 def test_close_and_aclose_delegate_to_wrapped_transport() -> None:
     closed = {"sync": False, "async": False}
 
-    class FakeSyncTransport(httpx.BaseTransport):
-        def handle_request(self, request: httpx.Request) -> httpx.Response:  # pragma: no cover - unused
+    class FakeSyncTransport(httpx2.BaseTransport):
+        def handle_request(self, request: httpx2.Request) -> httpx2.Response:  # pragma: no cover - unused
             raise NotImplementedError
 
         def close(self) -> None:
             closed["sync"] = True
 
-    class FakeAsyncTransport(httpx.AsyncBaseTransport):
-        async def handle_async_request(self, request: httpx.Request) -> httpx.Response:  # pragma: no cover - unused
+    class FakeAsyncTransport(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, request: httpx2.Request) -> httpx2.Response:  # pragma: no cover - unused
             raise NotImplementedError
 
         async def aclose(self) -> None:

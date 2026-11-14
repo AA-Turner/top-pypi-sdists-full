@@ -180,6 +180,8 @@ from .type_defs import (
     UpdateEntitlementResultTypeDef,
     UpdateFleetRequestTypeDef,
     UpdateFleetResultTypeDef,
+    UpdateImageBuilderRequestTypeDef,
+    UpdateImageBuilderResultTypeDef,
     UpdateImagePermissionsRequestTypeDef,
     UpdateStackRequestTypeDef,
     UpdateStackResultTypeDef,
@@ -1086,6 +1088,16 @@ class AppStreamClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/update_fleet.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appstream/client/#update_fleet)
+        """
+
+    def update_image_builder(
+        self, **kwargs: Unpack[UpdateImageBuilderRequestTypeDef]
+    ) -> UpdateImageBuilderResultTypeDef:
+        """
+        Updates the specified fields for the specified image builder.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/update_image_builder.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appstream/client/#update_image_builder)
         """
 
     def update_image_permissions(

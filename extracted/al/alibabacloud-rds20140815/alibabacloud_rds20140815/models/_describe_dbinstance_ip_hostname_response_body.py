@@ -13,7 +13,7 @@ class DescribeDBInstanceIpHostnameResponseBody(DaraModel):
     ):
         # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # The internal IP addresses and hostnames of the underlying ECS instances for the ApsaraDB RDS for SQL Server instance, including the primary and secondary instances. Format: `ip1,hostname1;ip2,hostname2`.
+        # The internal IP addresses and ECS hostnames of the underlying ECS instances where the ApsaraDB RDS for SQL Server instance is deployed, including the primary and secondary instances. Format: `ip1,hostname1;ip2,hostname2`.
         self.ip_hostname_infos = ip_hostname_infos
         # The request ID.
         self.request_id = request_id

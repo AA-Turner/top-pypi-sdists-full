@@ -19,13 +19,13 @@ class ReleaseInstanceConnectionRequest(DaraModel):
         # 
         # This parameter is required.
         self.current_connection_string = current_connection_string
-        # The instance ID. You can call DescribeDBInstances to query the instance ID.
+        # The instance ID. You can call the DescribeDBInstances operation to obtain the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         # The network type of the instance. Valid values:
-        # - **0**: VPC
-        # - **1**: classic network
+        # - **0**: VPC.
+        # - **1**: Classic network.
         # 
         # This parameter is required.
         self.instance_network_type = instance_network_type

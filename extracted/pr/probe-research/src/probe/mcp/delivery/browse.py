@@ -51,9 +51,10 @@ _CURSOR_PARAMETERS = {
 }
 
 
-#: Who a person filter matched and how many rows had no known person (`browse_research` puts them on
-#: `data`): every page of the tree repeats them, as a flat listing's page does.
-_OWNER_ECHO = ("owner_matched", "unowned_count")
+#: What a filtered read says about its filters (`browse_research` puts them on `data`): who `owner`
+#: matched, rows with no known person, what a person filter leaves out, and a name query's miss note.
+#: Every page of the tree repeats them, as a flat listing's page does.
+_LISTING_ECHO = ("owner_matched", "unowned_count", "owner_note", "query_note")
 
 
 def _pack_state(state: dict) -> dict:
@@ -120,6 +121,17 @@ def _compact(row: dict) -> dict:
     if trimmed:
         result["truncated_fields"] = trimmed
     return result
+
+
+def _tree_row(raw: dict) -> dict:
+    """A row compacted with its fetched experiments and runs, as the small tree shows it."""
+    row = _compact(raw)
+    for child in ("experiments", "runs"):
+        if child in raw:
+            row[child] = (
+                [_tree_row(value) for value in raw[child]] if isinstance(raw[child], list) else None
+            )
+    return row
 
 
 def _smaller(row: dict):
@@ -201,7 +213,12 @@ def _invoke_list(arguments: dict, call: Callable[[dict], dict], scope: str) -> d
     views = data.get("available_views")
 
     def result(
-        count: int, *, with_views: bool = True, with_history: bool = True, with_total: bool = True
+        count: int,
+        *,
+        with_views: bool = True,
+        with_history: bool = True,
+        with_total: bool = True,
+        show_project_totals: bool = True,
     ) -> dict:
         native = end if count == len(rows) else after[count - 1]
         missing = list(source_missing)
@@ -209,6 +226,14 @@ def _invoke_list(arguments: dict, call: Callable[[dict], dict], scope: str) -> d
             missing.append(MissingMarker.TRUNCATED_BY_TOKEN_BUDGET)
         sent = rows[:count]
         out_data = {k: v for k, v in data.items() if k != "available_views"}
+        totals = out_data.get("totals")
+        if not show_project_totals and isinstance(totals, dict) and "by_project" in totals:
+            # A checkpoint page's per-project split is optional; its whole-listing sums stay.
+            projects = totals.get("by_project") or []
+            out_data["totals"] = {
+                **{k: v for k, v in totals.items() if k != "by_project"},
+                "by_project_more": len(projects) + int(totals.get("by_project_more") or 0),
+            }
         history = out_data.get("pick_history")
         if not with_history and isinstance(history, list):
             # The workspace's pick history is the optional part of a branches
@@ -252,9 +277,10 @@ def _invoke_list(arguments: dict, call: Callable[[dict], dict], scope: str) -> d
         return best
     # One row and the per-kind views do not fit together: the views are the
     # optional part (they say what `entity` can do next), the row is the answer.
-    # So is a branches page's pick history, sized by an estimate of this page.
+    # So are a checkpoint page's per-project totals and a branches page's pick history.
     for lean in (
         result(1, with_views=False),
+        result(1, with_views=False, show_project_totals=False),
         result(1, with_views=False, with_history=False),
         result(1, with_views=False, with_history=False, with_total=False),
     ):
@@ -372,7 +398,12 @@ def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
             fail()
         return after
 
-    after = positions(descriptor, rows)
+    # A one-page stream (`order=recent` or a name `query`: no handle resumes inside it) comes back
+    # with `after == []`. It only ever answers a first call, since we never mint a cursor for it.
+    is_one_page = bool(rows) and descriptor.get("after") == [] and not descriptor.get("next_cursor")
+    if is_one_page and (parent is not None or "browse" in state):
+        fail()
+    after = [] if is_one_page else positions(descriptor, rows)
 
     def phase_after() -> dict | None:
         return {"browse": 1, "phase": phase + 1} if phase + 1 < len(phases) else None
@@ -405,10 +436,10 @@ def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
             "root_more": more,
         }
 
-    def result(values: list, continuation: dict | None) -> dict:
+    def result(values: list, continuation: dict | None, is_cut: bool = False) -> dict:
         output_data: dict[str, Any] = {
             "scope": target_ref,
-            **{key: data[key] for key in _OWNER_ECHO if key in data},
+            **{key: data[key] for key in _LISTING_ECHO if key in data},
             "depth": fetch_args["depth"],
             target_level: values,
         }
@@ -427,7 +458,7 @@ def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
         missing = [
             item for item in source.get("missing", []) if item != "truncated_by_token_budget"
         ]
-        if continuation is not None:
+        if continuation is not None or is_cut:
             missing.append("truncated_by_token_budget")
         output = omit_defaults(
             {
@@ -454,25 +485,13 @@ def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
         and all(isinstance(data.get(name), list) for name in phases)
         and not any(item.get("next_cursor") for item in handles)
     ):
-
-        def tree_row(raw: dict) -> dict:
-            row = _compact(raw)
-            for child in ("experiments", "runs"):
-                if child in raw:
-                    row[child] = (
-                        [tree_row(value) for value in raw[child]]
-                        if isinstance(raw[child], list)
-                        else None
-                    )
-            return row
-
         whole = result([], None)
         whole["data"] = {
             "scope": target_ref,
-            **{key: data[key] for key in _OWNER_ECHO if key in data},
+            **{key: data[key] for key in _LISTING_ECHO if key in data},
             "depth": fetch_args["depth"],
             **{
-                name: [tree_row(row) for row in data[name]]
+                name: [_tree_row(row) for row in data[name]]
                 if isinstance(data.get(name), list)
                 else None
                 for name in ("projects", "experiments", "runs", "subprojects")
@@ -482,6 +501,26 @@ def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
             whole["data"]["available_views"] = data["available_views"]
         if budget.fits(whole):
             return whole
+
+    if is_one_page:
+        # Nothing to resume from: send the best rows that fit and say the rest were cut.
+        kept: list[dict] = []
+        for raw in rows:
+            if not budget.fits(result([*kept, _tree_row(raw)], None, is_cut=True)):
+                break
+            kept.append(_tree_row(raw))
+        if not kept:
+            # The smallest form drops the row's fetched children: that is a cut too.
+            is_cut = len(rows) > 1 or any(rows[0].get(child) for child in ("experiments", "runs"))
+            for smaller in _smaller(_compact(rows[0])):
+                candidate = result([smaller], None, is_cut=is_cut)
+                if budget.fits(candidate):
+                    return candidate
+            raise ContinuationError(
+                "Browse identity exceeds this budget; use a larger token_budget."
+            )
+        is_cut = len(kept) < len(rows) or any(item.get("next_cursor") for item in handles)
+        return result(kept, None, is_cut=is_cut)
 
     if not rows:
         return result([], child_done() if parent is not None else phase_after())

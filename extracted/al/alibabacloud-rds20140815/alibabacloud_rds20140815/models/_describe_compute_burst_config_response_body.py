@@ -16,6 +16,7 @@ class DescribeComputeBurstConfigResponseBody(DaraModel):
         # The configuration details of the committed Serverless feature.
         self.compute_burst_config = compute_burst_config
         # Indicates whether the committed Serverless feature is enabled. Valid values:
+        # 
         # - **true**: Enabled.
         # - **false**: Disabled.
         self.compute_burst_enabled = compute_burst_enabled

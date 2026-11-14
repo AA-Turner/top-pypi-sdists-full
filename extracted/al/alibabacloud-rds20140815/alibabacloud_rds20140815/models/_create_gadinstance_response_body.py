@@ -53,7 +53,7 @@ class CreateGADInstanceResponseBodyResult(DaraModel):
     ):
         # The number of nodes created by this call.
         self.create_member_count = create_member_count
-        # The ID of the global active database cluster.
+        # The ID of the GAD cluster.
         self.gad_instance_name = gad_instance_name
         # The task ID.
         self.task_id = task_id

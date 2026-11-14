@@ -18,11 +18,11 @@ class DescribeHistoryTasksResponseBody(DaraModel):
     ):
         # The task list.
         self.items = items
-        # The page number of the query result.
+        # The page number of the returned page.
         self.page_number = page_number
         # The number of entries per page.
         self.page_size = page_size
-        # The unique request ID. If you encounter any issues, provide this request ID for troubleshooting.
+        # The unique ID of the request. If you encounter any issues, provide this request ID to the technical support team for troubleshooting.
         self.request_id = request_id
         # The total number of tasks that meet the specified conditions, regardless of pagination.
         self.total_count = total_count
@@ -103,7 +103,7 @@ class DescribeHistoryTasksResponseBodyItems(DaraModel):
         task_type: str = None,
         uid: str = None,
     ):
-        # The allowed operation information. In actual use, the operation action is matched in this information based on currentStepName and status. If no action is matched, the current status of the task does not support the operation. Example:
+        # The information about allowed operations. During actual use, the operation action is matched in this information based on currentStepName and status. If no action is matched, the current task status does not support the operation. Example:
         # ```
         #   "steps": [
         #     {
@@ -138,7 +138,7 @@ class DescribeHistoryTasksResponseBodyItems(DaraModel):
         # - **System**: System.
         # - **User**: User.
         self.caller_uid = caller_uid
-        # The name of the current step. If this parameter is empty, the task has not started.
+        # The name of the currently executed step. If this parameter is empty, the task has not started.
         self.current_step_name = current_step_name
         # The database type.
         self.db_type = db_type
@@ -154,7 +154,7 @@ class DescribeHistoryTasksResponseBodyItems(DaraModel):
         self.product = product
         # The current progress.
         self.progress = progress
-        # The cause of the current task.
+        # The reason why the current task was initiated.
         self.reason_code = reason_code
         # The region ID.
         self.region_id = region_id
@@ -164,9 +164,9 @@ class DescribeHistoryTasksResponseBodyItems(DaraModel):
         self.start_time = start_time
         # The task status. Valid values:
         # - Scheduled: Pending execution.
-        # - Running: Running.
-        # - Succeed: Succeeded.
-        # - Failed: Failed.
+        # - Running: Executing.
+        # - Succeed: Executed successfully.
+        # - Failed: Execution failed.
         # - Cancelling: Cancelling.
         # - Canceled: Canceled.
         # - Waiting: Waiting for the scheduled time.

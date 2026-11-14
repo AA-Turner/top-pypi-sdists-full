@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import uuid
 from functools import cached_property
-from typing import Any, Iterable, Literal, Mapping
-from uuid import uuid4
+from typing import Any, Literal, Mapping
 
 import httpx2
 
@@ -23,11 +23,9 @@ from trajectory.types.trajectories.trajectories_complete_params import Trajector
 from trajectory.types.trajectories.trajectories_create_params import TrajectoriesCreateParams
 from trajectory.types.trajectories.trajectories_log_event_params import TrajectoriesLogEventParams
 from trajectory.types.trajectories.trajectories_log_reward_params import TrajectoriesLogRewardParams
-from trajectory.types.trajectories.trajectories_upload_params import TrajectoriesUploadParams
 from trajectory.types.trajectories.trajectory import Trajectory
 from trajectory.types.trajectory_event import TrajectoryEvent
 from trajectory.types.trajectory_metadata import TrajectoryMetadata
-from trajectory.types.trajectory_upload_response import TrajectoryUploadResponse
 
 
 class Trajectories(APIResource):
@@ -93,7 +91,6 @@ class Trajectories(APIResource):
   def list(
     self,
     *,
-    dataset_name: str | None | Omit = omit,
     training_run_id: str | None | Omit = omit,
     eval_run_id: str | None | Omit = omit,
     cursor: str | None | Omit = omit,
@@ -129,7 +126,6 @@ class Trajectories(APIResource):
       options=make_request_options(
         params=maybe_transform(
           {
-            "dataset_name": dataset_name,
             "training_run_id": training_run_id,
             "eval_run_id": eval_run_id,
             "cursor": cursor,
@@ -190,53 +186,6 @@ class Trajectories(APIResource):
             "include_reward_components": include_reward_components,
           }
         ),
-        extra_headers=extra_headers,
-        extra_query=extra_query,
-        extra_body=extra_body,
-        timeout=timeout,
-      ),
-    )
-
-  def upload(
-    self,
-    *,
-    agent_id: str,
-    dataset: str,
-    trajectories: Iterable[Mapping[str, Any]] | Omit = omit,
-    extra_headers: Headers | None = None,
-    extra_query: dict[str, Any] | None = None,
-    extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
-  ) -> TrajectoryUploadResponse:
-    """Upload
-
-    Args:
-      agent_id: Agent that owns the uploaded trajectories.
-
-      dataset: Dataset name to upload these trajectories into.
-
-      trajectories: Trajectory payloads to validate, store, and index.
-
-      extra_headers: Send extra headers
-
-      extra_query: Add additional query parameters to the request
-
-      extra_body: Add additional JSON properties to the request
-
-      timeout: Override the client-level default timeout for this request, in seconds
-    """
-    return self._post(
-      "/api/v1/trajectories/upload",
-      cast_to=TrajectoryUploadResponse,
-      body=maybe_transform(
-        {
-          "agent_id": agent_id,
-          "dataset": dataset,
-          "trajectories": trajectories,
-        },
-        TrajectoriesUploadParams,
-      ),
-      options=make_request_options(
         extra_headers=extra_headers,
         extra_query=extra_query,
         extra_body=extra_body,
@@ -425,7 +374,7 @@ class Trajectories(APIResource):
       cast_to=LogTrajectoryRewardResponse,
       body=maybe_transform(
         {
-          "reward_id": str(uuid4()),
+          "reward_id": str(uuid.uuid4()),
           "name": name,
           "value": value,
           "min_value": min_value,
@@ -526,7 +475,6 @@ class TrajectoriesWithRawResponse:
     self.create = to_raw_response_wrapper(resource.create)
     self.list = to_raw_response_wrapper(resource.list)
     self.retrieve = to_raw_response_wrapper(resource.retrieve)
-    self.upload = to_raw_response_wrapper(resource.upload)
     self.log_event = to_raw_response_wrapper(resource.log_event)
     self.list_events = to_raw_response_wrapper(resource.list_events)
     self.log_reward = to_raw_response_wrapper(resource.log_reward)

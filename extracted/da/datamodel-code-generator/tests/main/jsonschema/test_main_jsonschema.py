@@ -11735,6 +11735,32 @@ def test_main_jsonschema_allof_enum_no_external_ref(output_file: Path) -> None:
     )
 
 
+@pytest.mark.parametrize("output_model", ["pydantic_v2.BaseModel", "msgspec.Struct", "dataclasses.dataclass"])
+def test_main_jsonschema_allof_any_of_enum_branch_object_keywords(output_model: str, output_file: Path) -> None:
+    """Write a class that inherits an enum as the merged enum when object keywords give it fields of its own.
+
+    The enum branch of an allOf's anyOf, inline or a ``$ref``, and an allOf of an enum ``$ref`` take no fields from
+    the site's ``required`` and ``properties``: an enum with members cannot be extended, and through 0.90.0 such a
+    class failed on import.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "allof_any_of_enum_branch_object_keywords.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--output-model-type", output_model, "--disable-timestamp"],
+        force_exec_validation=True,
+    )
+    if output_model == "pydantic_v2.BaseModel":
+        assert_generated_model_json_validation(
+            output_file,
+            module_name="allof_any_of_enum_branch_object_keywords",
+            model_name="Task",
+            valid_json='{"result": "pending", "progress": "open", "state": "closed"}',
+            invalid_json='{"state": "other"}',
+            expected_error_type="enum",
+        )
+
+
 @pytest.mark.skipif(
     black.__version__.split(".")[0] == "22",
     reason="Installed black doesn't support the old style",
@@ -16654,6 +16680,20 @@ def test_main_jsonschema_property_names_pattern_field_constraints(output_file: P
             "--output-model-type",
             "pydantic_v2.BaseModel",
             "--field-constraints",
+        ],
+    )
+
+
+def test_main_jsonschema_property_names_pattern_quotes(output_file: Path) -> None:
+    """Test propertyNames patterns holding quotes keep the regex unchanged in the key constr."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "property_names_pattern_quotes.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
         ],
     )
 
@@ -25296,6 +25336,26 @@ def test_main_jsonschema_external_ref_mapping_whole_document_unused(output_file:
             "pydantic_v2.BaseModel",
             "--external-ref-mapping",
             "external_ref_mapping_whole_document/common.json=mapped_whole_document.models",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+    )
+
+
+def test_main_jsonschema_external_ref_mapping_modules(output_dir: Path) -> None:
+    """Import a mapped class and an ``x-python-import`` class only in the module whose model names it.
+
+    Up to 0.95.0 every module of a directory input imported both, also ``product.py`` that names neither (#6787).
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "external_ref_mapping_modules",
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--external-ref-mapping",
+            "../external_ref_mapping_all_of_keywords/shared.json=mycompany.shared",
+            "--allow-remote-refs",
             "--disable-timestamp",
             "--formatters",
             "builtin",
@@ -42148,9 +42208,10 @@ def test_main_jsonschema_shared_import_named_like_module_and_model(output_dir: P
     """Import a model from its module under an alias where a shared import binds the model's name too.
 
     ``--additional-imports ipaddress.IPv4Address`` makes every module import the model ``OrderedDict`` from its module
-    ``IPv4Address``, and ``--external-ref-mapping common.json=collections`` makes every module write
-    ``from collections import OrderedDict``. The model keeps the name of the mapped type: it was bound after the import
-    of ``collections`` and gave the field typed by the mapped type the model.
+    ``IPv4Address``, and ``--external-ref-mapping common.json=collections`` keeps the name ``OrderedDict`` for
+    ``from collections import OrderedDict`` in every module, which only the module of the field typed by the mapped type
+    writes (#6787). The model keeps the name of the mapped type: it was bound after the import of ``collections`` and
+    gave the field typed by the mapped type the model.
     """
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "shared_import_named_like_model" / "api.json",

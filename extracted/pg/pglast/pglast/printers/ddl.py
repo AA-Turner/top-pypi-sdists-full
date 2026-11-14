@@ -165,17 +165,17 @@ def alter_extension_contents_stmt(node, output):
 def alter_enum_stmt(node, output):
     output.write('ALTER TYPE ')
     output.print_name(node.typeName)
-    if node.newVal:
-        if node.oldVal:
+    if node.newVal is not None:
+        if node.oldVal is not None:
             output.write('RENAME VALUE ')
             output.write_quoted_string(node.oldVal)
-            output.write('TO ')
+            output.write(' TO ')
         else:
             output.write('ADD VALUE ')
             if node.skipIfNewValExists:
                 output.write('IF NOT EXISTS ')
         output.write_quoted_string(node.newVal)
-    if node.newValNeighbor:
+    if node.newValNeighbor is not None:
         if node.newValIsAfter:
             output.write(' AFTER ')
         else:
@@ -940,7 +940,10 @@ def alter_stats_stmt(node, output):
         output.write('IF EXISTS ')
     output.print_name(node.defnames)
     output.write(' SET STATISTICS ')
-    output.print_node(node.stxstattarget)
+    if node.stxstattarget is None:
+        output.write('DEFAULT')
+    else:
+        output.print_node(node.stxstattarget)
 
 
 class AlterSubscriptionTypePrinter(IntEnumPrinter):
@@ -1408,10 +1411,6 @@ class ConstrTypePrinter(IntEnumPrinter):
                 output.swrite('WITH OPERATOR')
                 with output.expression(True):
                     output.print_symbol(clauses)
-        if node.where_clause:
-            output.write(' WHERE ')
-            with output.expression(True):
-                output.print_node(node.where_clause)
 
     def CONSTR_FOREIGN(self, node, output):
         if node.fk_attrs:
@@ -1516,13 +1515,11 @@ def constraint(node, output):
         output.write(' INCLUDE ')
         with output.expression(True):
             output.print_list(node.including, ',', are_names=True)
-    if node.deferrable:
-        output.swrite('DEFERRABLE')
-        if node.initdeferred:
-            output.swrite('INITIALLY DEFERRED')
     with output.push_indent():
         first = True
-        if node.options and node.contype == enums.ConstrType.CONSTR_UNIQUE:
+        if node.options and node.contype in (enums.ConstrType.CONSTR_UNIQUE,
+                                             enums.ConstrType.CONSTR_PRIMARY,
+                                             enums.ConstrType.CONSTR_EXCLUSION):
             output.write(' WITH ')
             with output.expression(True):
                 firstOption = True
@@ -1532,8 +1529,9 @@ def constraint(node, output):
                     else:
                         output.write(', ')
                     output.print_name(option.defname)
-                    output.write(' = ')
-                    output.print_node(option.arg)
+                    if option.arg is not None:
+                        output.write(' = ')
+                        output.print_node(option.arg)
             first = False
         if node.indexspace:
             if first:
@@ -1542,6 +1540,14 @@ def constraint(node, output):
                 output.newline()
             output.write(' USING INDEX TABLESPACE ')
             output.print_name(node.indexspace)
+        if node.where_clause and node.contype == enums.ConstrType.CONSTR_EXCLUSION:
+            output.write(' WHERE ')
+            with output.expression(True):
+                output.print_node(node.where_clause)
+        if node.deferrable:
+            output.swrite('DEFERRABLE')
+            if node.initdeferred:
+                output.swrite('INITIALLY DEFERRED')
         if node.skip_validation:
             output.write(' NOT VALID')
         if (node.contype in (enums.ConstrType.CONSTR_CHECK,
@@ -2287,6 +2293,13 @@ def create_stmt(node, output):
                 output.newline()
             output.write(' PARTITION BY ')
             output.print_node(node.partspec)
+        if node.accessMethod:
+            if first:
+                first = False
+            else:
+                output.newline()
+            output.write(' USING ')
+            output.print_name(node.accessMethod)
         if node.options:
             if first:
                 first = False
@@ -2314,9 +2327,6 @@ def create_stmt(node, output):
                 output.newline()
             output.write(' TABLESPACE ')
             output.print_name(node.tablespacename)
-    if node.accessMethod:
-        output.write(' USING ')
-        output.print_name(node.accessMethod)
 
 
 @node_printer(ast.CreateTableAsStmt)
@@ -2374,19 +2384,27 @@ def create_trig_stmt(node, output):
                 output.write('INSTEAD OF ')
         else:
             output.write('AFTER ')
-        event_strings = []
+        first = True
         for ev in ('INSERT', 'DELETE', 'UPDATE', 'TRUNCATE'):
             bitmask = getattr(enums, 'TRIGGER_TYPE_%s' % ev)
             if node.events & bitmask:
-                event_strings.append(ev)
-        output.write(' OR '.join(event_strings))
-        if node.columns:
-            output.write(' OF ')
-            output.print_list(node.columns, ',', are_names=True)
+                if first:
+                    first = False
+                else:
+                    output.write(' OR ')
+                output.write(ev)
+                # The column list belongs to the UPDATE event
+                if ev == 'UPDATE' and node.columns:
+                    output.write(' OF ')
+                    output.print_list(node.columns, ',', are_names=True)
 
         output.newline()
         output.write('ON ')
         output.print_node(node.relation)
+
+        if node.constrrel:
+            output.swrite('FROM ')
+            output.print_name(node.constrrel)
 
         if node.deferrable:
             output.swrite('DEFERRABLE')
@@ -2396,10 +2414,6 @@ def create_trig_stmt(node, output):
         if node.transitionRels:
             output.swrite('REFERENCING ')
             output.print_list(node.transitionRels, ' ')
-
-        if node.constrrel:
-            output.swrite('FROM ')
-            output.print_name(node.constrrel)
 
         output.newline()
         output.write('FOR EACH ')
@@ -2538,7 +2552,7 @@ def define_stmt(node, output):
                 # Special case: if it's an aggregate, and the scalar is equal to
                 # None (not "is", since it's a Scalar), write a star
                 if ((node.kind == enums.ObjectType.OBJECT_AGGREGATE
-                     and args == None)):  # noqa
+                     and args == None)):  # noqa ignore[E711]
                     output.write('*')
                     actual_args = []
                     orderby_args = []
@@ -2957,7 +2971,7 @@ def lock_stmt(node, output):
 def notify_stmt(node, output):
     output.write('NOTIFY ')
     output.print_name(node.conditionname)
-    if node.payload:
+    if node.payload is not None:
         output.write(', ')
         output.write_quoted_string(node.payload)
 
@@ -3367,12 +3381,12 @@ def sec_label_stmt(node, output):
     if node.provider:
         output.write('FOR ')
         output.print_name(node.provider)
-    output.write(' ON ')
+    output.swrite('ON ')
     output.write(OBJECT_NAMES[node.objtype])
     output.write(' ')
     output.print_name(node.object)
     output.write(' IS ')
-    if node.label:
+    if node.label is not None:
         output.print_node(node.label)
     else:
         output.write('NULL')
@@ -3389,30 +3403,33 @@ def stats_elem(node, output):
 
 @node_printer(ast.TableLikeClause)
 def table_like_clause(node, output):
-    output.write('LIKE ')
-    output.print_node(node.relation)
     TLO = enums.TableLikeOption
-    if node.options == TLO.CREATE_TABLE_LIKE_ALL:
-        output.write(' INCLUDING ALL')
-    else:
-        if node.options & TLO.CREATE_TABLE_LIKE_COMMENTS:
-            output.write(' INCLUDING COMMENTS')
-        if node.options & TLO.CREATE_TABLE_LIKE_COMPRESSION:
-            output.write(' INCLUDING COMPRESSION')
-        if node.options & TLO.CREATE_TABLE_LIKE_CONSTRAINTS:
-            output.write(' INCLUDING CONSTRAINTS')
-        if node.options & TLO.CREATE_TABLE_LIKE_DEFAULTS:
-            output.write(' INCLUDING DEFAULTS')
-        if node.options & TLO.CREATE_TABLE_LIKE_IDENTITY:
-            output.write(' INCLUDING IDENTITY')
-        if node.options & TLO.CREATE_TABLE_LIKE_GENERATED:
-            output.write(' INCLUDING GENERATED')
-        if node.options & TLO.CREATE_TABLE_LIKE_INDEXES:
-            output.write(' INCLUDING INDEXES')
-        if node.options & TLO.CREATE_TABLE_LIKE_STATISTICS:
-            output.write(' INCLUDING STATISTICS')
-        if node.options & TLO.CREATE_TABLE_LIKE_STORAGE:
-            output.write(' INCLUDING STORAGE')
+    with output.push_indent(2):
+        output.write('LIKE ')
+        output.print_node(node.relation)
+        if node.options == TLO.CREATE_TABLE_LIKE_ALL:
+            output.write(' INCLUDING ALL')
+        else:
+            # This is needed on older than 3.11 snakes: on recent ones the Enum iterator
+            # automatically excludes non-single-bit flags
+            flags = [option for option in TLO if option != TLO.CREATE_TABLE_LIKE_ALL]
+            known = sum(option for option in flags)
+            # Bits outside the known ones come from INCLUDING ALL, possibly followed by some
+            # EXCLUDING: emit it that way, to keep the very same value
+            if node.options & ~known:
+                output.newline()
+                output.write('INCLUDING ALL')
+                for option in flags:
+                    if not node.options & option:
+                        output.newline()
+                        output.write('EXCLUDING ')
+                        output.write(option.name.removeprefix('CREATE_TABLE_LIKE_'))
+            else:
+                for option in flags:
+                    if node.options & option:
+                        output.newline()
+                        output.write('INCLUDING ')
+                        output.write(option.name.removeprefix('CREATE_TABLE_LIKE_'))
 
 
 @node_printer(ast.TriggerTransition)

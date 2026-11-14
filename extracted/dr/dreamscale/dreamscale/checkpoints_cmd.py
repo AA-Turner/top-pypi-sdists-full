@@ -280,6 +280,21 @@ def prefix_rtc(checkpoint: dict, *, note: str | None = None) -> str:
     return label
 
 
+# What an engine other than a base's default does, as `deployments show` and `deployments
+# engine` say it (Praxis-1's lightning: the same actions as standard, sooner).
+ENGINE_NOTE = "the same actions, sooner"
+
+
+def engine_line(checkpoint: dict) -> str:
+    """`standard`, or `lightning, experimental (the same actions, sooner)`: the deployment's
+    engine (the API's ``engine``), marked experimental unless it is its base's default (as RTC
+    is: `trained, experimental (…)`)."""
+    engine = str(checkpoint.get("engine") or "standard")
+    base = deploy_base_of(checkpoint)
+    default = base.engines[0] if base is not None and base.engines else "standard"
+    return engine if engine == default else f"{engine}, experimental ({ENGINE_NOTE})"
+
+
 def robot_line(checkpoint: dict) -> str:
     base = deploy_base_of(checkpoint)
     if base is None:
@@ -402,6 +417,8 @@ def _describe(checkpoint: dict) -> list[str]:
         lines.append(f"  rtc:      {base.describe_rtc(checkpoint)}")
     elif checkpoint.get("rtc_max_prefix_steps") is not None:
         lines.append(f"  rtc:      prefix up to {checkpoint['rtc_max_prefix_steps']} actions")
+    if checkpoint.get("engine"):
+        lines.append(f"  engine:   {engine_line(checkpoint)}")
     error = checkpoint.get("error")
     if error:
         lines += [f"  error:    {error['code']}: {error['message']}", f"  fix:      {error['fix']}"]
@@ -1210,6 +1227,45 @@ def run_rtc(
             base.rtc_refusal_fix if base is not None else "nothing to change: its base fixes RTC",
         )
     return base.set_rtc(row, checkpoint_id, method, max_delay, client_factory, print_fn)
+
+
+def engines() -> tuple[str, ...]:
+    """Every engine a deployment base offers, in its order (Praxis-1's standard and
+    lightning)."""
+    return tuple(dict.fromkeys(
+        engine for base in deploy_bases.bases() for engine in base.engines
+    )) or ("standard",)
+
+
+def parse_engine(value: str | None) -> str | None:
+    """`standard` or `lightning` (any case); None when not given."""
+    if value is None:
+        return None
+    engine = value.strip().lower()
+    if engine not in engines():
+        raise ValueError(f"use {' or '.join(engines())}, got {value!r}")
+    return engine
+
+
+def run_engine(
+    *,
+    checkpoint_id: str,
+    engine: str,
+    client_factory: Callable[..., Any] = ControlPlaneClient,
+    print_fn: Callable[[str], None] = print,
+) -> dict:
+    """What a deployment's servers run, where its base offers a choice (Praxis-1: standard, or
+    lightning, experimental): its next server runs it; one already running keeps its engine
+    (no rebuild). The server refuses a base without the setting, and says why."""
+    engine = parse_engine(engine) or "standard"
+    row = asyncio.run(_call(client_factory, "set_deployment_engine", checkpoint_id, engine))
+    ref = _ref(row)
+    print_fn(
+        f"{ref}: engine {engine_line({**row, 'engine': row.get('engine') or engine})} from its "
+        "next server. One already running keeps its engine until it stops (`dreamscale "
+        f"deployments restart {ref}` replaces it now; robots on it reconnect)."
+    )
+    return row
 
 
 def _set_prefix_rtc(row, checkpoint_id, method, prefix, client_factory, print_fn, *,

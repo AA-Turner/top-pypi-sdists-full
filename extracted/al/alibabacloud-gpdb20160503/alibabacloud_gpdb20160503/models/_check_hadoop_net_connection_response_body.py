@@ -11,7 +11,7 @@ class CheckHadoopNetConnectionResponseBody(DaraModel):
         connection_status: str = None,
         request_id: str = None,
     ):
-        # The response message. If the connection fails, an error message is returned. Otherwise, an empty string is returned.
+        # The returned message. If the connection fails, an error message is returned. Otherwise, an empty string is returned.
         self.connection_message = connection_message
         # The connection status. Valid values:
         # 

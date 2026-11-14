@@ -14,9 +14,9 @@ class DescribeDedicatedHostGroupsRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # The dedicated cluster ID.
+        # The ID of the dedicated cluster.
         self.dedicated_host_group_id = dedicated_host_group_id
-        # The host image category used to query dedicated clusters. Valid values:
+        # The host image used to query dedicated clusters. Valid values:
         # * **WindowsWithMssqlStdLicense**: Windows (with SQL Server Standard Edition license).
         # * **WindowsWithMssqlEntLisence**: Windows (with SQL Server Enterprise Edition license).
         # * **WindowsWithMssqlWebLisence**: Windows (with SQL Server Web Edition license).

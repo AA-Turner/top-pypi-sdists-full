@@ -317,6 +317,7 @@ __all__ = (
     "RegisterPublisherOutputTypeDef",
     "RegisterTypeInputTypeDef",
     "RegisterTypeOutputTypeDef",
+    "RemoveAliasInputTypeDef",
     "RequiredActivatedTypeTypeDef",
     "ResourceChangeDetailTypeDef",
     "ResourceChangeTypeDef",
@@ -341,6 +342,7 @@ __all__ = (
     "ScanFilterUnionTypeDef",
     "ScannedResourceIdentifierTypeDef",
     "ScannedResourceTypeDef",
+    "SetAliasInputTypeDef",
     "SetStackPolicyInputTypeDef",
     "SetTypeConfigurationInputTypeDef",
     "SetTypeConfigurationOutputTypeDef",
@@ -1165,6 +1167,10 @@ class RegisterPublisherInputTypeDef(TypedDict):
     ConnectionArn: NotRequired[str]
 
 
+class RemoveAliasInputTypeDef(TypedDict):
+    AliasName: str
+
+
 class ResourceDriftIgnoredAttributeTypeDef(TypedDict):
     Path: NotRequired[str]
     Reason: NotRequired[DriftIgnoredReasonType]
@@ -1186,6 +1192,11 @@ RollbackTriggerTypeDef = TypedDict(
 
 class ScanFilterTypeDef(TypedDict):
     Types: NotRequired[Sequence[str]]
+
+
+class SetAliasInputTypeDef(TypedDict):
+    StackName: str
+    AliasName: str
 
 
 class SetStackPolicyInputTypeDef(TypedDict):
@@ -2391,6 +2402,7 @@ class StackTypeDef(TypedDict):
     DeletionMode: NotRequired[DeletionModeType]
     DetailedStatus: NotRequired[DetailedStatusType]
     LastOperations: NotRequired[list[OperationEntryTypeDef]]
+    AliasName: NotRequired[str]
 
 
 RollbackConfigurationUnionTypeDef = Union[

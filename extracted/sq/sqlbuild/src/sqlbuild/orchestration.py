@@ -12,9 +12,11 @@ from sqlbuild.orchestration_declarations.models.authoring import (
 from sqlbuild.orchestration_declarations.models.authoring import Job as job
 from sqlbuild.orchestration_declarations.models.authoring import JobGroup as job_group
 from sqlbuild.orchestration_declarations.models.authoring import NodeEventCondition as node_event
+from sqlbuild.orchestration_declarations.models.authoring import OnFailure as on_failure
 from sqlbuild.orchestration_declarations.models.authoring import (
     PlatformEventCondition as platform_event,
 )
+from sqlbuild.orchestration_declarations.models.authoring import Resources as resources
 from sqlbuild.orchestration_declarations.models.authoring import RunEventCondition as run_event
 from sqlbuild.orchestration_declarations.models.authoring import Schedule as schedule
 from sqlbuild.orchestration_declarations.models.authoring import Sensor as sensor
@@ -40,7 +42,9 @@ __all__ = (
     "job",
     "job_group",
     "node_event",
+    "on_failure",
     "platform_event",
+    "resources",
     "run_event",
     "schedule",
     "sensor",

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from river import base, stats
 
 
@@ -36,7 +38,7 @@ class EDDM(base.BinaryDriftAndWarningDetector):
 
     - 0: Correct, $y=y'$
 
-    - 1: Error, $y \\neq y'$
+    - 1: Error, $y \neq y'$
 
     Parameters
     ----------
@@ -102,7 +104,7 @@ class EDDM(base.BinaryDriftAndWarningDetector):
 
         self._reset()
 
-    def _reset(self):
+    def _reset(self) -> None:
         super()._reset()
 
         # Variance of the distance between two error/failure reports
@@ -114,9 +116,9 @@ class EDDM(base.BinaryDriftAndWarningDetector):
         # Number of observed errors/failures
         self._n_errors = 0
 
-        self._p2s_prime_max = -1
+        self._p2s_prime_max = -1.0
 
-    def update(self, x):
+    def update(self, x: bool) -> None:
         """Update the change detector with a single data point.
 
         Parameters
@@ -125,12 +127,7 @@ class EDDM(base.BinaryDriftAndWarningDetector):
             This parameter indicates whether the last sample analyzed was correctly classified or
             not. 1 indicates an error (miss-classification).
 
-        Returns
-        -------
-        self
-
         """
-
         if self.drift_detected:
             self._reset()
 
@@ -146,7 +143,7 @@ class EDDM(base.BinaryDriftAndWarningDetector):
             if self._n > self.warm_start:
                 # Mean and variance of the intervals between errors
                 pi_prime = self._error_distances.mean.get()
-                si_prime = self._error_distances.get() ** 0.5
+                si_prime = math.sqrt(self._error_distances.get())
 
                 p2s_prime = pi_prime + 2 * si_prime
                 if p2s_prime > self._p2s_prime_max:

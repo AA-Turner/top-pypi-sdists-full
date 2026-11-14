@@ -16,7 +16,7 @@ class CheckServiceLinkedRoleRequest(DaraModel):
     ):
         self.owner_id = owner_id
         # The region ID.
-        # > This parameter does not affect the query result. You can specify any region ID. You can call the DescribeRegions operation to query available region IDs.
+        # > This parameter does not affect the query result. You can specify any region. You can call the DescribeRegions operation to query available region IDs.
         # 
         # This parameter is required.
         self.region_id = region_id

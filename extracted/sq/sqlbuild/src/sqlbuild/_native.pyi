@@ -5510,7 +5510,28 @@ def build_observations_create_table_sql(
     render_qualified_name: Callable[..., str | None],
     render_framework_type: Callable[[FrameworkType], str],
 ) -> str: ...
+def build_audit_results_prune_sql(
+    *,
+    database: str | None,
+    schema: str,
+    render_qualified_name: Callable[..., str | None],
+    retain_versions: int,
+) -> str: ...
 def build_observations_prune_sql(
+    *,
+    database: str | None,
+    schema: str,
+    render_qualified_name: Callable[..., str | None],
+    retain_versions: int,
+) -> str: ...
+def build_resource_costs_create_table_sql(
+    *,
+    database: str | None,
+    schema: str,
+    render_qualified_name: Callable[..., str | None],
+    render_framework_type: Callable[[FrameworkType], str],
+) -> str: ...
+def build_resource_costs_prune_sql(
     *,
     database: str | None,
     schema: str,
@@ -6517,6 +6538,8 @@ class BuildCommandRequest(NativeRecord):
     fail_fast: bool
     full_refresh: bool
     changed: bool
+    changed_counts: tuple[str, ...] | None
+    reach: str | None
     load_sources: bool | None
     reload_sources: bool
     include_python: bool
@@ -6556,6 +6579,8 @@ class BuildCommandRequest(NativeRecord):
         fail_fast: bool = False,
         full_refresh: bool = False,
         changed: bool = False,
+        changed_counts: tuple[str, ...] | None = None,
+        reach: str | None = None,
         load_sources: bool | None = None,
         reload_sources: bool = False,
         include_python: bool = True,
@@ -6919,6 +6944,9 @@ class PlanCommandRequest(NativeRecord):
     cursor_overrides: CursorOverrides | None
     json_output: bool
     full_refresh: bool
+    changed: bool
+    changed_counts: tuple[str, ...] | None
+    reach: str | None
     load_sources: bool | None
     include_python: bool
     no_color: bool
@@ -6940,6 +6968,9 @@ class PlanCommandRequest(NativeRecord):
         cursor_overrides: CursorOverrides | None = None,
         json_output: bool = False,
         full_refresh: bool = False,
+        changed: bool = False,
+        changed_counts: tuple[str, ...] | None = None,
+        reach: str | None = None,
         load_sources: bool | None = None,
         include_python: bool = True,
         no_color: bool = False,
@@ -7236,6 +7267,8 @@ class BuildCostFinalization(NativeRecord):
     cost_status: CostStatus
     cost_message: str
     had_executable_work: bool | None
+    target_schema: str | None
+    orchestration_run_id: str | None
     def __init__(
         self,
         project_dir: Path,
@@ -7256,6 +7289,8 @@ class BuildCostFinalization(NativeRecord):
         cost_status: CostStatus = ...,
         cost_message: str = ...,
         had_executable_work: bool | None = True,
+        target_schema: str | None = None,
+        orchestration_run_id: str | None = None,
     ) -> None: ...
 
 class LineageCommandRequest(NativeRecord):

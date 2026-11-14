@@ -214,6 +214,8 @@ __all__ = (
     "DescribeNetworkInsightsPathsPaginatorName",
     "DescribeNetworkInterfacePermissionsPaginatorName",
     "DescribeNetworkInterfacesPaginatorName",
+    "DescribeNetworkingFlexCostAllocationPoliciesPaginatorName",
+    "DescribeNetworkingFlexCostAllocationPolicyAssociationsPaginatorName",
     "DescribePrefixListsPaginatorName",
     "DescribePrincipalIdFormatPaginatorName",
     "DescribePublicIpv4PoolsPaginatorName",
@@ -324,6 +326,11 @@ __all__ = (
     "FleetReservationTypeType",
     "FleetStateCodeType",
     "FleetTypeType",
+    "FlexCostAllocationAssociationModeType",
+    "FlexCostAllocationCostDimensionType",
+    "FlexCostAllocationNetworkResourceScopeTypeType",
+    "FlexCostAllocationNetworkResourceTypeType",
+    "FlexCostAllocationReportingGranularityType",
     "FlexibleEnaQueuesSupportType",
     "FlowLogsResourceTypeType",
     "FpgaImageAttributeNameType",
@@ -1122,6 +1129,12 @@ DescribeNetworkInsightsAnalysesPaginatorName = Literal["describe_network_insight
 DescribeNetworkInsightsPathsPaginatorName = Literal["describe_network_insights_paths"]
 DescribeNetworkInterfacePermissionsPaginatorName = Literal["describe_network_interface_permissions"]
 DescribeNetworkInterfacesPaginatorName = Literal["describe_network_interfaces"]
+DescribeNetworkingFlexCostAllocationPoliciesPaginatorName = Literal[
+    "describe_networking_flex_cost_allocation_policies"
+]
+DescribeNetworkingFlexCostAllocationPolicyAssociationsPaginatorName = Literal[
+    "describe_networking_flex_cost_allocation_policy_associations"
+]
 DescribePrefixListsPaginatorName = Literal["describe_prefix_lists"]
 DescribePrincipalIdFormatPaginatorName = Literal["describe_principal_id_format"]
 DescribePublicIpv4PoolsPaginatorName = Literal["describe_public_ipv4_pools"]
@@ -1302,6 +1315,13 @@ FleetStateCodeType = Literal[
     "submitted",
 ]
 FleetTypeType = Literal["instant", "maintain", "request"]
+FlexCostAllocationAssociationModeType = Literal["direct", "scope"]
+FlexCostAllocationCostDimensionType = Literal["data-processing", "data-transfer"]
+FlexCostAllocationNetworkResourceScopeTypeType = Literal["account", "subnet", "vpc"]
+FlexCostAllocationNetworkResourceTypeType = Literal["ec2", "natgw", "pcx"]
+FlexCostAllocationReportingGranularityType = Literal[
+    "account", "cidr", "ec2", "eni", "peering-id", "subnet", "vpc"
+]
 FlexibleEnaQueuesSupportType = Literal["supported", "unsupported"]
 FlowLogsResourceTypeType = Literal[
     "CoreNetwork",
@@ -3432,6 +3452,7 @@ ResourceTypeType = Literal[
     "elastic-ip",
     "export-image-task",
     "export-instance-task",
+    "fca-policy",
     "fleet",
     "fpga-image",
     "host-reservation",
@@ -4400,6 +4421,8 @@ PaginatorName = Literal[
     "describe_network_insights_paths",
     "describe_network_interface_permissions",
     "describe_network_interfaces",
+    "describe_networking_flex_cost_allocation_policies",
+    "describe_networking_flex_cost_allocation_policy_associations",
     "describe_prefix_lists",
     "describe_principal_id_format",
     "describe_public_ipv4_pools",

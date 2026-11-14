@@ -965,6 +965,7 @@ class Webhooks(BaseSDK):
             List[models.PreviewSyncWebhooksWebhookRequestTypedDict],
         ],
         skip_deletions: Optional[bool] = True,
+        skip_updates: Optional[bool] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -974,6 +975,7 @@ class Webhooks(BaseSDK):
 
         :param webhooks: The webhooks to create or update. Webhooks not listed are left alone unless `skip_deletions` is false.
         :param skip_deletions: When false, `webhooks` is the environment's complete set: every webhook not listed is deleted, including ones made in the dashboard. Defaults true, which leaves unlisted webhooks alone.
+        :param skip_updates: When true, only webhooks whose id does not exist yet are created. Updates, adoptions of dashboard webhooks and deletions are skipped and preview as `skip`. Defaults false.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -994,6 +996,7 @@ class Webhooks(BaseSDK):
                 webhooks, List[models.PreviewSyncWebhooksWebhookRequest]
             ),
             skip_deletions=skip_deletions,
+            skip_updates=skip_updates,
         )
 
         req = self._build_request(
@@ -1067,6 +1070,7 @@ class Webhooks(BaseSDK):
             List[models.PreviewSyncWebhooksWebhookRequestTypedDict],
         ],
         skip_deletions: Optional[bool] = True,
+        skip_updates: Optional[bool] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -1076,6 +1080,7 @@ class Webhooks(BaseSDK):
 
         :param webhooks: The webhooks to create or update. Webhooks not listed are left alone unless `skip_deletions` is false.
         :param skip_deletions: When false, `webhooks` is the environment's complete set: every webhook not listed is deleted, including ones made in the dashboard. Defaults true, which leaves unlisted webhooks alone.
+        :param skip_updates: When true, only webhooks whose id does not exist yet are created. Updates, adoptions of dashboard webhooks and deletions are skipped and preview as `skip`. Defaults false.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1096,6 +1101,7 @@ class Webhooks(BaseSDK):
                 webhooks, List[models.PreviewSyncWebhooksWebhookRequest]
             ),
             skip_deletions=skip_deletions,
+            skip_updates=skip_updates,
         )
 
         req = self._build_request_async(
@@ -1169,6 +1175,7 @@ class Webhooks(BaseSDK):
             List[models.SyncWebhooksWebhookRequestTypedDict],
         ],
         skip_deletions: Optional[bool] = True,
+        skip_updates: Optional[bool] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -1178,6 +1185,7 @@ class Webhooks(BaseSDK):
 
         :param webhooks: The webhooks to create or update. Webhooks not listed are left alone unless `skip_deletions` is false.
         :param skip_deletions: When false, `webhooks` is the environment's complete set: every webhook not listed is deleted, including ones made in the dashboard. Defaults true, which leaves unlisted webhooks alone.
+        :param skip_updates: When true, only webhooks whose id does not exist yet are created. Updates, adoptions of dashboard webhooks and deletions are skipped and preview as `skip`. Defaults false.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1198,6 +1206,7 @@ class Webhooks(BaseSDK):
                 webhooks, List[models.SyncWebhooksWebhookRequest]
             ),
             skip_deletions=skip_deletions,
+            skip_updates=skip_updates,
         )
 
         req = self._build_request(
@@ -1267,6 +1276,7 @@ class Webhooks(BaseSDK):
             List[models.SyncWebhooksWebhookRequestTypedDict],
         ],
         skip_deletions: Optional[bool] = True,
+        skip_updates: Optional[bool] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -1276,6 +1286,7 @@ class Webhooks(BaseSDK):
 
         :param webhooks: The webhooks to create or update. Webhooks not listed are left alone unless `skip_deletions` is false.
         :param skip_deletions: When false, `webhooks` is the environment's complete set: every webhook not listed is deleted, including ones made in the dashboard. Defaults true, which leaves unlisted webhooks alone.
+        :param skip_updates: When true, only webhooks whose id does not exist yet are created. Updates, adoptions of dashboard webhooks and deletions are skipped and preview as `skip`. Defaults false.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1296,6 +1307,7 @@ class Webhooks(BaseSDK):
                 webhooks, List[models.SyncWebhooksWebhookRequest]
             ),
             skip_deletions=skip_deletions,
+            skip_updates=skip_updates,
         )
 
         req = self._build_request_async(

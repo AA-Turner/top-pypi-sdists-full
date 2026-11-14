@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agentx-harness
-Version: 1.0.13
+Version: 1.0.14
 Summary: SemiAnalysis AgentX inference benchmark harness, built on AIPerf
 Project-URL: Homepage, https://github.com/SemiAnalysisAI/agentx-harness
 Project-URL: Source, https://github.com/SemiAnalysisAI/agentx-harness

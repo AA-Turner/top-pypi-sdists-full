@@ -1,21 +1,31 @@
 //! Frozen selection, executor callbacks and completion belong to one verified worker build.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use pyo3::exceptions::{PyKeyboardInterrupt, PyRuntimeError, PyValueError};
 use pyo3::prelude::{Bound, Py, PyAny, PyAnyMethods, PyResult, Python};
 use pyo3::types::PyStringMethods;
-use sqlbuild_core::models::ResourceKind;
+use sqlbuild_core::models::{CompiledResourceType, ResourceKind};
 use sqlbuild_core::redaction::main::redact_error_text::redact_error_text;
+use sqlbuild_host::models::SqlTestOutcome;
+use sqlbuild_host::types::ResultEnum;
 use sqlbuild_orchestration::runs::models::{
     NodeOutcome, RunChange, RunCommand, RunExecution, RunOutcome,
 };
 
-use crate::bindings::_helpers::compiled_project::constants::{NO_CHANGE_REASON, SKIP_ACTION};
+use crate::bindings::_helpers::compiled_project::constants::{
+    NO_CHANGE_REASON, SKIP_ACTION, SQL_TEST_KEY_PREFIX,
+};
 use crate::bindings::_helpers::compiled_project::snapshot_worker::NativeOrchestrationWorker;
 use crate::bindings::_helpers::records::fields::field;
+
+/// Node keys by snapshot node key, such as the models each test checks.
+pub(crate) type NodeKeys = BTreeMap<String, Vec<String>>;
+
+/// A finished node's outcome, rows affected, error code and error message.
+type Completion = (NodeOutcome, Option<i64>, (Option<String>, Option<String>));
 
 /// This transient owner records only acknowledged outcomes; durable lifecycle remains on the API.
 #[derive(Debug)]
@@ -26,6 +36,16 @@ pub(crate) struct WorkerBuild {
     checks: Mutex<BTreeMap<String, Option<NodeOutcome>>>,
     /// The snapshot's audits and SQL tests, each with the node keys it checks.
     attached: BTreeMap<String, Vec<String>>,
+    /// Each SQL test with every node a failure of it blocks in a build: its expected, assertion and reference models and the functions it checks.
+    blocked: BTreeMap<String, Vec<String>>,
+    /// How many of each function's planned tests have still to report; a function is built before its tests run.
+    untested: Mutex<BTreeMap<String, usize>>,
+    /// A built function's result, held until its tests report so a failing one can fail it instead.
+    held: Mutex<BTreeMap<String, Completion>>,
+    /// Each snapshot node's direct upstream node keys, for naming what a skipped node waited on.
+    upstream: BTreeMap<String, Vec<String>>,
+    /// The failed node each finished node traces back to: itself when it failed, its cause when skipped.
+    causes: Mutex<BTreeMap<String, String>>,
     /// The worst attached outcome of each node, for commands that only run tests or audits.
     checked: Mutex<BTreeMap<String, NodeOutcome>>,
     /// Whether the command returned, having run every check it planned, rather than being refused or raising.
@@ -37,7 +57,7 @@ pub(crate) struct WorkerBuild {
 impl WorkerBuild {
     pub(crate) fn new(
         worker: &Bound<'_, NativeOrchestrationWorker>,
-        attached: BTreeMap<String, Vec<String>>,
+        (attached, blocked, upstream): (NodeKeys, NodeKeys, NodeKeys),
     ) -> PyResult<Arc<Self>> {
         let state = Arc::new(Self {
             execution: worker.get().execution(worker.py())?,
@@ -45,6 +65,11 @@ impl WorkerBuild {
             completed: Mutex::default(),
             checks: Mutex::default(),
             attached,
+            blocked,
+            untested: Mutex::default(),
+            held: Mutex::default(),
+            upstream,
+            causes: Mutex::default(),
             checked: Mutex::default(),
             returned: AtomicBool::new(false),
             refusal: Mutex::default(),
@@ -57,6 +82,11 @@ impl WorkerBuild {
 
     pub(crate) fn command(&self) -> RunCommand {
         self.execution.claim.request.command
+    }
+
+    /// The server run this build executes.
+    pub(crate) fn run_id(&self) -> uuid::Uuid {
+        self.execution.claim.request.run_id
     }
 
     /// Test and audit runs execute only attached checks, so their nodes take the checks' outcome.
@@ -116,6 +146,7 @@ impl WorkerBuild {
     ) -> Result<(), pyo3::PyErr> {
         self.check_cancelled(pipeline.py())?;
         let plan = field(pipeline, "plan_output")?;
+        self.count_planned_tests(&plan)?;
         for collection in [
             "model_entries",
             "seed_entries",
@@ -150,6 +181,20 @@ impl WorkerBuild {
         Ok(())
     }
 
+    /// Count each function's tests this build plans, so a built function waits only for tests that will report.
+    fn count_planned_tests(&self, plan: &Bound<'_, PyAny>) -> PyResult<()> {
+        let mut untested = self.untested.lock().map_err(|_| poisoned())?;
+        for entry in field(plan, "test_entries")?.try_iter()? {
+            let test = format!("{SQL_TEST_KEY_PREFIX}{}", field(&entry?, "name")?.str()?);
+            for node in self.blocked.get(&test).into_iter().flatten() {
+                if is_function(node) {
+                    *untested.entry(node.clone()).or_default() += 1;
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Nodes `build --changed` leaves unbuilt are up to date, as a planner `no_change` skip is.
     pub(crate) fn unchanged(&self, py: Python<'_>, keys: &[String]) -> PyResult<()> {
         for key in keys {
@@ -158,6 +203,23 @@ impl WorkerBuild {
         Ok(())
     }
 
+    /// Nodes `build --changed` holds back wait for the job that refreshes them, with why.
+    pub(crate) fn held_back(&self, py: Python<'_>, nodes: &[(String, String)]) -> PyResult<()> {
+        for (key, why) in nodes {
+            self.complete(
+                py,
+                key,
+                (
+                    NodeOutcome::Skipped,
+                    None,
+                    (None, Some(format!("held back: {why}"))),
+                ),
+            )?;
+        }
+        Ok(())
+    }
+
+    /// A skip in a build names the failed node upstream of it; a test or audit run that raised skips what it never checked, with no cause.
     fn complete(
         &self,
         py: Python<'_>,
@@ -179,6 +241,14 @@ impl WorkerBuild {
         {
             return Ok(());
         }
+        let skipped_because_of = match outcome {
+            NodeOutcome::Skipped => match self.execution.skipped_nodes.get(key) {
+                Some(cause) => Some(cause.clone()),
+                None if !self.checks_only() => self.failed_upstream(key)?,
+                None => None,
+            },
+            _ => None,
+        };
         self.worker.bind(py).get().change(
             py,
             &format!("node-finished/{key}"),
@@ -187,10 +257,20 @@ impl WorkerBuild {
                 outcome,
                 rows_affected,
                 error_code,
-                skipped_because_of: self.execution.skipped_nodes.get(key).cloned(),
+                skipped_because_of: skipped_because_of.clone(),
                 error_message: error_message.as_deref().map(redact_error_text),
             },
         )?;
+        let cause = match outcome {
+            NodeOutcome::Failed => Some(key.to_owned()),
+            _ => skipped_because_of,
+        };
+        if let Some(cause) = cause {
+            self.causes
+                .lock()
+                .map_err(|_| poisoned())?
+                .insert(key.into(), cause);
+        }
         self.completed
             .lock()
             .map_err(|_| poisoned())?
@@ -244,12 +324,15 @@ impl WorkerBuild {
         self.complete(py, key, (outcome, None, (None, None)))
     }
 
-    /// A test or audit the snapshot records has started; the node it attaches to starts with it.
+    /// A test or audit the snapshot records has started; a selected SQL test reports as a node.
     pub(crate) fn start_attached(&self, py: Python<'_>, key: &str) -> PyResult<()> {
         self.check_cancelled(py)?;
         let Some(nodes) = self.attached.get(key) else {
             return Ok(());
         };
+        if self.execution.claim.request.selection.contains(key) {
+            return self.start_key(py, key);
+        }
         if self
             .checks
             .lock()
@@ -297,7 +380,11 @@ impl WorkerBuild {
         } else {
             outcome
         };
-        self.finish_check(py, key, outcome)?;
+        if self.execution.claim.request.selection.contains(key) {
+            self.complete(py, key, (outcome, None, (None, None)))?;
+        } else {
+            self.finish_check(py, key, outcome)?;
+        }
         if outcome == NodeOutcome::Skipped {
             return Ok(());
         }
@@ -315,8 +402,107 @@ impl WorkerBuild {
         Ok(())
     }
 
+    /// The failed node nearest upstream of `key` in this run, or the cause a skipped one carries.
+    fn failed_upstream(&self, key: &str) -> PyResult<Option<String>> {
+        let causes = self.causes.lock().map_err(|_| poisoned())?;
+        let mut seen: BTreeSet<&str> = BTreeSet::from([key]);
+        let mut pending: VecDeque<&str> = VecDeque::from([key]);
+        while let Some(node) = pending.pop_front() {
+            for upstream in self.upstream.get(node).into_iter().flatten() {
+                if let Some(cause) = causes.get(upstream) {
+                    return Ok(Some(cause.clone()));
+                }
+                if seen.insert(upstream) {
+                    pending.push_back(upstream);
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    /// A selected SQL test completes itself; a failing one, found by its compiled name such as `parent [case]`, fails the nodes it blocks; each test that reports releases a function waiting on its tests.
+    fn finished_test(&self, result: &Bound<'_, PyAny>) -> PyResult<()> {
+        let py = result.py();
+        let outcome: String = field(result, "outcome")?.str()?.extract()?;
+        let passed = SqlTestOutcome::from_value(&outcome) == Some(SqlTestOutcome::Pass);
+        let cancelled = !passed && self.worker.bind(py).get().refresh_cancellation(py)?;
+        let name: String = field(result, "test_name")?.extract()?;
+        let key = format!("{SQL_TEST_KEY_PREFIX}{name}");
+        let error: Option<String> = match result.getattr_opt("error_code")? {
+            Some(value) => value.extract()?,
+            None => None,
+        };
+        let message: Option<String> = match result.getattr_opt("error_message")? {
+            Some(value) => value.extract()?,
+            None => None,
+        };
+        let node = match (passed, cancelled) {
+            (true, _) => NodeOutcome::Success,
+            (false, true) => NodeOutcome::Cancelled,
+            (false, false) => NodeOutcome::Failed,
+        };
+        self.complete(py, &key, (node, None, (error.clone(), message.clone())))?;
+        if !passed && !cancelled {
+            for model in self.blocked.get(&key).into_iter().flatten() {
+                self.complete(
+                    py,
+                    model,
+                    (NodeOutcome::Failed, None, (error.clone(), message.clone())),
+                )?;
+            }
+        }
+        self.release_tested(py, &key)
+    }
+
+    /// Count `test` as reported for each function it checks, and publish a held function once none of its tests is left.
+    fn release_tested(&self, py: Python<'_>, test: &str) -> PyResult<()> {
+        let mut released: Vec<(String, Completion)> = Vec::new();
+        {
+            let mut untested = self.untested.lock().map_err(|_| poisoned())?;
+            let mut held = self.held.lock().map_err(|_| poisoned())?;
+            for node in self.blocked.get(test).into_iter().flatten() {
+                let Some(remaining) = untested.get_mut(node) else {
+                    continue;
+                };
+                *remaining = remaining.saturating_sub(1);
+                if *remaining == 0
+                    && let Some(completion) = held.remove(node)
+                {
+                    released.push((node.clone(), completion));
+                }
+            }
+        }
+        for (node, completion) in released {
+            self.complete(py, &node, completion)?;
+        }
+        Ok(())
+    }
+
+    /// Publish a node's result, or hold a built function's while its tests have still to report.
+    fn complete_or_hold(&self, py: Python<'_>, key: &str, completion: Completion) -> PyResult<()> {
+        let waiting = !self.checks_only()
+            && matches!(completion.0, NodeOutcome::Success | NodeOutcome::Warn)
+            && self
+                .untested
+                .lock()
+                .map_err(|_| poisoned())?
+                .get(key)
+                .is_some_and(|remaining| *remaining > 0);
+        if waiting {
+            self.held
+                .lock()
+                .map_err(|_| poisoned())?
+                .insert(key.into(), completion);
+            return Ok(());
+        }
+        self.complete(py, key, completion)
+    }
+
     /// Existing native progress callbacks publish selected-node evidence without Python relays.
     pub(crate) fn completed(&self, result: &Bound<'_, PyAny>, key: &str) -> PyResult<()> {
+        if key.starts_with(SQL_TEST_KEY_PREFIX) {
+            return self.finished_test(result);
+        }
         if self.execution.claim.request.selection.contains(key) {
             let status: String = field(result, "status")?.str()?.extract()?;
             let outcome = match status.as_str() {
@@ -360,7 +546,7 @@ impl WorkerBuild {
                 Some(value) => value.extract()?,
                 None => None,
             };
-            self.complete(result.py(), key, (outcome, rows, (error, message)))?;
+            self.complete_or_hold(result.py(), key, (outcome, rows, (error, message)))?;
         }
         Ok(())
     }
@@ -446,6 +632,13 @@ impl WorkerBuild {
                     self.complete(py, key, (outcome, None, (None, None)))?;
                 }
             }
+        }
+        let held: Vec<(String, Completion)> =
+            std::mem::take(&mut *self.held.lock().map_err(|_| poisoned())?)
+                .into_iter()
+                .collect();
+        for (key, completion) in held {
+            self.complete(py, &key, completion)?;
         }
         let returned = self.returned.load(Ordering::SeqCst);
         let build = self.command().is_build();
@@ -541,6 +734,15 @@ fn severity(outcome: NodeOutcome) -> u8 {
         NodeOutcome::Cancelled => 3,
         NodeOutcome::Failed => 4,
     }
+}
+
+/// Whether a snapshot node key names a scalar or table function.
+fn is_function(key: &str) -> bool {
+    key.split_once(':').is_some_and(|(kind, _)| {
+        [CompiledResourceType::Udf, CompiledResourceType::TableFn]
+            .iter()
+            .any(|function| function.as_str() == kind)
+    })
 }
 
 fn poisoned() -> pyo3::PyErr {

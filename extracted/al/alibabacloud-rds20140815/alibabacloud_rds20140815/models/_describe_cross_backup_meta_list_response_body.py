@@ -25,7 +25,7 @@ class DescribeCrossBackupMetaListResponseBody(DaraModel):
         self.page_number = page_number
         # The number of entries on the current page.
         self.page_record_count = page_record_count
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
         # The total number of pages.
         self.total_page_count = total_page_count

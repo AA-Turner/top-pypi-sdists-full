@@ -6,13 +6,15 @@
 # :Copyright: © 2017, 2018, 2019, 2021, 2024, 2026 Lele Gaifax
 #
 
-import argparse
-import json
-import pprint
 import sys
+from argparse import ArgumentParser
+from importlib.metadata import metadata
+from json import dump
+from pprint import pprint
 
-from pglast import Error, parse_plpgsql, parse_sql, prettify
-from pglast.stream import RawStream
+from . import Error, normalize, parse_plpgsql, parse_sql, prettify
+from .parser import get_postgresql_version
+from .stream import RawStream
 
 
 def workhorse(args):
@@ -34,9 +36,9 @@ def workhorse(args):
         output = args.outfile or sys.stdout
         with output:
             if args.plpgsql:
-                json.dump(tree, output, sort_keys=True, indent=2)
+                dump(tree, output, sort_keys=True, indent=2)
             else:
-                pprint.pprint([stmt(skip_none=True) for stmt in tree], output)
+                pprint([stmt(skip_none=True) for stmt in tree], output)
             output.write('\n')
     elif args.normalize:
         if args.outfile and args.outfile != '-':
@@ -49,6 +51,20 @@ def workhorse(args):
             semicolon_after_last_statement=args.semicolon_after_last_statement)
         with output:
             output.write(reprinter(statement))
+            output.write('\n')
+    elif args.parametrize:
+        try:
+            parametrized = normalize(statement)
+        except Error as e:
+            print()
+            raise SystemExit(e)
+
+        if args.outfile and args.outfile != '-':
+            output = open(args.outfile, 'w')
+        else:
+            output = sys.stdout
+        with output:
+            output.write(parametrized)
             output.write('\n')
     else:
         try:
@@ -75,10 +91,6 @@ def workhorse(args):
 
 
 def main(options=None):
-    from argparse import ArgumentParser
-    from importlib.metadata import metadata
-    from .parser import get_postgresql_version
-
     version = '%s, with PostgreSQL %s parser' % (
         metadata('pglast')['Version'],
         '.'.join(str(p) for p in get_postgresql_version()))
@@ -93,6 +105,8 @@ def main(options=None):
     parser.add_argument('-n', '--normalize', action='store_true', default=False,
                         help='show the normalized statement, without prettification'
                         ' (some options below may have no effect)')
+    parser.add_argument('-P', '--parametrize', action='store_true', default=False,
+                        help='show the statement with its constants replaced by $n parameters')
     parser.add_argument('-m', '--compact-lists-margin', type=int, default=0,
                         help='use compact form for lists not exceeding the given margin')
     parser.add_argument('-s', '--split-string-literals', type=int, default=0,

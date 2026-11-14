@@ -224,6 +224,10 @@ __all__ = (
     "FleetTypeDef",
     "GetExportImageTaskRequestTypeDef",
     "GetExportImageTaskResultTypeDef",
+    "ImageBuilderAgentAccessConfigForUpdateTypeDef",
+    "ImageBuilderAgentAccessConfigOutputTypeDef",
+    "ImageBuilderAgentAccessConfigTypeDef",
+    "ImageBuilderAgentAccessConfigUnionTypeDef",
     "ImageBuilderStateChangeReasonTypeDef",
     "ImageBuilderTypeDef",
     "ImagePermissionsTypeDef",
@@ -285,6 +289,8 @@ __all__ = (
     "UpdateEntitlementResultTypeDef",
     "UpdateFleetRequestTypeDef",
     "UpdateFleetResultTypeDef",
+    "UpdateImageBuilderRequestTypeDef",
+    "UpdateImageBuilderResultTypeDef",
     "UpdateImagePermissionsRequestTypeDef",
     "UpdateStackRequestTypeDef",
     "UpdateStackResultTypeDef",
@@ -816,6 +822,8 @@ class AgentAccessConfigForUpdateTypeDef(TypedDict):
     Settings: NotRequired[Sequence[AgentAccessSettingTypeDef]]
     S3BucketArn: NotRequired[str]
     ScreenshotsUploadEnabled: NotRequired[bool]
+    ReplaySessionEnabled: NotRequired[bool]
+    KmsKeyArn: NotRequired[str]
     ScreenResolution: NotRequired[Literal["W_1280xH_720"]]
     ScreenImageFormat: NotRequired[ScreenImageFormatType]
     UserControlMode: NotRequired[UserControlModeType]
@@ -826,9 +834,37 @@ class AgentAccessConfigOutputTypeDef(TypedDict):
     ScreenImageFormat: ScreenImageFormatType
     S3BucketArn: NotRequired[str]
     ScreenshotsUploadEnabled: NotRequired[bool]
+    ReplaySessionEnabled: NotRequired[bool]
+    KmsKeyArn: NotRequired[str]
     UserControlMode: NotRequired[UserControlModeType]
 
 class AgentAccessConfigTypeDef(TypedDict):
+    Settings: Sequence[AgentAccessSettingTypeDef]
+    ScreenResolution: Literal["W_1280xH_720"]
+    ScreenImageFormat: ScreenImageFormatType
+    S3BucketArn: NotRequired[str]
+    ScreenshotsUploadEnabled: NotRequired[bool]
+    ReplaySessionEnabled: NotRequired[bool]
+    KmsKeyArn: NotRequired[str]
+    UserControlMode: NotRequired[UserControlModeType]
+
+class ImageBuilderAgentAccessConfigForUpdateTypeDef(TypedDict):
+    Settings: NotRequired[Sequence[AgentAccessSettingTypeDef]]
+    S3BucketArn: NotRequired[str]
+    ScreenshotsUploadEnabled: NotRequired[bool]
+    ScreenResolution: NotRequired[Literal["W_1280xH_720"]]
+    ScreenImageFormat: NotRequired[ScreenImageFormatType]
+    UserControlMode: NotRequired[UserControlModeType]
+
+class ImageBuilderAgentAccessConfigOutputTypeDef(TypedDict):
+    Settings: list[AgentAccessSettingTypeDef]
+    ScreenResolution: Literal["W_1280xH_720"]
+    ScreenImageFormat: ScreenImageFormatType
+    S3BucketArn: NotRequired[str]
+    ScreenshotsUploadEnabled: NotRequired[bool]
+    UserControlMode: NotRequired[UserControlModeType]
+
+class ImageBuilderAgentAccessConfigTypeDef(TypedDict):
     Settings: Sequence[AgentAccessSettingTypeDef]
     ScreenResolution: Literal["W_1280xH_720"]
     ScreenImageFormat: ScreenImageFormatType
@@ -1188,29 +1224,6 @@ class FleetTypeDef(TypedDict):
     RootVolumeConfig: NotRequired[VolumeConfigTypeDef]
     DisableIMDSV1: NotRequired[bool]
 
-class ImageBuilderTypeDef(TypedDict):
-    Name: str
-    Arn: NotRequired[str]
-    ImageArn: NotRequired[str]
-    Description: NotRequired[str]
-    DisplayName: NotRequired[str]
-    VpcConfig: NotRequired[VpcConfigOutputTypeDef]
-    InstanceType: NotRequired[str]
-    Platform: NotRequired[PlatformTypeType]
-    IamRoleArn: NotRequired[str]
-    State: NotRequired[ImageBuilderStateType]
-    StateChangeReason: NotRequired[ImageBuilderStateChangeReasonTypeDef]
-    CreatedTime: NotRequired[datetime]
-    EnableDefaultInternetAccess: NotRequired[bool]
-    DomainJoinInfo: NotRequired[DomainJoinInfoTypeDef]
-    NetworkAccessConfiguration: NotRequired[NetworkAccessConfigurationTypeDef]
-    ImageBuilderErrors: NotRequired[list[ResourceErrorTypeDef]]
-    AppstreamAgentVersion: NotRequired[str]
-    AccessEndpoints: NotRequired[list[AccessEndpointTypeDef]]
-    RootVolumeConfig: NotRequired[VolumeConfigTypeDef]
-    LatestAppstreamAgentVersion: NotRequired[LatestAppstreamAgentVersionType]
-    DisableIMDSV1: NotRequired[bool]
-
 class SessionTypeDef(TypedDict):
     Id: str
     UserId: str
@@ -1243,6 +1256,41 @@ class UsageReportSubscriptionTypeDef(TypedDict):
 StorageConnectorUnionTypeDef = Union[StorageConnectorTypeDef, StorageConnectorOutputTypeDef]
 VpcConfigUnionTypeDef = Union[VpcConfigTypeDef, VpcConfigOutputTypeDef]
 AgentAccessConfigUnionTypeDef = Union[AgentAccessConfigTypeDef, AgentAccessConfigOutputTypeDef]
+
+class UpdateImageBuilderRequestTypeDef(TypedDict):
+    Name: str
+    Description: NotRequired[str]
+    DisplayName: NotRequired[str]
+    AgentAccessConfig: NotRequired[ImageBuilderAgentAccessConfigForUpdateTypeDef]
+    AttributesToDelete: NotRequired[Sequence[Literal["AGENT_ACCESS_CONFIG"]]]
+
+class ImageBuilderTypeDef(TypedDict):
+    Name: str
+    Arn: NotRequired[str]
+    ImageArn: NotRequired[str]
+    Description: NotRequired[str]
+    DisplayName: NotRequired[str]
+    VpcConfig: NotRequired[VpcConfigOutputTypeDef]
+    InstanceType: NotRequired[str]
+    Platform: NotRequired[PlatformTypeType]
+    IamRoleArn: NotRequired[str]
+    State: NotRequired[ImageBuilderStateType]
+    StateChangeReason: NotRequired[ImageBuilderStateChangeReasonTypeDef]
+    CreatedTime: NotRequired[datetime]
+    EnableDefaultInternetAccess: NotRequired[bool]
+    DomainJoinInfo: NotRequired[DomainJoinInfoTypeDef]
+    NetworkAccessConfiguration: NotRequired[NetworkAccessConfigurationTypeDef]
+    ImageBuilderErrors: NotRequired[list[ResourceErrorTypeDef]]
+    AppstreamAgentVersion: NotRequired[str]
+    AccessEndpoints: NotRequired[list[AccessEndpointTypeDef]]
+    RootVolumeConfig: NotRequired[VolumeConfigTypeDef]
+    LatestAppstreamAgentVersion: NotRequired[LatestAppstreamAgentVersionType]
+    DisableIMDSV1: NotRequired[bool]
+    AgentAccessConfig: NotRequired[ImageBuilderAgentAccessConfigOutputTypeDef]
+
+ImageBuilderAgentAccessConfigUnionTypeDef = Union[
+    ImageBuilderAgentAccessConfigTypeDef, ImageBuilderAgentAccessConfigOutputTypeDef
+]
 
 class CreateAppBlockBuilderResultTypeDef(TypedDict):
     AppBlockBuilder: AppBlockBuilderTypeDef
@@ -1426,27 +1474,6 @@ class UpdateFleetResultTypeDef(TypedDict):
     Fleet: FleetTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class CreateImageBuilderResultTypeDef(TypedDict):
-    ImageBuilder: ImageBuilderTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DeleteImageBuilderResultTypeDef(TypedDict):
-    ImageBuilder: ImageBuilderTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeImageBuildersResultTypeDef(TypedDict):
-    ImageBuilders: list[ImageBuilderTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-class StartImageBuilderResultTypeDef(TypedDict):
-    ImageBuilder: ImageBuilderTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class StopImageBuilderResultTypeDef(TypedDict):
-    ImageBuilder: ImageBuilderTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class DescribeSessionsResultTypeDef(TypedDict):
     Sessions: list[SessionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1502,25 +1529,6 @@ class CreateFleetRequestTypeDef(TypedDict):
     RootVolumeConfig: NotRequired[VolumeConfigTypeDef]
     DisableIMDSV1: NotRequired[bool]
 
-class CreateImageBuilderRequestTypeDef(TypedDict):
-    Name: str
-    InstanceType: str
-    ImageName: NotRequired[str]
-    ImageArn: NotRequired[str]
-    Description: NotRequired[str]
-    DisplayName: NotRequired[str]
-    VpcConfig: NotRequired[VpcConfigUnionTypeDef]
-    IamRoleArn: NotRequired[str]
-    EnableDefaultInternetAccess: NotRequired[bool]
-    DomainJoinInfo: NotRequired[DomainJoinInfoTypeDef]
-    AppstreamAgentVersion: NotRequired[str]
-    Tags: NotRequired[Mapping[str, str]]
-    AccessEndpoints: NotRequired[Sequence[AccessEndpointTypeDef]]
-    RootVolumeConfig: NotRequired[VolumeConfigTypeDef]
-    SoftwaresToInstall: NotRequired[Sequence[str]]
-    SoftwaresToUninstall: NotRequired[Sequence[str]]
-    DisableIMDSV1: NotRequired[bool]
-
 class UpdateAppBlockBuilderRequestTypeDef(TypedDict):
     Name: str
     Description: NotRequired[str]
@@ -1559,6 +1567,51 @@ class UpdateFleetRequestTypeDef(TypedDict):
     MaxSessionsPerInstance: NotRequired[int]
     RootVolumeConfig: NotRequired[VolumeConfigTypeDef]
     DisableIMDSV1: NotRequired[bool]
+
+class CreateImageBuilderResultTypeDef(TypedDict):
+    ImageBuilder: ImageBuilderTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteImageBuilderResultTypeDef(TypedDict):
+    ImageBuilder: ImageBuilderTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeImageBuildersResultTypeDef(TypedDict):
+    ImageBuilders: list[ImageBuilderTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class StartImageBuilderResultTypeDef(TypedDict):
+    ImageBuilder: ImageBuilderTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StopImageBuilderResultTypeDef(TypedDict):
+    ImageBuilder: ImageBuilderTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateImageBuilderResultTypeDef(TypedDict):
+    ImageBuilder: ImageBuilderTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateImageBuilderRequestTypeDef(TypedDict):
+    Name: str
+    InstanceType: str
+    ImageName: NotRequired[str]
+    ImageArn: NotRequired[str]
+    Description: NotRequired[str]
+    DisplayName: NotRequired[str]
+    VpcConfig: NotRequired[VpcConfigUnionTypeDef]
+    IamRoleArn: NotRequired[str]
+    EnableDefaultInternetAccess: NotRequired[bool]
+    DomainJoinInfo: NotRequired[DomainJoinInfoTypeDef]
+    AppstreamAgentVersion: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+    AccessEndpoints: NotRequired[Sequence[AccessEndpointTypeDef]]
+    RootVolumeConfig: NotRequired[VolumeConfigTypeDef]
+    SoftwaresToInstall: NotRequired[Sequence[str]]
+    SoftwaresToUninstall: NotRequired[Sequence[str]]
+    DisableIMDSV1: NotRequired[bool]
+    AgentAccessConfig: NotRequired[ImageBuilderAgentAccessConfigUnionTypeDef]
 
 class CreateImportedImageResultTypeDef(TypedDict):
     Image: ImageTypeDef

@@ -51,7 +51,6 @@ from trajectory.types import (
 from trajectory.types import BenchmarkSpecTask as Task
 from trajectory.types import ChatCompletionResponse as ChatCompletion
 from trajectory.types import CreateResponseResult as Response
-from trajectory.types import DatasetMetadata as Dataset
 from trajectory.types import DeploymentLifecycleStatus as DeploymentStatus
 from trajectory.types import EvalRunLifecycleStatus as EvalRunStatus
 from trajectory.types import Step as TrajectoryStep
@@ -99,7 +98,6 @@ __all__ = [
   "ChatCompletion",
   "ChatCompletionChunk",
   "Checkpoint",
-  "Dataset",
   "Deployment",
   "DeploymentStatus",
   "EvalRun",

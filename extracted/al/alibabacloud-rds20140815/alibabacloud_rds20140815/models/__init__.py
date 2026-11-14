@@ -1229,6 +1229,9 @@ from ._switch_over_major_version_upgrade_response import SwitchOverMajorVersionU
 from ._switch_replication_link_request import SwitchReplicationLinkRequest
 from ._switch_replication_link_response_body import SwitchReplicationLinkResponseBody
 from ._switch_replication_link_response import SwitchReplicationLinkResponse
+from ._switch_to_primary_instance_request import SwitchToPrimaryInstanceRequest
+from ._switch_to_primary_instance_response_body import SwitchToPrimaryInstanceResponseBody
+from ._switch_to_primary_instance_response import SwitchToPrimaryInstanceResponse
 from ._sync_rckey_pair_request import SyncRCKeyPairRequest
 from ._sync_rckey_pair_response_body import SyncRCKeyPairResponseBody
 from ._sync_rckey_pair_response import SyncRCKeyPairResponse
@@ -2945,6 +2948,9 @@ __all__ = [
     SwitchReplicationLinkRequest,
     SwitchReplicationLinkResponseBody,
     SwitchReplicationLinkResponse,
+    SwitchToPrimaryInstanceRequest,
+    SwitchToPrimaryInstanceResponseBody,
+    SwitchToPrimaryInstanceResponse,
     SyncRCKeyPairRequest,
     SyncRCKeyPairResponseBody,
     SyncRCKeyPairResponse,

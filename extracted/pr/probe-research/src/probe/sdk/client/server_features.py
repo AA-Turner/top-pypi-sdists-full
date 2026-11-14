@@ -71,7 +71,16 @@ class ServerFeaturesMixin:
             except errors.NotFoundError:
                 feats = frozenset()
             self._team_features_cache = feats
+            self._save_team_features(feats)
         return feats
+
+    def _save_team_features(self, feats: frozenset[str]) -> None:
+        """Copy an answer to the team-features cache the chat rules read (project-preview fixes F7)."""
+        from .. import session_marker
+
+        settings = getattr(self, "settings", None)
+        session_marker.save_team_features(str(getattr(settings, "base_url", "") or ""),
+                                          str(getattr(settings, "token", "") or ""), feats)
 
     def _require_feature(self, name: str, message: str) -> None:
         """Preflight gate: refuse BEFORE any state changes, with the fix named.

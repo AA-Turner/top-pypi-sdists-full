@@ -244,6 +244,8 @@ const BUILD_COMMAND_REQUEST: RecordSpec = RecordSpec {
         FieldSpec::new("fail_fast", FieldDefault::False),
         FieldSpec::new("full_refresh", FieldDefault::False),
         FieldSpec::new("changed", FieldDefault::False),
+        FieldSpec::new("changed_counts", FieldDefault::None),
+        FieldSpec::new("reach", FieldDefault::None),
         FieldSpec::new("load_sources", FieldDefault::None),
         FieldSpec::new("reload_sources", FieldDefault::False),
         FieldSpec::new("include_python", FieldDefault::True),
@@ -561,6 +563,9 @@ const PLAN_COMMAND_REQUEST: RecordSpec = RecordSpec {
         FieldSpec::new("cursor_overrides", FieldDefault::None),
         FieldSpec::new("json_output", FieldDefault::False),
         FieldSpec::new("full_refresh", FieldDefault::False),
+        FieldSpec::new("changed", FieldDefault::False),
+        FieldSpec::new("changed_counts", FieldDefault::None),
+        FieldSpec::new("reach", FieldDefault::None),
         FieldSpec::new("load_sources", FieldDefault::None),
         FieldSpec::new("include_python", FieldDefault::True),
         FieldSpec::new("no_color", FieldDefault::False),
@@ -813,6 +818,8 @@ const BUILD_COST_FINALIZATION: RecordSpec = RecordSpec {
             FieldDefault::Text("No executable warehouse work was planned for this build."),
         ),
         FieldSpec::new("had_executable_work", FieldDefault::True),
+        FieldSpec::new("target_schema", FieldDefault::None),
+        FieldSpec::new("orchestration_run_id", FieldDefault::None),
     ],
 };
 const CONTRACT_COMMAND_REQUEST: RecordSpec = RecordSpec {

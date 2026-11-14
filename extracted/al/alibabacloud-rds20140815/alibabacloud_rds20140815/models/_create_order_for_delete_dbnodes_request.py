@@ -28,15 +28,14 @@ class CreateOrderForDeleteDBNodesRequest(DaraModel):
     ):
         # Specifies whether to enable automatic payment. Valid values:
         # 
-        # 1. **true**: enables automatic payment. You must ensure that your account balance is sufficient.
+        # - **true**: Enables automatic payment. You must ensure that your account balance is sufficient.
+        # - **false**: Generates an unpaid order without deducting fees.
         # 
-        # 1. **false**: generates an unpaid order without deducting fees.
-        # 
-        # > Default value: true. If your payment method has an insufficient balance, you can change the Settings of the AutoPay parameter to false. In this case, an unpaid order is generated, and you can logon to the ApsaraDB RDS console to pay for the order.
+        # Default value: true. If your payment method has an insufficient balance, you can set the AutoPay parameter to false to generate an unpaid order. Then, you can log on to the ApsaraDB RDS console to complete the payment.
         self.auto_pay = auto_pay
         # The business extension parameters.
         self.business_info = business_info
-        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the value, but you must ensure that it is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the value, but you must ensure that it is unique among different requests. The token can be up to 64 characters in length and cannot contain non-ASCII characters.
         self.client_token = client_token
         # The commodity code. Valid values:
         # 
@@ -55,9 +54,7 @@ class CreateOrderForDeleteDBNodesRequest(DaraModel):
         self.dbinstance_id = dbinstance_id
         # The list of node IDs.
         self.dbnode_id = dbnode_id
-        # The current database engine version. Valid values:
-        # 
-        # MySQL: **5.5, 5.6, 5.7, and 8.0**
+        # The current database engine version. Valid values for MySQL: **5.5**, **5.6**, **5.7**, and **8.0**.
         self.engine_version = engine_version
         # The database node type. Valid values:
         # - **Master**: primary node

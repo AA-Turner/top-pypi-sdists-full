@@ -47,14 +47,13 @@ SKLEARN_INPUT_Y_PARAMS = {"multi_output": False, "y_numeric": False}
 
 
 def convert_river_to_sklearn(estimator: base.Estimator):
-    """Wraps a river estimator to make it compatible with scikit-learn.
+    """Wrap a river estimator to make it compatible with scikit-learn.
 
     Parameters
     ----------
     estimator
 
     """
-
     if isinstance(estimator, compose.Pipeline):
         return pipeline.Pipeline(
             [(name, convert_river_to_sklearn(step)) for name, step in estimator.steps.items()]
@@ -77,7 +76,10 @@ def convert_river_to_sklearn(estimator: base.Estimator):
 
 
 class River2SKLBase(base.Wrapper, sklearn_base.BaseEstimator):
-    """This class is just here for house-keeping."""
+    """Base class for the compatibility layers.
+
+    This class is just here for house-keeping.
+    """
 
     @property
     def _wrapped_model(self):
@@ -130,7 +132,6 @@ class River2SKLRegressor(sklearn_base.RegressorMixin, River2SKLBase):
         self
 
         """
-
         # Reset the state if already fitted
         self.__dict__.pop("instance_", None)
 
@@ -152,7 +153,6 @@ class River2SKLRegressor(sklearn_base.RegressorMixin, River2SKLBase):
         self
 
         """
-
         # Fit with one pass of the dataset portion
         return self._partial_fit(X, y, reset=not hasattr(self, "n_features_in_"))
 
@@ -169,7 +169,6 @@ class River2SKLRegressor(sklearn_base.RegressorMixin, River2SKLBase):
         Predicted target values for each row of `X`.
 
         """
-
         # Check the fit method has been called
         utils.validation.check_is_fitted(self, attributes="instance_")
 
@@ -206,16 +205,16 @@ class River2SKLClassifier(sklearn_base.ClassifierMixin, River2SKLBase):
         return tags
 
     def _partial_fit(self, X, y, classes, reset=False):
+        # Check the inputs
+        X, y = validate_data(
+            self, X, y, reset=reset, **SKLEARN_INPUT_X_PARAMS, **SKLEARN_INPUT_Y_PARAMS
+        )
+
         # If first _partial_fit call, set the classes, else check consistency
         if not hasattr(self, "classes_"):
             if classes is None:
                 classes = utils.multiclass.unique_labels(y)
             self.classes_ = classes
-
-        # Check the inputs
-        X, y = validate_data(
-            self, X, y, reset=reset, **SKLEARN_INPUT_X_PARAMS, **SKLEARN_INPUT_Y_PARAMS
-        )
 
         # Check the number of classes agrees with the type of classifier
         if not self.river_estimator._multiclass:
@@ -264,14 +263,12 @@ class River2SKLClassifier(sklearn_base.ClassifierMixin, River2SKLBase):
         self
 
         """
-
         # Reset the state if already fitted
         for attr in ("classes_", "instance_", "label_encoder_"):
             self.__dict__.pop(attr, None)
 
         # Fit with one pass of the dataset
-        classes = utils.multiclass.unique_labels(y)
-        return self._partial_fit(X, y, classes, reset=True)
+        return self._partial_fit(X, y, classes=None, reset=True)
 
     def partial_fit(self, X, y, classes=None):
         """Fits incrementally on a portion of a dataset.
@@ -292,7 +289,6 @@ class River2SKLClassifier(sklearn_base.ClassifierMixin, River2SKLBase):
         self
 
         """
-
         # Fit with one pass of the dataset portion
         return self._partial_fit(X, y, classes, reset=not hasattr(self, "n_features_in_"))
 
@@ -309,7 +305,6 @@ class River2SKLClassifier(sklearn_base.ClassifierMixin, River2SKLBase):
         Predicted target values for each row of `X`.
 
         """
-
         # Check the fit method has been called
         utils.validation.check_is_fitted(self, attributes="instance_")
 
@@ -340,7 +335,6 @@ class River2SKLClassifier(sklearn_base.ClassifierMixin, River2SKLBase):
         Predicted target values for each row of `X`.
 
         """
-
         # Check the fit method has been called
         utils.validation.check_is_fitted(self, attributes="instance_")
 
@@ -411,7 +405,6 @@ class River2SKLTransformer(sklearn_base.TransformerMixin, River2SKLBase):
         self
 
         """
-
         # Reset the state if already fitted
         self.__dict__.pop("instance_", None)
 
@@ -433,7 +426,6 @@ class River2SKLTransformer(sklearn_base.TransformerMixin, River2SKLBase):
         self
 
         """
-
         # Fit with one pass of the dataset
         return self._partial_fit(X, y, reset=not hasattr(self, "n_features_in_"))
 
@@ -450,7 +442,6 @@ class River2SKLTransformer(sklearn_base.TransformerMixin, River2SKLBase):
         Transformed output.
 
         """
-
         # Check the fit method has been called
         utils.validation.check_is_fitted(self, attributes="instance_")
 
@@ -510,7 +501,6 @@ class River2SKLClusterer(sklearn_base.ClusterMixin, River2SKLBase):
         self
 
         """
-
         # Reset the state if already fitted
         self.__dict__.pop("instance_", None)
 
@@ -532,7 +522,6 @@ class River2SKLClusterer(sklearn_base.ClusterMixin, River2SKLBase):
         self
 
         """
-
         # Fit with one pass of the dataset
         return self._partial_fit(X, y, reset=not hasattr(self, "n_features_in_"))
 
@@ -549,7 +538,6 @@ class River2SKLClusterer(sklearn_base.ClusterMixin, River2SKLBase):
         Transformed output.
 
         """
-
         # Check the fit method has been called
         utils.validation.check_is_fitted(self, attributes="instance_")
 

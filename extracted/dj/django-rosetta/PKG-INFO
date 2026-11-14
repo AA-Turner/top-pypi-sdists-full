@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-rosetta
-Version: 0.10.3
+Version: 0.10.4
 Summary: A Django application that eases the translation of Django projects
 Home-page: https://github.com/mbi/django-rosetta
 Author: Marco Bonetti

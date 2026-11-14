@@ -760,11 +760,8 @@ async fn manifest_and_file_failure_diagnostics_preserve_region_and_transport_err
                 adapter
                     .download_id_list(
                         &IdListDownloadJob {
-                            plan: IdListDownloadPlan {
-                                private_file: false,
-                                source_changed: false,
-                                range_start: 0,
-                            },
+                            range_start: 0,
+                            can_download_snapshots: false,
                             name: "a".into(),
                             primary_url: "https://files.test/a".into(),
                             metadata: metadata("a", 3, 1),

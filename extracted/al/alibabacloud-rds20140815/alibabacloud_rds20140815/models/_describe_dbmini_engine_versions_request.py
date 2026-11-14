@@ -26,8 +26,8 @@ class DescribeDBMiniEngineVersionsRequest(DaraModel):
         # The database engine. Valid values: **MySQL** and **PostgreSQL**.
         self.engine = engine
         # The database engine version. Valid values:
-        # * MySQL: **8.0**, **5.7**, **5.6**, and **5.5**.
-        # * PostgreSQL: **17.0**, **16.0**, **15.0**, **14.0**, **13.0**, **12.0**, **11.0**, and **10.0**.
+        # * MySQL: **8.0**, **5.7**, **5.6**, and **5.5**
+        # * PostgreSQL: **17.0**, **16.0**, **15.0**, **14.0**, **13.0**, **12.0**, **11.0**, and **10.0**
         self.engine_version = engine_version
         # The minor engine version number of the instance. Specify this parameter to query the details of a specific minor engine version.
         # 
@@ -35,7 +35,7 @@ class DescribeDBMiniEngineVersionsRequest(DaraModel):
         self.minor_version_tag = minor_version_tag
         # The instance edition. Valid values:
         # * **Basic**: Basic Edition.
-        # * **HighAvailability**: High-availability Edition.
+        # * **HighAvailability**: high-availability series.
         # * **cluster**: Cluster Edition.
         # * **Finance**: RDS Enterprise Edition.
         self.node_type = node_type
@@ -45,12 +45,12 @@ class DescribeDBMiniEngineVersionsRequest(DaraModel):
         self.region_id = region_id
         self.resource_owner_id = resource_owner_id
         # The instance storage type. Valid values:
-        # * **local_ssd**: premium local SSD.
-        # * **general_essd**: premium performance disk.
-        # * **cloud_ssd**: standard SSD.
-        # * **cloud_essd**: PL1 ESSD.
-        # * **cloud_essd2**: PL2 ESSD.
-        # * **cloud_essd3**: PL3 ESSD.
+        # * **local_ssd**: premium local SSD
+        # * **general_essd**: premium performance disk
+        # * **cloud_ssd**: standard SSD cloud disk
+        # * **cloud_essd**: PL1 ESSD cloud disk
+        # * **cloud_essd2**: PL2 ESSD cloud disk
+        # * **cloud_essd3**: PL3 ESSD cloud disk
         self.storage_type = storage_type
 
     def validate(self):

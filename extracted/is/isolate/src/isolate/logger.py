@@ -6,6 +6,21 @@ from typing import Dict
 
 from isolate.logs import LogLevel, LogSource
 
+_RESERVED_LABELS = frozenset(
+    {
+        "alloc_id",
+        "fal_job_id",
+        "fal_node_id",
+        "fal_user_id",
+        "fal_user_nickname",
+        "fal_worker_id",
+        "file",
+        "host",
+        "node",
+        "source_type",
+    }
+)
+
 
 # NOTE: we probably should've created a proper `logging.getLogger` here,
 # but it handling `source` would be not trivial, so we are better off
@@ -23,6 +38,7 @@ class IsolateLogger:
         source: LogSource,
         line_labels: Dict[str, str],
     ) -> None:
+        caller_labels = {**self.extra_labels, **line_labels}
         record = {
             # Set the timestamp from source so we can be sure no buffering or
             # latency is affecting the timestamp.
@@ -31,8 +47,11 @@ class IsolateLogger:
             "level": level.name,
             "message": message,
             **self.log_labels,
-            **self.extra_labels,
-            **line_labels,
+            **{
+                key: value
+                for key, value in caller_labels.items()
+                if key not in _RESERVED_LABELS
+            },
         }
         print(json.dumps(record))
 

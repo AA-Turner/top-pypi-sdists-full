@@ -4,9 +4,8 @@ import json
 import os
 import pathlib
 import re
-import sys
 from collections.abc import AsyncGenerator, AsyncIterator, Mapping, Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -14,20 +13,15 @@ from typing import (
     Generic,
     Literal,
     Protocol,
+    Self,
     TypeAlias,
     TypeVar,
     overload,
 )
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
 import pydantic
 import semver
 
-from vercel._internal.core.polyfills import UTC, Self
 from vercel.queue import SanitizedName
 
 from . import ulid
@@ -1198,9 +1192,16 @@ class HTTPHandler(Protocol):
     async def __call__(self, request: HTTPRequest) -> HTTPResponse: ...
 
 
+_generate_run_ulid = ulid.monotonic_factory()
+
+
 class World(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def get_deployment_id(self) -> str: ...
+
+    def create_run_id(self, *, region: str | None = None) -> str:
+        """Mint a run ID; worlds without regions ignore the hint."""
+        return _generate_run_ulid()
 
     def get_environment(self) -> str | None:
         """The environment this World's writes are attributed to."""

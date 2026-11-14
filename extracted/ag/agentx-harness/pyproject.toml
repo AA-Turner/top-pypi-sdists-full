@@ -19,7 +19,7 @@ packages = ["src/aiperf"]
 "src/agentx_cli.py" = "agentx_cli.py"
 [project]
 name = "agentx-harness"
-version = "1.0.13"
+version = "1.0.14"
 description = "SemiAnalysis AgentX inference benchmark harness, built on AIPerf"
 readme = "README.md"
 license = {text = "Apache-2.0"}

@@ -18,7 +18,7 @@ class DescribeDBInstanceSwitchLogRequest(DaraModel):
         resource_owner_id: int = None,
         start_time: str = None,
     ):
-        # The instance ID. You can call DescribeDBInstances to obtain the instance ID.
+        # The instance ID. You can call the DescribeDBInstances operation to query the ID.
         self.dbinstance_id = dbinstance_id
         # The end time of the query. The end time must be later than the start time. Format: yyyy-MM-ddTHH:mmZ (UTC).
         # 
@@ -26,12 +26,12 @@ class DescribeDBInstanceSwitchLogRequest(DaraModel):
         self.end_time = end_time
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The page number. Valid values: values greater than 0 and not exceeding the maximum value of Integer.
+        # The page number. Valid values: integers greater than 0 and up to the maximum value of the Integer data type.
         # Default value: 1.
         self.page_number = page_number
-        # The number of entries per page. Maximum value: 100. Default value: 30.
+        # The number of entries per page. Valid values: integers less than or equal to 100. Default value: 30.
         self.page_size = page_size
-        # The region ID. You can call DescribeRegions to obtain the region ID.
+        # The region ID. You can call the DescribeRegions operation to query the region ID.
         self.region_id = region_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id

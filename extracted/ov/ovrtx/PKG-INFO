@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ovrtx
-Version: 0.6.0.1791947691
+Version: 0.7.0.1794596436
 Summary: Omniverse RTX
 Author: NVIDIA Corporation
 License-Expression: LicenseRef-NvidiaProprietary
@@ -59,6 +59,12 @@ Full C and Python API documentation, guides, and runnable examples are at
 **<https://nvidia-omniverse.github.io/ovrtx>**. Source, examples, skills for AI
 coding agents, and C SDK release archives live at
 <https://github.com/NVIDIA-Omniverse/ovrtx>.
+
+## Data Collection
+
+OVRTX collects anonymous initialization data by default to help improve OVRTX. Collection is optional and can be disabled without affecting OVRTX functionality. To opt out, set the environment variable `NVIDIA_OMNIVERSE_PRODUCT_TELEMETRY_DISABLED=1` before launching your application, or call `ovrtx.library_telemetry_opt_out()` before OVRTX initializes. OVRTX initializes when you call `ovrtx_initialize()` or, if you do not, when you create your first `ovrtx.Renderer`.
+
+More information is available at [Data Collection & Use](https://github.com/NVIDIA-Omniverse/ovrtx/blob/main/TELEMETRY.md).
 
 ## License
 

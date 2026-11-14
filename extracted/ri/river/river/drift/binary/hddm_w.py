@@ -7,7 +7,7 @@ from river import base, stats
 
 
 class HDDMW(base.BinaryDriftAndWarningDetector):
-    """Drift Detection Method based on Hoeffding's bounds with moving weighted average-test.
+    r"""Drift Detection Method based on Hoeffding's bounds with moving weighted average-test.
 
     HDDMW is an online drift detection method based on McDiarmid's bounds. HDDMW uses the
     Exponentially Weighted Moving Average (EWMA) statistic as estimator.
@@ -20,7 +20,7 @@ class HDDMW(base.BinaryDriftAndWarningDetector):
 
     - 0: Correct, $y=y'$
 
-     - 1: Error, $y \\neq y'$
+     - 1: Error, $y \neq y'$
 
     *Implementation based on MOA.*
 
@@ -63,8 +63,8 @@ class HDDMW(base.BinaryDriftAndWarningDetector):
     Warning detected at index 451
     Change detected at index 1077
 
-     References
-     ----------
+    References
+    ----------
      [^1]: Frías-Blanco I, del Campo-Ávila J, Ramos-Jimenez G, et al. Online and non-parametric drift
      detection methods based on Hoeffding’s bounds. IEEE Transactions on Knowledge and Data
      Engineering, 2014, 27(3): 810-823.
@@ -75,11 +75,11 @@ class HDDMW(base.BinaryDriftAndWarningDetector):
 
     def __init__(
         self,
-        drift_confidence=0.001,
-        warning_confidence=0.005,
-        lambda_val=0.05,
-        two_sided_test=False,
-    ):
+        drift_confidence: float = 0.001,
+        warning_confidence: float = 0.005,
+        lambda_val: float = 0.05,
+        two_sided_test: bool = False,
+    ) -> None:
         super().__init__()
         self.drift_confidence = drift_confidence
         self.warning_confidence = warning_confidence
@@ -88,7 +88,7 @@ class HDDMW(base.BinaryDriftAndWarningDetector):
 
         self._reset()
 
-    def _reset(self):
+    def _reset(self) -> None:
         super()._reset()
         self._total = SampleInfo(self.lambda_val)
         self._s1_decr = SampleInfo(self.lambda_val)
@@ -98,10 +98,10 @@ class HDDMW(base.BinaryDriftAndWarningDetector):
         self._incr_cutpoint = float("inf")
         self._decr_cutpoint = -float("inf")
 
-    def _mcdiarmid_bound(self, ibc: float, confidence: float):
+    def _mcdiarmid_bound(self, ibc: float, confidence: float) -> float:
         return math.sqrt(ibc * math.log(1 / confidence) / 2)
 
-    def update(self, x):
+    def update(self, x: bool) -> None:
         """Update the change detector with a single data point.
 
         Parameters
@@ -110,12 +110,7 @@ class HDDMW(base.BinaryDriftAndWarningDetector):
             This parameter indicates whether the last sample analyzed was
             correctly classified or not. 1 indicates an error (miss-classification).
 
-        Returns
-        -------
-        self
-
         """
-
         if self.drift_detected:
             self._reset()
 
@@ -155,7 +150,7 @@ class HDDMW(base.BinaryDriftAndWarningDetector):
     def _detect_mean_decr(self, confidence: float) -> bool:
         return self._has_mean_changed(self._s2_decr, self._s1_decr, confidence)
 
-    def _update_incr_stats(self, x, confidence):
+    def _update_incr_stats(self, x: bool, confidence: float) -> None:
         eps = self._mcdiarmid_bound(self._total.ibc, confidence)
 
         if self._total.ewma + eps < self._incr_cutpoint:
@@ -165,7 +160,7 @@ class HDDMW(base.BinaryDriftAndWarningDetector):
         else:
             self._s2_incr.update(x)
 
-    def _update_decr_stats(self, x, confidence):
+    def _update_decr_stats(self, x: bool, confidence: float) -> None:
         eps = self._mcdiarmid_bound(self._total.ibc, confidence)
 
         if self._total.ewma - eps > self._decr_cutpoint:
@@ -185,19 +180,19 @@ class SampleInfo:
         self._lambd_sq = lambd * lambd
         self._c_lambd_sq = (1 - lambd) ** 2
 
-    def update(self, x):
+    def update(self, x: bool) -> None:
         self._ewma.update(x)
         self._is_init = True
         self._ibc = self._lambd_sq + self._c_lambd_sq * self._ibc
 
     @property
-    def ewma(self):
+    def ewma(self) -> float:
         return self._ewma.get()
 
     @property
-    def ibc(self):
+    def ibc(self) -> float:
         return self._ibc
 
     @property
-    def is_init(self):
+    def is_init(self) -> bool:
         return self._is_init

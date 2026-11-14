@@ -15,10 +15,10 @@ class ModifyWhitelistTemplateRequest(DaraModel):
         template_id: int = None,
         template_name: str = None,
     ):
-        # The IP address whitelist of the instance. Separate multiple IP addresses with commas (,). Duplicates are not allowed. The following two formats are supported:
+        # The IP address whitelist of the instance. Separate multiple IP addresses with commas (,). Duplicate IP addresses are not allowed. The following two formats are supported:
         # 
         # - IP address format, such as 10.23.XX.XX.
-        # - CIDR format, such as 10.23.XX.XX/24 (Classless Inter-Domain Routing, where 24 indicates the length of the prefix in the address, and the valid values are 1 to 32).
+        # - CIDR format, such as 10.23.XX.XX/24. 24 indicates the length of the prefix in the Classless Inter-Domain Routing (CIDR) block. Valid values: 1 to 32.
         # 
         # > You can add up to 1,000 IP addresses or CIDR blocks to each instance. The total number of IP addresses and CIDR blocks in all IP address whitelist groups cannot exceed 1,000. If you have a large number of IP addresses, we recommend that you merge them into CIDR blocks, such as 10.23.XX.XX/24.
         # 
@@ -32,7 +32,7 @@ class ModifyWhitelistTemplateRequest(DaraModel):
         self.resource_owner_id = resource_owner_id
         # The ID of the whitelist template. This parameter is required for modify and delete operations. You can call the DescribeAllWhitelistTemplate operation to obtain the ID.
         self.template_id = template_id
-        # The name of the whitelist template. This parameter is required when you create a template. The name cannot be modified after the template is created. The name must be unique within the same account and start with a letter. You can call the DescribeWhitelistTemplate operation to obtain the name.
+        # The name of the whitelist template. This parameter is required when you create a template. The name cannot be modified after the template is created. The name must be unique within the account and start with a letter. You can call the DescribeWhitelistTemplate operation to obtain the name.
         self.template_name = template_name
 
     def validate(self):

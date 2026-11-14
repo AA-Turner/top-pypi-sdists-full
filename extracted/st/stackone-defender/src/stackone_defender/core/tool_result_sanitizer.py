@@ -10,6 +10,7 @@ value is the original payload (optionally boundary-wrapped when
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping
 from typing import Any
 
 from ..classifiers.pattern_detector import PatternDetector, create_pattern_detector
@@ -177,11 +178,15 @@ class ToolResultSanitizer:
             return value
         if isinstance(value, list):
             return self._sanitize_array(value, context, metadata, depth, detect)
-        # Any mapping (dict, OrderedDict, bson.SON, ...) is traversed so key
-        # stripping + detection still apply. Non-dict objects (datetime, set,
-        # class instances) are NOT dicts and pass through unchanged below.
+        # Any dict (dict, OrderedDict, bson.SON, ...) is traversed so key stripping + detection apply.
         if isinstance(value, dict):
             return self._sanitize_object(value, context, metadata, depth, detect)
+        # Tuples, sets and other Mappings (UserDict, MappingProxyType) are scanned for detection but
+        # returned as given. Other objects (datetime, class instances) pass through.
+        if isinstance(value, (tuple, set, frozenset)):
+            self._sanitize_array(list(value), context, metadata, depth, detect)
+        elif isinstance(value, Mapping):
+            self._sanitize_object(dict(value), context, metadata, depth, detect)
         return value
 
     def _child_context(self, context: SanitizationContext, path: str, field_name: str) -> SanitizationContext:
@@ -328,7 +333,7 @@ class ToolResultSanitizer:
 
             result = self._pattern_detector.analyze(analysis_value)
             if result.has_detections:
-                tier1_patterns = [m.pattern for m in result.matches]
+                tier1_patterns = list(dict.fromkeys(m.pattern for m in result.matches))
                 risk_level = _risk_ladder(risk_level, result.suggested_risk)
                 if context.cumulative_risk and result.matches:
                     self._update_cumulative_risk(context.cumulative_risk, result.suggested_risk, tier1_patterns)

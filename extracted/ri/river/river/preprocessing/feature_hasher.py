@@ -34,7 +34,6 @@ class FeatureHasher(base.Transformer):
 
     Examples
     --------
-
     >>> import river
 
     >>> hasher = river.preprocessing.FeatureHasher(n_features=10, seed=42)
@@ -50,8 +49,8 @@ class FeatureHasher(base.Transformer):
 
     References
     ----------
-    [^1]: [Wikipedia article on feature vectorization using the hashing trick](https://www.wikiwand.com/en/Feature_hashing#/Feature_vectorization_using_hashing_trick)
-    [^2]: [Weinberger et al. (2009), Feature Hashing for Large Scale Multitask Learning](https://arxiv.org/abs/0902.2206)
+    [^1]: [Wikipedia article on feature vectorization using the hashing trick](https://en.wikipedia.org/wiki/Feature_hashing#Algorithms)
+    [^2]: [Weinberger, K., Dasgupta, A., Langford, J., Smola, A. and Attenberg, J., 2009, June. Feature hashing for large scale multitask learning. In Proceedings of the 26th annual international conference on machine learning (pp. 1113-1120)](https://doi.org/10.1145/1553374.1553516)
 
     """
 

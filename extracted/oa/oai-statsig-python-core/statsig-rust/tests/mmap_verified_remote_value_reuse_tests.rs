@@ -385,8 +385,8 @@ fn run(format: Format, change: Change) {
 }
 
 async fn run_case(format: Format, change: Change) {
+    std::env::set_var("STATSIG_ENABLE_PARTIAL_BLOB_PUBLICATION", "true");
     std::env::set_var("STATSIG_RUNNING_TESTS", "true");
-    std::env::remove_var("STATSIG_ENABLE_COLD_START_BLOB_FALLBACK");
     let sdk_key = format!("secret-mmap-verified-blob-{}", std::process::id());
     let six_hundred = matches!(change, Change::SixHundredBlobs);
     let fixture = |index| {
@@ -497,14 +497,18 @@ async fn run_case(format: Format, change: Change) {
             ..StatsigOptions::new()
         })),
     );
-    let initialization = sdk.initialize().await;
+    sdk.initialize().await.unwrap();
     if matches!(change, Change::MetadataLength) {
-        // A same-SHA proof with different metadata must not silently authorize
-        // the value. The normal download verifies and rejects the bad length.
+        // The mismatched proof cannot authorize this config; independent verified configs still serve.
         assert!(count(&server, &remotes[0].path()).await > 1);
-        assert!(sdk.specs_snapshot().dynamic_configs.is_empty());
+        assert!(!sdk.is_config_spec_ready());
+        let invalid =
+            sdk.get_dynamic_config(&StatsigUser::with_user_id("default-user"), &remotes[0].name);
+        assert!(invalid.details.reason.ends_with(":Unavailable"));
+        for remote in &incoming[1..] {
+            assert_semantic_json_eq(&evaluate(&sdk, "default-user", &remote.name), &remote.value);
+        }
     } else {
-        initialization.unwrap();
         assert_eq!(sdk.specs_snapshot().time, 2);
         for remote in &incoming {
             for user in ["default-user", "remote-user"] {

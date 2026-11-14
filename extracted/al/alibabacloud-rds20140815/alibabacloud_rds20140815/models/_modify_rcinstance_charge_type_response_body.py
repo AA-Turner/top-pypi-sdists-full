@@ -22,7 +22,7 @@ class ModifyRCInstanceChargeTypeResponseBody(DaraModel):
         # - **PREPAY**: subscription
         self.charge_type = charge_type
         # The expiration time.
-        # > This parameter is not returned if the billing method is changed to pay-as-you-go.
+        # >This parameter is not returned if the billing method is changed to pay-as-you-go.
         self.expired_time = expired_time
         # The reserved parameter. This parameter is not supported.
         self.fee_of_instances = fee_of_instances

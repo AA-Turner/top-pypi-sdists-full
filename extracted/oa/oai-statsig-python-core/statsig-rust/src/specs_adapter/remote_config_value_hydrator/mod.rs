@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::{Arc, OnceLock, atomic::AtomicBool};
 use std::time::{Duration, Instant};
 
@@ -13,11 +14,14 @@ use crate::specs_adapter::response_format::{
     SpecsResponseFormat, get_specs_response_format, is_legacy_json_no_update_under_protobuf_headers,
 };
 use crate::specs_response::proto_specs::VerifiedRemoteConfigValues;
+use crate::specs_response::spec_types::UnavailableValues;
 
 mod download;
 mod errors;
 mod json;
 mod metadata;
+mod partial;
+pub(crate) use partial::{IncompleteBlobConfigs, PartialBlobRefresh};
 mod protobuf;
 mod telemetry;
 mod verified_values;
@@ -30,10 +34,11 @@ use errors::HydrationTimeoutStep;
 use telemetry::{HydrationOutcome, HydrationResult};
 
 pub(crate) use download::DOWNLOAD_CONCURRENCY;
+pub(crate) use errors::HydrationFailureReason;
 pub(crate) use errors::unsupported_entity_error;
 pub(crate) use json::HydratedJsonStoreUpdate;
 pub(crate) use protobuf::{
-    ProtobufHydrationSession, declares_unsupported_remote_metadata,
+    ProtobufHydrationSession, ResolvedSpecValues, declares_unsupported_remote_metadata,
     protobuf_spec_has_remote_metadata as protobuf_spec_bytes_have_remote_metadata,
     protobuf_top_level_has_hydrated_sidecar_provenance,
     remote_metadata_marker_without_metadata_error, rewrite_decoded_dynamic_config_envelope,
@@ -44,6 +49,37 @@ pub(crate) use verified_values::{MmapRemoteValueProof, VerifiedRemoteValue, Veri
 
 const TAG: &str = "RemoteConfigValueHydrator";
 const HYDRATION_TIMEOUT: Duration = Duration::from_secs(30);
+// Finish failed cold-start downloads before the caller's initialization timer
+// so the remaining snapshot can still be parsed and published.
+const COLD_START_PUBLICATION_RESERVE: Duration = Duration::from_millis(100);
+
+pub(crate) fn cold_start_hydration_deadline(started_at: Instant) -> tokio::time::Instant {
+    let session_deadline = tokio::time::Instant::from_std(started_at + HYDRATION_TIMEOUT);
+    crate::networking::retry::INITIALIZATION_DEADLINE
+        .try_with(|deadline| {
+            let budget = deadline.saturating_duration_since(started_at.into());
+            session_deadline.min(*deadline - COLD_START_PUBLICATION_RESERVE.min(budget / 4))
+        })
+        .unwrap_or(session_deadline)
+}
+
+pub(crate) struct PartialHydration {
+    pub(crate) unavailable: UnavailableValues,
+    pub(crate) failed_blobs: HashMap<String, HydrationFailureReason>,
+}
+
+impl PartialHydration {
+    pub(crate) fn from_failures(
+        unavailable: UnavailableValues,
+        failed_blobs: HashMap<String, HydrationFailureReason>,
+        needs_sidecar_retry: bool,
+    ) -> Option<Self> {
+        (needs_sidecar_retry || !failed_blobs.is_empty()).then_some(Self {
+            unavailable,
+            failed_blobs,
+        })
+    }
+}
 
 /// Shared settings for hydrating a store update. Source URL and project scope
 /// are required; telemetry tagging and additional output are opt-in.
@@ -54,6 +90,7 @@ pub(crate) struct StoreHydrationOptions<'a> {
     pub(crate) sync_trigger: Option<SpecsSyncTrigger>,
     pub(crate) preserve_session_update_mode: bool,
     pub(crate) capture_data_store_bytes: bool,
+    pub(crate) allow_partial_full_response: bool,
 }
 
 impl<'a> StoreHydrationOptions<'a> {
@@ -64,6 +101,7 @@ impl<'a> StoreHydrationOptions<'a> {
             sync_trigger: None,
             preserve_session_update_mode: false,
             capture_data_store_bytes: false,
+            allow_partial_full_response: false,
         }
     }
 
@@ -79,6 +117,11 @@ impl<'a> StoreHydrationOptions<'a> {
 
     pub(crate) fn with_data_store_capture(mut self, capture: bool) -> Self {
         self.capture_data_store_bytes = capture;
+        self
+    }
+
+    pub(crate) fn with_partial_full_response(mut self, enabled: bool) -> Self {
+        self.allow_partial_full_response = enabled;
         self
     }
 }
@@ -148,9 +191,18 @@ impl RemoteConfigValueHydrator {
         .await;
         hydration_result.finish(result.as_ref().map(|_| ()));
         match &result {
-            Ok(Some(_)) => {
-                hydration_result.log_hydration_outcome(started_at, HydrationOutcome::Success)
-            }
+            Ok(Some(update)) => hydration_result.log_hydration_outcome(
+                started_at,
+                if update
+                    .partial_hydration
+                    .as_ref()
+                    .is_some_and(|repair| !repair.failed_blobs.is_empty())
+                {
+                    HydrationOutcome::Degraded
+                } else {
+                    HydrationOutcome::Success
+                },
+            ),
             Ok(None) => {}
             Err(_) => hydration_result.log_hydration_outcome(started_at, HydrationOutcome::Failure),
         }

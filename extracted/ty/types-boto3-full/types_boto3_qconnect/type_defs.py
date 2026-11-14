@@ -414,6 +414,10 @@ __all__ = (
     "ParsingConfigurationTypeDef",
     "ParsingPromptTypeDef",
     "ProactiveRecommendationDataDetailsTypeDef",
+    "ProfileCatalogItemOutputTypeDef",
+    "ProfileCatalogItemTypeDef",
+    "ProfileRecommendationOutputTypeDef",
+    "ProfileRecommendationTypeDef",
     "PushADMMessageTemplateContentTypeDef",
     "PushAPNSMessageTemplateContentTypeDef",
     "PushBaiduMessageTemplateContentTypeDef",
@@ -926,128 +930,6 @@ class CreateMessageTemplateVersionRequestTypeDef(TypedDict):
 
 class QuickResponseDataProviderTypeDef(TypedDict):
     content: NotRequired[str]
-
-
-class CustomerProfileAttributesOutputTypeDef(TypedDict):
-    profileId: NotRequired[str]
-    profileARN: NotRequired[str]
-    firstName: NotRequired[str]
-    middleName: NotRequired[str]
-    lastName: NotRequired[str]
-    accountNumber: NotRequired[str]
-    emailAddress: NotRequired[str]
-    phoneNumber: NotRequired[str]
-    additionalInformation: NotRequired[str]
-    partyType: NotRequired[str]
-    businessName: NotRequired[str]
-    birthDate: NotRequired[str]
-    gender: NotRequired[str]
-    mobilePhoneNumber: NotRequired[str]
-    homePhoneNumber: NotRequired[str]
-    businessPhoneNumber: NotRequired[str]
-    businessEmailAddress: NotRequired[str]
-    address1: NotRequired[str]
-    address2: NotRequired[str]
-    address3: NotRequired[str]
-    address4: NotRequired[str]
-    city: NotRequired[str]
-    county: NotRequired[str]
-    country: NotRequired[str]
-    postalCode: NotRequired[str]
-    province: NotRequired[str]
-    state: NotRequired[str]
-    shippingAddress1: NotRequired[str]
-    shippingAddress2: NotRequired[str]
-    shippingAddress3: NotRequired[str]
-    shippingAddress4: NotRequired[str]
-    shippingCity: NotRequired[str]
-    shippingCounty: NotRequired[str]
-    shippingCountry: NotRequired[str]
-    shippingPostalCode: NotRequired[str]
-    shippingProvince: NotRequired[str]
-    shippingState: NotRequired[str]
-    mailingAddress1: NotRequired[str]
-    mailingAddress2: NotRequired[str]
-    mailingAddress3: NotRequired[str]
-    mailingAddress4: NotRequired[str]
-    mailingCity: NotRequired[str]
-    mailingCounty: NotRequired[str]
-    mailingCountry: NotRequired[str]
-    mailingPostalCode: NotRequired[str]
-    mailingProvince: NotRequired[str]
-    mailingState: NotRequired[str]
-    billingAddress1: NotRequired[str]
-    billingAddress2: NotRequired[str]
-    billingAddress3: NotRequired[str]
-    billingAddress4: NotRequired[str]
-    billingCity: NotRequired[str]
-    billingCounty: NotRequired[str]
-    billingCountry: NotRequired[str]
-    billingPostalCode: NotRequired[str]
-    billingProvince: NotRequired[str]
-    billingState: NotRequired[str]
-    custom: NotRequired[dict[str, str]]
-
-
-class CustomerProfileAttributesTypeDef(TypedDict):
-    profileId: NotRequired[str]
-    profileARN: NotRequired[str]
-    firstName: NotRequired[str]
-    middleName: NotRequired[str]
-    lastName: NotRequired[str]
-    accountNumber: NotRequired[str]
-    emailAddress: NotRequired[str]
-    phoneNumber: NotRequired[str]
-    additionalInformation: NotRequired[str]
-    partyType: NotRequired[str]
-    businessName: NotRequired[str]
-    birthDate: NotRequired[str]
-    gender: NotRequired[str]
-    mobilePhoneNumber: NotRequired[str]
-    homePhoneNumber: NotRequired[str]
-    businessPhoneNumber: NotRequired[str]
-    businessEmailAddress: NotRequired[str]
-    address1: NotRequired[str]
-    address2: NotRequired[str]
-    address3: NotRequired[str]
-    address4: NotRequired[str]
-    city: NotRequired[str]
-    county: NotRequired[str]
-    country: NotRequired[str]
-    postalCode: NotRequired[str]
-    province: NotRequired[str]
-    state: NotRequired[str]
-    shippingAddress1: NotRequired[str]
-    shippingAddress2: NotRequired[str]
-    shippingAddress3: NotRequired[str]
-    shippingAddress4: NotRequired[str]
-    shippingCity: NotRequired[str]
-    shippingCounty: NotRequired[str]
-    shippingCountry: NotRequired[str]
-    shippingPostalCode: NotRequired[str]
-    shippingProvince: NotRequired[str]
-    shippingState: NotRequired[str]
-    mailingAddress1: NotRequired[str]
-    mailingAddress2: NotRequired[str]
-    mailingAddress3: NotRequired[str]
-    mailingAddress4: NotRequired[str]
-    mailingCity: NotRequired[str]
-    mailingCounty: NotRequired[str]
-    mailingCountry: NotRequired[str]
-    mailingPostalCode: NotRequired[str]
-    mailingProvince: NotRequired[str]
-    mailingState: NotRequired[str]
-    billingAddress1: NotRequired[str]
-    billingAddress2: NotRequired[str]
-    billingAddress3: NotRequired[str]
-    billingAddress4: NotRequired[str]
-    billingCity: NotRequired[str]
-    billingCounty: NotRequired[str]
-    billingCountry: NotRequired[str]
-    billingPostalCode: NotRequired[str]
-    billingProvince: NotRequired[str]
-    billingState: NotRequired[str]
-    custom: NotRequired[Mapping[str, str]]
 
 
 class EmailGenerativeAnswerChunkDataDetailsPaginatorTypeDef(TypedDict):
@@ -1603,6 +1485,44 @@ class NotifyRecommendationsReceivedRequestTypeDef(TypedDict):
 class TagConditionTypeDef(TypedDict):
     key: str
     value: NotRequired[str]
+
+
+ProfileCatalogItemOutputTypeDef = TypedDict(
+    "ProfileCatalogItemOutputTypeDef",
+    {
+        "id": NotRequired[str],
+        "name": NotRequired[str],
+        "code": NotRequired[str],
+        "type": NotRequired[str],
+        "category": NotRequired[str],
+        "description": NotRequired[str],
+        "additionalInformation": NotRequired[str],
+        "imageLink": NotRequired[str],
+        "link": NotRequired[str],
+        "createdAt": NotRequired[str],
+        "updatedAt": NotRequired[str],
+        "price": NotRequired[str],
+        "attributes": NotRequired[dict[str, str]],
+    },
+)
+ProfileCatalogItemTypeDef = TypedDict(
+    "ProfileCatalogItemTypeDef",
+    {
+        "id": NotRequired[str],
+        "name": NotRequired[str],
+        "code": NotRequired[str],
+        "type": NotRequired[str],
+        "category": NotRequired[str],
+        "description": NotRequired[str],
+        "additionalInformation": NotRequired[str],
+        "imageLink": NotRequired[str],
+        "link": NotRequired[str],
+        "createdAt": NotRequired[str],
+        "updatedAt": NotRequired[str],
+        "price": NotRequired[str],
+        "attributes": NotRequired[Mapping[str, str]],
+    },
+)
 
 
 class QueryConditionItemTypeDef(TypedDict):
@@ -2322,6 +2242,16 @@ class OrConditionTypeDef(TypedDict):
     tagCondition: NotRequired[TagConditionTypeDef]
 
 
+class ProfileRecommendationOutputTypeDef(TypedDict):
+    score: NotRequired[float]
+    catalogItem: NotRequired[ProfileCatalogItemOutputTypeDef]
+
+
+class ProfileRecommendationTypeDef(TypedDict):
+    score: NotRequired[float]
+    catalogItem: NotRequired[ProfileCatalogItemTypeDef]
+
+
 class QueryConditionTypeDef(TypedDict):
     single: NotRequired[QueryConditionItemTypeDef]
 
@@ -2842,6 +2772,132 @@ class TagFilterTypeDef(TypedDict):
     orConditions: NotRequired[Sequence[OrConditionTypeDef]]
 
 
+class CustomerProfileAttributesOutputTypeDef(TypedDict):
+    profileId: NotRequired[str]
+    profileARN: NotRequired[str]
+    firstName: NotRequired[str]
+    middleName: NotRequired[str]
+    lastName: NotRequired[str]
+    accountNumber: NotRequired[str]
+    emailAddress: NotRequired[str]
+    phoneNumber: NotRequired[str]
+    additionalInformation: NotRequired[str]
+    partyType: NotRequired[str]
+    businessName: NotRequired[str]
+    birthDate: NotRequired[str]
+    gender: NotRequired[str]
+    mobilePhoneNumber: NotRequired[str]
+    homePhoneNumber: NotRequired[str]
+    businessPhoneNumber: NotRequired[str]
+    businessEmailAddress: NotRequired[str]
+    address1: NotRequired[str]
+    address2: NotRequired[str]
+    address3: NotRequired[str]
+    address4: NotRequired[str]
+    city: NotRequired[str]
+    county: NotRequired[str]
+    country: NotRequired[str]
+    postalCode: NotRequired[str]
+    province: NotRequired[str]
+    state: NotRequired[str]
+    shippingAddress1: NotRequired[str]
+    shippingAddress2: NotRequired[str]
+    shippingAddress3: NotRequired[str]
+    shippingAddress4: NotRequired[str]
+    shippingCity: NotRequired[str]
+    shippingCounty: NotRequired[str]
+    shippingCountry: NotRequired[str]
+    shippingPostalCode: NotRequired[str]
+    shippingProvince: NotRequired[str]
+    shippingState: NotRequired[str]
+    mailingAddress1: NotRequired[str]
+    mailingAddress2: NotRequired[str]
+    mailingAddress3: NotRequired[str]
+    mailingAddress4: NotRequired[str]
+    mailingCity: NotRequired[str]
+    mailingCounty: NotRequired[str]
+    mailingCountry: NotRequired[str]
+    mailingPostalCode: NotRequired[str]
+    mailingProvince: NotRequired[str]
+    mailingState: NotRequired[str]
+    billingAddress1: NotRequired[str]
+    billingAddress2: NotRequired[str]
+    billingAddress3: NotRequired[str]
+    billingAddress4: NotRequired[str]
+    billingCity: NotRequired[str]
+    billingCounty: NotRequired[str]
+    billingCountry: NotRequired[str]
+    billingPostalCode: NotRequired[str]
+    billingProvince: NotRequired[str]
+    billingState: NotRequired[str]
+    custom: NotRequired[dict[str, str]]
+    recommendations: NotRequired[list[ProfileRecommendationOutputTypeDef]]
+    calculatedAttributes: NotRequired[dict[str, str]]
+
+
+class CustomerProfileAttributesTypeDef(TypedDict):
+    profileId: NotRequired[str]
+    profileARN: NotRequired[str]
+    firstName: NotRequired[str]
+    middleName: NotRequired[str]
+    lastName: NotRequired[str]
+    accountNumber: NotRequired[str]
+    emailAddress: NotRequired[str]
+    phoneNumber: NotRequired[str]
+    additionalInformation: NotRequired[str]
+    partyType: NotRequired[str]
+    businessName: NotRequired[str]
+    birthDate: NotRequired[str]
+    gender: NotRequired[str]
+    mobilePhoneNumber: NotRequired[str]
+    homePhoneNumber: NotRequired[str]
+    businessPhoneNumber: NotRequired[str]
+    businessEmailAddress: NotRequired[str]
+    address1: NotRequired[str]
+    address2: NotRequired[str]
+    address3: NotRequired[str]
+    address4: NotRequired[str]
+    city: NotRequired[str]
+    county: NotRequired[str]
+    country: NotRequired[str]
+    postalCode: NotRequired[str]
+    province: NotRequired[str]
+    state: NotRequired[str]
+    shippingAddress1: NotRequired[str]
+    shippingAddress2: NotRequired[str]
+    shippingAddress3: NotRequired[str]
+    shippingAddress4: NotRequired[str]
+    shippingCity: NotRequired[str]
+    shippingCounty: NotRequired[str]
+    shippingCountry: NotRequired[str]
+    shippingPostalCode: NotRequired[str]
+    shippingProvince: NotRequired[str]
+    shippingState: NotRequired[str]
+    mailingAddress1: NotRequired[str]
+    mailingAddress2: NotRequired[str]
+    mailingAddress3: NotRequired[str]
+    mailingAddress4: NotRequired[str]
+    mailingCity: NotRequired[str]
+    mailingCounty: NotRequired[str]
+    mailingCountry: NotRequired[str]
+    mailingPostalCode: NotRequired[str]
+    mailingProvince: NotRequired[str]
+    mailingState: NotRequired[str]
+    billingAddress1: NotRequired[str]
+    billingAddress2: NotRequired[str]
+    billingAddress3: NotRequired[str]
+    billingAddress4: NotRequired[str]
+    billingCity: NotRequired[str]
+    billingCounty: NotRequired[str]
+    billingCountry: NotRequired[str]
+    billingPostalCode: NotRequired[str]
+    billingProvince: NotRequired[str]
+    billingState: NotRequired[str]
+    custom: NotRequired[Mapping[str, str]]
+    recommendations: NotRequired[Sequence[ProfileRecommendationTypeDef]]
+    calculatedAttributes: NotRequired[Mapping[str, str]]
+
+
 class QueryAssistantRequestPaginateTypeDef(TypedDict):
     assistantId: str
     queryText: NotRequired[str]
@@ -3027,20 +3083,6 @@ class SpanMessageValueTypeDef(TypedDict):
     toolUse: NotRequired[SpanToolUseValueTypeDef]
     toolResult: NotRequired[SpanToolResultValueTypeDef]
     reasoning: NotRequired[SpanReasoningValueTypeDef]
-
-
-class MessageTemplateAttributesOutputTypeDef(TypedDict):
-    systemAttributes: NotRequired[SystemAttributesTypeDef]
-    agentAttributes: NotRequired[AgentAttributesTypeDef]
-    customerProfileAttributes: NotRequired[CustomerProfileAttributesOutputTypeDef]
-    customAttributes: NotRequired[dict[str, str]]
-
-
-class MessageTemplateAttributesTypeDef(TypedDict):
-    systemAttributes: NotRequired[SystemAttributesTypeDef]
-    agentAttributes: NotRequired[AgentAttributesTypeDef]
-    customerProfileAttributes: NotRequired[CustomerProfileAttributesTypeDef]
-    customAttributes: NotRequired[Mapping[str, str]]
 
 
 class ToolOverrideInputValueTypeDef(TypedDict):
@@ -3297,6 +3339,22 @@ class KnowledgeBaseAssociationConfigurationDataTypeDef(TypedDict):
 TagFilterUnionTypeDef = Union[TagFilterTypeDef, TagFilterOutputTypeDef]
 
 
+class MessageTemplateAttributesOutputTypeDef(TypedDict):
+    systemAttributes: NotRequired[SystemAttributesTypeDef]
+    agentAttributes: NotRequired[AgentAttributesTypeDef]
+    customerProfileAttributes: NotRequired[CustomerProfileAttributesOutputTypeDef]
+    customAttributes: NotRequired[dict[str, str]]
+    caseAttributes: NotRequired[dict[str, str]]
+
+
+class MessageTemplateAttributesTypeDef(TypedDict):
+    systemAttributes: NotRequired[SystemAttributesTypeDef]
+    agentAttributes: NotRequired[AgentAttributesTypeDef]
+    customerProfileAttributes: NotRequired[CustomerProfileAttributesTypeDef]
+    customAttributes: NotRequired[Mapping[str, str]]
+    caseAttributes: NotRequired[Mapping[str, str]]
+
+
 class CreateQuickResponseResponseTypeDef(TypedDict):
     quickResponse: QuickResponseDataTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3379,11 +3437,6 @@ class SpanMessageTypeDef(TypedDict):
     participant: ParticipantType
     timestamp: datetime
     values: list[SpanMessageValueTypeDef]
-
-
-MessageTemplateAttributesUnionTypeDef = Union[
-    MessageTemplateAttributesTypeDef, MessageTemplateAttributesOutputTypeDef
-]
 
 
 class ToolConfigurationOutputTypeDef(TypedDict):
@@ -3479,53 +3532,6 @@ class DataDetailsTypeDef(TypedDict):
     proactiveRecommendationData: NotRequired[ProactiveRecommendationDataDetailsTypeDef]
 
 
-class ExtendedMessageTemplateDataTypeDef(TypedDict):
-    messageTemplateArn: str
-    messageTemplateId: str
-    knowledgeBaseArn: str
-    knowledgeBaseId: str
-    name: str
-    channelSubtype: ChannelSubtypeType
-    createdTime: datetime
-    lastModifiedTime: datetime
-    lastModifiedBy: str
-    messageTemplateContentSha256: str
-    channel: NotRequired[str]
-    content: NotRequired[MessageTemplateContentProviderOutputTypeDef]
-    description: NotRequired[str]
-    language: NotRequired[str]
-    sourceConfigurationSummary: NotRequired[MessageTemplateSourceConfigurationSummaryTypeDef]
-    groupingConfiguration: NotRequired[GroupingConfigurationOutputTypeDef]
-    defaultAttributes: NotRequired[MessageTemplateAttributesOutputTypeDef]
-    attributeTypes: NotRequired[list[MessageTemplateAttributeTypeType]]
-    attachments: NotRequired[list[MessageTemplateAttachmentTypeDef]]
-    isActive: NotRequired[bool]
-    versionNumber: NotRequired[int]
-    tags: NotRequired[dict[str, str]]
-
-
-class MessageTemplateDataTypeDef(TypedDict):
-    messageTemplateArn: str
-    messageTemplateId: str
-    knowledgeBaseArn: str
-    knowledgeBaseId: str
-    name: str
-    channelSubtype: ChannelSubtypeType
-    createdTime: datetime
-    lastModifiedTime: datetime
-    lastModifiedBy: str
-    messageTemplateContentSha256: str
-    channel: NotRequired[str]
-    content: NotRequired[MessageTemplateContentProviderOutputTypeDef]
-    description: NotRequired[str]
-    language: NotRequired[str]
-    sourceConfigurationSummary: NotRequired[MessageTemplateSourceConfigurationSummaryTypeDef]
-    groupingConfiguration: NotRequired[GroupingConfigurationOutputTypeDef]
-    defaultAttributes: NotRequired[MessageTemplateAttributesOutputTypeDef]
-    attributeTypes: NotRequired[list[MessageTemplateAttributeTypeType]]
-    tags: NotRequired[dict[str, str]]
-
-
 class RenderMessageTemplateResponseTypeDef(TypedDict):
     content: MessageTemplateContentProviderOutputTypeDef
     sourceConfigurationSummary: MessageTemplateSourceConfigurationSummaryTypeDef
@@ -3590,6 +3596,58 @@ class UpdateSessionRequestTypeDef(TypedDict):
     aiAgentConfiguration: NotRequired[Mapping[AIAgentTypeType, AIAgentConfigurationDataTypeDef]]
     orchestratorConfigurationList: NotRequired[Sequence[OrchestratorConfigurationEntryTypeDef]]
     removeOrchestratorConfigurationList: NotRequired[bool]
+
+
+class ExtendedMessageTemplateDataTypeDef(TypedDict):
+    messageTemplateArn: str
+    messageTemplateId: str
+    knowledgeBaseArn: str
+    knowledgeBaseId: str
+    name: str
+    channelSubtype: ChannelSubtypeType
+    createdTime: datetime
+    lastModifiedTime: datetime
+    lastModifiedBy: str
+    messageTemplateContentSha256: str
+    channel: NotRequired[str]
+    content: NotRequired[MessageTemplateContentProviderOutputTypeDef]
+    description: NotRequired[str]
+    language: NotRequired[str]
+    sourceConfigurationSummary: NotRequired[MessageTemplateSourceConfigurationSummaryTypeDef]
+    groupingConfiguration: NotRequired[GroupingConfigurationOutputTypeDef]
+    defaultAttributes: NotRequired[MessageTemplateAttributesOutputTypeDef]
+    attributeTypes: NotRequired[list[MessageTemplateAttributeTypeType]]
+    attachments: NotRequired[list[MessageTemplateAttachmentTypeDef]]
+    isActive: NotRequired[bool]
+    versionNumber: NotRequired[int]
+    tags: NotRequired[dict[str, str]]
+
+
+class MessageTemplateDataTypeDef(TypedDict):
+    messageTemplateArn: str
+    messageTemplateId: str
+    knowledgeBaseArn: str
+    knowledgeBaseId: str
+    name: str
+    channelSubtype: ChannelSubtypeType
+    createdTime: datetime
+    lastModifiedTime: datetime
+    lastModifiedBy: str
+    messageTemplateContentSha256: str
+    channel: NotRequired[str]
+    content: NotRequired[MessageTemplateContentProviderOutputTypeDef]
+    description: NotRequired[str]
+    language: NotRequired[str]
+    sourceConfigurationSummary: NotRequired[MessageTemplateSourceConfigurationSummaryTypeDef]
+    groupingConfiguration: NotRequired[GroupingConfigurationOutputTypeDef]
+    defaultAttributes: NotRequired[MessageTemplateAttributesOutputTypeDef]
+    attributeTypes: NotRequired[list[MessageTemplateAttributeTypeType]]
+    tags: NotRequired[dict[str, str]]
+
+
+MessageTemplateAttributesUnionTypeDef = Union[
+    MessageTemplateAttributesTypeDef, MessageTemplateAttributesOutputTypeDef
+]
 
 
 class SourceConfigurationOutputTypeDef(TypedDict):
@@ -3686,12 +3744,6 @@ class SpanAttributesTypeDef(TypedDict):
     guardrailAssessments: NotRequired[list[SpanGuardrailAssessmentTypeDef]]
 
 
-class RenderMessageTemplateRequestTypeDef(TypedDict):
-    knowledgeBaseId: str
-    messageTemplateId: str
-    attributes: MessageTemplateAttributesUnionTypeDef
-
-
 class OrchestrationAIAgentConfigurationOutputTypeDef(TypedDict):
     orchestrationAIPromptId: NotRequired[str]
     orchestrationAIGuardrailId: NotRequired[str]
@@ -3748,6 +3800,18 @@ class DataSummaryTypeDef(TypedDict):
     details: DataDetailsTypeDef
 
 
+class AssociationConfigurationOutputTypeDef(TypedDict):
+    associationId: NotRequired[str]
+    associationType: NotRequired[Literal["KNOWLEDGE_BASE"]]
+    associationConfigurationData: NotRequired[AssociationConfigurationDataOutputTypeDef]
+
+
+class AssociationConfigurationTypeDef(TypedDict):
+    associationId: NotRequired[str]
+    associationType: NotRequired[Literal["KNOWLEDGE_BASE"]]
+    associationConfigurationData: NotRequired[AssociationConfigurationDataTypeDef]
+
+
 class CreateMessageTemplateVersionResponseTypeDef(TypedDict):
     messageTemplate: ExtendedMessageTemplateDataTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3787,6 +3851,12 @@ class CreateMessageTemplateRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
 
 
+class RenderMessageTemplateRequestTypeDef(TypedDict):
+    knowledgeBaseId: str
+    messageTemplateId: str
+    attributes: MessageTemplateAttributesUnionTypeDef
+
+
 class UpdateMessageTemplateRequestTypeDef(TypedDict):
     knowledgeBaseId: str
     messageTemplateId: str
@@ -3794,18 +3864,6 @@ class UpdateMessageTemplateRequestTypeDef(TypedDict):
     language: NotRequired[str]
     sourceConfiguration: NotRequired[MessageTemplateSourceConfigurationUnionTypeDef]
     defaultAttributes: NotRequired[MessageTemplateAttributesUnionTypeDef]
-
-
-class AssociationConfigurationOutputTypeDef(TypedDict):
-    associationId: NotRequired[str]
-    associationType: NotRequired[Literal["KNOWLEDGE_BASE"]]
-    associationConfigurationData: NotRequired[AssociationConfigurationDataOutputTypeDef]
-
-
-class AssociationConfigurationTypeDef(TypedDict):
-    associationId: NotRequired[str]
-    associationType: NotRequired[Literal["KNOWLEDGE_BASE"]]
-    associationConfigurationData: NotRequired[AssociationConfigurationDataTypeDef]
 
 
 class KnowledgeBaseDataTypeDef(TypedDict):

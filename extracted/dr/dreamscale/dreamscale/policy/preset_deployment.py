@@ -1,7 +1,8 @@
 """Server-described deployment wire of a units base whose deployments run one robot preset
 (``dreamscale.deploy_bases._preset.PresetUnits``): the session's deployment block must be that
-preset's robot exactly (its cameras, widths, units, chunk and rate), and its RTC off or trained
-within the checkpoint's prefixes.
+preset's robot exactly (its cameras, widths, units and chunk), and its RTC off or trained
+within the checkpoint's prefixes. Its rate is the block's own (the deployment record's, from the
+export or the create's declaration): the session paces at it, whatever the family's usual rate.
 
 A base's ``dreamscale.policy.<family>_deployment`` module subclasses
 ``PresetSessionDeployment`` with its ``units`` and binds ``preset_runtime_contract`` to it; its
@@ -10,8 +11,12 @@ A base's ``dreamscale.policy.<family>_deployment`` module subclasses
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any, ClassVar
+
+# The fastest any units family's deployment runs (π0.5's, GR00T's and ABC-VLA's MAX_HZ too).
+from dreamscale_transport.units_reference import MAX_HZ
 
 from dreamscale import deploy_bases
 from dreamscale.deploy_bases._preset import PresetUnits
@@ -105,8 +110,12 @@ class PresetSessionDeployment:
             or result.gripper_indices != units.gripper_indices
             or type(result.executed_actions) is not int
             or not 1 <= result.executed_actions <= units.action_horizon
+            # The record's rate, any the server accepted from 1 Hz (slower would stall the loop
+            # between rows) to MAX_HZ (faster would spin it).
             or isinstance(result.action_hz, bool)
-            or result.action_hz != units.action_hz
+            or not isinstance(result.action_hz, int | float)
+            or not math.isfinite(result.action_hz)
+            or not 1 <= result.action_hz <= MAX_HZ
         ):
             raise ValueError(f"the server's {units.label} deployment isn't the {robot} wire")
         trained = data.get("trained_rtc_max_delay")

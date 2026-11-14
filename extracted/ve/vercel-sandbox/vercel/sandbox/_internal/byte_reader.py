@@ -1,0 +1,422 @@
+"""Command log readers backed by one async-shaped streaming core."""
+
+import subprocess
+import threading
+from abc import ABC, abstractmethod
+from collections import deque
+from collections.abc import AsyncGenerator, Callable, Iterator, Mapping
+from types import TracebackType
+from typing import Protocol, TypeAlias
+
+import anyio
+
+from vercel._internal.core.iter_coroutine import iter_coroutine
+from vercel.sandbox._internal.models import ProcessLog, ProcessLogStream
+
+_OpenLogs: TypeAlias = Callable[[], AsyncGenerator[ProcessLog, None]]
+
+
+class _ByteBuffer:
+    def __init__(self) -> None:
+        self._chunks: deque[bytes] = deque()
+        self._head = 0
+        self._size = 0
+        self.eof = False
+
+    def __len__(self) -> int:
+        return self._size
+
+    def append(self, value: bytes) -> None:
+        if value:
+            self._chunks.append(value)
+            self._size += len(value)
+
+    def clear(self) -> None:
+        self._chunks.clear()
+        self._head = 0
+        self._size = 0
+
+    def take(self, size: int) -> bytes:
+        size = self._size if size < 0 else min(size, self._size)
+        remaining = size
+        parts: list[bytes] = []
+        while remaining:
+            chunk = self._chunks[0]
+            available = len(chunk) - self._head
+            count = min(remaining, available)
+            parts.append(chunk[self._head : self._head + count])
+            self._head += count
+            remaining -= count
+            if self._head == len(chunk):
+                self._chunks.popleft()
+                self._head = 0
+        self._size -= size
+        return b"".join(parts)
+
+    def take_line(self) -> bytes | None:
+        seen = 0
+        for index, chunk in enumerate(self._chunks):
+            start = self._head if index == 0 else 0
+            newline = chunk.find(b"\n", start)
+            if newline >= 0:
+                return self.take(seen + newline - start + 1)
+            seen += len(chunk) - start
+        if self.eof:
+            return self.take(-1)
+        return None
+
+
+class ByteReader(anyio.abc.ByteReceiveStream, ABC):
+    """Read command output as bytes; sizes count bytes, not characters.
+
+    Output is currently re-encoded from the service's UTF-8 text, so bytes
+    already lost by the service cannot be recovered.
+    """
+
+    @property
+    @abstractmethod
+    def closed(self) -> bool: ...
+
+    @abstractmethod
+    async def read(self, size: int = -1) -> bytes: ...
+
+    @abstractmethod
+    async def readline(self) -> bytes: ...
+
+
+class SyncByteReader(ABC):
+    """Read command output as bytes with a forward-only cursor."""
+
+    @property
+    @abstractmethod
+    def closed(self) -> bool: ...
+
+    @abstractmethod
+    def read(self, size: int = -1) -> bytes: ...
+
+    @abstractmethod
+    def readline(self) -> bytes: ...
+
+    @abstractmethod
+    def close(self) -> None: ...
+
+    def __iter__(self) -> Iterator[bytes]:
+        while line := self.readline():
+            yield line
+
+    def __enter__(self) -> "SyncByteReader":
+        if self.closed:
+            raise anyio.ClosedResourceError
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.close()
+
+
+def _distinct_buffers(routes: Mapping[ProcessLogStream, _ByteBuffer | None]) -> list[_ByteBuffer]:
+    return list({id(buffer): buffer for buffer in routes.values() if buffer is not None}.values())
+
+
+class _PumpCondition(Protocol):
+    """A lock over shared reader state plus a wait for that state to change."""
+
+    async def acquire(self) -> None: ...
+
+    def release(self) -> None: ...
+
+    async def wait(self) -> None: ...
+
+    def notify_all(self) -> None: ...
+
+
+class _SyncPumpCondition:
+    def __init__(self) -> None:
+        self._condition = threading.Condition()
+
+    async def acquire(self) -> None:
+        self._condition.acquire()
+
+    def release(self) -> None:
+        self._condition.release()
+
+    async def wait(self) -> None:
+        self._condition.wait()
+
+    def notify_all(self) -> None:
+        self._condition.notify_all()
+
+
+class _AsyncPumpCondition:
+    def __init__(self) -> None:
+        self._condition = anyio.Condition()
+
+    async def acquire(self) -> None:
+        # The lock is never held across stream reads, so acquiring it is brief,
+        # and shielding lets a cancelled pump take it back to record the break.
+        with anyio.CancelScope(shield=True):
+            await self._condition.acquire()
+
+    def release(self) -> None:
+        self._condition.release()
+
+    async def wait(self) -> None:
+        await self._condition.wait()
+
+    def notify_all(self) -> None:
+        self._condition.notify_all()
+
+
+class _ByteTransportCore:
+    """Route one shared log stream into per-reader buffers.
+
+    One reader at a time pumps the stream, reading records without holding the
+    condition. Other readers wait on the condition and recheck their own buffer
+    after each record is routed, so a record routed on a reader's behalf is
+    returned to it without waiting for further output.
+    """
+
+    def __init__(
+        self,
+        open_logs: _OpenLogs,
+        routes: Mapping[ProcessLogStream, _ByteBuffer | None],
+        condition: _PumpCondition,
+    ) -> None:
+        self._open_logs = open_logs
+        self._events: AsyncGenerator[ProcessLog, None] | None = None
+        self._routes = dict(routes)
+        self._live = len(_distinct_buffers(routes))
+        self._broken = False
+        self._pumping = False
+        self._condition = condition
+
+    async def _cleanup(self) -> None:
+        events, self._events = self._events, None
+        if events is not None:
+            await events.aclose()
+
+    def _mark_eof(self) -> None:
+        for buffer in _distinct_buffers(self._routes):
+            buffer.eof = True
+
+    async def receive(self, take: Callable[[], bytes | None]) -> bytes:
+        """Return the first non-``None`` result of ``take``, pumping as needed."""
+        await self._condition.acquire()
+        try:
+            while True:
+                if self._broken:
+                    raise anyio.BrokenResourceError
+                result = take()
+                if result is not None:
+                    return result
+                if self._pumping:
+                    await self._condition.wait()
+                else:
+                    await self._pump()
+        finally:
+            self._condition.release()
+
+    async def _pump(self) -> None:
+        # Entered and exited holding the condition, which is released while
+        # waiting on the stream so other readers can take what is routed.
+        self._pumping = True
+        self._condition.release()
+        try:
+            if self._events is None:
+                self._events = self._open_logs()
+            events = self._events
+            try:
+                event: ProcessLog | None = await anext(events)
+            except StopAsyncIteration:
+                event = None
+        except BaseException:
+            await self._condition.acquire()
+            self._broken = True
+            self._mark_eof()
+            await self._cleanup()
+            raise
+        else:
+            await self._condition.acquire()
+            if event is None:
+                self._mark_eof()
+                await self._cleanup()
+            elif (target := self._routes[event.stream]) is not None:
+                target.append(event.data)
+        finally:
+            self._pumping = False
+            self._condition.notify_all()
+
+    async def close(self, buffer: _ByteBuffer) -> None:
+        await self._condition.acquire()
+        try:
+            buffer.clear()
+            buffer.eof = True
+            for stream, target in self._routes.items():
+                if target is buffer:
+                    self._routes[stream] = None
+            self._live -= 1
+            if self._live == 0:
+                while self._pumping:
+                    await self._condition.wait()
+                await self._cleanup()
+        finally:
+            self._condition.release()
+
+
+class _ReaderCore:
+    def __init__(self, transport: _ByteTransportCore, buffer: _ByteBuffer) -> None:
+        self.transport = transport
+        self.buffer = buffer
+        self.closed = False
+
+    def ensure_open(self) -> None:
+        if self.closed:
+            raise anyio.ClosedResourceError
+        if self.transport._broken:
+            raise anyio.BrokenResourceError
+
+    async def read(self, size: int = -1) -> bytes:
+        self.ensure_open()
+        if size < -1:
+            raise ValueError("size must be -1 or non-negative")
+        if size == 0:
+            return b""
+        buffer = self.buffer
+
+        def take() -> bytes | None:
+            if buffer.eof or (size >= 0 and len(buffer) >= size):
+                return buffer.take(size)
+            return None
+
+        return await self.transport.receive(take)
+
+    async def receive(self, max_bytes: int) -> bytes:
+        self.ensure_open()
+        if max_bytes < 1:
+            raise ValueError("max_bytes must be at least 1")
+
+        def take() -> bytes | None:
+            if self.buffer or self.buffer.eof:
+                return self.buffer.take(max_bytes)
+            return None
+
+        data = await self.transport.receive(take)
+        if not data:
+            raise anyio.EndOfStream
+        return data
+
+    async def readline(self) -> bytes:
+        self.ensure_open()
+        return await self.transport.receive(self.buffer.take_line)
+
+    async def close(self) -> None:
+        if not self.closed:
+            self.closed = True
+            await self.transport.close(self.buffer)
+
+
+class _ByteReader(ByteReader):
+    def __init__(self, core: _ReaderCore) -> None:
+        self._core = core
+        self._guard = anyio.ResourceGuard("reading from")
+
+    @property
+    def closed(self) -> bool:
+        return self._core.closed
+
+    async def read(self, size: int = -1) -> bytes:
+        with self._guard:
+            return await self._core.read(size)
+
+    async def readline(self) -> bytes:
+        with self._guard:
+            return await self._core.readline()
+
+    async def receive(self, max_bytes: int = 65536) -> bytes:
+        with self._guard:
+            return await self._core.receive(max_bytes)
+
+    async def aclose(self) -> None:
+        with anyio.CancelScope(shield=True):
+            await self._core.close()
+
+
+class _SyncByteReader(SyncByteReader):
+    def __init__(self, core: _ReaderCore) -> None:
+        self._core = core
+
+    @property
+    def closed(self) -> bool:
+        return self._core.closed
+
+    def read(self, size: int = -1) -> bytes:
+        return iter_coroutine(self._core.read(size))
+
+    def readline(self) -> bytes:
+        return iter_coroutine(self._core.readline())
+
+    def close(self) -> None:
+        iter_coroutine(self._core.close())
+
+
+def _reader_buffers(stdout: int, stderr: int) -> tuple[_ByteBuffer | None, _ByteBuffer | None]:
+    stdout_buffer = _ByteBuffer() if stdout == subprocess.PIPE else None
+    if stderr == subprocess.STDOUT:
+        stderr_buffer = stdout_buffer
+    elif stderr == subprocess.PIPE:
+        stderr_buffer = _ByteBuffer()
+    else:
+        stderr_buffer = None
+    return stdout_buffer, stderr_buffer
+
+
+def _cores(
+    open_logs: _OpenLogs,
+    stdout: int,
+    stderr: int,
+    condition: _PumpCondition,
+) -> tuple[_ReaderCore | None, _ReaderCore | None]:
+    stdout_buffer, stderr_buffer = _reader_buffers(stdout, stderr)
+    if stdout_buffer is None and stderr_buffer is None:
+        return None, None
+    transport = _ByteTransportCore(
+        open_logs,
+        {ProcessLogStream.STDOUT: stdout_buffer, ProcessLogStream.STDERR: stderr_buffer},
+        condition,
+    )
+    return (
+        None if stdout_buffer is None else _ReaderCore(transport, stdout_buffer),
+        None
+        if stderr_buffer is None or stderr_buffer is stdout_buffer
+        else _ReaderCore(transport, stderr_buffer),
+    )
+
+
+def _byte_readers(
+    open_logs: _OpenLogs,
+    *,
+    stdout: int = subprocess.PIPE,
+    stderr: int = subprocess.PIPE,
+) -> tuple[ByteReader | None, ByteReader | None]:
+    stdout_core, stderr_core = _cores(open_logs, stdout, stderr, _AsyncPumpCondition())
+    return (
+        None if stdout_core is None else _ByteReader(stdout_core),
+        None if stderr_core is None else _ByteReader(stderr_core),
+    )
+
+
+def _sync_byte_readers(
+    open_logs: _OpenLogs,
+    *,
+    stdout: int = subprocess.PIPE,
+    stderr: int = subprocess.PIPE,
+) -> tuple[SyncByteReader | None, SyncByteReader | None]:
+    stdout_core, stderr_core = _cores(open_logs, stdout, stderr, _SyncPumpCondition())
+    return (
+        None if stdout_core is None else _SyncByteReader(stdout_core),
+        None if stderr_core is None else _SyncByteReader(stderr_core),
+    )

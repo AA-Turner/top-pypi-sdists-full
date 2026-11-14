@@ -16,37 +16,38 @@ class CreateBackupRequest(DaraModel):
         resource_owner_id: int = None,
     ):
         # The backup method. Valid values:
-        # * **Logical**: logical backup (supported only for ApsaraDB RDS for MySQL instances with local SSDs)
-        # * **Physical**: physical backup (supported for ApsaraDB RDS for MySQL instances with local SSDs, ApsaraDB RDS for SQL Server, and ApsaraDB RDS for PostgreSQL)
-        # * **Snapshot**: snapshot backup (supported for ApsaraDB RDS for MySQL instances with cloud disks, ApsaraDB RDS for SQL Server, ApsaraDB RDS for PostgreSQL, and ApsaraDB RDS for MariaDB)
+        # * **Logical**: logical backup. This value is supported only for ApsaraDB RDS for MySQL instances with local SSDs.
+        # * **Physical**: physical backup. This value is supported for ApsaraDB RDS for MySQL instances with local SSDs, ApsaraDB RDS for SQL Server instances, and ApsaraDB RDS for PostgreSQL instances.
+        # * **Snapshot**: snapshot backup. This value is supported for ApsaraDB RDS for MySQL instances with cloud disks, ApsaraDB RDS for SQL Server instances, ApsaraDB RDS for PostgreSQL instances, and ApsaraDB RDS for MariaDB instances.
         # 
         # Default value: **Physical**.
         # 
-        # > * When you use logical backup, the database must contain data.
-        # > * ApsaraDB RDS for MariaDB instances support only snapshot backup, but you must set this parameter to **Physical**.
+        # > * When you use logical backup, the databases must contain data.
+        # > * ApsaraDB RDS for MariaDB instances support only snapshot backup. However, you must set this parameter to **Physical** for these instances.
         self.backup_method = backup_method
-        # - **SQL Server**: When the BackupStrategy parameter is set to db, the BackupMethod parameter is set to Physical, and the BackupType parameter is set to FullBackup, you can specify the retention period of the backup set. Valid values: 7 to 730 days, and -1 (long-term retention (LTR)).
-        # - **MySQL**: You can specify the retention period of the backup set. Valid values: 7 to 730 days, and -1 (long-term retention (LTR)).
+        # The retention period of the backup set.
+        # - **ApsaraDB RDS for SQL Server**: When the BackupStrategy parameter is set to db, the BackupMethod parameter is set to Physical, and the BackupType parameter is set to FullBackup, you can specify the retention period of the backup set. Valid values: 7 to 730 days, and -1 (long-term retention (LTR)).
+        # - **ApsaraDB RDS for MySQL**: You can specify the retention period of the backup set. Valid values: 7 to 730 days, and -1 (long-term retention (LTR)).
         self.backup_retention_period = backup_retention_period
         # The backup strategy. Valid values:
-        # * **db**: database-level backup
-        # * **instance**: instance-level backup
+        # * **db**: database-level backup.
+        # * **instance**: instance-level backup.
         # 
         # > This parameter takes effect only when the following conditions are met:
         # > - For ApsaraDB RDS for MySQL: The **BackupMethod** parameter is set to **Logical**.
         # > - For ApsaraDB RDS for SQL Server: The **BackupType** parameter is set to **FullBackup**.
         self.backup_strategy = backup_strategy
         # The backup type for ApsaraDB RDS for SQL Server instances. Valid values:
-        # * **Auto** (default): automatically selects full backup or incremental backup
-        # * **FullBackup**: full backup
+        # * **Auto**: The system automatically selects full backup or incremental backup. This is the default value.
+        # * **FullBackup**: full backup.
         # 
         # > This parameter takes effect only when the **BackupMethod** parameter is set to **Physical**.
         self.backup_type = backup_type
-        # The instance ID. You can call the DescribeDBInstances operation to obtain the instance ID.
+        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The list of databases. Separate multiple databases with commas (,).
+        # The names of the databases. Separate multiple database names with commas (,).
         # > This parameter takes effect only when the **BackupStrategy** parameter is set to **db**.
         self.dbname = dbname
         self.resource_owner_id = resource_owner_id

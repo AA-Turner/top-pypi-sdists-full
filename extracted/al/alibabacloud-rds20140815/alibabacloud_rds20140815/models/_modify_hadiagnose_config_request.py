@@ -25,9 +25,9 @@ class ModifyHADiagnoseConfigRequest(DaraModel):
         self.region_id = region_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The availability check method of the instance. Valid values:
-        # - **SHORT**: Short connection.
-        # - **LONG**: Long connection.
+        # The availability detection method of the instance. Valid values:
+        # - **SHORT**: short connection
+        # - **LONG**: long connection
         self.tcp_connection_type = tcp_connection_type
 
     def validate(self):

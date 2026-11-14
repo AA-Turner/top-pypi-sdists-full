@@ -1,6 +1,5 @@
 use super::id_list_ids::CompactionPolicy;
 use super::shared_id_list_format::IdListImage;
-use crate::portable_id_list_ef::packed;
 use serde::Serialize;
 
 use crate::{
@@ -19,7 +18,7 @@ pub struct IdList {
 
 /// The generation and byte length of an ordinary ID-list file. A signed URL may
 /// change while these values and the installed membership stay the same.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IdListFileVersion<'a> {
     pub file_id: Option<&'a str>,
     /// Compares signed SDK and unsigned proxy manifest timestamps without narrowing either.
@@ -84,7 +83,8 @@ pub struct IdListFileUpdate {
 impl IdListFileUpdate {
     /// Build a new membership snapshot from a body starting at byte zero. For
     /// an append, supply the membership used to plan this update. Extra bytes
-    /// past the target size are left for a future update.
+    /// past the target size are left for a future update. As in the SDK refresh
+    /// path, the changeset must be UTF-8 and unrecognized lines are skipped.
     pub fn apply_to_membership(
         &self,
         name: &str,
@@ -122,23 +122,19 @@ impl IdListMembership {
     /// for a replacement file and pass only the new records when appending.
     /// Pass a `Vec<u8>` to let the initial index build reuse its allocation.
     /// Appends can be read directly from a borrowed `&[u8]`.
-    /// Invalid records reject the entire changeset before the index is updated.
+    /// As in SDK refresh, apply signed, nonblank IDs and skip unrecognized lines.
+    /// Invalid UTF-8 rejects the entire changeset before any edits are applied.
     pub fn apply<'a>(&mut self, name: &str, changeset: impl Into<Cow<'a, [u8]>>) -> io::Result<()> {
-        let invalid = || io::Error::new(io::ErrorKind::InvalidData, "invalid ID-list record");
         let body = match changeset.into() {
             Cow::Borrowed(bytes) => {
-                Cow::Borrowed(std::str::from_utf8(bytes).map_err(|_| invalid())?)
+                Cow::Borrowed(std::str::from_utf8(bytes).map_err(|_| io::ErrorKind::InvalidData)?)
             }
-            Cow::Owned(bytes) => Cow::Owned(String::from_utf8(bytes).map_err(|_| invalid())?),
+            Cow::Owned(bytes) => {
+                Cow::Owned(String::from_utf8(bytes).map_err(|_| io::ErrorKind::InvalidData)?)
+            }
         };
-        for row in body.lines().filter(|row| !row.is_empty()) {
-            let [b'+' | b'-', key @ ..] = row.as_bytes() else {
-                return Err(invalid());
-            };
-            let key = key.try_into().map_err(|_| invalid())?;
-            packed::decode(key).ok_or_else(invalid)?;
-        }
-        self.ids.apply_private_elias_fano_changes(name, body);
+        self.ids
+            .apply_changeset(name, body, UpdateMode::Private(IdListEncoding::EliasFano));
         Ok(())
     }
 
@@ -160,6 +156,20 @@ enum UpdateMode {
 }
 
 impl IdList {
+    pub(crate) fn from_update_base(
+        previous: Option<&Self>,
+        snapshot: Option<Self>,
+        metadata: &IdListMetadata,
+    ) -> Self {
+        snapshot
+            .filter(|staged| {
+                previous
+                    .is_none_or(|old| old.metadata.creation_time <= staged.metadata.creation_time)
+            })
+            .or_else(|| previous.cloned())
+            .unwrap_or_else(|| Self::new(metadata.clone()))
+    }
+
     pub fn new(metadata: IdListMetadata) -> Self {
         let mut local_metadata = metadata;
         local_metadata.size = 0;
@@ -201,20 +211,8 @@ impl IdList {
             self.update_metadata(updated_meta);
         }
 
-        match mode {
-            UpdateMode::Private(IdListEncoding::Hash) => {
-                self.ids
-                    .apply_edits(parse_edits(&changeset_data), CompactionPolicy::Immediate);
-            }
-            UpdateMode::SharedPublisher => {
-                self.ids
-                    .apply_edits(parse_edits(&changeset_data), CompactionPolicy::Batch);
-            }
-            UpdateMode::Private(IdListEncoding::EliasFano) => {
-                self.ids
-                    .apply_private_elias_fano_changes(&self.metadata.name, changeset_data.into());
-            }
-        }
+        self.ids
+            .apply_changeset(&self.metadata.name, changeset_data.into(), mode);
         self.metadata.size += consumed;
     }
 
@@ -226,6 +224,22 @@ impl IdList {
 }
 
 impl IdListIds {
+    fn apply_changeset(
+        self: &mut Arc<Self>,
+        name: &str,
+        changeset: Cow<'_, str>,
+        mode: UpdateMode,
+    ) {
+        let policy = match mode {
+            UpdateMode::Private(IdListEncoding::Hash) => CompactionPolicy::Immediate,
+            UpdateMode::SharedPublisher => CompactionPolicy::Batch,
+            UpdateMode::Private(IdListEncoding::EliasFano) => {
+                return self.apply_private_elias_fano_changes(name, changeset);
+            }
+        };
+        self.apply_edits(parse_edits(&changeset), policy);
+    }
+
     fn apply_private_elias_fano_changes(
         self: &mut Arc<Self>,
         name: &str,

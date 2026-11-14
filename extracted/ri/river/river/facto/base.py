@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import abc
 import collections
+import math
 import numbers
 from collections.abc import Iterable
 
@@ -63,14 +64,15 @@ class BaseFM:
 
     @abc.abstractmethod
     def _init_latents(self) -> collections.defaultdict:
-        """Initializes latent weights dict."""
+        """Initialize latent weights dict."""
 
     def learn_one(self, x, y, w=1.0):
         x = self._ohe_cat_features(x)
 
         if self.sample_normalization:
-            x_l2_norm = sum(xj**2 for xj in x.values()) ** 0.5
-            x = {j: xj / x_l2_norm for j, xj in x.items()}
+            x_l2_norm = math.sqrt(sum(xj**2 for xj in x.values()))
+            if x_l2_norm:
+                x = {j: xj / x_l2_norm for j, xj in x.items()}
 
         self._learn_one(x, y, w=w)
 
@@ -112,11 +114,12 @@ class BaseFM:
         return y_pred
 
     def _field(self, j):
-        """Infers feature field name."""
+        """Infer feature field name."""
         return j.split("_")[0]
 
     def _calculate_interactions(self, x: dict) -> float:
-        """Calculates greater than unary interactions.
+        """Calculate greater than unary interactions.
+
         For normal FM: sigma (i < j) product(latents[xi] * latents[xj]) xi * xj
         interaction_combination_keys: sigma (i < j)
         interaction_val: xi * xj
@@ -141,7 +144,6 @@ class BaseFM:
         -------
         A table which explains the output.
         """
-
         x = self._ohe_cat_features(x)
 
         def fmt_float(x: float) -> str:
@@ -197,7 +199,7 @@ class BaseFM:
 
     @abc.abstractmethod
     def _interaction_names(self, x) -> list:
-        "Return names for interactions."
+        """Return names for interactions."""
 
     @abc.abstractmethod
     def _interaction_combination_keys(self, x) -> Iterable:
@@ -213,8 +215,8 @@ class BaseFM:
 
     @abc.abstractmethod
     def _calculate_weights_gradients(self, x: dict, g_loss: float) -> dict:
-        """Calculates weights gradient."""
+        """Calculate weights gradient."""
 
     @abc.abstractmethod
     def _update_latents(self, x: dict, g_loss: float):
-        """Updates latent weights."""
+        """Update latent weights."""

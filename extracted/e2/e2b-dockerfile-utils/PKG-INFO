@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: e2b-dockerfile-utils
-Version: 0.1.1
+Version: 0.1.2
 Summary: E2B Dockerfile utils - Dockerfile parser, shell lexer and .dockerignore matcher ported from BuildKit and Moby
 Author: e2b
 Author-email: e2b <hello@e2b.dev>

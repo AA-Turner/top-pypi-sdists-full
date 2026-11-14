@@ -1,8 +1,9 @@
 Metadata-Version: 2.4
 Name: bd_materials
-Version: 0.2.5
+Version: 0.2.6
 Summary: Typical-values engineering materials for build123d -- with finishes and three.js PBR looks
 Author-email: Bernhard Walter <b_walter@arcor.de>
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/bernhard-42/bd_materials
 Project-URL: Repository, https://github.com/bernhard-42/bd_materials
 Project-URL: Issues, https://github.com/bernhard-42/bd_materials/issues

@@ -23,7 +23,7 @@ class DescribeDBInstanceNetInfoResponseBody(DaraModel):
         # The request ID.
         self.request_id = request_id
         # The whitelist mode. Valid values:
-        # * **normal**: general mode.
+        # * **normal**: standard mode.
         # * **safety**: enhanced whitelist mode.
         self.security_ipmode = security_ipmode
 

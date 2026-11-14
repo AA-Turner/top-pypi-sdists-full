@@ -3,17 +3,23 @@ import logging
 from typing import Any, List
 
 import pytest
+from tree_sitter import Parser
 
 from codebleu.codebleu import AVAILABLE_LANGS, calc_codebleu
+from codebleu.utils import get_tree_sitter_language
 
 
 @pytest.mark.parametrize(
     ["predictions", "references", "codebleu"],
     [
-        (["some rannnndom words in length more than 3"], ["def test ( ) :\n pass"], 0.25),  # cause data_flow=1
-        (["def bar ( y , x ) :\n    a = x * x\n    return a"], ["def foo ( x ) :\n    return x"], 0.36),
-        (["def foo ( x ) :\n    return x * x"], ["def bar ( x ) :\n    return x"], 0.61),
-        (["def bar ( x ) :\n    return x"], ["def foo ( x ) :\n    return x"], 0.85),
+        (
+            ["some rannnndom words in length more than 3"],
+            ["def test ( ) :\n pass"],
+            0.0,
+        ),  # A zero data-flow score contributes zero, issue #59.
+        (["def bar ( y , x ) :\n    a = x * x\n    return a"], ["def foo ( x ) :\n    return x"], 0.4832567235),
+        (["def foo ( x ) :\n    return x * x"], ["def bar ( x ) :\n    return x"], 0.6426545748),
+        (["def bar ( x ) :\n    return x"], ["def foo ( x ) :\n    return x"], 0.9111516953),
         (["def foo ( x ) :\n    return x"], ["def foo ( x ) :\n    return x"], 1.0),
     ],
 )
@@ -23,31 +29,55 @@ def test_simple_cases(predictions: List[Any], references: List[Any], codebleu: f
     assert result["codebleu"] == pytest.approx(codebleu, 0.01)
 
 
-@pytest.mark.parametrize(["lang"], [(lang,) for lang in AVAILABLE_LANGS])
+LANGUAGE_SAMPLES = {
+    "python": "def foo ( x ) :\n    return x",
+    "java": "class Example { static int foo ( int x ) { return x ; } }",
+    "javascript": "function foo ( x ) { return x ; }",
+    "c": "int foo ( int x ) { return x ; }",
+    "c_sharp": "class Example { static int foo ( int x ) { return x ; } }",
+    "cpp": "int foo ( int x ) { return x ; }",
+    "php": "<?php function foo ( $x ) { return $x ; } ?>",
+    "go": "package main\nfunc foo ( x int ) int { return x }",
+    "ruby": "def foo ( x )\n    x\nend",
+    "rust": "fn foo ( x : i32 ) -> i32 { x }",
+    "typescript": "function foo ( x : number ) : number { return x ; }",
+    "tsx": "function foo ( x : number ) { return <span>{x}</span> ; }",
+    "fortran": "function foo ( x ) result ( z )\ninteger :: x , z\nz = x\nend function foo",
+}
+
+
+@pytest.mark.parametrize("lang", AVAILABLE_LANGS)
 def test_exact_match_works_for_all_langs(lang: str) -> None:
-    predictions = references = ["some matching string a couple of times"]
-    assert calc_codebleu(references, predictions, lang)["codebleu"] == 1.0
+    code = LANGUAGE_SAMPLES[lang]
+    parser = Parser(get_tree_sitter_language(lang))
+    assert not parser.parse(code.encode("utf-8")).root_node.has_error
+    result = calc_codebleu([code], [code], lang)
+    assert result["ngram_match_score"] == 1.0
+    assert result["weighted_ngram_match_score"] == 1.0
+    assert result["syntax_match_score"] == 1.0
+    assert result["dataflow_match_score"] == 1.0
+    assert result["codebleu"] == 1.0
 
 
-@pytest.mark.parametrize(
-    ["lang", "predictions", "references"],
-    [
-        ("python", ["def foo ( x ) :\n    return x"], ["def bar ( y ) :\n    return y"]),
-        ("java", ["public function foo ( x ) { return x }"], ["public function bar ( y ) {\n   return y\n}"]),
-        ("javascript", ["function foo ( x ) { return x }"], ["function bar ( y ) {\n   return y\n}"]),
-        ("c", ["int foo ( int x ) { return x }"], ["int bar ( int y ) {\n   return y\n}"]),
-        ("c_sharp", ["public int foo ( int x ) { return x }"], ["public int bar ( int y ) {\n   return y\n}"]),
-        ("cpp", ["int foo ( int x ) { return x }"], ["int bar ( int y ) {\n   return y\n}"]),
-        ("php", ["function foo ( x ) { return x }"], ["function bar ( y ) {\n   return y\n}"]),
-        ("go", ["func foo ( x ) { return x }"], ["func bar ( y ) {\n   return y\n}"]),
-        ("ruby", ["def foo ( x ) :\n    return x"], ["def bar ( y ) :\n    return y"]),
-        ("rust", ["fn foo ( x ) -> i32 { x }"], ["fn bar ( y ) -> i32 { y }"]),
-    ],
-)
-def test_simple_cases_work_for_all_langs(lang: str, predictions: List[Any], references: List[Any]) -> None:
-    result = calc_codebleu(references, predictions, lang)
-    logging.debug(result)
-    assert result["codebleu"] == pytest.approx(0.6, 0.1)
+@pytest.mark.parametrize("lang", AVAILABLE_LANGS)
+def test_matching_text_fragments_for_all_langs(lang: str) -> None:
+    # Generated output can contain fragments that do not form a complete program.
+    fragment = "some matching string a couple of times"
+    result = calc_codebleu([fragment], [fragment], lang)
+    assert result["ngram_match_score"] == 1.0
+    assert result["syntax_match_score"] == 1.0
+    assert result["dataflow_match_score"] == 0.0
+    assert result["codebleu"] == 0.75
+
+
+@pytest.mark.parametrize("lang", AVAILABLE_LANGS)
+def test_simple_cases_work_for_all_langs(lang: str) -> None:
+    reference = LANGUAGE_SAMPLES[lang]
+    prediction = reference.replace("foo", "bar").replace("x", "y")
+    result = calc_codebleu([reference], [prediction], lang)
+    assert result["syntax_match_score"] == 1.0
+    assert 0.0 < result["ngram_match_score"] < 1.0
+    assert result["dataflow_match_score"] == 1.0
 
 
 def test_error_when_lang_not_supported() -> None:
@@ -68,18 +98,18 @@ def test_error_when_input_length_mismatch() -> None:
             ["public static int Sign ( double d ) { return ( float ) ( ( d == 0 ) ? 0 : ( c < 0.0 ) ? -1 : 1 ) ; }"],
             ["public static int Sign ( double d ) { return ( int ) ( ( d == 0 ) ? 0 : ( d < 0 ) ? -1 : 1 ) ; }"],
             0.7846,
-            11 / 19,  # In example, it is 13/21, but with new version of tree-sitter it is 11/19
+            8 / 19,  # Clipped subtree counts with the current Java grammar.
             2 / 3,
-            0.7019,  # Should be 0.7238 if AST=13/21 in the paper, however at the moment tee-sitter AST is 11/19
+            0.6879139881,  # Corrected unigram precision and clipped AST counts.
         ),
         # https://arxiv.org/pdf/2009.10297.pdf "3.4 Two Examples" at the page 4
         (
             ["public static int Sign ( double d ) { return ( float ) ( ( d == 0 ) ? 0 : ( c < 0.0 ) ? -1 : 1 ) ;"],
             ["public static int Sign ( double d ) { return ( int ) ( ( d == 0 ) ? 0 : ( d < 0 ) ? -1 : 1 ) ; }"],
             0.7543,
-            11 / 19,  # In example, it is 13/21, but with new version of tree-sitter it is 11/19
+            8 / 19,  # Clipped subtree counts with the current Java grammar.
             2 / 3,
-            0.6873,  # Should be 0.6973 if AST=13/21 in the paper, however at the moment tee-sitter AST is 11/19
+            0.6732451227,  # Corrected precision, brevity penalty, and AST clipping.
         ),
         # https://arxiv.org/pdf/2009.10297.pdf "3.4 Two Examples" at the page 4
         (
@@ -88,7 +118,7 @@ def test_error_when_input_length_mismatch() -> None:
             0.7571,  # Error in the Figure 4, text "Example 2" states 0.7571, not 0.6814,
             1.0,
             1.0,
-            0.8804,  # Error in the Figure 4, text "Example 2" states 0.8804, not 0.8397,
+            0.9263537043,  # Weighted unigram precision replaces the released four-gram recall.
         ),
     ],
 )
@@ -116,29 +146,23 @@ def test_code_x_glue_readme_examples(
 @pytest.mark.parametrize(
     ["predictions", "references", "codebleu"],
     [
-        # ([], [], 1.0),
-        # ([], [[]], 1.0),
-        (["def foo ( x ) : pass"], ["def foo ( x ) : pass"], 1.0),
-        (["def foo ( x ) : pass"], [["def foo ( x ) : pass"]], 1.0),
-        (["def foo ( x ) : pass"], [["def bar ( x ) : pass", "def foo ( x ) : pass"]], 0.95),
-        (["def foo ( x ) : pass"], [["def foo ( x ) : pass", "def bar ( x ) : pass"]], 0.95),
+        (["def foo ( x ) : pass"], ["def foo ( x ) : pass"], 0.75),
+        (["def foo ( x ) : pass"], [["def foo ( x ) : pass"]], 0.75),
+        (["def foo ( x ) : pass"], [["def bar ( x ) : pass", "def foo ( x ) : pass"]], 0.75),
+        (["def foo ( x ) : pass"], [["def foo ( x ) : pass", "def bar ( x ) : pass"]], 0.75),
     ],
 )
 def test_input_variants(predictions: List[Any], references: List[Any], codebleu: float) -> None:
     assert calc_codebleu(references, predictions, "python")["codebleu"] == pytest.approx(codebleu, 0.01)
 
 
-# TODO: fix this test
-# @pytest.mark.timeout(1)
+@pytest.mark.timeout(10)
 def test_finite_processing_time_in_bug_testcase() -> None:
-    dummy_true_code = inspect.cleandoc(
-        """
+    dummy_true_code = inspect.cleandoc("""
         def foo(n):
             pass
-    """
-    )
-    generated_code = inspect.cleandoc(
-        """
+    """)
+    generated_code = inspect.cleandoc("""
         def foo(n):
            for i in range(n):
                for j in range(n):
@@ -177,8 +201,7 @@ def test_finite_processing_time_in_bug_testcase() -> None:
                                    #                                                               for q in range(n):
                                    #                                                               for r in range(n):
                                    #                                                               for s
-    """
-    )
+    """)
 
     # just test finite processing time
     calc_codebleu([dummy_true_code], [generated_code], "python")

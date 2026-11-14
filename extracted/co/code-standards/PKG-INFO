@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code-standards
-Version: 9.34.0
+Version: 9.36.0
 Summary: One deterministic quality gate for Sarj Python, TypeScript, Swift, Kotlin, shell, SQL, IaC, and repository policy.
 Project-URL: Homepage, https://code-standards.sarj.ai/
 Project-URL: Documentation, https://code-standards.sarj.ai/cli/
@@ -29,7 +29,7 @@ Requires-Dist: pre-commit==4.7.0
 Requires-Dist: pydantic==2.14.1
 Requires-Dist: pyyaml==6.0.3
 Requires-Dist: referencing==0.37.0
-Requires-Dist: repo-standards==7.0.0
+Requires-Dist: repo-standards==8.0.0
 Requires-Dist: ruff==0.17.2
 Requires-Dist: sarj-iac-lint==0.41.1
 Requires-Dist: sarj-python-lint==1.134.0
@@ -76,6 +76,8 @@ Doctor reads `doctor.config.json` by default. An authored `doctor.config.ts`, `.
 TypeScript setup also installs Syncpack 15.3.3 and synchronizes `syncpack.strict.mts`. Import that preset from `.syncpackrc.ts`, append repository-specific version groups, and run `syncpack lint` in the repository's existing dependency gate. The preset checks package-manager versions and dependency consistency while preserving hand-managed resolution floors. Setup and doctor detect preset and tool-pin drift. Syncpack remains a separate native gate; `code-standards check` does not run it.
 
 Use repeatable `check --rule ENGINE:ID` selectors to select native rules, Oxlint rules, or managed security audits. Exclusions, baselines, and severities still apply; Ruff selectors are not supported. Native linters and Oxlint execute only selected rules. Oxlint retains configured plugins, options, severities, and suppression directives.
+
+To refresh without accepting new debt, save the reviewed consumer baseline unchanged and run `code-standards baseline update --budget /path/to/accepted.json`. Use that same fixed budget for the full scan and subsequent `--rule` refreshes on one output artifact. Only existing fingerprints up to their accepted counts enter the refreshed baseline; new and increased findings remain active. Invalid budgets and analysis execution failures prevent writing. Existing review gates still establish whether the selected budget is authorized.
 
 Trusted staged and PR checks preserve existing diagnostic fingerprint/count budgets for Python files whose only changes are descriptions after pre-existing coded inline `# type: ignore[...]` or `# noqa: CODE` suppressions. The suppression prefix, target codes, scope, and every other source byte must stay identical. Reasons use ` — ` or ` -- ` and cannot contain checker pragmas. This is a bounded lexical proof using real comment tokens, not general AST equivalence. Immutable Git inputs and the exact worktree postimage are validated again after comparison. New findings, count growth, and required source policies still fail. Trusted `check --staged --fix` preserves these proven Python sources without applying unrelated native or Ruff fixes.
 

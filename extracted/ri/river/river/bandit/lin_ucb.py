@@ -35,7 +35,7 @@ class LinUCBDisjoint(bandit.base.ContextualPolicy):
 
     References
     ----------
-    [^1]: [A Contextual-Bandit Approach to Personalized News Article Recommendation](https://arxiv.org/abs/1003.0146)
+    [^1]: [Li, L., Chu, W., Langford, J. and Schapire, R.E., 2010, April. A contextual-bandit approach to personalized news article recommendation. In Proceedings of the 19th international conference on World wide web (pp. 661-670).](https://doi.org/10.1145/1772690.1772758)
     [^2]: [Contextual Bandits Analysis of LinUCB Disjoint Algorithm with Dataset](https://kfoofw.github.io/contextual-bandits-linear-ucb-disjoint/)
 
     """
@@ -73,9 +73,7 @@ class LinUCBDisjoint(bandit.base.ContextualPolicy):
             return dist.mu + dist.sigma
 
         upper_bounds = {
-            arm_id: get_upper_bound(
-                self._bayes_lin_regs[arm_id].predict_one(context, with_dist=True)
-            )
+            arm_id: get_upper_bound(self._bayes_lin_regs[arm_id].predict_dist_one(context))
             for arm_id in arm_ids
         }
         biggest_upper_bound = max(upper_bounds.values())
@@ -87,7 +85,7 @@ class LinUCBDisjoint(bandit.base.ContextualPolicy):
         return self._rng.choice(candidates) if len(candidates) > 1 else candidates[0]
 
     def update(self, arm_id, context, *reward_args, **reward_kwargs):
-        """Rewrite update function"""
+        """Rewrite update function."""
         super().update(arm_id, None, *reward_args, **reward_kwargs)
         reward = reward_args[0]
         self._bayes_lin_regs[arm_id].learn_one(x=context, y=reward)

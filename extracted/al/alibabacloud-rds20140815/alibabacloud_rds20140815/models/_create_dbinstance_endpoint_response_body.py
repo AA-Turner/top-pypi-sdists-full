@@ -13,7 +13,7 @@ class CreateDBInstanceEndpointResponseBody(DaraModel):
     ):
         # The list of returned data.
         self.data = data
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
 
     def validate(self):
@@ -53,7 +53,7 @@ class CreateDBInstanceEndpointResponseBodyData(DaraModel):
     ):
         # The internal endpoint.
         self.connection_string = connection_string
-        # The endpoint ID of the instance.
+        # The ID of the endpoint for the instance.
         self.dbinstance_endpoint_id = dbinstance_endpoint_id
         # The instance ID.
         self.dbinstance_name = dbinstance_name

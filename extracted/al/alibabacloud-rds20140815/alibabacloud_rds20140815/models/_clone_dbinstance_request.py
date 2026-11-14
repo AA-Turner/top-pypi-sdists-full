@@ -49,50 +49,51 @@ class CloneDBInstanceRequest(DaraModel):
         # 
         # 1. **true**: enables automatic payment. Make sure that your account balance is sufficient.
         # 
-        # 1. **false**: generates an order but does not deduct fees.
+        # 1. **false**: generates an unpaid order without deducting fees.
         # 
         # > Default value: true. If your payment method has an insufficient balance, you can set the AutoPay parameter to false. In this case, an unpaid order is generated, and you can log on to the ApsaraDB RDS console to complete the payment.
+        # >
         self.auto_pay = auto_pay
         # The ID of the backup set.
         # 
-        # You can call the DescribeBackups operation to query the backup sets.
+        # You can call the DescribeBackups operation to query backup sets.
         # 
         # >You must specify at least one of the **BackupId** and **RestoreTime** parameters.
         self.backup_id = backup_id
         # The backup type. Valid values:
         # 
-        # * **FullBackup**: full backup.
-        # * **IncrementalBackup**: incremental backup.
+        # * **FullBackup**: full backup
+        # * **IncrementalBackup**: incremental backup
         self.backup_type = backup_type
         self.bpe_enabled = bpe_enabled
-        # Specifies whether to enable the I/O performance burst feature for Premium ESSD cloud disks. Valid values:
+        # Specifies whether to enable the I/O performance burst feature for Premium ESSD cloud disks.
         # * **true**: enables the feature.
-        # * **false**: shutdown.
-        # > For more information about the I/O performance burst feature, see [What is a premium performance disk](https://help.aliyun.com/document_detail/2340501.html).
+        # * **false**: disables the feature.
+        # > For more information about the I/O performance burst feature, see [What is a Premium ESSD cloud disk](https://help.aliyun.com/document_detail/2340501.html).
         self.bursting_enabled = bursting_enabled
         # The instance edition. Valid values:
         # 
-        # - **Basic**: Basic Edition.
-        # - **HighAvailability**: high availability Edition (active).
-        # - **AlwaysOn**: Cluster Edition (SQL Server).
-        # - **cluster**: Cluster Edition (MySQL).
-        # - **Finance**: Finance Edition (supported only on the China site).
+        # - **Basic**: Basic Edition
+        # - **HighAvailability**: High-availability Edition
+        # - **AlwaysOn**: Cluster Edition (SQL Server)
+        # - **cluster**: Cluster Edition (MySQL)
+        # - **Finance**: Enterprise Edition (supported only on the China site)
         # 
         # **Serverless instances**
-        # - **serverless_basic**: Serverless Basic Edition (applicable only to MySQL and PostgreSQL).
-        # - **serverless_standard**: MySQL Serverless high availability Edition (active).
-        # - **serverless_ha**: SQL Server Serverless high availability Edition (active).
-        # > You do not need to specify this parameter. The cloned instance inherits the edition of the source instance.
+        # - **serverless_basic**: Serverless Basic Edition (supported only for MySQL and PostgreSQL)
+        # - **serverless_standard**: MySQL Serverless High-availability Edition
+        # - **serverless_ha**: SQL Server Serverless High-availability Edition
+        # > You do not need to specify this parameter. The clone instance inherits the edition of the source instance and remains active.
         self.category = category
-        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the value, but you must ensure that the value is unique among different requests. The value can be up to 64 ASCII characters in length and cannot contain non-ASCII characters.
+        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the value, but you must ensure that the value is unique across different requests. The value can be up to 64 ASCII characters in length and cannot contain non-ASCII characters.
         self.client_token = client_token
-        # The internal reserved field. You do not need to specify this parameter.
+        # An internal reserved parameter. You do not need to specify this parameter.
         self.custom_extra_info = custom_extra_info
         # The instance type. For more information, see [Instance types](https://help.aliyun.com/document_detail/26312.html).
         # 
-        # >Default value: the instance type of the primary instance.
+        # >Default value: the instance type of the source instance.
         self.dbinstance_class = dbinstance_class
-        # The instance name. It must be 2 to 255 characters in length. It must start with a letter or a Chinese character and can contain letters, digits, Chinese characters, underscores (_), and hyphens (-).
+        # The instance name. The name must be 2 to 255 characters in length. It must start with a letter or a Chinese character and can contain letters, Chinese characters, digits, underscores (_), and hyphens (-).
         # >It cannot start with http:// or https://.
         self.dbinstance_description = dbinstance_description
         # The instance ID.
@@ -100,32 +101,32 @@ class CloneDBInstanceRequest(DaraModel):
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         # Instance storage capacity of the instance. Unit: GB. Instance storage capacity increases in increments of 5 GB. For more information, see [Instance types](https://help.aliyun.com/document_detail/26312.html).
-        # >Default value: instance storage capacity of the primary instance.
+        # >Default value: instance storage capacity of the source instance.
         self.dbinstance_storage = dbinstance_storage
         # The instance storage type. Valid values:
         # 
-        # * **general_essd**: Premium ESSD (recommended).
-        # * **local_ssd**: premium local disk.
-        # * **cloud_ssd**: standard SSD.
-        # * **cloud_essd**: PL1 ESSD.
-        # * **cloud_essd2**: PL2 ESSD.
-        # * **cloud_essd3**: PL3 ESSD.
+        # * **general_essd**: Premium ESSD cloud disk (recommended)
+        # * **local_ssd**: Premium Local SSD
+        # * **cloud_ssd**: standard SSD cloud disk
+        # * **cloud_essd**: PL1 ESSD cloud disk
+        # * **cloud_essd2**: PL2 ESSD cloud disk
+        # * **cloud_essd3**: PL3 ESSD cloud disk
         # 
-        # > Serverless instances support only PL1 ESSD and Premium ESSD.
+        # > Serverless instances support only PL1 ESSD cloud disks and Premium ESSD cloud disks.
         self.dbinstance_storage_type = dbinstance_storage_type
         # The names of the databases. Format: `Original database name 1,Original database name 2`.
         self.db_names = db_names
         # The ID of the dedicated cluster.
         self.dedicated_host_group_id = dedicated_host_group_id
-        # Specifies whether to enable the release protection feature. Valid values:
-        # * **true**: enables the feature.
-        # * **false** (default): disables the feature.
+        # Specifies whether to enable release protection. Valid values:
+        # * **true**: enables release protection.
+        # * **false**: disables release protection. This is the default value.
         self.deletion_protection = deletion_protection
         # The network type of the instance. Valid values:
-        # * **VPC**: Virtual Private Cloud (VPC).
-        # * **Classic**: classic network.
+        # * **VPC**: Virtual Private Cloud (VPC)
+        # * **Classic**: classic network
         # 
-        # >Default value: the network type of the primary instance.
+        # >Default value: the network type of the source instance.
         self.instance_network_type = instance_network_type
         # Specifies whether to enable the Buffer Pool Extension (BPE) feature for Premium ESSD cloud disks. Valid values:
         # 
@@ -135,34 +136,34 @@ class CloneDBInstanceRequest(DaraModel):
         # > For more information about the BPE feature, see [Buffer Pool Extension (BPE)](https://help.aliyun.com/document_detail/2527067.html).
         self.io_acceleration_enabled = io_acceleration_enabled
         # The billing method of the instance. Valid values:
-        # * **Postpaid**: pay-as-you-go.
-        # * **Prepaid**: subscription.
-        # * **Serverless**: serverless. This value is not supported for ApsaraDB RDS for MariaDB instances. For more information, see [Overview of serverless ApsaraDB RDS for MySQL instances](https://help.aliyun.com/document_detail/411291.html), [Overview of serverless ApsaraDB RDS for SQL Server instances](https://help.aliyun.com/document_detail/604344.html), and [Overview of serverless ApsaraDB RDS for PostgreSQL instances](https://help.aliyun.com/document_detail/607742.html).
+        # * **Postpaid**: pay-as-you-go
+        # * **Prepaid**: subscription
+        # * **Serverless**: serverless. This billing method is not supported for ApsaraDB RDS for MariaDB instances. For more information, see [Overview of serverless ApsaraDB RDS for MySQL instances](https://help.aliyun.com/document_detail/411291.html), [Overview of serverless ApsaraDB RDS for SQL Server instances](https://help.aliyun.com/document_detail/604344.html), and [Overview of serverless ApsaraDB RDS for PostgreSQL instances](https://help.aliyun.com/document_detail/607742.html).
         # 
         # This parameter is required.
         self.pay_type = pay_type
         # The subscription period of the subscription instance. Valid values:
-        # * **Year**: yearly subscription.
-        # * **Month**: monthly subscription.
+        # * **Year**: yearly subscription
+        # * **Month**: monthly subscription
         # 
         # > This parameter is required when the billing method is set to **Prepaid**.
         self.period = period
-        # The internal network IP address of the new instance. The IP address must be within the IP address range of the specified vSwitch. By default, the system automatically allocates an IP address based on the **VPCId** and **VSwitchId** parameters.
+        # The internal network IP address of the new instance. The IP address must be within the IP address range of the specified vSwitch. By default, the system automatically allocates an IP address based on **VPCId** and **VSwitchId**.
         self.private_ip_address = private_ip_address
-        # The region ID. You can call the DescribeRegions operation to view the region ID.
+        # The region ID. You can call the DescribeRegions operation to query region IDs.
         self.region_id = region_id
         self.resource_owner_id = resource_owner_id
-        # Specifies whether to restore individual databases and tables. A value of **true** specifies that individual databases and tables are restored. If you do not want to restore individual databases and tables, leave this parameter empty.
+        # Specifies whether to restore individual databases and tables. Set the value to **true** to restore individual databases and tables. Otherwise, leave this parameter empty.
         self.restore_table = restore_table
-        # The point in time to which you want to restore the instance. The point in time must be within the backup retention period. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
+        # The point in time to which you want to restore data. The point in time must be within the backup retention period. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
         # 
         # >You must specify at least one of the **BackupId** and **RestoreTime** parameters.
         self.restore_time = restore_time
         self.serverless_config = serverless_config
         # The information about the databases and tables that you want to restore. This parameter is required when you restore individual databases and tables. Format:
-        # ```[{"type":"db","name":"Name of database 1","newname":"New name of database 1","tables":[{"type":"table","name":"Name of table 1 in database 1","newname":"New name of table 1"},{"type":"table","name":"Name of table 2 in database 1","newname":"New name of table 2"}]},{"type":"db","name":"Name of database 2","newname":"New name of database 2","tables":[{"type":"table","name":"Name of table 1 in database 2","newname":"New name of table 1"},{"type":"table","name":"Name of table 2 in database 2","newname":"New name of table 2"}]}]```
+        # ```[{"type":"db","name":"Original database 1 name","newname":"New database 1 name","tables":[{"type":"table","name":"Original table 1 name in database 1","newname":"New table 1 name"},{"type":"table","name":"Original table 2 name in database 1","newname":"New table 2 name"}]},{"type":"db","name":"Original database 2 name","newname":"New database 2 name","tables":[{"type":"table","name":"Original table 1 name in database 2","newname":"New table 1 name"},{"type":"table","name":"Original table 2 name in database 2","newname":"New table 2 name"}]}]```
         self.table_meta = table_meta
-        # The list of tags.
+        # The tags.
         self.tag = tag
         # The subscription duration. Valid values:
         # * Valid values when the **Period** parameter is set to **Year**: **1**, **2**, and **3**.
@@ -171,22 +172,22 @@ class CloneDBInstanceRequest(DaraModel):
         # > This parameter is required when the billing method is set to **Prepaid**.
         self.used_time = used_time
         # The VPC ID.
-        # >Make sure that the VPC belongs to the region where the instance is deployed.
+        # >Make sure that the VPC belongs to the region you specified.
         self.vpcid = vpcid
-        # The vSwitch ID. The zone (active zone) where the vSwitch is located must match the zone (active zone) ID specified in **ZoneId**.
+        # The vSwitch ID. The active zone where the vSwitch resides must be the same as the zone ID specified by **ZoneId**.
         # 
         # - The network type **InstanceNetworkType** must be set to **VPC**.
-        # - If you specify **ZoneSlaveId1** (the secondary active zone ID), you must specify two vSwitch IDs and separate them with commas (,).
+        # - If you specify **ZoneSlaveId1** (the secondary zone ID), you must specify two vSwitch IDs and separate them with a comma (,).
         self.v_switch_id = v_switch_id
-        # The primary zone ID. You can call the DescribeRegions operation to view the zone ID.
+        # The primary zone ID. You can call the DescribeRegions operation to query zone IDs.
         # 
         # >Default value: the zone ID of the source instance.
         self.zone_id = zone_id
-        # The secondary zone (active zone) ID. If this parameter is set to the same value as the **ZoneId** parameter, the instance uses a single-zone (active zone) deployment. If this parameter is set to a different value from the **ZoneId** parameter, the instance uses a multi-zone (active zone) deployment.
+        # The ID of the active zone for the secondary node. If this parameter is set to the same value as **ZoneId**, the instance uses a single-zone deployment. Otherwise, the instance uses a multi-zone deployment.
         self.zone_id_slave_1 = zone_id_slave_1
-        # <props="intl">The logger zone (active zone) ID. If this parameter is set to the same value as the **ZoneId** parameter, the instance uses a single-zone (active zone) deployment. If this parameter is set to a different value from the **ZoneId** parameter, the instance uses a multi-zone (active zone) deployment.
+        # <props="intl">The ID of the active zone for the logger node. If this parameter is set to the same value as **ZoneId**, the instance uses a single-zone deployment. Otherwise, the instance uses a multi-zone deployment.
         # 
-        # <props="china">The secondary zone (active zone) ID or logger zone (active zone) ID. If this parameter is set to the same value as the **ZoneId** parameter, the instance uses a single-zone (active zone) deployment. If this parameter is set to a different value from the **ZoneId** parameter, the instance uses a multi-zone (active zone) deployment.
+        # <props="china">The ID of the active zone for the secondary or logger node. If this parameter is set to the same value as **ZoneId**, the instance uses a single-zone deployment. Otherwise, the instance uses a multi-zone deployment.
         self.zone_id_slave_2 = zone_id_slave_2
 
     def validate(self):
@@ -424,18 +425,18 @@ class CloneDBInstanceRequestTag(DaraModel):
         key: str = None,
         value: str = None,
     ):
-        # The tag key. You can specify this parameter to bind a tag to the instance.
+        # The tag key. You can specify this parameter to add a tag to the instance.
         # 
-        # * If the specified tag key already exists, the tag key is directly bound to the instance. You can call the ListTagResources operation to query the created tags.
-        # * If the specified tag key does not exist, the tag key is created and then bound to the instance.
-        # * Empty strings are not allowed.
-        # * This parameter must be used together with the **Tag.Value** parameter and cannot be used alone.
+        # * If the specified tag key already exists, the tag is directly added to the instance. You can call the ListTagResources operation to query existing tags.
+        # * If the specified tag key does not exist, the tag key is created and then added to the instance.
+        # * The tag key cannot be an empty string.
+        # * This parameter must be used together with the **Tag.Value** parameter.
         self.key = key
-        # The tag value that corresponds to the tag key. You can specify this parameter to bind a tag to the instance.
+        # The tag value that corresponds to the tag key. You can specify this parameter to add a tag to the instance.
         # 
-        # * If the specified tag value already exists for the corresponding tag key, the tag value is directly bound to the instance. You can call the ListTagResources operation to query the created tags.
-        # * If the specified tag value does not exist for the corresponding tag key, the tag value is created and then bound to the instance.
-        # * This parameter must be used together with the **Tag.Key** parameter and cannot be used alone.
+        # * If the specified tag value already exists for the corresponding tag key, the tag is directly added to the instance. You can call the ListTagResources operation to query existing tags.
+        # * If the specified tag value does not exist for the corresponding tag key, the tag value is created and then added to the instance.
+        # * This parameter must be used together with the **Tag.Key** parameter.
         self.value = value
 
     def validate(self):

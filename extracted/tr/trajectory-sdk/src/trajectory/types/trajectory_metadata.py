@@ -15,14 +15,6 @@ class TrajectoryMetadata(BaseModel):
 
   organization_id: str
 
-  dataset_id: str | None = None
-
-  dataset_name: str | None = None
-
-  dataset_source: str | None = None
-
-  dataset_gcs_prefix: str | None = None
-
   trace_id: str | None = None
 
   model_id: str | None = None

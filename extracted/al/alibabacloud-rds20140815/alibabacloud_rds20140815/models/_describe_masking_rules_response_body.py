@@ -95,7 +95,7 @@ class DescribeMaskingRulesResponseBodyDataRules(DaraModel):
         self.default_algo = default_algo
         # Indicates whether the rule is enabled.
         self.enabled = enabled
-        # The algorithms for the rule. Multiple algorithms are supported. Additional parameters can be added for masking algorithms. Format: {name: Algorithm 1}, {name: Algorithm 2, params: {encryption position, number of encrypted digits}}.
+        # The rule algorithms. Multiple algorithms can be selected. Additional parameters can be added for masking algorithms. Format: {name: algorithm 1}, {name: algorithm 2, params: {encryption position, number of encrypted digits}}.
         self.masking_algo = masking_algo
         # The rule configuration.
         self.rule_config = rule_config

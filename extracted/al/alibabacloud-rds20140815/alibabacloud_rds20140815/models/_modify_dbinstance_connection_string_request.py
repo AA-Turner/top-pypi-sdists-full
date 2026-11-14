@@ -21,46 +21,46 @@ class ModifyDBInstanceConnectionStringRequest(DaraModel):
         retain_vip: bool = None,
         target_dbinstance_id: str = None,
     ):
-        # The TDS port number for Babelfish for RDS PostgreSQL.
-        # > This parameter is applicable only to ApsaraDB RDS for PostgreSQL instances. For more information about Babelfish for RDS PostgreSQL, see [Introduction to Babelfish](https://help.aliyun.com/document_detail/428613.html).
+        # The TDS port number for Babelfish for ApsaraDB RDS for PostgreSQL.
+        # > This parameter is only applicable to ApsaraDB RDS for PostgreSQL instances. For more information about Babelfish for ApsaraDB RDS for PostgreSQL, see [Babelfish overview](https://help.aliyun.com/document_detail/428613.html).
         self.babelfish_port = babelfish_port
-        # The prefix of the endpoint. You can modify only the prefix of the value specified by the **CurrentConnectionString** parameter.
-        # >The prefix must be 8 to 64 characters in length and cannot contain Chinese characters or special characters (~!#%^&*=+\\|{};:\\"",<>/?). The prefix can contain letters, digits, and hyphens (-).
+        # The prefix of the new endpoint. You can only modify the prefix of the **CurrentConnectionString** parameter.
+        # > The prefix must be 8 to 64 characters in length and cannot contain Chinese characters or invalid characters (such as ~!#%^&*=+\\|{}:\\"",<>/?). We recommend that you use letters, digits, and hyphens (-).
         # 
         # This parameter is required.
         self.connection_string_prefix = connection_string_prefix
-        # The current endpoint of the instance. The endpoint can be a public endpoint or internal endpoint, or a classic network connectivity endpoint in hybrid access mode.
-        # >Modification of read/write splitting connection endpoints is not supported.
+        # The current endpoint of the instance. The endpoint can be an internal endpoint or public endpoint, or a classic network endpoint in hybrid access mode.
+        # > You cannot modify the read/write splitting endpoint.
         # 
         # This parameter is required.
         self.current_connection_string = current_connection_string
-        # The instance ID. You can call DescribeDBInstances to obtain the instance ID.
+        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The name of the group to which the dedicated cluster MySQL general-purpose instance belongs.
+        # The name of the group to which the general-purpose instance in the dedicated cluster belongs.
         self.general_group_name = general_group_name
         self.owner_account = owner_account
         self.owner_id = owner_id
         # The PgBouncer port number.
-        # > This parameter is applicable only to ApsaraDB RDS for PostgreSQL instances. If PgBouncer is enabled, you can modify the PgBouncer port number.
+        # > This parameter is only applicable to ApsaraDB RDS for PostgreSQL instances. You can modify the PgBouncer port number only if PgBouncer is enabled.
         self.pgbouncer_port = pgbouncer_port
-        # The target port.
+        # The new port.
         # 
         # This parameter is required.
         self.port = port
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # Specifies whether to retain the virtual IP address (VIP) when swapping the endpoint.
+        # Specifies whether to retain the virtual IP address (VIP) when swapping endpoints.
         # 
-        # - **true**: The VIP is retained.
-        # - **false** (default): The VIP is not retained.
+        # - **true**: Retains the VIP.
+        # - **false** (default): Does not retain the VIP.
         # 
-        # > This parameter is applicable only to ApsaraDB RDS for PostgreSQL instances.
+        # > This parameter is only supported for ApsaraDB RDS for PostgreSQL instances.
         self.retain_vip = retain_vip
-        # The instance ID of the target ApsaraDB RDS for PostgreSQL instance with which you want to swap the endpoint.
+        # The instance ID of the destination ApsaraDB RDS for PostgreSQL instance with which you want to swap endpoints.
         # 
-        # > This parameter is applicable only to ApsaraDB RDS for PostgreSQL instances.
+        # > This parameter is only supported for ApsaraDB RDS for PostgreSQL instances.
         self.target_dbinstance_id = target_dbinstance_id
 
     def validate(self):

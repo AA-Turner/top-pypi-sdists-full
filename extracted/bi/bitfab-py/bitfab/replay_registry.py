@@ -422,6 +422,14 @@ def _parser(registry: ReplayRegistry | None) -> argparse.ArgumentParser:
             "the last two minutes or its code change differs."
         ),
     )
+    parser.add_argument(
+        "--retry-errored",
+        action="store_true",
+        help=(
+            "With --resume, also re-run the items that errored, in the same "
+            "experiment, replacing their errored results."
+        ),
+    )
     parser.add_argument("--execute-item", help=argparse.SUPPRESS)
     return parser
 
@@ -481,6 +489,8 @@ _RESUME_FIXED_OPTIONS = (
 def _refuse_selection_flags_with_resume(args: argparse.Namespace) -> None:
     if args.force and args.resume is None:
         raise ValueError("--force only applies to --resume <experiment ID>.")
+    if args.retry_errored and args.resume is None:
+        raise ValueError("--retry-errored only applies to --resume <experiment ID>.")
     if args.resume is None:
         return
     passed = [
@@ -520,6 +530,7 @@ def _resume_command(args: argparse.Namespace, experiment_id: str) -> str:
             *(shlex.quote(arg) for arg in carried),
             "--resume",
             shlex.quote(experiment_id),
+            *(["--retry-errored"] if args.retry_errored else []),
         ]
     )
 
@@ -1134,6 +1145,8 @@ def run_replay_cli(
         options["resume"] = args.resume
         if args.force:
             options["force"] = True
+        if args.retry_errored:
+            options["retry_errored"] = True
     else:
         registry_dataset_ids = _registry_dataset_ids(options)
         options.pop("dataset_id", None)

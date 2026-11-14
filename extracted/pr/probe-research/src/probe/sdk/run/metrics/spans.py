@@ -203,6 +203,10 @@ class SpanHandle(str):
         # it failed; it does not swallow the failure.
 
 
+#: How long `Run._flush_for_span` waits for the drain lock before it lets the upload go on (its presign retries).
+SPAN_FLUSH_SECONDS = 10.0
+
+
 class SpansMixin:
     """Part of Run: its methods run with `self` the Run; compose() folds them into Run."""
 
@@ -350,7 +354,7 @@ class SpansMixin:
         )
 
     def _flush_for_span(self, span_id: str | None) -> None:
-        """Deliver THIS RUN's queued ops before a direct post citing ``span_id``.
+        """Deliver THIS RUN's queued spans before a direct post citing ``span_id``.
 
         Scoped with ``run_ref``, not ``client.flush()``. flush() is a
         machine-wide drain -- every run's ops, unbounded, behind the exclusive
@@ -360,21 +364,26 @@ class SpansMixin:
         That is the hazard `probe run end` already refuses for the same reason
         ("finish() would foreground-drain the whole machine-wide journal").
 
-        Gated on a queued SPAN specifically: a pending metric point says nothing
-        about whether the span this artifact cites has landed, and draining on
-        its account would make every artifact upload wait for telemetry it does
-        not depend on.
+        Gated on a queued SPAN specifically, and only the run's span ops are
+        sent (``only_ops``): a pending metric point says nothing about whether
+        the span this artifact cites has landed, and an upload or sample batch
+        queued behind the span must not spend this upload's time. A best-effort
+        span (`blocking=False`, e.g. a rollout's `environment` span) counts too:
+        `_queued_ops` leaves those out because they must not hold the run's
+        close, and skipping them here let the presign beat the span (422
+        "span_id not found for this run"; 25 of 72 rollout files on a verl run,
+        11-13). The drain lock is waited for at most `SPAN_FLUSH_SECONDS`.
 
-        Best-effort. If the drain fails the upload still proceeds and its own
-        fail-open path records a reference, which beats refusing to log an
-        artifact because telemetry is unreachable.
+        One pass, best-effort: it can return with the span still queued
+        (another drain is sending this run's lane, the lane is backed off, the
+        lock stayed busy, the drain failed). The presign then retries its 422
+        (`uploads.SPAN_PRESIGN_RETRY_DELAYS`, flushing again each time) before
+        its fail-open path records a reference.
         """
         if not span_id or not self._client.async_writes:
             return
-        if not any(
-            op.get("path", "").endswith("/spans")
-            for op in self._queued_ops(self._client.journal.pending())
-        ):
+        queued = self._get_queued_span_ops()
+        if not queued:
             return
         from ...delivery.outbox.drain.drain import drain
 
@@ -382,9 +391,19 @@ class SpansMixin:
             drain(
                 self._client.journal,
                 run_ref=self.id,
+                only_ops=queued,
+                lock_timeout=SPAN_FLUSH_SECONDS,
                 client_factory=self._client._outbox_client_factory(),
             )
         except Exception:  # noqa: BLE001 -- drain records last_error itself
             pass
+
+    def _get_queued_span_ops(self) -> frozenset[str]:
+        """The op ids of this run's queued span writes, blocking or best-effort."""
+        return frozenset(
+            op["op_id"]
+            for _, op in self._client.journal.pending()
+            if op.get("run_ref") == self.id and op.get("path", "").endswith("/spans") and op.get("op_id")
+        )
 from probe.sdk.run.metrics.values import _json_safe, _now  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.summary import _summary_wire  # noqa: E402 -- pieces need each other; the front door loads this one first

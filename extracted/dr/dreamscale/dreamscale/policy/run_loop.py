@@ -1170,11 +1170,15 @@ class _ReplanPlanner:
         if self.chunked:
             return action_queue.place_chunk(actions=actions, action_indices=action_indices)
         if self._rtc_enabled:
+            # The server's reference rows are its whole chunk; the client keeps the first
+            # ``chunk_size`` rows of it (above), and their references with them.
+            references = _reference_actions_from_result(result)
             diagnostics = action_queue.replace_aligned_chunk(
                 base_action_step=base_action_index,
                 actions=actions,
                 action_indices=action_indices,
-                rtc_reference_actions=_reference_actions_from_result(result),
+                rtc_reference_actions=(None if references is None
+                                       else list(references)[: len(actions)]),
             )
             return {
                 **diagnostics,

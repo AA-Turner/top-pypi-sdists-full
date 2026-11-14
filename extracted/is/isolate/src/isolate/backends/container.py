@@ -20,7 +20,6 @@ class ContainerizedPythonEnvironment(BaseEnvironment[Path]):
     python_version: str | None = None
     requirements: Requirements = field(default_factory=Requirements)
     tags: list[str] = field(default_factory=list)
-    resolver: str | None = None
 
     @classmethod
     def from_config(
@@ -29,23 +28,17 @@ class ContainerizedPythonEnvironment(BaseEnvironment[Path]):
         settings: IsolateSettings = DEFAULT_SETTINGS,
     ) -> BaseEnvironment:
         prepared = dict(config)
+        # Discard the retired setting in stored configurations and older clients.
+        prepared.pop("resolver", None)
         prepared["requirements"] = Requirements.from_raw(
             config.get("requirements") or []
         )
         environment = cls(**prepared)
         environment.apply_settings(settings)
-        if environment.resolver not in ("uv", None):
-            raise ValueError(
-                "Only 'uv' is supported as a resolver for container environments."
-            )
         return environment
 
     @property
     def key(self) -> str:
-        extras = []
-        if self.resolver is not None:
-            extras.append(f"resolver={self.resolver}")
-
         # dockerfile_str is always there, but the validation is handled by the
         # controller.
         dockerfile_str = self.image.get("dockerfile_str", "")
@@ -53,7 +46,6 @@ class ContainerizedPythonEnvironment(BaseEnvironment[Path]):
             dockerfile_str,
             *self.requirements.keys(),
             *sorted(self.tags),
-            *extras,
         )
 
     def create(self, *, force: bool = False) -> Path:

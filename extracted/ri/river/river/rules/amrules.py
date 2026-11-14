@@ -4,7 +4,6 @@ import collections
 import functools
 import io
 import math
-import typing
 
 from river import base, drift, linear_model, stats
 from river.tree import split_criterion
@@ -25,9 +24,10 @@ class MeanRegressor(base.Regressor):
 
 
 class AdaptiveRegressor(base.Regressor):
-    """This predictor selects between the target mean and the the user-selected regression model
-     automatically. Faded error metrics are kept for both the predictors, and the most
-    accurate one is selected automatically for each incoming instance.
+    """Select between the target mean and the the user-selected regression model automatically.
+
+    Faded error metrics are kept for both the predictors, and the most accurate one is selected
+    automatically for each incoming instance.
     """
 
     def __init__(self, model_predictor: base.Regressor, fading_factor: float):
@@ -306,7 +306,7 @@ class AMRules(base.Regressor):
         self.min_samples_split = min_samples_split
 
         self._default_rule = self._new_rule()
-        self._rules: dict[typing.Hashable, RegRule] = {}
+        self._rules: dict[int, RegRule] = {}
 
         self._n_drifts_detected: int = 0
 
@@ -398,8 +398,7 @@ class AMRules(base.Regressor):
 
             if expanded:
                 updated_rule.pred_model = self._default_rule.pred_model  # noqa
-                code = hash(updated_rule)
-                self._rules[code] = updated_rule
+                self._rules[max(self._rules, default=-1) + 1] = updated_rule
 
                 self._default_rule = self._new_rule()
 
@@ -425,7 +424,7 @@ class AMRules(base.Regressor):
             return self._default_rule.predict_one(x)
 
     def anomaly_score(self, x) -> tuple[float, float, float]:
-        """Aggregated anomaly score computed using all the rules that cover the input instance.
+        """Compute the aggregated anomaly score using all the rules that cover the input instance.
 
         Returns the mean anomaly score, the standard deviation of the score, and the proportion
         of rules that cover the instance (support). If the support is zero, it means that the
@@ -479,7 +478,7 @@ class AMRules(base.Regressor):
         return self._default_rule.score_one(x), 0.0, 0
 
     def debug_one(self, x) -> str:
-        """Return an explanation of how `x` is predicted
+        """Return an explanation of how `x` is predicted.
 
         Parameters
         ----------

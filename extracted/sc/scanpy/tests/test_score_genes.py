@@ -16,6 +16,8 @@ from scipy import sparse
 import scanpy as sc
 from scanpy._utils.random import random_str
 from testing.scanpy._helpers.data import paul15
+from testing.scanpy._pytest.marks import needs
+from testing.scanpy._pytest.params import ARRAY_TYPES_MEM
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -29,13 +31,19 @@ _create_random_gene_names = partial(random_str, alphabet=string.ascii_uppercase)
 """Create a bunch of random gene names (just CAPS letters)."""
 
 
-def _create_sparse_nan_matrix(rows, cols, percent_zero, percent_nan) -> CSRBase:
+def _create_sparse_nan_matrix(
+    rows: int,
+    cols: int,
+    percent_zero: float,
+    percent_nan: float,
+    *,
+    rng: np.random.Generator | None = None,
+) -> CSRBase:
     """Create a sparse matrix with certain amounts of NaN and Zeros."""
-    arr = (
-        np.random.randint(0, 1000, rows * cols).reshape((rows, cols)).astype("float32")
-    )
-    maskzero = np.random.rand(rows, cols) < percent_zero
-    masknan = np.random.rand(rows, cols) < percent_nan
+    rng = np.random.default_rng(rng)
+    arr = rng.integers(0, 1000, rows * cols).reshape((rows, cols)).astype("float32")
+    maskzero = rng.random((rows, cols)) < percent_zero
+    masknan = rng.random((rows, cols)) < percent_nan
     if np.any(maskzero):
         arr[maskzero] = 0
     if np.any(masknan):
@@ -43,11 +51,18 @@ def _create_sparse_nan_matrix(rows, cols, percent_zero, percent_nan) -> CSRBase:
     return sparse.csr_matrix(arr)  # noqa: TID251
 
 
-def _create_adata(n_obs: int, n_var: int, p_zero: float, p_nan: float) -> AnnData:
+def _create_adata(
+    n_obs: int,
+    n_var: int,
+    p_zero: float,
+    p_nan: float,
+    *,
+    rng: np.random.Generator | None = None,
+) -> AnnData:
     """Create an AnnData with random data, sparseness and some NaN values."""
-    x = _create_sparse_nan_matrix(n_obs, n_var, p_zero, p_nan)
+    x = _create_sparse_nan_matrix(n_obs, n_var, p_zero, p_nan, rng=rng)
     adata = AnnData(x)
-    gene_names = _create_random_gene_names(n_var, length=6)
+    gene_names = _create_random_gene_names(n_var, length=6, rng=rng)
     adata.var_names = gene_names.reshape(n_var)  # can be unsized
     return adata
 
@@ -59,34 +74,33 @@ def test_score_with_reference(data_dir: Path) -> None:
     and stored as a pickle object in `./data`.
     """
     adata = paul15()
-    with pytest.warns(FutureWarning, match=r"sc.*\.pp\.normalize_total"):
-        sc.pp.normalize_per_cell(adata, counts_per_cell_after=10000)
+    sc.pp.normalize_total(adata, target_sum=1e4)
     sc.pp.scale(adata)
 
-    sc.tl.score_genes(adata, gene_list=adata.var_names[:100], score_name="Test")
+    sc.tl.score_genes(adata, gene_list=adata.var_names[:100])
     with (data_dir / "score_genes_reference_paul2015.pkl").open("rb") as file:
         reference = pickle.load(file)
-    # np.testing.assert_allclose(reference, adata.obs["Test"].to_numpy())
-    np.testing.assert_array_equal(reference, adata.obs["Test"].to_numpy())
+    # np.testing.assert_allclose(reference, adata.obs["score"].to_numpy())
+    np.testing.assert_array_equal(reference, adata.obs["score"].to_numpy())
 
 
 def test_add_score():
     """Check the dtype of the scores and that non-existing genes get ignored."""
     # TODO: write a test that costs less resources and is more meaningful
-    adata = _create_adata(100, 1000, p_zero=0, p_nan=0)
+    rng = np.random.default_rng()
+    adata = _create_adata(100, 1000, p_zero=0, p_nan=0, rng=rng)
 
-    with pytest.warns(FutureWarning, match=r"sc.*\.pp\.normalize_total"):
-        sc.pp.normalize_per_cell(adata, counts_per_cell_after=1e4)
+    sc.pp.normalize_total(adata, target_sum=1e4)
     sc.pp.log1p(adata)
 
     # the actual genes names are all 6 letters
     # create some non-exstisting names with 7 letters:
-    non_existing_genes = _create_random_gene_names(3, length=7)
+    non_existing_genes = _create_random_gene_names(3, length=7, rng=rng)
     some_genes = np.r_[
-        np.unique(np.random.choice(adata.var_names, 10)), np.unique(non_existing_genes)
+        np.unique(rng.choice(adata.var_names, 10)), np.unique(non_existing_genes)
     ]
-    sc.tl.score_genes(adata, some_genes, score_name="Test")
-    assert adata.obs["Test"].dtype == "float64"
+    sc.tl.score_genes(adata, some_genes)
+    assert adata.obs["score"].dtype == "float64"
 
 
 @pytest.mark.parametrize("fmt", ["csr", "csc"])
@@ -132,8 +146,10 @@ def test_sparse_nanmean_on_dense_matrix():
     """TypeError must be thrown when calling _sparse_nanmean with a dense matrix."""
     from scanpy.tools._score_genes import _sparse_nanmean
 
+    data = np.random.default_rng().random((4, 5))
+
     with pytest.raises(TypeError):
-        _sparse_nanmean(np.random.rand(4, 5), 0)
+        _sparse_nanmean(data, 0)
 
 
 def test_score_genes_sparse_vs_dense():
@@ -145,11 +161,11 @@ def test_score_genes_sparse_vs_dense():
 
     gene_set = adata_dense.var_names[:10]
 
-    sc.tl.score_genes(adata_sparse, gene_list=gene_set, score_name="Test")
-    sc.tl.score_genes(adata_dense, gene_list=gene_set, score_name="Test")
+    sc.tl.score_genes(adata_sparse, gene_list=gene_set)
+    sc.tl.score_genes(adata_dense, gene_list=gene_set)
 
     np.testing.assert_allclose(
-        adata_sparse.obs["Test"].values, adata_dense.obs["Test"].values
+        adata_sparse.obs["score"].values, adata_dense.obs["score"].values
     )
 
 
@@ -162,18 +178,19 @@ def test_score_genes_deplete(*, dense: bool) -> None:
 
     Check that for both sparse and dense matrices.
     """
-    adata = _create_adata(100, 1000, p_zero=0.3, p_nan=0.3)
+    rng = np.random.default_rng()
+    adata = _create_adata(100, 1000, p_zero=0.3, p_nan=0.3, rng=rng)
     if dense:
         adata.X = adata.X.toarray()
 
     # deplete these genes in 50 cells,
-    ix_obs = np.random.choice(adata.shape[0], 50)
+    ix_obs = rng.choice(adata.shape[0], 50)
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=sparse.SparseEfficiencyWarning)
         adata.X[ix_obs, :10] = 0
 
-    sc.tl.score_genes(adata, gene_list=adata.var_names[:10], score_name="Test")
-    scores = adata.obs["Test"].values
+    sc.tl.score_genes(adata, gene_list=adata.var_names[:10])
+    scores = adata.obs["score"].values
 
     np.testing.assert_array_less(scores[ix_obs], 0)
 
@@ -189,24 +206,25 @@ def test_npnanmean_vs_sparsemean(monkeypatch):
     gene_set = adata.var_names[:10]
 
     # the unpatched, i.e. _sparse_nanmean version
-    sc.tl.score_genes(adata, gene_list=gene_set, score_name="Test")
-    sparse_scores = adata.obs["Test"].values.tolist()
+    sc.tl.score_genes(adata, gene_list=gene_set)
+    sparse_scores = adata.obs["score"].values.tolist()
 
     # now patch _sparse_nanmean by np.nanmean inside sc.tools
     def mock_fn(x: CSRBase, axis: Literal[0, 1]):
         return np.nanmean(x.toarray(), axis, dtype="float64")
 
     monkeypatch.setattr(sc.tl._score_genes, "_sparse_nanmean", mock_fn)
-    sc.tl.score_genes(adata, gene_list=gene_set, score_name="Test")
-    dense_scores = adata.obs["Test"].values
+    sc.tl.score_genes(adata, gene_list=gene_set)
+    dense_scores = adata.obs["score"].values
 
     np.testing.assert_allclose(sparse_scores, dense_scores)
 
 
 def test_missing_genes():
-    adata = _create_adata(100, 1000, p_zero=0, p_nan=0)
+    rng = np.random.default_rng()
+    adata = _create_adata(100, 1000, p_zero=0, p_nan=0, rng=rng)
     # These genes have a different length of name
-    non_extant_genes = _create_random_gene_names(3, length=7)
+    non_extant_genes = _create_random_gene_names(3, length=7, rng=rng)
 
     with pytest.raises(ValueError, match=r"No valid genes were passed for scoring"):
         sc.tl.score_genes(adata, non_extant_genes)
@@ -218,6 +236,7 @@ def test_one_gene():
     sc.tl.score_genes(adata, [adata.var_names[0]])
 
 
+@pytest.mark.filterwarnings("ignore:.*use_raw is deprecated:FutureWarning")
 def test_use_raw_none() -> None:
     adata = _create_adata(100, 1000, p_zero=0, p_nan=0)
     adata_raw = adata.copy()
@@ -227,21 +246,21 @@ def test_use_raw_none() -> None:
     sc.tl.score_genes(adata, adata_raw.var_names[:3], use_raw=None)
 
 
-def test_layer():
+@needs.anndata_acc
+def test_out_use():
     adata = _create_adata(100, 1000, p_zero=0, p_nan=0)
 
-    with pytest.warns(FutureWarning, match=r"sc.*\.pp\.normalize_total"):
-        sc.pp.normalize_per_cell(adata, counts_per_cell_after=1e4)
+    sc.pp.normalize_total(adata, target_sum=1e4)
     sc.pp.log1p(adata)
 
     # score X
     gene_set = adata.var_names[:10]
-    sc.tl.score_genes(adata, gene_set, score_name="X_score")
+    sc.tl.score_genes(adata, gene_set, out="obs.X_score")
     # score layer (`del` makes sure it actually uses the layer)
     adata.layers["test"] = adata.X.copy()
     adata.raw = adata
     del adata.X
-    sc.tl.score_genes(adata, gene_set, score_name="test_score", layer="test")
+    sc.tl.score_genes(adata, gene_set, out="obs.test_score", use="layers.test")
 
     np.testing.assert_array_equal(adata.obs["X_score"], adata.obs["test_score"])
 
@@ -255,7 +274,6 @@ def test_invalid_gene_pool(gene_pool):
 
 
 def test_no_control_gene():
-    np.random.seed(0)
     adata = _create_adata(100, 1, p_zero=0, p_nan=0)
 
     with pytest.raises(RuntimeError, match="No control genes found"):
@@ -266,7 +284,6 @@ def test_no_control_gene():
     "ctrl_as_ref", [True, False], ids=["ctrl_as_ref", "no_ctrl_as_ref"]
 )
 def test_gene_list_is_control(*, ctrl_as_ref: bool):
-    np.random.seed(0)
     adata = sc.datasets.blobs(n_variables=10, n_observations=100, n_centers=20)
     adata.var_names = "g" + adata.var_names
     with (
@@ -277,3 +294,38 @@ def test_gene_list_is_control(*, ctrl_as_ref: bool):
         sc.tl.score_genes(
             adata, gene_list="g3", ctrl_size=1, n_bins=5, ctrl_as_ref=ctrl_as_ref
         )
+
+
+@pytest.mark.parametrize("array_type", ARRAY_TYPES_MEM)
+def test_score_genes_cell_cycle(array_type: Callable[[np.ndarray], object]) -> None:
+    """Cells expressing only S or only G2M genes get that phase, cells expressing neither get G1."""
+    phases = np.repeat(["S", "G2M", "G1"], 20)
+    x = np.ones((phases.size, 120))
+    x[:, :20] = 0
+    x[phases == "S", :10] = 3
+    x[phases == "G2M", 10:20] = 3
+    adata = AnnData(array_type(x))
+
+    kw = dict(s_genes=adata.var_names[:10], g2m_genes=adata.var_names[10:20], rng=0)
+    res = sc.tl.score_genes_cell_cycle(adata, **kw, out=True)
+    assert adata.obs.columns.empty
+    np.testing.assert_array_equal(res.phase, phases)
+
+    sc.tl.score_genes_cell_cycle(adata, **kw)
+    np.testing.assert_array_equal(adata.obs["phase"], phases)
+    np.testing.assert_array_equal(adata.obs["S_score"], res.s_score)
+
+
+@needs.anndata_acc
+def test_score_genes_cell_cycle_out() -> None:
+    """A mapping writes only the outputs it names, a single accessor isn’t enough."""
+    from anndata.acc import A
+
+    adata = AnnData(np.ones((30, 40)))
+    kw = dict(s_genes=adata.var_names[:10], g2m_genes=adata.var_names[10:20], rng=0)
+    res = sc.tl.score_genes_cell_cycle(adata, **kw, out=True)
+    sc.tl.score_genes_cell_cycle(adata, **kw, out=dict(phase=A.obs["p"]))
+    assert list(adata.obs.columns) == ["p"]
+    np.testing.assert_array_equal(adata.obs["p"], res.phase)
+    with pytest.raises(TypeError, match=r"must be a `bool` or a mapping"):
+        sc.tl.score_genes_cell_cycle(adata, **kw, out=A.obs["x"])

@@ -15,15 +15,15 @@ class ModifyDBInstanceDeletionProtectionRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can generate the value of this parameter on the client side. The value must be unique across different requests and can contain a maximum of 64 ASCII characters. The value cannot contain non-ASCII characters.
+        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can generate the value of this parameter on the client side. The value must be unique across different requests and can be up to 64 ASCII characters in length. The value cannot contain non-ASCII characters.
         self.client_token = client_token
         # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         # Specifies whether to enable release protection for the ApsaraDB RDS instance. Valid values:
-        # * **true**: Enabled.
-        # * **false**: Disabled.
+        # * **true**: Enables release protection.
+        # * **false**: Disables release protection.
         # 
         # This parameter is required.
         self.deletion_protection = deletion_protection

@@ -719,6 +719,28 @@ def test_local_python_environment():
         local_env.destroy(connection_key)
 
 
+@pytest.mark.parametrize("resolver", [None, "uv"])
+def test_containerized_python_environment_ignores_retired_resolver(resolver):
+    config = {
+        "image": {"dockerfile_str": "FROM python:3.11"},
+        "requirements": [["pkg-a"], ["pkg-b"]],
+        "tags": ["tag-b", "tag-a"],
+    }
+    legacy_config = dict(config, resolver=resolver)
+
+    environment = ContainerizedPythonEnvironment.from_config(config)
+    legacy_environment = ContainerizedPythonEnvironment.from_config(legacy_config)
+
+    assert environment.key == legacy_environment.key
+    assert legacy_environment.requirements.layers == [["pkg-a"], ["pkg-b"]]
+    assert legacy_config["resolver"] == resolver
+
+
+def test_containerized_python_environment_rejects_resolver_constructor():
+    with pytest.raises(TypeError, match="resolver"):
+        ContainerizedPythonEnvironment(resolver="uv")
+
+
 def test_containerized_python_environment_uses_current_exec_prefix(monkeypatch):
     monkeypatch.delenv("ISOLATE_CONTAINER_PYTHON_EXEC_PREFIX", raising=False)
 

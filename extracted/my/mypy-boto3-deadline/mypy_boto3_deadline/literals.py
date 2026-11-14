@@ -141,7 +141,7 @@ __all__ = (
 )
 
 
-AcceleratorNameType = Literal["a10g", "l4", "l40s", "rtx-pro-server-6000", "t4"]
+AcceleratorNameType = Literal["a10g", "l4", "l40s", "rtx-pro-4500", "rtx-pro-server-6000", "t4"]
 AcceleratorTypeType = Literal["gpu"]
 AutoScalingModeType = Literal["EVENT_BASED_AUTO_SCALING", "NO_SCALING"]
 AutoScalingStatusType = Literal["GROWING", "SHRINKING", "STEADY"]

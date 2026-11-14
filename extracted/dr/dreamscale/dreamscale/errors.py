@@ -547,6 +547,12 @@ def catalog(code: str, **kwargs) -> DreamscaleError:
             cause="the control plane predates region fallback",
             fix="leave --region-fallback/--no-region-fallback out for now, or retry later",
         ),
+        "deployment_engine_unavailable": ErrorInfo(
+            code="deployment_engine_unavailable",
+            problem="this Dreamscale server can't set a deployment's engine yet",
+            cause="the control plane predates the engine setting",
+            fix="retry later; the deployment runs its standard engine meanwhile",
+        ),
         "engine_unavailable": ErrorInfo(
             code="engine_unavailable",
             problem="this Dreamscale server can't run the lightning engine yet",

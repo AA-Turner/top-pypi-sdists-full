@@ -101,7 +101,7 @@ def _default_robot_factory() -> Any:
     )
 
 
-def rig_cameras(robot_factory):
+def rig_cameras(robot_factory, model=None):
     """The rig file's cameras for the stock robot; a custom robot_factory brings its own
     (capture_frames). Raises so101_not_set_up when side or wrist is unmapped."""
     if robot_factory is not _default_robot_factory:
@@ -110,7 +110,7 @@ def rig_cameras(robot_factory):
 
     rig = load_rig()
     try:
-        SO101.roles_for(SO101_RUN_MODELS[0], rig.roles)
+        SO101.roles_for(model or SO101_RUN_MODELS[0], rig.roles)
     except ValueError as exc:
         raise errors.catalog("so101_not_set_up") from exc
     return rig
@@ -119,11 +119,11 @@ def rig_cameras(robot_factory):
 def so101_preflight(config, home, *, cameras=None, print_fn=print) -> None:
     """What every SO-101 run (policy or LLM) shows before the arm is armed."""
     if cameras is not None:
-        views = ", ".join(f"{role} {cameras.camera(role).id}" for role in ("side", "wrist"))
+        views = ", ".join(f"{role} {cameras.camera(role).id}" for role in cameras.roles)
     else:
         views = f"side {config.camera_index}, wrist {config.wrist_camera_index}"
     print_fn(
-        f"Confirm the side and wrist camera views before connecting. Arm: SO-101 on "
+        f"Confirm the camera views before connecting. Arm: SO-101 on "
         f"{config.robot_port or 'no configured port'}; cameras {views}."
     )
     if home is None:
@@ -195,7 +195,7 @@ def run_so101(
     def cameras():
         # Read when the arm is about to be used, as the robot itself is.
         if "rig" not in resolved:
-            resolved["rig"] = rig_cameras(robot_factory)
+            resolved["rig"] = rig_cameras(robot_factory, model)
         return resolved["rig"]
 
     hud_session = None
@@ -211,6 +211,9 @@ def run_so101(
         so101_preflight(config, home, cameras=cameras(), print_fn=print_fn)
 
     def make_rig():
+        camera_config = cameras()
+        camera_roles = (SO101.roles_for(model, camera_config.roles) if camera_config is not None
+                        else SO101.camera_roles)
         return So101Rig(
             robot_factory,
             calibration_path=config.calibration_path,
@@ -218,7 +221,9 @@ def run_so101(
             max_joint_step=max_joint_step,
             max_joint_velocity=max_joint_velocity,
             cameras={"side": config.camera_index, "wrist": config.wrist_camera_index},
-            camera_config=cameras(),
+            camera_config=camera_config,
+            camera_roles=camera_roles,
+            gripper_range=getattr(camera_config, "gripper_range", None),
             retry_command=COMMAND,
             print_fn=print_fn,
             **(rig_options or {}),

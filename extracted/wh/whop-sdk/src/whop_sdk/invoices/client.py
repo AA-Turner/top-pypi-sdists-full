@@ -14,6 +14,7 @@ from .raw_client import AsyncRawInvoicesClient, RawInvoicesClient
 from .types.create_invoices_request_billing_address import CreateInvoicesRequestBillingAddress
 from .types.create_invoices_request_items_item import CreateInvoicesRequestItemsItem
 from .types.create_invoices_request_payment_method_configuration import CreateInvoicesRequestPaymentMethodConfiguration
+from .types.delete_invoices_response import DeleteInvoicesResponse
 from .types.issue_invoices_request_collection_method import IssueInvoicesRequestCollectionMethod
 from .types.list_invoices_request_direction import ListInvoicesRequestDirection
 from .types.list_invoices_request_order import ListInvoicesRequestOrder
@@ -117,7 +118,7 @@ class InvoicesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -174,7 +175,7 @@ class InvoicesClient:
             The issuing account.
 
         items : typing.Sequence[CreateInvoicesRequestItemsItem]
-            The variants being invoiced, all in the same currency. Each variant may appear once; use quantity for multiple units. Product and price come from each variant; a recurring variant must belong to a product, bills its renewal price and, once the invoice is paid, renews as a subscription collected by the `collection_method` the invoice was sent or issued with. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
+            The variants being invoiced, all in the same currency. Each variant may appear once. Use quantity for multiple units. A recurring variant must belong to a product. Its first invoice charges `initial_price` plus `renewal_price`. Later invoices charge only `renewal_price`. Paying the first invoice starts a paid billing period immediately, without the variant's trial. The subscription uses the `collection_method` the invoice was sent or issued with. A finite payment count includes the first paid invoice. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
 
         billing_address : typing.Optional[CreateInvoicesRequestBillingAddress]
             Create a billing address linked to this member.
@@ -225,7 +226,7 @@ class InvoicesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -275,7 +276,7 @@ class InvoicesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -284,6 +285,39 @@ class InvoicesClient:
         )
         """
         _response = self._raw_client.retrieve(id, request_options=request_options)
+        return _response.data
+
+    def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> DeleteInvoicesResponse:
+        """
+        Deletes a draft or void invoice. A deleted invoice no longer appears in invoice or payment lists, and its ID returns a `404`. Deleting can't be undone. Void an open invoice before you delete it. A draft with a scheduled send or charge must be unscheduled first. A draft renewal invoice can't be deleted, and neither can a void invoice that collected money or still awaits a bank wire. The invoice's `deletable` field is `true` when this call can delete it.
+
+        Parameters
+        ----------
+        id : str
+            The invoice's pay_ ID.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteInvoicesResponse
+            invoice deleted
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-11-13-1",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        client.invoices.delete(
+            id="id",
+        )
+        """
+        _response = self._raw_client.delete(id, request_options=request_options)
         return _response.data
 
     def update(
@@ -321,7 +355,7 @@ class InvoicesClient:
             When payment is due, as an ISO 8601 timestamp.
 
         items : typing.Optional[typing.Sequence[UpdateInvoicesRequestItemsItem]]
-            The variants being invoiced, all in the same currency. Each variant may appear once; use quantity for multiple units. Product and price come from each variant; a recurring variant must belong to a product, bills its renewal price and, once the invoice is paid, renews as a subscription collected by the `collection_method` the invoice was sent or issued with. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
+            The variants being invoiced, all in the same currency. Each variant may appear once. Use quantity for multiple units. A recurring variant must belong to a product. Its first invoice charges `initial_price` plus `renewal_price`. Later invoices charge only `renewal_price`. Paying the first invoice starts a paid billing period immediately, without the variant's trial. The subscription uses the `collection_method` the invoice was sent or issued with. A finite payment count includes the first paid invoice. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
 
         mailing_address_id : typing.Optional[str]
             An address associated with the member. Mutually exclusive with billing_address.
@@ -357,7 +391,7 @@ class InvoicesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -413,7 +447,7 @@ class InvoicesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -455,7 +489,7 @@ class InvoicesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -503,7 +537,7 @@ class InvoicesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -538,7 +572,7 @@ class InvoicesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -588,7 +622,7 @@ class InvoicesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -627,7 +661,7 @@ class InvoicesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -660,7 +694,7 @@ class InvoicesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -769,7 +803,7 @@ class AsyncInvoicesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -833,7 +867,7 @@ class AsyncInvoicesClient:
             The issuing account.
 
         items : typing.Sequence[CreateInvoicesRequestItemsItem]
-            The variants being invoiced, all in the same currency. Each variant may appear once; use quantity for multiple units. Product and price come from each variant; a recurring variant must belong to a product, bills its renewal price and, once the invoice is paid, renews as a subscription collected by the `collection_method` the invoice was sent or issued with. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
+            The variants being invoiced, all in the same currency. Each variant may appear once. Use quantity for multiple units. A recurring variant must belong to a product. Its first invoice charges `initial_price` plus `renewal_price`. Later invoices charge only `renewal_price`. Paying the first invoice starts a paid billing period immediately, without the variant's trial. The subscription uses the `collection_method` the invoice was sent or issued with. A finite payment count includes the first paid invoice. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
 
         billing_address : typing.Optional[CreateInvoicesRequestBillingAddress]
             Create a billing address linked to this member.
@@ -886,7 +920,7 @@ class AsyncInvoicesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -944,7 +978,7 @@ class AsyncInvoicesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -959,6 +993,49 @@ class AsyncInvoicesClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.retrieve(id, request_options=request_options)
+        return _response.data
+
+    async def delete(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteInvoicesResponse:
+        """
+        Deletes a draft or void invoice. A deleted invoice no longer appears in invoice or payment lists, and its ID returns a `404`. Deleting can't be undone. Void an open invoice before you delete it. A draft with a scheduled send or charge must be unscheduled first. A draft renewal invoice can't be deleted, and neither can a void invoice that collected money or still awaits a bank wire. The invoice's `deletable` field is `true` when this call can delete it.
+
+        Parameters
+        ----------
+        id : str
+            The invoice's pay_ ID.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteInvoicesResponse
+            invoice deleted
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-11-13-1",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.invoices.delete(
+                id="id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.delete(id, request_options=request_options)
         return _response.data
 
     async def update(
@@ -996,7 +1073,7 @@ class AsyncInvoicesClient:
             When payment is due, as an ISO 8601 timestamp.
 
         items : typing.Optional[typing.Sequence[UpdateInvoicesRequestItemsItem]]
-            The variants being invoiced, all in the same currency. Each variant may appear once; use quantity for multiple units. Product and price come from each variant; a recurring variant must belong to a product, bills its renewal price and, once the invoice is paid, renews as a subscription collected by the `collection_method` the invoice was sent or issued with. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
+            The variants being invoiced, all in the same currency. Each variant may appear once. Use quantity for multiple units. A recurring variant must belong to a product. Its first invoice charges `initial_price` plus `renewal_price`. Later invoices charge only `renewal_price`. Paying the first invoice starts a paid billing period immediately, without the variant's trial. The subscription uses the `collection_method` the invoice was sent or issued with. A finite payment count includes the first paid invoice. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.
 
         mailing_address_id : typing.Optional[str]
             An address associated with the member. Mutually exclusive with billing_address.
@@ -1034,7 +1111,7 @@ class AsyncInvoicesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1098,7 +1175,7 @@ class AsyncInvoicesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1150,7 +1227,7 @@ class AsyncInvoicesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1206,7 +1283,7 @@ class AsyncInvoicesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1249,7 +1326,7 @@ class AsyncInvoicesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1307,7 +1384,7 @@ class AsyncInvoicesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1354,7 +1431,7 @@ class AsyncInvoicesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1395,7 +1472,7 @@ class AsyncInvoicesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

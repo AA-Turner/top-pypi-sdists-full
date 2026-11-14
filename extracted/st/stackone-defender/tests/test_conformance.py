@@ -22,6 +22,9 @@ import pytest
 
 import stackone_defender
 from stackone_defender import create_prompt_defense
+from stackone_defender.classifiers.tier2_classifier import normalize_for_classification
+from stackone_defender.sanitizers.normalizer import normalize_for_detection
+from stackone_defender.sfe.preprocess import sfe_preprocess
 
 HERE = Path(__file__).parent
 FIXTURES = HERE / "conformance"
@@ -281,12 +284,65 @@ def _policy(inp: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+class _ScriptedSfe:
+    """Drops a field when the first path token of its SFE text is in drop_keys ("*" drops all)."""
+
+    def __init__(self, drop_keys: list[str]):
+        self.drop = set(drop_keys)
+
+    def predict(self, text: str) -> dict[str, Any]:
+        key = text.split(" ")[2]
+        return {"label": "drop" if "*" in self.drop or key in self.drop else "pass", "prob": 0.99}
+
+    def predict_batch(self, texts: list[str]) -> list[dict[str, Any]]:
+        return [self.predict(t) for t in texts]
+
+
+def _sfe_floor(inp: dict[str, Any]) -> dict[str, Any]:
+    defense = create_prompt_defense(
+        enable_tier1=False,
+        block_high_risk=True,
+        tier2_config={"high_risk_threshold": 0},
+        use_sfe={"predictor": _ScriptedSfe(inp["dropKeys"])},
+    )
+    r = _run(defense.defend_tool_result_async(inp["payload"], inp.get("toolName", "test_tool")))
+    return {
+        "allowed": r.allowed,
+        "fieldsDropped": r.fields_dropped,
+        "tier2SkipReason": r.tier2_skip_reason,
+    }
+
+
+def _sfe_text(inp: dict[str, Any]) -> dict[str, Any]:
+    texts: list[str] = []
+
+    class _Recording:
+        def predict_batch(self, batch: list[str]) -> list[dict[str, Any]]:
+            texts.extend(batch)
+            return [{"label": "pass", "prob": 1.0} for _ in batch]
+
+    sfe_preprocess(inp["payload"], {"predictor": _Recording()})
+    return {"texts": texts}
+
+
+def _obfuscation(inp: dict[str, Any]) -> dict[str, Any]:
+    r = create_prompt_defense(enable_tier2=False).defend_tool_result({"notes": inp["text"]}, "test_tool")
+    return {
+        "normalised": normalize_for_detection(inp["text"]),
+        "tier2Text": normalize_for_classification(inp["text"]),
+        "tier1Patterns": sorted(r.detections),
+    }
+
+
 ADAPTERS = {
     "tier3-serialize": _serialize,
     "tier3-prompt": _prompt,
     "tier3-parse": _parse,
     "tier3-redact": _redact,
     "tier3-policy": _policy,
+    "sfe-floor": _sfe_floor,
+    "sfe-text": _sfe_text,
+    "obfuscation": _obfuscation,
 }
 
 

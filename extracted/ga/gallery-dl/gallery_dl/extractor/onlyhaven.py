@@ -8,7 +8,7 @@
 
 """Extractors for https://cum.st/"""
 
-from .common import Extractor, Message
+from .common import Extractor, Message, Dispatch
 from .. import text, util
 
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?cum\.st"
@@ -19,11 +19,15 @@ class OnlyhavenExtractor(Extractor):
     """Base class for onlyhaven extractors"""
     category = "onlyhaven"
     root = "https://cum.st"
-    root_dl = "https://e1.cum.st/media"
+    root_dl = "https://cdn.cum.st/media"
     directory_fmt = ("{category}", "{service}", "{user}")
     filename_fmt = "{id}_{title[:180]}_{num:>02}_{filename[:180]}.{extension}"
     archive_fmt = "{service}_{user}_{id}_{num}"
     cookies_domain = ".cum.st"
+
+    def __init__(self, match):
+        self.subcategory = match[1]
+        Extractor.__init__(self, match)
 
     def _init(self):
         if domain := self.config("domain"):
@@ -70,6 +74,8 @@ class OnlyhavenExtractor(Extractor):
                         self.log.warning("%s/%s/%s: 'Creator not found'",
                                          service, creator_id, post["id"])
                         creator = creator_info[key] = util.NONE
+                    creator["tags"] = [t["label"] for t in
+                                       creator.pop("communityTags", ())]
 
                 post["user_profile"] = creator
                 post["username"] = creator["name"]
@@ -120,24 +126,59 @@ class OnlyhavenExtractor(Extractor):
             return gen()
         return posts
 
+    def _offset(self, params, key):
+        if pnum := params.get(key):
+            return 50 * text.parse_int(pnum)
+        return text.parse_int(params.get("o"))
 
-class OnlyhavenUserExtractor(OnlyhavenExtractor):
-    """Extractor for all posts from a onlyhaven user listing"""
+
+class OnlyhavenUserExtractor(Dispatch, OnlyhavenExtractor):
+    """Extractor for an onlyhaven creator"""
     subcategory = "user"
-    pattern = USER_PATTERN + r"/?(?:\?([^#]+))?(?:$|\?|#)"
+    pattern = USER_PATTERN + r"/?(?:\?(?!tab=)([^#]+))?(?:$|#)"
     example = "https://cum.st/creators/SERVICE/12345"
 
-    def __init__(self, match):
-        self.subcategory = match[1]
-        OnlyhavenExtractor.__init__(self, match)
+    def items(self):
+        service, creator_id, query = self.groups
+        base = f"{self.root}/creators/{service}/{creator_id}?tab="
+        posts = base + "posts" if query is None else f"{base}posts&{query}"
+        return self._dispatch_extractors((
+            (OnlyhavenUserPostsExtractor , posts),
+            (OnlyhavenUserDmsExtractor   , base + "dms"),
+        ), ("user-posts",), {
+            ("user-posts", "posts", None),
+            ("user-dms"  , "dms"  , None),
+        })
+
+
+class OnlyhavenUserPostsExtractor(OnlyhavenExtractor):
+    """Extractor for all posts from an onlyhaven user listing"""
+    subcategory = "user-posts"
+    pattern = USER_PATTERN + r"/?\?tab=posts(?:&([^#]+))?"
+    example = "https://cum.st/creators/SERVICE/12345?tab=posts"
 
     def posts(self):
         service, self.creator_id, query = self.groups
         params = text.parse_query(query)
 
         return self._expand(self.api.creator_posts(
-            service, self.creator_id, params.get("o"),
-            params.get("q"), params.get("type"), params.get("sort")))
+            service, self.creator_id, self._offset(params, "pppage"),
+            params.get("ppq"), params.get("pptype"), params.get("ppsort")))
+
+
+class OnlyhavenUserDmsExtractor(OnlyhavenExtractor):
+    """Extractor for all DMs from an onlyhaven user listing"""
+    subcategory = "user-dms"
+    pattern = USER_PATTERN + r"/?\?tab=dms(?:&([^#]+))?"
+    example = "https://cum.st/creators/SERVICE/12345?tab=dms"
+
+    def posts(self):
+        service, self.creator_id, query = self.groups
+        params = text.parse_query(query)
+
+        return self._expand(self.api.creator_dms(
+            service, self.creator_id, self._offset(params, "mpage"),
+            params.get("mq"), params.get("mtype"), params.get("msort")))
 
 
 class OnlyhavenPostExtractor(OnlyhavenExtractor):
@@ -146,27 +187,34 @@ class OnlyhavenPostExtractor(OnlyhavenExtractor):
     pattern = USER_PATTERN + r"/post/([^/?#]+)"
     example = "https://cum.st/creators/SERVICE/12345/post/12345"
 
-    def __init__(self, match):
-        self.subcategory = match[1]
-        OnlyhavenExtractor.__init__(self, match)
-
     def posts(self):
         service, self.creator_id, post_id = self.groups
         return (self.api.creator_post(service, self.creator_id, post_id),)
 
 
+class OnlyhavenDmExtractor(OnlyhavenExtractor):
+    """Extractor for a single onlyhaven DM"""
+    subcategory = "dm"
+    pattern = USER_PATTERN + r"/dm/([^/?#]+)"
+    example = "https://cum.st/creators/SERVICE/12345/dm/12345"
+
+    def posts(self):
+        service, self.creator_id, dm_id = self.groups
+        return (self.api.creator_dm(service, self.creator_id, dm_id),)
+
+
 class OnlyhavenPostsExtractor(OnlyhavenExtractor):
     """Extractor for onlyhaven post listings"""
     subcategory = "posts"
-    pattern = BASE_PATTERN + r"/posts(?:/?\?([^#]+))?"
+    pattern = BASE_PATTERN + r"/(posts)(?:/?\?([^#]+))?"
     example = "https://cum.st/posts"
 
     def posts(self):
         self.creator_id = 0
-        params = text.parse_query(self.groups[0])
+        params = text.parse_query(self.groups[1])
         return self._expand(self.api.posts(
-            params.get("o"), params.get("q"),
-            params.get("service"), params.get("type"), params.get("sort")))
+            self._offset(params, "ppage"), params.get("pq"),
+            params.get("pservice"), params.get("ptype"), params.get("psort")))
 
 
 class OnlyhavenAPI():
@@ -194,12 +242,18 @@ class OnlyhavenAPI():
         params = {"o": offset, "q": query, "type": type, "sort": sort}
         return self._pagination(endpoint, params, 50, "posts")
 
-    def creator_dms(self, service, creator_id):
+    def creator_dms(self, service, creator_id,
+                    offset=0, query=None, type=None, sort=None):
         endpoint = f"/v1/{service}/user/{creator_id}/dms"
-        return self._call(endpoint)
+        params = {"o": offset, "q": query, "type": type, "sort": sort}
+        return self._pagination(endpoint, params, 50, "dms")
 
     def creator_post(self, service, creator_id, post_id):
         endpoint = f"/v1/{service}/user/{creator_id}/post/{post_id}"
+        return self._call(endpoint)
+
+    def creator_dm(self, service, creator_id, dm_id):
+        endpoint = f"/v1/{service}/user/{creator_id}/dm/{dm_id}"
         return self._call(endpoint)
 
     def creator_profile(self, service, creator_id):
@@ -229,12 +283,13 @@ class OnlyhavenAPI():
         while True:
             data = self._call(endpoint, params)
 
+            total = data.get("total")
             if key is not None:
                 data = data.get(key)
             if not data:
                 break
             yield from data
 
-            if len(data) < batch:
-                break
             params["o"] += batch
+            if total and total < params["o"]:
+                break

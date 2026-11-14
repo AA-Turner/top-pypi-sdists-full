@@ -185,7 +185,7 @@ BatchUpdateFindingsV2UnprocessedFindingErrorCodeType = Literal[
 ]
 CloudProviderNameType = Literal["AWS", "Azure"]
 ComplianceStatusType = Literal["FAILED", "NOT_AVAILABLE", "PASSED", "WARNING"]
-ConfigurationPolicyAssociationStatusType = Literal["FAILED", "PENDING", "SUCCESS"]
+ConfigurationPolicyAssociationStatusType = Literal["DISABLED", "FAILED", "PENDING", "SUCCESS"]
 ConnectionDirectionType = Literal["INBOUND", "OUTBOUND"]
 ConnectorAuthStatusType = Literal["ACTIVE", "FAILED"]
 ConnectorProviderNameType = Literal["AZURE", "JIRA_CLOUD", "SERVICENOW"]
@@ -581,7 +581,7 @@ OcsfStringFieldType = Literal[
     "vulnerabilities.related_vulnerabilities",
 ]
 OrganizationConfigurationConfigurationTypeType = Literal["CENTRAL", "LOCAL"]
-OrganizationConfigurationStatusType = Literal["ENABLED", "FAILED", "PENDING"]
+OrganizationConfigurationStatusType = Literal["DISABLED", "ENABLED", "FAILED", "PENDING"]
 ParameterValueTypeType = Literal["CUSTOM", "DEFAULT"]
 PartitionType = Literal["AzureCloud", "aws", "aws-cn", "aws-us-gov", "aws-us-iso", "aws-us-iso-b"]
 RecommendationStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]

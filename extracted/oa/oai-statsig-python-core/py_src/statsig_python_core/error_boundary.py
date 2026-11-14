@@ -26,7 +26,7 @@ class ErrorBoundary:
                             ErrorBoundary._on_error(method_name, error)
                             return None
 
-                    wrapped._error_boundary_wrapped = True
+                    setattr(wrapped, "_error_boundary_wrapped", True)
                     return wrapped
 
                 setattr(instance, name, create_wrapped(name, original))

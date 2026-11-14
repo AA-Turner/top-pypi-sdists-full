@@ -16,7 +16,7 @@ class DescribeParameterGroupResponseBody(DaraModel):
     ):
         self.param_group = param_group
         self.related_custins_info = related_custins_info
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
 
     def validate(self):

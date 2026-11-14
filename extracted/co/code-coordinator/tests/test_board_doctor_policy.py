@@ -18,6 +18,7 @@ from coord.board_doctor import (
     ALERT_SKIPPED,
     CAUSE_AFTER_PREREQS_LANDED,
     CAUSE_BASELINE_RED,
+    CAUSE_BLOCKED_ON_PREREQ,
     CAUSE_CEILING_BLOCKED_MERGEABLE,
     CAUSE_CONFLICT_FIX_HEAD_UNMOVED,
     CAUSE_LATCH_STALE_MERGEABLE,
@@ -31,8 +32,10 @@ from coord.board_doctor import (
     StuckRow,
     _confirm_merge_pending_stuck,
     _reclassify_after_prereqs_landed,
+    _reclassify_blocked_on_prereq,
     _reclassify_stale_latch,
     after_prereqs_landed_for_entry,
+    blocked_on_prereq_dep_for_entry,
     merge_queue_rows,
     sweep,
 )
@@ -57,6 +60,7 @@ from coord.board_doctor_policy import (
     escalation_alert_dispatcher,
     make_investigate_capacity_check,
     policy_tier_of,
+    write_drive_escalation,
 )
 from coord.config import Config
 from coord.drive_queue import parse_key
@@ -388,6 +392,174 @@ class TestEscalationAlertDispatcher:
         escalation = state.get_drive_escalation("acme/widgets", 11)
         assert escalation is not None
         assert escalation["stage"] == "board-doctor:drive-queue"
+
+    def test_a_relaunch_shaped_covering_escalation_is_overridden_by_fresh_ci_red_evidence(
+        self,
+    ) -> None:
+        # #3999: the covering escalation's own remedy is a full `remove` +
+        # `add` relaunch — the exact two-command string
+        # `coord.commands.drive_queue._requeue_command` builds, and
+        # exactly the dead end `coord drive-queue add` itself refuses
+        # while the PR's checks are red. This row's fresh
+        # CAUSE_INTEGRATION_RED evidence proves checks are red RIGHT NOW,
+        # so that remedy is refused by current state and must not be left
+        # standing as "cover" forever.
+        state.record_drive_escalation(
+            "acme/widgets",
+            2347,
+            stage="work",
+            reason="per-leg spend ceiling breached",
+            gate_readings="",
+            proposed_command=(
+                "coord drive-queue remove acme/widgets 2347 && "
+                "coord drive-queue add acme/widgets 2347"
+            ),
+        )
+        row = _row(
+            "acme/widgets#2347",
+            queue_diagnose.CAUSE_INTEGRATION_RED,
+            evidence=("gh pr checks: failing — Wire types staleness",),
+            fresh=True,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+        )
+
+        assert escalation_alert_dispatcher(row) is True
+
+        escalation = state.get_drive_escalation("acme/widgets", 2347)
+        assert escalation is not None
+        assert escalation["stage"] == "board-doctor:drive-queue"
+        assert "integration-red" in escalation["reason"]
+        assert "Wire types staleness" in escalation["gate_readings"]
+
+    def test_a_remove_only_covering_escalation_is_never_treated_as_refused(
+        self,
+    ) -> None:
+        # #3999 blocking finding: `coord drive-queue remove <repo> <issue>`
+        # ALONE (no paired `add`) — the shape
+        # `coord.review.needs_redesign_escalation` actually writes for a
+        # needs-redesign park — always succeeds regardless of check
+        # state; only the `add` half of a full relaunch is ever refused
+        # by `existing_pr_relaunch_remedy`. A remove-only remedy must
+        # therefore never be second-guessed here, no matter how fresh or
+        # check-shaped this row's own evidence is — overriding it would
+        # destroy the needs-redesign record for a "fix" that was never
+        # actually refused.
+        state.record_drive_escalation(
+            "acme/widgets",
+            2350,
+            stage="needs-redesign",
+            reason="needs-redesign: hit the same mechanical gate 3 times",
+            gate_readings="",
+            proposed_command="coord drive-queue remove acme/widgets 2350",
+        )
+        row = _row(
+            "acme/widgets#2350",
+            queue_diagnose.CAUSE_INTEGRATION_RED,
+            evidence=("gh pr checks: failing — Wire types staleness",),
+            fresh=True,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+        )
+
+        assert escalation_alert_dispatcher(row) == ALERT_SKIPPED
+
+        escalation = state.get_drive_escalation("acme/widgets", 2350)
+        assert escalation is not None
+        assert escalation["stage"] == "needs-redesign"
+        assert escalation["proposed_command"] == "coord drive-queue remove acme/widgets 2350"
+
+    def test_a_non_relaunch_shaped_covering_escalation_is_still_left_untouched(
+        self,
+    ) -> None:
+        # The override is narrow: a covering escalation whose remedy is
+        # NOT a relaunch (nothing to do with checks being red) must not be
+        # second-guessed just because this row also happens to read
+        # CAUSE_INTEGRATION_RED — e.g. a spend-ceiling kill's own
+        # "acknowledge the cost and retry" remedy is orthogonal to whether
+        # the PR's checks are currently red.
+        state.record_drive_escalation(
+            "acme/widgets",
+            2348,
+            stage="work",
+            reason="per-leg spend ceiling breached",
+            gate_readings="",
+            proposed_command="coord retry aid-1 --acknowledge-cost",
+        )
+        row = _row(
+            "acme/widgets#2348",
+            queue_diagnose.CAUSE_INTEGRATION_RED,
+            fresh=True,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+        )
+
+        assert escalation_alert_dispatcher(row) == ALERT_SKIPPED
+
+        escalation = state.get_drive_escalation("acme/widgets", 2348)
+        assert escalation is not None
+        assert escalation["stage"] == "work"
+
+    def test_a_relaunch_shaped_covering_escalation_is_left_untouched_for_a_stale_row(
+        self,
+    ) -> None:
+        # #3777's same "new evidence only" bar: a row rebuilt from a
+        # possibly arbitrarily old `block_log` entry proves nothing about
+        # whether checks are red RIGHT NOW, so it must not override a
+        # covering escalation either.
+        state.record_drive_escalation(
+            "acme/widgets",
+            2349,
+            stage="needs-redesign",
+            reason="needs-redesign: hit the same mechanical gate 3 times",
+            gate_readings="",
+            proposed_command="coord drive-queue remove acme/widgets 2349",
+        )
+        row = _row(
+            "acme/widgets#2349",
+            queue_diagnose.CAUSE_INTEGRATION_RED,
+            fresh=False,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+        )
+
+        assert escalation_alert_dispatcher(row) == ALERT_SKIPPED
+
+        escalation = state.get_drive_escalation("acme/widgets", 2349)
+        assert escalation is not None
+        assert escalation["stage"] == "needs-redesign"
+
+    def test_write_drive_escalation_with_no_row_keeps_skip_only_behavior(
+        self,
+    ) -> None:
+        # `coord.board_doctor._followthrough_notify` calls
+        # `write_drive_escalation` with no `StuckRow` to check fresh
+        # evidence against — a covering escalation must stay in place
+        # exactly as it did before #3999's override existed, even one
+        # whose own remedy IS relaunch-shaped, since there is no fresh
+        # evidence here to prove that remedy refused right now.
+        state.record_drive_escalation(
+            "acme/widgets",
+            2351,
+            stage="work",
+            reason="per-leg spend ceiling breached",
+            gate_readings="",
+            proposed_command=(
+                "coord drive-queue remove acme/widgets 2351 && "
+                "coord drive-queue add acme/widgets 2351"
+            ),
+        )
+
+        result = write_drive_escalation(
+            "acme/widgets",
+            2351,
+            stage="board-doctor:drive-queue",
+            reason="board-doctor: drive-queue row stuck",
+            gate_readings="queue=drive-queue | cause=integration_red",
+            proposed_command="coord drive-queue diagnose --json",
+            row=None,
+        )
+
+        assert result == ALERT_SKIPPED
+        escalation = state.get_drive_escalation("acme/widgets", 2351)
+        assert escalation is not None
+        assert escalation["stage"] == "work"
 
     def test_a_write_failure_is_reported_as_not_delivered(self, monkeypatch) -> None:
         # The DB being unavailable must read as a failed alert, not as a
@@ -1309,6 +1481,50 @@ class TestInvestigate:
         assert _investigate(row) is True
         assert state.list_drive_escalations() == []
 
+    def test_ceiling_bypass_dispatches_a_fixit_leg_for_a_fresh_integration_red_row(
+        self, monkeypatch
+    ) -> None:
+        # #3999 (quadraui#2347): a ceiling-blocked row whose live checks
+        # are red, but whose own branch Test-gate verdict already read
+        # green, is exactly the "fresh, narrow, evidence-bearing"
+        # diagnosis #3777's bypass exists for, not the blind-relaunch
+        # shape the ceiling guards against — board-doctor must not
+        # dead-end on `auto-dispatch-noop` while this leg is still
+        # available.
+        monkeypatch.setattr(
+            "coord.drive_queue.fix_round_ceiling_blocked_for_issue",
+            lambda repo_name, issue_number: True,
+        )
+        config = Config(
+            repos=[Repo(name="acme/widgets", github="acme/widgets")], machines=[],
+        )
+        monkeypatch.setattr(common, "resolve_and_load_config", lambda path, **k: config)
+        monkeypatch.setattr(board_doctor_policy, "_investigate_tier_enabled", lambda *a, **k: True)
+        monkeypatch.setattr(state, "build_board", lambda: Board(active=[]))
+        monkeypatch.setattr(
+            board_doctor_policy,
+            "dispatch_sweep_action",
+            lambda *a, **k: {
+                "dispatched": True,
+                "assignment_id": "asn-1",
+                "machine": "mac1",
+                "detail": "acme/widgets#40 fix-it leg dispatched to mac1 (iteration 1)",
+            },
+        )
+        row = _row(
+            "acme/widgets#40",
+            queue_diagnose.CAUSE_INTEGRATION_RED,
+            evidence=(
+                "gh pr checks: failing — Wire types staleness — but this "
+                "branch's own latest Test-gate verdict is 'passed'",
+            ),
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+            fresh=True,
+        )
+
+        assert _investigate(row) is True
+        assert state.list_drive_escalations() == []
+
     def test_ceiling_still_blocks_a_merge_conflict_row(self, monkeypatch) -> None:
         # #3918: `CAUSE_MERGE_CONFLICT` is not in `INVESTIGATE_CAUSES`
         # anymore, so `_fixit_rebudget_environmental` never admits it — a
@@ -1403,6 +1619,165 @@ class TestInvestigate:
         assert state.list_drive_escalations() == []
 
 
+class TestInvestigateLeakedReviewClaim:
+    """#4003: a `gate-blocked` drive-queue row releases a leaked
+    review-dispatch claim behind its own work leg BEFORE falling through
+    to the generic fix-it-leg dispatch — dispatching a brand new WORK leg
+    for already-completed work fixes nothing when the real blocker is a
+    review that never got (re-)dispatched because its own claim leaked.
+    The claude-coordinator#3998 incident this closes never got past
+    `auto-dispatch-noop` x2 -> `alert` -> `converged-noop`, because
+    nothing in this tier ever looked at the claim.
+    """
+
+    @staticmethod
+    def _work(repo_name="acme/widgets", issue_number=40, assignment_id="w1"):
+        return Assignment(
+            machine_name="mac1",
+            repo_name=repo_name,
+            issue_number=issue_number,
+            issue_title="Some work",
+            assignment_id=assignment_id,
+            type="work",
+            status="done",
+        )
+
+    @staticmethod
+    def _backdate_claim(assignment_id: str) -> None:
+        from coord import sql
+
+        conn = state.get_connection()
+        sql.execute(
+            conn,
+            "UPDATE review_claims SET claimed_at=? WHERE of_assignment_id=?",
+            (state.time.time() - state.REVIEW_CLAIM_LEAK_GRACE_SECS - 1.0, assignment_id),
+        )
+        conn.commit()
+
+    def test_releases_a_leaked_claim_instead_of_dispatching_a_fixit_leg(
+        self, monkeypatch,
+    ) -> None:
+        # The release now runs AFTER the config-load/tier-opt-in/sealed-
+        # confined gates (#4003 review) — it mutates `review_claims`, so a
+        # repo that opted out of the investigate tier must see no mutation,
+        # not just no fix-it leg. Mocked the same way the sibling tests
+        # below already do.
+        monkeypatch.setattr(common, "resolve_and_load_config", lambda path, **k: object())
+        monkeypatch.setattr(board_doctor_policy, "_investigate_tier_enabled", lambda *a, **k: True)
+        monkeypatch.setattr(state, "build_board", lambda: Board(completed=[self._work()]))
+        assert state.claim_review_dispatch("w1") is True
+        self._backdate_claim("w1")
+
+        def dispatch_must_not_be_called(*a, **k):
+            raise AssertionError(
+                "dispatch_sweep_action must not run once the leaked claim "
+                "is released"
+            )
+
+        monkeypatch.setattr(
+            board_doctor_policy, "dispatch_sweep_action", dispatch_must_not_be_called
+        )
+
+        row = _row("acme/widgets#40", queue_diagnose.CAUSE_GATE_BLOCKED)
+
+        assert _investigate(row) is True
+        assert state.has_review_claim("w1") is False
+        # A confirmed release is not alert-worthy.
+        assert state.list_drive_escalations() == []
+
+    def test_fresh_claim_falls_through_to_the_fixit_leg_dispatch(
+        self, monkeypatch,
+    ) -> None:
+        """Inside the grace window — or backed by a live review — this
+        must not touch the claim; the row falls through to the ordinary
+        investigate-tier dispatch exactly as before #4003."""
+        monkeypatch.setattr(common, "resolve_and_load_config", lambda path, **k: object())
+        monkeypatch.setattr(board_doctor_policy, "_investigate_tier_enabled", lambda *a, **k: True)
+        monkeypatch.setattr(state, "build_board", lambda: Board(completed=[self._work()]))
+        assert state.claim_review_dispatch("w1") is True  # fresh — no backdate
+
+        monkeypatch.setattr(
+            board_doctor_policy,
+            "dispatch_sweep_action",
+            lambda *a, **k: {
+                "dispatched": True, "assignment_id": "asn-1", "machine": "mac1",
+                "detail": "dispatched",
+            },
+        )
+
+        row = _row("acme/widgets#40", queue_diagnose.CAUSE_GATE_BLOCKED)
+
+        assert _investigate(row) is True
+        # The claim is untouched — still held, by the "live" dispatch this
+        # fresh claim stands in for.
+        assert state.has_review_claim("w1") is True
+
+    def test_release_not_confirmed_falls_through_to_the_fixit_leg_dispatch(
+        self, monkeypatch,
+    ) -> None:
+        """The release is attempted but doesn't persist (the #3998 incident
+        shape: a release call that reports success without actually
+        clearing the row) — `has_review_claim`'s re-read still finds it, so
+        this must report `False` (nothing released) and fall through to the
+        ordinary fix-it-leg dispatch rather than claiming a release that
+        never landed."""
+        monkeypatch.setattr(common, "resolve_and_load_config", lambda path, **k: object())
+        monkeypatch.setattr(board_doctor_policy, "_investigate_tier_enabled", lambda *a, **k: True)
+        monkeypatch.setattr(state, "build_board", lambda: Board(completed=[self._work()]))
+        assert state.claim_review_dispatch("w1") is True
+        self._backdate_claim("w1")
+        # Simulate a release call that returns without raising but never
+        # actually removes the row.
+        monkeypatch.setattr(state, "release_review_dispatch_claim", lambda *a, **k: None)
+
+        dispatched = {}
+
+        def _record_dispatch(*a, **k):
+            dispatched["called"] = True
+            return {
+                "dispatched": True, "assignment_id": "asn-1", "machine": "mac1",
+                "detail": "dispatched",
+            }
+
+        monkeypatch.setattr(board_doctor_policy, "dispatch_sweep_action", _record_dispatch)
+
+        row = _row("acme/widgets#40", queue_diagnose.CAUSE_GATE_BLOCKED)
+
+        assert _investigate(row) is True
+        assert dispatched.get("called") is True
+        # The claim is still held — the release never persisted.
+        assert state.has_review_claim("w1") is True
+
+    def test_merge_queue_row_is_left_to_the_ordinary_path(
+        self, monkeypatch,
+    ) -> None:
+        """Only a drive-queue `gate-blocked` row is this shape — a
+        merge-queue `gate-blocked` row means a required CI check is red
+        (`_MERGE_QUEUE_STUCK_CAUSE`), an unrelated question this check
+        must not answer."""
+        monkeypatch.setattr(common, "resolve_and_load_config", lambda path, **k: object())
+        monkeypatch.setattr(board_doctor_policy, "_investigate_tier_enabled", lambda *a, **k: True)
+        monkeypatch.setattr(state, "build_board", lambda: Board(completed=[self._work()]))
+        assert state.claim_review_dispatch("w1") is True
+        self._backdate_claim("w1")
+
+        monkeypatch.setattr(
+            board_doctor_policy,
+            "dispatch_sweep_action",
+            lambda *a, **k: {
+                "dispatched": True, "assignment_id": "asn-1", "machine": "mac1",
+                "detail": "dispatched",
+            },
+        )
+
+        row = _row(
+            "acme/widgets#40", queue_diagnose.CAUSE_GATE_BLOCKED, queue="merge-queue",
+        )
+
+        assert _investigate(row) is True
+        assert state.has_review_claim("w1") is True
+
+
 class TestFixitRebudgetEnvironmental:
     """#3847's pure classifier: cause/confidence/freshness only, zero
     `coord.state` reads — the half of :func:`_fixit_rebudget_eligible`
@@ -1467,6 +1842,38 @@ class TestFixitRebudgetEnvironmental:
             "acme/widgets#40",
             queue_diagnose.CAUSE_CI_GREEN,
             confidence=queue_diagnose.CONFIDENCE_LOW,
+            fresh=True,
+        )
+
+        assert _fixit_rebudget_environmental(row) is False
+
+    def test_integration_red_at_high_confidence_is_environmental(self) -> None:
+        # #3999: by definition the branch's own latest Test-gate verdict
+        # already read green — the live-red check is a property of the
+        # merge-ref combination, not a flailing retry on an unresolved
+        # local regression. `queue_diagnose` only ever mints this cause at
+        # CONFIDENCE_HIGH (`_rule_integration_red`), so this is the one
+        # real-world confidence it is ever observed at.
+        row = _row(
+            "acme/widgets#40",
+            queue_diagnose.CAUSE_INTEGRATION_RED,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+            fresh=True,
+        )
+
+        assert _fixit_rebudget_environmental(row) is True
+
+    def test_plain_ci_red_stays_flailing_even_though_integration_red_is_admitted(
+        self,
+    ) -> None:
+        # CAUSE_CI_RED (unlike CAUSE_INTEGRATION_RED) covers the shape
+        # where the branch's OWN diff is also broken, not just the merge-
+        # ref combination — admitting it here would rebudget a blind
+        # relaunch on a genuinely still-broken branch.
+        row = _row(
+            "acme/widgets#40",
+            queue_diagnose.CAUSE_CI_RED,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
             fresh=True,
         )
 
@@ -3854,6 +4261,129 @@ class TestReclassifyAfterPrereqsLanded:
         )
 
         assert reclassified[0].cause == queue_diagnose.CAUSE_UNKNOWN
+
+
+class TestBlockedOnPrereqDepForEntry:
+    """The ONE predicate :func:`_reclassify_blocked_on_prereq` uses —
+    the deliberate complement of :func:`after_prereqs_landed_for_entry`:
+    this looks for a named pre-req that is itself stuck, not landed
+    (#4003)."""
+
+    def test_names_the_dep_when_it_is_itself_blocked(self) -> None:
+        entry = _after_entry()
+        dep = _after_entry(issue=39, position=0, after=(), state="blocked", last_reason="x")
+        entries_by_key = {entry.key: entry, dep.key: dep}
+
+        assert blocked_on_prereq_dep_for_entry(entry, entries_by_key) == dep.key
+
+    def test_names_the_dep_when_it_is_itself_failed(self) -> None:
+        entry = _after_entry()
+        dep = _after_entry(issue=39, position=0, after=(), state="failed", last_reason="x")
+        entries_by_key = {entry.key: entry, dep.key: dep}
+
+        assert blocked_on_prereq_dep_for_entry(entry, entries_by_key) == dep.key
+
+    def test_none_when_the_dep_has_landed(self) -> None:
+        # The complement shape — `after_prereqs_landed_for_entry`'s own
+        # case — must never also match here.
+        entry = _after_entry()
+        dep = _after_entry(issue=39, position=0, after=(), state="done", last_reason="")
+        entries_by_key = {entry.key: entry, dep.key: dep}
+
+        assert blocked_on_prereq_dep_for_entry(entry, entries_by_key) is None
+
+    def test_none_when_the_dep_is_merely_in_flight(self) -> None:
+        entry = _after_entry()
+        dep = _after_entry(issue=39, position=0, after=(), state="waiting", last_reason="")
+        entries_by_key = {entry.key: entry, dep.key: dep}
+
+        assert blocked_on_prereq_dep_for_entry(entry, entries_by_key) is None
+
+    def test_none_when_the_dep_left_the_queue(self) -> None:
+        entry = _after_entry()
+        entries_by_key = {entry.key: entry}
+
+        assert blocked_on_prereq_dep_for_entry(entry, entries_by_key) is None
+
+    def test_none_for_a_row_blocked_on_an_unrelated_reason(self) -> None:
+        entry = _after_entry(last_reason="merge conflict detected on this branch")
+        dep = _after_entry(issue=39, position=0, after=(), state="blocked", last_reason="x")
+        entries_by_key = {entry.key: entry, dep.key: dep}
+
+        assert blocked_on_prereq_dep_for_entry(entry, entries_by_key) is None
+
+    def test_none_once_an_operator_already_resumed_the_row(self) -> None:
+        entry = _after_entry(state="waiting")
+        dep = _after_entry(issue=39, position=0, after=(), state="blocked", last_reason="x")
+        entries_by_key = {entry.key: entry, dep.key: dep}
+
+        assert blocked_on_prereq_dep_for_entry(entry, entries_by_key) is None
+
+
+class TestReclassifyBlockedOnPrereq:
+    def _row(self, **kw) -> StuckRow:
+        base = dict(
+            queue="drive-queue", key="acme/widgets#40", state="blocked",
+            cause=queue_diagnose.CAUSE_UNKNOWN, confidence=queue_diagnose.CONFIDENCE_NONE,
+            evidence=(), fresh=True,
+        )
+        base.update(kw)
+        return StuckRow(**base)
+
+    def test_promotes_a_row_blocked_behind_a_blocked_prereq(self) -> None:
+        entry = _after_entry()
+        dep = _after_entry(issue=39, position=0, after=(), state="blocked", last_reason="x")
+        entries_by_key = {entry.key: entry, dep.key: dep}
+
+        reclassified = _reclassify_blocked_on_prereq([self._row()], entries_by_key)
+
+        assert reclassified[0].cause == CAUSE_BLOCKED_ON_PREREQ
+        assert any(dep.key in e for e in reclassified[0].evidence)
+
+    def test_never_double_classifies_a_row_the_landed_reclassifier_already_promoted(
+        self,
+    ) -> None:
+        # #4003: the two reclassifiers are mutually exclusive verdicts for
+        # the SAME question — a row the landed reclassifier already
+        # promoted must never also match here.
+        entry = _after_entry()
+        dep = _after_entry(issue=39, position=0, after=(), state="done", last_reason="")
+        entries_by_key = {entry.key: entry, dep.key: dep}
+        row = self._row(cause=CAUSE_AFTER_PREREQS_LANDED)
+
+        reclassified = _reclassify_blocked_on_prereq([row], entries_by_key)
+
+        assert reclassified[0].cause == CAUSE_AFTER_PREREQS_LANDED
+
+    def test_leaves_a_stale_episode_row_alone(self) -> None:
+        entry = _after_entry()
+        dep = _after_entry(issue=39, position=0, after=(), state="blocked", last_reason="x")
+        entries_by_key = {entry.key: entry, dep.key: dep}
+
+        reclassified = _reclassify_blocked_on_prereq(
+            [self._row(fresh=False)], entries_by_key,
+        )
+
+        assert reclassified[0].cause == queue_diagnose.CAUSE_UNKNOWN
+
+    def test_leaves_a_merge_queue_row_with_the_same_key_alone(self) -> None:
+        entry = _after_entry()
+        dep = _after_entry(issue=39, position=0, after=(), state="blocked", last_reason="x")
+        entries_by_key = {entry.key: entry, dep.key: dep}
+
+        reclassified = _reclassify_blocked_on_prereq(
+            [self._row(queue="merge-queue")], entries_by_key,
+        )
+
+        assert reclassified[0].cause == queue_diagnose.CAUSE_UNKNOWN
+
+    def test_blocked_on_prereq_is_alert_tier_not_investigate(self) -> None:
+        # #4003: fixing this row means fixing the NAMED pre-req, not
+        # dispatching another leg against this one — never registered on
+        # any auto/investigate tier.
+        assert policy_tier_of(CAUSE_BLOCKED_ON_PREREQ) == TIER_ALERT
+        assert CAUSE_BLOCKED_ON_PREREQ not in INVESTIGATE_CAUSES
+        assert CAUSE_BLOCKED_ON_PREREQ not in ALLOWLIST
 
 
 class TestRequeueAfterPrereqsLanded:

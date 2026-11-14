@@ -16,7 +16,7 @@ class DescribeUpgradeMajorVersionPrecheckTaskResponseBody(DaraModel):
         request_id: str = None,
         total_record_count: int = None,
     ):
-        # The list of attributes in the check reports for major engine version upgrades.
+        # The list of attributes in the pre-check report for the major engine version upgrade.
         self.items = items
         # The page number.
         self.page_number = page_number
@@ -24,7 +24,7 @@ class DescribeUpgradeMajorVersionPrecheckTaskResponseBody(DaraModel):
         self.page_record_count = page_record_count
         # The request ID.
         self.request_id = request_id
-        # The total number of entries in the upgrade check report.
+        # The total number of entries in the pre-check report for the major engine version upgrade.
         self.total_record_count = total_record_count
 
     def validate(self):
@@ -94,17 +94,17 @@ class DescribeUpgradeMajorVersionPrecheckTaskResponseBodyItems(DaraModel):
         task_id: int = None,
         upgrade_mode: str = None,
     ):
-        # The time when the check is performed. The value is a UNIX timestamp. Unit: milliseconds.
+        # The time when the pre-check is performed. The time is displayed as a UNIX timestamp. Unit: milliseconds.
         self.check_time = check_time
-        # The content of the check report for the major engine version upgrade.
+        # The content of the pre-check report for the major engine version upgrade.
         self.detail = detail
-        # The expiration time of the check report. The value is a UNIX timestamp. Unit: milliseconds.
+        # The expiration time of the pre-check report. The time is displayed as a UNIX timestamp. Unit: milliseconds.
         self.effective_time = effective_time
-        # The recommended minimum disk capacity for the upgrade. Unit: GB.
+        # The minimum recommended disk capacity for the upgrade. Unit: GB.
         # 
         # > This parameter is returned only for ApsaraDB RDS for PostgreSQL instances.
         self.recommend_disk_size = recommend_disk_size
-        # The recommended minimum memory size for the upgrade. Unit: GB.
+        # The minimum recommended memory size for the upgrade. Unit: GB.
         # 
         # > This parameter is returned only for ApsaraDB RDS for PostgreSQL instances.
         self.recommend_least_mem_size = recommend_least_mem_size
@@ -114,18 +114,20 @@ class DescribeUpgradeMajorVersionPrecheckTaskResponseBodyItems(DaraModel):
         # 
         # > This parameter is returned only for ApsaraDB RDS for PostgreSQL instances.
         self.recommend_mem_size = recommend_mem_size
-        # The result of the check for the major engine version upgrade. Valid values:
-        # - Success: The check is successful.
-        # - Fail: The check fails.
-        # - warning: A warning is returned. You must check the report to determine whether to continue the upgrade.
+        # The result of the pre-check for the major engine version upgrade.
         # 
-        # > If the check result is **Fail**, check the value of the **Detail** parameter, troubleshoot the error, and try again. For more information about common errors and solutions, see [Interpret check reports for major engine version upgrades of ApsaraDB RDS for PostgreSQL instances](https://help.aliyun.com/document_detail/218391.html).
+        # Valid values:
+        # - Success: The pre-check is successful.
+        # - Fail: The pre-check fails.
+        # - warning: A warning is returned. You must check the report to determine whether to proceed with the upgrade.
+        # 
+        # > If the result is **Fail**, check the value of the **Detail** parameter to troubleshoot the error and try again. For more information about common errors and solutions, see [Interpret pre-check reports for ApsaraDB RDS for PostgreSQL major engine version upgrades](https://help.aliyun.com/document_detail/218391.html).
         self.result = result
         # The current major engine version of the instance.
         self.source_major_version = source_major_version
         # The major engine version of the target instance.
         self.target_major_version = target_major_version
-        # The ID of the check task before the major engine version upgrade.
+        # The ID of the pre-check task for the major engine version upgrade.
         self.task_id = task_id
         # The mode of the major engine version upgrade.
         self.upgrade_mode = upgrade_mode

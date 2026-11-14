@@ -12,8 +12,8 @@ See: https://github.com/mikelane/pytest-gremlins/issues/113
 
 from __future__ import annotations
 
-from pathlib import Path
 import subprocess
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
@@ -21,11 +21,16 @@ import pytest
 import pytest_gremlins.plugin as plugin_module
 from pytest_gremlins.plugin import (
     _addopts_without_cov,
-    _build_test_command,
     _get_session,
     _run_tests_with_coverage,
     pytest_configure,
 )
+from pytest_gremlins.verdicts import (
+    _build_test_command,
+)
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.mark.small
@@ -127,7 +132,7 @@ class DescribeCoverageSubprocessPreservesAddopts:
 
             return FakeResult()
 
-        with patch('pytest_gremlins.plugin.subprocess.run', side_effect=fake_subprocess_run):
+        with patch('pytest_gremlins.process_tree.run_bounded', autospec=True, side_effect=fake_subprocess_run):
             _run_tests_with_coverage(
                 ['tests/test_example.py::test_one'],
                 tmp_path,
@@ -150,7 +155,7 @@ class DescribeCoverageSubprocessPreservesAddopts:
 
             return FakeResult()
 
-        with patch('pytest_gremlins.plugin.subprocess.run', side_effect=fake_subprocess_run):
+        with patch('pytest_gremlins.process_tree.run_bounded', autospec=True, side_effect=fake_subprocess_run):
             _run_tests_with_coverage(['tests/test_example.py::test_one'], tmp_path)
 
         cmd = captured_cmd[0]
@@ -194,9 +199,11 @@ class DescribePytestConfigureStoresPreservedAddopts:
             addopts=['--cov=mypkg', '--import-mode=importlib'],
         )
 
-        pytest_configure(config)  # type: ignore[arg-type]
+        pytest_configure(config)
 
-        assert _get_session().preserved_addopts == '--import-mode=importlib'
+        session = _get_session()
+        assert session is not None
+        assert session.preserved_addopts == '--import-mode=importlib'
 
 
 @pytest.mark.medium

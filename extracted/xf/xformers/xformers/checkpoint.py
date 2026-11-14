@@ -4,12 +4,12 @@
 # LICENSE file in the root directory of this source tree.
 
 
+import copy
 import functools
 import time
-from collections import defaultdict
-from copy import deepcopy
+import warnings
 from dataclasses import astuple, dataclass
-from typing import Any, Callable, ContextManager, Dict, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 import torch
 from torch.testing._internal.composite_compliance import (
@@ -19,6 +19,10 @@ from torch.testing._internal.composite_compliance import (
 )
 from torch.utils._python_dispatch import TorchDispatchMode
 from torch.utils._pytree import tree_map
+from torch.utils.checkpoint import (
+    create_selective_checkpoint_contexts,
+    SAC_IGNORED_OPS as _ignored_ops,
+)
 
 _scipy_is_available = False
 try:
@@ -30,33 +34,12 @@ except ImportError:
 
 
 try:
-    # let's keep BC for older PyTorch for now
+    # ActivationWrapper lives in torch.distributed, which isn't always available
     from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
         ActivationWrapper,
     )
-    from torch.utils.checkpoint import (  # type: ignore
-        _CachedTorchDispatchMode,
-        _CachingTorchDispatchMode,
-    )
 except ImportError:
     ActivationWrapper = torch.nn.Module  # type: ignore
-
-    class _NotAvailable:
-        def __init__(self, *args, **kwargs):
-            raise RuntimeError("Need PyTorch >= 2.2")
-
-    _CachedTorchDispatchMode = _NotAvailable  # type: ignore
-    _CachingTorchDispatchMode = _NotAvailable  # type: ignore
-
-
-try:
-    from torch.utils.checkpoint import SAC_IGNORED_OPS as _ignored_ops  # type: ignore
-
-    _PT_HAS_NEW_IMPL = True
-except ImportError:
-    from torch.utils.checkpoint import _ignored_ops  # type: ignore
-
-    _PT_HAS_NEW_IMPL = False
 
 
 _additional_ignored_ops = {
@@ -65,6 +48,15 @@ _additional_ignored_ops = {
     torch.ops.aten.clone.default,  # seems needed for torch.compile
 }
 OPS_TO_ALWAYS_SKIP = _ignored_ops | _additional_ignored_ops
+
+
+def _warn_deprecated(name: str, alternative: str) -> None:
+    warnings.warn(
+        f"xformers.checkpoint.{name} is deprecated and will be removed in a future "
+        f"version of xFormers. {alternative}",
+        FutureWarning,
+        stacklevel=3,
+    )
 
 
 @dataclass
@@ -111,34 +103,61 @@ def list_operators(function, *args, **kwargs):
     Returns the list of operators used inside `function` with
     *args and **kwargs
     """
+    _warn_deprecated(
+        "list_operators",
+        "Inspect a region's operators with a custom "
+        "torch.utils._python_dispatch.TorchDispatchMode.",
+    )
     verbose_mode = VerboseTorchDispatchMode()
     with verbose_mode:
         function(*args, **kwargs)
     return verbose_mode.operators
 
 
-class CachedTorchDispatchMode(_CachedTorchDispatchMode):
-    def __init__(self, policy_fn, storage, allow_cache_entry_mutation):
-        global _PT_HAS_NEW_IMPL
-        if _PT_HAS_NEW_IMPL:
-            super().__init__(policy_fn, storage, allow_cache_entry_mutation)
+class _OptimalPolicy:
+    def __init__(self, optim_output):
+        self.counter = 0
+        if isinstance(optim_output, torch.Tensor):
+            self.optim_output = optim_output.tolist()
         else:
-            super().__init__(policy_fn, storage)
+            self.optim_output = list(optim_output)
 
-    # this is here for the old implementations
-    def pop_from_storage(self, func, args, kwargs):
-        # the autograd engine might add spurious views. This is a basic
-        # guard and should be improved
-        if self.storage[func]:
-            return self.storage[func].pop(0)
-        return func(*args, **kwargs)
+    def __call__(self, ctx, func, *args, **kwargs) -> bool:
+        if func in OPS_TO_ALWAYS_SKIP:
+            return False
+        count = self.counter
+        self.counter += 1
+        if count >= len(self.optim_output):
+            # PyTorch before version 2.13 also queries the policy during
+            # recompute, by which point the counter is exhausted.
+            # Recomputing is always safe.
+            return False
+        return self.optim_output[count] == 1
+
+    def __copy__(self):
+        return _OptimalPolicy(self.optim_output)
+
+    def __deepcopy__(self, memo):
+        return _OptimalPolicy(self.optim_output)
 
 
-class NullTorchDispatchMode(TorchDispatchMode):
-    def __torch_dispatch__(self, func, types, args=(), kwargs=None):
-        if kwargs is None:
-            kwargs = {}
-        return func(*args, **kwargs)
+def _selective_checkpoint_context_fn(policy_fn=None):
+    if policy_fn is None:
+        policy_fn = _get_default_policy()
+    elif isinstance(policy_fn, list):
+        policy_fn = _get_default_policy(policy_fn)
+    else:
+        assert callable(policy_fn), "policy_fn should be None, list or a callable"
+        # _OptimalPolicy is stateful (counter), clone per region so it can be
+        # reused across multiple checkpoint regions / forward passes
+        if isinstance(policy_fn, _OptimalPolicy):
+            policy_fn = copy.copy(policy_fn)
+
+    # Delegate to PyTorch's public selective-checkpointing implementation, which
+    # owns the dispatch-mode/storage plumbing. Our policies return a bool (store
+    # vs. recompute), which `create_selective_checkpoint_contexts` accepts and
+    # maps onto `CheckpointPolicy` internally.
+    return create_selective_checkpoint_contexts(policy_fn)
 
 
 def selective_checkpoint_context_fn(policy_fn=None):
@@ -153,23 +172,23 @@ def selective_checkpoint_context_fn(policy_fn=None):
             The op should be in the format `torch.ops.***`, where the `***`
             names of operators can be obtained with `list_operators`.
     """
-    if policy_fn is None:
-        policy_fn = _get_default_policy()
-    elif isinstance(policy_fn, list):
-        policy_fn = _get_default_policy(policy_fn)
-    else:
-        assert callable(policy_fn), "policy_fn should be None, list or a callable"
+    _warn_deprecated(
+        "selective_checkpoint_context_fn",
+        "Use torch.utils.checkpoint.create_selective_checkpoint_contexts(policy_fn) "
+        "instead.",
+    )
+    return _selective_checkpoint_context_fn(policy_fn)
 
-    temp_storage: Dict[Any, List[Any]] = defaultdict(list)
-    # assumption: grad_mode doesn't change inside function
-    caching_mode: ContextManager[None]
-    if torch.is_grad_enabled():
-        caching_mode = _CachingTorchDispatchMode(deepcopy(policy_fn), temp_storage)
-    else:
-        caching_mode = NullTorchDispatchMode()
-    cached_mode = CachedTorchDispatchMode(deepcopy(policy_fn), temp_storage, True)
 
-    return caching_mode, cached_mode
+def _checkpoint(function, *args, preserve_rng_state=True, policy_fn=None, **kwargs):
+    return torch.utils.checkpoint.checkpoint(
+        function,
+        *args,
+        use_reentrant=False,
+        preserve_rng_state=preserve_rng_state,
+        context_fn=functools.partial(_selective_checkpoint_context_fn, policy_fn),
+        **kwargs,
+    )
 
 
 def checkpoint(
@@ -196,12 +215,17 @@ def checkpoint(
         *args: Arguments to pass in to the given ``function``.
         **kwargs: Keyword arguments to pass into the given ``function``.
     """
-    return torch.utils.checkpoint.checkpoint(
+    _warn_deprecated(
+        "checkpoint",
+        "Use torch.utils.checkpoint.checkpoint with use_reentrant=False and "
+        "context_fn=functools.partial("
+        "torch.utils.checkpoint.create_selective_checkpoint_contexts, policy_fn).",
+    )
+    return _checkpoint(
         function,
         *args,
-        use_reentrant=False,
         preserve_rng_state=preserve_rng_state,
-        context_fn=functools.partial(selective_checkpoint_context_fn, policy_fn),
+        policy_fn=policy_fn,
         **kwargs,
     )
 
@@ -306,7 +330,7 @@ def _analyze_operators(function, *args) -> List[ProfileMetadata]:
     return data
 
 
-def get_optimal_checkpoint_policy(function, *args, memory_budget: float) -> Callable:
+def _get_optimal_checkpoint_policy(function, *args, memory_budget: float) -> Callable:
     """
     Given a function, its arguments, and the maximum amount of memory available,
     find the subset of operators that can be optimized to reduce runtime while still fitting within the memory budget.
@@ -380,7 +404,34 @@ def get_optimal_checkpoint_policy(function, *args, memory_budget: float) -> Call
         random_ops=rand_ops,
         force_store_random=force_store_random,
     )
+
+    # An inplace op is always stored together with its parent, which means the
+    # cached parent gets mutated. PyTorch's selective checkpointing
+    # version-checks cached tensors and rejects this during backward.
+    if any(optim_output[op] == 1 for op, _ in inplace_ops):
+        warnings.warn(
+            "This region contains in-place ops that the optimal policy stores. "
+            "PyTorch will raise 'Tensor cached during selective activation "
+            "checkpoint has been mutated' during backward. Use non-in-place ops "
+            "in the region instead, e.g. nn.ReLU(inplace=False).",
+            stacklevel=2,
+        )
+
     return _OptimalPolicy(optim_output=optim_output)
+
+
+def get_optimal_checkpoint_policy(function, *args, memory_budget: float) -> Callable:
+    """Deprecated. See :func:`_get_optimal_checkpoint_policy`.
+
+    PyTorch now provides automatic, memory-budget-driven recomputation natively.
+    """
+    _warn_deprecated(
+        "get_optimal_checkpoint_policy",
+        "Use PyTorch's torch.compile activation memory budget instead: set "
+        "torch._functorch.config.activation_memory_budget (0..1), or use "
+        "torch.autograd.graph.region_activation_memory_budget under torch.compile.",
+    )
+    return _get_optimal_checkpoint_policy(function, *args, memory_budget=memory_budget)
 
 
 def _optimize_runtime_with_given_memory(
@@ -458,23 +509,18 @@ def _optimize_runtime_with_given_memory(
     return x
 
 
-class _OptimalPolicy:
-    def __init__(self, optim_output: torch.Tensor):
-        self.counter = 0
-        self.optim_output = optim_output.tolist()
-
-    def __call__(self, ctx, func, *args, **kwargs) -> bool:
-        # returning False means recompute, True means store in memory
-        if func in OPS_TO_ALWAYS_SKIP:
-            return False
-        count = self.counter
-        self.counter += 1
-        return self.optim_output[count] == 1
-
-
 class SelectiveCheckpointWrapper(ActivationWrapper):
     def __init__(self, mod, memory_budget=None, policy_fn=None):
         super().__init__(mod)
+        _warn_deprecated(
+            "selective_checkpoint_wrapper",
+            "With a fixed policy_fn, wrap the module's forward with "
+            "torch.utils.checkpoint.checkpoint(..., use_reentrant=False, "
+            "context_fn=functools.partial("
+            "torch.utils.checkpoint.create_selective_checkpoint_contexts, policy_fn)). "
+            "With a memory_budget, use torch.compile with "
+            "torch._functorch.config.activation_memory_budget instead.",
+        )
         if not ((memory_budget is None) ^ (policy_fn is None)):
             raise ValueError("Need to specify either policy_fn or memory_budget")
         self.memory_budget = memory_budget
@@ -495,7 +541,7 @@ class SelectiveCheckpointWrapper(ActivationWrapper):
             return []
         # if policy is not specified, initialize policy for a given memory budget
         with torch.random.fork_rng():
-            policy_fn = get_optimal_checkpoint_policy(
+            policy_fn = _get_optimal_checkpoint_policy(
                 self._checkpoint_wrapped_module,
                 *args,
                 **kwargs,
@@ -519,7 +565,7 @@ class SelectiveCheckpointWrapper(ActivationWrapper):
 
     def forward(self, *args, **kwargs):
         policy_fn = self.get_policy_fn(*args, **kwargs)
-        return checkpoint(
+        return _checkpoint(
             self._checkpoint_wrapped_module, *args, **kwargs, policy_fn=policy_fn
         )
 

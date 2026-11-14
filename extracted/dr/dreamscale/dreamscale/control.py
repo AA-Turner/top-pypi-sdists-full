@@ -598,6 +598,7 @@ class ControlPlaneClient:
         source_format: str | None = None,
         region_fallback: bool | None = None,
         official: str | None = None,
+        engine: str | None = None,
     ) -> dict[str, Any]:
         """Create a deployment (your weights + the embodiment they serve, in a region).
         ``official``: one of the base family's own published checkpoints by name (Verne V0.5:
@@ -608,6 +609,9 @@ class ControlPlaneClient:
         a local folder's is its complete ``upload_id`` (no repo) and the ``source_format``
         Detect found. ``region_fallback``: whether a server may start in the next-closest
         region when the deployment's own is full (None: the server's default, on).
+        ``engine``: what its units serve, where its base offers a choice (Praxis-1: "standard",
+        the server's default, or "lightning", experimental); the answer's ``engine`` says what
+        it got (an older control plane ignores the field and sends none).
         """
         body: dict[str, Any] = {"model": model}
         for key, value in (
@@ -617,6 +621,7 @@ class ControlPlaneClient:
             ("embodiment", embodiment), ("region", region), ("source_path", source_path),
             ("rtc_method", rtc_method), ("rtc_max_delay", rtc_max_delay),
             ("keep_warm", keep_warm), ("slug", slug), ("region_fallback", region_fallback),
+            ("engine", engine),
         ):
             if value is not None:
                 body[key] = value
@@ -792,6 +797,24 @@ class ControlPlaneClient:
             raise errors.catalog("region_fallback_unavailable")
         return _deployment_response(resp)
 
+    async def set_deployment_engine(self, checkpoint_id: str, engine: str) -> dict[str, Any]:
+        """What the deployment's units serve, where its base offers a choice (Praxis-1:
+        "standard" or "lightning", experimental): its next server runs it; one already running
+        keeps its engine. No rebuild."""
+        resp = await self._client.patch(
+            f"{DEPLOYMENTS_PATH}/{checkpoint_id}", json={"engine": engine}
+        )
+        _raise_for_auth(resp)
+        if (
+            resp.status_code == 405
+            or (resp.status_code == 404 and not _error_code(resp))
+            or (resp.status_code == 422 and "engine" in _error_problem(resp)
+                and "not permitted" in _error_problem(resp))
+        ):
+            # Older control planes forbid fields they don't know on this PATCH.
+            raise errors.catalog("deployment_engine_unavailable")
+        return _deployment_response(resp)
+
     async def rename_deployment(
         self, checkpoint_id: str, name: str | None = None, *, slug: str | None = None
     ) -> dict[str, Any]:
@@ -873,15 +896,22 @@ class ControlPlaneClient:
 
     async def deploy_training(
         self, run_id: str, *, step: int | None = None, region: str | None = None,
-        region_fallback: bool | None = None,
+        region_fallback: bool | None = None, executed_actions: int | None = None,
+        engine: str | None = None,
     ) -> dict[str, Any]:
         """A Deployment of one of the run's checkpoints (default the latest); 1-based step.
-        ``region_fallback`` as for ``add_checkpoint`` (None: the server's default, on)."""
+        ``region_fallback`` as for ``add_checkpoint`` (None: the server's default, on).
+        ``executed_actions``: the rows the robot executes per chunk (None: the run's).
+        ``engine`` where its base offers a choice (None: the default, standard)."""
         body: dict[str, Any] = {
             key: value for key, value in (("step", step), ("region", region)) if value
         }
         if region_fallback is not None:
             body["region_fallback"] = region_fallback
+        if executed_actions is not None:
+            body["executed_actions"] = executed_actions
+        if engine is not None:
+            body["engine"] = engine
         return await self._training_call(
             "POST", f"{TRAININGS_PATH}/{run_id}/deploy", run_id=run_id, json=body
         )

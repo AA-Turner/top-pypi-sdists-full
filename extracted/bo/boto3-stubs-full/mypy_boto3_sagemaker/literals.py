@@ -102,6 +102,10 @@ __all__ = (
     "ClusterKubernetesTaintEffectType",
     "ClusterNodeProvisioningModeType",
     "ClusterNodeRecoveryType",
+    "ClusterOnDrainTimeoutType",
+    "ClusterOperationSortByType",
+    "ClusterOperationStatusType",
+    "ClusterOperationTypeType",
     "ClusterPatchingStrategyType",
     "ClusterSlurmConfigStrategyType",
     "ClusterSlurmNodeTypeType",
@@ -145,6 +149,7 @@ __all__ = (
     "ExecutionRoleIdentityConfigType",
     "ExecutionRoleSessionNameModeType",
     "ExecutionStatusType",
+    "ExtensionHealthIssueCodeType",
     "ExtensionStatusType",
     "FailureHandlingPolicyType",
     "FairShareType",
@@ -226,8 +231,10 @@ __all__ = (
     "ListAutoMLJobsPaginatorName",
     "ListCandidatesForAutoMLJobPaginatorName",
     "ListClusterEventsPaginatorName",
+    "ListClusterExtensionVersionsPaginatorName",
     "ListClusterExtensionsPaginatorName",
     "ListClusterNodesPaginatorName",
+    "ListClusterOperationsPaginatorName",
     "ListClusterSchedulerConfigsPaginatorName",
     "ListClustersPaginatorName",
     "ListCodeRepositoriesPaginatorName",
@@ -1208,7 +1215,11 @@ ClusterInterfaceTypeType = Literal["efa", "efa-only"]
 ClusterKubernetesTaintEffectType = Literal["NoExecute", "NoSchedule", "PreferNoSchedule"]
 ClusterNodeProvisioningModeType = Literal["Continuous"]
 ClusterNodeRecoveryType = Literal["Automatic", "None"]
-ClusterPatchingStrategyType = Literal["WhenAllIdle", "WhenIdle"]
+ClusterOnDrainTimeoutType = Literal["Force", "Skip"]
+ClusterOperationSortByType = Literal["CreationTime"]
+ClusterOperationStatusType = Literal["Done", "InProgress", "Superseded"]
+ClusterOperationTypeType = Literal["DeepHealthCheck", "Scaling"]
+ClusterPatchingStrategyType = Literal["DrainFirst", "WhenAllIdle", "WhenIdle"]
 ClusterSlurmConfigStrategyType = Literal["Managed", "Merge", "Overwrite"]
 ClusterSlurmNodeTypeType = Literal["Compute", "Controller", "Login"]
 ClusterSortByType = Literal["CREATION_TIME", "NAME"]
@@ -1276,6 +1287,16 @@ ExecutionRoleIdentityConfigType = Literal["DISABLED", "USER_PROFILE_NAME"]
 ExecutionRoleSessionNameModeType = Literal["STATIC", "USER_IDENTITY"]
 ExecutionStatusType = Literal[
     "Completed", "CompletedWithViolations", "Failed", "InProgress", "Pending", "Stopped", "Stopping"
+]
+ExtensionHealthIssueCodeType = Literal[
+    "AccessDenied",
+    "ConfigurationConflict",
+    "DependencyUnreachable",
+    "ExtensionUnhealthy",
+    "InternalFailure",
+    "InvalidConfiguration",
+    "Other",
+    "ResourceNotFound",
 ]
 ExtensionStatusType = Literal[
     "Active",
@@ -1608,8 +1629,10 @@ ListAssociationsPaginatorName = Literal["list_associations"]
 ListAutoMLJobsPaginatorName = Literal["list_auto_ml_jobs"]
 ListCandidatesForAutoMLJobPaginatorName = Literal["list_candidates_for_auto_ml_job"]
 ListClusterEventsPaginatorName = Literal["list_cluster_events"]
+ListClusterExtensionVersionsPaginatorName = Literal["list_cluster_extension_versions"]
 ListClusterExtensionsPaginatorName = Literal["list_cluster_extensions"]
 ListClusterNodesPaginatorName = Literal["list_cluster_nodes"]
+ListClusterOperationsPaginatorName = Literal["list_cluster_operations"]
 ListClusterSchedulerConfigsPaginatorName = Literal["list_cluster_scheduler_configs"]
 ListClustersPaginatorName = Literal["list_clusters"]
 ListCodeRepositoriesPaginatorName = Literal["list_code_repositories"]
@@ -3533,8 +3556,10 @@ PaginatorName = Literal[
     "list_auto_ml_jobs",
     "list_candidates_for_auto_ml_job",
     "list_cluster_events",
+    "list_cluster_extension_versions",
     "list_cluster_extensions",
     "list_cluster_nodes",
+    "list_cluster_operations",
     "list_cluster_scheduler_configs",
     "list_clusters",
     "list_code_repositories",

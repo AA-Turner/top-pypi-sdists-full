@@ -14,18 +14,18 @@ class DescribeHistoryEventsStatRequest(DaraModel):
         to_start_time: str = None,
     ):
         # The event status. Valid values:
-        # - **Archived**: archived.
-        # - **UnArchived**: unarchived.
-        # - **All**: all.
+        # - **Archived**: The event is archived.
+        # - **UnArchived**: The event is not archived.
+        # - **All**: All events.
         self.archive_status = archive_status
-        # The start time of the time range for querying task start times. Tasks that start after this time are queried. Specify the time in the ISO 8601 standard in the yyyy-MM-ddTHH:mm:ssZ format. The time must be in UTC. The earliest supported time is 30 days before the current time. If you specify a time more than 30 days before the current time, the system automatically changes it to 30 days before the current time.
+        # The start time of the time range to query task start times. Tasks that start after this time are queried. Specify the time in the ISO 8601 standard in the yyyy-MM-ddTHH:mm:ssZ format. The time must be in UTC. The earliest supported time is 30 days ago. If the specified time is more than 30 days before the current time, it is automatically changed to 30 days ago.
         self.from_start_time = from_start_time
         # The region ID. You can call the DescribeRegions operation to query the region ID.
         # 
         # This parameter is required.
         self.region_id = region_id
         self.security_token = security_token
-        # The end time of the time range for querying task start times. Tasks that start before this time are queried. Specify the time in the ISO 8601 standard in the yyyy-MM-ddTHH:mm:ssZ format. The time must be in UTC.
+        # The end time of the time range to query task start times. Tasks that start before this time are queried. Specify the time in the ISO 8601 standard in the yyyy-MM-ddTHH:mm:ssZ format. The time must be in UTC.
         self.to_start_time = to_start_time
 
     def validate(self):

@@ -7,6 +7,8 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from dreamscale_transport.hy_vla_deploy import MAX_HZ, MIN_HZ, normalize_rate
+
 from dreamscale.control import ControlPlaneClient
 from dreamscale.deploy_bases import Base, DeployBase, ExportedBase, cli, cmd
 
@@ -19,6 +21,16 @@ CLI = Base({"bimanual_xarm7": "Bimanual xArm 7", "custom": "Custom"}, (
     ("Saving", ("validating", "sealing", "built")),
     ("Testing on a server", ("qualifying", "ready", "failed")),
 ), None)
+# The rates a create may declare (`--hz`, sent as its robot's ``action_hz``), as
+# ``PresetUnits.declared_rates`` reads: None, any of MIN_HZ-MAX_HZ (the export's recorded rate,
+# where Detect read one: ``run_add_hy_vla`` refuses another before anything is uploaded).
+DECLARED_RATES: tuple[float, ...] | None = None
+
+
+def takes_rate(hz: Any) -> bool:
+    """Whether a create may declare ``hz`` (``DECLARED_RATES``)."""
+    return DECLARED_RATES is None or (
+        isinstance(hz, int | float) and not isinstance(hz, bool) and float(hz) in DECLARED_RATES)
 
 
 def hy_vla_robot_line(checkpoint: dict) -> str:
@@ -31,8 +43,9 @@ def hy_vla_robot_line(checkpoint: dict) -> str:
     if spec.get("state_dim") is not None:
         parts.append(f"pose state {spec['state_dim']}")
     if spec.get("action_horizon") is not None:
-        parts.append(f"{spec.get('executed_actions')} of {spec['action_horizon']} actions at "
-                     f"{cmd._hz(spec.get('action_hz'))} Hz")
+        rate = spec.get("action_hz")
+        parts.append(f"{spec.get('executed_actions')} of {spec['action_horizon']} actions "
+                     + (f"at {cmd._hz(rate)} Hz" if rate is not None else "(rate not recorded)"))
     if checkpoint.get("rtc_method") and checkpoint.get("status") != "building":
         parts.append(f"RTC {cmd.prefix_rtc(checkpoint)}")
     elif not checkpoint.get("rtc_method") and spec.get("trained_rtc_max_delay"):
@@ -90,11 +103,23 @@ def hy_vla_found_lines(found: dict) -> list[str]:
 def run_add_hy_vla(*, repo: str, revision=None, name=None, hf_token=None, path=None,
                    rtc=None, rtc_prefix=None, region="auto", wait=True, keep_warm=None,
                    slug=None, region_fallback=None, client_factory=ControlPlaneClient,
-                   print_fn=print, sleep=time.sleep):
+                   print_fn=print, sleep=time.sleep, hz=None):
     """Read a Hy-VLA export (a Hub repo or a local folder), pin the resolved commit, and
     deploy it. The export owns its robot (the bimanual xArm 7 preset is detected), cameras,
-    arms, widths and statistics; the create names only its RTC (default: trained where the
-    export trained it, with every prefix row it trained, else off)."""
+    arms, widths and statistics; the create names its RTC (default: trained where the export
+    trained it, with every prefix row it trained, else off) and, with ``hz``, the rate its
+    training data ran at (sent as ``action_hz``: needed where the export records none). A rate
+    outside MIN_HZ-MAX_HZ, or other than the one the export records, is refused here, before
+    anything is uploaded."""
+    if hz is not None:
+        try:
+            hz = normalize_rate(hz)
+        except ValueError:
+            raise cmd._invalid(
+                f"--hz is the rate the checkpoint's training data ran at, {MIN_HZ}-{MAX_HZ} Hz",
+                "pass --hz 20, say") from None
+        if not takes_rate(hz):
+            raise cmd._invalid(f"Hy-VLA doesn't take --hz {hz:g}", "omit the rate (--hz)")
     region = cmd._check_region(client_factory, NAME, "Hy-VLA", region, print_fn=print_fn)
     if rtc not in (None, "off", "trained"):
         raise cmd._invalid("Hy-VLA runs RTC off or trained", "use --rtc off or --rtc trained")
@@ -114,7 +139,23 @@ def run_add_hy_vla(*, repo: str, revision=None, name=None, hf_token=None, path=N
         )
     if found.get("source_format") != "hy_vla":
         raise cmd._invalid("the server did not read a Hy-VLA export", "update the SDK and retry")
+    recorded = (found.get("detected") or {}).get("action_hz")
+    if recorded is None and hz is None:
+        raise cmd._invalid(
+            "this export records no control rate, and Hy-VLA never assumes one",
+            "pass --hz with the rate its training data ran at",
+        )
+    if recorded is not None and hz is not None and hz != recorded:
+        raise cmd._invalid(
+            f"this export records {cmd._hz(recorded)} Hz, and --hz {cmd._hz(hz)} contradicts it",
+            f"omit --hz (the export's {cmd._hz(recorded)} Hz applies), or pass "
+            f"--hz {cmd._hz(recorded)}",
+        )
     for line in hy_vla_found_lines(found):
+        if hz is not None and line.startswith("Robot: "):
+            # Detect reads the export; the rate is the create's declaration.
+            spec = {**(found.get("detected") or {}), "action_hz": hz}
+            line = f"Robot: {hy_vla_robot_line({'embodiment': spec})} (rate declared)"
         print_fn(line)
     trained = (found.get("rtc") or {}).get("trained_max_delay")
     if trained is None:
@@ -142,8 +183,10 @@ def run_add_hy_vla(*, repo: str, revision=None, name=None, hf_token=None, path=N
         repo, revision = source["repo"], source["revision"]
     return cmd.run_add(
         repo=repo, model=NAME, revision=revision, name=name, hf_token=token,
-        # The export owns the robot; the server detects its preset.
-        embodiment={}, region=region, wait=wait,
+        # The export owns the robot; the server detects its preset. A declared rate goes as
+        # the server takes it (a whole one an integer, as the deployment records it).
+        embodiment={} if hz is None else {"action_hz": hz},
+        region=region, wait=wait,
         client_factory=client_factory, print_fn=print_fn, sleep=sleep,
         keep_warm=keep_warm, slug=slug, source_path=source.get("source_path", ""),
         rtc_method=method, rtc_max_delay=rtc_prefix, region_fallback=region_fallback, **local,
@@ -183,13 +226,14 @@ def _create_hy_vla(*, repo, given, preset, camera, hz, path, executed, steps, jo
     unsupported = [key for key, value in given.items()
                    if value is not None and key not in ("path", "rtc")]
     unsupported += [key for key, value in (
-        ("preset", preset), ("camera", camera or None), ("hz", hz), ("steps", steps),
+        ("preset", preset), ("camera", camera or None), ("steps", steps),
         ("joint_unit", joint_unit),
     ) if value is not None]
     if unsupported:
         raise cli.typer.BadParameter(
             f"{cli._flag(unsupported[0])} doesn't apply to Hy-VLA: the export records its robot, "
-            "cameras, rate and statistics. Pass only --rtc and --rtc-prefix."
+            "cameras and statistics. Pass only --rtc, --rtc-prefix and --hz (the rate its "
+            "training data ran at, where the export records none)."
         )
     if keep_warm is not None and keep_warm not in KEEP_WARM_VALUES:
         raise cli.typer.BadParameter(
@@ -207,6 +251,7 @@ def _create_hy_vla(*, repo, given, preset, camera, hz, path, executed, steps, jo
         repo=repo, revision=revision, name=name, hf_token=hf_token, path=path,
         rtc=None if rtc is None else rtc.strip().lower(), rtc_prefix=rtc_prefix,
         region=region, wait=wait, keep_warm=keep_warm, slug=slug, region_fallback=region_fallback,
+        hz=hz,
     )
     if result.get("status") == "failed":
         raise cli.typer.Exit(code=1)

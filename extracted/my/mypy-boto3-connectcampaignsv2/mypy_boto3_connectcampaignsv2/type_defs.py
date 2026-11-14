@@ -633,6 +633,7 @@ CampaignSummaryTypeDef = TypedDict(
         "schedule": NotRequired[ScheduleOutputTypeDef],
         "entryLimitsConfig": NotRequired[EntryLimitsConfigTypeDef],
         "connectCampaignFlowArn": NotRequired[str],
+        "lastModifiedTime": NotRequired[datetime],
     },
 )
 
@@ -1065,6 +1066,7 @@ CampaignTypeDef = TypedDict(
         "entryLimitsConfig": NotRequired[EntryLimitsConfigTypeDef],
         "communicationTimeConfig": NotRequired[CommunicationTimeConfigOutputTypeDef],
         "communicationLimitsOverride": NotRequired[CommunicationLimitsConfigOutputTypeDef],
+        "lastModifiedTime": NotRequired[datetime],
         "tags": NotRequired[dict[str, str]],
     },
 )

@@ -15,7 +15,7 @@ class DescribeCharacterSetNameResponseBody(DaraModel):
         request_id: str = None,
     ):
         self.character_set_name_items = character_set_name_items
-        # The type of the database engine.
+        # The database engine type.
         self.engine = engine
         # The request ID.
         self.request_id = request_id

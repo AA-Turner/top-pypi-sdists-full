@@ -20,6 +20,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult
 from pydantic import BeforeValidator, Field
 from ...sdk import errors
+from ...sdk.client import BROWSE_NAME_QUERY_FEATURE, BROWSE_PROJECT_QUERY_FEATURE
 from ..delivery import delivery as continuation
 from ..generated.sql import QUERY_SQL_DESCRIPTION, SOURCE_ARG_DOC, SQL_ARG_DOC, TABLES_ARG_DOC
 from ...foundation.token_budget.token_budget import MAX_TOKENS, MIN_TOKENS, cap_to_range
@@ -45,7 +46,9 @@ from ..events import follow_events
 from ..tools.reads.samples import SampleQuery, SampleView
 from ..tools.tools import ResearchReadService
 from ..source.people import PeopleFilters
-from probe.mcp.server.browse_args import _browse_args_for_mode, normalize_browse_scope
+from probe.mcp.server.browse_args import (
+    FILTER_JSON_SCHEMA, NAME_QUERY_MODES, _browse_args_for_mode, normalize_browse_scope, normalize_text_filter,
+)
 from probe.mcp.server.limits import _WEB_MAX_LIMIT, _WEB_QUERY_CHARS
 from probe.mcp.server.metric_mode import _METRIC_ROUTES, _metric_args_for_mode
 from probe.mcp.server.metric_modes.series import _SERIES_BUDGET, _SERIES_OFFSET
@@ -243,7 +246,7 @@ def _register_browse_and_search(mcp, svc):
         return str(ident)
 
     @mcp.tool()
-    @_tool(prepare=lambda arguments: normalize_browse_scope(arguments, find_scope_id))
+    @_tool(prepare=lambda arguments: normalize_browse_scope(normalize_text_filter(arguments), find_scope_id))
     def browse(
         mode: Annotated[
             BrowseMode, _accept_legacy(BROWSE_MODE_LEGACY), Field(description=_BR_MODE_DOC)
@@ -253,7 +256,10 @@ def _register_browse_and_search(mcp, svc):
         status: Annotated[str | None, Field(description=_BR_STATUS_DOC)] = None,
         tags: Annotated[list[str] | None, Field(description=_BR_TAGS_DOC)] = None,
         active: Annotated[bool | None, Field(description=_BR_ACTIVE_DOC)] = None,
-        filter: Annotated[dict[str, Any] | None, Field(description=_BR_FILTER_DOC)] = None,  # noqa: A002
+        # Text is mode=projects' name match (`normalize_text_filter`); the schema still says object.
+        filter: Annotated[  # noqa: A002
+            dict[str, Any] | str | None, FILTER_JSON_SCHEMA, Field(description=_BR_FILTER_DOC)
+        ] = None,
         # Plain `str` with "" for absent, like `query`: FastMCP JSON-parses any other annotation's string.
         order: Annotated[
             str, BeforeValidator(_none_as_empty), Field(max_length=300, description=_BR_ORDER_DOC)
@@ -331,6 +337,15 @@ def _register_browse_and_search(mcp, svc):
         `completeness.missing` says what this response does not cover (absent: nothing): read it.
         One page is not the whole tree: on `next_cursor`, page on or search before concluding absence. An absent key means "nothing here", never "unknown". `available_views` appears once on the response, keyed by kind. mode=runs: `totals` counts the whole listing.
         """
+        withheld: frozenset[str] = frozenset()
+        feature = (
+            BROWSE_PROJECT_QUERY_FEATURE if mode == BrowseMode.PROJECTS
+            else BROWSE_NAME_QUERY_FEATURE if mode in NAME_QUERY_MODES else None
+        )
+        if feature is not None and query.strip():
+            with svc() as s:
+                # An older server ignores `query` and lists everything: refused there, as before it was built.
+                withheld = frozenset() if s.source.has_feature(feature) else frozenset({"query"})
         _browse_args_for_mode(
             BrowseMode(mode),
             {
@@ -361,6 +376,7 @@ def _register_browse_and_search(mcp, svc):
                 "provider": provider,
                 "kind": kind,
             },
+            withheld,
         )
         # `order` is mode=runs' sort too: there it reaches the runs list as `order`, never twice.
         people = PeopleFilters(
@@ -382,6 +398,7 @@ def _register_browse_and_search(mcp, svc):
                     runs_cursor=runs_cursor,
                     subprojects_cursor=subprojects_cursor,
                     people=people,
+                    query=query or None,
                 )
             return s.browse_list(
                 BrowseMode(mode),

@@ -29,6 +29,17 @@ problemStatus = ['optimal', 'primal infeasible', 'dual infeasible',
                 'stopped due to errors',
                 'stopped by event handler (virtual int ' \
                                     'ClpEventHandler::event())']
+# Codes that Clp can also return
+otherProblemStatus = {-1: 'unknown', 10: 'stopped, try another algorithm'}
+
+
+def statusString(code):
+    '''
+    Return the name of Clp's problem status ``code``.
+    '''
+    if 0 <= code < len(problemStatus):
+        return problemStatus[code]
+    return otherProblemStatus.get(code, 'unknown status %d' % code)
 
 CLP_variableStatusEnum = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05]
 StatusToInt = {'free' : 0, 'basic' : 1, 'atUpperBound' : 2,
@@ -104,12 +115,14 @@ cdef class CyClpSimplex:
 
     property basicVariables:
         def __get__(self):
+            self._checkFactorization('basicVariables')
             cdef np.ndarray[np.int32_t, ndim=1] bv = np.zeros(self.nConstraints, dtype=np.int32)
             self.CppSelf.getBasics(<int*>bv.data)
             return bv
 
     property rhs:
         def __get__(self):
+            self._checkFactorization('rhs')
             r = np.zeros(self.nConstraints, dtype=np.double)
             self.getRightHandSide(r)
             #Py_INCREF(r)
@@ -117,6 +130,7 @@ cdef class CyClpSimplex:
 
     property basisInverse:
         def __get__(self):
+            self._checkFactorization('basisInverse')
             b = np.empty((self.nConstraints, self.nConstraints), dtype=np.double)
             cdef np.ndarray[np.double_t, ndim=1] c = np.zeros(self.nConstraints, dtype=np.double)
             for colInd in xrange(self.nConstraints):
@@ -126,6 +140,7 @@ cdef class CyClpSimplex:
 
     property tableau:
         def __get__(self):
+            self._checkFactorization('tableau')
             nAllVars = self.nVariables + self.nConstraints
             t = np.empty((self.nConstraints, nAllVars), dtype=np.double)
             cdef np.ndarray[np.double_t, ndim=1] c = np.zeros(self.nConstraints, dtype=np.double)
@@ -152,7 +167,7 @@ cdef class CyClpSimplex:
                 # This does work in some versions of SciPy
                 # It would probably be OK if csr_matrixPlus didn't override
                 # __get_item__ to always cast the result back to csr_matrixPlus
-                # I'm not actually sure why the objective is stored as 
+                # I'm not actually sure why the objective is stored as
                 # csr_matrixPlus anyway... seems to not always be true.
                 #
                 #if isinstance(o, (sparse.coo_matrix,
@@ -226,6 +241,8 @@ cdef class CyClpSimplex:
         '''
         def __get__(self):
             mat = self.matrix
+            if mat is None:
+                return csc_matrixPlus((self.nConstraints, self.nVariables))
             if mat.hasGaps():
                 mat.removeGaps()
             return csc_matrixPlus((mat.elements, mat.indices, mat.vectorStarts),
@@ -240,10 +257,13 @@ cdef class CyClpSimplex:
 
     property matrix:
         '''
-        The coefficient matrix. A CyCoinPackedMatrix.
+        The coefficient matrix. A CyCoinPackedMatrix, or ``None`` if the
+        model was never loaded.
         '''
         def __get__(self):
             cdef CppCoinPackedMatrix* cppMat = self.CppSelf.getMatrix()
+            if cppMat == NULL:
+                return None
             mat = CyCoinPackedMatrix()
             mat.CppSelf = cppMat
             return mat
@@ -294,6 +314,17 @@ cdef class CyClpSimplex:
         def __get__(self):
             return self.CppSelf.objectiveValue()
 
+    property primalColumnSolution:
+        '''
+        Solution to the primal variables as one array, in column order.
+        Unlike :py:attr:`primalVariableSolution`, it is not split up by
+        variable, which is much faster for large models. A copy.
+
+        :rtype: Numpy array
+        '''
+        def __get__(self):
+            return np.array(<object>self.CppSelf.getPrimalColumnSolution())
+
     property primalVariableSolution:
         '''
         Solution to the primal variables.
@@ -329,14 +360,18 @@ cdef class CyClpSimplex:
 
     property primalVariableSolutionAll:
         '''
-        Solution to the primal variables. Including the slacks.
+        Solution to the primal variables, followed by the slacks (the
+        constraints' activities), as one array. A copy.
 
         :rtype: Numpy array
         '''
         def __get__(self):
             #if self.cbcModelExists:
             #    return <object>self.cbcModel.getPrimalVariableSolution()
-            return <object>self.CppSelf.getPrimalColumnSolutionAll()
+            # Clp stores the columns and the rows in separate arrays
+            return np.concatenate((
+                        <object>self.CppSelf.getPrimalColumnSolution(),
+                        <object>self.CppSelf.getPrimalRowSolution()))
 
     property solution:
         '''
@@ -379,7 +414,7 @@ cdef class CyClpSimplex:
                         d[v] = CyLPSolution()
                         dimRanges = [range(i) for i in var.dims]
                         for element in product(*dimRanges):
-                            d[v][element] = ret[var.__getitem__(element).indices[0]]
+                            d[v][element] = ret[var.fromInd+var[element].indices[0]]
                 ret = d
             else:
                 names = self.variableNames
@@ -389,6 +424,17 @@ cdef class CyClpSimplex:
                         d[names[i]] = ret[i]
                     ret = d
             return ret
+
+    property dualColumnSolution:
+        '''
+        Variables' reduced costs as one array, in column order. Unlike
+        :py:attr:`dualVariableSolution`, it is not split up by variable.
+        A copy.
+
+        :rtype: Numpy array
+        '''
+        def __get__(self):
+            return np.array(<object>self.CppSelf.getDualColumnSolution())
 
     property primalConstraintSolution:
         '''
@@ -516,7 +562,7 @@ cdef class CyClpSimplex:
 
     property lower:
         '''
-        lower bounds (CLP's lower_)
+        lower bounds (CLP's ``lower_``)
 
         :rtype: Numpy array
         '''
@@ -525,7 +571,7 @@ cdef class CyClpSimplex:
 
     property upper:
         '''
-        upper bounds (CLP's upper_)
+        upper bounds (CLP's ``upper_``)
 
         :rtype: Numpy array
         '''
@@ -701,26 +747,36 @@ cdef class CyClpSimplex:
             return (status & 64 == 0)
 
     property Hessian:
+        '''
+        The Hessian of the objective, i.e. :math:`Q` in
+        :math:`c^T x + \\frac{1}{2} x^T Q x`, as a symmetric matrix. It can
+        be set to any matrix that implements *tocoo*, such as a scipy
+        sparse matrix. Only its symmetric part, :math:`(Q + Q^T) / 2`,
+        matters, and that is what is kept.
+        '''
         def __get__(self):
             return self._Hessian
 
         def __set__(self, mat):
-            m = None
             try:
                 m = mat.tocoo()
             except:
                 raise Exception('Hessian can be set to a matrix that ' \
                                             'implements *tocoo* method')
-            if m:
-                coinMat = CyCoinPackedMatrix(True, m.row, m.col, m.data)
-                n = self.nVariables
-                if coinMat.majorDim < n:
-                    for i in xrange(n - coinMat.majorDim):
-                        coinMat.appendCol()
-                if coinMat.minorDim < n:
-                    for i in xrange(n - coinMat.majorDim):
-                        coinMat.appendRow()
-                self._Hessian = m
+            m = ((m + m.T) / 2).tocoo()
+            # Clp counts the elements off the diagonal twice, so give it
+            # only one triangle
+            u = sparse.triu(m).tocoo()
+            coinMat = CyCoinPackedMatrix(True, u.row.astype(np.int32),
+                                         u.col.astype(np.int32),
+                                         u.data.astype(np.double))
+            # Rows and columns after the last nonzero are missing
+            n = self.nVariables
+            for i in range(n - coinMat.majorDim):
+                coinMat.appendCol()
+            for i in range(n - coinMat.minorDim):
+                coinMat.appendRow()
+            self._Hessian = m
             self.loadQuadraticObjective(coinMat)
 
     property dualTolerance:
@@ -790,6 +846,7 @@ cdef class CyClpSimplex:
         Take a spare array, ``rhs``, and store the current right-hand-side
         in it.
         '''
+        self._checkFactorization('getRightHandSide')
         self.CppSelf.getRightHandSide(<double*>rhs.data)
 
     def getStatusCode(self):
@@ -803,6 +860,7 @@ cdef class CyClpSimplex:
         * 3 - stopped on iterations or time
         * 4 - stopped due to errors
         * 5 - stopped by event handler (virtual int ClpEventHandler::event())
+        * 10 - stopped, try another algorithm
 
         '''
         return self.CppSelf.status()
@@ -812,7 +870,7 @@ cdef class CyClpSimplex:
         Return the problem status in string using the code from
         :func:`getStatusCode`
         '''
-        return problemStatus[self.getStatusCode()]
+        return statusString(self.getStatusCode())
 
     def setColumnLower(self, ind, val):
         '''
@@ -1250,8 +1308,11 @@ cdef class CyClpSimplex:
         2520.5717
 
         '''
-        presolve = 0 if presolve == 'on' and self.Hessian is None else 1
-        return problemStatus[self.CppSelf.initialSolve(presolve)]
+        self._checkQP()
+        # Hessian is None if the QP was set with loadQuadraticObjective
+        quadratic = self.CppSelf.hasQuadraticObjective()
+        presolve = 0 if presolve == 'on' and not quadratic else 1
+        return statusString(self.CppSelf.initialSolve(presolve))
 
     def initialPrimalSolve(self):
         '''
@@ -1271,7 +1332,8 @@ cdef class CyClpSimplex:
         2520.5717
 
         '''
-        return problemStatus[self.CppSelf.initialPrimalSolve()]
+        self._checkQP()
+        return statusString(self.CppSelf.initialPrimalSolve())
 
     def initialDualSolve(self):
         '''
@@ -1291,7 +1353,8 @@ cdef class CyClpSimplex:
         2520.5717
 
         '''
-        return problemStatus[self.CppSelf.initialDualSolve()]
+        self._checkQP()
+        return statusString(self.CppSelf.initialDualSolve())
 
     def __iadd__(self, cons):
         self.addConstraint(cons)
@@ -1300,7 +1363,7 @@ cdef class CyClpSimplex:
     def addConstraint(self, cons, name='', addMpsNames=True):
         '''
         Adds constraints ``cons``  to the problem. Example for the value
-        of ``cons`` is ``0 <= A * x <= b`` where ``A`` is a Numpy matrix and
+        of ``cons`` is ``0 <= A @ x <= b`` where ``A`` is a 2-d NumPy array and
         b is a :py:class:`CyLPArray`.
         '''
         if self.cyLPModel:
@@ -1557,6 +1620,30 @@ cdef class CyClpSimplex:
                 sf = sf | startFinishOptionsDic[option]
         return sf
 
+    def _checkQP(self):
+        '''
+        Raise ValueError if the problem is a QP that Clp can't solve
+        '''
+        if self.CppSelf.isQPWithoutBoundedRows():
+            raise ValueError(
+                "Clp can't solve a QP unless a constraint with a finite bound "
+                "has a nonzero coefficient, so it can't solve a QP with only "
+                "bounds on its variables. A constraint that can't be active, "
+                "such as an upper bound of 1e10 on the sum of the variables, "
+                "works around this.")
+
+    def _checkFactorization(self, name):
+        '''
+        Raise RuntimeError if Clp's factorization of the basis isn't
+        available, since Clp aborts or segfaults when ``name`` needs it
+        '''
+        if not self.CppSelf.hasFactorization():
+            raise RuntimeError(
+                "%s needs Clp's factorization of the basis, which exists "
+                "only during a solve, such as in a pivot rule, or after "
+                "primal() or dual() with startFinishOptions='x' until the "
+                "constraints change." % name)
+
     def primal(self, ifValuesPass=0, startFinishOptions=0, presolve=False):
         '''
         Solve the problem using the primal simplex algorithm.
@@ -1569,16 +1656,18 @@ cdef class CyClpSimplex:
         's': skip initialization of work areas
         So one might call ``self.primal(startFinishOptions='sx')``
         '''
+        self._checkQP()
         sf = self._extractStartFinish(startFinishOptions)
         if presolve:
             return self.primalWithPresolve()
         else:
-            return problemStatus[self.CppSelf.primal(
-                             ifValuesPass, sf)]
+            return statusString(self.CppSelf.primal(ifValuesPass, sf))
 
     def dual(self, ifValuesPass=0, startFinishOptions=0, presolve=False):
         '''
-        Runs CLP dual simplex.
+        Runs CLP dual simplex. It ignores the quadratic part of the
+        objective, so use :py:meth:`primal` or :py:meth:`initialSolve` to
+        solve a QP.
 
         **Usage Example**
 
@@ -1595,8 +1684,7 @@ cdef class CyClpSimplex:
         if presolve:
             return self.dualWithPresolve()
         else:
-            return problemStatus[self.CppSelf.dual(
-                            ifValuesPass, sf)]
+            return statusString(self.CppSelf.dual(ifValuesPass, sf))
 
     def setPerturbation(self, value):
         '''
@@ -1631,12 +1719,14 @@ cdef class CyClpSimplex:
         '''
         Compute :math:`A_B^{-1}A_{col}` and store the result in ``cl``.
         '''
+        self._checkFactorization('getBInvACol')
         self.CppSelf.getBInvACol(col, <double*>cl.data)
 
     def getBInvCol(self, col, np.ndarray[np.double_t, ndim=1] cl):
         '''
         Return :math:`A_B^{-1}_{col}` and store the result in ``cl``.
         '''
+        self._checkFactorization('getBInvCol')
         self.CppSelf.getBInvCol(col, <double*>cl.data)
 
     def transposeTimes(self, scalar, CyCoinIndexedVector x,
@@ -1691,15 +1781,15 @@ cdef class CyClpSimplex:
         >>> x = model.addVariable('x', 3)
         >>> y = model.addVariable('y', 2)
         >>>
-        >>> A = np.matrix([[1., 2., 0],[1., 0, 1.]])
-        >>> B = np.matrix([[1., 0, 0], [0, 0, 1.]])
-        >>> D = np.matrix([[1., 2.],[0, 1]])
+        >>> A = np.array([[1., 2., 0],[1., 0, 1.]])
+        >>> B = np.array([[1., 0, 0], [0, 0, 1.]])
+        >>> D = np.array([[1., 2.],[0, 1]])
         >>> a = CyLPArray([5, 2.5])
         >>> b = CyLPArray([4.2, 3])
         >>> x_u= CyLPArray([2., 3.5])
         >>>
-        >>> model += A*x <= a
-        >>> model += 2 <= B * x + D * y <= b
+        >>> model += A @ x <= a
+        >>> model += 2 <= B @ x + D @ y <= b
         >>> model += y >= 0
         >>> model += 1.1 <= x[1:3] <= x_u
         >>>
@@ -1714,15 +1804,14 @@ cdef class CyClpSimplex:
         >>> cbcModel.solve()
         0
         >>> print(cbcModel.status)
-        'solution'
+        solution
         >>>
+        >>> # Several solutions are optimal, but they all have the same
+        >>> # objective value, and x[1:3] = [2, 2]
+        >>> round(cbcModel.objectiveValue, 6)
+        4.0
         >>> sol_x = cbcModel.primalVariableSolution['x']
-        >>> (abs(sol_x -
-        ...     np.array([0.5, 2, 2]) ) <= 10**-6).all()
-        True
-        >>> sol_y = cbcModel.primalVariableSolution['y']
-        >>> (abs(sol_y -
-        ...     np.array([0, 0.75]) ) <= 10**-6).all()
+        >>> (abs(sol_x[1:3] - np.array([2, 2])) <= 10**-6).all()
         True
 
         '''
@@ -1760,6 +1849,12 @@ cdef class CyClpSimplex:
         self.CppSelf.replaceMatrix(matrix.CppSelf, deleteCurrent)
 
     def loadQuadraticObjective(self, CyCoinPackedMatrix matrix):
+        '''
+        Make :math:`\\frac{1}{2} x^T Q x` part of the objective, where
+        ``matrix`` is one triangle of :math:`Q`, as in a QPS file: Clp counts
+        each element off the diagonal twice. To give the whole of :math:`Q`
+        instead, set :py:attr:`Hessian`.
+        '''
         self.CppSelf.loadQuadraticObjective(matrix.CppSelf)
 
     def preSolve(self, feasibilityTolerance=0.0,
@@ -1790,11 +1885,12 @@ cdef class CyClpSimplex:
             print("Presolve says problem infeasible.")
             return -2000
 
-        return problemStatus[ret]
+        return statusString(ret)
 
     def primalWithPresolve(self, feasibilityTolerance=0.0,
                  keepIntegers=0, numberPasses=5,
                  dropNames=0, doRowObjective=0):
+        self._checkQP()
         ret = self.CppSelf.primalWithPresolve(self.CppSelf,
                                 feasibilityTolerance, keepIntegers,
                                 numberPasses, dropNames, doRowObjective)
@@ -1802,7 +1898,7 @@ cdef class CyClpSimplex:
             print("Presolve says problem infeasible.")
             return -2000
 
-        return problemStatus[ret]
+        return statusString(ret)
 
     def writeMps(self, filename, formatType=0, numberAcross=2, objSense=0):
         try:
@@ -2189,15 +2285,15 @@ def getModelExample():
     x = model.addVariable('x', 3)
     y = model.addVariable('y', 2)
 
-    A = np.matrix([[1., 2., 0], [1., 0, 1.]])
-    B = np.matrix([[1., 0, 0], [0, 0, 1.]])
-    D = np.matrix([[1., 2.], [0, 1]])
+    A = np.array([[1., 2., 0], [1., 0, 1.]])
+    B = np.array([[1., 0, 0], [0, 0, 1.]])
+    D = np.array([[1., 2.], [0, 1]])
     a = CyLPArray([5, 2.5])
     b = CyLPArray([4.2, 3])
     x_u= CyLPArray([2., 3.5])
 
-    model += A * x <= a
-    model += 2 <= B * x + D * y <= b
+    model += A @ x <= a
+    model += 2 <= B @ x + D @ y <= b
     model += y >= 0
     model += 1.1 <= x[1:3] <= x_u
 
@@ -2216,9 +2312,9 @@ def getMpsExample():
     Return full path to an MPS example file for doctests
     '''
     import os
-    import inspect
-    curpath = os.path.dirname(inspect.getfile(inspect.currentframe()))
-    return os.path.join(curpath, '../input/p0033.mps')
+    # The examples are installed in cylp/input
+    cylpDir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(cylpDir, 'input', 'p0033.mps')
 
 
 cdef int RunIsPivotAcceptable(void * ptr):

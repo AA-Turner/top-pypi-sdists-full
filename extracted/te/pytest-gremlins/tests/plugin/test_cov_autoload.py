@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
 
-from cov_samples import (
+from cov_samples import (  # type: ignore[import-not-found]
     SESSION_ARGS,
     assert_gremlins_ran_cleanly,
     write_project,
@@ -18,8 +18,10 @@ from cov_samples import (
 import pytest
 
 from pytest_gremlins.plugin import (
-    _build_test_command,
     _pytest_cov_options_for,
+)
+from pytest_gremlins.verdicts import (
+    _build_test_command,
 )
 
 AUTOLOAD_OFF_FLAG = '--disable-plugin-autoload'

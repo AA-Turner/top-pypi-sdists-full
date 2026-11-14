@@ -14,9 +14,9 @@ class BindDBResourceGroupWithRoleRequest(DaraModel):
         resource_group_name: str = None,
         role_list: List[str] = None,
     ):
-        # The instance ID.
+        # The ID of the instance.
         # 
-        # >  You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the information about all AnalyticDB for PostgreSQL instances within a region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in the target region, including instance IDs.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
@@ -25,7 +25,7 @@ class BindDBResourceGroupWithRoleRequest(DaraModel):
         # 
         # This parameter is required.
         self.resource_group_name = resource_group_name
-        # The roles.
+        # The list of roles.
         # 
         # This parameter is required.
         self.role_list = role_list

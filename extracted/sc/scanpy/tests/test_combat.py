@@ -3,11 +3,13 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
+from anndata import AnnData
 from anndata.tests.helpers import assert_equal
 from sklearn.metrics import silhouette_score
 
 import scanpy as sc
 from scanpy.preprocessing._combat import _design_matrix, _standardize_data
+from testing.scanpy._pytest.marks import needs
 
 
 def test_norm():
@@ -29,20 +31,18 @@ def test_norm():
 
 
 def test_covariates():
+    rng = np.random.default_rng()
     adata = sc.datasets.blobs()
     key = "blobs"
 
-    x1 = sc.pp.combat(adata, key=key, inplace=False)
+    x1 = sc.pp.combat(adata, key, out=True)
 
-    np.random.seed(0)
-    adata.obs["cat1"] = np.random.binomial(3, 0.5, size=(adata.n_obs))
-    adata.obs["cat2"] = np.random.binomial(2, 0.1, size=(adata.n_obs))
-    adata.obs["num1"] = np.random.normal(size=(adata.n_obs))
+    adata.obs["cat1"] = rng.binomial(3, 0.5, size=adata.n_obs)
+    adata.obs["cat2"] = rng.binomial(2, 0.1, size=adata.n_obs)
+    adata.obs["num1"] = rng.standard_normal(adata.n_obs)
 
-    x2 = sc.pp.combat(
-        adata, key=key, covariates=["cat1", "cat2", "num1"], inplace=False
-    )
-    sc.pp.combat(adata, key=key, covariates=["cat1", "cat2", "num1"], inplace=True)
+    x2 = sc.pp.combat(adata, key, covariates=["cat1", "cat2", "num1"], out=True)
+    sc.pp.combat(adata, key, covariates=["cat1", "cat2", "num1"])
 
     assert x1.shape == x2.shape
 
@@ -53,11 +53,42 @@ def test_covariates():
     assert len(design.columns) == 4 + len(batch_cats) - 1
 
 
+@pytest.mark.parametrize("covariates", [["cond"], ["cond", "donor"]])
+def test_categorical_covariates(covariates: list[str]) -> None:
+    """Categorical covariates are modeled, so their effect survives batch correction."""
+    rng = np.random.default_rng(0)
+    batch = rng.integers(0, 3, 600)
+    treated = rng.random(600) < np.where(batch == 0, 0.8, 0.2)
+    cond_effect = rng.normal(0, 2, 10)
+    x = (
+        5
+        + rng.normal(0, 2, (3, 10))[batch]
+        + np.outer(treated, cond_effect)
+        + rng.normal(0, 0.5, (600, 10))
+    )
+    adata = AnnData(x)
+    adata.obs = pd.DataFrame(
+        dict(
+            batch=batch.astype(str),
+            cond=np.where(treated, "treated", "ctrl"),
+            donor=rng.choice(["d0", "d1", "d2"], 600),
+        ),
+        index=adata.obs_names,
+    ).astype("category")
+
+    corrected = sc.pp.combat(adata, "batch", covariates=covariates, out=True)
+
+    np.testing.assert_allclose(
+        corrected[treated].mean(0) - corrected[~treated].mean(0), cond_effect, atol=0.2
+    )
+
+
 def test_combat_obs_names():
-    # Test for fix to #1170
-    x = np.random.random((200, 100))
+    """Regression test for <https://github.com/scverse/scanpy/issues/1170>."""
+    rng = np.random.default_rng()
+    x = rng.random((200, 100))
     obs = pd.DataFrame(
-        {"batch": pd.Categorical(np.random.randint(0, 2, 200))},
+        {"batch": pd.Categorical(rng.integers(0, 2, (200,)))},
         index=np.repeat(np.arange(100), 2).astype(str),  # Non-unique index
     )
     with pytest.warns(UserWarning, match="Observation names are not unique"):
@@ -86,7 +117,7 @@ def test_combat_single_cell_batch():
     adata.obs["batch"] = batch
 
     with pytest.raises(ValueError, match="fewer than 2 cells"):
-        sc.pp.combat(adata, key="batch")
+        sc.pp.combat(adata, batch="batch")
 
 
 def test_silhouette():
@@ -107,3 +138,43 @@ def test_silhouette():
     sh = silhouette_score(x_pca[:, :2], adata.obs["blobs"].values)
 
     assert sh < 0.1
+
+
+@needs.anndata_acc
+def test_use_out() -> None:
+    """`use`/`out` pick where to read and write, leaving `X` alone."""
+    from anndata.acc import A
+
+    adata = sc.datasets.blobs()
+    adata.layers["counts"] = adata.X.copy()
+    expected = sc.pp.combat(adata, "blobs", out=True)
+    sc.pp.combat(adata, "blobs", use=A.layers["counts"], out=A.layers["p"])
+    np.testing.assert_array_equal(adata.X, adata.layers["counts"])
+    np.testing.assert_allclose(adata.layers["p"], expected)
+
+
+def test_inplace_deprecated() -> None:
+    adata = sc.datasets.blobs()
+    with pytest.warns(FutureWarning, match=r"argument inplace is deprecated"):
+        x = sc.pp.combat(adata, "blobs", inplace=False)
+    np.testing.assert_allclose(x, sc.pp.combat(adata, "blobs", out=True))
+
+
+@needs.anndata_acc
+def test_key_ref() -> None:
+    """`key` and `covariates` can also be references."""
+    from anndata.acc import A
+
+    adata = sc.datasets.blobs()
+    adata.obs["cov"] = np.random.default_rng(0).normal(size=adata.n_obs)
+    expected = sc.pp.combat(adata, "blobs", covariates=["cov"], out=True)
+    res = sc.pp.combat(adata, A.obs["blobs"], covariates=[A.obs["cov"]], out=True)
+    np.testing.assert_allclose(res, expected)
+
+
+def test_key_deprecated() -> None:
+    adata = sc.datasets.blobs()
+    expected = sc.pp.combat(adata, "blobs", out=True)
+    with pytest.warns(FutureWarning, match=r"argument key is deprecated"):
+        res = sc.pp.combat(adata, key="blobs", out=True)
+    np.testing.assert_allclose(res, expected)

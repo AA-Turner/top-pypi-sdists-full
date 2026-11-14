@@ -1,8 +1,11 @@
 """A units base whose deployments run one robot preset (DSL-353 P20, docs/plans/
 2026-10-30-family-registries.md §6.6): the export fixes its cameras, widths, chunk and rate, and
-its RTC is off or trained with a prefix cap. Its CLI hooks (`deployments create`, the robot
-line, Detect's lines, `deployments rtc`) are this module's, from the facts its transport module
-declares; its sessions' contract is ``dreamscale.policy.preset_deployment``'s.
+its RTC is off or trained with a prefix cap. The rate reaches the deployment record, and the
+SDK reads it there: ``PresetUnits.action_hz`` is only what a row shows where the record names
+none. A create declares `--hz` only where the family's server takes it (``declared_rates``). Its
+CLI hooks (`deployments create`, the robot line, Detect's lines, `deployments rtc`) are this
+module's, from the facts its transport module declares; its sessions' contract is
+``dreamscale.policy.preset_deployment``'s.
 
 A base declares one ``PresetUnits`` and passes ``hooks()`` to its ``DeployBase``; what it does
 beyond them (a `dreamscale run` runner, aliases, its own Detect lines) stays in its module.
@@ -10,6 +13,7 @@ beyond them (a `dreamscale run` runner, aliases, its own Detect lines) stays in 
 
 from __future__ import annotations
 
+import math
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -33,6 +37,8 @@ class PresetUnits:
     state_dim: int
     action_dim: int
     action_horizon: int
+    # The family's usual rate: Detect's lines, and a row whose record names none. Never a limit
+    # on the rate a deployment runs at (its record's: dreamscale.policy.preset_deployment).
     action_hz: float
     action_space: str
     joint_unit: str | None
@@ -53,6 +59,17 @@ class PresetUnits:
     custom_cameras: tuple[str, ...] = ()
     # The rows a robot executes per chunk when the export doesn't say (default: the chunk).
     default_executed: int | None = None
+    # The rates a create may declare (`--hz`, sent as its robot's ``action_hz``), as the
+    # family's server takes them: () none (its server refuses the key, so `--hz` is refused
+    # here, as it always was); some, only those (refused here otherwise); None, any (the
+    # server's validation decides, its answer reaching the user as it says it). Each family's
+    # package widens this, in its base's declaration, when its server takes a declared rate.
+    declared_rates: tuple[float, ...] | None = ()
+    # The robot a create runs from what Detect read (``found``), the robot the create named
+    # (None: the preset's) and its declared rate: the embodiment sent (it may refuse, say a
+    # rate the export doesn't record and the create didn't declare). None: the named robot, or
+    # the preset's.
+    robot_from_found: Callable[[dict, dict | None, float | None], dict] | None = None
 
     @property
     def trained(self) -> bool:
@@ -61,6 +78,18 @@ class PresetUnits:
     @property
     def joints(self) -> bool:
         return self.action_space == "absolute_joint_position"
+
+    def takes_rate(self, hz: Any) -> bool:
+        """Whether a create may declare ``hz`` (``declared_rates``)."""
+        return self.declared_rates is None or (
+            isinstance(hz, int | float) and not isinstance(hz, bool)
+            and float(hz) in self.declared_rates)
+
+    def _fixed(self) -> str:
+        """What its robot fixes, as its refusals say it."""
+        fixed = "cameras and widths are" if self.declared_rates is None else (
+            "cameras, widths and rate are")
+        return f"{self.label} runs the {self.robot or self.preset_label} (its {fixed} fixed)"
 
     def hooks(self) -> dict[str, Any]:
         """Its ``DeployBase`` fields."""
@@ -81,13 +110,14 @@ class PresetUnits:
         return self.preset_label
 
     def robot_line(self, checkpoint: dict) -> str:
-        """`<title> · <robot> · 25 of 50 actions at 30 Hz · RTC trained (…)`."""
+        """`<title> · <robot> · 25 of 50 actions at 30 Hz · RTC trained (…)`: the rate the
+        deployment record holds."""
         spec = checkpoint.get("embodiment") or {}
         executed = spec.get("executed_actions")
         parts = [self.title or self.label, self.robot_name(spec),
                  f"{executed or self.default_executed or self.action_horizon} of "
                  f"{self.action_horizon} actions at "
-                 f"{cmd._hz(self.action_hz)} Hz"]
+                 f"{cmd._hz(spec.get('action_hz') or self.action_hz)} Hz"]
         if self.trained and checkpoint.get("rtc_method") and (
                 checkpoint.get("status") != "building"):
             parts.append(f"RTC {cmd.prefix_rtc(checkpoint)}")
@@ -117,9 +147,17 @@ class PresetUnits:
     def run_add(self, *, repo: str, revision=None, name=None, hf_token=None, path=None,
                 executed=None, rtc=None, rtc_prefix=None, region="auto", wait=True,
                 keep_warm=None, slug=None, region_fallback=None, client_factory=None,
-                print_fn=print, sleep=time.sleep, robot: dict | None = None):
+                print_fn=print, sleep=time.sleep, robot: dict | None = None, hz=None):
         """Read an export (a Hub repo or a local folder), pin the resolved commit, and deploy
-        it on the preset's robot."""
+        it on the preset's robot (``robot``: a custom one). ``hz``: the robot's declared control
+        rate, sent as its ``action_hz`` where the family's server takes one (``declared_rates``),
+        for the server to accept or refuse."""
+        if hz is not None and not self.takes_rate(hz):
+            raise cmd._invalid(self._fixed(), "omit the rate (hz)")
+        if hz is not None and (isinstance(hz, bool) or not isinstance(hz, int | float)
+                               or not math.isfinite(hz) or hz <= 0):
+            raise cmd._invalid("--hz is the robot's control rate in Hz, a positive number",
+                               "pass --hz 30, say")
         if client_factory is None:
             from dreamscale.control import ControlPlaneClient
 
@@ -154,9 +192,10 @@ class PresetUnits:
             raise cmd._invalid(f"the server did not read {article} {self.label} {self.noun}",
                                "update the SDK and retry")
         for line in (self.describe_found or self.found_lines)(found):
-            if robot and line.startswith("Robot: "):
-                # Detect reads the export; the robot is the create's declaration.
-                line = f"Robot: {self.robot_name(robot)} (declared)"
+            if (robot or hz is not None) and line.startswith("Robot: "):
+                # Detect reads the export; the robot (or its rate) is the create's declaration.
+                rate = f" at {cmd._hz(hz)} Hz" if hz is not None else ""
+                line = f"Robot: {self.robot_name(robot or {})}{rate} (declared)"
             print_fn(line)
         if self.trained:
             trained = (found.get("rtc") or {}).get("trained_max_delay") or 0
@@ -168,9 +207,13 @@ class PresetUnits:
                 )
         else:
             method = "off"
-        embodiment: dict = dict(robot) if robot else {"preset": self.preset}
+        embodiment: dict = (self.robot_from_found(found, robot, hz) if self.robot_from_found
+                            else dict(robot) if robot else {"preset": self.preset})
         if executed is not None:
             embodiment["executed_actions"] = executed
+        if hz is not None:
+            # The server's validation decides; its refusal reaches the user as it says it.
+            embodiment["action_hz"] = float(hz)
         source = found.get("request") or {}
         local = {}
         if folder:
@@ -195,31 +238,34 @@ class PresetUnits:
     def create(self, *, repo, given, preset, camera, hz, path, executed, steps, joint_unit, rtc,
                rtc_prefix, revision, name, hf_token, region, wait, keep_warm, slug,
                region_fallback=None) -> None:
-        """`deployments create --base <its name>`: the options its robot leaves open."""
+        """`deployments create --base <its name>`: the options its robot leaves open. A declared
+        `--hz` (the preset's robot's or a custom one's) goes to the server where the family's
+        server takes it (``declared_rates``), and is refused here otherwise."""
         allowed = ("path", "executed", "rtc") if self.trained else ("path", "executed")
         allowed += ("arm",) if self.custom_cameras else ()
         unsupported = {key: value for key, value in given.items() if key not in allowed}
         robot = self._custom_robot(preset, camera, given.get("arm"))
         if robot is not None:
             preset, camera = None, None
-        if preset not in (None, self.preset) or camera or hz is not None or (
+        if preset not in (None, self.preset) or camera or (
+            hz is not None and not self.takes_rate(hz)) or (
             steps is not None or joint_unit is not None
             or (not self.trained and rtc_prefix is not None)
             or any(value is not None for value in unsupported.values())
         ):
-            options = ("--path, --executed, --rtc and --rtc-prefix" if self.trained
-                       else "--path and --executed")
-            raise cli.typer.BadParameter(
-                f"{self.label} runs the {self.robot or self.preset_label} (its cameras, widths "
-                f"and rate are fixed); pass only {options}."
-            )
+            flags = ["--path", "--executed"]
+            flags += ["--hz"] if self.declared_rates is None else [
+                f"--hz {cmd._hz(rate)}" for rate in self.declared_rates]
+            flags += ["--rtc", "--rtc-prefix"] if self.trained else []
+            options = f"{', '.join(flags[:-1])} and {flags[-1]}"
+            raise cli.typer.BadParameter(f"{self._fixed()}; pass only {options}.")
         result = {}
         cli._run(
             lambda **kwargs: result.update(self.run_add(**kwargs)),
             repo=repo, revision=revision, name=name, hf_token=hf_token, path=path,
             executed=executed, rtc=rtc, rtc_prefix=rtc_prefix, region=region or cmd.AUTO_REGION,
             wait=wait, keep_warm=keep_warm, slug=slug, region_fallback=region_fallback,
-            robot=robot,
+            robot=robot, hz=hz,
         )
         if result.get("status") == "failed":
             raise cli.typer.Exit(code=1)

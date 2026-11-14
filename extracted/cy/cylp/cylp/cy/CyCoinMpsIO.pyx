@@ -55,7 +55,7 @@ cdef class CyCoinMpsIO:
         True
         >>> H = problem.Hessian.todense()
         >>> (abs(H -
-        ... np.matrix([[20394., -24908., -2026., 3896., 658.],
+        ... np.array([[20394., -24908., -2026., 3896., 658.],
         ...            [-24908., 41818., -3466., -9828., -372.],
         ...            [-2026., -3466., 3510., 2178., -348.],
         ...            [3896., -9828., 2178., 3030., -44.],
@@ -143,15 +143,27 @@ cdef class CyCoinMpsIO:
             return <object>self.CppSelf.getQPElements()
 
     property matrixByRow:
+        '''
+        The constraint matrix, stored by row. A CyCoinPackedMatrix, or
+        ``None`` if no problem has been read.
+        '''
         def __get__(self):
             cdef CppCoinPackedMatrix* m = self.CppSelf.IgetMatrixByRow()
+            if m == NULL:
+                return None
             cym = CyCoinPackedMatrix()
             cym.CppSelf = m
             return cym
 
     property matrixByCol:
+        '''
+        The constraint matrix, stored by column. A CyCoinPackedMatrix, or
+        ``None`` if no problem has been read.
+        '''
         def __get__(self):
             cdef CppCoinPackedMatrix* m = self.CppSelf.IgetMatrixByCol()
+            if m == NULL:
+                return None
             cym = CyCoinPackedMatrix()
             cym.CppSelf = m
             return cym
@@ -174,9 +186,9 @@ def getQpsExample():
     Return full path to a QPS example file for doctests
     '''
     import os
-    import inspect
-    curpath = os.path.dirname(inspect.getfile(inspect.currentframe()))
-    return os.path.join(curpath, '../input/hs268.qps')
+    # The examples are installed in cylp/input
+    cylpDir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(cylpDir, 'input', 'hs268.qps')
 
 
 #   cdef int CLP_readQuadraticMps(self, char* filename,

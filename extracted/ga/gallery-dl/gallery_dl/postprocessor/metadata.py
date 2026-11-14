@@ -118,6 +118,7 @@ class MetadataPP(PostProcessor):
         self.mtime = options.get("mtime", False)
         self.omode = options.get("open", omode)
         self.encoding = options.get("encoding", "utf-8")
+        self.errors = options.get("errors", "ignore")
         self.newline = options.get("newline")
         self.skip = options.get("skip", False)
         self.meta_path = options.get("metadata-path")
@@ -125,6 +126,7 @@ class MetadataPP(PostProcessor):
     def open(self, path):
         return open(path, self.omode,
                     encoding=self.encoding,
+                    errors=self.errors,
                     newline=self.newline)
 
     def run(self, pathfmt):

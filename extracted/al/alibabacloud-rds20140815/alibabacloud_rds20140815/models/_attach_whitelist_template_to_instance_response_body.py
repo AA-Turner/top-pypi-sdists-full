@@ -16,27 +16,27 @@ class AttachWhitelistTemplateToInstanceResponseBody(DaraModel):
         success: bool = None,
     ):
         # The response code. Valid values:
-        # - **200**: Normal.
-        # - **400**: Client error.
-        # - **401**: Authentication failed.
-        # - **404**: Requested page not found.
-        # - **500**: Server error.
+        # - **200**: Normal
+        # - **400**: client error
+        # - **401**: authentication failed
+        # - **404**: requested page not found
+        # - **500**: server error
         self.code = code
         # The list of returned data.
         self.data = data
         # The HTTP status code. Valid values:
-        # - **200**: Normal.
-        # - **400**: Client error.
-        # - **500**: Server error.
+        # - **200**: normal
+        # - **400**: client error
+        # - **500**: server error
         self.http_status_code = http_status_code
         # The returned message.
         self.message = message
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
         # Indicates whether the request was successful. Valid values:
         # 
-        # - **true**: The request was successful.
-        # - **false**: The request failed.
+        # - **true**: successful
+        # - **false**: failed
         self.success = success
 
     def validate(self):
@@ -96,9 +96,9 @@ class AttachWhitelistTemplateToInstanceResponseBodyData(DaraModel):
         self,
         status: str = None,
     ):
-        # The returned status. Valid values:
-        # - **ok**: Normal.
-        # - **error**: Error.
+        # The return status. Valid values:
+        # - **ok**: normal response
+        # - **error**: error response
         self.status = status
 
     def validate(self):

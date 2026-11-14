@@ -16,6 +16,7 @@ from dreamscale.constants import (
     MODEL_DROID,
     MODEL_PI05_DROID,
     MODEL_PRAXIS_1_DROID,
+    MODEL_PRAXIS_1_SO101,
 )
 
 
@@ -239,6 +240,7 @@ SO101 = Embodiment(
     unit="degrees",
     precision=1,
     camera_roles=("side", "wrist"),
+    model_cameras=((MODEL_PRAXIS_1_SO101, ModelCameras(("side",), ("wrist",))),),
     policy_models=catalog.robot_models("so101"),
     run_policy="dreamscale.so101_runner:run_so101",
     run_llm="dreamscale.agents.so101_cli:run_so101_llm",

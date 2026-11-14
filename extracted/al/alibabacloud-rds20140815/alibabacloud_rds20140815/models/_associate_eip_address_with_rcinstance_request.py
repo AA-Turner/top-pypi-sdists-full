@@ -17,7 +17,7 @@ class AssociateEipAddressWithRCInstanceRequest(DaraModel):
         self.allocation_id = allocation_id
         # The RDS Custom instance ID.
         self.instance_id = instance_id
-        # The region ID. You can call the DescribeRegions operation to query available regions.
+        # The region ID. You can call the DescribeRegions operation to query the region ID.
         self.region_id = region_id
 
     def validate(self):

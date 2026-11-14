@@ -115,21 +115,21 @@ class DescribeActiveOperationTasksResponseBodyItems(DaraModel):
         self.allow_cancel = allow_cancel
         # Indicates whether the execution time can be modified. A value of 1 indicates that the execution time can be modified. A value of 0 indicates that the execution time cannot be modified.
         self.allow_change = allow_change
-        # The event level code. Valid values: S1 (system O&M) and S0 (exception recovery).
+        # The event level code. Valid values: S1 (system O&M) and S0 (risk fix).
         self.change_level = change_level
         # The event level in English.
         self.change_level_en = change_level_en
         # The event level in Chinese.
         self.change_level_zh = change_level_zh
-        # The time when the task was created. The time is displayed in UTC in the YYYY-MM-DDTHH:mm:ssZ format.
+        # The creation time. The time is displayed in UTC. Format: YYYY-MM-DDTHH:mm:ssZ.
         self.created_time = created_time
         # The current zone.
         self.current_avz = current_avz
         # The database engine, such as mysql, pgsql, or mssql.
         self.db_type = db_type
-        # The kernel version.
+        # The kernel version number.
         self.db_version = db_version
-        # The latest time to which the task execution time can be adjusted. The time is displayed in UTC in the YYYY-MM-DDTHH:mm:ssZ format.
+        # The deadline for adjusting the task execution time. The time is displayed in UTC. Format: YYYY-MM-DDTHH:mm:ssZ.
         self.deadline = deadline
         # The task ID.
         self.id = id
@@ -143,34 +143,34 @@ class DescribeActiveOperationTasksResponseBodyItems(DaraModel):
         self.ins_comment = ins_comment
         # The instance name.
         self.ins_name = ins_name
-        # The time when the task was modified. The time is displayed in UTC in the YYYY-MM-DDTHH:mm:ssZ format.
+        # The modification time. The time is displayed in UTC. Format: YYYY-MM-DDTHH:mm:ssZ.
         self.modified_time = modified_time
-        # The preparation time required between the start time and the switchover time. The time is in the HH:mm:ss format.
+        # The preparation time required between the start time and the switchover time. Format: HH:mm:ss.
         self.prepare_interval = prepare_interval
         # The region ID of the pending event.
         self.region = region
         # The execution result information.
         self.result_info = result_info
-        # The time when the backend executes the task. The time is displayed in UTC in the YYYY-MM-DDTHH:mm:ssZ format.
+        # The time when the backend executes the task. The time is displayed in UTC. Format: YYYY-MM-DDTHH:mm:ssZ.
         self.start_time = start_time
         # The task status. Valid values:
         # * **3**: pending tasks.
-        # * **4**: tasks in progress.
+        # * **4**: in-progress tasks.
         # * **5**: successfully completed tasks.
         # * **6**: failed tasks.
         # * **7**: canceled tasks.
         self.status = status
         # The instance shards.
         self.sub_ins_names = sub_ins_names
-        # The time when the backend initiates the switchover. The time is displayed in UTC in the YYYY-MM-DDTHH:mm:ssZ format.
+        # The time when the backend initiates the switchover. The time is displayed in UTC. Format: YYYY-MM-DDTHH:mm:ssZ.
         self.switch_time = switch_time
         # The task parameters.
         self.task_params = task_params
         # The task type. Valid values:
         # 
-        # * **rds_apsaradb_ha**: primary and secondary node switch.
+        # * **rds_apsaradb_ha**: primary/secondary node switch.
         # * **rds_apsaradb_transfer**: instance migration.
-        # * **rds_apsaradb_upgrade**: minor engine version update.
+        # * **rds_apsaradb_upgrade**: minor version update.
         # * **rds_apsaradb_maxscale**: proxy minor version upgrade.
         self.task_type = task_type
         # The task cause in English.

@@ -67,6 +67,9 @@ cdef extern from "IClpSimplex.hpp":
         int initialSolve(int presolveType)
         int initialPrimalSolve()
         int initialDualSolve()
+        bint hasQuadraticObjective()
+        bint isQPWithoutBoundedRows()
+        bint hasFactorization()
         void setPerturbation(int value)
         double* djRegion()
         int getNumCols()
@@ -170,7 +173,6 @@ cdef extern from "IClpSimplex.hpp":
 
         PyObject* getPrimalRowSolution()
         PyObject* getPrimalColumnSolution()
-        PyObject* getPrimalColumnSolutionAll()
         PyObject* getSolutionRegion()
         PyObject* getCostRegion()
         PyObject* getDualRowSolution()

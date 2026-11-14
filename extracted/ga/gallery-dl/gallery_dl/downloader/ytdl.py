@@ -131,8 +131,14 @@ class YoutubeDLDownloader(DownloaderBase):
             self.error = None
             try:
                 if "entries" in info_dict:
-                    success = self._download_playlist(
-                        ytdl_instance, pathfmt, info_dict)
+                    index = kwdict.get("_ytdl_index")
+                    if index is None:
+                        success = self._download_playlist(
+                            ytdl_instance, pathfmt, info_dict)
+                    else:
+                        success = self._download_video(
+                            ytdl_instance, pathfmt,
+                            info_dict["entries"][index])
                 else:
                     success = self._download_video(
                         ytdl_instance, pathfmt, info_dict)

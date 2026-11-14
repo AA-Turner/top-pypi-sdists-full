@@ -207,7 +207,8 @@ def _report(exc: BaseException, command: str | None = None) -> int:
     if getattr(exc, "request_id", None) and spec is not None and spec.status == 500:
         print(f"request_id: {exc.request_id}", file=sys.stderr)
 
-    return getattr(exc, "exit_code", None) or (spec.exit_code if spec is not None else 1)
+
+    return spec.exit_code if spec is not None else 1
 
 
 def _dispatch(args: argparse.Namespace) -> int:

@@ -53,6 +53,8 @@ class CLibraryMeta(type):
 
     def __call__(cls, lib, *args, **kwargs):
         # Identify the library path.
+        if isinstance(lib, os.PathLike):
+            lib = os.fspath(lib)
         if isinstance(lib, str):
             if os.sep not in lib:
                 lib_path = find_library(lib).path
@@ -266,7 +268,7 @@ class CLibrary(object, metaclass=CLibraryMeta):
 
         for n in names:
             if n in objs:
-                return self.objs[n]
+                return objs[n]
 
         for n in names:  # try with and without prefix
             if n not in self._defs_[typ] and not (
@@ -490,7 +492,7 @@ class CFunction(object):
 
         try:
             if self.lock_call:
-                with self.lib.lock:
+                with self.lib._lock_:
                     res = self.func(*arg_list)
             else:
                 res = self.func(*arg_list)

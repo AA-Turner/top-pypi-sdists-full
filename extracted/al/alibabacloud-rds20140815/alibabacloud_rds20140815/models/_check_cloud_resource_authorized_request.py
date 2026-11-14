@@ -23,12 +23,12 @@ class CheckCloudResourceAuthorizedRequest(DaraModel):
         self.owner_id = owner_id
         # The region ID. You can call the DescribeRegions operation to query the region ID.
         self.region_id = region_id
-        # The ID of the resource group.
+        # The resource group ID.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
         self.security_token = security_token
-        # The ID of the destination region. You can call the DescribeRegions operation to query the region ID.
+        # The destination region ID. You can call the DescribeRegions operation to query the region ID.
         self.target_region_id = target_region_id
 
     def validate(self):

@@ -51,11 +51,12 @@ FRAME_QUALITY = 80
 NUDGE_S = 0.5
 #: How long a frame may take to capture, longer than a screenshot an agent waits on, since a frame is taken in the
 #: background: a page too busy to paint, or between documents mid-navigation, gets this long to show, a capture the
-#: browser refused for being between documents asked again every ``FRAME_RETRY_S``.
+#: browser refused for the moment asked again every ``FRAME_RETRY_S``.
 FRAME_CAPTURE_S = 10.0
 FRAME_RETRY_S = 0.25
-#: What the browser says of a capture refused for the moment, as while a navigation swaps the tab's document.
-BETWEEN_DOCUMENTS = ("Not attached to an active page", "Unable to capture screenshot")
+#: What the browser says of a capture refused for the moment: while a navigation swaps the tab's document, or once the
+#: session it was asked on is gone, as when the tab closes or the browser attaches it anew.
+FOR_THE_MOMENT = ("Not attached to an active page", "Unable to capture screenshot", "Session with given id not found")
 #: How often a wait for a tab to load looks again.
 LOAD_POLL_S = 0.1
 #: Where an agent's files to upload are, and where downloads land, under the session user's home.
@@ -82,6 +83,10 @@ PASSWORD_FOCUSED = """(() => {
 })()"""
 #: How long the password-field check waits on a page.
 PASSWORD_CHECK_TIMEOUT_S = 2.0
+
+
+class _TabGone(Exception):
+    """The tab a capture was asked of went away while the capture was waiting: the browser answers it never."""
 
 
 class BrowserControl:
@@ -254,6 +259,12 @@ class BrowserControl:
         active = await self.active_tab(context)
         return [OpenTab(**tab, active=tab["id"] == active, context=self.label_of(tab)).model_dump()
                 for tab in self.tabs.values() if self.in_context(tab.get("context_id"), context)]
+
+    def context_of_frame(self, frame: object) -> Optional[str]:
+        """The context of the tab the frame ``frame`` is in, a tab's own frame among them; None for one it hasn't
+        seen."""
+        tab = self._frame_tabs.get(frame, frame) if isinstance(frame, str) else None
+        return self.tabs.get(tab, {}).get("context_id") if tab is not None else None
 
     def label_of(self, entry: dict) -> Optional[str]:
         """The label of the lease a tab or download was in, None for the default context."""
@@ -747,14 +758,24 @@ class BrowserControl:
             except asyncio.TimeoutError:
                 raise DeviceUnavailable(f"the tab painted nothing within {FRAME_CAPTURE_S:g} s") from None
             except DevToolsError as e:
-                if not any(why in str(e) for why in BETWEEN_DOCUMENTS) or loop.time() + FRAME_RETRY_S >= deadline:
+                if not any(why in str(e) for why in FOR_THE_MOMENT) or loop.time() + FRAME_RETRY_S >= deadline:
                     raise DeviceUnavailable(f"the tab couldn't be captured: {e}") from None
+            except _TabGone:
+                if loop.time() + FRAME_RETRY_S >= deadline:
+                    raise DeviceUnavailable(f"the tab went away while its frame was taken, {FRAME_CAPTURE_S:g} s in all"
+                                            ) from None
             except ConnectionError as e:
                 raise DeviceUnavailable(f"the tab couldn't be captured: {e}") from None
             await asyncio.sleep(FRAME_RETRY_S)
-            if session not in self._sessions:
-                session = await self.active_session()
-                target = self._sessions[session]
+            while session not in self._sessions:
+                try:
+                    session = next((s for s, t in self._sessions.items() if t == target), None) or (
+                        await self.active_session())
+                except DeviceUnavailable:
+                    if loop.time() + FRAME_RETRY_S >= deadline:
+                        raise
+                    await asyncio.sleep(FRAME_RETRY_S)
+            target = self._sessions[session]
         self._frames[target] = shot["data"], "jpg"
         return shot["data"], "jpg", target, self.url_of(target)
 
@@ -769,7 +790,8 @@ class BrowserControl:
 
     async def _nudged_capture(self, session: str, timeout_s: float) -> dict:
         """The tab's JPEG from the first of its captures to answer: a second follows one unanswered after ``NUDGE_S``,
-        since a tab behind the active one answers only then, all within ``timeout_s``."""
+        since a tab behind the active one answers only then, all within ``timeout_s``; _TabGone once the tab's session
+        is gone with none answered, as a closed tab's captures never are."""
         loop = asyncio.get_running_loop()
         deadline = loop.time() + timeout_s
 
@@ -784,11 +806,13 @@ class BrowserControl:
             if not done:
                 captures.add(capture())
             while True:
-                done, captures = await asyncio.wait(captures, return_when=asyncio.FIRST_COMPLETED)
+                done, captures = await asyncio.wait(captures, timeout=FRAME_RETRY_S, return_when=asyncio.FIRST_COMPLETED)
                 if answers := [c.result() for c in done if c.exception() is None]:
                     return answers[0]
                 if not captures:
                     raise next(iter(done)).exception()
+                if session not in self._sessions:
+                    raise _TabGone()
         finally:
             for pending in captures:
                 pending.cancel()
@@ -918,6 +942,12 @@ class BrowserControl:
         if (load := self._loading.get(session)) is not None and not frame.get("parentId") and frame.get("loaderId"):
             load.commits.append(frame["loaderId"])
             load.check()
+
+    def _on_Page_frameAttached(self, params: dict, session: Optional[str]) -> None:
+        """A frame attached to a page of one of its tabs, kept as that tab's: a cross-origin one goes on in a process
+        of its own, whose navigations its tab's page doesn't hear of."""
+        if session in self._sessions and isinstance(frame := params.get("frameId"), str):
+            self._frame_tabs[frame] = self._sessions[session]
 
     def _on_Page_navigatedWithinDocument(self, params: dict, session: Optional[str]) -> None:
         """A tab's page moving to another URL of its document, a fragment or its history API: a command's, when one

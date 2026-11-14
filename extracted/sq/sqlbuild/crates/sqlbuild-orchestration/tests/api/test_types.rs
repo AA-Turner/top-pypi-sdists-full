@@ -169,6 +169,13 @@ pub(crate) struct DenialTestCase {
     pub(crate) expected_status: u16,
 }
 
+pub(crate) struct RunIdRefusalTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) backend: Backend,
+    pub(crate) expected_refusal_status: u16,
+    pub(crate) expected_random_status: u16,
+}
+
 pub(crate) struct CustomRoleApiTestCase {
     pub(crate) description: &'static str,
     pub(crate) backend: Backend,
@@ -253,4 +260,10 @@ pub(crate) struct AcknowledgementTestCase {
     /// Whether acknowledging, retrying and withdrawing each changed anything.
     pub(crate) expected_applied: [bool; 3],
     pub(crate) expected_acknowledged_by: &'static str,
+}
+
+pub(crate) struct ProvidersTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) backend: Backend,
+    pub(crate) expected_jobs: Vec<&'static str>,
 }

@@ -8548,6 +8548,43 @@ def test_a_dispatch_refusal_raises_a_drive_error_with_the_distinct_exit_code(
     assert refusal_text.strip() in str(exc.value)
 
 
+def test_a_dispatch_refusal_leads_with_the_cause_not_the_banner(
+    driver_factory, monkeypatch,
+):
+    """#4004 (quadraui#2361, 2026-11-14): `coord assign`'s subprocess
+    prints its own dispatch banner to stdout FIRST and the real cause
+    ("  dispatch failed: ...") to stderr LAST. `Driver._spawn` concatenates
+    `stdout + stderr` in that order, so the raw captured output reads
+    banner-first — `coord drive-queue list`/the TUI render `last_reason` as
+    a single line/short prefix, which showed only the banner in the
+    incident, no error anywhere visible. The `DriveError` message must
+    LEAD with the "dispatch failed:" line instead."""
+    driver = driver_factory([board(status="failed", failure_reason="boom")])
+    banner = "precision → quadraui #2361: Python asyncio runner: fix the thing"
+    dispatch_failed_line = (
+        "  dispatch failed: machine 'precision' failed a live "
+        "health/credential probe — not routable (#3371/#3376): "
+        "re-authenticate (`claude` or `claude setup-token`) on that host, "
+        "or approve/assign this to a different machine. "
+        "[credential-probe-refusal #4004]"
+    )
+
+    def refused_run(argv, **kw):
+        return subprocess.CompletedProcess(
+            argv, EXIT_DISPATCH_REFUSED, banner + "\n", dispatch_failed_line
+        )
+
+    monkeypatch.setattr("coord.drive.subprocess.run", refused_run)
+    with pytest.raises(DriveError) as exc:
+        driver.run()
+    message = str(exc.value)
+    assert message.strip().startswith("dispatch failed:")
+    assert "machine 'precision'" in message
+    # Nothing is discarded — the banner is still present, just no longer
+    # leading.
+    assert banner in message
+
+
 def test_a_dispatch_refusals_reason_reaches_the_drive_exited_audit_row(
     driver_factory, monkeypatch, coord_db,
 ):
@@ -8605,6 +8642,42 @@ def test_a_non_refusal_run_failure_carries_the_childs_captured_output(
     message = str(exc.value)
     assert message != failure_text  # a header still leads
     assert failure_text in message
+
+
+def test_a_non_refusal_failures_exit_code_survives_a_dispatch_failed_hoist(
+    driver_factory, monkeypatch,
+):
+    """#4004 review round 1: `_lead_with_dispatch_failure` hoists the FIRST
+    "dispatch failed:" line to the front whenever the captured output
+    contains one — including a non-refusal exit whose cause happens to be
+    a `dispatch failed:` line printed for some OTHER reason than
+    `EXIT_DISPATCH_REFUSED` (e.g. a flaky subprocess that both printed that
+    text and exited non-deterministically). Before this fix, hoisting
+    discarded `base_msg` (`action.error_message` or the `coord ... exited
+    {rc}` fallback) entirely on that path — the exit-code context an
+    operator needs to tell THIS failure apart from any other non-zero
+    exit vanished the moment a `dispatch failed:` line was also present."""
+    rc = 7
+    driver = driver_factory([board(status="failed", failure_reason="boom")])
+    failure_text = "some preamble\n  dispatch failed: something broke on the agent side"
+
+    def failing_run(argv, **kw):
+        return subprocess.CompletedProcess(argv, rc, "", failure_text)
+
+    monkeypatch.setattr("coord.drive.subprocess.run", failing_run)
+    with pytest.raises(DriveError) as exc:
+        driver.run()
+    message = str(exc.value)
+    # The hoisted cause leads...
+    assert message.strip().startswith("dispatch failed:")
+    # ...but the action's own `base_msg` (here `action.error_message`,
+    # which for this board state is "coord retry failed for w1") is NOT
+    # silently dropped just because a `dispatch failed:` line was also
+    # present in the captured output.
+    assert "coord retry failed for w1" in message
+    # Nothing discarded — the full captured output still follows.
+    assert failure_text in message
+    assert rc not in (0, EXIT_DISPATCH_REFUSED)  # a genuinely distinct exit
 
 
 def test_a_non_refusal_run_failures_output_reaches_the_drive_exited_audit_row(

@@ -285,6 +285,14 @@ workspace_management:
 workspace_category:
   org_id: wildcard
   ws_id: wildcard
+workspace_graph_config:
+  # read: can list and read graph configs and their versions
+  # write: can create, update and restore graph configs
+  # execute: can build a graph from an unsaved graph config
+  org_id: wildcard
+  ws_id: wildcard
+  additional_actions:
+    - execute
 # (entity / event / feature sensitive field)
 workspace_sensitive_field:
   org_id: wildcard

@@ -29,13 +29,27 @@ _KEY_MAP_WINDOWS = {
     "S": "DELETE",
     "I": "PAGE_UP",
     "Q": "PAGE_DOWN",
+    # Function keys arrive after a NUL prefix as their raw ASCII code.
+    ";": "F1",
+    "<": "F2",
+    "=": "F3",
+    ">": "F4",
+    "?": "F5",
+    "@": "F6",
+    "A": "F7",
+    "B": "F8",
+    "C": "F9",
+    "D": "F10",
+    # F11 / F12 use the 0xE0 prefix on modern consoles.
+    "\x85": "F11",
+    "\x86": "F12",
 }
 
 _KEY_MAP_WINDOWS_REGULAR = {
     "\r": "ENTER",
     "\n": "ENTER",
-    "\x03": "QUIT",
-    "\x11": "QUIT",
+    "\x03": "CTRL_C",
+    "\x11": "CTRL_Q",
     "\x08": "BACKSPACE",
     "\x1b": "ESCAPE",
     "\t": "TAB",
@@ -51,15 +65,78 @@ _KEY_MAP_UNIX_ARROWS = {
     "Z": "BACKTAB",
 }
 
+_KEY_MAP_UNIX_SS3 = {
+    "P": "F1",
+    "Q": "F2",
+    "R": "F3",
+    "S": "F4",
+    "M": "ENTER",
+}
+
 _KEY_MAP_UNIX_TILDE = {
     "1": "HOME",
+    "2": "INSERT",
     "3": "DELETE",
     "4": "END",
     "5": "PAGE_UP",
     "6": "PAGE_DOWN",
     "7": "HOME",
     "8": "END",
+    "15": "F5",
+    "17": "F6",
+    "18": "F7",
+    "19": "F8",
+    "20": "F9",
+    "21": "F10",
+    "23": "F11",
+    "24": "F12",
 }
+
+
+def _modifier_prefix(params: str) -> str:
+    """Translate an xterm ``;N`` modifier parameter into a key-name prefix.
+
+    ``ESC [ 1 ; 2 A`` is Shift+Up, ``;5`` is Ctrl+Up, ``;6`` is
+    Ctrl+Shift+Up. Bits are ``1 = shift``, ``2 = alt``, ``4 = ctrl``.
+    """
+    parts = params.split(";")
+    if len(parts) < 2:
+        return ""
+    try:
+        bits = int(parts[1]) - 1
+    except ValueError:
+        return ""
+    tokens = []
+    if bits & 1:
+        tokens.append("SHIFT")
+    if bits & 2:
+        tokens.append("ALT")
+    if bits & 4:
+        tokens.append("CTRL")
+    return "".join(f"{token}_" for token in tokens)
+
+
+_WIN_CTRL_C_IGNORED = False
+
+
+def set_windows_ctrl_c_ignored(ignored: bool) -> None:
+    """Make Ctrl+C arrive as a keypress instead of raising KeyboardInterrupt.
+
+    Only meaningful on Windows; it flips the console control handler so that a
+    full-screen TUI can implement copy/paste. No-op on other platforms.
+    """
+    global _WIN_CTRL_C_IGNORED
+    if platform.system() != "Windows":
+        return
+    if _WIN_CTRL_C_IGNORED == ignored:
+        return
+    try:
+        import ctypes
+
+        ctypes.windll.kernel32.SetConsoleCtrlHandler(None, bool(ignored))
+    except Exception:
+        return
+    _WIN_CTRL_C_IGNORED = ignored
 
 
 def strip_ansi(text: str) -> str:
@@ -79,12 +156,17 @@ def _read_unix_byte(fd: int, timeout: Optional[float] = None) -> str:
     return data.decode("utf-8", errors="ignore") if data else ""
 
 
-def _get_key() -> str:
+def _get_key(intercept_control: bool = False) -> str:
     """Read a single keypress from the terminal across platforms.
 
     A standalone Escape key is distinguished from an ANSI escape sequence by
     briefly polling for a continuation. This avoids blocking on Unix after
     the user presses Escape.
+
+    ``intercept_control`` delivers Ctrl+C / Ctrl+Z as ordinary key names
+    (``"CTRL_C"`` / ``"\\x1a"``) instead of raising ``KeyboardInterrupt`` or
+    suspending the process. Full-screen applications enable it so the focused
+    widget can implement copy/paste.
     """
     if platform.system() == "Windows":
         char = msvcrt.getwch()
@@ -97,48 +179,75 @@ def _get_key() -> str:
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
     try:
-        tty.setcbreak(fd)
+        # Single-key mode without line buffering or echo. Crucially we also
+        # clear IXON/IXOFF: otherwise the tty driver consumes Ctrl+S (XOFF)
+        # and Ctrl+Q (XON) itself, so those keys never reach us and the next
+        # read blocks forever. That is why Ctrl+Q "does nothing" and the app
+        # then hangs on Linux/macOS terminals.
+        # tcgetattr()/tcsetattr() use the documented attribute-list layout:
+        # [iflag, oflag, cflag, lflag, ispeed, ospeed, cc]. Index it
+        # positionally because termios.IFLAG / termios.LFLAG are not exported
+        # by every Python build, but the list order is guaranteed by the API.
+        _IFLAG, _LFLAG, _CC = 0, 3, 6
+        mode = termios.tcgetattr(fd)
+        mode[_LFLAG] &= ~(termios.ECHO | termios.ICANON)
+        mode[_IFLAG] &= ~(termios.IXON | termios.IXOFF)
+        if intercept_control:
+            # Ctrl+C / Ctrl+Z must reach us as bytes, not as signals.
+            mode[_LFLAG] &= ~termios.ISIG
+        mode[_CC][termios.VMIN] = 1
+        mode[_CC][termios.VTIME] = 0
+        termios.tcsetattr(fd, termios.TCSADRAIN, mode)
         char = _read_unix_byte(fd)
         if not char:
             return ""
 
         if char == "\x1b":
-            # A real Escape press has no immediately available continuation.
-            if not _read_unix_byte(fd, 0.0):
-                readable, _, _ = select.select([fd], [], [], 0.035)
-                if not readable:
-                    return "ESCAPE"
-
-            second = _read_unix_byte(fd)
+            # Distinguish a lone Escape keypress from a CSI/SS3 control
+            # sequence (arrow keys, Home/End, Delete, function keys, ...).
+            # The ESC byte is only the *first* byte of a sequence: we must wait
+            # briefly for the continuation instead of consuming it immediately.
+            second = _read_unix_byte(fd, 0.05)
             if not second:
                 return "ESCAPE"
-            if second not in ("[", "O"):
+            if second == "O":
+                third = _read_unix_byte(fd, 0.05)
+                if not third:
+                    return "ESCAPE"
+                return _KEY_MAP_UNIX_SS3.get(third) or _KEY_MAP_UNIX_ARROWS.get(
+                    third, ""
+                )
+            if second != "[":
+                # ESC followed by an ordinary character: treat as Escape.
                 return "ESCAPE"
 
-            third = _read_unix_byte(fd, 0.02)
-            if not third:
+            # Accumulate a CSI sequence: parameters (0x20-0x3F) followed by a
+            # single final byte (0x40-0x7E), e.g. ESC [ 1 ; 2 A or ESC [ 3 ~.
+            body = _read_unix_byte(fd, 0.05)
+            if not body:
                 return "ESCAPE"
-            if third in _KEY_MAP_UNIX_ARROWS:
-                return _KEY_MAP_UNIX_ARROWS[third]
-
-            # Parse sequences such as ESC [ 1 ; 5 A and ESC [ 3 ~.
-            sequence = third
-            for _ in range(8):
-                if sequence[-1] in _KEY_MAP_UNIX_ARROWS:
-                    return _KEY_MAP_UNIX_ARROWS[sequence[-1]]
-                if sequence[-1] == "~":
-                    number = sequence.split(";", 1)[0]
-                    return _KEY_MAP_UNIX_TILDE.get(number, "")
-                next_char = _read_unix_byte(fd, 0.01)
+            while body and not ("@" <= body[-1] <= "~"):
+                next_char = _read_unix_byte(fd, 0.02)
                 if not next_char:
                     break
-                sequence += next_char
-            return ""
+                body += next_char
+            if not body:
+                return ""
+            final, params = body[-1], body[:-1]
+            if final == "~":
+                name = _KEY_MAP_UNIX_TILDE.get(params.split(";", 1)[0], "")
+            else:
+                name = _KEY_MAP_UNIX_ARROWS.get(final, "")
+            if not name:
+                return ""
+            return f"{_modifier_prefix(params)}{name}"
 
         if char in ("\r", "\n"):
             return "ENTER"
-        if char in ("\x03", "\x11"):
-            return "QUIT"
+        if char == "\x03":
+            return "CTRL_C"
+        if char == "\x11":
+            return "CTRL_Q"
         if char == "\x7f":
             return "BACKSPACE"
         if char == "\x08":

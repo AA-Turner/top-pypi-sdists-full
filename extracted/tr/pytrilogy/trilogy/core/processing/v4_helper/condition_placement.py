@@ -10,7 +10,7 @@ from enum import Enum
 
 from trilogy.core import graph as nx
 from trilogy.core.constants import ALL_ROWS_ADDRESS
-from trilogy.core.enums import ComparisonOperator, Derivation
+from trilogy.core.enums import BooleanOperator, ComparisonOperator, Derivation
 from trilogy.core.exceptions import (
     DisconnectedConceptsException,
     UnresolvableQueryException,
@@ -491,6 +491,109 @@ def _choose_groups(
     return tuple(candidates)
 
 
+def _aggregated_arguments(
+    bucket: GroupBucket, environment: BuildEnvironment
+) -> set[str] | None:
+    """The concepts a GROUP BY group's members aggregate, never their `by`."""
+    out: set[str] = set()
+    for address in bucket.primary_members:
+        lineage = getattr(environment.concepts.get(address), "lineage", None)
+        if isinstance(lineage, BuildAggregateWrapper):
+            lineage = lineage.function
+        if lineage is None:
+            return None
+        out |= {c.address for c in lineage.concept_arguments}
+    return out
+
+
+def _rows_filtered_by(
+    gid: str,
+    chosen: tuple[str, ...],
+    host_graph: nx.DiGraph,
+    buckets: dict[str, GroupBucket],
+    environment: BuildEnvironment,
+    memo: dict[str, bool],
+) -> bool:
+    """Whether every row `gid` reads passed through a chosen host. An aggregate
+    reads the groups producing what it aggregates; any other group its row
+    stream, beside aggregate values joined on (which filter nothing)."""
+    if gid in chosen:
+        return True
+    if gid in memo:
+        return memo[gid]
+    memo[gid] = False
+    preds = [p for p in host_graph.predecessors(gid) if p in buckets]
+    bucket = buckets[gid]
+    arguments = (
+        _aggregated_arguments(bucket, environment)
+        if bucket.derivation in _EMITS_GROUP_BY
+        else None
+    )
+    feeding = (
+        [p for p in preds if arguments & set(buckets[p].primary_members)]
+        if arguments
+        else []
+    )
+    if feeding:
+        result = all(
+            _rows_filtered_by(p, chosen, host_graph, buckets, environment, memo)
+            for p in feeding
+        )
+    else:
+        filtered = [
+            _rows_filtered_by(p, chosen, host_graph, buckets, environment, memo)
+            for p in preds
+        ]
+        result = any(filtered) and all(
+            ok
+            or buckets[p].derivation in _EMITS_GROUP_BY
+            or buckets[p].depth_label in (DepthLabel.D1, DepthLabel.ROOT_D1)
+            for p, ok in zip(preds, filtered)
+        )
+    memo[gid] = result
+    return result
+
+
+def _hosts_reading_unfiltered_rows(
+    chosen: tuple[str, ...],
+    candidates: list[str],
+    host_graph: nx.DiGraph,
+    buckets: dict[str, GroupBucket],
+    main_lineage: set[str],
+    environment: BuildEnvironment,
+) -> tuple[str, ...]:
+    """Aggregates below a GROUP BY host that read rows the host never filtered.
+
+    A host's aggregate value joined beside another row stream (a filtered
+    aggregate's condition `sum(x) by *` beside the root rows it is evaluated on)
+    filters only the rows that value is computed from; the consumer aggregates
+    the other stream, so it hosts the atom itself."""
+    if not any(
+        gid in buckets and buckets[gid].derivation in _EMITS_GROUP_BY for gid in chosen
+    ):
+        return ()
+    below = set().union(*(nx.descendants(host_graph, gid) for gid in chosen))
+    pool = [
+        gid
+        for gid in candidates
+        if gid in below
+        and gid in main_lineage
+        and buckets[gid].derivation in _EMITS_GROUP_BY
+    ]
+    hosts = tuple(chosen)
+    # an added host filters only what reads through it: re-check the rest
+    while True:
+        memo: dict[str, bool] = {}
+        extra = [
+            gid
+            for gid in pool
+            if not _rows_filtered_by(gid, hosts, host_graph, buckets, environment, memo)
+        ]
+        if not extra:
+            return hosts[len(chosen) :]
+        hosts += tuple(_upstream_most(extra, host_graph))
+
+
 def _collapsing_hosts_only(
     chosen_groups: tuple[str, ...], buckets: dict[str, GroupBucket]
 ) -> bool:
@@ -552,21 +655,34 @@ def _uncovered_exposing_output_contributor(
     # counted, since they may ride through from an unfiltered parent.
     covered_members: set[str] = set()
     regrouped: set[str] = set()
+    held: list[set[str]] = []
     for gid in covered:
         if gid not in buckets:
             continue
-        covered_members |= set(buckets[gid].primary_members)
+        own = set(buckets[gid].primary_members)
+        covered_members |= own
         if gid in chosen_groups:
-            covered_members |= carried[gid] | set(buckets[gid].grain_components)
+            own |= carried[gid] | set(buckets[gid].grain_components)
+            covered_members |= own
         elif buckets[gid].derivation in GROUPING_DERIVATIONS:
+            own |= set(buckets[gid].grain_components)
             regrouped |= set(buckets[gid].grain_components)
+        held.append(own)
     # every output is the filtered branch's own, a group key it regroups the
     # kept rows by included (`tree_form` of `min(sum(x) by city, species)`):
-    # FINAL reads nothing an unfiltered row stream adds
+    # FINAL reads nothing an unfiltered row stream adds. Keys split over two
+    # branches (`city` off one, `tree_form` off another) are paired by a row
+    # stream the atom never filtered (`SelectGrain.split_keys_pair_unkept`).
     if _collapsing_hosts_only(chosen_groups, buckets) and mandatory_addrs <= (
         covered_members | regrouped
     ):
-        return False
+        keys = mandatory_addrs & set().union(
+            *(buckets[gid].grain_components for gid in covered if gid in buckets)
+        )
+        return (
+            not any(build_fd_determines_all(environment, own, keys) for own in held)
+            and row_inputs <= final_exposable
+        )
     for gid, b in buckets.items():
         if gid in covered:
             continue
@@ -664,6 +780,53 @@ def holds_on_absent_group(atom: BoolExpr) -> bool:
         return absent
     proofs = gather_non_null_proofs(atom)
     return not any(c.address in proofs and not c.zero_on_empty for c in aggregates)
+
+
+def args_holding_on_absent(atom: BoolExpr) -> frozenset[str]:
+    """The aggregates `atom` reads whose absent group can let it hold: all of
+    them when the atom itself holds there, else each one nothing proves non-null
+    (`sum(x) by * is null and max(x) by city > 3` holds wherever the total is
+    padding, however `max` is decided), and each COUNT, which reads 0 there,
+    not NULL (`min(x) by species - count(id) by * > 3` holds on 5 - 0),
+    unless a comparison of it to a literal rejects 0 (`count(id) by k = 2`)."""
+    if not isinstance(atom, BuildConceptArgs):
+        return frozenset()
+    aggregates = [c for c in atom.row_arguments if c.is_aggregate]
+    if holds_on_absent_group(atom):
+        return frozenset(c.address for c in aggregates)
+    proofs = gather_non_null_proofs(atom)
+    return frozenset(
+        c.address
+        for c in aggregates
+        if (c.zero_on_empty and not _rejects_zero(atom, c.address))
+        or (not c.zero_on_empty and c.address not in proofs)
+    )
+
+
+def _rejects_zero(atom: object, address: str) -> bool:
+    """Whether `atom` is false wherever the count `address` reads 0: a
+    comparison of it to a literal false at 0, or a conjunct (both disjuncts)
+    that is."""
+    if isinstance(atom, BuildParenthetical):
+        return _rejects_zero(atom.content, address)
+    if isinstance(atom, BuildConditional):
+        left, right = (
+            _rejects_zero(atom.left, address),
+            _rejects_zero(atom.right, address),
+        )
+        return left or right if atom.operator == BooleanOperator.AND else left and right
+    if not (
+        isinstance(atom, BuildComparison)
+        and isinstance(atom.left, BuildConcept)
+        and atom.left.address == address
+        and isinstance(atom.right, (int, float))
+        and not isinstance(atom.right, bool)
+    ):
+        return False
+    return any(
+        operator == atom.operator and not test(0, atom.right)
+        for operator, test in _ABSENT_COMPARISONS
+    )
 
 
 def _literal_membership_on_absent(atom: BoolExpr) -> bool | None:
@@ -1643,7 +1806,9 @@ def _place_atom(atom: BoolExpr, scope: _PlacementScope) -> list[ConditionPlaceme
         # selected aggregate and window reads (`sum(x) by *` included): host
         # it on the row stream that joins its inputs, never on a group that
         # produces one of them. FINAL only when no such host exists.
-        producers = set(_producer_groups(row_inputs, buckets, scope.group_outputs))
+        # a group producing a row column the atom reads beside them (the
+        # `height` of `height > 3 or ...`) is the row stream itself
+        producers = set(_producer_groups(agg_outputs, buckets, scope.group_outputs))
         restricted = [gid for gid in restricted if gid not in producers]
         if not restricted:
             out.append(
@@ -1659,6 +1824,7 @@ def _place_atom(atom: BoolExpr, scope: _PlacementScope) -> list[ConditionPlaceme
     # pushed past row-shape changes. A cross-boundary atom (an OR of
     # two boundaries' presence probes) can end up with only such hosts;
     # its correct home is then FINAL, above every barrier.
+    unbarred = list(restricted)
     if restricted:
         producer_groups = _producer_groups(row_inputs, buckets, scope.group_outputs)
         consumed_barriers: set[str] = set(producer_groups)
@@ -1711,6 +1877,9 @@ def _place_atom(atom: BoolExpr, scope: _PlacementScope) -> list[ConditionPlaceme
             chosen_groups = outer_chosen
         elif outer_hosts:
             chosen_groups = _choose_groups(outer_hosts, host_graph, main_lineage)
+    chosen_groups += _hosts_reading_unfiltered_rows(
+        chosen_groups, unbarred, host_graph, buckets, main_lineage, environment
+    )
     out.append(
         ConditionPlacement(
             atom=atom,

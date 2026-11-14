@@ -12,16 +12,16 @@ class CopyDatabaseResponseBody(DaraModel):
         request_id: str = None,
         task_id: str = None,
     ):
-        # The database name.
+        # The name of the database.
         self.dbname = dbname
-        # The database status. Valid values:
+        # The status of the database. Valid values:
         # * **Creating**: The database is being created.
         # * **Running**: The database is running.
         # * **Deleting**: The database is being deleted.
         self.dbstatus = dbstatus
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
-        # The task ID.
+        # The ID of the task.
         self.task_id = task_id
 
     def validate(self):

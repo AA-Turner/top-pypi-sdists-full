@@ -35,6 +35,8 @@ pub struct EvaluatorResult {
     pub name: Option<InternedString>,
     pub bool_value: bool,
     pub unsupported: bool,
+    /// Whether this evaluation selected a blob that failed hydration.
+    pub blob_unavailable: bool,
     pub is_experiment_group: bool,
     pub is_experiment_active: bool,
     pub is_in_layer: bool,
@@ -63,6 +65,7 @@ impl EvaluatorResult {
         self.name = None;
         self.bool_value = false;
         self.unsupported = false;
+        self.blob_unavailable = false;
         self.is_experiment_group = false;
         self.is_experiment_active = false;
         self.is_in_layer = false;
@@ -785,6 +788,7 @@ mod tests {
             name: Some(InternedString::from_str_ref("a_gate")),
             bool_value: true,
             unsupported: true,
+            blob_unavailable: true,
             is_experiment_group: true,
             is_experiment_active: true,
             is_in_layer: true,
@@ -827,6 +831,7 @@ mod tests {
         assert!(result.name.is_none());
         assert!(!result.bool_value);
         assert!(!result.unsupported);
+        assert!(!result.blob_unavailable);
         assert!(!result.is_experiment_group);
         assert!(!result.is_experiment_active);
         assert!(!result.is_in_layer);

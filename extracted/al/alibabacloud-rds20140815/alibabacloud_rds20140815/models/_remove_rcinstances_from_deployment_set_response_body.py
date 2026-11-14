@@ -60,9 +60,9 @@ class RemoveRCInstancesFromDeploymentSetResponseBodyResults(DaraModel):
     ):
         # The instance ID.
         self.rcinstance_id = rcinstance_id
-        # The status of the node. Valid values:
-        # * **Success**: Successful.
-        # * **Failed**: Failed.
+        # The node status. Valid values:
+        # * **Success**: The operation succeeded.
+        # * **Failed**: The operation failed.
         self.status = status
 
     def validate(self):

@@ -434,6 +434,51 @@ def _bounded_tail(text: str, limit: int = _CAPTURED_OUTPUT_LIMIT) -> str:
     return f"…[{dropped} chars truncated]…{text[-limit:]}"
 
 
+def _lead_with_dispatch_failure(
+    last_run_output: str, fallback: str, *, base_msg: str | None = None,
+) -> str:
+    """#4004: a `coord assign`/`coord approve-plan` subprocess that fails
+    prints its own dispatch banner (`{machine} → {repo} #{issue}: {title}`,
+    `coord.commands.dispatch_workers._dispatch_headless`'s first line — no
+    `err=True`, so stdout) FIRST and its real cause (`"  dispatch failed:
+    ..."`, printed with `err=True`, so stderr) LAST. `Driver._spawn`
+    concatenates `stdout + stderr` in that order into `_last_run_output`
+    (bounded, but NOT reordered), so a `DriveError` built straight from it
+    reads banner-first, cause-last — and `coord drive-queue list`/the TUI
+    render `last_reason` as a single line/short prefix, which showed only
+    the banner in the quadraui#2361 incident (2026-11-14): "precision →
+    quadraui #2361: Python asyncio runner: …", no error anywhere visible.
+
+    Hoists the FIRST line containing `"dispatch failed:"` to the front —
+    the rest of *last_run_output* still follows, nothing is discarded —
+    so the stored reason LEADS with the actual cause. Returns *fallback*
+    unchanged when no such line exists (every exit that isn't a dispatch
+    failure — most non-zero exits never reach this function at all — is
+    byte-for-byte unaffected).
+
+    *base_msg* (review round 1) is the exit-code / `action.error_message`
+    context a caller may have already folded into *fallback* — carried
+    through right after the hoisted line, on the hoist path too, so a
+    genuine non-zero exit code is never silently dropped just because
+    *last_run_output* also happens to contain a "dispatch failed:" line
+    (before this, the non-refusal call site's `base_msg` vanished entirely
+    whenever that line was present — *fallback* is only ever consulted
+    when hoisting does NOT happen). `None` (the default — the
+    `EXIT_DISPATCH_REFUSED` call site, whose *fallback* carries nothing
+    beyond *last_run_output* itself) preserves the old behaviour exactly.
+    """
+    for line in (last_run_output or "").splitlines():
+        if "dispatch failed:" in line:
+            lead = line.strip()
+            if base_msg and base_msg not in lead:
+                lead = f"{lead} ({base_msg})"
+            rest = (last_run_output or "").strip()
+            if rest and rest != lead:
+                return f"{lead}\n   output: {last_run_output}"
+            return lead
+    return fallback
+
+
 # ── #2618: surviving a `coord-serve` restart mid-drive ──────────────────────
 #
 # Investigated before building anything, per the issue: is a `coord-serve`
@@ -7039,9 +7084,12 @@ class Driver:
                     # and, downstream, `coord/drive_queue.py`'s tick tell this
                     # refusal apart from a genuine crash.
                     if rc == EXIT_DISPATCH_REFUSED:
-                        msg = self._last_run_output or action.error_message or (
-                            f"coord {' '.join(action.command)} refused "
-                            f"(exit {rc})"
+                        msg = _lead_with_dispatch_failure(
+                            self._last_run_output,
+                            self._last_run_output or action.error_message or (
+                                f"coord {' '.join(action.command)} refused "
+                                f"(exit {rc})"
+                            ),
                         )
                         raise DriveError(msg, EXIT_DISPATCH_REFUSED)
                     # #2274: a non-refusal failure used to discard the
@@ -7061,10 +7109,14 @@ class Driver:
                     base_msg = action.error_message or (
                         f"coord {' '.join(action.command)} exited {rc}"
                     )
-                    msg = (
-                        f"{base_msg}\n   output: {self._last_run_output}"
-                        if self._last_run_output
-                        else base_msg
+                    msg = _lead_with_dispatch_failure(
+                        self._last_run_output,
+                        (
+                            f"{base_msg}\n   output: {self._last_run_output}"
+                            if self._last_run_output
+                            else base_msg
+                        ),
+                        base_msg=base_msg,
                     )
                     if action.dispatch_kind == "uat_fixup":
                         # #3214: a non-refusal dispatch failure — retryable,

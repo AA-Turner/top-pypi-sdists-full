@@ -20,7 +20,7 @@ from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING, Any, Literal, Never, TextIO
 
-from vercel_runtime import deadline, init_log_buffer
+from vercel_runtime import deadline, init_log_buffer, runtime_install
 from vercel_runtime.cache import (
     SC_HEADERS_ALWAYS_STRIP,
     SC_HEADERS_STRIP_ON_NO_LEAK,
@@ -455,6 +455,7 @@ if os.path.exists(_runtime_config_path):
     _project_dir = os.path.join(lambda_root, _config["projectDir"])
 
     _deps_dir = "/tmp/_vc_deps"
+    _uv_scratch_dir = "/tmp/_vc_uv_tmp"
     _site_packages = os.path.join(
         _deps_dir,
         "lib",
@@ -471,7 +472,9 @@ if os.path.exists(_runtime_config_path):
         _install_start = time.time()
 
         try:
-            os.makedirs(_deps_dir, exist_ok=True)
+            # No marker means no install finished here, so anything in
+            # these directories is left over from one that did not.
+            runtime_install.reset_directories(_deps_dir, _uv_scratch_dir)
 
             # Create a minimal PEP 405 venv skeleton for uv sync.
             # Writing pyvenv.cfg directly avoids spawning a subprocess.
@@ -480,42 +483,15 @@ if os.path.exists(_runtime_config_path):
                 _f.write(f"home = {os.path.dirname(sys.executable)}\n")
                 _f.write("include-system-site-packages = false\n")
 
-            # Use uv sync --inexact --frozen to install only the
-            # missing public packages. --inexact avoids removing
-            # packages already present in _vendor (bundled deps).
-            # --link-mode hardlink lets the temporary download cache
-            # and the target venv share inode blocks on /tmp, reducing
-            # peak disk usage on Lambda's limited ephemeral storage.
-            _sync_cmd = [
-                _uv_path,
-                "sync",
-                "--inexact",
-                "--active",
-                "--frozen",
-                "--no-dev",
-                "--no-editable",
-                "--no-install-project",
-                "--no-build",
-                "--no-cache",
-                "--no-progress",
-                "--link-mode",
-                "hardlink",
-            ]
-            for _pkg in _config.get("bundledPackages", []):
-                _sync_cmd.extend(["--no-install-package", _pkg])
+            # Install only the missing public packages.
             subprocess.run(
-                _sync_cmd,
+                runtime_install.sync_command(_uv_path, _config),
                 check=True,
                 text=True,
                 cwd=_project_dir,
-                env={
-                    "PATH": os.environ.get("PATH", ""),
-                    "VIRTUAL_ENV": _deps_dir,
-                    "UV_PYTHON_DOWNLOADS": "never",
-                    # Skip writing INSTALLER, REQUESTED, and
-                    # direct_url.json — they are never read at runtime.
-                    "UV_NO_INSTALLER_METADATA": "1",
-                },
+                env=runtime_install.sync_environment(
+                    _deps_dir, _uv_scratch_dir
+                ),
             )
             _install_duration = time.time() - _install_start
             _stderr(

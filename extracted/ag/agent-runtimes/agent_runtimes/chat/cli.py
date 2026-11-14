@@ -24,18 +24,6 @@ if TYPE_CHECKING:
 
 DEFAULT_RUNTIME_AGENT_NAME = "chat"
 
-# Narrow interactive selection to the gallery context set by default. This keeps
-# the picker focused while preserving the existing valid/env/sort logic.
-DEFAULT_AGENTSPEC_CONTEXT_IDS: tuple[str, ...] = (
-    "example-simple",
-    "worker-accountant",
-    "example-analyze-excel-spreadsheet",
-    "example-agent-critic-loop-for-analysis",
-    "example-ai-explains-notebook-output",
-    "example-replace-excel-pivot-work",
-    "worker-marketer",
-)
-
 
 # Global reference to subprocess for cleanup
 _subprocess_ref: Optional[multiprocessing.Process] = None
@@ -650,6 +638,17 @@ def _spec_has_valid_env(spec: Any, available_model_ids: set[str] | None = None) 
     return True
 
 
+def offered_agentspec_ids() -> list[str]:
+    """The ids of the agents the catalogue offers, sorted: the ones loop offers.
+
+    Enabled and listed: an enabled agent kept out of the pickers (``listed:
+    false``, agentspecs 0.0.187), as ``example-simple``, runs by id only.
+    """
+    from agent_runtimes.specs.agents import list_agentspecs
+
+    return sorted(spec.id for spec in list_agentspecs() if spec.offered)
+
+
 def _parse_agentspec_context_ids() -> list[str]:
     """Return agent spec IDs to expose in interactive selection.
 
@@ -657,13 +656,14 @@ def _parse_agentspec_context_ids() -> list[str]:
     - ``LOOP_AGENTSPEC_CONTEXT_IDS``
     - ``DATALAYER_LOOP_AGENTSPEC_CONTEXT_IDS``
 
-    If no override is provided, defaults to ``DEFAULT_AGENTSPEC_CONTEXT_IDS``.
+    Without an override, the agents the catalogue enables and lists: what the
+    agentspecs say is offered is the whole of the list, with no second one here.
     """
     raw = os.environ.get("LOOP_AGENTSPEC_CONTEXT_IDS") or os.environ.get(
         "DATALAYER_LOOP_AGENTSPEC_CONTEXT_IDS"
     )
     if raw is None:
-        return list(DEFAULT_AGENTSPEC_CONTEXT_IDS)
+        return offered_agentspec_ids()
     return [part.strip() for part in raw.split(",") if part.strip()]
 
 
@@ -740,14 +740,8 @@ def _pick_agentspec_interactive() -> str:
             print(f"{GRAY}Enable a spec and/or set the env vars of its model.{RESET}")
             raise typer.Exit(1)
 
-        # Default preference: example-simple when valid, otherwise first valid spec.
-        default_idx: Optional[int] = None
-        for i, spec in enumerate(ordered):
-            if i >= invalid_count and spec.id == "example-simple":
-                default_idx = i
-                break
-        if default_idx is None:
-            default_idx = invalid_count
+        # The first valid spec is proposed.
+        default_idx: Optional[int] = invalid_count
 
         print(f"\n{GREEN_LIGHT}Selected Agentspecs:{RESET}\n")
         for i, spec in enumerate(ordered, 1):
@@ -1099,7 +1093,7 @@ def _launch_on_datalayer(
 
             if questionary.confirm(
                 "Run it on this machine instead?", default=True
-            ).ask():
+            ).unsafe_ask():
                 return None
         raise typer.Exit(1)
     except CloudRefused as refused:
@@ -1361,7 +1355,26 @@ def run_prompts(
                 signal.signal(sig, handler)
 
 
+def _goodbye_on_interrupt(command: Any) -> Any:
+    """Ctrl-C or Ctrl-Z anywhere in ``loop`` — a picker before the session
+    starts included — stops the server and leaves with the goodbye; click
+    would otherwise swallow the interrupt as "Aborted"."""
+    import functools
+
+    @functools.wraps(command)
+    def leave_kindly(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return command(*args, **kwargs)
+        except KeyboardInterrupt:
+            _cleanup_subprocess()
+            print_goodbye()
+            raise typer.Exit(0)
+
+    return leave_kindly
+
+
 @app.callback(invoke_without_command=True)
+@_goodbye_on_interrupt
 def main_callback(
     ctx: typer.Context,
     query: Optional[List[str]] = typer.Argument(

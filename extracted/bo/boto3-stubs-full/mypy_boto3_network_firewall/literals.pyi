@@ -28,6 +28,7 @@ __all__ = (
     "ContainerAssociationStatusType",
     "ContainerMonitoringTypeType",
     "DNSExpiryExceptionPolicyType",
+    "DecryptionActionType",
     "EnabledAnalysisTypeType",
     "EncryptionTypeType",
     "FirewallPolicyActiveWaiterName",
@@ -49,9 +50,6 @@ __all__ = (
     "ListFirewallsPaginatorName",
     "ListFlowOperationResultsPaginatorName",
     "ListFlowOperationsPaginatorName",
-    "ListProxiesPaginatorName",
-    "ListProxyConfigurationsPaginatorName",
-    "ListProxyRuleGroupsPaginatorName",
     "ListRuleGroupsPaginatorName",
     "ListTLSInspectionConfigurationsPaginatorName",
     "ListTagsForResourcePaginatorName",
@@ -67,7 +65,6 @@ __all__ = (
     "PolicyDefaultActionType",
     "PolicyModeType",
     "ProxyModifyStateType",
-    "ProxyRulePhaseActionType",
     "ProxyStateType",
     "RegionName",
     "ResourceManagedStatusType",
@@ -76,7 +73,6 @@ __all__ = (
     "ResourceStatusType",
     "RevocationCheckActionType",
     "Route53ResolvedIPValidationActionType",
-    "RuleGroupRequestPhaseType",
     "RuleGroupTypeType",
     "RuleOrderType",
     "RuleOutputFormatType",
@@ -89,9 +85,11 @@ __all__ = (
     "SubscriptionStatusType",
     "SummaryRuleOptionType",
     "TCPFlagType",
+    "TLSInspectionScopeDeploymentModeType",
     "TargetTypeType",
     "TlsInterceptModeType",
     "TransitGatewayAttachmentStatusType",
+    "TransparentFilteringNatScopeType",
     "WaiterName",
 )
 
@@ -101,6 +99,7 @@ ConfigurationSyncStateType = Literal["CAPACITY_CONSTRAINED", "IN_SYNC", "PENDING
 ContainerAssociationStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 ContainerMonitoringTypeType = Literal["ECS", "EKS"]
 DNSExpiryExceptionPolicyType = Literal["CONTINUE", "DROP", "REJECT"]
+DecryptionActionType = Literal["BYPASS", "DECRYPT"]
 EnabledAnalysisTypeType = Literal["HTTP_HOST", "TLS_SNI"]
 EncryptionTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"]
 FirewallPolicyActiveWaiterName = Literal["firewall_policy_active"]
@@ -364,9 +363,6 @@ ListFirewallPoliciesV2PaginatorName = Literal["list_firewall_policies_v2"]
 ListFirewallsPaginatorName = Literal["list_firewalls"]
 ListFlowOperationResultsPaginatorName = Literal["list_flow_operation_results"]
 ListFlowOperationsPaginatorName = Literal["list_flow_operations"]
-ListProxiesPaginatorName = Literal["list_proxies"]
-ListProxyConfigurationsPaginatorName = Literal["list_proxy_configurations"]
-ListProxyRuleGroupsPaginatorName = Literal["list_proxy_rule_groups"]
 ListRuleGroupsPaginatorName = Literal["list_rule_groups"]
 ListTLSInspectionConfigurationsPaginatorName = Literal["list_tls_inspection_configurations"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
@@ -382,7 +378,6 @@ PerObjectSyncStatusType = Literal[
 PolicyDefaultActionType = Literal["ACCEPT", "ALERT", "DROP", "REJECT"]
 PolicyModeType = Literal["ENFORCE", "MONITOR"]
 ProxyModifyStateType = Literal["COMPLETED", "FAILED", "MODIFYING"]
-ProxyRulePhaseActionType = Literal["ALERT", "ALLOW", "DENY"]
 ProxyStateType = Literal[
     "ATTACHED", "ATTACHING", "ATTACH_FAILED", "DETACHED", "DETACHING", "DETACH_FAILED"
 ]
@@ -396,7 +391,6 @@ ResourceManagedTypeType = Literal[
 ResourceStatusType = Literal["ACTIVE", "DELETING", "ERROR", "UPDATING"]
 RevocationCheckActionType = Literal["DROP", "PASS", "REJECT"]
 Route53ResolvedIPValidationActionType = Literal["ALERT", "DROP", "REJECT"]
-RuleGroupRequestPhaseType = Literal["POST_RES", "PRE_DNS", "PRE_REQ"]
 RuleGroupTypeType = Literal["FIREWALL", "IPS", "STATEFUL", "STATEFUL_DOMAIN", "STATELESS"]
 RuleOrderType = Literal["DEFAULT_ACTION_ORDER", "STRICT_ORDER"]
 RuleOutputFormatType = Literal["FIREWALL_RULES", "RULES_STRING"]
@@ -430,6 +424,9 @@ StreamExceptionPolicyV2Type = Literal["DROP", "REJECT"]
 SubscriptionStatusType = Literal["NOT_SUBSCRIBED", "SUBSCRIBED"]
 SummaryRuleOptionType = Literal["METADATA", "MSG", "SID"]
 TCPFlagType = Literal["ACK", "CWR", "ECE", "FIN", "PSH", "RST", "SYN", "URG"]
+TLSInspectionScopeDeploymentModeType = Literal[
+    "ALL", "EXPLICIT_PROXY_ONLY", "TRANSPARENT_FIREWALL_ONLY"
+]
 TargetTypeType = Literal["AWS_ROUTE_53_RESOLVED_DOMAIN", "HTTP_HOST", "TLS_SNI"]
 TlsInterceptModeType = Literal["DISABLED", "ENABLED"]
 TransitGatewayAttachmentStatusType = Literal[
@@ -443,6 +440,7 @@ TransitGatewayAttachmentStatusType = Literal[
     "REJECTED",
     "REJECTING",
 ]
+TransparentFilteringNatScopeType = Literal["NAT_ALL", "NAT_NONE"]
 NetworkFirewallServiceName = Literal["network-firewall"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -893,9 +891,6 @@ PaginatorName = Literal[
     "list_firewalls",
     "list_flow_operation_results",
     "list_flow_operations",
-    "list_proxies",
-    "list_proxy_configurations",
-    "list_proxy_rule_groups",
     "list_rule_groups",
     "list_tags_for_resource",
     "list_tls_inspection_configurations",

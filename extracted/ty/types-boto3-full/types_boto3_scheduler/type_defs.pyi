@@ -51,6 +51,9 @@ __all__ = (
     "EcsParametersOutputTypeDef",
     "EcsParametersTypeDef",
     "EventBridgeParametersTypeDef",
+    "EventBridgePutEventsV2ParametersTypeDef",
+    "EventBridgePutRawEventsParametersOutputTypeDef",
+    "EventBridgePutRawEventsParametersTypeDef",
     "FlexibleTimeWindowTypeDef",
     "GetScheduleGroupInputTypeDef",
     "GetScheduleGroupOutputTypeDef",
@@ -92,18 +95,18 @@ __all__ = (
 
 class AwsVpcConfigurationOutputTypeDef(TypedDict):
     Subnets: list[str]
-    AssignPublicIp: NotRequired[AssignPublicIpType]
     SecurityGroups: NotRequired[list[str]]
+    AssignPublicIp: NotRequired[AssignPublicIpType]
 
 class AwsVpcConfigurationTypeDef(TypedDict):
     Subnets: Sequence[str]
-    AssignPublicIp: NotRequired[AssignPublicIpType]
     SecurityGroups: NotRequired[Sequence[str]]
+    AssignPublicIp: NotRequired[AssignPublicIpType]
 
 class CapacityProviderStrategyItemTypeDef(TypedDict):
     capacityProvider: str
-    base: NotRequired[int]
     weight: NotRequired[int]
+    base: NotRequired[int]
 
 class TagTypeDef(TypedDict):
     Key: str
@@ -131,27 +134,37 @@ class DeleteScheduleGroupInputTypeDef(TypedDict):
 
 class DeleteScheduleInputTypeDef(TypedDict):
     Name: str
-    ClientToken: NotRequired[str]
     GroupName: NotRequired[str]
+    ClientToken: NotRequired[str]
 
 PlacementConstraintTypeDef = TypedDict(
     "PlacementConstraintTypeDef",
     {
-        "expression": NotRequired[str],
         "type": NotRequired[PlacementConstraintTypeType],
+        "expression": NotRequired[str],
     },
 )
 PlacementStrategyTypeDef = TypedDict(
     "PlacementStrategyTypeDef",
     {
-        "field": NotRequired[str],
         "type": NotRequired[PlacementStrategyTypeType],
+        "field": NotRequired[str],
     },
 )
 
 class EventBridgeParametersTypeDef(TypedDict):
     DetailType: str
     Source: str
+
+class EventBridgePutEventsV2ParametersTypeDef(TypedDict):
+    DetailType: str
+    Source: str
+
+class EventBridgePutRawEventsParametersOutputTypeDef(TypedDict):
+    Metadata: NotRequired[dict[str, str]]
+
+class EventBridgePutRawEventsParametersTypeDef(TypedDict):
+    Metadata: NotRequired[Mapping[str, str]]
 
 class GetScheduleGroupInputTypeDef(TypedDict):
     Name: str
@@ -169,23 +182,23 @@ class PaginatorConfigTypeDef(TypedDict):
     StartingToken: NotRequired[str]
 
 class ListScheduleGroupsInputTypeDef(TypedDict):
-    MaxResults: NotRequired[int]
     NamePrefix: NotRequired[str]
     NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 class ScheduleGroupSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
-    CreationDate: NotRequired[datetime]
-    LastModificationDate: NotRequired[datetime]
     Name: NotRequired[str]
     State: NotRequired[ScheduleGroupStateType]
+    CreationDate: NotRequired[datetime]
+    LastModificationDate: NotRequired[datetime]
 
 class ListSchedulesInputTypeDef(TypedDict):
     GroupName: NotRequired[str]
-    MaxResults: NotRequired[int]
     NamePrefix: NotRequired[str]
-    NextToken: NotRequired[str]
     State: NotRequired[ScheduleStateType]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 class ListTagsForResourceInputTypeDef(TypedDict):
     ResourceArn: str
@@ -216,8 +229,8 @@ class NetworkConfigurationTypeDef(TypedDict):
 
 class CreateScheduleGroupInputTypeDef(TypedDict):
     Name: str
-    ClientToken: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    ClientToken: NotRequired[str]
 
 class TagResourceInputTypeDef(TypedDict):
     ResourceArn: str
@@ -233,10 +246,10 @@ class CreateScheduleOutputTypeDef(TypedDict):
 
 class GetScheduleGroupOutputTypeDef(TypedDict):
     Arn: str
-    CreationDate: datetime
-    LastModificationDate: datetime
     Name: str
     State: ScheduleGroupStateType
+    CreationDate: datetime
+    LastModificationDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
@@ -270,44 +283,44 @@ class SageMakerPipelineParametersTypeDef(TypedDict):
 
 class ScheduleSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
-    CreationDate: NotRequired[datetime]
-    GroupName: NotRequired[str]
-    LastModificationDate: NotRequired[datetime]
     Name: NotRequired[str]
+    GroupName: NotRequired[str]
     State: NotRequired[ScheduleStateType]
+    CreationDate: NotRequired[datetime]
+    LastModificationDate: NotRequired[datetime]
     Target: NotRequired[TargetSummaryTypeDef]
 
 class EcsParametersOutputTypeDef(TypedDict):
     TaskDefinitionArn: str
+    TaskCount: NotRequired[int]
+    LaunchType: NotRequired[LaunchTypeType]
+    NetworkConfiguration: NotRequired[NetworkConfigurationOutputTypeDef]
+    PlatformVersion: NotRequired[str]
+    Group: NotRequired[str]
     CapacityProviderStrategy: NotRequired[list[CapacityProviderStrategyItemTypeDef]]
     EnableECSManagedTags: NotRequired[bool]
     EnableExecuteCommand: NotRequired[bool]
-    Group: NotRequired[str]
-    LaunchType: NotRequired[LaunchTypeType]
-    NetworkConfiguration: NotRequired[NetworkConfigurationOutputTypeDef]
     PlacementConstraints: NotRequired[list[PlacementConstraintTypeDef]]
     PlacementStrategy: NotRequired[list[PlacementStrategyTypeDef]]
-    PlatformVersion: NotRequired[str]
     PropagateTags: NotRequired[Literal["TASK_DEFINITION"]]
     ReferenceId: NotRequired[str]
     Tags: NotRequired[list[dict[str, str]]]
-    TaskCount: NotRequired[int]
 
 class EcsParametersTypeDef(TypedDict):
     TaskDefinitionArn: str
+    TaskCount: NotRequired[int]
+    LaunchType: NotRequired[LaunchTypeType]
+    NetworkConfiguration: NotRequired[NetworkConfigurationTypeDef]
+    PlatformVersion: NotRequired[str]
+    Group: NotRequired[str]
     CapacityProviderStrategy: NotRequired[Sequence[CapacityProviderStrategyItemTypeDef]]
     EnableECSManagedTags: NotRequired[bool]
     EnableExecuteCommand: NotRequired[bool]
-    Group: NotRequired[str]
-    LaunchType: NotRequired[LaunchTypeType]
-    NetworkConfiguration: NotRequired[NetworkConfigurationTypeDef]
     PlacementConstraints: NotRequired[Sequence[PlacementConstraintTypeDef]]
     PlacementStrategy: NotRequired[Sequence[PlacementStrategyTypeDef]]
-    PlatformVersion: NotRequired[str]
     PropagateTags: NotRequired[Literal["TASK_DEFINITION"]]
     ReferenceId: NotRequired[str]
     Tags: NotRequired[Sequence[Mapping[str, str]]]
-    TaskCount: NotRequired[int]
 
 class ListSchedulesOutputTypeDef(TypedDict):
     Schedules: list[ScheduleSummaryTypeDef]
@@ -318,11 +331,13 @@ class TargetOutputTypeDef(TypedDict):
     Arn: str
     RoleArn: str
     DeadLetterConfig: NotRequired[DeadLetterConfigTypeDef]
+    RetryPolicy: NotRequired[RetryPolicyTypeDef]
+    Input: NotRequired[str]
     EcsParameters: NotRequired[EcsParametersOutputTypeDef]
     EventBridgeParameters: NotRequired[EventBridgeParametersTypeDef]
-    Input: NotRequired[str]
+    EventBridgePutEventsV2Parameters: NotRequired[EventBridgePutEventsV2ParametersTypeDef]
+    EventBridgePutRawEventsParameters: NotRequired[EventBridgePutRawEventsParametersOutputTypeDef]
     KinesisParameters: NotRequired[KinesisParametersTypeDef]
-    RetryPolicy: NotRequired[RetryPolicyTypeDef]
     SageMakerPipelineParameters: NotRequired[SageMakerPipelineParametersOutputTypeDef]
     SqsParameters: NotRequired[SqsParametersTypeDef]
 
@@ -330,60 +345,62 @@ class TargetTypeDef(TypedDict):
     Arn: str
     RoleArn: str
     DeadLetterConfig: NotRequired[DeadLetterConfigTypeDef]
+    RetryPolicy: NotRequired[RetryPolicyTypeDef]
+    Input: NotRequired[str]
     EcsParameters: NotRequired[EcsParametersTypeDef]
     EventBridgeParameters: NotRequired[EventBridgeParametersTypeDef]
-    Input: NotRequired[str]
+    EventBridgePutEventsV2Parameters: NotRequired[EventBridgePutEventsV2ParametersTypeDef]
+    EventBridgePutRawEventsParameters: NotRequired[EventBridgePutRawEventsParametersTypeDef]
     KinesisParameters: NotRequired[KinesisParametersTypeDef]
-    RetryPolicy: NotRequired[RetryPolicyTypeDef]
     SageMakerPipelineParameters: NotRequired[SageMakerPipelineParametersTypeDef]
     SqsParameters: NotRequired[SqsParametersTypeDef]
 
 class GetScheduleOutputTypeDef(TypedDict):
-    ActionAfterCompletion: ActionAfterCompletionType
     Arn: str
-    CreationDate: datetime
-    Description: str
-    EndDate: datetime
-    FlexibleTimeWindow: FlexibleTimeWindowTypeDef
     GroupName: str
-    KmsKeyArn: str
-    LastModificationDate: datetime
     Name: str
     ScheduleExpression: str
-    ScheduleExpressionTimezone: str
     StartDate: datetime
+    EndDate: datetime
+    Description: str
+    ScheduleExpressionTimezone: str
     State: ScheduleStateType
+    CreationDate: datetime
+    LastModificationDate: datetime
+    KmsKeyArn: str
     Target: TargetOutputTypeDef
+    FlexibleTimeWindow: FlexibleTimeWindowTypeDef
+    ActionAfterCompletion: ActionAfterCompletionType
     ResponseMetadata: ResponseMetadataTypeDef
 
 TargetUnionTypeDef = Union[TargetTypeDef, TargetOutputTypeDef]
 
 class CreateScheduleInputTypeDef(TypedDict):
-    FlexibleTimeWindow: FlexibleTimeWindowTypeDef
     Name: str
     ScheduleExpression: str
     Target: TargetUnionTypeDef
-    ActionAfterCompletion: NotRequired[ActionAfterCompletionType]
-    ClientToken: NotRequired[str]
-    Description: NotRequired[str]
-    EndDate: NotRequired[TimestampTypeDef]
+    FlexibleTimeWindow: FlexibleTimeWindowTypeDef
     GroupName: NotRequired[str]
-    KmsKeyArn: NotRequired[str]
-    ScheduleExpressionTimezone: NotRequired[str]
     StartDate: NotRequired[TimestampTypeDef]
+    EndDate: NotRequired[TimestampTypeDef]
+    Description: NotRequired[str]
+    ScheduleExpressionTimezone: NotRequired[str]
     State: NotRequired[ScheduleStateType]
+    KmsKeyArn: NotRequired[str]
+    ClientToken: NotRequired[str]
+    ActionAfterCompletion: NotRequired[ActionAfterCompletionType]
 
 class UpdateScheduleInputTypeDef(TypedDict):
-    FlexibleTimeWindow: FlexibleTimeWindowTypeDef
     Name: str
     ScheduleExpression: str
     Target: TargetUnionTypeDef
-    ActionAfterCompletion: NotRequired[ActionAfterCompletionType]
-    ClientToken: NotRequired[str]
-    Description: NotRequired[str]
-    EndDate: NotRequired[TimestampTypeDef]
+    FlexibleTimeWindow: FlexibleTimeWindowTypeDef
     GroupName: NotRequired[str]
-    KmsKeyArn: NotRequired[str]
-    ScheduleExpressionTimezone: NotRequired[str]
     StartDate: NotRequired[TimestampTypeDef]
+    EndDate: NotRequired[TimestampTypeDef]
+    Description: NotRequired[str]
+    ScheduleExpressionTimezone: NotRequired[str]
     State: NotRequired[ScheduleStateType]
+    KmsKeyArn: NotRequired[str]
+    ClientToken: NotRequired[str]
+    ActionAfterCompletion: NotRequired[ActionAfterCompletionType]

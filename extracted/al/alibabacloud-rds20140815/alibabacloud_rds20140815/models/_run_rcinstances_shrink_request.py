@@ -62,62 +62,63 @@ class RunRCInstancesShrinkRequest(DaraModel):
         # 
         # Valid values: **1** to **30**. Default value: **1**.
         self.amount = amount
-        # Specifies whether to enable automatic payment. Valid values:
-        # - **true** (default): Automatic payment is enabled. You must ensure that your account balance is sufficient.
-        # - **false**: Only an order is generated and no payment is deducted.
+        # Specifies whether to automatically pay for the order. Valid values:
+        # - **true** (default): Automatic payment. You must ensure that your account balance is sufficient.
+        # - **false**: The order is generated but no payment is deducted.
         # > If the balance of your payment method is insufficient, you can set the AutoPay parameter to false. In this case, an unpaid order is generated, and you can log on to the ApsaraDB RDS console to complete the payment.
         self.auto_pay = auto_pay
         # Specifies whether to enable auto-renewal for the instance. Valid values:
-        # - **true** (default): yes
-        # - **false**: no
-        self.auto_renew = auto_renew
-        # Specifies whether to automatically use a coupon. Valid values:
-        # - **true** (default): yes
-        # - **false**: no
         # 
-        # > If you use a coupon and then downgrade the instance configuration, the amount deducted by the voucher is not refunded.
+        # * **true** (default): Yes.
+        # * **false**: No.
+        self.auto_renew = auto_renew
+        # Specifies whether to automatically use coupons. Valid values:
+        # * **true** (default): Yes.
+        # * **false**: No.
+        # 
+        # > If you use a coupon and then downgrade the instance configuration, the amount deducted by the voucher will not be refunded.
         self.auto_use_coupon = auto_use_coupon
         # The business information.
         self.business_info = business_info
-        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the token, but you must ensure that the token is unique among different requests. The token can contain a maximum of 64 ASCII characters and cannot contain non-ASCII characters.
+        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the token, but you must ensure that the token is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # The ACK Edge cluster information.
+        # The information about the ACK Edge cluster.
         self.create_ack_edge_param_shrink = create_ack_edge_param_shrink
         # A reserved parameter. This parameter is not supported.
         self.create_extra_param = create_extra_param
-        # Specifies whether the instance is allowed to join an ACK cluster. When this parameter is set to **1**, the created instance can be added to an ACK cluster by calling the **AttachRCInstances** API operation, which enables efficient management of containerized applications.
+        # Specifies whether the instance is allowed to be added to an ACK cluster. When the parameter is set to **1**, the created instance can be added to an ACK cluster by calling the **AttachRCInstances** API operation, which enables efficient management of containerized applications.
         # 
-        # - **1**: yes
-        # - **0** (default): no
+        # - **1**: Yes.
+        # - **0** (default): No.
         self.create_mode = create_mode
-        # The data cloud disks.
+        # The list of data cloud disks.
         self.data_disk_shrink = data_disk_shrink
         # Specifies whether to enable release protection. Valid values:
-        # - **true**: enabled
-        # - **false** (default): disabled
+        # * **true**: Enabled.
+        # * **false** (default): Disabled.
         self.deletion_protection = deletion_protection
-        # The deployment set ID.
+        # The ID of the deployment set.
         self.deployment_set_id = deployment_set_id
-        # The instance description. The description must be 2 to 256 characters in length and cannot start with http:// or https://.
+        # The description of the instance. The description must be 2 to 256 characters in length and cannot start with http:// or https://.
         self.description = description
         # Specifies whether to perform a dry run before creating the instance. Valid values:
-        # - **true**: performs a dry run without creating the instance. The dry run checks items such as request parameters, request format, service limits, and inventory.
-        # - **false** (default): sends a normal request and creates the instance directly after the check passes.
+        # * **true**: Performs a dry run without creating the instance. The check items include the request parameters, request format, service limits, and available resources.
+        # * **false** (default): Sends a normal request and creates the instance directly after the request passes the check.
         self.dry_run = dry_run
         # The hostname of the instance. The hostname must be 2 to 64 characters in length.
         # 
-        # - The hostname can be segmented by periods (.). Each segment can contain letters, digits, and hyphens (-).
-        # - A period (.) or hyphen (-) cannot be used as the first or last character, and cannot be used consecutively.
+        # - It can be separated into multiple segments by periods (.). Each segment can contain letters, digits, and hyphens (-).
+        # - It cannot start or end with a period (.) or a hyphen (-), and cannot contain consecutive periods (.) or hyphens (-).
         self.host_name = host_name
-        # The image ID of the instance.
+        # The ID of the image used by the instance.
         self.image_id = image_id
-        # The billing method. Valid values:
-        # - **Prepaid**: subscription
-        # - **Postpaid**: pay-as-you-go
+        # The billing method of the instance. Valid values:
+        # * **Prepaid**: Subscription.
+        # * **Postpaid**: Pay-as-you-go.
         self.instance_charge_type = instance_charge_type
-        # The name must be 2 to 128 characters in length. It must start with a letter or a Chinese character and can contain letters, Chinese characters, digits, periods (.), underscores (_), colons (:), and hyphens (-). The default value is the instance ID. When you create multiple RDS Custom instances, you can specify sequential instance names in batches. The names can contain square brackets ([]) and commas (,). For more information, see [Create an RDS Custom instance](https://www.alibabacloud.com/help/en/rds/apsaradb-rds-for-mysql/create-an-rds-custom-instance#00481f9ba381u).
+        # The name must be 2 to 128 characters in length. It must start with a letter or a Chinese character, and can contain letters, Chinese characters, digits, periods (.), underscores (_), colons (:), and hyphens (-). The default value is the instance ID. When you create multiple RDS Custom instances, you can specify sequential instance names in batches. The names can contain square brackets ([]) and commas (,). For more information, see [Create an RDS Custom instance](https://www.alibabacloud.com/help/en/rds/apsaradb-rds-for-mysql/create-an-rds-custom-instance#00481f9ba381u).
         self.instance_name = instance_name
-        # The instance type. For the instance types supported by RDS Custom instances, see [RDS Custom instance types](https://help.aliyun.com/document_detail/2844823.html).
+        # The instance type. For more information about the instance types supported by RDS Custom instances, see [RDS Custom instance types](https://help.aliyun.com/document_detail/2844823.html).
         # 
         # This parameter is required.
         self.instance_type = instance_type
@@ -131,69 +132,70 @@ class RunRCInstancesShrinkRequest(DaraModel):
         self.io_optimized = io_optimized
         # The name of the key pair. Only a single name is supported.
         self.key_pair_name = key_pair_name
-        # The network-related attribute parameters.
+        # The network-related properties.
         self.network_options_shrink = network_options_shrink
         # The password of the instance account. The password must be 8 to 30 characters in length and must contain at least three of the following character types: uppercase letters, lowercase letters, digits, and special characters. Special characters include: `()~!@#$%^&*-_+=|{}[]:;\\"<>,.?/`.
         self.password = password
-        # Specifies whether to use the password preset in the image. If you specify this parameter, you must leave the Password parameter empty and ensure that a password is preset in the image. Default value: false.
+        # Specifies whether to use the password preset in the image. If you specify this parameter, you must leave the Password parameter empty and ensure that the image has a preset password. Default value: false.
         self.password_inherit = password_inherit
-        # The subscription duration of the resource. Default value: **1**.
+        # The subscription duration of the instance. Default value: **1**.
         self.period = period
-        # The unit of the billing duration for the subscription billing method. Valid values:
-        # - **Year**
-        # - **Month** (default)
+        # The time unit of the billing duration for the subscription billing method. Valid values:
+        # - **Year**: Year.
+        # - **Month** (default): Month.
         self.period_unit = period_unit
-        # The private IP address of the instance. When you assign a private IP address to a VPC-connected ECS instance, you must select an available IP address from the CIDR block of the vSwitch specified by VSwitchId.
+        # The private IP address of the instance. When you specify a private IP address for a VPC-connected ECS instance, the IP address must be selected from the idle CIDR block of the vSwitch specified by VSwitchId.
         self.private_ip_address = private_ip_address
         # The coupon code.
         self.promotion_code = promotion_code
-        # The region ID. You can call the DescribeRegions operation to query available regions.
+        # The region ID. You can call the DescribeRegions operation to query the region ID.
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The resource group ID.
+        # The ID of the resource group.
         self.resource_group_id = resource_group_id
-        # The time-based elastic rule.
+        # The scheduled scaling rule.
         self.scheduled_rule = scheduled_rule
         # A reserved parameter. This parameter is not supported.
         self.security_enhancement_strategy = security_enhancement_strategy
         # The ID of the security group to which the instance belongs. Instances in the same security group can access each other. The maximum number of instances that a security group can contain depends on the security group type. For more information, see the "Security groups" section in [Limits](https://help.aliyun.com/document_detail/25412.html).
-        # > The SecurityGroupId parameter determines the network type of the instance. For example, if the network type of the specified security group is VPC, the instance is a VPC-connected instance and the VSwitchId parameter is required.
+        # > The SecurityGroupId parameter determines the network type of the instance. For example, if the network type of the specified security group is VPC, the instance is a VPC-connected instance, and you must also specify the VSwitchId parameter.
         self.security_group_id = security_group_id
-        # The security groups to which the instance is added. You can add the instance to up to 10 security groups. Note: You cannot specify both SecurityGroupId and SecurityGroupIds.N at the same time.
+        # The security groups to which the instance is added. You can add the instance to up to 10 security groups.
+        # Note: You cannot specify both SecurityGroupId and SecurityGroupIds.N at the same time.
         self.security_group_ids_shrink = security_group_ids_shrink
         # The bidding policy for the pay-as-you-go instance. This parameter takes effect only when the **InstanceChargeType** parameter is set to **PostPaid**. Valid values:
         # 
-        # - **NoSpot**: regular pay-as-you-go instance
-        # - **SpotAsPriceGo**: system automatically bids based on the current market price
+        # - **NoSpot**: Regular pay-as-you-go instance.
+        # - **SpotAsPriceGo**: The system automatically places a bid based on the current market price.
         # 
         # Default value: **NoSpot**.
         self.spot_strategy = spot_strategy
         # The form of RDS Custom. Valid values:
         # 
-        # - **eni**: dual ENI
-        # - **edge**: edge node pool
-        # - **share**: VPC
+        # - **eni**: Dual ENI.
+        # - **edge**: Edge node pool.
+        # - **share**: VPC.
         self.support_case = support_case
-        # The system cloud disk.
+        # The system cloud disk configurations.
         self.system_disk_shrink = system_disk_shrink
         # The list of tags.
         self.tag = tag
         # The instance user data. The raw data can be up to 32 KB in size.
         # 
-        # Do not pass confidential information such as passwords and private keys in plaintext. If you must pass such information, encrypt and use Base64 encoding before transmission, and then perform decryption and use it inside the instance. The following example shows how to transform a script to a Base64 character string:
+        # Do not pass confidential information such as passwords and private keys in plaintext. If you must pass such information, encrypt the information, encode the characters in Base64, and then pass it. Perform decryption inside the instance before use. The following example shows how to transform a script to a Base64 string:
         # 
         # ```
         # echo -n \\"#!/bin/sh
         # echo "Hello World"\\" | base64 -w 0
         # ```
         self.user_data = user_data
-        # Specifies whether the custom data is encoded in Base64.
+        # Specifies whether the user data is encoded in Base64.
         # 
-        # - **true**: yes
-        # - **false** (default): no
+        # - **true**: Yes.
+        # - **false** (default): No.
         self.user_data_in_base_64 = user_data_in_base_64
-        # The vSwitch ID of the target instance. If you create a VPC-connected RDS Custom instance, you must specify a vSwitch ID, and the security group and the vSwitch must belong to the same VPC.
+        # The ID of the vSwitch to which the target instance belongs. If you create a VPC-connected RDS Custom instance, you must specify the vSwitch ID, and the security group and the vSwitch must belong to the same VPC.
         # > If you configure the VSwitchId parameter, the ZoneId parameter must be set to the zone where the vSwitch resides. You can also leave the ZoneId parameter empty, and the system automatically selects the zone where the specified vSwitch resides.
         # 
         # This parameter is required.

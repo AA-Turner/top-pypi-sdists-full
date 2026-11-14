@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: papyrus-newsroom
-Version: 5.108.0
+Version: 5.110.0
 Summary: Papyrus newsroom Python tools and CLI.
 License-Expression: MIT
 License-File: LICENSE
@@ -23,7 +23,8 @@ Requires-Dist: citeproc-py (>=0.8.2,<1.0.0)
 Requires-Dist: cli-login (==0.4.1) ; sys_platform != "linux"
 Requires-Dist: cli-login[linux] (==0.4.1) ; sys_platform == "linux"
 Requires-Dist: fastapi (>=0.115,<1) ; extra == "priming"
-Requires-Dist: humanus (>=0.34,<0.35)
+Requires-Dist: humanus (>=0.36,<0.37)
+Requires-Dist: jsonschema (>=4.23,<5)
 Requires-Dist: latex2mathml (>=3.78,<4)
 Requires-Dist: markitdown[all] (>=0.1.0,<1.0.0) ; extra == "newsroom"
 Requires-Dist: requests (>=2.32.3,<3)

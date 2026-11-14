@@ -134,9 +134,10 @@ class TestDownloaderConfig(unittest.TestCase):
         self.assertEqual(dl.rate, None)
         self.assertEqual(dl.part, True)
         self.assertEqual(dl.partdir, None)
+        self.assertEqual(dl.retry_codes, [*extr._retry_codes, 429])
 
         self.assertIs(dl.interval_429, extr._interval_429)
-        self.assertIs(dl.retry_codes, extr._retry_codes)
+        self.assertIs(dl.interval_retry, extr._interval_retry)
         self.assertIs(dl.retries, extr._retries)
         self.assertIs(dl.timeout, extr._timeout)
         self.assertIs(dl.proxies, extr._proxies)

@@ -125,6 +125,14 @@ impl StatsigHttpSpecsAdapter {
         }
     }
 
+    fn needs_blob_hydration_repair(&self) -> bool {
+        self.listener.try_read().is_some_and(|listener| {
+            listener
+                .as_ref()
+                .is_some_and(|listener| listener.as_listener().needs_blob_hydration_repair())
+        })
+    }
+
     fn retry_policy(&self, trigger: SpecsSyncTrigger) -> RetryPolicy {
         if trigger == SpecsSyncTrigger::Background {
             self.background_retry_policy
@@ -364,6 +372,13 @@ impl StatsigHttpSpecsAdapter {
         trigger: SpecsSyncTrigger,
         supports_proto: bool,
     ) -> RequestArgs {
+        // Recheck at request time: a concurrent sync may have installed a partial snapshot.
+        let needs_full = self.needs_blob_hydration_repair();
+        let current_specs_info = if needs_full {
+            &SpecsInfo::empty()
+        } else {
+            current_specs_info
+        };
         let mut params = HashMap::new();
 
         if supports_proto {
@@ -390,7 +405,8 @@ impl StatsigHttpSpecsAdapter {
             );
         }
 
-        let use_deltas_next_req = self.use_deltas_next_request.load(Ordering::SeqCst);
+        let use_deltas_next_req =
+            !needs_full && self.use_deltas_next_request.load(Ordering::SeqCst);
         if use_deltas_next_req {
             params.insert("accept_deltas".to_string(), "true".to_string());
         }

@@ -3,45 +3,32 @@
 import typing
 
 import typing_extensions
-from ..types.doc_ai_classify_config_scope import DocAiClassifyConfigScope
 from ..types.doc_ai_classify_config_unmatched_behavior import DocAiClassifyConfigUnmatchedBehavior
 from .doc_ai_classify_category import DocAiClassifyCategoryParams
-from .doc_ai_classify_inspection import DocAiClassifyInspectionParams
+from .doc_ai_page_ranges import DocAiPageRangesParams
+from .doc_ai_review_policy import DocAiReviewPolicyParams
 
 
 class DocAiClassifyConfigParams(typing_extensions.TypedDict):
-    """
-    Classify options. Use at most one page selector from `max_pages`, `target_pages` and `inspection`.
-    """
-
-    scope: typing_extensions.NotRequired[DocAiClassifyConfigScope]
-    """
-    `document` returns one decision for the file. `page` returns one decision per page in `decisions`.
-    """
-
     categories: typing_extensions.NotRequired[typing.Sequence[DocAiClassifyCategoryParams]]
     """
-    Categories to choose from. Omit them to let the API suggest a document type.
+    Categories to choose from, up to 200. Omit to let the API read types from `instructions` or suggest one.
     """
 
+    instructions: typing_extensions.NotRequired[str]
+    """
+    Your own instruction text, up to 8,000 characters.
+    """
+
+    page_ranges: typing_extensions.NotRequired[DocAiPageRangesParams]
     unmatched_behavior: typing_extensions.NotRequired[DocAiClassifyConfigUnmatchedBehavior]
     """
-    What to do when no category matches. `suggest_type` returns a `suggested_type`; `other` returns `type: "other"` without a suggestion.
+    What to do when no category matches. `suggest_type` returns a `suggested_type`; `other` suppresses it.
     """
 
-    prompt: typing_extensions.NotRequired[str]
+    label_mode: typing_extensions.NotRequired[typing.Literal["single"]]
     """
-    Your own instruction text.
-    """
-
-    max_pages: typing_extensions.NotRequired[int]
-    """
-    Inspect only the first N pages.
+    `single` only.
     """
 
-    target_pages: typing_extensions.NotRequired[typing.Sequence[int]]
-    """
-    Inspect only these 1-based pages, e.g. `[1, 6, 8]`.
-    """
-
-    inspection: typing_extensions.NotRequired[DocAiClassifyInspectionParams]
+    review_policy: typing_extensions.NotRequired[DocAiReviewPolicyParams]

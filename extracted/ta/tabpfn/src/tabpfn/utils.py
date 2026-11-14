@@ -584,13 +584,21 @@ def transform_borders_one(
     borders: np.ndarray,
     target_transform: TransformerMixin | Pipeline,
     *,
+    znorm_mean: float,
+    znorm_std: float,
     repair_nan_borders_after_transform: bool,
 ) -> tuple[npt.NDArray[np.bool_] | None, bool, np.ndarray]:
     """Transforms the borders used for the bar distribution for regression.
 
+    The inverse returns raw target units; map them into the shared standardized
+    frame before applying sanity limits and aggregating predictions.
+
     Args:
         borders: The borders to transform.
         target_transform: The target transformer to use.
+        znorm_mean: Mean of the training target, defining the frame the borders
+            are returned in.
+        znorm_std: Standard deviation of the training target.
         repair_nan_borders_after_transform:
             Whether to repair any borders that are NaN after the transformation.
 
@@ -601,30 +609,39 @@ def transform_borders_one(
         descending_borders: Whether the borders are descending after transformation
         borders_t: The transformed borders themselves.
     """
-    borders_t = target_transform.inverse_transform(borders.reshape(-1, 1)).squeeze()  # type: ignore
+    # Use float64 for the cancelling inverse/frame operations, then restore
+    # the input dtype for aggregation.
+    borders_t = target_transform.inverse_transform(  # type: ignore
+        borders.reshape(-1, 1).astype(np.float64)
+    ).squeeze()
+    borders_t = ((borders_t - znorm_mean) / znorm_std).astype(borders.dtype)
 
-    logit_cancel_mask: npt.NDArray[np.bool_] | None = None
+    broken_mask: npt.NDArray[np.bool_] | None = None
     if repair_nan_borders_after_transform:
         broken_mask = (
             ~np.isfinite(borders_t)
             | (borders_t > REGRESSION_NAN_BORDER_LIMIT_UPPER)
             | (borders_t < REGRESSION_NAN_BORDER_LIMIT_LOWER)
         )
-        if broken_mask.any():
-            borders_t, logit_cancel_mask = _cancel_nan_borders(
-                borders=borders_t,
-                broken_mask=broken_mask,
-            )
+
+    # An order-reversing transform returns descending borders. Read the order off
+    # the usable borders and reverse first: the cancelling and the repair below
+    # both assume ascending borders.
+    usable = borders_t if broken_mask is None else borders_t[~broken_mask]
+    descending_borders = len(usable) > 1 and bool((np.diff(usable) < 0).all())
+    if descending_borders:
+        # Copies, not views: torch rejects the negative strides of a reversed view.
+        borders_t = borders_t[::-1].copy()
+        broken_mask = broken_mask[::-1].copy() if broken_mask is not None else None
+
+    logit_cancel_mask: npt.NDArray[np.bool_] | None = None
+    if broken_mask is not None and broken_mask.any():
+        borders_t, logit_cancel_mask = _cancel_nan_borders(
+            borders=borders_t,
+            broken_mask=broken_mask,
+        )
 
     _repair_borders(borders_t, inplace=True)
-
-    reversed_order = np.arange(len(borders_t) - 1, -1, -1)
-    descending_borders = (np.argsort(borders_t) == reversed_order).all()
-    if descending_borders:
-        borders_t = borders_t[::-1]
-        logit_cancel_mask = (
-            logit_cancel_mask[::-1] if logit_cancel_mask is not None else None
-        )
 
     return logit_cancel_mask, descending_borders, borders_t
 

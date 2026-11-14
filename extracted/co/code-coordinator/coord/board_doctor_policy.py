@@ -207,8 +207,8 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING
+from collections.abc import Callable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any
 
 _log = logging.getLogger(__name__)
 
@@ -1660,29 +1660,37 @@ def _alert_fallback(row: StuckRow) -> bool:
     return True
 
 
-#: #3847: causes admitted as "environmental" evidence for the fix-it
+#: #3847/#3999: causes admitted as "environmental" evidence for the fix-it
 #: tier's lifetime one-shot auto-rebudget (:func:`_fixit_rebudget_eligible`)
 #: — evidence the #2972/#3454 blind-relaunch ceiling was never meant to
 #: stop, as opposed to a row flailing on the same unresolved problem every
 #: round (vimcode#2018's ~14 legs/$31 overnight is exactly the blind
 #: relaunch the ceiling itself guards against; this set is strictly
-#: narrower than "the cause is still alert-eligible"): both mean "this
+#: narrower than "the cause is still alert-eligible"): each means "this
 #: row's own history changed for reasons outside the fix itself" —
 #: ``CAUSE_CEILING_BLOCKED_MERGEABLE`` (the row already gave up on the
 #: ceiling but now reads completely clear live — review-approved, every
-#: check green, PR mergeable) and `queue_diagnose.CAUSE_CI_GREEN` (checks
-#: are green now, whatever broke them before has cleared). A diagnosed
-#: merge-conflict is NOT in this set (#3918 review): that cause moved off
-#: the investigate tier entirely onto the mechanical `conflict_fix_dispatch`
-#: allow-list action, which this ceiling never gates, so there is no
-#: `_investigate` call for it left to rebudget. Every other cause, and
-#: every confidence `_fixit_rebudget_environmental` does not explicitly
-#: admit, stays governed by the ceiling exactly as before (#3767: uncertain
-#: defaults to NO, the conservative existing behavior).
+#: check green, PR mergeable), `queue_diagnose.CAUSE_CI_GREEN` (checks are
+#: green now, whatever broke them before has cleared), and
+#: `queue_diagnose.CAUSE_INTEGRATION_RED` (#3999: by definition the
+#: branch's own latest Test-gate verdict already read green — CAUSE_CI_RED
+#: is NOT admitted here for exactly this reason, since it covers the
+#: shape where the branch's own diff is also broken — so a fix-it leg for
+#: this cause is a narrow, evidence-bearing diagnosis of the merge-ref
+#: combination, not a blind relaunch of an unresolved problem). A
+#: diagnosed merge-conflict is NOT in this set (#3918 review): that cause
+#: moved off the investigate tier entirely onto the mechanical
+#: `conflict_fix_dispatch` allow-list action, which this ceiling never
+#: gates, so there is no `_investigate` call for it left to rebudget.
+#: Every other cause, and every confidence `_fixit_rebudget_environmental`
+#: does not explicitly admit, stays governed by the ceiling exactly as
+#: before (#3767: uncertain defaults to NO, the conservative existing
+#: behavior).
 _FIXIT_REBUDGET_ENVIRONMENTAL_CAUSES = frozenset(
     {
         CAUSE_CEILING_BLOCKED_MERGEABLE,
         queue_diagnose.CAUSE_CI_GREEN,
+        queue_diagnose.CAUSE_INTEGRATION_RED,
     }
 )
 
@@ -1705,10 +1713,15 @@ def _fixit_rebudget_environmental(row: StuckRow) -> bool:
     which can be arbitrarily stale (e.g. the PR has since merged) — that
     is not new evidence, so it must not count as environmental.
 
-    Both admitted causes require only ``confidence != CONFIDENCE_LOW``,
-    because `queue_diagnose` never assigns either of them `CONFIDENCE_HIGH`
-    in the first place — both always resolve to `CONFIDENCE_MEDIUM` — so a
-    ``== CONFIDENCE_HIGH`` bar would silently admit neither cause ever.
+    Every admitted cause requires only ``confidence != CONFIDENCE_LOW``,
+    rather than ``== CONFIDENCE_HIGH``: `CAUSE_CEILING_BLOCKED_MERGEABLE`
+    and `queue_diagnose.CAUSE_CI_GREEN` never resolve to `CONFIDENCE_HIGH`
+    in the first place (both always `CONFIDENCE_MEDIUM`), so a
+    ``== CONFIDENCE_HIGH`` bar would silently admit neither of them ever —
+    `queue_diagnose.CAUSE_INTEGRATION_RED` (#3999) always resolves to
+    `CONFIDENCE_HIGH` and so is admitted either way, but the bar stays
+    ``!= CONFIDENCE_LOW`` for all three so this function has one rule, not
+    a per-cause exception.
     """
     if not row.fresh or row.cause not in _FIXIT_REBUDGET_ENVIRONMENTAL_CAUSES:
         return False
@@ -1936,6 +1949,80 @@ def _design_decision_options(sealed_lines: tuple[str, ...]) -> tuple[DiagnosisOp
     )
 
 
+def _release_leaked_review_claim_for_row(
+    repo_name: str, issue_number: int, board: "Board",
+) -> bool:
+    """#4003: release a leaked review-dispatch claim behind *repo_name*#
+    *issue_number*'s own work leg, if one is sitting there.
+
+    "Which work leg" is resolved the SAME way `coord.board_doctor_
+    permissions.sweep_dispatch_fixit_leg` resolves it for the very row
+    this pre-empts (`coord.gates._select_winning_work_assignment` over
+    every `WORK_LIKE_TYPES` assignment for the issue, #2096 — never a
+    second, independently-derived "which leg is this row about").
+    "Leaked" is answered by :func:`coord.state.review_claim_is_leaked`,
+    the SAME predicate :func:`coord.state._claim_review_dispatch_local`'s
+    own self-heal uses.
+
+    Returns ``True`` only once the release is confirmed — the claim is
+    gone on re-read (:func:`coord.state.has_review_claim`) — so a release
+    that silently failed (the exact #3998 incident shape: a `database is
+    locked` collision on the release write itself) is reported as a
+    no-op, not a false success, letting the sweep fall through to the
+    alert tier rather than claiming a fix that did not land. ``False``
+    with nothing released (no work leg, no claim, the claim is too fresh
+    to tell apart from an in-flight dispatch, or a review genuinely is
+    still running) leaves the row for the ordinary fix-it-leg dispatch
+    exactly as before #4003.
+    """
+    from coord.gates import _select_winning_work_assignment, assignments_for_issue  # noqa: PLC0415
+    from coord.models import WORK_LIKE_TYPES  # noqa: PLC0415
+    from coord.state import (  # noqa: PLC0415
+        has_review_claim,
+        release_review_dispatch_claim,
+        review_claim_is_leaked,
+    )
+
+    work_like = [
+        a for a in assignments_for_issue(board, repo_name, issue_number)
+        if a.type in WORK_LIKE_TYPES
+    ]
+    if not work_like:
+        return False
+    work_id = _select_winning_work_assignment(work_like).assignment_id
+    if not work_id or not review_claim_is_leaked(work_id):
+        return False
+
+    release_review_dispatch_claim(work_id)
+    released = not has_review_claim(work_id)
+    if released:
+        import click  # noqa: PLC0415
+
+        from coord.audit import record_audit  # noqa: PLC0415
+
+        record_audit(
+            tier="operational",
+            category="board_doctor",
+            event_type="leaked_review_claim_released",
+            actor="daemon",
+            summary=(
+                f"board-doctor released a leaked review-dispatch claim for "
+                f"{repo_name}#{issue_number} (work assignment {work_id})"
+            ),
+            repo=repo_name,
+            issue=issue_number,
+            assignment_id=work_id,
+            details={"work_assignment_id": work_id},
+        )
+        click.echo(
+            f"board-doctor released a leaked review-dispatch claim for "
+            f"{repo_name}#{issue_number} (work assignment {work_id}) — "
+            "a review is dispatchable again",
+            err=True,
+        )
+    return released
+
+
 def _investigate(row: StuckRow) -> bool:
     """#3769's C1 wiring: dispatch a fix-it leg for an alert-eligible
     cause instead of paging a human outright.
@@ -1990,7 +2077,11 @@ def _investigate(row: StuckRow) -> bool:
     flag) and the per-repo ``repos[].board_doctor.investigate`` opt-in
     (#3771) — a repo that has not opted in, or a sweep run with the tier
     disarmed fleet-wide, falls back to the alert tier exactly like a
-    ceiling-blocked or config-load failure does.
+    ceiling-blocked or config-load failure does. The leaked-review-claim
+    release below is gated behind this same check, even though it mutates
+    ``review_claims`` rather than dispatching a leg — a repo that opted out
+    of the investigate tier must see NO mutation from this function, not
+    just no fix-it leg.
 
     This function's return value answers exactly one question — "was a
     fix-it leg dispatched?" — never "was the alert fallback delivered?".
@@ -2010,7 +2101,6 @@ def _investigate(row: StuckRow) -> bool:
 
     from coord.commands._common import ConfigError, resolve_and_load_config  # noqa: PLC0415
     from coord.drive_queue import fix_round_ceiling_blocked_for_issue  # noqa: PLC0415
-    from coord.state import build_board  # noqa: PLC0415
 
     ceiling_bypassed = False
     if fix_round_ceiling_blocked_for_issue(repo_name, issue_number):
@@ -2074,6 +2164,28 @@ def _investigate(row: StuckRow) -> bool:
         _alert_fallback(row)
         return False
 
+    from coord.state import build_board  # noqa: PLC0415
+
+    board = build_board()
+
+    # #4003: a `gate-blocked` drive-queue row whose live gate reads
+    # "not ready" can mean the review this row's work leg is waiting on
+    # never actually got dispatched, because the `review_claims` row that
+    # claimed its dispatch leaked (a `database is locked` collision right
+    # after the claim landed, or on the deny-path release — see
+    # `coord.state.release_review_dispatch_claim`'s own #4003 note).
+    # `sweep_dispatch_fixit_leg` below has no idea any of that happened —
+    # it would just dispatch a brand new WORK leg for already-completed
+    # work, which fixes nothing. Checked and released here, as its own
+    # confirmed auto-tier action, only once every fallback gate above
+    # (ceiling, config, tier opt-in, sealed-confined) has already passed —
+    # this mutates `review_claims`, so a repo that opted out of the
+    # investigate tier must see no mutation at all, not merely no fix-it
+    # leg.
+    if row.queue == "drive-queue" and row.cause == queue_diagnose.CAUSE_GATE_BLOCKED:
+        if _release_leaked_review_claim_for_row(repo_name, issue_number, board):
+            return True
+
     evidence = row.evidence
     if row.cause in _CI_SHAPED_INVESTIGATE_CAUSES:
         # The fixit-leg briefing (`_fixit_leg_briefing`) renders *evidence*
@@ -2088,7 +2200,6 @@ def _investigate(row: StuckRow) -> bool:
         if instruction:
             evidence = (*evidence, instruction)
 
-    board = build_board()
     result = dispatch_sweep_action(
         _INVESTIGATE_ACTION,
         repo_name,
@@ -3402,6 +3513,55 @@ def _alert_resolution(row: StuckRow, repo_name: str, issue_number: int) -> tuple
     return ("", "coord status")
 
 
+#: #3999: a covering escalation's own ``proposed_command`` naming a full
+#: ``remove`` + ``add`` relaunch — the exact two-command string
+#: `coord.commands.drive_queue._requeue_command` builds
+#: (``coord drive-queue remove <repo> <issue> && coord drive-queue add
+#: <repo> <issue>``) — is a dead end the instant
+#: `coord.drive_queue.existing_pr_relaunch_remedy` would itself refuse the
+#: ``add`` half — "its checks are not all green — fix it forward … before
+#: relaunching". A command naming only ``remove`` (e.g.
+#: `coord.review.needs_redesign_escalation`'s park, which tells the
+#: operator to drop the row and make a human-judgment call, never to
+#: re-add it unattended) is a different, human-decision remedy that
+#: `coord drive-queue remove` always succeeds at regardless of check
+#: state — it must NOT be treated as refused here.
+#: `_is_relaunch_shaped_remedy` is the cheap, local half of that check: a
+#: textual match on the covering escalation's own recorded command, never
+#: a second live `gh` probe — :func:`_covering_escalation_remedy_refused_now`
+#: below pairs it with live evidence this sweep already has for the
+#: opposite half.
+def _is_relaunch_shaped_remedy(proposed_command: str) -> bool:
+    command = proposed_command.lower()
+    return "drive-queue remove" in command and "drive-queue add" in command
+
+
+def _covering_escalation_remedy_refused_now(
+    existing: Mapping[str, Any], row: StuckRow,
+) -> bool:
+    """#3999: true when *existing* — a covering escalation for a DIFFERENT
+    stage than *row*'s own board-doctor alert — names a relaunch remedy
+    that THIS row's own fresh evidence already proves would be refused.
+
+    Both halves are required: *existing*'s own ``proposed_command`` must
+    be relaunch-shaped (:func:`_is_relaunch_shaped_remedy` — otherwise its
+    remedy (a retry, an override, a human decision) is orthogonal to
+    whether checks are red and must not be second-guessed from here), AND
+    *row* must be :attr:`StuckRow.fresh` evidence of exactly the shape
+    that makes a relaunch unsafe to even attempt right now — a live-red
+    check combined with the branch's OWN diff already reading green
+    (:data:`queue_diagnose.CAUSE_INTEGRATION_RED`) or red
+    (:data:`queue_diagnose.CAUSE_CI_RED`); a stale/non-fresh row, or one
+    whose cause says nothing about the PR's checks at all, proves nothing
+    about whether *existing*'s remedy still works and must not override
+    it (#3777's same "new evidence only" bar `_fixit_rebudget_environmental`
+    applies).
+    """
+    if not row.fresh or row.cause not in _CI_SHAPED_INVESTIGATE_CAUSES:
+        return False
+    return _is_relaunch_shaped_remedy(str(existing.get("proposed_command") or ""))
+
+
 def write_drive_escalation(
     repo_name: str,
     issue_number: int,
@@ -3410,6 +3570,7 @@ def write_drive_escalation(
     reason: str,
     gate_readings: str,
     proposed_command: str,
+    row: "StuckRow | None" = None,
 ) -> bool | str:
     """The ONE `drive_escalations` write path every board-doctor alert/page
     sink shares — `escalation_alert_dispatcher` below and
@@ -3420,11 +3581,20 @@ def write_drive_escalation(
     covers this issue — `drive_escalations` holds one row per issue, so an
     unconditional write here would clobber a live e.g. `plan.blocked`
     escalation's `reason`/`gate_readings`/`created_at` with a generic one.
-    That case returns :data:`ALERT_SKIPPED`. Otherwise records (or renews)
-    the row and returns only once the write is confirmed by reading it
-    back — a clean `record_drive_escalation` return proves the request was
-    issued, not that it landed. Never raises: a failed/unconfirmed write
-    returns `False` rather than taking its caller down with it.
+    That case returns :data:`ALERT_SKIPPED` — UNLESS *row* is given and
+    :func:`_covering_escalation_remedy_refused_now` confirms the covering
+    escalation's own remedy is a relaunch this row's fresh evidence
+    already proves would be refused (#3999): a dead end never "covers"
+    anything, and leaving it in place would leave the row un-alerted
+    forever rather than just until the stuck cause resolves, so this
+    upgrades (overwrites) it with the real cause/evidence instead of
+    skipping. *row* is ``None`` for `_followthrough_notify`'s own calls
+    (no `StuckRow` to check), which keeps today's skip-only behavior.
+    Otherwise records (or renews) the row and returns only once the write
+    is confirmed by reading it back — a clean `record_drive_escalation`
+    return proves the request was issued, not that it landed. Never
+    raises: a failed/unconfirmed write returns `False` rather than taking
+    its caller down with it.
     """
     import click  # noqa: PLC0415
 
@@ -3433,7 +3603,18 @@ def write_drive_escalation(
     try:
         existing = get_drive_escalation(repo_name, issue_number)
         if existing is not None and existing.get("stage") != stage:
-            return ALERT_SKIPPED
+            if row is None or not _covering_escalation_remedy_refused_now(existing, row):
+                return ALERT_SKIPPED
+            click.echo(
+                f"warning: board-doctor overriding a covering "
+                f"{existing.get('stage')!r} escalation for "
+                f"{repo_name}#{issue_number} — its own remedy "
+                f"({existing.get('proposed_command')!r}) names a relaunch "
+                f"this row's fresh {row.cause} evidence already shows would "
+                "be refused (#3999); recording the real cause instead of "
+                "leaving a dead end as cover",
+                err=True,
+            )
         record_drive_escalation(
             repo_name,
             issue_number,
@@ -3471,7 +3652,14 @@ def escalation_alert_dispatcher(row: StuckRow) -> bool | str:
     than ``True``, because no board-doctor alert exists to suppress future
     ones — `drive_escalations` holds one row per issue, so the covering
     escalation may be dismissed by its own writer at any time, and the
-    next sweep must then be free to file this row's alert itself.
+    next sweep must then be free to file this row's alert itself. #3999:
+    passing *row* through to :func:`write_drive_escalation` lets THAT
+    skip be bypassed too, but only for the narrow case
+    :func:`_covering_escalation_remedy_refused_now` confirms — a covering
+    escalation whose own remedy is a relaunch this row's fresh evidence
+    already proves would be refused never actually "covers" anything, so
+    leaving it in place would dead-end the row rather than defer to a
+    cover that could still resolve on its own.
 
     Never raises: an escalation write failing must not take the sweep
     down with it, the same contract
@@ -3552,6 +3740,7 @@ def escalation_alert_dispatcher(row: StuckRow) -> bool | str:
         reason=reason,
         gate_readings=gate_readings,
         proposed_command=proposed_command,
+        row=row,
     )
 
 

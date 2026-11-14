@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import collections
+import math
 
 from river import base, optim
 from river.optim.base import DictLike
@@ -28,7 +29,6 @@ class AMSGrad(optim.base.Optimizer):
 
     Examples
     --------
-
     >>> from river import datasets
     >>> from river import evaluate
     >>> from river import linear_model
@@ -49,7 +49,7 @@ class AMSGrad(optim.base.Optimizer):
 
     References
     ----------
-    [^1]: [Reddi, S.J., Kale, S. and Kumar, S., 2019. On the convergence of adam and beyond. arXiv preprint arXiv:1904.09237](https://arxiv.org/pdf/1904.09237.pdf)
+    [^1]: [Reddi, S.J., Kale, S. and Kumar, S., 2018. On the convergence of Adam and beyond. In Sixth International Conference on Learning Representations (ICLR 2018)](https://arxiv.org/pdf/1904.09237.pdf)
 
     """
 
@@ -75,7 +75,7 @@ class AMSGrad(optim.base.Optimizer):
 
         if self.correct_bias:
             # Correct bias for `v`
-            lr *= (1 - self.beta_2 ** (self.n_iterations + 1)) ** 0.5
+            lr *= math.sqrt(1 - self.beta_2 ** (self.n_iterations + 1))
             # Correct bias for `m`
             lr /= 1 - self.beta_1 ** (self.n_iterations + 1)
 

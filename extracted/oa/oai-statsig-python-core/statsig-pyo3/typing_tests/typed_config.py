@@ -1,4 +1,4 @@
-"""Static-only API contracts; checked with mypy --warn-unused-ignores."""
+"""Static typing contracts for the public typed config API."""
 
 from types import ModuleType
 from typing import Literal, TypeVar
@@ -48,9 +48,9 @@ def valid_calls(sdk: Statsig, user: StatsigUser, package: ModuleType) -> None:
 
 def unbounded_wrapper(sdk: Statsig, user: StatsigUser, cls: type[T]) -> None:
     # Removing the Message bound must make these ignores fail as unused.
-    sdk.get_typed_config("config", user, message_type=cls)  # type: ignore[type-var]
-    sdk.register_typed_config_callback("config", user, lambda result: None, message_type=cls)  # type: ignore[type-var]
+    sdk.get_typed_config("config", user, message_type=cls)  # ty: ignore[invalid-argument-type]
+    sdk.register_typed_config_callback("config", user, lambda result: None, message_type=cls)  # ty: ignore[invalid-argument-type]
 
 
 def invalid_class(sdk: Statsig, user: StatsigUser) -> None:
-    sdk.get_typed_config("config", user, message_type=dict)  # type: ignore[type-var]
+    sdk.get_typed_config("config", user, message_type=dict)  # ty: ignore[invalid-argument-type]

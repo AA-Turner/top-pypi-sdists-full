@@ -30,13 +30,13 @@ class CreateDBInstanceSecurityGroupRuleRequest(DaraModel):
         self.ip_protocol = ip_protocol
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The range of destination ports for the transport layer protocol (TCP or UDP) specified in the security group rule. Valid values: 1 to 65535. Separate the start port and the end port with a forward slash (/). Example: 1/200.
+        # The range of destination ports that are open for the transport layer protocol (TCP or UDP) in the security group. Valid values: 1 to 65535. Separate the start port and the end port with a forward slash (/). Example: 1/200.
         # 
         # This parameter is required.
         self.port_range = port_range
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The source IP address range. IP address ranges in CIDR format and IPv4 format are supported.
+        # The source IP address range. CIDR blocks and IPv4 addresses are supported.
         self.source_cidr_ip = source_cidr_ip
 
     def validate(self):

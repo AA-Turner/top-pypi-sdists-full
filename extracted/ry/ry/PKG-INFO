@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ry
-Version: 0.0.108
+Version: 0.0.109
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -21,7 +21,7 @@ License-File: LICENSE-APACHE
 License-File: LICENSE-MIT
 Summary: ry == rust | python
 Keywords: datetime,http,jiff,json,pyo3,reqwest,rust,tokio,xxhash,zstd
-Home-Page: https://github.com/jessekrubin/ry
+Home-Page: https://ryo3.dev
 Author-email: jesse rubin <jessekrubin@gmail.com>
 Maintainer-email: jesse rubin <jessekrubin@gmail.com>
 License-Expression: MIT OR Apache-2.0
@@ -61,8 +61,7 @@ python bindings for rust crates ~ `ry == rust | python`
   `jiff` (pydantic-compatible).
 - **Async file I/O:** `AsyncFile` API similar to `aiofiles` and `anyio`'s
   async-file api.
-- **(de)compression:** (de)compression support for `zstd`, `brotli`, `gzip`, and
-  `bzip2`.
+- **(de)compression:** (de)compression support for `zstd`, `brotli`, and `gzip`.
 - **hashing:** `aws-lc-rs`, `fnv`, and `twox-hash` (aka `xxhash`)
 - **Ergonomic:** APIs designed to be ergonomic and pythonic and familiar to both
   python and rust users.
@@ -137,7 +136,6 @@ _(aka: questions that I have been asking myself)_
 | ------------------ | --------------------------------------------------------------------------------------------------- |
 | `std`              | [`ryo3-std`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-std)                           |
 | `bytes`            | [`ryo3-bytes`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-bytes)                       |
-| `bzip2`            | [`ryo3-bzip2`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-bzip2)                       |
 | `dirs`             | [`ryo3-dirs`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-dirs)                         |
 | `fspath`           | [`ryo3-fspath`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-fspath)                     |
 | `glob`             | [`ryo3-glob`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-glob)                         |

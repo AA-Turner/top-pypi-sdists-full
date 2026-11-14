@@ -8,6 +8,7 @@ still gate on ``allowed``. Runs after Tier 2 so per-sentence scores are availabl
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from ..classifiers.tier2_classifier import Tier2Classifier, _split_into_sentences
@@ -25,7 +26,8 @@ def _clean_field(raw: str, tier2: Tier2Classifier, high_threshold: float) -> str
     # as one sentence — leave it untouched; the verdict/``allowed`` still gates it.
     if len(sentences) <= 1:
         return raw
-    scores = tier2.classify_chunks_batch(sentences)
+    # Score what Tier 2 scored: the normalised text.
+    scores = tier2.classify_chunks_batch([tier2.normalize(x) for x in sentences])
     flagged = [(scores[i] if i < len(scores) else 0.0) >= high_threshold for i in range(len(sentences))]
     # Nothing dropped — return the field verbatim, never a reconstruction (a
     # rebuilt join can differ from the original and report a spurious change).
@@ -73,9 +75,12 @@ def clean_high_risk_content(
             if cleaned != raw:
                 changed_fields.append(path)
             return wrap_with_boundary(cleaned, boundary) if boundary else cleaned
-        if isinstance(value, list):
-            return [walk(v, f"{path}[{i}]") for i, v in enumerate(value)]
-        if isinstance(value, dict):
+        if isinstance(value, (list, tuple)):
+            out = [walk(v, f"{path}[{i}]") for i, v in enumerate(value)]
+            return out if isinstance(value, list) else tuple(out)
+        if isinstance(value, (set, frozenset)):
+            return type(value)(walk(v, f"{path}[{i}]") for i, v in enumerate(value))
+        if isinstance(value, Mapping):
             return {k: walk(v, f"{path}.{k}" if path else k) for k, v in value.items()}
         return value
 

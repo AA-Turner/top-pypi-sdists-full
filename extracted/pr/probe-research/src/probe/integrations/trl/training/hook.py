@@ -7,12 +7,22 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, NamedTuple
 
 from probe.generated.samples.points import Dtype, Reducer, hash_mask
 from probe.sdk.run.samples.points import RowSummary, copy_to_host, get_lowest_dtype
 
 from .declarations import EVAL_KEY_PREFIX, EXTREME_KEYS
+
+
+class Place(NamedTuple):
+    """Where one process's rows go: its data-parallel `rank` of `ranks`, and which piece of each example it holds (a
+    context-parallel rank sends `fragment` of `fragments`; the server adds the pieces into one occurrence)."""
+
+    rank: int
+    ranks: int
+    fragment: int = 0
+    fragments: int = 1
 
 
 @dataclass
@@ -37,6 +47,10 @@ class LossBatch:
     dtype: Dtype = Dtype.FP32
     #: Keys computed from other tensors (`entropy` from the entropies): their own precision, each key's tolerance.
     dtypes: dict[str, Dtype] = field(default_factory=dict)
+    #: How many slices each row is (context parallel: the call ran on this rank's slice of every example).
+    fragments: int = 1
+    #: The loss the framework returned is bf16 / fp16: its logged loss is rounded (the hook's rollups say so).
+    is_loss_rounded: bool = False
 
 
 class LossHook:
@@ -83,11 +97,11 @@ class LossHook:
             return Dtype.BF16
         return Dtype.FP16 if getattr(args, "fp16", False) else Dtype.FP32
 
-    def get_place(self) -> tuple[int, int] | None:
-        """(rank, ranks) this process sends as: the data-parallel ones; None when another process sends its rows."""
+    def get_place(self) -> Place | None:
+        """Where this process sends as: its data-parallel place; None when another process sends its rows."""
         accelerator = getattr(self.trainer, "accelerator", None)
-        return (int(getattr(accelerator, "process_index", 0) or 0),
-                int(getattr(accelerator, "num_processes", 1) or 1))  # fmt: skip
+        return Place(int(getattr(accelerator, "process_index", 0) or 0),
+                     int(getattr(accelerator, "num_processes", 1) or 1))  # fmt: skip
 
     def install(self) -> None:
         """Wrap the instance's loss path (`recorder.install`); each loss call goes to `recorder.handle_loss`."""

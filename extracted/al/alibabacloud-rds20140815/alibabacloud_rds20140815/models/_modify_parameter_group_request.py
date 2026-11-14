@@ -20,7 +20,7 @@ class ModifyParameterGroupRequest(DaraModel):
     ):
         # The modification mode of the parameter template. Valid values:
         # * **Collectivity**: adds or modifies parameters. This is the default value.
-        # >The parameters specified in the **Parameters** parameter are added to the current parameter template, or the existing parameters in the current parameter template are modified. Other parameters in the current parameter template remain unaffected.
+        # >The parameters specified in the **Parameters** parameter are added to the current parameter template, or the existing parameters in the current parameter template are modified. Other parameters in the current parameter template are not affected.
         # 
         # * **Individual**: overwrites parameters.
         # >The content in the current parameter template is replaced with the content specified in the **Parameters** parameter.
@@ -29,7 +29,7 @@ class ModifyParameterGroupRequest(DaraModel):
         # The description of the parameter template. The description must be 0 to 200 characters in length.
         # >If you do not specify this parameter, the original description of the parameter template is retained.
         self.parameter_group_desc = parameter_group_desc
-        # The ID of the parameter template. You can call the DescribeParameterGroups operation to query the ID of the parameter template.
+        # The ID of the parameter template. You can call the DescribeParameterGroups operation to query the parameter template ID.
         # 
         # This parameter is required.
         self.parameter_group_id = parameter_group_id
@@ -39,7 +39,7 @@ class ModifyParameterGroupRequest(DaraModel):
         # 
         # >If you do not specify this parameter, the original name of the parameter template is retained.
         self.parameter_group_name = parameter_group_name
-        # The JSON string of parameters and values. Format: {"Parameter 1":"Value 1","Parameter 2":"Value 2"...}. For more information about the parameters that can be modified, see [Set the parameters of an ApsaraDB RDS for MySQL instance](https://help.aliyun.com/document_detail/96063.html) or [Set the parameters of an ApsaraDB RDS for PostgreSQL instance](https://help.aliyun.com/document_detail/96751.html).
+        # The JSON string of parameters and their values. Format: {"Parameter 1":"Value 1","Parameter 2":"Value 2"...}. For more information about the parameters that can be modified, see [Configure the parameters of an ApsaraDB RDS for MySQL instance](https://help.aliyun.com/document_detail/96063.html) or [Configure the parameters of an ApsaraDB RDS for PostgreSQL instance](https://help.aliyun.com/document_detail/96751.html).
         # 
         # > * If the **ModifyMode** parameter is set to **Individual**, the specified parameters overwrite the original parameters in the parameter template.
         # > * If the **ModifyMode** parameter is set to **Collectivity**, the specified parameters are added to or modified in the original parameter template.
@@ -50,7 +50,7 @@ class ModifyParameterGroupRequest(DaraModel):
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The ID of the resource group. You can call the DescribeDBInstanceAttribute operation to query the ID of the resource group.
+        # The ID of the resource group. You can call the DescribeDBInstanceAttribute operation to query the resource group ID.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id

@@ -10,9 +10,9 @@ class CheckAccountNameAvailableResponseBody(DaraModel):
         request_id: str = None,
         resource_group_id: str = None,
     ):
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
-        # The resource group ID.
+        # The ID of the resource group.
         self.resource_group_id = resource_group_id
 
     def validate(self):

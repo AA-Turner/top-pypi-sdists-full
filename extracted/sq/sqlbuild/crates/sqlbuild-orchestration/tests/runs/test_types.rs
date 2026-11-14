@@ -162,7 +162,7 @@ pub(crate) struct AdhocCommandTestCase {
     pub(crate) expected_launch: Result<bool, u16>,
 }
 
-/// The CLI's planner reduced to exact node keys, `--full-refresh` and `--warehouse NAME`.
+/// The CLI's planner reduced to exact node keys, `--full-refresh`, `--no-load-sources` and `--warehouse NAME`.
 pub(crate) struct ExactKeyPlanner;
 
 impl crate::runs::types::CommandPlanner for ExactKeyPlanner {
@@ -187,6 +187,11 @@ impl crate::runs::types::CommandPlanner for ExactKeyPlanner {
                 "--full-refresh" => {
                     plan.settings
                         .insert("full_refresh".into(), serde_json::json!(true));
+                    continue;
+                }
+                "--no-load-sources" => {
+                    plan.settings
+                        .insert("load_sources".into(), serde_json::json!(false));
                     continue;
                 }
                 "--warehouse" => {
@@ -259,4 +264,21 @@ pub(crate) struct JobDetailTestCase {
     pub(crate) description: &'static str,
     pub(crate) backend: Backend,
     pub(crate) expected_order: [&'static str; 2],
+}
+
+#[derive(Debug)]
+pub(crate) struct RetryChainTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) backend: Backend,
+    /// Attempt numbers of the retries claimed, in order, while every run fails.
+    pub(crate) expected_attempts: Vec<u8>,
+    /// The wait a one-hour retry delay shows while the retry is queued.
+    pub(crate) expected_delayed_attempt: u8,
+}
+
+pub(crate) struct RunLogRetentionTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) backend: Backend,
+    pub(crate) expected_artifacts: i64,
+    pub(crate) expected_runs: i64,
 }

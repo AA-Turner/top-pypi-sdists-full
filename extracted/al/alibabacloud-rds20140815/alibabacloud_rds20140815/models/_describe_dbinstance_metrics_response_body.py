@@ -19,7 +19,7 @@ class DescribeDBInstanceMetricsResponseBody(DaraModel):
         self.dbinstance_name = dbinstance_name
         # The list of enhanced metrics that are enabled for the instance.
         self.items = items
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
         # The total number of enhanced metrics that are enabled for the instance.
         self.total_record_count = total_record_count
@@ -86,17 +86,17 @@ class DescribeDBInstanceMetricsResponseBodyItems(DaraModel):
         # The description of the enhanced metric.
         self.description = description
         # The category of the enhanced metric. Valid values:
-        # - **os**: operating system metrics.
-        # - **db**: database metrics.
+        # - **os**: Operating system metrics.
+        # - **db**: Database metrics.
         self.dimension = dimension
         # The key of the group to which the enhanced metric belongs.
         self.group_key = group_key
         # The name of the group to which the enhanced metric belongs.
         self.group_key_type = group_key_type
-        # The statistical method for the enhanced metric. Valid values:
-        # - **avg**: average value.
-        # - **min**: minimum value.
-        # - **max**: maximum value.
+        # The statistical method of the enhanced metric. Valid values:
+        # - **avg**: Average value.
+        # - **min**: Minimum value.
+        # - **max**: Maximum value.
         self.method = method
         # The key of the enhanced metric.
         self.metrics_key = metrics_key

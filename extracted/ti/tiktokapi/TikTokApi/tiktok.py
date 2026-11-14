@@ -470,7 +470,7 @@ class TikTokApi:
             proxies (list): **DEPRECATED - Use proxy_provider instead.** A list of proxies to use for the sessions.
                            This parameter is maintained for backwards compatibility but will be removed in a future version.
             proxy_provider (ProxyProvider | None): A ProxyProvider instance for smart proxy rotation.
-                                                   See examples/proxy_provider_example.py for usage examples. Full documentation: https://davidteather.github.io/proxyproviders/
+                                                   See examples/proxy_provider_example.py for usage examples. Full documentation: https://go.dteather.com/proxyproviders-docs?src=tiktokapi&placement=proxy-docs
             proxy_algorithm (Algorithm | None): Algorithm for proxy selection (RoundRobin, Random, First, or custom) per session.
                                                Only used with proxy_provider. Defaults to RoundRobin if not specified.
             sleep_after (int): The amount of time to sleep after creating a session, this is to allow the msToken to be generated.

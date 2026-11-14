@@ -75,6 +75,9 @@ class Job():
         extr.log = self._wrap_logger(extr.log)
         extr.log.debug("Using %s for '%s'", extr.__class__.__name__, extr.url)
 
+        if self.ulog is not None:
+            self.ulog = output.LoggerAdapter(self.ulog, self)
+
         self.metadata_url = extr.config2(
             "metadata-url", "url-metadata", "_url")
         self.metadata_http = extr.config2(

@@ -1,7 +1,12 @@
 """pypura module."""
 
-from .exceptions import PuraApiException, PuraAuthenticationError
+from .exceptions import PuraApiException, PuraAuthenticationError, PuraBluetoothError
 from .pura import Pura
 
-__all__ = ["Pura", "PuraApiException", "PuraAuthenticationError"]
-__version__ = "4.0.1"
+__all__ = [
+    "Pura",
+    "PuraApiException",
+    "PuraAuthenticationError",
+    "PuraBluetoothError",
+]
+__version__ = "4.1.0"

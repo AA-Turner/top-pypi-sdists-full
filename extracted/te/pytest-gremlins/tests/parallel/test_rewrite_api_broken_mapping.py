@@ -14,6 +14,7 @@ from unittest.mock import create_autospec
 
 import pytest
 
+from pytest_gremlins import process_tree
 from pytest_gremlins.cache.incremental import IncrementalCache
 from pytest_gremlins.instrumentation import origin_finder
 from pytest_gremlins.instrumentation.gremlin import Gremlin
@@ -23,11 +24,13 @@ from pytest_gremlins.parallel.lightweight import describe_runner_error
 from pytest_gremlins.plugin import (
     GremlinSession,
     _cache_gremlin_result,
-    _test_gremlin,
 )
 from pytest_gremlins.reporting.results import (
     GremlinResult,
     GremlinResultStatus,
+)
+from pytest_gremlins.verdicts import (
+    _test_gremlin,
 )
 
 EXPLANATION = f'pytest-gremlins: assertion rewriting is unavailable with pytest {pytest.__version__}'
@@ -91,7 +94,9 @@ class DescribeRewriteApiBrokenMapping:
                 args=['x'], returncode=REWRITE_API_BROKEN_EXIT_CODE, stdout=b'', stderr=b''
             )
 
-        monkeypatch.setattr('pytest_gremlins.plugin.subprocess.run', fake_run)
+        monkeypatch.setattr(
+            'pytest_gremlins.process_tree.run_bounded', create_autospec(process_tree.run_bounded, side_effect=fake_run)
+        )
 
         result = _test_gremlin(_gremlin(), ['pytest'], tmp_path, instrumented_dir=None, timeout=30)
 

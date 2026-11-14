@@ -33,8 +33,10 @@ Usage::
         ListAutoMLJobsPaginator,
         ListCandidatesForAutoMLJobPaginator,
         ListClusterEventsPaginator,
+        ListClusterExtensionVersionsPaginator,
         ListClusterExtensionsPaginator,
         ListClusterNodesPaginator,
+        ListClusterOperationsPaginator,
         ListClusterSchedulerConfigsPaginator,
         ListClustersPaginator,
         ListCodeRepositoriesPaginator,
@@ -151,8 +153,10 @@ Usage::
     list_auto_ml_jobs_paginator: ListAutoMLJobsPaginator = client.get_paginator("list_auto_ml_jobs")
     list_candidates_for_auto_ml_job_paginator: ListCandidatesForAutoMLJobPaginator = client.get_paginator("list_candidates_for_auto_ml_job")
     list_cluster_events_paginator: ListClusterEventsPaginator = client.get_paginator("list_cluster_events")
+    list_cluster_extension_versions_paginator: ListClusterExtensionVersionsPaginator = client.get_paginator("list_cluster_extension_versions")
     list_cluster_extensions_paginator: ListClusterExtensionsPaginator = client.get_paginator("list_cluster_extensions")
     list_cluster_nodes_paginator: ListClusterNodesPaginator = client.get_paginator("list_cluster_nodes")
+    list_cluster_operations_paginator: ListClusterOperationsPaginator = client.get_paginator("list_cluster_operations")
     list_cluster_scheduler_configs_paginator: ListClusterSchedulerConfigsPaginator = client.get_paginator("list_cluster_scheduler_configs")
     list_clusters_paginator: ListClustersPaginator = client.get_paginator("list_clusters")
     list_code_repositories_paginator: ListCodeRepositoriesPaginator = client.get_paginator("list_code_repositories")
@@ -249,7 +253,9 @@ from .paginator import (
     ListCandidatesForAutoMLJobPaginator,
     ListClusterEventsPaginator,
     ListClusterExtensionsPaginator,
+    ListClusterExtensionVersionsPaginator,
     ListClusterNodesPaginator,
+    ListClusterOperationsPaginator,
     ListClusterSchedulerConfigsPaginator,
     ListClustersPaginator,
     ListCodeRepositoriesPaginator,
@@ -369,8 +375,10 @@ __all__ = (
     "ListAutoMLJobsPaginator",
     "ListCandidatesForAutoMLJobPaginator",
     "ListClusterEventsPaginator",
+    "ListClusterExtensionVersionsPaginator",
     "ListClusterExtensionsPaginator",
     "ListClusterNodesPaginator",
+    "ListClusterOperationsPaginator",
     "ListClusterSchedulerConfigsPaginator",
     "ListClustersPaginator",
     "ListCodeRepositoriesPaginator",

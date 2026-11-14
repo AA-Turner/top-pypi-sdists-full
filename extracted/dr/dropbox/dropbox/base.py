@@ -1584,8 +1584,7 @@ class DropboxBase(object):
         must be less than 20 GB in size and any single file within must be less
         than 4 GB in size. The resulting zip must have fewer than 10,000 total
         file and folder entries, including the top level folder. The input
-        cannot be a single file. Note: this endpoint does not support HTTP range
-        requests.
+        cannot be a single file.
 
         Route attributes:
             scope: files.content.read
@@ -1620,8 +1619,7 @@ class DropboxBase(object):
         must be less than 20 GB in size and any single file within must be less
         than 4 GB in size. The resulting zip must have fewer than 10,000 total
         file and folder entries, including the top level folder. The input
-        cannot be a single file. Note: this endpoint does not support HTTP range
-        requests.
+        cannot be a single file.
 
         Route attributes:
             scope: files.content.read
@@ -4578,24 +4576,92 @@ class DropboxBase(object):
         self._save_body_to_file(download_path, r[1])
         return r[0]
 
+    def riviera_extract_async(self, extract_type, file_id_or_url=None):
+        """
+        Asynchronous content extraction from a single file. One route covers
+        every Riviera extraction. Name the source file in `file_id_or_url`, and
+        say what to extract in `extract_type`, whose variant carries that
+        extraction's options: - `markdown`: a document, converted to markdown
+        that preserves its structure. - `text`: the plain text of a document. -
+        `ocr`: the text of an image or scanned PDF, plus hOCR with per-word
+        coordinates. - `transcript`: the timestamped transcript of an audio or
+        video file. - `keyframes`: one keyframe per scene change in a video. The
+        accepted formats and size limits differ per extraction; see
+        `ExtractType`. Formats the requested extraction does not support fail
+        with `unsupported_format_error`, and files over its size limit fail with
+        `limit_exceeded_error`. The result is not returned by this route. Poll
+        `extract_async/check` with the returned async job ID until it reports
+        `complete` or `failed`. A `complete` result is an `ExtractResult` whose
+        variant matches the requested `extract_type`.
+
+        Route attributes:
+            scope: files.content.read
+
+        :param file_id_or_url: Identifier of the source file. Callers must set
+            exactly one of the `FileIdOrUrl` variants. The file must be in a
+            format the requested `extract_type` supports; see `ExtractType` for
+            the per-type lists.
+        :type file_id_or_url: Nullable[:class:`dropbox.riviera.FileIdOrUrl`]
+        :param extract_type: What to extract, and that extraction's options.
+            Required.
+        :type extract_type: :class:`dropbox.riviera.ExtractType`
+        :rtype: :class:`dropbox.async_.LaunchResultBase`
+        """
+        arg = riviera.ExtractArgs(extract_type, file_id_or_url)
+        r = self.request(
+            riviera.extract_async,
+            "riviera",
+            arg,
+            None,
+        )
+        return r
+
+    def riviera_extract_async_check(self, async_job_id):
+        """
+        Returns the status or result of specified extract_async task.
+
+        Route attributes:
+            scope: files.content.read
+
+        :param async_job_id: Id of the asynchronous job. This is the value of a
+            response returned from the method that launched the job.
+        :type async_job_id: str
+        :rtype: :class:`dropbox.riviera.ExtractAsyncCheckResult`
+        :raises: :class:`.exceptions.ApiError`
+
+        If this raises, ApiError will contain:
+            :class:`dropbox.async_.PollError`
+        """
+        arg = async_.PollArg(async_job_id)
+        r = self.request(
+            riviera.extract_async_check,
+            "riviera",
+            arg,
+            None,
+        )
+        return r
+
     def riviera_get_keyframes_async(
         self, file_id_or_url=None, scene_change_threshold=0.0, include_images=False
     ):
         """
-        Asynchronous scene-change keyframe extraction for video files. Detects
-        scene changes in the source video and returns one representative
-        keyframe per detected scene, each tagged with its timestamp (seconds
-        from the start of the video) and scene-change score. Set `include_images
-        = true` to also receive each frame as a base64-encoded JPEG; when the
-        field is omitted the response carries keyframe metadata only. Supported
-        video formats: .3gp, .3gpp, .3gpp2, .asf, .avi, .dv, .flv, .m2t, .m2ts,
-        .m4v, .mkv, .mov, .mp4, .mpeg, .mpg, .mts, .mxf, .oggtheora, .ogv, .rm,
-        .ts, .vob, .webm, .wmv. Unsupported formats return an
-        `unsupported_format_error`. Limits: the source file must be at most 10
-        GB. To keep responses within service limits the number of keyframes and
-        the total image payload are bounded; requests that would exceed these
-        limits return a `limit_exceeded_error` -- raise `scene_change_threshold`
-        or set `include_images = false` to stay within bounds.
+        Deprecated: use :meth:`riviera_extract_async` with `extract_type` set to
+        ``ExtractType.keyframes`` instead, which takes the same options. This
+        route will be turned off by December 31, 2026. Asynchronous scene-change
+        keyframe extraction for video files. Detects scene changes in the source
+        video and returns one representative keyframe per detected scene, each
+        tagged with its timestamp (seconds from the start of the video) and
+        scene-change score. Set `include_images = true` to also receive each
+        frame as a base64-encoded JPEG; when the field is omitted the response
+        carries keyframe metadata only. Supported video formats: .3gp, .3gpp,
+        .3gpp2, .asf, .avi, .dv, .flv, .m2t, .m2ts, .m4v, .mkv, .mov, .mp4,
+        .mpeg, .mpg, .mts, .mxf, .oggtheora, .ogv, .rm, .ts, .vob, .webm, .wmv.
+        Unsupported formats return an `unsupported_format_error`. Limits: the
+        source file must be at most 10 GB. To keep responses within service
+        limits the number of keyframes and the total image payload are bounded;
+        requests that would exceed these limits return a `limit_exceeded_error`
+        -- raise `scene_change_threshold` or set `include_images = false` to
+        stay within bounds.
 
         Route attributes:
             scope: files.content.read
@@ -4622,6 +4688,10 @@ class DropboxBase(object):
         :type include_images: bool
         :rtype: :class:`dropbox.async_.LaunchResultBase`
         """
+        warnings.warn(
+            "get_keyframes_async is deprecated.",
+            DeprecationWarning,
+        )
         arg = riviera.GetKeyframesArgs(file_id_or_url, scene_change_threshold, include_images)
         r = self.request(
             riviera.get_keyframes_async,
@@ -4647,6 +4717,10 @@ class DropboxBase(object):
         If this raises, ApiError will contain:
             :class:`dropbox.async_.PollError`
         """
+        warnings.warn(
+            "get_keyframes_async/check is deprecated.",
+            DeprecationWarning,
+        )
         arg = async_.PollArg(async_job_id)
         r = self.request(
             riviera.get_keyframes_async_check,
@@ -4658,9 +4732,12 @@ class DropboxBase(object):
 
     def riviera_get_markdown_async(self, file_id_or_url=None, enable_ocr=False, embed_images=False):
         """
-        Asynchronous document-to-markdown conversion for supported file formats.
-        Supported formats: .binder, .docx, .html, .paper, .papert, .pptx, .xlsx,
-        .gsheet, .ods, .pdf. Files in other formats fail with
+        Deprecated: use :meth:`riviera_extract_async` with `extract_type` set to
+        ``ExtractType.markdown`` instead, which takes the same options. This
+        route will be turned off by December 31, 2026. Asynchronous
+        document-to-markdown conversion for supported file formats. Supported
+        formats: .binder, .docx, .html, .paper, .papert, .pptx, .xlsx, .gsheet,
+        .ods, .pdf. Files in other formats fail with
         ``MarkdownConversionApiV2Error.user_error``. Size limit: the source file
         must be at most 50 MB. Larger files fail with
         ``MarkdownConversionApiV2Error.user_error``. The markdown is not
@@ -4687,6 +4764,10 @@ class DropboxBase(object):
         :type embed_images: bool
         :rtype: :class:`dropbox.async_.LaunchResultBase`
         """
+        warnings.warn(
+            "get_markdown_async is deprecated.",
+            DeprecationWarning,
+        )
         arg = riviera.GetMarkdownArgs(file_id_or_url, enable_ocr, embed_images)
         r = self.request(
             riviera.get_markdown_async,
@@ -4712,6 +4793,10 @@ class DropboxBase(object):
         If this raises, ApiError will contain:
             :class:`dropbox.async_.PollError`
         """
+        warnings.warn(
+            "get_markdown_async/check is deprecated.",
+            DeprecationWarning,
+        )
         arg = async_.PollArg(async_job_id)
         r = self.request(
             riviera.get_markdown_async_check,
@@ -4795,16 +4880,19 @@ class DropboxBase(object):
 
     def riviera_get_ocr_async(self, file_id_or_url=None):
         """
-        Asynchronous OCR (optical character recognition) text extraction for
-        images and PDFs, including scanned / non-text PDFs. Supported formats: -
-        Image formats: .bmp, .gif, .heic, .jpeg, .jpg, .png, .tif, .tiff, .webp.
-        - PDF format: .pdf. Unsupported formats return an
-        `unsupported_format_error`. For the `url` variant only Dropbox shared
-        links are supported; external URLs return `unsupported_format_error`.
-        Text-based PDFs already carry a text layer, so OCR is not run against
-        them and the result is empty; use `get_text_async` to read the embedded
-        text layer of such a PDF. The result carries the extracted words as
-        plain text, plus the same content as hOCR with per-word coordinates.
+        Deprecated: use :meth:`riviera_extract_async` with `extract_type` set to
+        ``ExtractType.ocr`` instead, which takes the same options. This route
+        will be turned off by December 31, 2026. Asynchronous OCR (optical
+        character recognition) text extraction for images and PDFs, including
+        scanned / non-text PDFs. Supported formats: - Image formats: .bmp, .gif,
+        .heic, .jpeg, .jpg, .png, .tif, .tiff, .webp. - PDF format: .pdf.
+        Unsupported formats return an `unsupported_format_error`. For the `url`
+        variant only Dropbox shared links are supported; external URLs return
+        `unsupported_format_error`. Text-based PDFs already carry a text layer,
+        so OCR is not run against them and the result is empty; use
+        `get_text_async` to read the embedded text layer of such a PDF. The
+        result carries the extracted words as plain text, plus the same content
+        as hOCR with per-word coordinates.
 
         Route attributes:
             scope: files.content.read
@@ -4821,6 +4909,10 @@ class DropboxBase(object):
         :type file_id_or_url: Nullable[:class:`dropbox.riviera.FileIdOrUrl`]
         :rtype: :class:`dropbox.async_.LaunchResultBase`
         """
+        warnings.warn(
+            "get_ocr_async is deprecated.",
+            DeprecationWarning,
+        )
         arg = riviera.GetOcrArgs(file_id_or_url)
         r = self.request(
             riviera.get_ocr_async,
@@ -4846,6 +4938,10 @@ class DropboxBase(object):
         If this raises, ApiError will contain:
             :class:`dropbox.async_.PollError`
         """
+        warnings.warn(
+            "get_ocr_async/check is deprecated.",
+            DeprecationWarning,
+        )
         arg = async_.PollArg(async_job_id)
         r = self.request(
             riviera.get_ocr_async_check,
@@ -4857,14 +4953,16 @@ class DropboxBase(object):
 
     def riviera_get_text_async(self, file_id_or_url=None):
         """
-        Asynchronous plain-text extraction from documents. Supported formats
-        include: - Word processing: .doc, .docx, .docm, .rtf. - Presentations:
-        .ppt, .pptx, .pptm. - Spreadsheets: .xls, .xlsx, .xlsm. - PDF: .pdf. -
-        Dropbox document types: .paper, .papert, .binder, .gdoc, .gsheet,
-        .gslides. - Plain text / subtitles: .txt, .vtt. Unsupported formats
-        return an `unsupported_format_error`. For the `url` variant only Dropbox
-        shared links are supported; external URLs return
-        `unsupported_format_error`.
+        Deprecated: use :meth:`riviera_extract_async` with `extract_type` set to
+        ``ExtractType.text`` instead, which takes the same options. This route
+        will be turned off by December 31, 2026. Asynchronous plain-text
+        extraction from documents. Supported formats include: - Word processing:
+        .doc, .docx, .docm, .rtf. - Presentations: .ppt, .pptx, .pptm. -
+        Spreadsheets: .xls, .xlsx, .xlsm. - PDF: .pdf. - Dropbox document types:
+        .paper, .papert, .binder, .gdoc, .gsheet, .gslides. - Plain text /
+        subtitles: .txt, .vtt. Unsupported formats return an
+        `unsupported_format_error`. For the `url` variant only Dropbox shared
+        links are supported; external URLs return `unsupported_format_error`.
 
         Route attributes:
             scope: files.content.read
@@ -4882,6 +4980,10 @@ class DropboxBase(object):
         :type file_id_or_url: Nullable[:class:`dropbox.riviera.FileIdOrUrl`]
         :rtype: :class:`dropbox.async_.LaunchResultBase`
         """
+        warnings.warn(
+            "get_text_async is deprecated.",
+            DeprecationWarning,
+        )
         arg = riviera.GetTextArgs(file_id_or_url)
         r = self.request(
             riviera.get_text_async,
@@ -4907,6 +5009,10 @@ class DropboxBase(object):
         If this raises, ApiError will contain:
             :class:`dropbox.async_.PollError`
         """
+        warnings.warn(
+            "get_text_async/check is deprecated.",
+            DeprecationWarning,
+        )
         arg = async_.PollArg(async_job_id)
         r = self.request(
             riviera.get_text_async_check,
@@ -4924,15 +5030,18 @@ class DropboxBase(object):
         audio_language="",
     ):
         """
-        Asynchronous transcript generation for audio and video files. Supported
-        audio formats: .aac, .aif, .aiff, .flac, .m4a, .m4r, .mp3, .oga, .ogg,
-        .wav, .wma. Supported video formats: .3gp, .3gpp, .3gpp2, .asf, .avi,
-        .dv, .flv, .m2t, .m2ts, .m4v, .mkv, .mov, .mp4, .mpeg, .mpg, .mts, .mxf,
-        .oggtheora, .ogv, .rm, .ts, .vob, .webm, .wmv. Files in other formats
-        fail with ``ContentApiV2Error.user_error``. Size limits: the source file
-        must be at most 10 GB and its audio track at most 1 hour in duration.
-        Files exceeding either limit fail with ``ContentApiV2Error.user_error``.
-        The transcript is not returned by this route. Poll
+        Deprecated: use :meth:`riviera_extract_async` with `extract_type` set to
+        ``ExtractType.transcript`` instead, which takes the same options. This
+        route will be turned off by December 31, 2026. Asynchronous transcript
+        generation for audio and video files. Supported audio formats: .aac,
+        .aif, .aiff, .flac, .m4a, .m4r, .mp3, .oga, .ogg, .wav, .wma. Supported
+        video formats: .3gp, .3gpp, .3gpp2, .asf, .avi, .dv, .flv, .m2t, .m2ts,
+        .m4v, .mkv, .mov, .mp4, .mpeg, .mpg, .mts, .mxf, .oggtheora, .ogv, .rm,
+        .ts, .vob, .webm, .wmv. Files in other formats fail with
+        ``ContentApiV2Error.user_error``. Size limits: the source file must be
+        at most 10 GB and its audio track at most 1 hour in duration. Files
+        exceeding either limit fail with ``ContentApiV2Error.user_error``. The
+        transcript is not returned by this route. Poll
         :meth:`riviera_get_transcript_async_check` with the returned async job
         ID until it reports ``GetTranscriptAsyncCheckResult.complete`` or
         ``GetTranscriptAsyncCheckResult.failed``.
@@ -4964,6 +5073,10 @@ class DropboxBase(object):
         :type audio_language: str
         :rtype: :class:`dropbox.async_.LaunchResultBase`
         """
+        warnings.warn(
+            "get_transcript_async is deprecated.",
+            DeprecationWarning,
+        )
         arg = riviera.GetTranscriptArgs(
             file_id_or_url, timestamp_level, included_special_words, audio_language
         )
@@ -4991,6 +5104,10 @@ class DropboxBase(object):
         If this raises, ApiError will contain:
             :class:`dropbox.async_.PollError`
         """
+        warnings.warn(
+            "get_transcript_async/check is deprecated.",
+            DeprecationWarning,
+        )
         arg = async_.PollArg(async_job_id)
         r = self.request(
             riviera.get_transcript_async_check,

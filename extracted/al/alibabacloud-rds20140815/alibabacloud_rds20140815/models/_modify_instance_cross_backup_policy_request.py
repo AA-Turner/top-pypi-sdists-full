@@ -19,25 +19,25 @@ class ModifyInstanceCrossBackupPolicyRequest(DaraModel):
         retent_type: int = None,
         retention: int = None,
     ):
-        # Specifies whether to enable the overall cross-region backup feature, which includes data backup and log backup. Valid values:
-        # * **0**: disabled
-        # * **1**: enabled
+        # Specifies whether to enable the overall cross-region backup switch, which includes data backup and log backup. Valid values:
+        # * **0**: disabled.
+        # * **1**: enabled.
         # 
-        # > When you enable cross-region backup, you must specify the destination region ID.
+        # >When you enable cross-region backup, you must specify the destination region ID.
         self.backup_enabled = backup_enabled
-        # The ID of the destination region for cross-region backup.
+        # The ID of the destination region for cross-region backups.
         self.cross_backup_region = cross_backup_region
-        # The retention type of cross-region backups. Only **1** is supported, which indicates that all backups are retained.
+        # The retention type for cross-region backups. Valid value: **1**, which indicates that all backups are retained.
         self.cross_backup_type = cross_backup_type
         # The instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # Specifies whether to enable cross-region log backup. Valid values:
-        # * **0**: disabled
-        # * **1**: enabled
+        # Specifies whether to enable the cross-region log backup switch. Valid values:
+        # * **0**: disabled.
+        # * **1**: enabled.
         # 
-        # > You can configure this parameter only when the overall cross-region backup feature is enabled.
+        # >You can configure this parameter only when the overall cross-region backup switch is enabled.
         self.log_backup_enabled = log_backup_enabled
         self.owner_id = owner_id
         # The region ID of the source instance. You can call the DescribeRegions operation to query region IDs.
@@ -46,9 +46,9 @@ class ModifyInstanceCrossBackupPolicyRequest(DaraModel):
         self.region_id = region_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The retention method for cross-region backups. Only **1** is supported, which indicates that backups are retained based on a specified retention period.
+        # The retention method for cross-region backups. Valid value: **1**, which indicates that backups are retained based on a specified retention period.
         self.retent_type = retent_type
-        # The retention period of cross-region backups. Valid values: **7 to 1825**. Unit: days.
+        # The number of days to retain cross-region backups. Valid values: **7 to 1825**.
         self.retention = retention
 
     def validate(self):

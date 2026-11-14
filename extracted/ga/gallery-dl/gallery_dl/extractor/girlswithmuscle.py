@@ -18,6 +18,18 @@ class GirlswithmuscleExtractor(Extractor):
     filename_fmt = "{model}_{id}.{extension}"
     archive_fmt = "{type}_{model}_{id}"
 
+    def request(self, url, **kwargs):
+        response = Extractor.request(self, url, **kwargs)
+
+        if response.content.find(
+                b"<title>Making sure you&#39;re not a bot!</title>",
+                0, 100) > 0:
+            self.log.info("Visit '%s' in a browser and pass its extracted "
+                          "cookies to bypass the Anubis challenge", url)
+            raise self.exc.ChallengeError("Anubis challenge", response)
+
+        return response
+
     def login(self):
         username, password = self._get_auth_info()
         if username:

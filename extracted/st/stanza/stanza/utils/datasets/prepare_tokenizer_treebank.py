@@ -40,6 +40,7 @@ from stanza.models.common.short_name_to_treebank import canonical_treebank_name
 from stanza.resources.default_packages import default_treebanks
 import stanza.utils.datasets.common as common
 from stanza.utils.datasets.common import read_sentences_from_conllu, write_sentences_to_conllu, write_sentences_to_file, INT_RE, MWT_RE, MWT_OR_COPY_RE
+from stanza.utils.datasets.dutch import merge_colon_sentences, relabel_mood
 from stanza.utils.datasets.indic.bho_bis_mapping import XPOS_TO_BIS
 import stanza.utils.datasets.indic.convert_iit_bhojpuri_pos as convert_iit_bhojpuri_pos
 import stanza.utils.datasets.tokenization.convert_ml_cochin as convert_ml_cochin
@@ -684,23 +685,6 @@ def build_extra_combined_french_dataset(paths, model_type, dataset, args):
             sents.extend(handparsed_sentences)
     return sents
 
-def build_extra_combined_german_dataset(paths, model_type, dataset, args):
-    """
-    Extra sentences we don't want augmented for German
-
-    Currently, this is just the lemmas from Wiktionary
-    """
-    handparsed_dir = paths["HANDPARSED_DIR"]
-    sents = []
-    if dataset == 'train':
-        if model_type is common.ModelType.LEMMA:
-            handparsed_path = os.path.join(handparsed_dir, "german-lemmas-wiki", "de_wiki_lemmas.conllu")
-            handparsed_sentences = read_sentences_from_conllu(handparsed_path)
-            print("Loaded %d sentences from %s" % (len(handparsed_sentences), handparsed_path))
-            sents.extend(handparsed_sentences)
-    return sents
-
-
 def build_extra_combined_english_dataset(paths, model_type, dataset, args):
     """
     Extra sentences we don't want augmented
@@ -712,7 +696,12 @@ def build_extra_combined_english_dataset(paths, model_type, dataset, args):
         handparsed_sentences = read_sentences_from_conllu(handparsed_path)
         handparsed_sentences = add_english_sentence_final_punctuation(handparsed_sentences)
         sents.extend(handparsed_sentences)
-        print("Loaded %d sentences from %s" % (len(sents), handparsed_path))
+        print("Loaded %d sentences from %s" % (len(handparsed_sentences), handparsed_path))
+
+        handparsed_path = os.path.join(handparsed_dir, "english-silver", "lemma_fix_bras_mine.conllu")
+        handparsed_sentences = read_sentences_from_conllu(handparsed_path)
+        sents.extend(handparsed_sentences)
+        print("Loaded %d sentences from %s" % (len(handparsed_sentences), handparsed_path))
 
         if model_type is common.ModelType.LEMMA:
             handparsed_path = os.path.join(handparsed_dir, "english-lemmas", "en_lemmas.conllu")
@@ -742,8 +731,10 @@ def build_extra_combined_spanish_dataset(paths, model_type, dataset, args):
     extra_sents = []
     extras_spanish = [
         (handparsed_dir, "spanish-silver", "es.future.conllu"),
+        (handparsed_dir, "spanish-silver", "initial_punct_sentences_train.conllu"),
         (handparsed_dir, "spanish-silver", "spanish_como_train.conllu"),
         (handparsed_dir, "spanish-silver", "spanish_lemmas.conllu"),
+        (handparsed_dir, "spanish-silver", "spanish_vosotros_train.conllu"),
     ]
     for extra_spanish in extras_spanish:
         extra_spanish_filename = os.path.join(*extra_spanish)
@@ -918,11 +909,14 @@ def build_combined_japanese_dataset(paths, model_type, dataset, args, context):
     print("Read %d sentences from %s" % (len(gsd_sents), conllu_file))
 
     if dataset == 'train':
-        extra_japanese = os.path.join(handparsed_dir, "japanese-handparsed", "spaces-ready-checked.conllu")
-        if not os.path.exists(extra_japanese):
-            raise FileNotFoundError("Cannot find the extra dataset which includes various verb patterns, expected {}".format(extra_japanese))
-        extra_sents = read_sentences_from_conllu(extra_japanese)
-        print("Read %d sentences from %s" % (len(extra_sents), extra_japanese))
+        extra_sents = []
+        extra_files = ["spaces-ready-checked.conllu", "ja_gsd-ohayou.conllu"]
+        for extra_file in extra_files:
+            extra_japanese = os.path.join(handparsed_dir, "japanese-handparsed", extra_file)
+            if not os.path.exists(extra_japanese):
+                raise FileNotFoundError("Cannot find the extra dataset which includes various verb patterns, expected {}".format(extra_japanese))
+            extra_sents = read_sentences_from_conllu(extra_japanese)
+            print("Read %d sentences from %s" % (len(extra_sents), extra_japanese))
 
         if model_type == common.ModelType.POS:
             documents = {}
@@ -935,6 +929,44 @@ def build_combined_japanese_dataset(paths, model_type, dataset, args, context):
     else:
         return gsd_sents
 
+
+def preprocess_dutch_file(treebank, dataset, udbase_dir, output_dir):
+    """
+    Apply preprocessing steps to the Dutch treebanks before using them
+    in combined models
+
+    - add more imperative tags - this is from Claude and not reviewed
+    - combine colon separated sentences into one sentence
+    """
+    # TODO: make this a parameter?
+    output_name = "nl_combined"
+    short_name = treebank_to_short_name(treebank).split("_", maxsplit=1)[1]
+
+    conllu_file = common.find_treebank_dataset_file(treebank, udbase_dir, dataset, "conllu", fail=True)
+    imp_file = os.path.join(output_dir, "%s.%s.imps.%s.conllu" % (output_name, short_name, dataset))
+    relabel_mood.relabel_file(conllu_file, imp_file)
+
+    colon_file = os.path.join(output_dir, "%s.%s.colons.%s.conllu" % (output_name, short_name, dataset))
+    merge_colon_sentences.merge_file(imp_file, colon_file)
+
+    return colon_file
+
+def build_combined_dutch_dataset(paths, model_type, dataset, args, context):
+    # According to Claude, Alpino and LassySmall are converted the same way
+    # from their original non-UD parses
+    udbase_dir = paths["UDBASE"]
+    output_dir = paths["TOKENIZE_DATA_DIR"]
+    treebanks = ["UD_Dutch-Alpino", "UD_Dutch-LassySmall"]
+
+    sents = []
+    for treebank in treebanks:
+        conllu_file = preprocess_dutch_file(treebank, dataset, udbase_dir, output_dir)
+        #conllu_file = common.find_treebank_dataset_file(treebank, udbase_dir, dataset, "conllu", fail=True)
+        new_sents = read_sentences_from_conllu(conllu_file)
+        print("Read %d sentences from %s" % (len(new_sents), conllu_file))
+        sents.extend(new_sents)
+
+    return sents
 
 def build_combined_albanian_dataset(paths, model_type, dataset, args, context):
     """
@@ -983,9 +1015,10 @@ def build_combined_albanian_dataset(paths, model_type, dataset, args, context):
 
 def build_combined_german_dataset(paths, model_type, dataset, args, context):
     """
-    de_combined is currently GSD, with lemma information from Wiktionary
+    de_combined is currently GSD
 
-    the lemma information is added in build_extra_combined_german_dataset
+    The lemmatizer also uses a dictionary of lemmas from Wiktionary,
+    which prepare_lemma_treebank writes as de_combined.dict.conllu
 
     TODO: quite a bit of HDT we could possibly use
     """
@@ -998,6 +1031,25 @@ def build_combined_german_dataset(paths, model_type, dataset, args, context):
     sents = read_sentences_from_conllu(conllu_file)
 
     return sents
+
+
+def build_combined_greek_dataset(paths, model_type, dataset, args, context):
+    """
+    el_combined is currently GDT
+
+    The lemmatizer also uses a dictionary of lemmas from Greek Wiktionary,
+    which prepare_lemma_treebank writes as el_combined.dict.conllu.  The
+    dictionary's lemmas are rewritten to follow GDT, so adding another
+    treebank here means checking that it follows the same conventions,
+    such as -ώ rather than -άω for contracted verbs, which GUD does not.
+    See stanza/utils/datasets/lemma/convert_el_wiktionary.py
+
+    el_gdt is GDT alone, without the dictionary, for comparison with
+    other pipelines.
+    """
+    udbase_dir = paths["UDBASE"]
+    conllu_file = common.find_treebank_dataset_file("UD_Greek-GDT", udbase_dir, dataset, "conllu", fail=True)
+    return read_sentences_from_conllu(conllu_file)
 
 
 def build_combined_spanish_dataset(paths, model_type, dataset, args, context):
@@ -1230,6 +1282,7 @@ def build_combined_bhojpuri_dataset(paths, model_type, dataset, args, context):
 COMBINED_FNS = {
     "bho_combined":build_combined_bhojpuri_dataset,
     "de_combined": build_combined_german_dataset,
+    "el_combined": build_combined_greek_dataset,
     "en_combined": build_combined_english_dataset,
     "es_combined": build_combined_spanish_dataset,
     "fi_combined": build_combined_finnish_dataset,
@@ -1237,13 +1290,13 @@ COMBINED_FNS = {
     "he_combined": build_combined_hebrew_dataset,
     "it_combined": build_combined_italian_dataset,
     "ja_combined": build_combined_japanese_dataset,
+    "nl_combined": build_combined_dutch_dataset,
     "sl_combined": build_combined_slovenian_dataset,
     "sq_combined": build_combined_albanian_dataset,
 }
 
 # some extra data for the combined models without augmenting
 COMBINED_EXTRA_FNS = {
-    "de_combined": build_extra_combined_german_dataset,
     "en_combined": build_extra_combined_english_dataset,
     "fi_combined": build_extra_combined_finnish_dataset,
     "fr_combined": build_extra_combined_french_dataset,
@@ -1267,6 +1320,7 @@ def build_combined_bhojpuri_context(paths, short_name, model_type, args):
         # sanity check that it's three entries, as expected
         train_conllu, dev_conllu, test_conllu = conllu_files
         yield output_dir, conllu_files
+
 
 @contextmanager
 def build_null_context(*args, **kwargs):
@@ -1410,6 +1464,7 @@ def prepare_ud_dataset(treebank, udbase_dir, tokenizer_dir, short_name, short_la
     else:
         sents = read_sentences_from_conllu(input_conllu)
         write_sentences_to_conllu(output_conllu, sents)
+    return output_conllu
 
 def process_ud_treebank(treebank, udbase_dir, tokenizer_dir, short_name, short_language, args):
     """
@@ -1418,11 +1473,10 @@ def process_ud_treebank(treebank, udbase_dir, tokenizer_dir, short_name, short_l
     SL-SSJ and other datasets with inline modifications all use this code path as well.
     """
     augment = args.augment
-    prepare_ud_dataset(treebank, udbase_dir, tokenizer_dir, short_name, short_language, "train", augment)
-    prepare_ud_dataset(treebank, udbase_dir, tokenizer_dir, short_name, short_language, "dev", augment)
-    prepare_ud_dataset(treebank, udbase_dir, tokenizer_dir, short_name, short_language, "test", augment)
-    return True
-
+    train_conllu = prepare_ud_dataset(treebank, udbase_dir, tokenizer_dir, short_name, short_language, "train", augment)
+    dev_conllu   = prepare_ud_dataset(treebank, udbase_dir, tokenizer_dir, short_name, short_language, "dev", augment)
+    test_conllu  = prepare_ud_dataset(treebank, udbase_dir, tokenizer_dir, short_name, short_language, "test", augment)
+    return (train_conllu, dev_conllu, test_conllu)
 
 
 def process_test_only_ud_treebank(treebank, udbase_dir, tokenizer_dir, short_name, short_language, args):

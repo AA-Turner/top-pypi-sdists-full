@@ -15,13 +15,13 @@ class ModifyDBInstanceMaintainTimeRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the token, but you must make sure that the token is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the value, but you must ensure that it is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # The instance ID. You can call DescribeDBInstances to query the instance ID.
+        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The maintenance window of the instance. Specify the window in the <i>HH:mm</i>Z-<i>HH:mm</i>Z format (UTC).
+        # The maintenance window of the instance. Format: <i>HH:mm</i>Z-<i>HH:mm</i>Z (UTC time).
         # 
         # This parameter is required.
         self.maintain_time = maintain_time

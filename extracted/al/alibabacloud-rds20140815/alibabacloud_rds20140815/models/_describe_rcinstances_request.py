@@ -27,7 +27,7 @@ class DescribeRCInstancesRequest(DaraModel):
         self.cluster_id = cluster_id
         # The description used to filter instances.
         self.description = description
-        # The keyword used to perform a fuzzy match on the instance description.
+        # The keyword used for fuzzy matching of the instance description.
         self.description_for_fuzzy = description_for_fuzzy
         # The host IP address used to filter instances.
         self.host_ip = host_ip
@@ -35,11 +35,11 @@ class DescribeRCInstancesRequest(DaraModel):
         self.image_id = image_id
         # The instance ID. This parameter is used to query a single instance.
         # 
-        # > If no instance ID is specified (neither **InstanceId** nor **InstanceIds** is specified), the details of all RDS Custom instances in the specified region are returned.
+        # > If no instance ID is specified (neither **InstanceId** nor **InstanceIds** is passed), the details of all RDS Custom instances in the specified region are returned.
         self.instance_id = instance_id
         # The instance IDs.
         # 
-        # This parameter is used to query multiple instances at a time. Separate multiple instance IDs with commas (,). You can specify up to 100 instance IDs. Input format: `["InstanceId1","InstanceId2"]`.
+        # This parameter is used to query multiple instances at a time. Separate multiple instance IDs with commas (,). You can specify up to 100 instance IDs. Format: `["Instance ID 1","Instance ID 2"]`.
         # 
         # > If both **InstanceIds** and **InstanceId** are specified, the value of **InstanceIds** prevails.
         self.instance_ids = instance_ids
@@ -49,7 +49,7 @@ class DescribeRCInstancesRequest(DaraModel):
         # 
         # Starting value: 1. Default value: 1.
         self.page_number = page_number
-        # The number of entries per page in a paging query.
+        # The number of entries per page set in the paging settings for a paged query.
         # 
         # Maximum value: 100. Default value: 10.
         self.page_size = page_size
@@ -65,9 +65,9 @@ class DescribeRCInstancesRequest(DaraModel):
         # - **Stopping**: The instance is being stopped.
         # - **Stopped**: The instance is stopped.
         self.status = status
-        # The tags used to filter instances. Input format: `{"TagKey":"TagValue"}`.
+        # The tags used to filter instances. Format: `{"TagKey":"TagValue"}`.
         self.tag = tag
-        # The ID of the VPC.
+        # The ID of the virtual private cloud (VPC).
         self.vpc_id = vpc_id
 
     def validate(self):

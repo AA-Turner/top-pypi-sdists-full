@@ -13,7 +13,7 @@ class CreateBranchResponseBody(DaraModel):
     ):
         # The branch ID, which uniquely identifies a Supabase branch.
         self.branch_id = branch_id
-        # The ID of the Supabase project that corresponds to the primary branch.
+        # The ID of the Supabase project to which the main branch belongs.
         self.project_id = project_id
         # The request ID.
         self.request_id = request_id

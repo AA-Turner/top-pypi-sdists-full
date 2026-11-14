@@ -6,7 +6,6 @@ use std::path::Path;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::{Bound, Py, PyAny, PyResult, Python};
 use serde_json::Value;
-use sqlbuild_analysis::graph::main::resolve_selectors::resolve_selectors;
 use sqlbuild_analysis::graph::models::ProjectGraph;
 use sqlbuild_cli::argv::main::job_settings_arguments::job_settings_arguments;
 use sqlbuild_core::constants::PYTHON_INIT_MODULE_STEM;
@@ -20,8 +19,10 @@ use sqlbuild_orchestration::declarations::models::{
 };
 use sqlbuild_orchestration::snapshots::models::SnapshotInput;
 
+use crate::bindings::_helpers::graph::python_selection::ProjectSelection;
 use crate::bindings::_helpers::native_host::orchestration_declarations::{
-    AuthoredDeclaration, AuthoredGroup, AuthoredJob, AuthoredSensor, declared_at, module_jobs,
+    AuthoredDeclaration, AuthoredGroup, AuthoredJob, AuthoredSensor, declared_at, job_resources,
+    module_jobs, run_controls,
 };
 use crate::bindings::_helpers::native_host::orchestration_triggers::{
     compile_calendars, compile_cron, compile_sensors,
@@ -59,7 +60,7 @@ pub(crate) fn discover_declarations<'py>(
 pub(crate) fn compile_declarations(
     py: Python<'_>,
     mut input: SnapshotInput,
-    (project_dir, graph): (&Path, &ProjectGraph),
+    (project_dir, graph, selected): (&Path, &ProjectGraph, &ProjectSelection),
     declarations: Vec<AuthoredDeclaration>,
 ) -> PyResult<SnapshotInput> {
     if declarations.is_empty() {
@@ -112,13 +113,22 @@ pub(crate) fn compile_declarations(
                 job.name
             )));
         }
-        let selection: BTreeSet<String> =
-            resolve_selectors(graph, &tokens(&job.select), &tokens(&job.exclude))
-                .map_err(|error| PyValueError::new_err(error.message))?
-                .into_iter()
-                .map(|(kind, name)| format!("{kind}:{name}"))
-                .collect();
+        let selection: BTreeSet<String> = selected
+            .run_keys(graph, &tokens(&job.select), &tokens(&job.exclude))
+            .map_err(|error| PyValueError::new_err(format!("job {}: {error}", job.name)))?;
         let declared_at: Option<DeclaredAt> = declared_at(project_dir, job.declared_at)?;
+        let controls = run_controls(
+            &job.name,
+            (
+                job.owner,
+                &job.overlap,
+                job.on_failure.as_ref().map(|policy| policy.bind(py)),
+            ),
+        )?;
+        let resources = job_resources(
+            &job.name,
+            job.resources.as_ref().map(|resources| resources.bind(py)),
+        )?;
         let targets: BTreeSet<String> = job.targets.into_iter().collect();
         if let Some(schedule) = job.schedule {
             triggers.insert(
@@ -141,6 +151,10 @@ pub(crate) fn compile_declarations(
                 exclude: Some(job.exclude).filter(|exclude| !exclude.trim().is_empty()),
                 targets,
                 declared_at,
+                owner: controls.owner,
+                overlap: controls.overlap,
+                on_failure: controls.on_failure,
+                resources,
             },
         );
     }
@@ -163,13 +177,21 @@ pub(crate) fn compile_declarations(
                     .collect(),
             );
         }
-        let dependencies = group_dependencies(&input, &jobs, (&members, &after))
+        let dependencies = group_dependencies((&group.name, &input), &jobs, (&members, &after))
             .map_err(|error| PyValueError::new_err(error.to_string()))?;
         let selection: BTreeSet<String> = members
             .iter()
             .flat_map(|name| jobs[name].selection.iter().cloned())
             .collect();
         let declared_at: Option<DeclaredAt> = declared_at(project_dir, group.declared_at)?;
+        let controls = run_controls(
+            &group.name,
+            (
+                group.owner,
+                &group.overlap,
+                group.on_failure.as_ref().map(|policy| policy.bind(py)),
+            ),
+        )?;
         let targets: BTreeSet<String> = group.targets.into_iter().collect();
         if let Some(schedule) = group.schedule {
             triggers.insert(
@@ -193,6 +215,10 @@ pub(crate) fn compile_declarations(
                     exclude: None,
                     targets,
                     declared_at,
+                    owner: controls.owner,
+                    overlap: controls.overlap,
+                    on_failure: controls.on_failure,
+                    resources: None,
                 },
                 jobs: dependencies,
             },
@@ -206,7 +232,7 @@ pub(crate) fn compile_declarations(
         ..
     } = compile_sensors(
         py,
-        (project_dir, &input, graph),
+        (project_dir, &input, (graph, selected)),
         authored_sensors,
         compile_calendars(
             py,

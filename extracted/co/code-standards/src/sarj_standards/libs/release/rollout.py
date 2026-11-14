@@ -26,7 +26,11 @@ from urllib.parse import quote
 
 from packaging.version import InvalidVersion, Version
 from pydantic import AliasPath, BaseModel, Field, ValidationError
-from repo_standards.repository import parse_baseline_bytes as parse_repository_baseline
+from repo_standards.core.pull_request_body import missing_required_body_sections
+from repo_standards.repository import (
+    load_manifest as load_repository_manifest,
+    parse_baseline_bytes as parse_repository_baseline,
+)
 import typer
 import yaml
 from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
@@ -77,7 +81,13 @@ _NO_DIRECTIVE_REWRITES: Mapping[str, oxlint_directives.SourcePostimage] = Mappin
 DEFAULT_REGISTRY = Path(".sarj-standards-rollout.toml")
 DEFAULT_WORKFLOW_RUNNER = "ubuntu-latest"
 WORKFLOW_RUNNERS = frozenset(
-    {DEFAULT_WORKFLOW_RUNNER, "ubuntu-24.04", "blacksmith-2vcpu-ubuntu-2404", "blacksmith-4vcpu-ubuntu-2404"}
+    {
+        DEFAULT_WORKFLOW_RUNNER,
+        "ubuntu-24.04",
+        "blacksmith-2vcpu-ubuntu-2404",
+        "blacksmith-4vcpu-ubuntu-2404",
+        "blacksmith-16vcpu-ubuntu-2404",
+    }
 )
 MAX_CONCURRENT_CONSUMERS = 16
 BASE_WATCH_POLL_SECONDS = 10
@@ -1883,7 +1893,7 @@ class PreservedBaselines:
 def refresh_preserved_provenance(
     repo: Path, expected: Mapping[Path, adoption_transaction.FileSnapshot]
 ) -> PreservedBaselines:
-    # A bundle update rewrites only the diagnostic baseline's provenance; accept exactly that refresh.
+    # Advance snapshots only for canonical diagnostic or reviewed repository policy metadata refreshes.
     if not expected:
         return PreservedBaselines(expected)
     paths = tuple(expected)
@@ -1895,11 +1905,16 @@ def refresh_preserved_provenance(
     for path, before in expected.items():
         after = current[path]
         if after != before and not (
-            path == diagnostic
-            and before.contents is not None
+            before.contents is not None
             and after.contents is not None
             and (before.mode, before.group) == (after.mode, after.group)
-            and diagnostic_baseline.provenance_only_change(before.contents, after.contents)
+            and (
+                (path == diagnostic and diagnostic_baseline.provenance_only_change(before.contents, after.contents))
+                or (
+                    path == repo / repository_baseline.PATH
+                    and repository_baseline.compatible_policy_change(repo, before.contents, after.contents)
+                )
+            )
         ):
             msg = "consumer verification mutated controller-owned baseline bytes or metadata"
             raise RolloutError(msg)
@@ -2443,6 +2458,7 @@ def _apply_one(  # ruff: ignore[too-many-locals] - one transaction binds verific
             msg = f"{consumer.name}: cloned base did not resolve to a full commit SHA"
             raise RolloutError(msg)
         preserved = snapshot_consumer_baselines(repo, consumer, preserve_baselines=preserve_baselines)
+        required_body_sections = rollout_body_sections(repo)
         preparation = prepare_branch(repo, version, base_sha, runner)
         branch = preparation.branch
         previous_react_doctor_policy = react_doctor_policy_snapshot(repo)
@@ -2649,6 +2665,7 @@ def _apply_one(  # ruff: ignore[too-many-locals] - one transaction binds verific
         pushed_head_sha=pushed_head_sha,
         branch_paths=branch_paths,
         verification_failure=verification_failure,
+        required_body_sections=required_body_sections,
     )
 
 
@@ -3418,6 +3435,7 @@ def _publish_rollout_pull(
     pushed_head_sha: str,
     branch_paths: tuple[str, ...],
     verification_failure: str,
+    required_body_sections: tuple[str, ...] = (),
     sleep: Callable[[float], None] = time.sleep,
 ) -> Outcome:
     pull = pull_request(consumer, version, runner)
@@ -3452,6 +3470,7 @@ def _publish_rollout_pull(
         pushed_head_sha=pushed_head_sha,
         branch_paths=branch_paths,
         verification_failure=verification_failure,
+        required_body_sections=required_body_sections,
     )
     if pull is None:
         created = runner.run(
@@ -3543,6 +3562,20 @@ def _publish_rollout_pull(
     return Outcome(consumer, PullRequestOpen(pull_request_url(url)))
 
 
+def rollout_body_sections(repo: Path) -> tuple[str, ...]:
+    path = repo / ".repo-standards/repository.toml"
+    if not path.is_file():
+        return ()
+    try:
+        pull_request = load_repository_manifest(path).pull_request
+    except (OSError, ValueError) as exc:
+        msg = "could not read the consumer's pull-request body policy"
+        raise RolloutError(msg) from exc
+    if pull_request is None or pull_request.review_policy is None:
+        return ()
+    return pull_request.review_policy.required_body_sections
+
+
 def rollout_pull_body(
     consumer: Consumer,
     version: str,
@@ -3550,6 +3583,7 @@ def rollout_pull_body(
     pushed_head_sha: str,
     branch_paths: tuple[str, ...],
     verification_failure: str,
+    required_body_sections: tuple[str, ...] = (),
 ) -> str:
     markers = f"{pr_marker(consumer, version)}\n{desired_marker(version)}\n"
     if verification_failure:
@@ -3566,20 +3600,41 @@ def rollout_pull_body(
     else:
         evidence = "No local checks configured."
     verification = "decent 👀" if consumer.verify and not verification_failure else "poor ⚠️"
-    return (
-        f"{markers}\n## Summary\n\n"
-        f"Adopt `code-standards=={version}`.\n\n"
-        "## What & why\n\nSync published tooling.\n\n"
-        f"## Scope accounting\n\nHead: `{pushed_head_sha}`.\n\n"
+    reading_order = "How to read this PR" in required_body_sections
+    summary = "" if reading_order else f"## Summary\n\nAdopt `code-standards=={version}`.\n\n"
+    purpose = f"Adopt `code-standards=={version}`." if not summary else "Sync published tooling."
+    scope_heading = "How to read this PR" if reading_order else "Scope accounting"
+    rollback_heading = "Risk and rollback" if reading_order else "One-way or two-way door"
+    impact = (
+        "Tooling/CI. Planned QA: `code-standards doctor` should pass."
+        if reading_order
+        else "Tools, CI and dependencies."
+    )
+    scope_order = "Read pins, generated configuration, then baseline changes.\n\n" if reading_order else ""
+    risk_sections = (
+        f"## {rollback_heading}\n\nRevert the PR.\n\n",
+        f"## QA impact / blast radius\n\n{impact}\n\n",
+    )
+    if reading_order:
+        risk_sections = risk_sections[::-1]
+    body = (
+        f"{markers}\n{summary}"
+        f"## What & why\n\n{purpose}\n\n"
+        f"## {scope_heading}\n\n{scope_order}Head: `{pushed_head_sha}`.\n\n"
         f"[{len(branch_paths)} paths](https://github.com/{consumer.repository}/commit/{pushed_head_sha}).\n\n"
-        "## One-way or two-way door\n\nRevert the PR.\n\n"
-        "## QA impact / blast radius\n\nTools, CI and dependencies.\n\n"
+        f"{''.join(risk_sections)}"
         f"## Test evidence\n\n{evidence}\n\n"
         "CI, approvals and product QA remain.\n\nGenerated by `make rollout`.\n\n"
         "## Merge Risk\n\n"
         "Merge Risk: medium\nAlignment: good ✅\nImpact: medium 👀\n"
         f"Verification: {verification}\nRollback cost: low ✅\nError detection: decent 👀"
     )
+    if reading_order and any(path.startswith(".github/workflows/") for path in branch_paths):
+        body += "\n\n## Promotion prerequisites\n\nNone."
+    if missing := missing_required_body_sections(body, required_body_sections):
+        msg = f"generated rollout body cannot satisfy required sections: {', '.join(missing)}"
+        raise RolloutError(msg)
+    return body
 
 
 def _wait_for_pushed_pull_head(

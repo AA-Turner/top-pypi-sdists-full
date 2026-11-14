@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: strands-agents
-Version: 1.64.0
+Version: 1.65.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/harness-sdk
 Project-URL: Bug Tracker, https://github.com/strands-agents/harness-sdk/issues
@@ -45,7 +45,7 @@ Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'a2a'
 Provides-Extra: all
 Requires-Dist: a2a-sdk<0.4.0,>=0.3.0; extra == 'all'
 Requires-Dist: a2a-sdk[sql]<0.4.0,>=0.3.0; extra == 'all'
-Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'all'
+Requires-Dist: anthropic<3.0.0,>=0.21.0; extra == 'all'
 Requires-Dist: aws-bedrock-token-generator<2.0.0,>=1.1.0; extra == 'all'
 Requires-Dist: aws-sdk-bedrock-runtime[awscrt]<0.12.0,>=0.11.0; (python_version >= '3.12') and extra == 'all'
 Requires-Dist: awscrt==0.32.2; (python_version >= '3.12') and extra == 'all'
@@ -80,7 +80,7 @@ Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'all'
 Requires-Dist: websockets<17.0.0,>=16.0.0; extra == 'all'
 Requires-Dist: writer-sdk<4.0.0,>=2.2.0; extra == 'all'
 Provides-Extra: anthropic
-Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'anthropic'
+Requires-Dist: anthropic<3.0.0,>=0.21.0; extra == 'anthropic'
 Provides-Extra: bidi
 Requires-Dist: aws-sdk-bedrock-runtime[awscrt]<0.12.0,>=0.11.0; (python_version >= '3.12') and extra == 'bidi'
 Requires-Dist: awscrt==0.32.2; (python_version >= '3.12') and extra == 'bidi'

@@ -9,6 +9,7 @@ entry and removed on exit, so code outside a traced call pays nothing.
 from __future__ import annotations
 
 import contextlib
+import functools
 import inspect
 import os
 import site
@@ -33,12 +34,15 @@ AUTO_TRACE_PROTOCOL = "py-auto-v1"
 
 DEFAULT_MAX_DEPTH: int | None = None
 DEFAULT_MAX_CAPTURED_SUBTREE_SPANS = 500
+DEFAULT_MAX_PAYLOAD_BYTES_PER_FUNCTION = 250_000_000
 
 MAX_DEPTH_LIMIT = "max_depth"
 MAX_CAPTURED_SUBTREE_SPANS_LIMIT = "max_captured_subtree_spans"
+MAX_PAYLOAD_BYTES_PER_FUNCTION_LIMIT = "max_payload_bytes_per_function"
 TRUNCATION_LIMIT_ORDER = (
     MAX_DEPTH_LIMIT,
     MAX_CAPTURED_SUBTREE_SPANS_LIMIT,
+    MAX_PAYLOAD_BYTES_PER_FUNCTION_LIMIT,
 )
 TRUNCATED_BY_METADATA_KEY = "bitfab.truncated_by"
 DROPPED_SPANS_METADATA_KEY = "bitfab.dropped_spans"
@@ -169,6 +173,7 @@ class _Open:
     details: dict[str, Any] | None = None
     started_monotonic: float = field(default_factory=time.monotonic)
     usage_recorded_beneath: bool = False
+    counts_payload_bytes: bool = False
 
 
 @dataclass(frozen=True)
@@ -234,6 +239,7 @@ class Session:
     roots: tuple[str, ...]
     max_depth: int | None = DEFAULT_MAX_DEPTH
     max_captured_subtree_spans: int = DEFAULT_MAX_CAPTURED_SUBTREE_SPANS
+    max_payload_bytes_per_function: int = DEFAULT_MAX_PAYLOAD_BYTES_PER_FUNCTION
     content_off: Callable[[str], bool] | None = None
     exclude: frozenset[str] = frozenset()
     include_wrappers: bool = False
@@ -246,6 +252,7 @@ class Session:
     truncated: bool = False
     dropped_spans: int = 0
     fired_limits: set[str] = field(default_factory=set)
+    payload_bytes_by_function: dict[str, int] = field(default_factory=dict)
     _owns_cache: dict[str, bool] = field(default_factory=dict)
     _path_cache: dict[str, str] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
@@ -296,13 +303,25 @@ class Session:
         with self._lock:
             self._drop_for(MAX_DEPTH_LIMIT)
 
-    def take_discovery_budget(self) -> bool:
+    def take_discovery_budget(self, span_name: str) -> bool:
         with self._lock:
             if self.captured_subtree_count >= self.max_captured_subtree_spans:
                 self._drop_for(MAX_CAPTURED_SUBTREE_SPANS_LIMIT)
                 return False
+            if (
+                self.payload_bytes_by_function.get(span_name, 0)
+                >= self.max_payload_bytes_per_function
+            ):
+                self._drop_for(MAX_PAYLOAD_BYTES_PER_FUNCTION_LIMIT)
+                return False
             self.captured_subtree_count += 1
             return True
+
+    def add_payload_bytes(self, span_name: str, size: int) -> None:
+        with self._lock:
+            self.payload_bytes_by_function[span_name] = (
+                self.payload_bytes_by_function.get(span_name, 0) + size
+            )
 
     def truncation_metadata(self) -> dict[str, Any] | None:
         with self._lock:
@@ -325,7 +344,9 @@ class Session:
         warn_once(
             f"subtree-truncated:{self.label}",
             f"'{self.label}' hit a subtree capture limit (max_captured_subtree_spans="
-            f"{self.max_captured_subtree_spans}, max_depth={self.max_depth}) "
+            f"{self.max_captured_subtree_spans}, max_depth={self.max_depth}, "
+            "max_payload_bytes_per_function="
+            f"{self.max_payload_bytes_per_function}) "
             "and its trace is "
             "incomplete. Raise the limits, or narrow what is traced with "
             "exclude=[...].",
@@ -453,22 +474,23 @@ def admits_llm_call(session: Session) -> bool:
 def _allocate(
     session: Session,
     stack: tuple[_Open, ...],
-    span_name: str | None = None,
+    span_name: str,
     *,
     declared: bool = False,
-) -> tuple[str, str | None]:
+) -> tuple[str, str | None, bool]:
     parent = _innermost_parent(stack)
     parent_span_id = parent.span_id if parent else session.root_span_id
     if declared:
-        return parent_span_id, str(uuid.uuid4())
+        return parent_span_id, str(uuid.uuid4()), False
     depth = sum(entry.counts_toward_depth for entry in stack)
     if session.exceeds_depth(depth):
         session.refuse_for_depth()
-        return parent_span_id, None
-    hidden = span_name is not None and session.hidden_by_sim_plan(span_name)
-    if not hidden and not session.take_discovery_budget():
-        return parent_span_id, None
-    return parent_span_id, str(uuid.uuid4())
+        return parent_span_id, None, False
+    if session.hidden_by_sim_plan(span_name):
+        return parent_span_id, str(uuid.uuid4()), False
+    if not session.take_discovery_budget(span_name):
+        return parent_span_id, None, False
+    return parent_span_id, str(uuid.uuid4()), True
 
 
 def _args_from_call(
@@ -496,7 +518,13 @@ def _emit_entry(
     function_id, function_file, function_line = function_identity(session, entry.code)
     nested = entry.nested_trace
     details = entry.details or {}
+    payload_bytes: dict[str, Any] = (
+        {"on_payload_bytes": functools.partial(session.add_payload_bytes, entry.name)}
+        if entry.counts_payload_bytes
+        else {}
+    )
     session.emit(
+        **payload_bytes,
         experiment_id=experiment_id,
         span_id=entry.span_id,
         parent_span_id=entry.parent_span_id,
@@ -575,7 +603,7 @@ def _on_start(code: Any, instruction_offset: int) -> Any:
                 continue
 
             declared = nested is not None and session is not innermost
-            parent_span_id, span_id = _allocate(
+            parent_span_id, span_id, counts_payload_bytes = _allocate(
                 session, stack, _span_name(code), declared=declared
             )
             entry = _Open(
@@ -587,6 +615,7 @@ def _on_start(code: Any, instruction_offset: int) -> Any:
                 started_at=session.now() if span_id else "",
                 nested_trace=nested if session is not innermost else None,
                 declared=declared,
+                counts_payload_bytes=counts_payload_bytes,
                 details=nested.root_span_context
                 if nested is not None and session is not innermost
                 else None,
@@ -989,7 +1018,9 @@ class BorrowedSpan:
             )
         if self._name is None:
             return None
-        parent_span_id, span_id = _allocate(session, stack, self._name, declared=True)
+        parent_span_id, span_id, _ = _allocate(
+            session, stack, self._name, declared=True
+        )
         return _Open(
             code=self._code,
             span_id=span_id,

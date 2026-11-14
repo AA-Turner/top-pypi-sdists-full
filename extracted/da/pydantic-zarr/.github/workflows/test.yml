@@ -1,5 +1,5 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+# Every check runs a `justfile` recipe, so `just <recipe>` locally is the same
+# command CI runs. The only other `run:` steps install tools (hatch).
 
 name: Test
 
@@ -10,25 +10,52 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions: {}
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  lockfile:
+    name: uv.lock is current
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Install uv
+      uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+    - name: Install just
+      uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+    - name: Check that uv.lock matches pyproject.toml
+      run: just lock-check
+
   test:
     name: os=${{ matrix.os }}, py=${{ matrix.python-version }}, zarr-python=${{ matrix.zarr-version }}
+
+    permissions:
+      contents: read
 
     strategy:
       matrix:
         python-version: ['3.12', '3.13', '3.14']
-        zarr-version: ['3.0.10', '3.1.0', 'none']
+        zarr-version: ['3.0.10', '3.1.0', '3.3.0', '3.4.1', 'none']
         os: ["ubuntu-latest"]
+        include:
+          - python-version: '3.12'
+            zarr-version: '3.3.0'
+            os: 'ubuntu-24.04-arm'
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
@@ -36,31 +63,37 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install hatch
+    - name: Install just
+      uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
     - name: Run Tests (with zarr)
       if: matrix.zarr-version != 'none'
-      run: |
-        hatch run test.py${{ matrix.python-version }}-${{ matrix.zarr-version }}:list-env
-        hatch run test.py${{ matrix.python-version }}-${{ matrix.zarr-version }}:test-cov
+      env:
+        PY: ${{ matrix.python-version }}
+        ZARR: ${{ matrix.zarr-version }}
+      run: just py="$PY" zarr="$ZARR" test-cov
     - name: Run Tests (without zarr)
       if: matrix.zarr-version == 'none'
-      run: |
-        hatch run test-base.py${{ matrix.python-version }}:list-env
-        hatch run test-base.py${{ matrix.python-version }}:test-cov
+      env:
+        PY: ${{ matrix.python-version }}
+      run: just py="$PY" test-base-cov
     - name: Upload coverage
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         verbose: true # optional (default = false)
 
-  doctests:
-    name: doctests
+  typecheck:
+    name: typecheck
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        fetch-depth: 0 # required for hatch version discovery, which is needed for numcodecs.zarr3
+        fetch-depth: 0 # required for hatch version discovery
+        persist-credentials: false
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
       with:
         python-version: '3.12'
         cache: 'pip'
@@ -68,19 +101,46 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install hatch
-    - name: Run Tests
+    - name: Install just
+      uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+    - name: Run the type checkers
+      run: just typecheck
+
+  doctests:
+    name: doctests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0 # required for hatch version discovery, which is needed for numcodecs.zarr3
+        persist-credentials: false
+    - name: Set up Python
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+    - name: Install Hatch
       run: |
-        hatch run docs:test
+        python -m pip install --upgrade pip
+        pip install hatch
+    - name: Install just
+      uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+    - name: Run Tests
+      run: just test-docs
 
   test-min-reqs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v6
-    - name: Set up Python
-      uses: actions/setup-python@v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        python-version: '3.12'
-    - name: Install minimum requirements
-      run: |
-        pip install .
-        python -c "import pydantic_zarr.v2; import pydantic_zarr.v3"
+        persist-credentials: false
+    - name: Install uv
+      uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+    - name: Install just
+      uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+    - name: Import with only the required dependencies installed
+      run: just test-min-reqs

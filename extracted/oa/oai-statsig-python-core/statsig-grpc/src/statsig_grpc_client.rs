@@ -11,7 +11,7 @@ pub struct StatsigGrpcClient {
     sdk_key: String,
     proxy_api: String,
     grpc_client: Mutex<Option<StatsigForwardProxyClient<Channel>>>,
-    tls_config: Option<ClientTlsConfig>,
+    tls_config: Result<Option<ClientTlsConfig>, &'static str>,
 }
 
 impl StatsigGrpcClient {
@@ -86,7 +86,7 @@ impl StatsigGrpcClient {
         client_key_path: Option<String>,
         domain_name: Option<String>,
         proxy_api: &str,
-    ) -> Option<ClientTlsConfig> {
+    ) -> Result<Option<ClientTlsConfig>, &'static str> {
         let domain_name = domain_name.unwrap_or_else(|| {
             Self::extract_host(proxy_api)
                 .unwrap_or_default()
@@ -98,36 +98,40 @@ impl StatsigGrpcClient {
             .as_deref()
         {
             Some("tls") => {
-                let ca_cert_path = ca_cert_path?;
-                let ca_cert: Vec<u8> = std::fs::read(ca_cert_path).ok()?;
+                let ca_cert_path = ca_cert_path.ok_or("Missing CA certificate path")?;
+                let ca_cert =
+                    std::fs::read(ca_cert_path).map_err(|_| "Failed to read CA certificate")?;
                 let ca_cert = Certificate::from_pem(ca_cert);
 
-                Some(
+                Ok(Some(
                     ClientTlsConfig::new()
                         .ca_certificate(ca_cert)
                         .domain_name(domain_name), // <-- adjust this as needed
-                )
+                ))
             }
             Some("mtls") => {
-                let ca_cert_path = ca_cert_path?;
-                let client_cert_path = client_cert_path?;
-                let client_key_path = client_key_path?;
+                let ca_cert_path = ca_cert_path.ok_or("Missing CA certificate path")?;
+                let client_cert_path = client_cert_path.ok_or("Missing client certificate path")?;
+                let client_key_path = client_key_path.ok_or("Missing client key path")?;
 
-                let ca_cert = std::fs::read(ca_cert_path).ok()?;
-                let client_cert = std::fs::read(client_cert_path).ok()?;
-                let client_key = std::fs::read(client_key_path).ok()?;
+                let ca_cert =
+                    std::fs::read(ca_cert_path).map_err(|_| "Failed to read CA certificate")?;
+                let client_cert = std::fs::read(client_cert_path)
+                    .map_err(|_| "Failed to read client certificate")?;
+                let client_key =
+                    std::fs::read(client_key_path).map_err(|_| "Failed to read client key")?;
 
                 let ca_cert = Certificate::from_pem(ca_cert);
                 let identity = Identity::from_pem(client_cert, client_key);
 
-                Some(
+                Ok(Some(
                     ClientTlsConfig::new()
                         .ca_certificate(ca_cert)
                         .identity(identity)
                         .domain_name(domain_name), // <-- adjust this as needed
-                )
+                ))
             }
-            _ => None,
+            _ => Ok(None),
         }
     }
 
@@ -167,7 +171,17 @@ impl StatsigGrpcClient {
             .keep_alive_while_idle(true)
             .http2_keep_alive_interval(Duration::from_secs(30));
 
-        if let Some(tls_config) = self.tls_config.clone() {
+        if let Some(tls_config) = self
+            .tls_config
+            .clone()
+            .map_err(|message| StatsigGrpcErr::Authentication(message.to_string()))?
+        {
+            // Tonic only applies its TLS connector to HTTPS endpoints.
+            if channel_builder.uri().scheme_str() != Some("https") {
+                return Err(StatsigGrpcErr::Authentication(
+                    "TLS authentication requires an HTTPS endpoint".to_string(),
+                ));
+            }
             channel_builder = channel_builder
                 .tls_config(tls_config)
                 .map_err(|e| StatsigGrpcErr::Authentication(e.to_string()))?;

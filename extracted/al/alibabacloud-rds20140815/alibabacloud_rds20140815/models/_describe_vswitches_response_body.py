@@ -18,13 +18,13 @@ class DescribeVSwitchesResponseBody(DaraModel):
     ):
         # The current page number.
         self.page_number = page_number
-        # The number of entries per page. This value corresponds to the value specified for the **PageSize** request parameter.
+        # The number of entries per page. The value corresponds to the **PageSize** request parameter.
         self.page_size = page_size
         # The request ID.
         self.request_id = request_id
-        # The total number of entries returned.
+        # The total number of entries.
         self.total_count = total_count
-        # The list of vSwitch information.
+        # The list of vSwitches.
         self.v_switchs = v_switchs
 
     def validate(self):
@@ -99,10 +99,9 @@ class DescribeVSwitchesResponseBodyVSwitchs(DaraModel):
         self.cidr_block = cidr_block
         # The description of the vSwitch.
         self.description = description
-        # Indicates whether the vSwitch is the default vSwitch.
-        # 
-        # * **true**: The vSwitch is the default vSwitch.
-        # * **false**: The vSwitch is not the default vSwitch.
+        # Indicates whether the vSwitch is the default vSwitch. Valid values:
+        # * **true**: yes
+        # * **false**: no
         self.is_default = is_default
         # The ID of the zone to which the vSwitch belongs.
         self.iz_no = iz_no
@@ -111,9 +110,9 @@ class DescribeVSwitchesResponseBodyVSwitchs(DaraModel):
         # * **Pending**: The vSwitch is being configured.
         # * **Available**: The vSwitch is available.
         self.status = status
-        # The vSwitch ID.
+        # The ID of the vSwitch.
         self.v_switch_id = v_switch_id
-        # The vSwitch name.
+        # The name of the vSwitch.
         self.v_switch_name = v_switch_name
 
     def validate(self):

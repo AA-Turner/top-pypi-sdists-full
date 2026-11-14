@@ -61,11 +61,8 @@ if typing.TYPE_CHECKING:
     from .doc_ai_capability_limits import DocAiCapabilityLimits
     from .doc_ai_classify_category import DocAiClassifyCategory
     from .doc_ai_classify_config import DocAiClassifyConfig
-    from .doc_ai_classify_config_scope import DocAiClassifyConfigScope
     from .doc_ai_classify_config_unmatched_behavior import DocAiClassifyConfigUnmatchedBehavior
     from .doc_ai_classify_decision import DocAiClassifyDecision
-    from .doc_ai_classify_inspection import DocAiClassifyInspection
-    from .doc_ai_classify_inspection_policy import DocAiClassifyInspectionPolicy
     from .doc_ai_classify_job_request import DocAiClassifyJobRequest
     from .doc_ai_classify_job_request_reasoning_input import DocAiClassifyJobRequestReasoningInput
     from .doc_ai_classify_output import DocAiClassifyOutput
@@ -76,32 +73,29 @@ if typing.TYPE_CHECKING:
     from .doc_ai_error_detail import DocAiErrorDetail
     from .doc_ai_error_model import DocAiErrorModel
     from .doc_ai_evidence import DocAiEvidence
+    from .doc_ai_example import DocAiExample
     from .doc_ai_extract_results import DocAiExtractResults
     from .doc_ai_job_accepted_response import DocAiJobAcceptedResponse
     from .doc_ai_job_error import DocAiJobError
     from .doc_ai_job_status_response import DocAiJobStatusResponse
     from .doc_ai_job_usage import DocAiJobUsage
     from .doc_ai_page_range import DocAiPageRange
+    from .doc_ai_page_ranges import DocAiPageRanges
     from .doc_ai_parse_results import DocAiParseResults
     from .doc_ai_parse_results_documents_item import DocAiParseResultsDocumentsItem
     from .doc_ai_parse_results_documents_item_pages_item import DocAiParseResultsDocumentsItemPagesItem
     from .doc_ai_presign_upload_response import DocAiPresignUploadResponse
+    from .doc_ai_processor import DocAiProcessor
+    from .doc_ai_review_policy import DocAiReviewPolicy
+    from .doc_ai_routing_profile import DocAiRoutingProfile
     from .doc_ai_split_config import DocAiSplitConfig
-    from .doc_ai_split_config_method import DocAiSplitConfigMethod
-    from .doc_ai_split_config_remainder import DocAiSplitConfigRemainder
+    from .doc_ai_split_constraints import DocAiSplitConstraints
     from .doc_ai_split_job_request import DocAiSplitJobRequest
     from .doc_ai_split_job_request_reasoning_input import DocAiSplitJobRequestReasoningInput
     from .doc_ai_split_result import DocAiSplitResult
     from .doc_ai_split_result_summary import DocAiSplitResultSummary
     from .doc_ai_split_results import DocAiSplitResults
     from .doc_ai_split_segment import DocAiSplitSegment
-    from .doc_ai_split_trigger import DocAiSplitTrigger
-    from .doc_ai_split_trigger_formats_item import DocAiSplitTriggerFormatsItem
-    from .doc_ai_split_trigger_match import DocAiSplitTriggerMatch
-    from .doc_ai_split_trigger_split_when import DocAiSplitTriggerSplitWhen
-    from .doc_ai_split_trigger_trigger_page import DocAiSplitTriggerTriggerPage
-    from .doc_ai_split_trigger_type import DocAiSplitTriggerType
-    from .doc_ai_split_trigger_where import DocAiSplitTriggerWhere
     from .doc_ai_start_job_response import DocAiStartJobResponse
     from .doc_ai_suggested_type import DocAiSuggestedType
     from .doc_ai_usage import DocAiUsage
@@ -311,6 +305,7 @@ if typing.TYPE_CHECKING:
     from .v2error_object import V2ErrorObject
     from .v2error_response import V2ErrorResponse
     from .v2model_ids import V2ModelIds
+    from .verdict import Verdict
     from .voice_cloning_configure_connection import VoiceCloningConfigureConnection
     from .voice_cloning_configure_connection_data import VoiceCloningConfigureConnectionData
     from .voice_cloning_configure_connection_data_output_audio_bitrate import (
@@ -336,6 +331,8 @@ if typing.TYPE_CHECKING:
     from .voice_library_list_response import VoiceLibraryListResponse
     from .voice_library_preview_item import VoiceLibraryPreviewItem
     from .voice_library_voice import VoiceLibraryVoice
+    from .watermark_detect_data import WatermarkDetectData
+    from .watermark_detect_response import WatermarkDetectResponse
 _dynamic_imports: typing.Dict[str, str] = {
     "AudioData": ".audio_data",
     "AudioMessage": ".audio_message",
@@ -394,11 +391,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DocAiCapabilityLimits": ".doc_ai_capability_limits",
     "DocAiClassifyCategory": ".doc_ai_classify_category",
     "DocAiClassifyConfig": ".doc_ai_classify_config",
-    "DocAiClassifyConfigScope": ".doc_ai_classify_config_scope",
     "DocAiClassifyConfigUnmatchedBehavior": ".doc_ai_classify_config_unmatched_behavior",
     "DocAiClassifyDecision": ".doc_ai_classify_decision",
-    "DocAiClassifyInspection": ".doc_ai_classify_inspection",
-    "DocAiClassifyInspectionPolicy": ".doc_ai_classify_inspection_policy",
     "DocAiClassifyJobRequest": ".doc_ai_classify_job_request",
     "DocAiClassifyJobRequestReasoningInput": ".doc_ai_classify_job_request_reasoning_input",
     "DocAiClassifyOutput": ".doc_ai_classify_output",
@@ -409,32 +403,29 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DocAiErrorDetail": ".doc_ai_error_detail",
     "DocAiErrorModel": ".doc_ai_error_model",
     "DocAiEvidence": ".doc_ai_evidence",
+    "DocAiExample": ".doc_ai_example",
     "DocAiExtractResults": ".doc_ai_extract_results",
     "DocAiJobAcceptedResponse": ".doc_ai_job_accepted_response",
     "DocAiJobError": ".doc_ai_job_error",
     "DocAiJobStatusResponse": ".doc_ai_job_status_response",
     "DocAiJobUsage": ".doc_ai_job_usage",
     "DocAiPageRange": ".doc_ai_page_range",
+    "DocAiPageRanges": ".doc_ai_page_ranges",
     "DocAiParseResults": ".doc_ai_parse_results",
     "DocAiParseResultsDocumentsItem": ".doc_ai_parse_results_documents_item",
     "DocAiParseResultsDocumentsItemPagesItem": ".doc_ai_parse_results_documents_item_pages_item",
     "DocAiPresignUploadResponse": ".doc_ai_presign_upload_response",
+    "DocAiProcessor": ".doc_ai_processor",
+    "DocAiReviewPolicy": ".doc_ai_review_policy",
+    "DocAiRoutingProfile": ".doc_ai_routing_profile",
     "DocAiSplitConfig": ".doc_ai_split_config",
-    "DocAiSplitConfigMethod": ".doc_ai_split_config_method",
-    "DocAiSplitConfigRemainder": ".doc_ai_split_config_remainder",
+    "DocAiSplitConstraints": ".doc_ai_split_constraints",
     "DocAiSplitJobRequest": ".doc_ai_split_job_request",
     "DocAiSplitJobRequestReasoningInput": ".doc_ai_split_job_request_reasoning_input",
     "DocAiSplitResult": ".doc_ai_split_result",
     "DocAiSplitResultSummary": ".doc_ai_split_result_summary",
     "DocAiSplitResults": ".doc_ai_split_results",
     "DocAiSplitSegment": ".doc_ai_split_segment",
-    "DocAiSplitTrigger": ".doc_ai_split_trigger",
-    "DocAiSplitTriggerFormatsItem": ".doc_ai_split_trigger_formats_item",
-    "DocAiSplitTriggerMatch": ".doc_ai_split_trigger_match",
-    "DocAiSplitTriggerSplitWhen": ".doc_ai_split_trigger_split_when",
-    "DocAiSplitTriggerTriggerPage": ".doc_ai_split_trigger_trigger_page",
-    "DocAiSplitTriggerType": ".doc_ai_split_trigger_type",
-    "DocAiSplitTriggerWhere": ".doc_ai_split_trigger_where",
     "DocAiStartJobResponse": ".doc_ai_start_job_response",
     "DocAiSuggestedType": ".doc_ai_suggested_type",
     "DocAiUsage": ".doc_ai_usage",
@@ -643,6 +634,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "V2ErrorObject": ".v2error_object",
     "V2ErrorResponse": ".v2error_response",
     "V2ModelIds": ".v2model_ids",
+    "Verdict": ".verdict",
     "VoiceCloningConfigureConnection": ".voice_cloning_configure_connection",
     "VoiceCloningConfigureConnectionData": ".voice_cloning_configure_connection_data",
     "VoiceCloningConfigureConnectionDataOutputAudioBitrate": ".voice_cloning_configure_connection_data_output_audio_bitrate",
@@ -662,6 +654,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "VoiceLibraryListResponse": ".voice_library_list_response",
     "VoiceLibraryPreviewItem": ".voice_library_preview_item",
     "VoiceLibraryVoice": ".voice_library_voice",
+    "WatermarkDetectData": ".watermark_detect_data",
+    "WatermarkDetectResponse": ".watermark_detect_response",
 }
 
 
@@ -744,11 +738,8 @@ __all__ = [
     "DocAiCapabilityLimits",
     "DocAiClassifyCategory",
     "DocAiClassifyConfig",
-    "DocAiClassifyConfigScope",
     "DocAiClassifyConfigUnmatchedBehavior",
     "DocAiClassifyDecision",
-    "DocAiClassifyInspection",
-    "DocAiClassifyInspectionPolicy",
     "DocAiClassifyJobRequest",
     "DocAiClassifyJobRequestReasoningInput",
     "DocAiClassifyOutput",
@@ -759,32 +750,29 @@ __all__ = [
     "DocAiErrorDetail",
     "DocAiErrorModel",
     "DocAiEvidence",
+    "DocAiExample",
     "DocAiExtractResults",
     "DocAiJobAcceptedResponse",
     "DocAiJobError",
     "DocAiJobStatusResponse",
     "DocAiJobUsage",
     "DocAiPageRange",
+    "DocAiPageRanges",
     "DocAiParseResults",
     "DocAiParseResultsDocumentsItem",
     "DocAiParseResultsDocumentsItemPagesItem",
     "DocAiPresignUploadResponse",
+    "DocAiProcessor",
+    "DocAiReviewPolicy",
+    "DocAiRoutingProfile",
     "DocAiSplitConfig",
-    "DocAiSplitConfigMethod",
-    "DocAiSplitConfigRemainder",
+    "DocAiSplitConstraints",
     "DocAiSplitJobRequest",
     "DocAiSplitJobRequestReasoningInput",
     "DocAiSplitResult",
     "DocAiSplitResultSummary",
     "DocAiSplitResults",
     "DocAiSplitSegment",
-    "DocAiSplitTrigger",
-    "DocAiSplitTriggerFormatsItem",
-    "DocAiSplitTriggerMatch",
-    "DocAiSplitTriggerSplitWhen",
-    "DocAiSplitTriggerTriggerPage",
-    "DocAiSplitTriggerType",
-    "DocAiSplitTriggerWhere",
     "DocAiStartJobResponse",
     "DocAiSuggestedType",
     "DocAiUsage",
@@ -993,6 +981,7 @@ __all__ = [
     "V2ErrorObject",
     "V2ErrorResponse",
     "V2ModelIds",
+    "Verdict",
     "VoiceCloningConfigureConnection",
     "VoiceCloningConfigureConnectionData",
     "VoiceCloningConfigureConnectionDataOutputAudioBitrate",
@@ -1012,4 +1001,6 @@ __all__ = [
     "VoiceLibraryListResponse",
     "VoiceLibraryPreviewItem",
     "VoiceLibraryVoice",
+    "WatermarkDetectData",
+    "WatermarkDetectResponse",
 ]

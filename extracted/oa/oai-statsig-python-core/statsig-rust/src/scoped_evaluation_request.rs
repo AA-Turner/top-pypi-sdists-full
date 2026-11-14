@@ -262,7 +262,7 @@ impl ScopedEvaluationRequest {
 
     fn metadata(&self) -> EvaluationMetadata {
         EvaluationMetadata {
-            lcut: self.pinned.data.lcut(),
+            lcut: self.pinned.data.evaluation_lcut(),
             auto_capture_settings_hash: self.pinned.data.auto_capture_settings_hash,
             auto_capture_settings_value: self.pinned.data.auto_capture_settings_value.clone(),
         }

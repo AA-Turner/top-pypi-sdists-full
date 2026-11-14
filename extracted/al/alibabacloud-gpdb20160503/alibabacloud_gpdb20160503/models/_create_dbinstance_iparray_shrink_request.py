@@ -12,19 +12,19 @@ class CreateDBInstanceIPArrayShrinkRequest(DaraModel):
         iparray_name: str = None,
         security_iplist_shrink: str = None,
     ):
-        # The ID of the instance.
+        # The instance ID.
         # 
-        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in the target region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specified region, including instance IDs.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The attribute value of the IP address whitelist group.
+        # The property value of the IP address whitelist group.
         self.iparray_attribute = iparray_attribute
         # The name of the IP address whitelist group.
         # 
         # This parameter is required.
         self.iparray_name = iparray_name
-        # The IP addresses in the IP address whitelist group. A maximum of 1,000 IP addresses are supported.
+        # The list of IP addresses in the IP address whitelist group. You can specify up to 1,000 IP addresses.
         # 
         # This parameter is required.
         self.security_iplist_shrink = security_iplist_shrink

@@ -11,6 +11,7 @@ from typing import Any, Callable
 
 from . import request_meter
 from .content_item_lifecycle import HEAD_STAGE_KEY_FIELD
+from .item_language import with_item_language
 from .env import graphql_endpoint, graphql_timeout_seconds, site_tenant_id
 from .guest_auth import refuse_guest_auth
 from .graphql_http import CREDENTIAL_REJECTION_STATUS_CODES, graphql_request_headers
@@ -69,7 +70,7 @@ REFERENCE_FIELDS = (
     f"{VERSION_FIELDS} id corpusId externalItemId title authors sourceUri storagePath mediaType byteSize sha256 "
     "sourcePublishedAt sourceUpdatedAt retrievedAt inboundCitationCount outboundCitationCount "
     "importRunId importedAt createdAt curationStatus "
-    "curationStatusKey curationStatusUpdatedAt curationStatusUpdatedBy curationStatusReason curationReasonCode curationActorKind curationSectionId curationShareable curationDelegation curationDecisionRelationId starRating starRatedAt starRatedBy newsroomFeedKey reviewedFeedKey "
+    "curationStatusKey curationStatusUpdatedAt curationStatusUpdatedBy curationStatusReason curationReasonCode curationActorKind curationSectionId curationSectionUpdatedAt curationSectionUpdatedBy curationSectionActorKind curationSectionReason curationSectionDecisionRelationId curationShareable curationDelegation curationDecisionRelationId starRating starRatedAt starRatedBy newsroomFeedKey reviewedFeedKey "
     "discoveredByMonitorId discoveryDetails discoveryRule feedStateKey feedArrivalAt predictedAcceptProbability predictionDecidedAt predictionSortKey starFeedKey captureState captureReason contentNeededKey medium evidenceLevel playlistUrl mediumFeedKey thumbnailPath publicFeedKey publicOrderKey cardImage cardSummary cardSiteName cardPageTitle updatedAt"
 )
 REFERENCE_ATTACHMENT_FIELDS = (
@@ -123,10 +124,18 @@ REVIEW_REQUEST_FIELDS = (
     "id subject mode reason ask raisedBy raisedAt deadline state answer links history appliedIn updatedAt"
 )
 REVIEW_READ_MARK_FIELDS = "id requestId userKey readAt"
+LOCALIZATION_REQUEST_FIELDS = (
+    "id tenantId languageGroupId language sourceVersionId sourceVersionNumber sourceContentHash state requestedBy requestedAt runKey reason updatedAt"
+)
 STORY_VARIATION_FIELDS = (
     "id storyLineageId variationNumber status point headline deck bodyMarkus section connections origin basedOnVariationIds requestMessageId "
     "pointCheck runId model createdBy decidedBySub decidedByLabel decidedAt decisionReason createdAt updatedAt"
 )
+ANNOUNCEMENT_FIELDS = (
+    "id accountId accountHandle storyLineageId storyItemId storyVersionNumber channel state blockedReason mode trigger link weight draftedBy checks postId postedAt cost "
+    "attempts round error history withdrawnBy withdrawnAt createdAt updatedAt"
+)
+ANNOUNCEMENT_SPEND_FIELDS = "id accountId cycleStart total updatedAt"
 REVIEW_RECIPIENT_RULE_FIELDS = "id scope key roles emails updatedBy updatedAt"
 EDITORIAL_CHECK_SETTINGS_FIELDS = "id settings"
 USER_ROLE_ASSIGNMENT_FIELDS = (
@@ -159,15 +168,16 @@ PUBLISHED_EDITION_ITEM_FIELDS = (
 )
 ITEM_FIELDS = (
     f"{VERSION_FIELDS} id tenantId tenantSlug type status typeStatus stage slug shortSlug section sectionStatus title headline deck body "
-    "byline dateline publishedAt versionPublishedAt versionPublishedBy editionDate sortTitle pullQuotes layout editorial updatedAt bodyMarkus bodyIr aliases metadata starRating starRatedAt starRatedBy parentLineageId"
+    "byline dateline publishedAt versionPublishedAt versionPublishedBy editionDate sortTitle pullQuotes layout editorial updatedAt bodyMarkus bodyIr aliases metadata starRating starRatedAt starRatedBy parentLineageId "
+    "language languageGroupId sourceLineageId sourceVersionNumber sourceContentHash syncState"
 )
 PUBLISHED_ITEM_FIELDS = (
     "id tenantId tenantSlug sourceItemId itemLineageId versionNumber type status typeStatus slug shortSlug section sectionStatus "
-    "title headline deck body byline dateline publishedAt versionPublishedAt versionPublishedBy editionDate sortTitle pullQuotes layout editorial bodyMarkus bodyIr aliases metadata"
+    "title headline deck body byline dateline publishedAt versionPublishedAt versionPublishedBy editionDate sortTitle pullQuotes layout editorial bodyMarkus bodyIr aliases metadata language languageGroupId"
 )
 SUMMARY_PAGE_SIZE = 1000
 PUBLISHED_ITEM_SUMMARY_FIELDS = (
-    "id tenantId sourceItemId itemLineageId versionNumber type status slug section title aliases publishedAt versionPublishedAt versionPublishedBy metadata"
+    "id tenantId sourceItemId itemLineageId versionNumber type status slug section title aliases publishedAt versionPublishedAt versionPublishedBy metadata language languageGroupId"
 )
 MEDIA_ASSET_FIELDS = (
     "id itemId tenantId type role sortKey storagePath externalUrl alt caption credit width height aspectRatio focalX focalY "
@@ -211,7 +221,10 @@ LIST_DEFINITIONS: dict[str, dict[str, str]] = {
     "Automation": {"field": "listAutomations", "fields": AUTOMATION_FIELDS},
     "ReviewRequest": {"field": "listReviewRequests", "fields": REVIEW_REQUEST_FIELDS},
     "ReviewReadMark": {"field": "listReviewReadMarks", "fields": REVIEW_READ_MARK_FIELDS},
+    "LocalizationRequest": {"field": "listLocalizationRequests", "fields": LOCALIZATION_REQUEST_FIELDS},
     "StoryVariation": {"field": "listStoryVariations", "fields": STORY_VARIATION_FIELDS},
+    "Announcement": {"field": "listAnnouncements", "fields": ANNOUNCEMENT_FIELDS},
+    "AnnouncementSpend": {"field": "listAnnouncementSpends", "fields": ANNOUNCEMENT_SPEND_FIELDS},
     "ReviewRecipientRule": {"field": "listReviewRecipientRules", "fields": REVIEW_RECIPIENT_RULE_FIELDS},
     "EditorialCheckSettings": {"field": "listEditorialCheckSettings", "fields": EDITORIAL_CHECK_SETTINGS_FIELDS},
     "UserRoleAssignment": {"field": "listUserRoleAssignments", "fields": USER_ROLE_ASSIGNMENT_FIELDS},
@@ -442,6 +455,7 @@ SCHEDULE_ROW_FIELDS = (
     "scheduledPublishAt scheduledBy scheduledAt scheduleState scheduleName"
 )
 HEAD_INDEX_ROW_FIELDS = "id tenantId lineageId versionNumber versionState versionCreatedAt stage type updatedAt"
+ITEM_LANGUAGE_ROW_FIELDS = "id tenantId lineageId versionNumber versionState updatedAt language languageGroupId"
 
 INDEX_DEFINITIONS: dict[str, dict[str, str]] = {
     "itemsByStage": {"field": "listItemsByStageAndUpdatedAt", "partitionKey": "stage", "fields": STORY_SECTION_LINK_FIELDS},
@@ -450,6 +464,10 @@ INDEX_DEFINITIONS: dict[str, dict[str, str]] = {
     # The rows of one old stage partition with what `stories head-index` needs to pick each lineage's head (the WithKey form once the site has it).
     "itemHeadFieldsByStage": {"field": "listItemsByStageAndUpdatedAt", "partitionKey": "stage", "fields": HEAD_INDEX_ROW_FIELDS},
     "itemHeadFieldsWithKeyByStage": {"field": "listItemsByStageAndUpdatedAt", "partitionKey": "stage", "fields": f"{HEAD_INDEX_ROW_FIELDS} headStageKey"},
+    # A Story's language group: every version of the primary and of each localization, one language with sortEq (item_language.py). Tenant-prefixed.
+    "itemsByLanguageGroup": {"field": "listItemsByLanguageGroupAndLanguage", "partitionKey": "languageGroupId", "sortKey": "language", "fields": ITEM_FIELDS},
+    # The rows of one version-state partition with what `stories languages` needs (every Item row has a version state).
+    "itemLanguageFieldsByVersionState": {"field": "listItemsByVersionStateAndUpdatedAt", "partitionKey": "versionState", "fields": ITEM_LANGUAGE_ROW_FIELDS},
     "itemsBySectionStatus": {"field": "listItemsBySectionStatusAndPublishedAt", "partitionKey": "sectionStatus", "fields": STORY_SECTION_LINK_FIELDS},
     "messageThreadsByAnchor": {"field": "listMessageThreadsByAnchorAndUpdatedAt", "partitionKey": "primaryAnchorKey", "fields": MESSAGE_THREAD_FIELDS},
     "publishedItemsBySectionStatus": {"field": "listPublishedItemsBySectionStatusAndPublishedAt", "partitionKey": "sectionStatus", "fields": PUBLISHED_STORY_LIST_FIELDS},
@@ -570,6 +588,11 @@ INDEX_DEFINITIONS: dict[str, dict[str, str]] = {
         "partitionKey": "storyLineageId",
         "partitionType": "ID",
         "fields": STORY_VARIATION_FIELDS,
+    },
+    "announcementsByAccountAndCreatedAt": {
+        "field": "listAnnouncementsByAccountAndCreatedAt",
+        "partitionKey": "accountId",
+        "fields": ANNOUNCEMENT_FIELDS,
     },
     "itemsByParent": {
         "field": "listItemsByParentAndOrder",
@@ -1285,15 +1308,29 @@ class PapyrusGraphQLAuthoringClient:
             stamped = tenant_field_stamped_payload(model_name, self.tenant_id, stamped)
         return strip_unsupported_payload_fields(model_name, add_operational_index_fields(model_name, stamped))
 
+    def primary_language(self) -> str:
+        """The site's primary language (its editorial check settings' ``languages.primary``), read once per client. Every Item a writer creates
+        without a language is written in it (``item_language``)."""
+        if getattr(self, "_primary_language", None) is None:
+            from .editorial_checks import GraphQLEditorialStore, settings_from
+            from .editorial_languages import primary_language
+
+            self._primary_language = primary_language(settings_from(GraphQLEditorialStore(execute=self.graphql, tenant_id=self.tenant_id)))
+        return self._primary_language
+
     def create_record(self, model_name: str, input_payload: dict[str, Any]) -> None:
         if model_name not in MUTATIONS:
             raise ValueError(f"Unsupported model for create: {model_name}")
+        if model_name == "Item":
+            input_payload = with_item_language(input_payload, None, self.primary_language())
         prepared = self._prepared_payload(model_name, input_payload)
         self.graphql(MUTATIONS[model_name]["create"], {"input": prepared})
 
     def upsert(self, model_name: str, input_payload: dict[str, Any]) -> str:
         prepared = self._prepared_payload(model_name, input_payload)
         current = self.get_record(model_name, prepared["id"])
+        if model_name == "Item":
+            prepared = self._prepared_payload(model_name, with_item_language(input_payload, current, self.primary_language()))
         mutation = MUTATIONS[model_name]["update" if current else "create"]
         self.graphql(mutation, {"input": prepared})
         return "updated" if current else "created"

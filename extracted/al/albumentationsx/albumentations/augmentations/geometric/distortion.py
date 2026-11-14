@@ -67,6 +67,7 @@ from albumentations.core.type_definitions import (
 )
 
 from . import functional as fgeometric
+from ._functional_distortion import _tps_transform_grid
 
 __all__ = [
     "ElasticTransform",
@@ -1075,12 +1076,9 @@ class ThinPlateSpline(BaseDistortion):
 
         weights, affine = fgeometric.compute_tps_weights(src_points, dst_points)
 
-        points = np.empty((scaled_height * scaled_width, 2), dtype=np.float32)
-        points[:, 0] = np.tile(np.arange(scaled_width, dtype=np.float32) / scaled_width, scaled_height)
-        points[:, 1] = np.repeat(np.arange(scaled_height, dtype=np.float32) / scaled_height, scaled_width)
-
-        transformed = fgeometric.tps_transform(
-            points,
+        transformed = _tps_transform_grid(
+            scaled_shape,
+            self.num_control_points,
             src_points,
             weights,
             affine,
@@ -1354,11 +1352,6 @@ class PixelSpread(BaseDistortion):
         map_resolution, scaled_shape = self._get_map_resolution_and_shape(image_shape, sampling)
         scaled_height, scaled_width = scaled_shape
 
-        row_coords, col_coords = np.meshgrid(
-            np.arange(scaled_height, dtype=np.float32),
-            np.arange(scaled_width, dtype=np.float32),
-            indexing="ij",
-        )
         scaled_radius = max(1, round(self.radius * map_resolution))
         offsets = sampling.random_generator.integers(
             -scaled_radius,
@@ -1366,8 +1359,14 @@ class PixelSpread(BaseDistortion):
             size=(scaled_height, scaled_width, 2),
             dtype=np.int32,
         )
-        map_y = (row_coords + offsets[..., 0]).astype(np.float32)
-        map_x = (col_coords + offsets[..., 1]).astype(np.float32)
+        row_coords = np.arange(scaled_height, dtype=np.float32)[:, None]
+        col_coords = np.arange(scaled_width, dtype=np.float32)
+        map_y = np.empty(scaled_shape, dtype=np.float32)
+        map_x = np.empty_like(map_y)
+        # Large offsets need the original wide addition before rounding the sum to float32.
+        working_dtype = np.float32 if scaled_radius <= 2**24 else np.float64
+        np.add(row_coords, offsets[..., 0], dtype=working_dtype, out=map_y)
+        np.add(col_coords, offsets[..., 1], dtype=working_dtype, out=map_x)
         map_x, map_y = self._maybe_upscale_maps(map_x, map_y, image_shape)
 
         return SampledParams(params={"map_x": map_x, "map_y": map_y})

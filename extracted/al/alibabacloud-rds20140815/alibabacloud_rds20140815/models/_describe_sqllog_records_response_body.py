@@ -19,7 +19,7 @@ class DescribeSQLLogRecordsResponseBody(DaraModel):
         self.items = items
         # The page number.
         self.page_number = page_number
-        # The number of SQL audit logs on the current page.
+        # The number of SQL Audit logs on the current page.
         self.page_record_count = page_record_count
         # The request ID.
         self.request_id = request_id

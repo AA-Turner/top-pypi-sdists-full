@@ -50,6 +50,9 @@ class _Current:
     kl_coef: float
     entropy_coef: float
     unsupported: tuple[str, ...] = ()
+    #: Every `Experience` the batch iterator built in this update, in order (the Megatron worker's micro-batch
+    #: dicts drop `Experience.info`, `megatron.py`); None: not kept.
+    experiences: list | None = None
 
 
 @dataclass
@@ -93,16 +96,23 @@ class SkyrlTraining:
         def call_batch_to_experience(*args: Any, **kwargs: Any) -> Any:
             experience = original(*args, **kwargs)
             self.guard.call(WHAT, _copy_row_fields, args, kwargs, experience)
+            current = getattr(self._local, "current", None)
+            if current is not None and current.experiences is not None:
+                current.experiences.append(experience)
             return experience
 
         return call_batch_to_experience
 
-    def _wrap_update(self, original: Any) -> Any:
+    def _wrap_update(self, original: Any, *, should_keep_experiences: bool = False) -> Any:
+        """``should_keep_experiences``: the update keeps every `Experience` it builds, in order (the Megatron worker)."""
+
         @functools.wraps(original)
         def call_forward_backward(worker: Any, *args: Any, **kwargs: Any) -> Any:
             current = self.guard.call(WHAT, self.start_update, worker, original, args, kwargs)
             if current is None:
                 return original(worker, *args, **kwargs)
+            if should_keep_experiences:
+                current.experiences = []
             self._local.current = current
             try:
                 output = original(worker, *args, **kwargs)
@@ -241,7 +251,12 @@ def get_unsupported_reason(worker: Any) -> str | None:
     reason = get_loss_reason(str(worker.cfg.algorithm.policy_loss_type))
     if reason is not None:
         return reason
-    if "fsdp" not in type(worker).__module__:
+    module = type(worker).__module__
+    if "megatron" in module:
+        from .megatron import get_megatron_reason
+
+        return get_megatron_reason(worker)
+    if "fsdp" not in module:
         return MEGATRON_REASON
     return None
 
@@ -329,6 +344,15 @@ def install_worker_training() -> None:
         return results[0]
 
     watch_import(WORKER_MODULE, install_workers, framework="SkyRL")
+
+    def install_megatron(module: Any) -> bool:
+        from .megatron import get_megatron_training
+
+        return get_megatron_training(get_training()).install(module)
+
+    from .megatron import MEGATRON_WORKER_MODULE
+
+    watch_import(MEGATRON_WORKER_MODULE, install_megatron, framework="SkyRL")
 
 
 def _get_first_rank(worker: Any) -> int | None:

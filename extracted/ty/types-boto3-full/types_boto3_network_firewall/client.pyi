@@ -35,9 +35,6 @@ from .paginator import (
     ListFirewallsPaginator,
     ListFlowOperationResultsPaginator,
     ListFlowOperationsPaginator,
-    ListProxiesPaginator,
-    ListProxyConfigurationsPaginator,
-    ListProxyRuleGroupsPaginator,
     ListRuleGroupsPaginator,
     ListTagsForResourcePaginator,
     ListTLSInspectionConfigurationsPaginator,
@@ -52,8 +49,6 @@ from .type_defs import (
     AssociateFirewallPolicyResponseTypeDef,
     AssociateSubnetsRequestTypeDef,
     AssociateSubnetsResponseTypeDef,
-    AttachRuleGroupsToProxyConfigurationRequestTypeDef,
-    AttachRuleGroupsToProxyConfigurationResponseTypeDef,
     CreateContainerAssociationRequestTypeDef,
     CreateContainerAssociationResponseTypeDef,
     CreateFirewallPolicyRequestTypeDef,
@@ -62,14 +57,6 @@ from .type_defs import (
     CreateFirewallPolicyV2ResponseTypeDef,
     CreateFirewallRequestTypeDef,
     CreateFirewallResponseTypeDef,
-    CreateProxyConfigurationRequestTypeDef,
-    CreateProxyConfigurationResponseTypeDef,
-    CreateProxyRequestTypeDef,
-    CreateProxyResponseTypeDef,
-    CreateProxyRuleGroupRequestTypeDef,
-    CreateProxyRuleGroupResponseTypeDef,
-    CreateProxyRulesRequestTypeDef,
-    CreateProxyRulesResponseTypeDef,
     CreateRuleGroupRequestTypeDef,
     CreateRuleGroupResponseTypeDef,
     CreateTLSInspectionConfigurationRequestTypeDef,
@@ -86,14 +73,8 @@ from .type_defs import (
     DeleteFirewallResponseTypeDef,
     DeleteNetworkFirewallTransitGatewayAttachmentRequestTypeDef,
     DeleteNetworkFirewallTransitGatewayAttachmentResponseTypeDef,
-    DeleteProxyConfigurationRequestTypeDef,
-    DeleteProxyConfigurationResponseTypeDef,
     DeleteProxyRequestTypeDef,
     DeleteProxyResponseTypeDef,
-    DeleteProxyRuleGroupRequestTypeDef,
-    DeleteProxyRuleGroupResponseTypeDef,
-    DeleteProxyRulesRequestTypeDef,
-    DeleteProxyRulesResponseTypeDef,
     DeleteResourcePolicyRequestTypeDef,
     DeleteRuleGroupRequestTypeDef,
     DeleteRuleGroupResponseTypeDef,
@@ -115,14 +96,8 @@ from .type_defs import (
     DescribeFlowOperationResponseTypeDef,
     DescribeLoggingConfigurationRequestTypeDef,
     DescribeLoggingConfigurationResponseTypeDef,
-    DescribeProxyConfigurationRequestTypeDef,
-    DescribeProxyConfigurationResponseTypeDef,
     DescribeProxyRequestTypeDef,
     DescribeProxyResponseTypeDef,
-    DescribeProxyRuleGroupRequestTypeDef,
-    DescribeProxyRuleGroupResponseTypeDef,
-    DescribeProxyRuleRequestTypeDef,
-    DescribeProxyRuleResponseTypeDef,
     DescribeResourcePolicyRequestTypeDef,
     DescribeResourcePolicyResponseTypeDef,
     DescribeRuleGroupMetadataRequestTypeDef,
@@ -135,8 +110,6 @@ from .type_defs import (
     DescribeTLSInspectionConfigurationResponseTypeDef,
     DescribeVpcEndpointAssociationRequestTypeDef,
     DescribeVpcEndpointAssociationResponseTypeDef,
-    DetachRuleGroupsFromProxyConfigurationRequestTypeDef,
-    DetachRuleGroupsFromProxyConfigurationResponseTypeDef,
     DisassociateAvailabilityZonesRequestTypeDef,
     DisassociateAvailabilityZonesResponseTypeDef,
     DisassociateSubnetsRequestTypeDef,
@@ -157,12 +130,6 @@ from .type_defs import (
     ListFlowOperationResultsResponseTypeDef,
     ListFlowOperationsRequestTypeDef,
     ListFlowOperationsResponseTypeDef,
-    ListProxiesRequestTypeDef,
-    ListProxiesResponseTypeDef,
-    ListProxyConfigurationsRequestTypeDef,
-    ListProxyConfigurationsResponseTypeDef,
-    ListProxyRuleGroupsRequestTypeDef,
-    ListProxyRuleGroupsResponseTypeDef,
     ListRuleGroupsRequestTypeDef,
     ListRuleGroupsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
@@ -202,16 +169,6 @@ from .type_defs import (
     UpdateFirewallPolicyV2ResponseTypeDef,
     UpdateLoggingConfigurationRequestTypeDef,
     UpdateLoggingConfigurationResponseTypeDef,
-    UpdateProxyConfigurationRequestTypeDef,
-    UpdateProxyConfigurationResponseTypeDef,
-    UpdateProxyRequestTypeDef,
-    UpdateProxyResponseTypeDef,
-    UpdateProxyRuleGroupPrioritiesRequestTypeDef,
-    UpdateProxyRuleGroupPrioritiesResponseTypeDef,
-    UpdateProxyRulePrioritiesRequestTypeDef,
-    UpdateProxyRulePrioritiesResponseTypeDef,
-    UpdateProxyRuleRequestTypeDef,
-    UpdateProxyRuleResponseTypeDef,
     UpdateProxySettingsRequestTypeDef,
     UpdateProxySettingsResponseTypeDef,
     UpdateRuleGroupRequestTypeDef,
@@ -321,16 +278,6 @@ class NetworkFirewallClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#associate_subnets)
         """
 
-    def attach_rule_groups_to_proxy_configuration(
-        self, **kwargs: Unpack[AttachRuleGroupsToProxyConfigurationRequestTypeDef]
-    ) -> AttachRuleGroupsToProxyConfigurationResponseTypeDef:
-        """
-        Attaches <a>ProxyRuleGroup</a> resources to a <a>ProxyConfiguration</a>.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/attach_rule_groups_to_proxy_configuration.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#attach_rule_groups_to_proxy_configuration)
-        """
-
     def create_container_association(
         self, **kwargs: Unpack[CreateContainerAssociationRequestTypeDef]
     ) -> CreateContainerAssociationResponseTypeDef:
@@ -370,46 +317,6 @@ class NetworkFirewallClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/create_firewall_policy_v2.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#create_firewall_policy_v2)
-        """
-
-    def create_proxy(
-        self, **kwargs: Unpack[CreateProxyRequestTypeDef]
-    ) -> CreateProxyResponseTypeDef:
-        """
-        Creates an Network Firewall <a>Proxy</a>.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/create_proxy.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#create_proxy)
-        """
-
-    def create_proxy_configuration(
-        self, **kwargs: Unpack[CreateProxyConfigurationRequestTypeDef]
-    ) -> CreateProxyConfigurationResponseTypeDef:
-        """
-        Creates an Network Firewall <a>ProxyConfiguration</a>.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/create_proxy_configuration.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#create_proxy_configuration)
-        """
-
-    def create_proxy_rule_group(
-        self, **kwargs: Unpack[CreateProxyRuleGroupRequestTypeDef]
-    ) -> CreateProxyRuleGroupResponseTypeDef:
-        """
-        Creates an Network Firewall <a>ProxyRuleGroup</a>.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/create_proxy_rule_group.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#create_proxy_rule_group)
-        """
-
-    def create_proxy_rules(
-        self, **kwargs: Unpack[CreateProxyRulesRequestTypeDef]
-    ) -> CreateProxyRulesResponseTypeDef:
-        """
-        Creates Network Firewall <a>ProxyRule</a> resources.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/create_proxy_rules.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#create_proxy_rules)
         """
 
     def create_rule_group(
@@ -497,40 +404,10 @@ class NetworkFirewallClient(BaseClient):
         self, **kwargs: Unpack[DeleteProxyRequestTypeDef]
     ) -> DeleteProxyResponseTypeDef:
         """
-        Deletes the specified <a>Proxy</a>.
+        Deletes the specified proxy.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_proxy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#delete_proxy)
-        """
-
-    def delete_proxy_configuration(
-        self, **kwargs: Unpack[DeleteProxyConfigurationRequestTypeDef]
-    ) -> DeleteProxyConfigurationResponseTypeDef:
-        """
-        Deletes the specified <a>ProxyConfiguration</a>.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_proxy_configuration.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#delete_proxy_configuration)
-        """
-
-    def delete_proxy_rule_group(
-        self, **kwargs: Unpack[DeleteProxyRuleGroupRequestTypeDef]
-    ) -> DeleteProxyRuleGroupResponseTypeDef:
-        """
-        Deletes the specified <a>ProxyRuleGroup</a>.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_proxy_rule_group.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#delete_proxy_rule_group)
-        """
-
-    def delete_proxy_rules(
-        self, **kwargs: Unpack[DeleteProxyRulesRequestTypeDef]
-    ) -> DeleteProxyRulesResponseTypeDef:
-        """
-        Deletes the specified <a>ProxyRule</a>(s).
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_proxy_rules.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#delete_proxy_rules)
         """
 
     def delete_resource_policy(
@@ -655,37 +532,6 @@ class NetworkFirewallClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#describe_proxy)
         """
 
-    def describe_proxy_configuration(
-        self, **kwargs: Unpack[DescribeProxyConfigurationRequestTypeDef]
-    ) -> DescribeProxyConfigurationResponseTypeDef:
-        """
-        Returns the data objects for the specified proxy configuration.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_proxy_configuration.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#describe_proxy_configuration)
-        """
-
-    def describe_proxy_rule(
-        self, **kwargs: Unpack[DescribeProxyRuleRequestTypeDef]
-    ) -> DescribeProxyRuleResponseTypeDef:
-        """
-        Returns the data objects for the specified proxy configuration for the
-        specified proxy rule group.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_proxy_rule.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#describe_proxy_rule)
-        """
-
-    def describe_proxy_rule_group(
-        self, **kwargs: Unpack[DescribeProxyRuleGroupRequestTypeDef]
-    ) -> DescribeProxyRuleGroupResponseTypeDef:
-        """
-        Returns the data objects for the specified proxy rule group.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_proxy_rule_group.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#describe_proxy_rule_group)
-        """
-
     def describe_resource_policy(
         self, **kwargs: Unpack[DescribeResourcePolicyRequestTypeDef]
     ) -> DescribeResourcePolicyResponseTypeDef:
@@ -746,16 +592,6 @@ class NetworkFirewallClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_vpc_endpoint_association.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#describe_vpc_endpoint_association)
-        """
-
-    def detach_rule_groups_from_proxy_configuration(
-        self, **kwargs: Unpack[DetachRuleGroupsFromProxyConfigurationRequestTypeDef]
-    ) -> DetachRuleGroupsFromProxyConfigurationResponseTypeDef:
-        """
-        Detaches <a>ProxyRuleGroup</a> resources from a <a>ProxyConfiguration</a>.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/detach_rule_groups_from_proxy_configuration.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#detach_rule_groups_from_proxy_configuration)
         """
 
     def disassociate_availability_zones(
@@ -859,36 +695,6 @@ class NetworkFirewallClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/list_flow_operations.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#list_flow_operations)
-        """
-
-    def list_proxies(
-        self, **kwargs: Unpack[ListProxiesRequestTypeDef]
-    ) -> ListProxiesResponseTypeDef:
-        """
-        Retrieves the metadata for the proxies that you have defined.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/list_proxies.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#list_proxies)
-        """
-
-    def list_proxy_configurations(
-        self, **kwargs: Unpack[ListProxyConfigurationsRequestTypeDef]
-    ) -> ListProxyConfigurationsResponseTypeDef:
-        """
-        Retrieves the metadata for the proxy configuration that you have defined.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/list_proxy_configurations.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#list_proxy_configurations)
-        """
-
-    def list_proxy_rule_groups(
-        self, **kwargs: Unpack[ListProxyRuleGroupsRequestTypeDef]
-    ) -> ListProxyRuleGroupsResponseTypeDef:
-        """
-        Retrieves the metadata for the proxy rule groups that you have defined.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/list_proxy_rule_groups.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#list_proxy_rule_groups)
         """
 
     def list_rule_groups(
@@ -1105,61 +911,11 @@ class NetworkFirewallClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#update_logging_configuration)
         """
 
-    def update_proxy(
-        self, **kwargs: Unpack[UpdateProxyRequestTypeDef]
-    ) -> UpdateProxyResponseTypeDef:
-        """
-        Updates the properties of the specified proxy.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_proxy.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#update_proxy)
-        """
-
-    def update_proxy_configuration(
-        self, **kwargs: Unpack[UpdateProxyConfigurationRequestTypeDef]
-    ) -> UpdateProxyConfigurationResponseTypeDef:
-        """
-        Updates the properties of the specified proxy configuration.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_proxy_configuration.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#update_proxy_configuration)
-        """
-
-    def update_proxy_rule(
-        self, **kwargs: Unpack[UpdateProxyRuleRequestTypeDef]
-    ) -> UpdateProxyRuleResponseTypeDef:
-        """
-        Updates the properties of the specified proxy rule.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_proxy_rule.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#update_proxy_rule)
-        """
-
-    def update_proxy_rule_group_priorities(
-        self, **kwargs: Unpack[UpdateProxyRuleGroupPrioritiesRequestTypeDef]
-    ) -> UpdateProxyRuleGroupPrioritiesResponseTypeDef:
-        """
-        Updates proxy rule group priorities within a proxy configuration.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_proxy_rule_group_priorities.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#update_proxy_rule_group_priorities)
-        """
-
-    def update_proxy_rule_priorities(
-        self, **kwargs: Unpack[UpdateProxyRulePrioritiesRequestTypeDef]
-    ) -> UpdateProxyRulePrioritiesResponseTypeDef:
-        """
-        Updates proxy rule priorities within a proxy rule group.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_proxy_rule_priorities.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#update_proxy_rule_priorities)
-        """
-
     def update_proxy_settings(
         self, **kwargs: Unpack[UpdateProxySettingsRequestTypeDef]
     ) -> UpdateProxySettingsResponseTypeDef:
         """
-        Modifies the proxy listener configuration of a proxy mode firewall.
+        Modifies the proxy settings of a proxy mode firewall.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_proxy_settings.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#update_proxy_settings)
@@ -1277,39 +1033,6 @@ class NetworkFirewallClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_flow_operations"]
     ) -> ListFlowOperationsPaginator:
-        """
-        Create a paginator for an operation.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/get_paginator.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#get_paginator)
-        """
-
-    @overload  # type: ignore[override]
-    def get_paginator(  # type: ignore[override]
-        self, operation_name: Literal["list_proxies"]
-    ) -> ListProxiesPaginator:
-        """
-        Create a paginator for an operation.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/get_paginator.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#get_paginator)
-        """
-
-    @overload  # type: ignore[override]
-    def get_paginator(  # type: ignore[override]
-        self, operation_name: Literal["list_proxy_configurations"]
-    ) -> ListProxyConfigurationsPaginator:
-        """
-        Create a paginator for an operation.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/get_paginator.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#get_paginator)
-        """
-
-    @overload  # type: ignore[override]
-    def get_paginator(  # type: ignore[override]
-        self, operation_name: Literal["list_proxy_rule_groups"]
-    ) -> ListProxyRuleGroupsPaginator:
         """
         Create a paginator for an operation.
 

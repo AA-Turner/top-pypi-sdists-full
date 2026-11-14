@@ -24,6 +24,8 @@ _LATEST = {
     "haiku": "claude-haiku-5-5",
     "argon": "gemini-4-argon",
     "carbon": "gemini-4-carbon",
+    "hydrogen": "gemini-4-hydrogen",
+    "robotics-er": "gemini-robotics-er-2-preview",
 }
 _ALIASES = {
     **_LATEST,
@@ -38,6 +40,8 @@ _ALIASES = {
     "sonnet-5.5": "claude-sonnet-5-5",
     "claude-haiku-5.5": "claude-haiku-5-5",
     "haiku-5.5": "claude-haiku-5-5",
+    "gemini-robotics-er-2": "gemini-robotics-er-2-preview",
+    "robotics-er-2": "gemini-robotics-er-2-preview",
 }
 
 

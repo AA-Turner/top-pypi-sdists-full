@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dreamscale
-Version: 0.1.0a322
+Version: 0.1.0a330
 Summary: Cloud robot policy inference — one function call.
 Project-URL: Homepage, https://app.dreamscalelabs.com
 Project-URL: Documentation, https://docs.dreamscalelabs.com
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.11
 Requires-Dist: click<8.5,>=8.1.7
-Requires-Dist: dreamscale-transport==0.1.1a140
+Requires-Dist: dreamscale-transport==0.1.1a146
 Requires-Dist: httpx<1,>=0.27
 Requires-Dist: jsonschema<5,>=4.23
 Requires-Dist: numpy<3,>=1.26
@@ -88,7 +88,7 @@ Cloud robot policy inference — one function call.
 Add Dreamscale to a Python 3.11–3.14 project:
 
 ```bash
-uv add "dreamscale==0.1.0a322"
+uv add "dreamscale==0.1.0a330"
 ```
 
 Install the CLI as a standalone tool:
@@ -117,11 +117,11 @@ or 3.13 when a stack needs it.
 To add a stack to your own project for use from Python:
 
 ```bash
-uv add "dreamscale[so101]==0.1.0a322"
-uv add "dreamscale[sim]==0.1.0a322"
-uv add "dreamscale[dreamzero]==0.1.0a322"
-uv add "dreamscale[yam,cameras,realsense]==0.1.0a322"
-uv add "dreamscale[hud]==0.1.0a322"
+uv add "dreamscale[so101]==0.1.0a330"
+uv add "dreamscale[sim]==0.1.0a330"
+uv add "dreamscale[dreamzero]==0.1.0a330"
+uv add "dreamscale[yam,cameras,realsense]==0.1.0a330"
+uv add "dreamscale[hud]==0.1.0a330"
 ```
 
 The `dreamzero` extra installs the pinned H.264 codec used automatically by
@@ -310,10 +310,19 @@ the pose saved with `dreamscale robots so101 home --set`, previews one plan with
 moving, runs on Enter until Ctrl+C, holds, and returns home. Without a saved home the arm
 starts and ends each task where it is. When the command exits the arm keeps holding its
 pose; support it, then run `dreamscale robots so101 release`. It supports
-`flux-3-action-so101`, `molmoact2-so101`, `perceptron-isaac05-so101` and `pi0.5-so101`, for
-organizations with access. The side camera is the policy's scene view: mount it fixed,
+`flux-3-action-so101`, `molmoact2-so101`, `perceptron-isaac05-so101`, `pi0.5-so101` and
+`praxis-1-so101`, for organizations with access. The side camera is the policy's
+scene view: mount it fixed,
 side-on, 60–80 cm from the arm with the lens just above prop height, so the whole arm
 and workspace are in frame ([placement guide](https://docs.dreamscalelabs.com/robots/so101)).
+
+Praxis-1 SO-101 uses sync mode by default, with actions at 15 Hz: 21 on the first
+call and 24 thereafter. It accepts a side camera alone or side and wrist. In Python,
+pass both real frames to `so101.observation(side_frame=side, wrist_frame=wrist,
+joint_positions=q)`, or explicitly choose `views=1` with only `side_frame`.
+The six readings are five arm joints in degrees followed by the native gripper
+reading in 0–100 units. Optional `gripper_range=(closed_reading, open_reading)`
+supplies measured gripper endpoints; the SO-101 rig file accepts the same pair.
 
 `run so101` and `run yam` share one attended runner and the same options: `--mode
 sync`, `--deployment`, `--region`, `--rtc`, `--context`, `--action-smoothing`,
@@ -371,7 +380,9 @@ dreamscale run so101 --model claude-fable-5-1 --instruction "put the marker in t
 ```
 
 Both robots take any managed LLM: `astra`, `sol`, `terra`, `luna`, `fable`, `opus`,
-`sonnet`, `haiku`, `argon` or `carbon` (the Gemini models take `--effort low|medium|high`),
+`sonnet`, `haiku`, `argon`, `carbon`, `hydrogen` or `robotics-er` (the Gemini models
+take `--effort low|medium|high`, and Hydrogen also `xhigh`; Gemini Robotics-ER 2 Preview
+runs at `--speed standard` only),
 for example
 `dreamscale run so101 --model argon --instruction "put the marker in the cup"`.
 

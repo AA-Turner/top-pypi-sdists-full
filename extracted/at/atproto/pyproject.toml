@@ -41,7 +41,7 @@ dependencies = [
     "zstandard (>=0.24.0,<0.26.0) ; python_version < '3.14'",
     "tlds>=2026093003",
 ]
-version = "0.0.74"
+version = "0.0.75"
 
 [project.optional-dependencies]
 zstd = ["zstandard (>=0.24.0,<0.26.0)"]
@@ -105,6 +105,7 @@ packages = [
     { include = "atproto_identity", from = "packages" },
     { include = "atproto_jetstream", from = "packages" },
     { include = "atproto_lexicon", from = "packages" },
+    { include = "atproto_oauth", from = "packages" },
     { include = "atproto_server", from = "packages" },
     { include = "atproto_subscription", from = "packages" },
 ]
@@ -198,6 +199,7 @@ ignore = [
     "D101", "D102", # missing docstring in public class and method
 ]
 "tests/*.py" = ["D"]
+"tests/test_atproto_oauth/*.py" = ["D", "S105", "S106"]
 "docs/*.py" = ["T201", "INP001", "ERA001", "E501", "D"]
 "examples/*.py" = ["T201", "INP001", "ERA001", "D"]
 "packages/atproto/exceptions.py" = ["F403"]

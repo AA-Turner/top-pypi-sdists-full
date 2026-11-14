@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import inspect
 import sys
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
 from probe.generated.samples.points import ContributionSource, Dtype, hash_mask
 from probe.sdk.run.samples.points import MicroBatchCapture, RowCapture, Share, copy_to_host, get_lowest_dtype
+
+from .plan import DECLARED_KEYS
 
 #: `ppo_loss`'s terms by the local name the reduced matrix has in its caller (`losses.py:56-180`,
 #: `core_algos.py:1286-1375`): the key verl logs it under and how it enters `policy_loss`.
@@ -22,12 +24,21 @@ TERMS = {
     "entropy": "actor/entropy_loss",
     "kld": "actor/kl_loss",
     "clipped_vf_losses": "critic/vf_loss",  # the critic's `compute_value_loss` (`core_algos.py:2174`, D4)
+    "distillation_losses": "actor/distillation/loss",  # `distillation_loss`'s own `agg_loss` (`losses.py:333`)
+    "distillation_pg_losses": "actor/distillation/loss",  # under `use_policy_gradient` (`DISTILLATION_PG_TERM`)
 }
+#: `use_policy_gradient`: the distillation term is a policy loss over `-distillation_losses` (`losses.py:309-327`),
+#: reduced as a second `pg_losses`; one reduced inside `distillation_loss` is named this (T2c).
+DISTILLATION_PG_TERM = "distillation_pg_losses"
+#: Where `distillation_loss` lives; a call whose stack passes through it is the distillation's own.
+DISTILLATION_MODULE = "verl.trainer.distillation.losses"
+#: How many frames up from a reduction `distillation_loss` can sit (it calls the policy loss, which reduces).
+DISTILLATION_DEPTH = 8
 #: A term verl logs scaled: `vf_loss = 0.5 * agg_loss(clipped_vf_losses)` (`core_algos.py:2175`). Its coefficient
 #: carries the 0.5 into the contribution; its logged value carries it here.
 VALUE_SCALES = {"critic/vf_loss": 0.5}
 #: verl modules whose `agg_loss` / `masked_mean` the loss reaches through a module global.
-AGG_LOSS_MODULES = ("verl.trainer.ppo.core_algos", "verl.workers.utils.losses")
+AGG_LOSS_MODULES = ("verl.trainer.ppo.core_algos", "verl.workers.utils.losses", DISTILLATION_MODULE)
 MASKED_MEAN_MODULE = "verl.utils.torch_functional"
 #: Values match a returned metric within this (they are the same float32 computation).
 MATCH_TOLERANCE = 1e-6
@@ -105,7 +116,9 @@ def _make_mean_watch(real: Callable[..., Any], calls: LossCalls) -> Callable[...
     def watch_masked_mean(*args: Any, **kwargs: Any) -> Any:
         output = real(*args, **kwargs)
         try:
-            if len(args) == 2 and not kwargs and getattr(output, "ndim", 1) == 0:  # a whole micro-batch's mean
+            # A whole micro-batch's mean; the distillation policy loss's own (`distillation/*`) are never candidates.
+            if len(args) == 2 and not kwargs and getattr(output, "ndim", 1) == 0 \
+                    and not _is_inside_distillation(sys._getframe(1)):
                 calls.means.append((args[0].detach(), args[1].detach(), output.detach()))
         except Exception:  # noqa: BLE001 -- never reaches training
             calls.failures += 1
@@ -115,14 +128,16 @@ def _make_mean_watch(real: Callable[..., Any], calls: LossCalls) -> Callable[...
 
 
 def summarize_loss_call(calls: LossCalls, *, rows: Any, coefficients: Mapping[str, float], metrics: Mapping[str, Any],
-                        loss: Any, prefix: str = "actor/", mask: Any = None) -> MicroBatchCapture | None:  # fmt: skip
+                        loss: Any, prefix: str = "actor/", mask: Any = None,
+                        declared: Collection[str] = DECLARED_KEYS) -> MicroBatchCapture | None:  # fmt: skip
     """The micro-batch's rows from one `ppo_loss` (or the critic's `value_loss`) call. ``rows``: the `probe_row`
     tensor; ``coefficients``: how each term key enters the loss; ``metrics``: what it returned (a `Metric`'s
     aggregation says how verl folds each key; the critic's bare floats fold as means); ``loss``: what it returned;
     ``prefix``: the role's metric names; ``mask``: the micro-batch's padded response mask, for a loss whose every
     term may bypass `agg_loss` (geo_mean at verl's defaults: no entropy, no KL term), so its rows are built with no
-    term and the caller adds the rebuilt one. None when the call reduced no known term (and no ``mask`` was given) or
-    a reduction was not recorded."""
+    term and the caller adds the rebuilt one; ``declared``: the keys the plan declares per sample, the only MEAN metrics
+    matched to a watched mean. None when the call reduced no known term (and no ``mask`` was given) or a reduction was
+    not recorded."""
     import torch
 
     terms = [call for call in calls.aggregations if call.name in TERMS and TERMS[call.name] in coefficients]
@@ -160,7 +175,8 @@ def summarize_loss_call(calls: LossCalls, *, rows: Any, coefficients: Mapping[st
     columns += [part for _, part in contributions]
     columns += [loss_sum, pg_mass]
     wanted = {name: _get_first_value(metric) for name, metric in metrics.items() if name.startswith(prefix)
-              and name not in coefficients and _get_aggregation(metric, prefix) is Share.CALL_MEAN}  # fmt: skip
+              and name in declared and name not in coefficients
+              and _get_aggregation(metric, prefix) is Share.CALL_MEAN}  # fmt: skip
     arguments = terms[0].arguments if terms else {}
     mode = str(arguments.get("loss_agg_mode") or "")
     normalizer = arguments.get("global_batch_size") if mode.startswith("seq-mean") else arguments.get("batch_num_tokens")
@@ -198,8 +214,10 @@ def summarize_loss_call(calls: LossCalls, *, rows: Any, coefficients: Mapping[st
 
 
 def _match_means(wanted: Mapping[str, float | None], outputs: list[float | None]) -> dict[str, int]:
-    """Each MEAN-aggregated metric the loss returned (`actor/pg_clipfrac`, `actor/ppo_kl`, ...) matched, in order, to
-    the whole-micro-batch `masked_mean` that produced it (same value): its index among the candidates."""
+    """Each declared MEAN metric the loss returned (`actor/pg_clipfrac`, `actor/ppo_kl`, ...) matched, in order, to
+    the whole-micro-batch `masked_mean` that produced it (same value): its index among the candidates. By value, so
+    ``wanted`` holds declared keys only: a mean no watch sees (score centering's head mass, exactly 1.0 with a complete
+    support) would take another mean's rows when the values tie (T2c: rebuilt 0.125 vs verl's 0.916)."""
     remaining = list(range(len(outputs)))
     matched: dict[str, int] = {}
     for name, want in wanted.items():
@@ -215,14 +233,28 @@ def _match_means(wanted: Mapping[str, float | None], outputs: list[float | None]
 
 
 def _get_caller_name(frame: Any, value: Any) -> str | None:
-    """The caller's local name for ``value`` (a term name in `TERMS` first)."""
+    """The caller's local name for ``value`` (a term name in `TERMS` first); a `pg_losses` reduced inside verl's
+    `distillation_loss` is the distillation term (`DISTILLATION_PG_TERM`)."""
     names = [name for name, local in frame.f_locals.items() if local is value]
-    return next((name for name in names if name in TERMS), names[0] if names else None)
+    name = next((name for name in names if name in TERMS), names[0] if names else None)
+    return DISTILLATION_PG_TERM if name == "pg_losses" and _is_inside_distillation(frame) else name
+
+
+def _is_inside_distillation(frame: Any) -> bool:
+    """Whether ``frame`` runs inside verl's `distillation_loss` (within `DISTILLATION_DEPTH` frames)."""
+    for _ in range(DISTILLATION_DEPTH):
+        if frame is None:
+            return False
+        if frame.f_code.co_name == "distillation_loss" and frame.f_globals.get("__name__") == DISTILLATION_MODULE:
+            return True
+        frame = frame.f_back
+    return False
 
 
 def _get_metric_name(key: str) -> str:
-    """verl returns `kl_loss` without the prefix its driver adds (`rename_dict(..., "actor/")`)."""
-    return {"actor/kl_loss": "kl_loss"}.get(key, key)
+    """verl returns `kl_loss` and `distillation/loss` without the prefix its driver adds (`rename_dict(...,
+    "actor/")`)."""
+    return {"actor/kl_loss": "kl_loss", "actor/distillation/loss": "distillation/loss"}.get(key, key)
 
 
 def _get_aggregation(metric: Any, prefix: str = "actor/") -> Share | None:

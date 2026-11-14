@@ -12,11 +12,11 @@ class DescribeOperatorPermissionResponseBody(DaraModel):
         privileges: str = None,
         request_id: str = None,
     ):
-        # The effective period of the authorization. Format: <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z (UTC).
+        # The effective period of the authorization. Format: <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z (UTC time).
         self.created_time = created_time
-        # The time when the authorization expires. Format: yyyy-MM-ddTHH:mm:ssZ (UTC).
+        # The time when the authorization expires. Format: yyyy-MM-ddTHH:mm:ssZ (UTC time).
         self.expired_time = expired_time
-        # The types of permissions that are granted. Valid values:
+        # The type of authorization obtained. Valid values:
         # - **Control**: configuration permissions. Allows you to view and modify instance configurations.
         # - **Data**: database permissions. Allows you to view table schemas, indexes, and SQL statements.
         self.privileges = privileges

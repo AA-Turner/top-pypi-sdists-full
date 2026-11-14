@@ -8,6 +8,7 @@ use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, Python};
 use pyo3::types::PyString;
 use serde_json::Value;
+use sqlbuild_analysis::definition_changes::constants::PYTHON_NODE_KINDS;
 use sqlbuild_cli::argv::main::command_settings_arguments::command_settings_arguments;
 use sqlbuild_cli::argv::main::job_settings_arguments::job_settings_arguments;
 use sqlbuild_cli::dispatch::main::command_dispatch::command_dispatch;
@@ -26,11 +27,17 @@ use crate::bindings::_helpers::command_runtime::warehouses::{
     WarehouseInputs, configured_warehouses,
 };
 use crate::bindings::_helpers::compile_attachment::effective_config::build_effective_connection_config;
+use crate::bindings::_helpers::compiled_project::constants::SQL_TEST_KEY_PREFIX;
 use crate::bindings::_helpers::compiled_project::snapshot::NativeOrchestrationSnapshot;
-use crate::bindings::_helpers::compiled_project::snapshot_execution::WorkerBuild;
+use crate::bindings::_helpers::compiled_project::snapshot_execution::{NodeKeys, WorkerBuild};
 use crate::bindings::_helpers::compiled_project::snapshot_worker::NativeOrchestrationWorker;
+use crate::bindings::_helpers::compiled_views::project_reads::sql_tests;
+use crate::bindings::_helpers::discovery::project_config::configured_changes;
 use crate::bindings::_helpers::freshness::freshness_command::run_freshness_command;
-use crate::bindings::_helpers::location_command::constants::COMMAND_IMPLEMENTATIONS;
+use crate::bindings::_helpers::location_command::constants::{
+    CHANGED_SETTING, COMMAND_IMPLEMENTATIONS, JOB_RUN_COUNTS, JOB_RUN_REACH, REACH_SETTING,
+    SQL_TEST_NODE_KIND,
+};
 use crate::bindings::_helpers::native_host::host::entry;
 use crate::bindings::_helpers::recall::console::write_stderr;
 use crate::bindings::_helpers::recall::session::InvocationRecall;
@@ -55,7 +62,7 @@ fn attached_nodes(snapshot: &NativeOrchestrationSnapshot) -> BTreeMap<String, Ve
                 })
                 .into_iter()
                 .collect(),
-            "sql_test" => definition
+            SQL_TEST_NODE_KIND => definition
                 .pointer("/test/payload/expected_model_names")
                 .and_then(Value::as_array)
                 .into_iter()
@@ -68,6 +75,63 @@ fn attached_nodes(snapshot: &NativeOrchestrationSnapshot) -> BTreeMap<String, Ve
         attached.insert(key.clone(), nodes);
     }
     attached
+}
+
+/// Each compiled SQL test with the nodes a failure of it blocks in a build: its expected, assertion and reference models, as the scheduler's `scope_deps` names them, and the functions a direct test checks, keyed `udf:` or `table_fn:` like the snapshot.
+pub(super) fn blocked_nodes(project: &Bound<'_, PyAny>) -> PyResult<NodeKeys> {
+    let mut blocked: NodeKeys = BTreeMap::new();
+    for test in sql_tests(project)?.try_iter()? {
+        let test = test?;
+        let name: String = field(&field(&test, "key")?, "name")?.extract()?;
+        let models: Vec<String> = field(&test, "target_model_names")?.extract()?;
+        let mut keys: Vec<String> = models
+            .into_iter()
+            .map(|model| format!("model:{model}"))
+            .collect();
+        for resource in field(&test, "tested_resources")?.try_iter()? {
+            let resource = resource?;
+            let kind: String = field(&resource, "kind")?.str()?.extract()?;
+            let name: String = field(&resource, "name")?.extract()?;
+            keys.push(format!("{kind}:{name}"));
+        }
+        blocked.insert(format!("{SQL_TEST_KEY_PREFIX}{name}"), keys);
+    }
+    Ok(blocked)
+}
+
+/// Each snapshot node's direct upstream node keys.
+fn upstream_nodes(snapshot: &NativeOrchestrationSnapshot) -> BTreeMap<String, Vec<String>> {
+    snapshot
+        .input
+        .nodes
+        .iter()
+        .map(|(key, node)| {
+            let deps = node.definition.get("deps").and_then(Value::as_array);
+            let deps = deps.into_iter().flatten().filter_map(Value::as_str);
+            (key.clone(), deps.map(str::to_owned).collect())
+        })
+        .collect()
+}
+
+/// A job run's `--changed` settings: its whole selection, and source data counted unless configured.
+fn job_run_settings(
+    project_dir: &Bound<'_, PyAny>,
+    mut settings: BTreeMap<String, Value>,
+) -> PyResult<BTreeMap<String, Value>> {
+    let Some(changed) = settings.get(CHANGED_SETTING).cloned() else {
+        return Ok(settings);
+    };
+    if changed == Value::Bool(false) {
+        return Ok(settings);
+    }
+    settings.insert(REACH_SETTING.to_owned(), Value::from(JOB_RUN_REACH));
+    if changed == Value::Bool(true) && configured_changes(project_dir)?.counts.is_none() {
+        settings.insert(
+            CHANGED_SETTING.to_owned(),
+            Value::from(JOB_RUN_COUNTS.to_vec()),
+        );
+    }
+    Ok(settings)
 }
 
 /// The frozen command's request and warehouse scope; build carries the verified inputs in its request.
@@ -99,6 +163,9 @@ fn command_request<'py>(
         settings.insert(format!("end_cursor_{kind}"), serde_json::json!(end));
     }
     let command: RunCommand = frozen.command;
+    if frozen.job_key.is_some() {
+        settings = job_run_settings(&arguments.value("project_dir")?, settings)?;
+    }
     let flags: Vec<String> = if command == RunCommand::Build {
         job_settings_arguments(&settings)
     } else {
@@ -121,10 +188,17 @@ fn command_request<'py>(
         if execution.skipped_nodes.contains_key(key) {
             continue;
         }
-        let (_, name) = key
+        let (kind, name) = key
             .split_once(':')
             .ok_or_else(|| PyValueError::new_err("frozen run contains an invalid node key"))?;
-        argv.extend([PyString::new(py, "--select"), PyString::new(py, name)]);
+        let selector: String = if PYTHON_NODE_KINDS.contains(&kind) {
+            key.clone()
+        } else if kind == SQL_TEST_NODE_KIND {
+            format!("test:{name}")
+        } else {
+            name.to_owned()
+        };
+        argv.extend([PyString::new(py, "--select"), PyString::new(py, &selector)]);
     }
     let parsed = parse_cli_invocation(py, argv, false)?;
     let args = field(&parsed, "args")?;
@@ -230,7 +304,7 @@ fn run_cancellable<'py>(
 
 pub(super) fn execute_worker<'py>(
     py: Python<'py>,
-    (snapshot, discovered): (&NativeOrchestrationSnapshot, Bound<'py, PyAny>),
+    (snapshot, discovered, blocked): (&NativeOrchestrationSnapshot, Bound<'py, PyAny>, NodeKeys),
     arguments: &KeywordArguments<'py>,
     (bearer, identity, recall): (&str, (String, String), Option<&InvocationRecall>),
 ) -> PyResult<i32> {
@@ -245,7 +319,10 @@ pub(super) fn execute_worker<'py>(
         )
         .map_err(|error| PyValueError::new_err(error.to_string()))?,
     )?;
-    let worker = WorkerBuild::new(&owner, attached_nodes(snapshot))?;
+    let worker = WorkerBuild::new(
+        &owner,
+        (attached_nodes(snapshot), blocked, upstream_nodes(snapshot)),
+    )?;
     if let Some(recall) = recall {
         *recall
             .worker

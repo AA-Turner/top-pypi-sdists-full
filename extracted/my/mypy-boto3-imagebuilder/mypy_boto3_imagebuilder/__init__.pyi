@@ -11,6 +11,7 @@ Usage::
     from boto3.session import Session
     from mypy_boto3_imagebuilder import (
         Client,
+        ImageAvailableWaiter,
         ImagebuilderClient,
         ListComponentBuildVersionsPaginator,
         ListComponentsPaginator,
@@ -37,6 +38,8 @@ Usage::
 
     session = Session()
     client: ImagebuilderClient = session.client("imagebuilder")
+
+    image_available_waiter: ImageAvailableWaiter = client.get_waiter("image_available")
 
     list_component_build_versions_paginator: ListComponentBuildVersionsPaginator = client.get_paginator("list_component_build_versions")
     list_components_paginator: ListComponentsPaginator = client.get_paginator("list_components")
@@ -86,11 +89,13 @@ from .paginator import (
     ListWorkflowsPaginator,
     ListWorkflowStepExecutionsPaginator,
 )
+from .waiter import ImageAvailableWaiter
 
 Client = ImagebuilderClient
 
 __all__ = (
     "Client",
+    "ImageAvailableWaiter",
     "ImagebuilderClient",
     "ListComponentBuildVersionsPaginator",
     "ListComponentsPaginator",

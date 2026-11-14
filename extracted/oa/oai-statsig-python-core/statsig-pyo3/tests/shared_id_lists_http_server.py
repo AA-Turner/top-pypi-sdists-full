@@ -65,11 +65,15 @@ def resource_snapshot():
     cgroup = Path('/sys/fs/cgroup')
     for name in ['memory.current', 'memory.peak', 'memory.max']:
         path = cgroup / name
-        if path.exists(): result[name] = path.read_text().strip()
+        if path.exists():
+            result[name] = path.read_text().strip()
     for name in ['memory.stat', 'cpu.stat']:
         path = cgroup / name
-        if path.exists(): result[name] = {key:int(value) for key,value in
-                                         (line.split() for line in path.read_text().splitlines())}
+        if path.exists():
+            result[name] = {
+                key: int(value)
+                for key, value in (line.split() for line in path.read_text().splitlines())
+            }
     return result
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import csv
 import datetime as dt
 import os
@@ -10,15 +11,21 @@ from river import base
 from river.stream import utils
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable
 
     from river.base.typing import FeatureName
     from river.stream.typing import Compression, FilePath
 
+    # `csv.DictReader` only became subscriptable at runtime in Python 3.12.
+    _DictReader = csv.DictReader[FeatureName]
+else:
+    # TODO(Unassigned): Remove branching once min python is bumped to 3.12
+    _DictReader = csv.DictReader
+
 __all__ = ["iter_csv"]
 
 
-class DictReader(csv.DictReader):
+class DictReader(_DictReader):
     """Overlay on top of `csv.DictReader` which allows sampling."""
 
     def __init__(
@@ -27,18 +34,15 @@ class DictReader(csv.DictReader):
         super().__init__(*args, **kwargs)
         self.fraction = fraction
         self.rng = rng
-        # NOTE: `fieldnames` reads the header row, and is `None` for an empty file,
-        # in which case the first `next(self.reader)` below stops the iteration anyway.
-        self.names: Sequence[FeatureName] = self.fieldnames or ()
 
     def __next__(self) -> dict[FeatureName, typing.Any]:
-        row = next(self.reader)
+        while True:
+            row = super().__next__()
 
-        if self.fraction < 1:
-            while self.rng.random() > self.fraction:
-                row = next(self.reader)
+            if self.fraction < 1 and self.rng.random() > self.fraction:
+                continue
 
-        return dict(zip(self.names, row))
+            return row
 
 
 def iter_csv(
@@ -52,9 +56,10 @@ def iter_csv(
     compression: Compression | None = "infer",
     seed: int | None = None,
     field_size_limit: int | None = None,
+    encoding: str = "utf-8",
     **kwargs: typing.Any,
 ) -> base.typing.Stream:
-    """Iterates over rows from a CSV file.
+    """Iterate over rows from a CSV file.
 
     Reading CSV files can be quite slow. If, for whatever reason, you're going to loop through
     the same file multiple times, then we recommend that you to use the `stream.Cache` utility.
@@ -90,18 +95,18 @@ def iter_csv(
         If specified, the sampling will be deterministic.
     field_size_limit
         If not `None`, this will be passed to the `csv.field_size_limit` function.
+    encoding
+        Encoding used to open file paths. Defaults to UTF-8. Ignored when a text buffer is supplied.
     kwargs
         All other keyword arguments are passed to the underlying `csv.DictReader`.
 
     Returns
     -------
-
     By default each feature value will be of type `str`. You can use the `converters` and
     `parse_dates` parameters to convert them as you see fit.
 
     Examples
     --------
-
     Although this function is designed to handle different kinds of inputs, the most common
     use case is to read a file on the disk. We'll first create a little CSV file to illustrate.
 
@@ -150,53 +155,49 @@ def iter_csv(
     >>> import os; os.remove('tv_shows.csv')
 
     """
+    with contextlib.ExitStack() as stack:
+        # Set the field size limit
+        if field_size_limit is not None:
+            previous_limit = csv.field_size_limit(field_size_limit)
+            stack.callback(csv.field_size_limit, previous_limit)
 
-    # Set the field size limit
-    limit = csv.field_size_limit()
-    if field_size_limit is not None:
-        csv.field_size_limit(field_size_limit)
+        # If a file is not opened, then we open it
+        if isinstance(filepath_or_buffer, (str, os.PathLike)):
+            buffer = stack.enter_context(
+                utils.open_filepath(filepath_or_buffer, compression, encoding=encoding)
+            )
+        else:
+            buffer = filepath_or_buffer
 
-    # If a file is not opened, then we open it
-    if isinstance(filepath_or_buffer, (str, os.PathLike)):
-        buffer = utils.open_filepath(filepath_or_buffer, compression)
-        should_close = True
-    else:
-        buffer = filepath_or_buffer
-        should_close = False
+        reader = DictReader(fraction=fraction, rng=random.Random(seed), f=buffer, **kwargs)
 
-    for x in DictReader(fraction=fraction, rng=random.Random(seed), f=buffer, **kwargs):
-        if drop:
-            for dropped in drop:
-                del x[dropped]
+        for x in reader:
+            if drop:
+                for dropped in drop:
+                    del x[dropped]
 
-        # Cast the values to the given types
-        if converters is not None:
-            for name, convert in converters.items():
-                x[name] = convert(x[name])
+            # Cast the values to the given types
+            if converters is not None:
+                for name, convert in converters.items():
+                    if x[name] is not None:
+                        x[name] = convert(x[name])
 
-        # Drop Nones
-        if drop_nones:
-            for name in list(x):
-                if x[name] is None:
-                    del x[name]
+            # Drop Nones
+            if drop_nones:
+                for name in list(x):
+                    if x[name] is None:
+                        del x[name]
 
-        # Parse the dates
-        if parse_dates is not None:
-            for name, fmt in parse_dates.items():
-                x[name] = dt.datetime.strptime(x[name], fmt)
+            # Parse the dates
+            if parse_dates is not None:
+                for name, fmt in parse_dates.items():
+                    x[name] = dt.datetime.strptime(x[name], fmt)
 
-        # Separate the target from the features
-        y = None
-        if isinstance(target, list):
-            y = {name: x.pop(name) for name in target}
-        elif target is not None:
-            y = x.pop(target)
+            # Separate the target from the features
+            y = None
+            if isinstance(target, list):
+                y = {name: x.pop(name) for name in target}
+            elif target is not None:
+                y = x.pop(target)
 
-        yield x, y
-
-    # Close the file if we opened it
-    if should_close:
-        buffer.close()
-
-    # Reset the file size limit to it's original value
-    csv.field_size_limit(limit)
+            yield x, y

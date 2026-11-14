@@ -3603,6 +3603,92 @@ class Client(OpenApiClient):
         runtime = RuntimeOptions()
         return await self.create_model_operator_api_key_with_options_async(request, runtime)
 
+    def create_model_operator_service_with_options(
+        self,
+        request: main_models.CreateModelOperatorServiceRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.CreateModelOperatorServiceResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.cu):
+            query['Cu'] = request.cu
+        if not DaraCore.is_null(request.pay_type):
+            query['PayType'] = request.pay_type
+        if not DaraCore.is_null(request.period):
+            query['Period'] = request.period
+        if not DaraCore.is_null(request.region_id):
+            query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.used_time):
+            query['UsedTime'] = request.used_time
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'CreateModelOperatorService',
+            version = '2016-05-03',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.CreateModelOperatorServiceResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def create_model_operator_service_with_options_async(
+        self,
+        request: main_models.CreateModelOperatorServiceRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.CreateModelOperatorServiceResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.cu):
+            query['Cu'] = request.cu
+        if not DaraCore.is_null(request.pay_type):
+            query['PayType'] = request.pay_type
+        if not DaraCore.is_null(request.period):
+            query['Period'] = request.period
+        if not DaraCore.is_null(request.region_id):
+            query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.used_time):
+            query['UsedTime'] = request.used_time
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'CreateModelOperatorService',
+            version = '2016-05-03',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.CreateModelOperatorServiceResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def create_model_operator_service(
+        self,
+        request: main_models.CreateModelOperatorServiceRequest,
+    ) -> main_models.CreateModelOperatorServiceResponse:
+        runtime = RuntimeOptions()
+        return self.create_model_operator_service_with_options(request, runtime)
+
+    async def create_model_operator_service_async(
+        self,
+        request: main_models.CreateModelOperatorServiceRequest,
+    ) -> main_models.CreateModelOperatorServiceResponse:
+        runtime = RuntimeOptions()
+        return await self.create_model_operator_service_with_options_async(request, runtime)
+
     def create_model_service_with_options(
         self,
         tmp_req: main_models.CreateModelServiceRequest,
@@ -6886,6 +6972,146 @@ class Client(OpenApiClient):
     ) -> main_models.DeleteJDBCDataSourceResponse:
         runtime = RuntimeOptions()
         return await self.delete_jdbcdata_source_with_options_async(request, runtime)
+
+    def delete_model_operator_api_key_with_options(
+        self,
+        request: main_models.DeleteModelOperatorApiKeyRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.DeleteModelOperatorApiKeyResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.api_key_id):
+            query['ApiKeyId'] = request.api_key_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DeleteModelOperatorApiKey',
+            version = '2016-05-03',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DeleteModelOperatorApiKeyResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def delete_model_operator_api_key_with_options_async(
+        self,
+        request: main_models.DeleteModelOperatorApiKeyRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.DeleteModelOperatorApiKeyResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.api_key_id):
+            query['ApiKeyId'] = request.api_key_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DeleteModelOperatorApiKey',
+            version = '2016-05-03',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DeleteModelOperatorApiKeyResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def delete_model_operator_api_key(
+        self,
+        request: main_models.DeleteModelOperatorApiKeyRequest,
+    ) -> main_models.DeleteModelOperatorApiKeyResponse:
+        runtime = RuntimeOptions()
+        return self.delete_model_operator_api_key_with_options(request, runtime)
+
+    async def delete_model_operator_api_key_async(
+        self,
+        request: main_models.DeleteModelOperatorApiKeyRequest,
+    ) -> main_models.DeleteModelOperatorApiKeyResponse:
+        runtime = RuntimeOptions()
+        return await self.delete_model_operator_api_key_with_options_async(request, runtime)
+
+    def delete_model_operator_service_with_options(
+        self,
+        request: main_models.DeleteModelOperatorServiceRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.DeleteModelOperatorServiceResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.service_id):
+            query['ServiceId'] = request.service_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DeleteModelOperatorService',
+            version = '2016-05-03',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DeleteModelOperatorServiceResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def delete_model_operator_service_with_options_async(
+        self,
+        request: main_models.DeleteModelOperatorServiceRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.DeleteModelOperatorServiceResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.service_id):
+            query['ServiceId'] = request.service_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DeleteModelOperatorService',
+            version = '2016-05-03',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DeleteModelOperatorServiceResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def delete_model_operator_service(
+        self,
+        request: main_models.DeleteModelOperatorServiceRequest,
+    ) -> main_models.DeleteModelOperatorServiceResponse:
+        runtime = RuntimeOptions()
+        return self.delete_model_operator_service_with_options(request, runtime)
+
+    async def delete_model_operator_service_async(
+        self,
+        request: main_models.DeleteModelOperatorServiceRequest,
+    ) -> main_models.DeleteModelOperatorServiceResponse:
+        runtime = RuntimeOptions()
+        return await self.delete_model_operator_service_with_options_async(request, runtime)
 
     def delete_model_service_with_options(
         self,

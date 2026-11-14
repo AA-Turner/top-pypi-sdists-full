@@ -9,6 +9,10 @@ import logging
 import sys
 import types
 import typing
+import warnings
+
+from river.__version__ import __version__
+from river.exceptions import InconsistentVersionWarning
 
 
 class Base:
@@ -22,6 +26,44 @@ class Base:
 
     """
 
+    def __getstate__(self) -> typing.Any:
+        state = object.__getstate__(self)
+        if isinstance(state, tuple):
+            attributes, slots = state
+            attributes = {} if attributes is None else attributes.copy()
+            if type(self).__module__.startswith("river."):
+                attributes["_river_version"] = __version__
+            return attributes, slots
+
+        assert state is None or isinstance(state, dict)
+        state = {} if state is None else state.copy()
+        if type(self).__module__.startswith("river."):
+            state["_river_version"] = __version__
+        return state
+
+    def __setstate__(self, state: typing.Any) -> None:
+        if isinstance(state, tuple):
+            attributes, slots = state
+        else:
+            attributes, slots = state, {}
+        attributes = {} if attributes is None else attributes
+        assert isinstance(attributes, dict)
+        assert isinstance(slots, dict)
+        if type(self).__module__.startswith("river."):
+            pickle_version = attributes.pop("_river_version", "unknown")
+            if pickle_version != __version__:
+                warnings.warn(
+                    InconsistentVersionWarning(
+                        estimator_name=self.__class__.__name__,
+                        current_river_version=__version__,
+                        original_river_version=pickle_version,
+                    ),
+                    stacklevel=2,
+                )
+        self.__dict__.update(attributes)
+        for name, value in slots.items():
+            setattr(self, name, value)
+
     def __str__(self) -> str:
         return self.__class__.__name__
 
@@ -30,7 +72,7 @@ class Base:
 
     @classmethod
     def _unit_test_params(cls) -> collections.abc.Iterator[dict[str, typing.Any]]:
-        """Instantiates an object with default arguments.
+        """Instantiate an object with default arguments.
 
         Most parameters of each object have a default value. However, this isn't always the case,
         in particular for meta-models where the wrapped model is typically not given a default
@@ -43,7 +85,6 @@ class Base:
 
     def _get_params(self) -> dict[str, typing.Any]:
         """Return the parameters that were used during initialization."""
-
         params = {}
 
         for name, param in inspect.signature(self.__init__).parameters.items():  # type: ignore
@@ -96,7 +137,6 @@ class Base:
 
         Examples
         --------
-
         >>> from river import linear_model
         >>> from river import optim
 
@@ -223,7 +263,6 @@ class Base:
 
         Examples
         --------
-
         >>> from river import linear_model
         >>> from river import optim
 
@@ -359,10 +398,11 @@ class Base:
         Uses :func:`gc.get_referents` to walk the object graph, which is the
         canonical stdlib recipe referenced by ``sys.getsizeof``'s documentation.
         Compared to a hand-rolled traversal, it handles ``__slots__`` instances,
-        arbitrary containers, and (critically) does not consume generators or
-        other one-shot iterators. The only special case left is
-        :class:`numpy.ndarray`, whose data buffer is not GC-tracked.
+        arbitrary containers, and does not consume generators or other one-shot
+        iterators. NumPy data buffers and serialized Rust state are counted because
+        the garbage collector cannot traverse them.
         """
+        import pickle
 
         import numpy as np
 
@@ -382,7 +422,19 @@ class Base:
                 if obj_id in seen:
                     continue
                 seen.add(obj_id)
-                size += sys.getsizeof(obj)
+                object_size = sys.getsizeof(obj)
+                if type(obj).__module__.startswith("river._river_rust."):
+                    try:
+                        object_size = max(
+                            object_size,
+                            len(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)),
+                        )
+                    except (pickle.PickleError, TypeError):
+                        pass
+                    else:
+                        size += object_size
+                        continue
+                size += object_size
                 if isinstance(obj, np.ndarray):
                     size += obj.nbytes
                 next_round.append(obj)
@@ -420,7 +472,7 @@ def log_method_calls(
     class_condition: typing.Callable[[typing.Any], bool] | None = None,
     method_condition: typing.Callable[[typing.Any], bool] | None = None,
 ) -> collections.abc.Iterator[None]:
-    """A context manager to log method calls.
+    """Provide a context manager to log method calls.
 
     All method calls will be logged by default. This behavior can be overridden by passing filtering
     functions.
@@ -486,7 +538,6 @@ def log_method_calls(
 
 def _repr_obj(obj: typing.Any, show_modules: bool = False, depth: int = 0) -> str:
     """Return a pretty representation of an object."""
-
     rep = f"{obj.__class__.__name__} ("
     if show_modules:
         rep = f"{obj.__class__.__module__}.{rep}"

@@ -22,13 +22,13 @@ class DescribeDBInstanceReplicationResponseBody(DaraModel):
         request_id: str = None,
         slave_status_list: List[main_models.DescribeDBInstanceReplicationResponseBodySlaveStatusList] = None,
     ):
-        # Indicates whether native replication mode is enabled. Valid values:
+        # Indicates whether the native replication mode is enabled. Valid values:
         # - **ON**: Enabled.
         # - **OFF**: Disabled.
         self.external_replication = external_replication
-        # The executed global transaction identifier.
+        # The executed global transaction identifier (GTID).
         self.gtid_executed = gtid_executed
-        # The import status, which indicates whether full data is successfully imported.
+        # The import status, which indicates whether the full data is successfully imported.
         self.import_status = import_status
         # The current replication delay, in seconds.
         self.replication_delay = replication_delay
@@ -167,7 +167,7 @@ class DescribeDBInstanceReplicationResponseBodySlaveStatusList(DaraModel):
     ):
         # The name of the replication channel.
         self.channel_name = channel_name
-        # The executed GTID set.
+        # The set of executed GTIDs.
         self.executed_gtid_set = executed_gtid_set
         # The last error code.
         self.last_errno = last_errno
@@ -179,11 +179,11 @@ class DescribeDBInstanceReplicationResponseBodySlaveStatusList(DaraModel):
         self.last_sql_errno = last_sql_errno
         # The last error message of the SQL thread.
         self.last_sql_error = last_sql_error
-        # The address of the primary database.
+        # The address of the primary instance.
         self.master_host = master_host
-        # The account of the primary database.
+        # The account of the primary instance.
         self.master_user = master_user
-        # The UUID of the primary database.
+        # The UUID of the primary instance.
         self.master_uuid = master_uuid
         # The databases included in replication.
         self.replicate_do_db = replicate_do_db

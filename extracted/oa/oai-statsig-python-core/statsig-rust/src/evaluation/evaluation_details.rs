@@ -11,12 +11,26 @@ pub struct EvaluationDetails {
 }
 
 impl EvaluationDetails {
+    pub fn is_blob_unavailable(&self) -> bool {
+        self.reason.ends_with(":Unavailable")
+    }
+
     pub fn unrecognized(source: &SpecsSource, lcut: u64, received_at: Option<u64>) -> Self {
         Self::create_from_data(
             source,
             lcut,
             received_at,
             "Unrecognized",
+            &EvaluatorResult::default(),
+        )
+    }
+
+    pub(crate) fn unavailable(source: &SpecsSource, lcut: u64, received_at: Option<u64>) -> Self {
+        Self::create_from_data(
+            source,
+            lcut,
+            received_at,
+            "Unavailable",
             &EvaluatorResult::default(),
         )
     }

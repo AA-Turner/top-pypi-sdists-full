@@ -2,6 +2,35 @@ use serde_json::{Map, Value};
 use std::fs;
 use std::path::PathBuf;
 
+pub async fn bootstrap_from_specs_updated(source: &statsig_rust::Statsig) -> statsig_rust::Statsig {
+    use statsig_rust::{
+        Statsig, StatsigBootstrapSpecsAdapter, StatsigOptions, sdk_event_emitter::SdkEvent,
+    };
+    use std::sync::Arc;
+
+    let adapter = Arc::new(StatsigBootstrapSpecsAdapter::new(
+        serde_json::to_string(source.specs_snapshot().as_ref()).unwrap(),
+    ));
+    let replica = Statsig::new(
+        "secret-replay",
+        Some(Arc::new(StatsigOptions {
+            specs_adapter: Some(adapter.clone()),
+            disable_network: Some(true),
+            disable_all_logging: Some(true),
+            ..Default::default()
+        })),
+    );
+    replica.initialize().await.unwrap();
+    source.subscribe(SdkEvent::SPECS_UPDATED, move |event| {
+        if let SdkEvent::SpecsUpdated { values, .. } = event {
+            adapter
+                .set_data(serde_json::to_string(values).unwrap())
+                .unwrap();
+        }
+    });
+    replica
+}
+
 pub fn enforce_array(value: &Value) -> Vec<Value> {
     value.as_array().unwrap().clone()
 }

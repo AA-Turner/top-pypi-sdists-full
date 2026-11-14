@@ -1,7 +1,7 @@
 pub use id_list::*;
 pub use id_list_ids::IdListIds;
 pub(crate) use id_list_propagation::IdListPropagationState;
-pub use id_list_propagation::IdListPropagationUpdate;
+pub use id_list_propagation::{IdListManifest, IdListManifestEntry, IdListPropagationUpdate};
 pub use id_lists_adapter_trait::*;
 pub use statsig_http_id_lists_adapter::*;
 

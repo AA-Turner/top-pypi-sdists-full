@@ -101,6 +101,8 @@ from .paginator import (
     DescribeMovingAddressesPaginator,
     DescribeNatGatewaysPaginator,
     DescribeNetworkAclsPaginator,
+    DescribeNetworkingFlexCostAllocationPoliciesPaginator,
+    DescribeNetworkingFlexCostAllocationPolicyAssociationsPaginator,
     DescribeNetworkInsightsAccessScopeAnalysesPaginator,
     DescribeNetworkInsightsAccessScopesPaginator,
     DescribeNetworkInsightsAnalysesPaginator,
@@ -259,6 +261,8 @@ from .type_defs import (
     AssociateIpamResourceDiscoveryResultTypeDef,
     AssociateNatGatewayAddressRequestTypeDef,
     AssociateNatGatewayAddressResultTypeDef,
+    AssociateNetworkingFlexCostAllocationPolicyRequestTypeDef,
+    AssociateNetworkingFlexCostAllocationPolicyResultTypeDef,
     AssociateRouteServerRequestTypeDef,
     AssociateRouteServerResultTypeDef,
     AssociateRouteTableRequestTypeDef,
@@ -435,6 +439,8 @@ from .type_defs import (
     CreateNetworkAclEntryRequestTypeDef,
     CreateNetworkAclRequestTypeDef,
     CreateNetworkAclResultTypeDef,
+    CreateNetworkingFlexCostAllocationPolicyRequestTypeDef,
+    CreateNetworkingFlexCostAllocationPolicyResultTypeDef,
     CreateNetworkInsightsAccessScopeRequestTypeDef,
     CreateNetworkInsightsAccessScopeResultTypeDef,
     CreateNetworkInsightsPathRequestTypeDef,
@@ -625,6 +631,8 @@ from .type_defs import (
     DeleteNatGatewayResultTypeDef,
     DeleteNetworkAclEntryRequestTypeDef,
     DeleteNetworkAclRequestTypeDef,
+    DeleteNetworkingFlexCostAllocationPoliciesRequestTypeDef,
+    DeleteNetworkingFlexCostAllocationPoliciesResultTypeDef,
     DeleteNetworkInsightsAccessScopeAnalysisRequestTypeDef,
     DeleteNetworkInsightsAccessScopeAnalysisResultTypeDef,
     DeleteNetworkInsightsAccessScopeRequestTypeDef,
@@ -951,6 +959,10 @@ from .type_defs import (
     DescribeNatGatewaysResultTypeDef,
     DescribeNetworkAclsRequestTypeDef,
     DescribeNetworkAclsResultTypeDef,
+    DescribeNetworkingFlexCostAllocationPoliciesRequestTypeDef,
+    DescribeNetworkingFlexCostAllocationPoliciesResultTypeDef,
+    DescribeNetworkingFlexCostAllocationPolicyAssociationsRequestTypeDef,
+    DescribeNetworkingFlexCostAllocationPolicyAssociationsResultTypeDef,
     DescribeNetworkInsightsAccessScopeAnalysesRequestTypeDef,
     DescribeNetworkInsightsAccessScopeAnalysesResultTypeDef,
     DescribeNetworkInsightsAccessScopesRequestTypeDef,
@@ -1199,6 +1211,8 @@ from .type_defs import (
     DisassociateIpamResourceDiscoveryResultTypeDef,
     DisassociateNatGatewayAddressRequestTypeDef,
     DisassociateNatGatewayAddressResultTypeDef,
+    DisassociateNetworkingFlexCostAllocationPolicyRequestTypeDef,
+    DisassociateNetworkingFlexCostAllocationPolicyResultTypeDef,
     DisassociateRouteServerRequestTypeDef,
     DisassociateRouteServerResultTypeDef,
     DisassociateRouteTableRequestTypeDef,
@@ -1381,6 +1395,8 @@ from .type_defs import (
     GetManagedPrefixListEntriesResultTypeDef,
     GetManagedResourceVisibilityRequestTypeDef,
     GetManagedResourceVisibilityResultTypeDef,
+    GetNetworkingFlexCostAllocationPolicyVersionsRequestTypeDef,
+    GetNetworkingFlexCostAllocationPolicyVersionsResultTypeDef,
     GetNetworkInsightsAccessScopeAnalysisFindingsRequestTypeDef,
     GetNetworkInsightsAccessScopeAnalysisFindingsResultTypeDef,
     GetNetworkInsightsAccessScopeContentRequestTypeDef,
@@ -1542,6 +1558,8 @@ from .type_defs import (
     ModifyManagedResourceVisibilityResultTypeDef,
     ModifyMetricCategoryRequestTypeDef,
     ModifyMetricCategoryResultTypeDef,
+    ModifyNetworkingFlexCostAllocationPolicyRequestTypeDef,
+    ModifyNetworkingFlexCostAllocationPolicyResultTypeDef,
     ModifyNetworkInterfaceAttributeRequestTypeDef,
     ModifyPrivateDnsNameOptionsRequestTypeDef,
     ModifyPrivateDnsNameOptionsResultTypeDef,
@@ -2164,6 +2182,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/associate_nat_gateway_address.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#associate_nat_gateway_address)
+        """
+
+    def associate_networking_flex_cost_allocation_policy(
+        self, **kwargs: Unpack[AssociateNetworkingFlexCostAllocationPolicyRequestTypeDef]
+    ) -> AssociateNetworkingFlexCostAllocationPolicyResultTypeDef:
+        """
+        Associates a flex cost allocation policy with one or more network resources.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/associate_networking_flex_cost_allocation_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#associate_networking_flex_cost_allocation_policy)
         """
 
     def associate_route_server(
@@ -3124,6 +3152,17 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_network_interface_permission.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#create_network_interface_permission)
+        """
+
+    def create_networking_flex_cost_allocation_policy(
+        self, **kwargs: Unpack[CreateNetworkingFlexCostAllocationPolicyRequestTypeDef]
+    ) -> CreateNetworkingFlexCostAllocationPolicyResultTypeDef:
+        """
+        Creates a flex cost allocation policy for Networking Flexible Cost Allocation
+        (FCA), a feature of Amazon Virtual Private Cloud (Amazon VPC).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_networking_flex_cost_allocation_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#create_networking_flex_cost_allocation_policy)
         """
 
     def create_placement_group(
@@ -4166,6 +4205,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_network_interface_permission.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#delete_network_interface_permission)
+        """
+
+    def delete_networking_flex_cost_allocation_policies(
+        self, **kwargs: Unpack[DeleteNetworkingFlexCostAllocationPoliciesRequestTypeDef]
+    ) -> DeleteNetworkingFlexCostAllocationPoliciesResultTypeDef:
+        """
+        Deletes one or more flex cost allocation policies.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_networking_flex_cost_allocation_policies.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#delete_networking_flex_cost_allocation_policies)
         """
 
     def delete_placement_group(
@@ -5937,6 +5986,27 @@ class EC2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_network_interfaces)
         """
 
+    def describe_networking_flex_cost_allocation_policies(
+        self, **kwargs: Unpack[DescribeNetworkingFlexCostAllocationPoliciesRequestTypeDef]
+    ) -> DescribeNetworkingFlexCostAllocationPoliciesResultTypeDef:
+        """
+        Describes one or more of your flex cost allocation policies.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_networking_flex_cost_allocation_policies.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_networking_flex_cost_allocation_policies)
+        """
+
+    def describe_networking_flex_cost_allocation_policy_associations(
+        self, **kwargs: Unpack[DescribeNetworkingFlexCostAllocationPolicyAssociationsRequestTypeDef]
+    ) -> DescribeNetworkingFlexCostAllocationPolicyAssociationsResultTypeDef:
+        """
+        Describes the associations between your flex cost allocation policies and
+        network resources.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_networking_flex_cost_allocation_policy_associations.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_networking_flex_cost_allocation_policy_associations)
+        """
+
     def describe_outpost_lags(
         self, **kwargs: Unpack[DescribeOutpostLagsRequestTypeDef]
     ) -> DescribeOutpostLagsResultTypeDef:
@@ -7170,6 +7240,16 @@ class EC2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#disassociate_nat_gateway_address)
         """
 
+    def disassociate_networking_flex_cost_allocation_policy(
+        self, **kwargs: Unpack[DisassociateNetworkingFlexCostAllocationPolicyRequestTypeDef]
+    ) -> DisassociateNetworkingFlexCostAllocationPolicyResultTypeDef:
+        """
+        Disassociates a flex cost allocation policy from one or more network resources.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/disassociate_networking_flex_cost_allocation_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#disassociate_networking_flex_cost_allocation_policy)
+        """
+
     def disassociate_route_server(
         self, **kwargs: Unpack[DisassociateRouteServerRequestTypeDef]
     ) -> DisassociateRouteServerResultTypeDef:
@@ -8150,6 +8230,16 @@ class EC2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_network_insights_access_scope_content)
         """
 
+    def get_networking_flex_cost_allocation_policy_versions(
+        self, **kwargs: Unpack[GetNetworkingFlexCostAllocationPolicyVersionsRequestTypeDef]
+    ) -> GetNetworkingFlexCostAllocationPolicyVersionsResultTypeDef:
+        """
+        Retrieves the versions of a flex cost allocation policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_networking_flex_cost_allocation_policy_versions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_networking_flex_cost_allocation_policy_versions)
+        """
+
     def get_password_data(
         self, **kwargs: Unpack[GetPasswordDataRequestTypeDef]
     ) -> GetPasswordDataResultTypeDef:
@@ -8974,6 +9064,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_network_interface_attribute.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#modify_network_interface_attribute)
+        """
+
+    def modify_networking_flex_cost_allocation_policy(
+        self, **kwargs: Unpack[ModifyNetworkingFlexCostAllocationPolicyRequestTypeDef]
+    ) -> ModifyNetworkingFlexCostAllocationPolicyResultTypeDef:
+        """
+        Modifies a flex cost allocation policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_networking_flex_cost_allocation_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#modify_networking_flex_cost_allocation_policy)
         """
 
     def modify_private_dns_name_options(
@@ -11138,6 +11238,29 @@ class EC2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_network_interfaces"]
     ) -> DescribeNetworkInterfacesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_networking_flex_cost_allocation_policies"]
+    ) -> DescribeNetworkingFlexCostAllocationPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self,
+        operation_name: Literal["describe_networking_flex_cost_allocation_policy_associations"],
+    ) -> DescribeNetworkingFlexCostAllocationPolicyAssociationsPaginator:
         """
         Create a paginator for an operation.
 

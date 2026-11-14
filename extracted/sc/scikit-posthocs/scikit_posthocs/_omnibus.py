@@ -12,6 +12,8 @@ from scikit_posthocs._posthocs import (
     __convert_to_df,
     __convert_to_block_df,
     __drop_incomplete_blocks,
+    __durbin_design_counts,
+    __validate_n_permutations,
 )
 
 
@@ -56,7 +58,10 @@ def test_mackwolfe(
         Defaults to None.
 
     n_perm: int = 100
-        Permutations number.
+        Positive integer number of random permutations. The p value counts permuted
+        statistics at least as large as observed and includes the observed
+        ordering in both the numerator and denominator. Used only when
+        ``p`` is None.
 
     sort : bool = False
         If ``True``, sort data by block and group columns.
@@ -65,6 +70,19 @@ def test_mackwolfe(
     -------
     tuple[float, float]
         P value and statistic.
+
+    Raises
+    ------
+    ValueError
+        If fewer than two groups contain nonmissing observations, the known
+        peak is outside the group range, or ``n_perm`` is not a positive integer when
+        the peak is unknown.
+
+    Notes
+    -----
+    For an unknown peak, permuted statistics within a relative tolerance of
+    100 times the floating-point epsilon of the observed statistic are counted
+    as equal to it. This avoids dropping theoretical ties due to rounding.
 
     References
     ----------
@@ -75,8 +93,9 @@ def test_mackwolfe(
 
     Examples
     --------
+    >>> import scikit_posthocs as sp
     >>> x = [[22, 23, 35], [60, 59, 54], [98, 78, 50], [60, 82, 59], [22, 44, 33], [23, 21, 25]]
-    >>> sp.posthoc_mackwolfe(x)
+    >>> p_value, statistic = sp.test_mackwolfe(x, p=2)
     """
     x, _val_col, _group_col = __convert_to_df(data, val_col, group_col)
     x = x.dropna(subset=[_val_col, _group_col])
@@ -86,6 +105,11 @@ def test_mackwolfe(
     x.sort_values(by=[_group_col], ascending=True, inplace=True)
 
     k = x[_group_col].unique().size
+
+    if k < 2:
+        raise ValueError(
+            "Mack-Wolfe test requires at least two groups with nonmissing observations"
+        )
 
     if p is not None and not 0 <= p < k:
         raise ValueError(f"p must be between 0 and {k - 1}; got {p}")
@@ -151,6 +175,7 @@ def test_mackwolfe(
         stat = (est - mean) / sd
         p_value = ss.norm.sf(stat).item()
     else:
+        n_perm = __validate_n_permutations(n_perm, "n_perm")
         rank_values = Rij.to_numpy()
         U = _ustat(rank_values)
         Ap = np.array([_ap(i, U) for i in range(k)]).ravel()
@@ -168,7 +193,10 @@ def test_mackwolfe(
             mt.append(np.max(astarix))
 
         mt = np.array(mt)
-        p_value = mt[mt > stat].size / n_perm
+        # Different maximizing peaks can round theoretically equal statistics
+        # differently. Match SciPy's permutation-test tolerance for such ties.
+        tolerance = 100 * np.finfo(float).eps * abs(stat)
+        p_value = (np.count_nonzero(mt >= stat - tolerance) + 1) / (n_perm + 1)
 
     return p_value, stat
 
@@ -314,13 +342,20 @@ def test_durbin(
         Specifies if data are given as melted columns "y", "blocks", and
         "groups".
 
-    sort : bool = False
+    sort : bool = True
         If True, sort data by block and group columns.
 
     Returns
     -------
     tuple[float, float, int]
         P value, statistic, and number of degrees of freedom.
+
+    Notes
+    -----
+    Rows with missing measurements, treatment labels, or block identifiers are
+    excluded. Counts use the remaining observations, so wholly missing blocks
+    and treatments are ignored. The retained design must have equal block
+    sizes, equal treatment replication, and equal pairwise concurrence.
 
     References
     ----------
@@ -332,6 +367,8 @@ def test_durbin(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import scikit_posthocs as sp
     >>> x = np.array([[31,27,24],[31,28,31],[45,29,46],[21,18,48],[42,36,46],[32,17,40]])
     >>> sp.test_durbin(x)
     """
@@ -352,18 +389,8 @@ def test_durbin(
         data, y_col, group_col, block_col, block_id_col, melted
     )
 
-    groups = x[_group_col].unique()
-    blocks = x[_block_id_col].unique()
-    if not sort:
-        x[_group_col] = Categorical(x[_group_col], categories=groups, ordered=True)
-        x[_block_col] = Categorical(x[_block_col], categories=blocks, ordered=True)
-    x.sort_values(by=[_block_col, _group_col], ascending=True, inplace=True)
-    x.dropna(inplace=True)
-
-    t = len(groups)
-    b = len(blocks)
-    r = len(x) / t
-    k = len(x) / b
+    x = x.dropna(subset=[_y_col, _group_col, _block_id_col])
+    t, b, r, k = __durbin_design_counts(x, _group_col, _block_id_col)
 
     x["y_ranks"] = x.groupby(_block_id_col, observed=True)[_y_col].rank()
     rs = x.groupby(_group_col, observed=True)["y_ranks"].sum().to_numpy()
@@ -433,6 +460,8 @@ def test_jonckheere(
     P values are computed from the standard normal distribution. In the
     presence of ties, the standard deviation of the Jonckheere-Terpstra
     statistic is corrected following Kloke and McKean (2015) [2]_.
+    At least two groups must contain nonmissing observations. If all
+    observations are equal, the statistic is zero and the p value is one.
 
     References
     ----------
@@ -459,6 +488,10 @@ def test_jonckheere(
 
     groups = x[_group_col].unique()
     k = groups.size
+    if k < 2:
+        raise ValueError(
+            "Jonckheere-Terpstra test requires at least two groups with nonmissing observations"
+        )
     n = len(x.index)
     nij = x.groupby(_group_col, observed=True)[_val_col].count()
     grouped_vals = [
@@ -493,6 +526,8 @@ def test_jonckheere(
             UserWarning,
             stacklevel=2,
         )
+        if ties.size == 1:
+            return 1.0, 0.0
         nt = np.unique(x[_val_col], return_counts=True)[1].astype(float)
         s = np.sqrt(
             (
@@ -521,6 +556,28 @@ def test_jonckheere(
     else:
         pval = ss.norm.cdf(stat)
 
+    return float(pval), float(stat)
+
+
+def _page_result(rank_sums, n, k, alternative):
+    """Standardize Page's L with a continuity correction for the requested tail."""
+    L = float(np.sum(rank_sums * np.arange(1, k + 1)))
+    mean = n * k * (k + 1.0) ** 2.0 / 4.0
+    variance = n * k**2.0 * (k + 1.0) * (k**2.0 - 1.0) / 144.0
+    centered = L - mean
+    if alternative == "two-sided":
+        centered -= 0.5 * np.sign(centered)
+    elif alternative == "greater":
+        centered -= 0.5
+    else:
+        centered += 0.5
+    stat = centered / np.sqrt(variance)
+    if alternative == "two-sided":
+        pval = 2.0 * ss.norm.sf(np.abs(stat))
+    elif alternative == "greater":
+        pval = ss.norm.sf(stat)
+    else:
+        pval = ss.norm.cdf(stat)
     return float(pval), float(stat)
 
 
@@ -594,7 +651,10 @@ def test_page(
     Notes
     -----
     P values are computed from the standard normal distribution, with a
-    continuity correction always applied (following Sachs 1997).
+    continuity correction following the requested tail (Sachs 1997).
+    For a two-sided test, the correction moves towards the null mean.
+    Incomplete blocks are excluded in their entirety. At least one complete
+    block and two treatments must remain; otherwise a ValueError is raised.
 
     References
     ----------
@@ -605,6 +665,7 @@ def test_page(
     Examples
     --------
     >>> import scikit_posthocs as sp
+    >>> import numpy as np
     >>> x = np.array([[31,27,24],[31,28,31],[45,29,46],[21,18,48],[42,36,46],[32,17,40]])
     >>> sp.test_page(x, alternative="greater")
     """
@@ -616,29 +677,17 @@ def test_page(
         values, _ = matrix
         n, k = values.shape
         rank_sums = ss.rankdata(values, axis=1, method="average").sum(axis=0)
-        L = float(np.sum(rank_sums * np.arange(1, k + 1)))
-        eL = n * k * (k + 1.0) ** 2.0 / 4.0
-        varL = n * k**2.0 * (k + 1.0) * (k**2.0 - 1.0) / 144.0
-        stat = (L - eL - 0.5) / np.sqrt(varL)
-        if alternative == "two-sided":
-            pval = 2.0 * min(ss.norm.sf(np.abs(stat)), 0.5)
-        elif alternative == "greater":
-            pval = ss.norm.sf(stat)
-        else:
-            pval = ss.norm.cdf(stat)
-        return float(pval), float(stat)
+        return _page_result(rank_sums, n, k, alternative)
 
     x, _y_col, _group_col, _block_col, _block_id_col = __convert_to_block_df(
         data, y_col, group_col, block_col, block_id_col, melted
     )
 
-    groups = x[_group_col].unique()
-    blocks = x[_block_id_col].unique()
+    groups = x[_group_col].dropna().unique()
+    x = __drop_incomplete_blocks(x, _y_col, _group_col, _block_id_col)
     if not sort:
         x[_group_col] = Categorical(x[_group_col], categories=groups, ordered=True)
-        x[_block_col] = Categorical(x[_block_col], categories=blocks, ordered=True)
-    x = x.sort_values(by=[_block_col, _group_col], ascending=True)
-    x = __drop_incomplete_blocks(x, _y_col, _group_col, _block_id_col)
+    x = x.sort_values(by=[_block_id_col, _group_col], ascending=True)
 
     groups = x[_group_col].unique()
     blocks = x[_block_id_col].unique()
@@ -648,21 +697,7 @@ def test_page(
     x["y_ranks"] = x.groupby(_block_id_col, observed=True)[_y_col].rank()
     r_sum = x.groupby(_group_col, observed=True)["y_ranks"].sum().to_numpy()
 
-    weights = np.arange(1, k + 1)
-    L = float(np.sum(r_sum * weights))
-    eL = n * k * (k + 1.0) ** 2.0 / 4.0
-    varL = n * k**2.0 * (k + 1.0) * (k**2.0 - 1.0) / 144.0
-
-    stat = (L - eL - 0.5) / np.sqrt(varL)
-
-    if alternative == "two-sided":
-        pval = 2.0 * min(ss.norm.sf(np.abs(stat)), 0.5)
-    elif alternative == "greater":
-        pval = ss.norm.sf(stat)
-    else:
-        pval = ss.norm.cdf(stat)
-
-    return float(pval), float(stat)
+    return _page_result(r_sum, n, k, alternative)
 
 
 def test_hartley(
@@ -694,8 +729,8 @@ def test_hartley(
         pandas DataFrame object.
 
     n_perm : int = 100000
-        Number of Monte Carlo samples used to approximate the null
-        distribution of the maximum F-ratio statistic.
+        Positive integer number of Monte Carlo samples used to approximate
+        the null distribution of the maximum F-ratio statistic.
 
     sort : bool = False
         If True, sort data by group_col.
@@ -713,6 +748,10 @@ def test_hartley(
     independent chi-squared(df) variables (df taken from the
     minimum-variance group, following PMCMRplus), rather than PMCMRplus's
     exact `pmaxFratio` distribution (which has no scipy equivalent).
+    Missing observations and groups containing only missing observations are
+    excluded. At least two groups with two finite observations each are
+    required. If all group variances are zero, a ValueError is raised; a
+    single zero-variance group gives an infinite F-ratio and a zero p value.
 
     References
     ----------
@@ -725,13 +764,30 @@ def test_hartley(
     >>> x = [[1,2,3,5,1], [12,31,54,62,12], [10,12,6,74,11]]
     >>> sp.test_hartley(x)
     """
+    n_perm = __validate_n_permutations(n_perm, "n_perm")
     x, _val_col, _group_col = __convert_to_df(data, val_col, group_col)
+    x = x.dropna(subset=[_val_col, _group_col])
     x = x.sort_values(by=[_group_col], ascending=True) if sort else x
 
-    x_grouped = x.groupby(_group_col, observed=True)[_val_col]
-    var = x_grouped.var().to_numpy()
-    ni = x_grouped.count().to_numpy()
-    k = var.size
+    ni = x.groupby(_group_col, observed=True)[_val_col].count().to_numpy(dtype=np.int64)
+    k = ni.size
+    if k < 2:
+        raise ValueError("Hartley's test requires at least two groups with nonmissing observations")
+    if np.any(ni < 2):
+        raise ValueError("Hartley's test requires at least two observations in each group")
+    values = x[_val_col].to_numpy(dtype=float, na_value=np.nan)
+    if not np.isfinite(values).all():
+        raise ValueError("Hartley's test requires finite observations")
+    # A common scale cancels from the variance ratio and prevents squaring
+    # very large or small observations from overflowing or underflowing.
+    # A power of two does not introduce rounding into ordinary observations.
+    scale = np.max(np.abs(values))
+    if scale:
+        _, exponent = np.frexp(scale)
+        x[_val_col] = np.ldexp(values, -exponent)
+    var = x.groupby(_group_col, observed=True)[_val_col].var().to_numpy(dtype=float)
+    if not np.any(var > 0):
+        raise ValueError("Hartley's test requires at least one nonzero group variance")
 
     if np.any(ni != ni[0]):
         warnings.warn(
@@ -741,6 +797,8 @@ def test_hartley(
         )
 
     df = int(ni[np.argmin(var)] - 1)
+    if np.min(var) == 0:
+        return 0.0, np.inf, df
     stat = float(np.max(var) / np.min(var))
 
     exceedances = 0

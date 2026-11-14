@@ -17,7 +17,6 @@ class DescribeRCImageListRequest(DaraModel):
         type: str = None,
     ):
         # The system architecture of the image. Valid values:
-        # 
         # - x86_64
         # - arm64
         self.architecture = architecture

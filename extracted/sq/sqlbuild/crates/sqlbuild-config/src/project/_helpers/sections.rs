@@ -23,11 +23,15 @@ use crate::project::constants::{
     USD_PER_CREDIT_KEY, ZERO_FIXED_DURATION, ZERO_FLOAT,
 };
 use crate::project::constants::{
+    CHANGE_COUNTS, CHANGE_REACHES, CHANGES_KEYS, CONTROL_KEYS, MIN_SYNC_INTERVAL_SECONDS,
+    SYNC_INTERVAL_HELP, SYNC_INTERVAL_OFF,
+};
+use crate::project::constants::{
     DEFAULT_TEST_TIMEOUT, DEFAULT_UNIT_TEST_MAX_REAL_MODELS, DELTA_COMPILE_KEY, DISABLED_VALUE,
     SCENARIO_TIMEOUT_KEY, TEST_TIMEOUT_KEY, UNIT_TEST_MAX_REAL_MODELS_KEY,
 };
 use crate::project::errors::ConfigFailure;
-use crate::project::models::{Built, ConfigFile, ReviewConfig};
+use crate::project::models::{Built, ChangesConfig, ConfigFile, ControlConfig, ReviewConfig};
 use crate::project::types::{Entries, Fields, Loaded};
 use sqlbuild_core::constants::ZERO_DAY_DURATION;
 
@@ -569,6 +573,101 @@ pub(crate) fn load_git(payload: Option<&ConfigValue>, file: ConfigFile) -> Loade
             "git.base_ref must be a non-empty git ref such as 'origin/main'",
         )
     })
+}
+
+/// A safety sync interval in seconds, `0` when off; the error completes "<setting> ...".
+pub(crate) fn sync_interval(text: &str) -> Result<u64, &'static str> {
+    if SYNC_INTERVAL_OFF.contains(&text) {
+        return Ok(0);
+    }
+    let seconds: u64 = match fixed_duration_seconds(text, false) {
+        Ok(Some(seconds)) => seconds.parse().map_err(|_| SYNC_INTERVAL_HELP)?,
+        Ok(None) | Err(_) => return Err(SYNC_INTERVAL_HELP),
+    };
+    if seconds < MIN_SYNC_INTERVAL_SECONDS {
+        return Err(SYNC_INTERVAL_HELP);
+    }
+    Ok(seconds)
+}
+
+/// `[control]`: where a signed-in build asks for a sync, and how often a location syncs anyway.
+pub(crate) fn load_control(
+    payload: Option<&ConfigValue>,
+    file: ConfigFile,
+) -> Loaded<ControlConfig> {
+    let mapping = coerce_mapping(payload, place(file, "control"))?;
+    validate_allowed_keys(mapping, &CONTROL_KEYS, place(file, "control"))?;
+    let server = optional_str(mapping, "server").map_err(|_| {
+        ConfigFailure::at(
+            file,
+            "control.server must be an HTTPS server origin such as 'https://sqlbuild.example.com'",
+        )
+    })?;
+    let location = optional_str(mapping, "location").map_err(|_| {
+        ConfigFailure::at(file, "control.location must be a non-empty location name")
+    })?;
+    let sync_at_least_every_seconds = match get(mapping, "sync_at_least_every") {
+        None => None,
+        Some(value) => Some(
+            match value {
+                ConfigValue::String(text) => sync_interval(text),
+                _ => Err(SYNC_INTERVAL_HELP),
+            }
+            .map_err(|help| {
+                ConfigFailure::at(file, format!("control.sync_at_least_every {help}"))
+            })?,
+        ),
+    };
+    Ok(ControlConfig {
+        server,
+        location,
+        sync_at_least_every_seconds,
+    })
+}
+
+/// `[changes]`: what `--changed` counts as a change and how far a change reaches downstream.
+pub(crate) fn load_changes(
+    payload: Option<&ConfigValue>,
+    file: ConfigFile,
+) -> Loaded<ChangesConfig> {
+    let mapping = coerce_mapping(payload, place(file, "changes"))?;
+    validate_allowed_keys(mapping, &CHANGES_KEYS, place(file, "changes"))?;
+    let counts: Option<Vec<String>> = match get(mapping, "counts") {
+        None => None,
+        payload => {
+            let counts: Vec<String> = string_sequence(payload, place(file, "changes.counts"))?;
+            if counts.is_empty()
+                || counts
+                    .iter()
+                    .any(|count| !CHANGE_COUNTS.contains(&count.as_str()))
+            {
+                return Err(ConfigFailure::at(
+                    file,
+                    format!(
+                        "changes.counts must list one or more of: {}",
+                        CHANGE_COUNTS.join(", ")
+                    ),
+                ));
+            }
+            Some(counts)
+        }
+    };
+    let reach: Option<String> = match get(mapping, "reach") {
+        None => None,
+        Some(ConfigValue::String(text)) if CHANGE_REACHES.contains(&text.as_str()) => {
+            Some(text.clone())
+        }
+        Some(_) => {
+            return Err(ConfigFailure::at(
+                file,
+                format!(
+                    "changes.reach must be one of: {}",
+                    CHANGE_REACHES.join(", ")
+                ),
+            ));
+        }
+    };
+    Ok(ChangesConfig { counts, reach })
 }
 
 /// `[review]`: the defaults of `sqb review`, validated so a typo fails like any other section.

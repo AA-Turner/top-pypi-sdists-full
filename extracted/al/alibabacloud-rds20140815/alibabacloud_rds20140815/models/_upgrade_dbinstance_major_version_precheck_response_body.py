@@ -12,13 +12,13 @@ class UpgradeDBInstanceMajorVersionPrecheckResponseBody(DaraModel):
         target_major_version: str = None,
         task_id: str = None,
     ):
-        # The instance name.
+        # The name of the instance.
         self.dbinstance_name = dbinstance_name
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
         # The major engine version of the target instance.
         self.target_major_version = target_major_version
-        # The task ID.
+        # The ID of the task.
         self.task_id = task_id
 
     def validate(self):

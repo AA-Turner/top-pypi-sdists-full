@@ -21,7 +21,7 @@ class DescribeDetachedBackupsResponseBody(DaraModel):
         self.page_number = page_number
         # The number of backup sets on the current page.
         self.page_record_count = page_record_count
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
         # The total number of entries.
         self.total_record_count = total_record_count

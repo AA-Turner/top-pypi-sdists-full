@@ -108,6 +108,9 @@ from ._create_jdbcdata_source_response import CreateJDBCDataSourceResponse
 from ._create_model_operator_api_key_request import CreateModelOperatorApiKeyRequest
 from ._create_model_operator_api_key_response_body import CreateModelOperatorApiKeyResponseBody
 from ._create_model_operator_api_key_response import CreateModelOperatorApiKeyResponse
+from ._create_model_operator_service_request import CreateModelOperatorServiceRequest
+from ._create_model_operator_service_response_body import CreateModelOperatorServiceResponseBody
+from ._create_model_operator_service_response import CreateModelOperatorServiceResponse
 from ._create_model_service_request import CreateModelServiceRequest
 from ._create_model_service_shrink_request import CreateModelServiceShrinkRequest
 from ._create_model_service_response_body import CreateModelServiceResponseBody
@@ -219,6 +222,12 @@ from ._delete_index_response import DeleteIndexResponse
 from ._delete_jdbcdata_source_request import DeleteJDBCDataSourceRequest
 from ._delete_jdbcdata_source_response_body import DeleteJDBCDataSourceResponseBody
 from ._delete_jdbcdata_source_response import DeleteJDBCDataSourceResponse
+from ._delete_model_operator_api_key_request import DeleteModelOperatorApiKeyRequest
+from ._delete_model_operator_api_key_response_body import DeleteModelOperatorApiKeyResponseBody
+from ._delete_model_operator_api_key_response import DeleteModelOperatorApiKeyResponse
+from ._delete_model_operator_service_request import DeleteModelOperatorServiceRequest
+from ._delete_model_operator_service_response_body import DeleteModelOperatorServiceResponseBody
+from ._delete_model_operator_service_response import DeleteModelOperatorServiceResponse
 from ._delete_model_service_request import DeleteModelServiceRequest
 from ._delete_model_service_response_body import DeleteModelServiceResponseBody
 from ._delete_model_service_response import DeleteModelServiceResponse
@@ -1342,6 +1351,9 @@ __all__ = [
     CreateModelOperatorApiKeyRequest,
     CreateModelOperatorApiKeyResponseBody,
     CreateModelOperatorApiKeyResponse,
+    CreateModelOperatorServiceRequest,
+    CreateModelOperatorServiceResponseBody,
+    CreateModelOperatorServiceResponse,
     CreateModelServiceRequest,
     CreateModelServiceShrinkRequest,
     CreateModelServiceResponseBody,
@@ -1453,6 +1465,12 @@ __all__ = [
     DeleteJDBCDataSourceRequest,
     DeleteJDBCDataSourceResponseBody,
     DeleteJDBCDataSourceResponse,
+    DeleteModelOperatorApiKeyRequest,
+    DeleteModelOperatorApiKeyResponseBody,
+    DeleteModelOperatorApiKeyResponse,
+    DeleteModelOperatorServiceRequest,
+    DeleteModelOperatorServiceResponseBody,
+    DeleteModelOperatorServiceResponse,
     DeleteModelServiceRequest,
     DeleteModelServiceResponseBody,
     DeleteModelServiceResponse,

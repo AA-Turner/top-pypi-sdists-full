@@ -11,11 +11,11 @@ class ModifyParameterTimedScheduleTaskRequest(DaraModel):
         switch_time: str = None,
         task_id: int = None,
     ):
-        # The name of the instance.
+        # The instance name.
         self.dbinstance_name = dbinstance_name
-        # The scheduled switchover time to set. Specify the time in the yyyy-MM-ddTHH:mm:ssZ format. The time must be in UTC.
+        # The scheduled switchover time to be set. The time must be in the yyyy-MM-ddTHH:mm:ssZ format. The time is displayed in UTC.
         self.switch_time = switch_time
-        # The ID of the task.
+        # The task ID.
         self.task_id = task_id
 
     def validate(self):

@@ -32,6 +32,8 @@ class So101Config(RigFile):
     home_pose: tuple[float, ...] | None = None
     # True when built from config.toml's legacy keys rather than read from so101.json.
     migrated: bool = False
+    # Measured gripper.pos readings at physical closed/open for closure-based models.
+    gripper_range: tuple[float, float] | None = None
 
     ROLES: ClassVar[tuple[str, ...]] = ROLES
     LABEL: ClassVar[str] = "SO-101"
@@ -40,6 +42,10 @@ class So101Config(RigFile):
 
     def validate(self, *, complete: bool = False) -> So101Config:
         self.validate_rig()
+        if self.gripper_range is not None:
+            from dreamscale_transport.praxis import validate_so101_grip_range
+
+            self.gripper_range = validate_so101_grip_range(self.gripper_range)
         if self.port is not None and (not isinstance(self.port, str) or not self.port):
             raise ValueError("The SO-101 serial port is a device path, for example /dev/ttyACM0.")
         if complete and (self.port is None or set(self.roles) != set(ROLES)):
@@ -52,12 +58,14 @@ class So101Config(RigFile):
             value["port"] = self.port
         if self.calibration_path is not None:
             value["calibration_path"] = self.calibration_path
+        if self.gripper_range is not None:
+            value["gripper_range"] = list(self.gripper_range)
         return value
 
     @classmethod
     def from_dict(cls, value) -> So101Config:
         if not isinstance(value, dict) or set(value) - {
-            "version", "cameras", "roles", "home_pose", "port", "calibration_path",
+            "version", "cameras", "roles", "home_pose", "port", "calibration_path", "gripper_range",
         }:
             raise ValueError("Invalid SO-101 configuration fields.")
         try:
@@ -68,6 +76,7 @@ class So101Config(RigFile):
                 **fields,
                 port=value.get("port"),
                 calibration_path=value.get("calibration_path"),
+                gripper_range=value.get("gripper_range"),
             ).validate()
         except (TypeError, KeyError, AttributeError) as exc:
             raise ValueError("Invalid port, camera or home entry in the SO-101 rig file.") from exc

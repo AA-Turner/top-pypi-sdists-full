@@ -27,6 +27,7 @@ from .literals import (
     ConfigurationSyncStateType,
     ContainerAssociationStatusType,
     ContainerMonitoringTypeType,
+    DecryptionActionType,
     DNSExpiryExceptionPolicyType,
     EnabledAnalysisTypeType,
     EncryptionTypeType,
@@ -48,14 +49,12 @@ from .literals import (
     PolicyDefaultActionType,
     PolicyModeType,
     ProxyModifyStateType,
-    ProxyRulePhaseActionType,
     ProxyStateType,
     ResourceManagedStatusType,
     ResourceManagedTypeType,
     ResourceStatusType,
     RevocationCheckActionType,
     Route53ResolvedIPValidationActionType,
-    RuleGroupRequestPhaseType,
     RuleGroupTypeType,
     RuleOrderType,
     RuleOutputFormatType,
@@ -68,8 +67,10 @@ from .literals import (
     SummaryRuleOptionType,
     TargetTypeType,
     TCPFlagType,
+    TLSInspectionScopeDeploymentModeType,
     TlsInterceptModeType,
     TransitGatewayAttachmentStatusType,
+    TransparentFilteringNatScopeType,
 )
 
 if sys.version_info >= (3, 12):
@@ -94,8 +95,6 @@ __all__ = (
     "AssociateFirewallPolicyResponseTypeDef",
     "AssociateSubnetsRequestTypeDef",
     "AssociateSubnetsResponseTypeDef",
-    "AttachRuleGroupsToProxyConfigurationRequestTypeDef",
-    "AttachRuleGroupsToProxyConfigurationResponseTypeDef",
     "AttachmentTypeDef",
     "AvailabilityZoneMappingTypeDef",
     "AvailabilityZoneMetadataTypeDef",
@@ -115,16 +114,6 @@ __all__ = (
     "CreateFirewallPolicyV2ResponseTypeDef",
     "CreateFirewallRequestTypeDef",
     "CreateFirewallResponseTypeDef",
-    "CreateProxyConfigurationRequestTypeDef",
-    "CreateProxyConfigurationResponseTypeDef",
-    "CreateProxyRequestTypeDef",
-    "CreateProxyResponseTypeDef",
-    "CreateProxyRuleGroupRequestTypeDef",
-    "CreateProxyRuleGroupResponseTypeDef",
-    "CreateProxyRuleTypeDef",
-    "CreateProxyRulesByRequestPhaseTypeDef",
-    "CreateProxyRulesRequestTypeDef",
-    "CreateProxyRulesResponseTypeDef",
     "CreateRuleGroupRequestTypeDef",
     "CreateRuleGroupResponseTypeDef",
     "CreateTLSInspectionConfigurationRequestTypeDef",
@@ -143,14 +132,8 @@ __all__ = (
     "DeleteFirewallResponseTypeDef",
     "DeleteNetworkFirewallTransitGatewayAttachmentRequestTypeDef",
     "DeleteNetworkFirewallTransitGatewayAttachmentResponseTypeDef",
-    "DeleteProxyConfigurationRequestTypeDef",
-    "DeleteProxyConfigurationResponseTypeDef",
     "DeleteProxyRequestTypeDef",
     "DeleteProxyResponseTypeDef",
-    "DeleteProxyRuleGroupRequestTypeDef",
-    "DeleteProxyRuleGroupResponseTypeDef",
-    "DeleteProxyRulesRequestTypeDef",
-    "DeleteProxyRulesResponseTypeDef",
     "DeleteResourcePolicyRequestTypeDef",
     "DeleteRuleGroupRequestTypeDef",
     "DeleteRuleGroupResponseTypeDef",
@@ -173,15 +156,9 @@ __all__ = (
     "DescribeFlowOperationResponseTypeDef",
     "DescribeLoggingConfigurationRequestTypeDef",
     "DescribeLoggingConfigurationResponseTypeDef",
-    "DescribeProxyConfigurationRequestTypeDef",
-    "DescribeProxyConfigurationResponseTypeDef",
     "DescribeProxyRequestTypeDef",
     "DescribeProxyResourceTypeDef",
     "DescribeProxyResponseTypeDef",
-    "DescribeProxyRuleGroupRequestTypeDef",
-    "DescribeProxyRuleGroupResponseTypeDef",
-    "DescribeProxyRuleRequestTypeDef",
-    "DescribeProxyRuleResponseTypeDef",
     "DescribeResourcePolicyRequestTypeDef",
     "DescribeResourcePolicyResponseTypeDef",
     "DescribeRuleGroupMetadataRequestTypeDef",
@@ -194,13 +171,13 @@ __all__ = (
     "DescribeTLSInspectionConfigurationResponseTypeDef",
     "DescribeVpcEndpointAssociationRequestTypeDef",
     "DescribeVpcEndpointAssociationResponseTypeDef",
-    "DetachRuleGroupsFromProxyConfigurationRequestTypeDef",
-    "DetachRuleGroupsFromProxyConfigurationResponseTypeDef",
     "DimensionTypeDef",
     "DisassociateAvailabilityZonesRequestTypeDef",
     "DisassociateAvailabilityZonesResponseTypeDef",
     "DisassociateSubnetsRequestTypeDef",
     "DisassociateSubnetsResponseTypeDef",
+    "DomainMatchOutputTypeDef",
+    "DomainMatchTypeDef",
     "EncryptionConfigurationTypeDef",
     "FirewallMetadataTypeDef",
     "FirewallPolicyErrorTypeDef",
@@ -269,15 +246,6 @@ __all__ = (
     "ListFlowOperationsRequestPaginateTypeDef",
     "ListFlowOperationsRequestTypeDef",
     "ListFlowOperationsResponseTypeDef",
-    "ListProxiesRequestPaginateTypeDef",
-    "ListProxiesRequestTypeDef",
-    "ListProxiesResponseTypeDef",
-    "ListProxyConfigurationsRequestPaginateTypeDef",
-    "ListProxyConfigurationsRequestTypeDef",
-    "ListProxyConfigurationsResponseTypeDef",
-    "ListProxyRuleGroupsRequestPaginateTypeDef",
-    "ListProxyRuleGroupsRequestTypeDef",
-    "ListProxyRuleGroupsResponseTypeDef",
     "ListRuleGroupsRequestPaginateTypeDef",
     "ListRuleGroupsRequestTypeDef",
     "ListRuleGroupsResponseTypeDef",
@@ -290,7 +258,6 @@ __all__ = (
     "ListVpcEndpointAssociationsRequestPaginateTypeDef",
     "ListVpcEndpointAssociationsRequestTypeDef",
     "ListVpcEndpointAssociationsResponseTypeDef",
-    "ListenerPropertyRequestTypeDef",
     "ListenerPropertyTypeDef",
     "LogDestinationConfigOutputTypeDef",
     "LogDestinationConfigTypeDef",
@@ -300,7 +267,9 @@ __all__ = (
     "MatchAttributesOutputTypeDef",
     "MatchAttributesTypeDef",
     "NatGatewayAttachmentTypeDef",
-    "NatGatewayMappingTypeDef",
+    "NatGatewayCreateMappingOutputTypeDef",
+    "NatGatewayCreateMappingTypeDef",
+    "NatGatewayCreateMappingUnionTypeDef",
     "PaginatorConfigTypeDef",
     "PerObjectStatusTypeDef",
     "PolicyVariablesOutputTypeDef",
@@ -308,29 +277,9 @@ __all__ = (
     "PortRangeTypeDef",
     "PortSetOutputTypeDef",
     "PortSetTypeDef",
-    "ProxyConfigDefaultRulePhaseActionsRequestTypeDef",
-    "ProxyConfigRuleGroupTypeDef",
-    "ProxyConfigurationMetadataTypeDef",
-    "ProxyConfigurationTypeDef",
-    "ProxyMetadataTypeDef",
-    "ProxyRuleConditionOutputTypeDef",
-    "ProxyRuleConditionTypeDef",
-    "ProxyRuleConditionUnionTypeDef",
-    "ProxyRuleGroupAttachmentTypeDef",
-    "ProxyRuleGroupMetadataTypeDef",
-    "ProxyRuleGroupPriorityResultTypeDef",
-    "ProxyRuleGroupPriorityTypeDef",
-    "ProxyRuleGroupTypeDef",
-    "ProxyRuleOutputTypeDef",
-    "ProxyRulePriorityTypeDef",
-    "ProxyRuleTypeDef",
-    "ProxyRulesByRequestPhaseOutputTypeDef",
-    "ProxyRulesByRequestPhaseTypeDef",
-    "ProxyRulesByRequestPhaseUnionTypeDef",
     "ProxySettingsOutputTypeDef",
     "ProxySettingsTypeDef",
     "ProxySettingsUnionTypeDef",
-    "ProxyTypeDef",
     "PublishMetricActionOutputTypeDef",
     "PublishMetricActionTypeDef",
     "PutResourcePolicyRequestTypeDef",
@@ -398,7 +347,6 @@ __all__ = (
     "TagResourceRequestTypeDef",
     "TagTypeDef",
     "TlsCertificateDataTypeDef",
-    "TlsInterceptPropertiesRequestTypeDef",
     "TlsInterceptPropertiesTypeDef",
     "TransitGatewayAttachmentSyncStateTypeDef",
     "UniqueSourcesTypeDef",
@@ -423,16 +371,6 @@ __all__ = (
     "UpdateFirewallPolicyV2ResponseTypeDef",
     "UpdateLoggingConfigurationRequestTypeDef",
     "UpdateLoggingConfigurationResponseTypeDef",
-    "UpdateProxyConfigurationRequestTypeDef",
-    "UpdateProxyConfigurationResponseTypeDef",
-    "UpdateProxyRequestTypeDef",
-    "UpdateProxyResponseTypeDef",
-    "UpdateProxyRuleGroupPrioritiesRequestTypeDef",
-    "UpdateProxyRuleGroupPrioritiesResponseTypeDef",
-    "UpdateProxyRulePrioritiesRequestTypeDef",
-    "UpdateProxyRulePrioritiesResponseTypeDef",
-    "UpdateProxyRuleRequestTypeDef",
-    "UpdateProxyRuleResponseTypeDef",
     "UpdateProxySettingsRequestTypeDef",
     "UpdateProxySettingsResponseTypeDef",
     "UpdateRuleGroupRequestTypeDef",
@@ -512,11 +450,6 @@ class SubnetMappingTypeDef(TypedDict):
     IPAddressType: NotRequired[IPAddressTypeType]
 
 
-class ProxyRuleGroupAttachmentTypeDef(TypedDict):
-    ProxyRuleGroupName: NotRequired[str]
-    InsertPosition: NotRequired[int]
-
-
 class AvailabilityZoneMetadataTypeDef(TypedDict):
     IPAddressType: NotRequired[IPAddressTypeType]
 
@@ -554,30 +487,6 @@ EncryptionConfigurationTypeDef = TypedDict(
 )
 
 
-class NatGatewayMappingTypeDef(TypedDict):
-    NatGatewayId: str
-
-
-class ProxyConfigDefaultRulePhaseActionsRequestTypeDef(TypedDict):
-    PreDNS: NotRequired[ProxyRulePhaseActionType]
-    PreREQUEST: NotRequired[ProxyRulePhaseActionType]
-    PostRESPONSE: NotRequired[ProxyRulePhaseActionType]
-
-
-ListenerPropertyRequestTypeDef = TypedDict(
-    "ListenerPropertyRequestTypeDef",
-    {
-        "Port": int,
-        "Type": ListenerPropertyTypeType,
-    },
-)
-
-
-class TlsInterceptPropertiesRequestTypeDef(TypedDict):
-    PcaArn: NotRequired[str]
-    TlsInterceptMode: NotRequired[TlsInterceptModeType]
-
-
 class SourceMetadataTypeDef(TypedDict):
     SourceArn: NotRequired[str]
     SourceUpdateToken: NotRequired[str]
@@ -601,32 +510,17 @@ class DeleteFirewallPolicyV2RequestTypeDef(TypedDict):
 class DeleteFirewallRequestTypeDef(TypedDict):
     FirewallName: NotRequired[str]
     FirewallArn: NotRequired[str]
+    DeleteAssociatedNatGateways: NotRequired[bool]
 
 
 class DeleteNetworkFirewallTransitGatewayAttachmentRequestTypeDef(TypedDict):
     TransitGatewayAttachmentId: str
 
 
-class DeleteProxyConfigurationRequestTypeDef(TypedDict):
-    ProxyConfigurationName: NotRequired[str]
-    ProxyConfigurationArn: NotRequired[str]
-
-
 class DeleteProxyRequestTypeDef(TypedDict):
     NatGatewayId: str
     ProxyName: NotRequired[str]
     ProxyArn: NotRequired[str]
-
-
-class DeleteProxyRuleGroupRequestTypeDef(TypedDict):
-    ProxyRuleGroupName: NotRequired[str]
-    ProxyRuleGroupArn: NotRequired[str]
-
-
-class DeleteProxyRulesRequestTypeDef(TypedDict):
-    Rules: Sequence[str]
-    ProxyRuleGroupArn: NotRequired[str]
-    ProxyRuleGroupName: NotRequired[str]
 
 
 class DeleteResourcePolicyRequestTypeDef(TypedDict):
@@ -696,11 +590,6 @@ class DescribeLoggingConfigurationRequestTypeDef(TypedDict):
     FirewallName: NotRequired[str]
 
 
-class DescribeProxyConfigurationRequestTypeDef(TypedDict):
-    ProxyConfigurationName: NotRequired[str]
-    ProxyConfigurationArn: NotRequired[str]
-
-
 class DescribeProxyRequestTypeDef(TypedDict):
     ProxyName: NotRequired[str]
     ProxyArn: NotRequired[str]
@@ -718,17 +607,6 @@ ListenerPropertyTypeDef = TypedDict(
 class TlsInterceptPropertiesTypeDef(TypedDict):
     PcaArn: NotRequired[str]
     TlsInterceptMode: NotRequired[TlsInterceptModeType]
-
-
-class DescribeProxyRuleGroupRequestTypeDef(TypedDict):
-    ProxyRuleGroupName: NotRequired[str]
-    ProxyRuleGroupArn: NotRequired[str]
-
-
-class DescribeProxyRuleRequestTypeDef(TypedDict):
-    ProxyRuleName: str
-    ProxyRuleGroupName: NotRequired[str]
-    ProxyRuleGroupArn: NotRequired[str]
 
 
 class DescribeResourcePolicyRequestTypeDef(TypedDict):
@@ -778,14 +656,6 @@ class DescribeVpcEndpointAssociationRequestTypeDef(TypedDict):
     VpcEndpointAssociationArn: str
 
 
-class DetachRuleGroupsFromProxyConfigurationRequestTypeDef(TypedDict):
-    UpdateToken: str
-    ProxyConfigurationName: NotRequired[str]
-    ProxyConfigurationArn: NotRequired[str]
-    RuleGroupNames: NotRequired[Sequence[str]]
-    RuleGroupArns: NotRequired[Sequence[str]]
-
-
 class DimensionTypeDef(TypedDict):
     Value: str
 
@@ -795,6 +665,14 @@ class DisassociateSubnetsRequestTypeDef(TypedDict):
     UpdateToken: NotRequired[str]
     FirewallArn: NotRequired[str]
     FirewallName: NotRequired[str]
+
+
+class DomainMatchOutputTypeDef(TypedDict):
+    Domains: list[str]
+
+
+class DomainMatchTypeDef(TypedDict):
+    Domains: Sequence[str]
 
 
 class FirewallMetadataTypeDef(TypedDict):
@@ -855,6 +733,12 @@ class TransitGatewayAttachmentSyncStateTypeDef(TypedDict):
     AttachmentId: NotRequired[str]
     TransitGatewayAttachmentStatus: NotRequired[TransitGatewayAttachmentStatusType]
     StatusMessage: NotRequired[str]
+
+
+class NatGatewayCreateMappingOutputTypeDef(TypedDict):
+    SubnetId: str
+    AllocationIds: NotRequired[list[str]]
+    PrivateIps: NotRequired[list[str]]
 
 
 class FlowOperationMetadataTypeDef(TypedDict):
@@ -965,36 +849,6 @@ class ListFlowOperationsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 
-class ListProxiesRequestTypeDef(TypedDict):
-    NextToken: NotRequired[str]
-    MaxResults: NotRequired[int]
-
-
-class ProxyMetadataTypeDef(TypedDict):
-    Name: NotRequired[str]
-    Arn: NotRequired[str]
-
-
-class ListProxyConfigurationsRequestTypeDef(TypedDict):
-    NextToken: NotRequired[str]
-    MaxResults: NotRequired[int]
-
-
-class ProxyConfigurationMetadataTypeDef(TypedDict):
-    Name: NotRequired[str]
-    Arn: NotRequired[str]
-
-
-class ListProxyRuleGroupsRequestTypeDef(TypedDict):
-    NextToken: NotRequired[str]
-    MaxResults: NotRequired[int]
-
-
-class ProxyRuleGroupMetadataTypeDef(TypedDict):
-    Name: NotRequired[str]
-    Arn: NotRequired[str]
-
-
 ListRuleGroupsRequestTypeDef = TypedDict(
     "ListRuleGroupsRequestTypeDef",
     {
@@ -1074,6 +928,12 @@ class NatGatewayAttachmentTypeDef(TypedDict):
     DnsName: NotRequired[str]
 
 
+class NatGatewayCreateMappingTypeDef(TypedDict):
+    SubnetId: str
+    AllocationIds: NotRequired[Sequence[str]]
+    PrivateIps: NotRequired[Sequence[str]]
+
+
 class PerObjectStatusTypeDef(TypedDict):
     SyncStatus: NotRequired[PerObjectSyncStatusType]
     UpdateToken: NotRequired[str]
@@ -1085,44 +945,6 @@ class PortSetOutputTypeDef(TypedDict):
 
 class PortSetTypeDef(TypedDict):
     Definition: NotRequired[Sequence[str]]
-
-
-ProxyConfigRuleGroupTypeDef = TypedDict(
-    "ProxyConfigRuleGroupTypeDef",
-    {
-        "ProxyRuleGroupName": NotRequired[str],
-        "ProxyRuleGroupArn": NotRequired[str],
-        "Type": NotRequired[str],
-        "Priority": NotRequired[int],
-    },
-)
-
-
-class ProxyRuleConditionOutputTypeDef(TypedDict):
-    ConditionOperator: NotRequired[str]
-    ConditionKey: NotRequired[str]
-    ConditionValues: NotRequired[list[str]]
-
-
-class ProxyRuleConditionTypeDef(TypedDict):
-    ConditionOperator: NotRequired[str]
-    ConditionKey: NotRequired[str]
-    ConditionValues: NotRequired[Sequence[str]]
-
-
-class ProxyRuleGroupPriorityResultTypeDef(TypedDict):
-    ProxyRuleGroupName: NotRequired[str]
-    Priority: NotRequired[int]
-
-
-class ProxyRuleGroupPriorityTypeDef(TypedDict):
-    ProxyRuleGroupName: NotRequired[str]
-    NewPosition: NotRequired[int]
-
-
-class ProxyRulePriorityTypeDef(TypedDict):
-    ProxyRuleName: NotRequired[str]
-    NewPosition: NotRequired[int]
 
 
 class PutResourcePolicyRequestTypeDef(TypedDict):
@@ -1247,22 +1069,10 @@ class DeleteNetworkFirewallTransitGatewayAttachmentResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class DeleteProxyConfigurationResponseTypeDef(TypedDict):
-    ProxyConfigurationName: str
-    ProxyConfigurationArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class DeleteProxyResponseTypeDef(TypedDict):
     NatGatewayId: str
     ProxyName: str
     ProxyArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DeleteProxyRuleGroupResponseTypeDef(TypedDict):
-    ProxyRuleGroupName: str
-    ProxyRuleGroupArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1440,13 +1250,6 @@ class DisassociateAvailabilityZonesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class AssociateSubnetsRequestTypeDef(TypedDict):
-    SubnetMappings: Sequence[SubnetMappingTypeDef]
-    UpdateToken: NotRequired[str]
-    FirewallArn: NotRequired[str]
-    FirewallName: NotRequired[str]
-
-
 class AssociateSubnetsResponseTypeDef(TypedDict):
     FirewallArn: str
     FirewallName: str
@@ -1471,13 +1274,6 @@ class VpcEndpointOutputTypeDef(TypedDict):
 class VpcEndpointTypeDef(TypedDict):
     VpcId: str
     SubnetMappings: Sequence[SubnetMappingTypeDef]
-
-
-class AttachRuleGroupsToProxyConfigurationRequestTypeDef(TypedDict):
-    RuleGroups: Sequence[ProxyRuleGroupAttachmentTypeDef]
-    UpdateToken: str
-    ProxyConfigurationName: NotRequired[str]
-    ProxyConfigurationArn: NotRequired[str]
 
 
 class DescribeFirewallMetadataResponseTypeDef(TypedDict):
@@ -1556,42 +1352,6 @@ class UpdateFirewallEncryptionConfigurationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class CreateProxyConfigurationRequestTypeDef(TypedDict):
-    ProxyConfigurationName: str
-    DefaultRulePhaseActions: ProxyConfigDefaultRulePhaseActionsRequestTypeDef
-    Description: NotRequired[str]
-    RuleGroupNames: NotRequired[Sequence[str]]
-    RuleGroupArns: NotRequired[Sequence[str]]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
-class UpdateProxyConfigurationRequestTypeDef(TypedDict):
-    DefaultRulePhaseActions: ProxyConfigDefaultRulePhaseActionsRequestTypeDef
-    UpdateToken: str
-    ProxyConfigurationName: NotRequired[str]
-    ProxyConfigurationArn: NotRequired[str]
-
-
-class CreateProxyRequestTypeDef(TypedDict):
-    ProxyName: str
-    NatGatewayId: str
-    TlsInterceptProperties: TlsInterceptPropertiesRequestTypeDef
-    ProxyConfigurationName: NotRequired[str]
-    ProxyConfigurationArn: NotRequired[str]
-    ListenerProperties: NotRequired[Sequence[ListenerPropertyRequestTypeDef]]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
-class UpdateProxyRequestTypeDef(TypedDict):
-    NatGatewayId: str
-    UpdateToken: str
-    ProxyName: NotRequired[str]
-    ProxyArn: NotRequired[str]
-    ListenerPropertiesToAdd: NotRequired[Sequence[ListenerPropertyRequestTypeDef]]
-    ListenerPropertiesToRemove: NotRequired[Sequence[ListenerPropertyRequestTypeDef]]
-    TlsInterceptProperties: NotRequired[TlsInterceptPropertiesRequestTypeDef]
-
-
 class DescribeFirewallPolicyRequestWaitTypeDef(TypedDict):
     FirewallPolicyName: NotRequired[str]
     FirewallPolicyArn: NotRequired[str]
@@ -1600,10 +1360,14 @@ class DescribeFirewallPolicyRequestWaitTypeDef(TypedDict):
 
 class ProxySettingsOutputTypeDef(TypedDict):
     ListenerProperties: list[ListenerPropertyTypeDef]
+    CertificateArn: NotRequired[str]
+    DomainName: NotRequired[str]
 
 
 class ProxySettingsTypeDef(TypedDict):
     ListenerProperties: Sequence[ListenerPropertyTypeDef]
+    CertificateArn: NotRequired[str]
+    DomainName: NotRequired[str]
 
 
 class DescribeProxyResourceTypeDef(TypedDict):
@@ -1623,24 +1387,6 @@ class DescribeProxyResourceTypeDef(TypedDict):
     UpdateTime: NotRequired[datetime]
     FailureCode: NotRequired[str]
     FailureMessage: NotRequired[str]
-    Tags: NotRequired[list[TagTypeDef]]
-
-
-class ProxyTypeDef(TypedDict):
-    CreateTime: NotRequired[datetime]
-    DeleteTime: NotRequired[datetime]
-    UpdateTime: NotRequired[datetime]
-    FailureCode: NotRequired[str]
-    FailureMessage: NotRequired[str]
-    ProxyState: NotRequired[ProxyStateType]
-    ProxyModifyState: NotRequired[ProxyModifyStateType]
-    NatGatewayId: NotRequired[str]
-    ProxyConfigurationName: NotRequired[str]
-    ProxyConfigurationArn: NotRequired[str]
-    ProxyName: NotRequired[str]
-    ProxyArn: NotRequired[str]
-    ListenerProperties: NotRequired[list[ListenerPropertyTypeDef]]
-    TlsInterceptProperties: NotRequired[TlsInterceptPropertiesTypeDef]
     Tags: NotRequired[list[TagTypeDef]]
 
 
@@ -1827,18 +1573,6 @@ class ListFlowOperationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
-class ListProxiesRequestPaginateTypeDef(TypedDict):
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-
-class ListProxyConfigurationsRequestPaginateTypeDef(TypedDict):
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-
-class ListProxyRuleGroupsRequestPaginateTypeDef(TypedDict):
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-
 ListRuleGroupsRequestPaginateTypeDef = TypedDict(
     "ListRuleGroupsRequestPaginateTypeDef",
     {
@@ -1893,24 +1627,6 @@ class PolicyVariablesTypeDef(TypedDict):
     RuleVariables: NotRequired[Mapping[str, IPSetTypeDef]]
 
 
-class ListProxiesResponseTypeDef(TypedDict):
-    Proxies: list[ProxyMetadataTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class ListProxyConfigurationsResponseTypeDef(TypedDict):
-    ProxyConfigurations: list[ProxyConfigurationMetadataTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class ListProxyRuleGroupsResponseTypeDef(TypedDict):
-    ProxyRuleGroups: list[ProxyRuleGroupMetadataTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
 class ListRuleGroupsResponseTypeDef(TypedDict):
     RuleGroups: list[RuleGroupMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1943,6 +1659,9 @@ class ServerCertificateScopeOutputTypeDef(TypedDict):
     SourcePorts: NotRequired[list[PortRangeTypeDef]]
     DestinationPorts: NotRequired[list[PortRangeTypeDef]]
     Protocols: NotRequired[list[int]]
+    DomainMatch: NotRequired[DomainMatchOutputTypeDef]
+    DecryptionAction: NotRequired[DecryptionActionType]
+    DeploymentMode: NotRequired[TLSInspectionScopeDeploymentModeType]
 
 
 class ServerCertificateScopeTypeDef(TypedDict):
@@ -1951,6 +1670,9 @@ class ServerCertificateScopeTypeDef(TypedDict):
     SourcePorts: NotRequired[Sequence[PortRangeTypeDef]]
     DestinationPorts: NotRequired[Sequence[PortRangeTypeDef]]
     Protocols: NotRequired[Sequence[int]]
+    DomainMatch: NotRequired[DomainMatchTypeDef]
+    DecryptionAction: NotRequired[DecryptionActionType]
+    DeploymentMode: NotRequired[TLSInspectionScopeDeploymentModeType]
 
 
 class MatchAttributesOutputTypeDef(TypedDict):
@@ -1971,6 +1693,11 @@ class MatchAttributesTypeDef(TypedDict):
     TCPFlags: NotRequired[Sequence[TCPFlagFieldTypeDef]]
 
 
+NatGatewayCreateMappingUnionTypeDef = Union[
+    NatGatewayCreateMappingTypeDef, NatGatewayCreateMappingOutputTypeDef
+]
+
+
 class SyncStateTypeDef(TypedDict):
     Attachment: NotRequired[AttachmentTypeDef]
     Config: NotRequired[dict[str, PerObjectStatusTypeDef]]
@@ -1985,64 +1712,6 @@ class RuleVariablesOutputTypeDef(TypedDict):
 class RuleVariablesTypeDef(TypedDict):
     IPSets: NotRequired[Mapping[str, IPSetTypeDef]]
     PortSets: NotRequired[Mapping[str, PortSetTypeDef]]
-
-
-class ProxyConfigurationTypeDef(TypedDict):
-    ProxyConfigurationName: NotRequired[str]
-    ProxyConfigurationArn: NotRequired[str]
-    Description: NotRequired[str]
-    CreateTime: NotRequired[datetime]
-    DeleteTime: NotRequired[datetime]
-    RuleGroups: NotRequired[list[ProxyConfigRuleGroupTypeDef]]
-    DefaultRulePhaseActions: NotRequired[ProxyConfigDefaultRulePhaseActionsRequestTypeDef]
-    Tags: NotRequired[list[TagTypeDef]]
-
-
-class ProxyRuleOutputTypeDef(TypedDict):
-    ProxyRuleName: NotRequired[str]
-    Description: NotRequired[str]
-    Action: NotRequired[ProxyRulePhaseActionType]
-    Conditions: NotRequired[list[ProxyRuleConditionOutputTypeDef]]
-
-
-ProxyRuleConditionUnionTypeDef = Union[ProxyRuleConditionTypeDef, ProxyRuleConditionOutputTypeDef]
-
-
-class ProxyRuleTypeDef(TypedDict):
-    ProxyRuleName: NotRequired[str]
-    Description: NotRequired[str]
-    Action: NotRequired[ProxyRulePhaseActionType]
-    Conditions: NotRequired[Sequence[ProxyRuleConditionTypeDef]]
-
-
-class UpdateProxyRuleGroupPrioritiesResponseTypeDef(TypedDict):
-    ProxyRuleGroups: list[ProxyRuleGroupPriorityResultTypeDef]
-    UpdateToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateProxyRuleGroupPrioritiesRequestTypeDef(TypedDict):
-    RuleGroups: Sequence[ProxyRuleGroupPriorityTypeDef]
-    UpdateToken: str
-    ProxyConfigurationName: NotRequired[str]
-    ProxyConfigurationArn: NotRequired[str]
-
-
-class UpdateProxyRulePrioritiesRequestTypeDef(TypedDict):
-    RuleGroupRequestPhase: RuleGroupRequestPhaseType
-    Rules: Sequence[ProxyRulePriorityTypeDef]
-    UpdateToken: str
-    ProxyRuleGroupName: NotRequired[str]
-    ProxyRuleGroupArn: NotRequired[str]
-
-
-class UpdateProxyRulePrioritiesResponseTypeDef(TypedDict):
-    ProxyRuleGroupName: str
-    ProxyRuleGroupArn: str
-    RuleGroupRequestPhase: RuleGroupRequestPhaseType
-    Rules: list[ProxyRulePriorityTypeDef]
-    UpdateToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 RuleGroupResponseTypeDef = TypedDict(
@@ -2212,10 +1881,10 @@ class FirewallTypeDef(TypedDict):
     TransitGatewayOwnerAccountId: NotRequired[str]
     AvailabilityZoneMappings: NotRequired[list[AvailabilityZoneMappingTypeDef]]
     AvailabilityZoneChangeProtection: NotRequired[bool]
-    NatGatewayMappings: NotRequired[list[NatGatewayMappingTypeDef]]
+    NatGatewayCreateMappings: NotRequired[list[NatGatewayCreateMappingOutputTypeDef]]
     ProxySettings: NotRequired[ProxySettingsOutputTypeDef]
-    NoSourcePreservation: NotRequired[bool]
     VpcEndpoint: NotRequired[VpcEndpointOutputTypeDef]
+    TransparentFilteringNatScope: NotRequired[TransparentFilteringNatScopeType]
 
 
 class UpdateProxySettingsResponseTypeDef(TypedDict):
@@ -2231,18 +1900,6 @@ ProxySettingsUnionTypeDef = Union[ProxySettingsTypeDef, ProxySettingsOutputTypeD
 
 class DescribeProxyResponseTypeDef(TypedDict):
     Proxy: DescribeProxyResourceTypeDef
-    UpdateToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateProxyResponseTypeDef(TypedDict):
-    Proxy: ProxyTypeDef
-    UpdateToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateProxyResponseTypeDef(TypedDict):
-    Proxy: ProxyTypeDef
     UpdateToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2326,6 +1983,7 @@ class ServerCertificateConfigurationOutputTypeDef(TypedDict):
     Scopes: NotRequired[list[ServerCertificateScopeOutputTypeDef]]
     CertificateAuthorityArn: NotRequired[str]
     CheckCertificateRevocationStatus: NotRequired[CheckCertificateRevocationStatusActionsTypeDef]
+    DefaultDecryptionBehavior: NotRequired[DecryptionActionType]
 
 
 class ServerCertificateConfigurationTypeDef(TypedDict):
@@ -2333,6 +1991,7 @@ class ServerCertificateConfigurationTypeDef(TypedDict):
     Scopes: NotRequired[Sequence[ServerCertificateScopeTypeDef]]
     CertificateAuthorityArn: NotRequired[str]
     CheckCertificateRevocationStatus: NotRequired[CheckCertificateRevocationStatusActionsTypeDef]
+    DefaultDecryptionBehavior: NotRequired[DecryptionActionType]
 
 
 class RuleDefinitionOutputTypeDef(TypedDict):
@@ -2345,6 +2004,14 @@ class RuleDefinitionTypeDef(TypedDict):
     Actions: Sequence[str]
 
 
+class AssociateSubnetsRequestTypeDef(TypedDict):
+    SubnetMappings: Sequence[SubnetMappingTypeDef]
+    UpdateToken: NotRequired[str]
+    FirewallArn: NotRequired[str]
+    FirewallName: NotRequired[str]
+    NatGatewayCreateMappings: NotRequired[Sequence[NatGatewayCreateMappingUnionTypeDef]]
+
+
 class IpsRuleGroupOutputTypeDef(TypedDict):
     RulesSource: IpsRulesSourceTypeDef
     RuleVariables: NotRequired[RuleVariablesOutputTypeDef]
@@ -2355,80 +2022,6 @@ class IpsRuleGroupTypeDef(TypedDict):
     RulesSource: IpsRulesSourceTypeDef
     RuleVariables: NotRequired[RuleVariablesTypeDef]
     ReferenceSets: NotRequired[ReferenceSetsTypeDef]
-
-
-class AttachRuleGroupsToProxyConfigurationResponseTypeDef(TypedDict):
-    ProxyConfiguration: ProxyConfigurationTypeDef
-    UpdateToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateProxyConfigurationResponseTypeDef(TypedDict):
-    ProxyConfiguration: ProxyConfigurationTypeDef
-    UpdateToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribeProxyConfigurationResponseTypeDef(TypedDict):
-    ProxyConfiguration: ProxyConfigurationTypeDef
-    UpdateToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DetachRuleGroupsFromProxyConfigurationResponseTypeDef(TypedDict):
-    ProxyConfiguration: ProxyConfigurationTypeDef
-    UpdateToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateProxyConfigurationResponseTypeDef(TypedDict):
-    ProxyConfiguration: ProxyConfigurationTypeDef
-    UpdateToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribeProxyRuleResponseTypeDef(TypedDict):
-    ProxyRule: ProxyRuleOutputTypeDef
-    UpdateToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ProxyRulesByRequestPhaseOutputTypeDef(TypedDict):
-    PreDNS: NotRequired[list[ProxyRuleOutputTypeDef]]
-    PreREQUEST: NotRequired[list[ProxyRuleOutputTypeDef]]
-    PostRESPONSE: NotRequired[list[ProxyRuleOutputTypeDef]]
-
-
-class UpdateProxyRuleResponseTypeDef(TypedDict):
-    ProxyRule: ProxyRuleOutputTypeDef
-    RemovedConditions: list[ProxyRuleConditionOutputTypeDef]
-    UpdateToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateProxyRuleTypeDef(TypedDict):
-    ProxyRuleName: NotRequired[str]
-    Description: NotRequired[str]
-    Action: NotRequired[ProxyRulePhaseActionType]
-    Conditions: NotRequired[Sequence[ProxyRuleConditionUnionTypeDef]]
-    InsertPosition: NotRequired[int]
-
-
-class UpdateProxyRuleRequestTypeDef(TypedDict):
-    ProxyRuleName: str
-    UpdateToken: str
-    ProxyRuleGroupName: NotRequired[str]
-    ProxyRuleGroupArn: NotRequired[str]
-    Description: NotRequired[str]
-    Action: NotRequired[ProxyRulePhaseActionType]
-    AddConditions: NotRequired[Sequence[ProxyRuleConditionUnionTypeDef]]
-    RemoveConditions: NotRequired[Sequence[ProxyRuleConditionUnionTypeDef]]
-
-
-class ProxyRulesByRequestPhaseTypeDef(TypedDict):
-    PreDNS: NotRequired[Sequence[ProxyRuleTypeDef]]
-    PreREQUEST: NotRequired[Sequence[ProxyRuleTypeDef]]
-    PostRESPONSE: NotRequired[Sequence[ProxyRuleTypeDef]]
 
 
 class CreateRuleGroupResponseTypeDef(TypedDict):
@@ -2572,10 +2165,10 @@ class CreateFirewallRequestTypeDef(TypedDict):
     TransitGatewayId: NotRequired[str]
     AvailabilityZoneMappings: NotRequired[Sequence[AvailabilityZoneMappingTypeDef]]
     AvailabilityZoneChangeProtection: NotRequired[bool]
-    NatGatewayMappings: NotRequired[Sequence[NatGatewayMappingTypeDef]]
+    NatGatewayCreateMappings: NotRequired[Sequence[NatGatewayCreateMappingUnionTypeDef]]
     ProxySettings: NotRequired[ProxySettingsUnionTypeDef]
-    NoSourcePreservation: NotRequired[bool]
     VpcEndpoint: NotRequired[VpcEndpointUnionTypeDef]
+    TransparentFilteringNatScope: NotRequired[TransparentFilteringNatScopeType]
 
 
 class UpdateProxySettingsRequestTypeDef(TypedDict):
@@ -2645,27 +2238,6 @@ class IpsRuleGroupEntryTypeDef(TypedDict):
 
 
 IpsRuleGroupUnionTypeDef = Union[IpsRuleGroupTypeDef, IpsRuleGroupOutputTypeDef]
-
-
-class ProxyRuleGroupTypeDef(TypedDict):
-    ProxyRuleGroupName: NotRequired[str]
-    ProxyRuleGroupArn: NotRequired[str]
-    CreateTime: NotRequired[datetime]
-    DeleteTime: NotRequired[datetime]
-    Rules: NotRequired[ProxyRulesByRequestPhaseOutputTypeDef]
-    Description: NotRequired[str]
-    Tags: NotRequired[list[TagTypeDef]]
-
-
-class CreateProxyRulesByRequestPhaseTypeDef(TypedDict):
-    PreDNS: NotRequired[Sequence[CreateProxyRuleTypeDef]]
-    PreREQUEST: NotRequired[Sequence[CreateProxyRuleTypeDef]]
-    PostRESPONSE: NotRequired[Sequence[CreateProxyRuleTypeDef]]
-
-
-ProxyRulesByRequestPhaseUnionTypeDef = Union[
-    ProxyRulesByRequestPhaseTypeDef, ProxyRulesByRequestPhaseOutputTypeDef
-]
 
 
 class CreateFirewallResponseTypeDef(TypedDict):
@@ -2750,42 +2322,6 @@ class StatelessRulesAndCustomActionsOutputTypeDef(TypedDict):
 class StatelessRulesAndCustomActionsTypeDef(TypedDict):
     StatelessRules: Sequence[StatelessRuleTypeDef]
     CustomActions: NotRequired[Sequence[CustomActionTypeDef]]
-
-
-class CreateProxyRuleGroupResponseTypeDef(TypedDict):
-    ProxyRuleGroup: ProxyRuleGroupTypeDef
-    UpdateToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateProxyRulesResponseTypeDef(TypedDict):
-    ProxyRuleGroup: ProxyRuleGroupTypeDef
-    UpdateToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DeleteProxyRulesResponseTypeDef(TypedDict):
-    ProxyRuleGroup: ProxyRuleGroupTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribeProxyRuleGroupResponseTypeDef(TypedDict):
-    ProxyRuleGroup: ProxyRuleGroupTypeDef
-    UpdateToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateProxyRulesRequestTypeDef(TypedDict):
-    Rules: CreateProxyRulesByRequestPhaseTypeDef
-    ProxyRuleGroupArn: NotRequired[str]
-    ProxyRuleGroupName: NotRequired[str]
-
-
-class CreateProxyRuleGroupRequestTypeDef(TypedDict):
-    ProxyRuleGroupName: str
-    Description: NotRequired[str]
-    Rules: NotRequired[ProxyRulesByRequestPhaseUnionTypeDef]
-    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class DescribeFirewallPolicyResponseTypeDef(TypedDict):

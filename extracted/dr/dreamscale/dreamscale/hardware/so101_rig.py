@@ -90,6 +90,8 @@ class So101Rig(JointRig):
         max_joint_velocity: float | None = DEFAULT_MAX_JOINT_VELOCITY,
         cameras: dict[str, Any] | None = None,
         camera_config=None,
+        camera_roles: tuple[str, ...] = ("side", "wrist"),
+        gripper_range: tuple[float, float] | None = None,
         readers_factory=CameraReaders,
         max_camera_age_s: float = 1.0,
         camera_ready_timeout_s: float = 8.0,
@@ -107,6 +109,9 @@ class So101Rig(JointRig):
         self.home_pose = None if home is None else [float(v) for v in home]
         self.cameras = cameras or {}
         self.camera_config = camera_config
+        if camera_roles not in (("side",), ("side", "wrist")):
+            raise ValueError("SO-101 camera roles are side, with an optional wrist")
+        self.camera_roles, self.gripper_range = camera_roles, gripper_range
         self.readers_factory, self.readers = readers_factory, None
         self.max_camera_age_s = max_camera_age_s
         self.camera_ready_timeout_s = camera_ready_timeout_s
@@ -130,7 +135,7 @@ class So101Rig(JointRig):
         self.faulted = False
         self.held_on_close = {}
         if self.camera_config is not None:
-            roles = {role: self.camera_config.roles[role] for role in ("side", "wrist")}
+            roles = {role: self.camera_config.roles[role] for role in self.camera_roles}
             self.readers = self.readers_factory(
                 [self.camera_config.camera(role) for role in roles]
             )
@@ -170,10 +175,10 @@ class So101Rig(JointRig):
     def latest_frames(self) -> dict[str, np.ndarray]:
         if self.readers is None:
             frames = self.robot.capture_frames()
-            return {"side": frames[CAMERA_KEY_SO101_SIDE],
-                    "wrist": frames[CAMERA_KEY_SO101_WRIST]}
+            keys = {"side": CAMERA_KEY_SO101_SIDE, "wrist": CAMERA_KEY_SO101_WRIST}
+            return {role: frames[keys[role]] for role in self.camera_roles}
         frames = {}
-        for role in ("side", "wrist"):
+        for role in self.camera_roles:
             try:
                 frames[role] = lagging_latest(
                     self.readers, self.camera_config.roles[role],
@@ -195,7 +200,9 @@ class So101Rig(JointRig):
             position = self._measured()
         return so101.observation(
             side_frame=frames["side"],
-            wrist_frame=frames["wrist"],
+            wrist_frame=frames.get("wrist"),
+            views=len(self.camera_roles),
+            gripper_range=self.gripper_range,
             joint_positions=position.tolist(),
             actions_remaining=getattr(ctx, "actions_remaining", 0),
         )
@@ -205,7 +212,7 @@ class So101Rig(JointRig):
         if self.camera_config is not None:
             cameras = {
                 role: {"backend": c.backend, "width": c.width, "height": c.height, "fps": c.fps}
-                for role in ("side", "wrist") for c in (self.camera_config.camera(role),)
+                for role in self.camera_roles for c in (self.camera_config.camera(role),)
             }
         return {
             "cameras": cameras,

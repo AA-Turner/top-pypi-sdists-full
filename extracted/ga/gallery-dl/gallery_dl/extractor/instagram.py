@@ -394,6 +394,8 @@ class InstagramExtractor(Extractor):
                 media["expires"] = self.parse_timestamp(item["expiring_at"])
             if "subscription_media_visibility" in item:
                 media["subscription"] = item["subscription_media_visibility"]
+            elif item.get("audience") == "fan_club":
+                media["subscription"] = True
             if "audience" in item:
                 media["audience"] = item["audience"]
 
@@ -537,8 +539,9 @@ class InstagramExtractor(Extractor):
     def _init_cursor(self):
         cursor = self.config("cursor", True)
         if cursor is True:
-            return None
+            cursor = None
         elif not cursor:
+            cursor = None
             self._update_cursor = util.identity
         return cursor
 
@@ -739,7 +742,7 @@ class InstagramStoriesExtractor(InstagramExtractor):
     subcategory = "stories"
     pattern = (r"(?:https?://)?(?:www\.)?instagram\.com"
                r"/s(?:tories/(?:highlights/(\d+)|([^/?#]+)(?:/(\d+))?)"
-               r"|/(aGlnaGxpZ2h0[^?#]+)(?:\?story_media_id=(\d+))?)")
+               r"|/(aGlnaGxpZ2h0[^/?#]+)(?:\?story_media_id=(\d+))?)")
     example = "https://www.instagram.com/stories/USER/"
 
     def __init__(self, match):
@@ -1254,6 +1257,28 @@ class InstagramAPI():
 
         return headers, body
 
+    def _load_graphql(self, result, fieldname=None):
+        if (pos := result.find("{")) > 0:
+            # remove 'for (;;);' guard
+            result = result[pos:]
+
+        try:
+            data = util.json_loads(result)
+            return (data["data"] if fieldname is None else
+                    data["data"][fieldname])
+        except ValueError as exc:
+            msg = f"Failed to load API data ({exc.__class__.__name__}: {exc})"
+        except Exception:
+            if err := data.get("errors"):
+                msg = f'"{err[0]["message"]}"'
+            elif err := data.get("errorDescription"):
+                msg = f'"{data.get("errorSummary")} - {err}"'
+            else:
+                msg = "Failed to load API data"
+
+        self.extractor.log.debug("Server response:\n%s", result)
+        raise self.exc.AbortExtraction(msg)
+
     def _call(self, endpoint, **kwargs):
         extr = self.extractor
 
@@ -1282,18 +1307,7 @@ class InstagramAPI():
         extr.log.debug("%s (%s)", opname, body["doc_id"])
         extr.log.debug(body["variables"])
         result = extr.request(extr.root + "/api/graphql", **kwargs).text
-
-        data = None
-        try:
-            data = util.json_loads(result)
-            return data["data"]
-        except (ValueError, KeyError) as exc:
-            extr.log.debug("Server response:\n%s", result)
-            if data and (err := data.get("errors")):
-                msg = f"'{err[0]['message']}'"
-            else:
-                msg = f"{exc.__class__.__name__}: {exc}"
-            raise self.exc.AbortExtraction(f"Failed to load API data ({msg})")
+        return self._load_graphql(result)
 
     def _pagination(self, endpoint, params=None, media=False):
         if params is None:
@@ -1359,19 +1373,7 @@ class InstagramAPI():
             headers["X-CSRFToken"] = extr.csrf_token
             result = extr.request(
                 url, method="POST", headers=headers, data=body).text
-
-            data = None
-            try:
-                data = util.json_loads(result)
-                data = data["data"][fieldname]
-            except (ValueError, KeyError) as exc:
-                extr.log.debug("Server response:\n%s", result)
-                if data and (err := data.get("errors")):
-                    msg = f"'{err[0]['message']}'"
-                else:
-                    msg = f"{exc.__class__.__name__}: {exc}"
-                raise self.exc.AbortExtraction(
-                    f"Failed to load API data ({msg})")
+            data = self._load_graphql(result, fieldname)
 
             if "max_id" in variables:
                 data = data["user_reposts_timeline"]

@@ -1,7 +1,7 @@
 """
 civic_search_evidence_items
 
-Search for curated CIViC evidence items. The tool follows CIViC's 100-record GraphQL pages up to ...
+Search CIViC evidence items with exact totalCount and cursor pagination. Each row carries the evi...
 """
 
 from typing import Any, Optional, Callable
@@ -26,7 +26,7 @@ def civic_search_evidence_items(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Search for curated CIViC evidence items. The tool follows CIViC's 100-record GraphQL pages up to ...
+    Search CIViC evidence items with exact totalCount and cursor pagination. Each row carries the evi...
 
     Parameters
     ----------
@@ -39,9 +39,9 @@ def civic_search_evidence_items(
     therapy_name : str
         Alias for therapy. Filter by therapy/drug name.
     disease : str
-        Filter by disease name (e.g., 'leukemia', 'melanoma', 'lung cancer'). Alias: ...
+        Filter by disease NAME (e.g. 'leukemia', 'melanoma', 'lung cancer'). Alias: d...
     disease_name : str
-        Alias for disease. Filter by disease name.
+        Filter by disease NAME (e.g. 'leukemia', 'melanoma', 'lung cancer'). Alias: d...
     molecular_profile : str
         Filter by molecular profile name (e.g., 'BRAF V600E', 'EGFR T790M', 'KRAS G12...
     evidence_type : str

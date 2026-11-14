@@ -4,6 +4,7 @@ import asyncio
 import datetime
 import itertools
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -463,6 +464,137 @@ def test_format_time_extreme_timedeltas() -> None:
 
     assert largest == '999999999 days, 23:59:59'
     assert smallest == '-999999999 days, 0:00:00'
+
+
+@pytest.mark.parametrize(
+    'value,precision,expected',
+    [
+        (
+            datetime.datetime(1960, 1, 2, 3, 4, 5, 678901),
+            datetime.timedelta(seconds=1),
+            '1960-01-02 03:04:05',
+        ),
+        (
+            datetime.datetime(1900, 1, 2, 3, 4, 5, 678901),
+            datetime.timedelta(milliseconds=10),
+            '1900-01-02 03:04:05.670000',
+        ),
+        (
+            datetime.datetime.min,
+            datetime.timedelta(seconds=1),
+            '0001-01-01 00:00:00',
+        ),
+        (
+            datetime.datetime.max,
+            datetime.timedelta(seconds=1),
+            '9999-12-31 23:59:59',
+        ),
+    ],
+)
+def test_format_time_outside_platform_timestamp_range(
+    value: datetime.datetime,
+    precision: datetime.timedelta,
+    expected: str,
+) -> None:
+    """Format valid naive dates outside the platform's timestamp range."""
+    assert python_utils.format_time(value, precision) == expected
+
+
+class _NoTimestamp(datetime.datetime):
+    """A datetime whose platform cannot give it a timestamp."""
+
+    def timestamp(self) -> float:
+        """Fail the way an out-of-range platform conversion does."""
+        raise ValueError('year 0 is out of range')
+
+
+@pytest.mark.parametrize(
+    'precision',
+    [datetime.timedelta(0), 1, datetime.timedelta(days=999_999_999)],
+)
+def test_format_time_keeps_timestamp_error_without_wall_clock(
+    precision: datetime.timedelta,
+) -> None:
+    """Raise the 4.2.1 error when exact arithmetic cannot help either."""
+    with pytest.raises(ValueError, match='year 0 is out of range'):
+        python_utils.format_time(_NoTimestamp(1, 1, 1), precision)
+
+
+def test_format_time_keeps_timestamp_error_for_subclasses() -> None:
+    """A subclass that cannot give a timestamp raises, as in 4.2.1."""
+    with pytest.raises(ValueError, match='year 0 is out of range'):
+        python_utils.format_time(_NoTimestamp(1, 1, 1))
+
+
+def test_format_time_keeps_timestamp_error_for_aware() -> None:
+    """Aware datetimes without a timestamp raise, as in 4.2.1."""
+    value = _NoTimestamp(2000, 1, 1, tzinfo=datetime.timezone.utc)
+    with pytest.raises(ValueError, match='year 0 is out of range'):
+        python_utils.format_time(value)
+
+
+def test_format_time_keeps_max_when_wall_clock_overflows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Return the 4.2.1 maximum when neither conversion can format it."""
+
+    class NoFromTimestamp(datetime.datetime):
+        """Simulate a platform unable to convert the timestamp back."""
+
+        @classmethod
+        def fromtimestamp(
+            cls, timestamp: float, tz: datetime.tzinfo | None = None
+        ) -> 'NoFromTimestamp':
+            """Reject every timestamp."""
+            raise ValueError('year 0 is out of range')
+
+    monkeypatch.setattr(
+        python_utils.time,
+        'datetime',
+        SimpleNamespace(
+            datetime=NoFromTimestamp,
+            timedelta=datetime.timedelta,
+            date=datetime.date,
+        ),
+    )
+    value = NoFromTimestamp(1, 1, 2)
+    result = python_utils.format_time(value, datetime.timedelta(days=7))
+    assert result == str(datetime.datetime.max)
+
+
+@pytest.mark.parametrize('error', [OverflowError, OSError, ValueError])
+@pytest.mark.parametrize('tzinfo', [None, datetime.timezone.utc])
+def test_format_time_unavailable_fromtimestamp(
+    monkeypatch: pytest.MonkeyPatch,
+    error: type[Exception],
+    tzinfo: datetime.tzinfo | None,
+) -> None:
+    """Handle platform conversion failures on systems with a wider range."""
+
+    class LimitedDatetime(datetime.datetime):
+        """Simulate a platform unable to convert the timestamp back."""
+
+        @classmethod
+        def fromtimestamp(
+            cls, timestamp: float, tz: datetime.tzinfo | None = None
+        ) -> 'LimitedDatetime':
+            """Reject dates outside the simulated platform range."""
+            raise error('timestamp out of range')
+
+    value = LimitedDatetime(2000, 1, 2, 3, 4, 5, 678901, tzinfo=tzinfo)
+    monkeypatch.setattr(
+        python_utils.time,
+        'datetime',
+        SimpleNamespace(
+            datetime=LimitedDatetime,
+            timedelta=datetime.timedelta,
+            date=datetime.date,
+        ),
+    )
+    expected = (
+        '2000-01-02 03:04:05' if tzinfo is None else str(datetime.datetime.max)
+    )
+    assert python_utils.format_time(value) == expected
 
 
 @pytest.mark.parametrize(

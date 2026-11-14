@@ -13,7 +13,7 @@ from html import unescape
 from html.entities import html5
 from io import BytesIO
 from pathlib import Path
-from typing import Literal, cast
+from typing import Final, Literal, cast
 
 import yaml
 from docling_core.types.doc import (
@@ -226,6 +226,9 @@ def _strip_frontmatter(text: str) -> str:
     return text[match.end() :] if isinstance(meta, dict) else text
 
 
+_LINK_DEST: Final = TypeAdapter(AnyUrl | Path | None)
+
+
 def _text_run_piece(node: marko.inline.RawText | marko.inline.Literal) -> str:
     """Return the final text of a run, with every `&` kept as an entity.
 
@@ -333,7 +336,7 @@ class MarkdownDocumentBackend(DeclarativeDocumentBackend):
             An `AnyUrl` or `Path` instance, or `None` when the destination
             cannot be parsed.
         """
-        return TypeAdapter(AnyUrl | Path | None).validate_python(dest)
+        return _LINK_DEST.validate_python(dest)
 
     def _shorten_underscore_sequences(self, markdown_text: str, max_length: int = 10):
         pattern = r"_+"
@@ -695,18 +698,18 @@ class MarkdownDocumentBackend(DeclarativeDocumentBackend):
 
         elif isinstance(element, marko.inline.Image):
             image_ref = self._load_image_ref(element.dest)
-            fig_caption = None
+            pic = doc.add_picture(
+                parent=inline_parent,
+                image=image_ref,
+            )
             if element.title:
                 title = _decode_char_references(element.title)
                 fig_caption = doc.add_text(
                     label=DocItemLabel.CAPTION,
                     text=title,
+                    parent=pic,
                 )
-            pic = doc.add_picture(
-                parent=inline_parent,
-                image=image_ref,
-                caption=fig_caption,
-            )
+                pic.captions.append(fig_caption.get_ref())
             collected_refs.append(pic.get_ref())
 
         else:
@@ -963,7 +966,8 @@ class MarkdownDocumentBackend(DeclarativeDocumentBackend):
                     hyperlink=hyperlink,
                 )
 
-            fig_caption: TextItem | None = None
+            image_ref = self._load_image_ref(element.dest)
+            pic = doc.add_picture(parent=parent_item, image=image_ref)
             if element.title is not None and element.title != "":
                 title = _decode_char_references(element.title)
                 fig_caption = doc.add_text(
@@ -971,10 +975,9 @@ class MarkdownDocumentBackend(DeclarativeDocumentBackend):
                     text=title,
                     formatting=formatting,
                     hyperlink=hyperlink,
+                    parent=pic,
                 )
-
-            image_ref = self._load_image_ref(element.dest)
-            doc.add_picture(parent=parent_item, image=image_ref, caption=fig_caption)
+                pic.captions.append(fig_caption.get_ref())
 
         elif isinstance(element, marko.inline.Emphasis):
             _log.debug(" - Emphasis: %s", element.children)

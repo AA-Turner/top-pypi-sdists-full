@@ -182,28 +182,27 @@ class FacebookExtractor(Extractor):
         return post
 
     def parse_video_page(self, video_page):
+        user = text.extr(
+            video_page,
+            '"video_owner":{"__typename":"User",',
+            '],',
+        ) or text.extr(
+            video_page,
+            '"media":{"__typename":"Video","owner":{"__typename":"User",',
+            '},',
+        )
+
         video = {
             "id": text.extr(
                 video_page, '\\"video_id\\":\\"', '\\"'
             ),
-            "username": self.decode_all(text.extr(
-                video_page, '"actors":[{"__typename":"User","name":"', '","'
-            )),
-            "user_id": text.extr(
-                video_page, '"owner":{"__typename":"User","id":"', '"'
-            ),
             "date": self.parse_timestamp(text.extr(
                 video_page, '\\"publish_time\\":', ','
             )),
-            "type": "video"
+            "username": self.decode_all(text.extr(user, '"name":"', '","')),
+            "user_id": text.extr(user, '"id":"', '"'),
+            "type": "video",
         }
-
-        if not video["username"]:
-            video["username"] = self.decode_all(text.extr(
-                video_page,
-                '"__typename":"User","id":"' + video["user_id"] + '","name":"',
-                '","'
-            ))
 
         first_video_raw = text.extr(
             video_page, '"permalink_url"', '\\/Period>\\u003C\\/MPD>'
@@ -506,12 +505,12 @@ class FacebookVideoExtractor(FacebookExtractor):
     """Base class for Facebook Video extractors"""
     subcategory = "video"
     directory_fmt = ("{category}", "{username}", "{subcategory}")
-    pattern = BASE_PATTERN + r"/([^/?#]+/videos/|watch/?\?v=)([^/?&#]+)"
+    pattern = BASE_PATTERN + r"/(reel/|[^/?#]+/videos/|watch/?\?v=)([^/?&#]+)"
     example = "https://www.facebook.com/watch/?v=VIDEO_ID"
 
     def items(self):
         path, video_id = self.groups
-        video_url = f"{self.root}/{path}{video_id}"
+        video_url = f"{self.root}/reel/{video_id}"
         video_page = self.request(video_url).text
 
         video, audio = self.parse_video_page(video_page)

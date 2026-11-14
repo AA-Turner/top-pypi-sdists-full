@@ -6,33 +6,61 @@ import typing_extensions
 from ..types.doc_ai_classify_job_request_reasoning_input import DocAiClassifyJobRequestReasoningInput
 from .doc_ai_classify_config import DocAiClassifyConfigParams
 from .doc_ai_classify_output import DocAiClassifyOutputParams
-from .doc_ai_page_range import DocAiPageRangeParams
+from .doc_ai_processor import DocAiProcessorParams
+from .doc_ai_routing_profile import DocAiRoutingProfileParams
 
 
 class DocAiClassifyJobRequestParams(typing_extensions.TypedDict):
+    config: typing_extensions.NotRequired[DocAiClassifyConfigParams]
+    config_id: typing_extensions.NotRequired[str]
     """
-    The JSON `request` part of a Classify submission.
+    Saved configuration ID. Exactly one of `config`, `config_id` and `processor`.
     """
 
-    config: typing_extensions.NotRequired[DocAiClassifyConfigParams]
+    processor: typing_extensions.NotRequired[DocAiProcessorParams]
+    max_pages: typing_extensions.NotRequired[int]
+    """
+    Read the first N pages. Cannot be sent with `config.page_ranges`.
+    """
+
     language: typing_extensions.NotRequired[str]
     """
     Language of the document in BCP-47 format, e.g. `en-IN`. When omitted, the Indic OCR default is used.
     """
 
+    context: typing_extensions.NotRequired[str]
+    """
+    Background text for the model.
+    """
+
     reasoning_input: typing_extensions.NotRequired[DocAiClassifyJobRequestReasoningInput]
     """
-    How the model reads pages. Image modes (`images_for_scans`, `vision`) are available only when listed by `GET /doc-ai/v1/capabilities`.
+    How the model reads pages. Image modes are available only where `/doc-ai/v1/capabilities` lists them.
     """
 
-    execution: typing_extensions.NotRequired[typing.Literal["auto"]]
+    read_ref: typing_extensions.NotRequired[str]
     """
-    Set `auto` to wait briefly for a single document and receive the finished result with HTTP 200; otherwise the job is returned to poll. Not supported for multi-document submissions.
-    """
-
-    pages: typing_extensions.NotRequired[typing.Sequence[DocAiPageRangeParams]]
-    """
-    Restrict the job to these page ranges.
+    Reuse an earlier reading of the same document.
     """
 
+    routing_profile: typing_extensions.NotRequired[DocAiRoutingProfileParams]
     output: typing_extensions.NotRequired[DocAiClassifyOutputParams]
+    metadata: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    """
+    Any object; returned with the result.
+    """
+
+    webhook_url: typing_extensions.NotRequired[str]
+    """
+    HTTPS URL, 9-2,048 characters.
+    """
+
+    webhook_secret: typing_extensions.NotRequired[str]
+    """
+    32-512 characters.
+    """
+
+    webhook_id: typing_extensions.NotRequired[str]
+    """
+    A saved webhook, instead of `webhook_url` + `webhook_secret`.
+    """

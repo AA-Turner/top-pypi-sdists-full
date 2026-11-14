@@ -6,7 +6,7 @@ from river import base, stats
 
 
 class DDM(base.BinaryDriftAndWarningDetector):
-    """Drift Detection Method.
+    r"""Drift Detection Method.
 
     DDM (Drift Detection Method) is a concept change detection method
     based on the PAC learning model premise, that the learner's error rate
@@ -34,9 +34,9 @@ class DDM(base.BinaryDriftAndWarningDetector):
     The conditions for entering the warning zone and detecting change are
     as follows [see implementation note below]:
 
-    * if $p_i + s_i \\geq p_{min} + w_l * s_{min}$ -> Warning zone
+    * if $p_i + s_i \geq p_{min} + w_l * s_{min}$ -> Warning zone
 
-    * if $p_i + s_i \\geq p_{min} + d_l * s_{min}$ -> Change detected
+    * if $p_i + s_i \geq p_{min} + d_l * s_{min}$ -> Change detected
 
     In the above expressions, $w_l$ and $d_l$ represent, respectively, the warning and drift thresholds.
 
@@ -48,7 +48,7 @@ class DDM(base.BinaryDriftAndWarningDetector):
 
     - 0: Correct, $y=y'$
 
-    - 1: Error, $y \\neq y'$
+    - 1: Error, $y \neq y'$
 
     Parameters
     ----------
@@ -56,10 +56,10 @@ class DDM(base.BinaryDriftAndWarningDetector):
         The minimum required number of analyzed samples so change can be detected. Warm start parameter
         for the drift detector.
     warning_threshold
-        Threshold to decide if the detector is in a warning zone. The default value gives 95\\% of
+        Threshold to decide if the detector is in a warning zone. The default value gives 95% of
         confidence level to the warning assessment.
     drift_threshold
-        Threshold to decide if a drift was detected. The default value gives a 99\\% of confidence
+        Threshold to decide if a drift was detected. The default value gives a 99% of confidence
         level to the drift assessment.
 
     Examples
@@ -106,20 +106,20 @@ class DDM(base.BinaryDriftAndWarningDetector):
 
         self._reset()
 
-    def _reset(self):
+    def _reset(self) -> None:
         super()._reset()
 
         # Probability of error/failure
         self._p = stats.Mean()
 
         # Minimum values observed
-        self._p_min = None
-        self._s_min = None
+        self._p_min = float("inf")
+        self._s_min = float("inf")
 
         # The sum of p_min and s_min, to avoid calculating it every time
         self._ps_min = float("inf")
 
-    def update(self, x):
+    def update(self, x: bool) -> None:
         if self.drift_detected:
             self._reset()
 

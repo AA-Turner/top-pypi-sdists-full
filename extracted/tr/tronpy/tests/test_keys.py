@@ -6,9 +6,10 @@ from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.backends.openssl.backend import backend
 
 from tronpy.exceptions import BadKey, BadSignature
-from tronpy.hdwallet import TRON_DEFAULT_PATH, key_from_seed, seed_from_mnemonic
+from tronpy.hdwallet import TRON_DEFAULT_PATH, generate_mnemonic, key_from_seed, seed_from_mnemonic
 from tronpy.hdwallet._utils import ec_point
 from tronpy.keys import (
+    BaseKey,
     PrivateKey,
     PublicKey,
     Signature,
@@ -401,6 +402,14 @@ def test_hd_vector():
     assert private_key.public_key.to_base58check_address() == "TUEZSdKsoDHQMeZwihtdoBiN46zxhGWYdH"
 
 
+def test_mnemonic_extra_missing(monkeypatch):
+    monkeypatch.setattr("tronpy.hdwallet.Mnemonic", None)
+    with pytest.raises(ImportError, match=r"tronpy\[mnemonic\]"):
+        generate_mnemonic(12, "english")
+    with pytest.raises(ImportError, match=r"tronpy\[mnemonic\]"):
+        seed_from_mnemonic("abandon about", "")
+
+
 def test_signing_refuses_unmatched_recovery_id(monkeypatch):
     monkeypatch.setattr(_secp256k1, "_recover_point", lambda *_: (1, 1))
     with pytest.raises(ValueError):
@@ -415,3 +424,19 @@ def test_only_signing_needs_deterministic_support(monkeypatch):
     assert SIGNED_DIGEST_SIGNATURE.recover_public_key_from_msg_hash(SIGNED_DIGEST) == SIGNING_KEY.public_key
     with pytest.raises(UnsupportedAlgorithm):
         SIGNING_KEY.sign_msg_hash(SIGNED_DIGEST)
+
+
+def test_base_key_cannot_be_instantiated():
+    with pytest.raises(TypeError, match="abstract"):
+        BaseKey()
+    with pytest.raises(TypeError, match="abstract"):
+        BaseKey(b"\x01" * 32)
+    with pytest.raises(TypeError, match="abstract"):
+        BaseKey.fromhex("01" * 32)
+
+
+@pytest.mark.parametrize("key_class, raw", [(PrivateKey, b"\x01" * 32), (PublicKey, b"\x01" * 64)])
+def test_fromhex_returns_own_class(key_class, raw):
+    key = key_class.fromhex(raw.hex())
+    assert type(key) is key_class
+    assert key.to_bytes() == raw

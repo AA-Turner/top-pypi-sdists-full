@@ -23,20 +23,22 @@ class DescribeUpgradeMajorVersionPrecheckTaskRequest(DaraModel):
         self.dbinstance_id = dbinstance_id
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The page number of the check report for the major version upgrade.
+        # The page number of the pre-check report for the major engine version upgrade.
         # 
         # Valid values: an integer greater than 0 and less than or equal to the maximum value of the Integer data type. Default value: 1.
         self.page_number = page_number
-        # The number of entries to return on each page for the check report before a major engine version upgrade. Valid values:
+        # The number of entries to return on each page for the pre-check report of the major engine version upgrade.
+        # 
+        # Valid values:
         # - 30 (default)
         # - 50
         # - 100
         self.page_size = page_size
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The target major engine version of target instance. The value must be later than the current major engine version of target instance.
+        # The major engine version of the target instance. The value must be later than the major engine version of the current instance.
         self.target_major_version = target_major_version
-        # The ID of the pre-upgrade check task. You can obtain the task ID from the **TaskId** response parameter after you call the UpgradeDBInstanceMajorVersionPrecheck operation to perform a pre-upgrade check.
+        # The ID of the pre-check task for the major engine version upgrade. After you call the UpgradeDBInstanceMajorVersionPrecheck operation to perform a pre-check, you can obtain the task ID from the **TaskId** response parameter.
         self.task_id = task_id
 
     def validate(self):

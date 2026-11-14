@@ -423,7 +423,12 @@ class RedshiftAdapterExtension(BaseAdapterExtension):
             table_names = {tbl.name for tbl in tables}
         else:
             table_names = {tbl.name.lower() for tbl in tables}
-        show_result = self.execute(f"SHOW TABLES FROM SCHEMA {catalog}.{schema}", fetch=True)
+        # quoted so names that need quoting (e.g. hyphenated catalogs) still parse
+        catalog_identifier = self._sql(exp.to_identifier(catalog, quoted=True))
+        schema_identifier = self._sql(exp.to_identifier(schema, quoted=True))
+        show_result = self.execute(
+            f"SHOW TABLES FROM SCHEMA {catalog_identifier}.{schema_identifier}", fetch=True
+        )
 
         for row in show_result:
             row_table_name = (
@@ -589,7 +594,7 @@ class RedshiftAdapterExtension(BaseAdapterExtension):
                     ELSE data_type
                 END AS full_data_type,
                 ordinal_position
-            FROM {catalog}.information_schema.columns
+            FROM {self._sql(exp.to_identifier(catalog, quoted=True))}.information_schema.columns
             WHERE {self._sql(filter_expr)}
             """)
 

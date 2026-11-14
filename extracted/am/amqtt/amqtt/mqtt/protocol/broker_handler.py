@@ -17,7 +17,7 @@ from amqtt.mqtt.connect import ConnectPacket
 from amqtt.mqtt.disconnect import DisconnectPacket
 from amqtt.mqtt.pingreq import PingReqPacket
 from amqtt.mqtt.pingresp import PingRespPacket
-from amqtt.mqtt.protocol.handler import ProtocolHandler
+from amqtt.mqtt.protocol.handler import ProtocolHandler, ProtocolHandlerConfig
 from amqtt.mqtt.suback import SubackPacket
 from amqtt.mqtt.subscribe import SubscribePacket
 from amqtt.mqtt.unsuback import UnsubackPacket
@@ -27,6 +27,7 @@ from amqtt.session import Session
 from amqtt.utils import format_client_message
 
 _MQTT_PROTOCOL_LEVEL_SUPPORTED = 4
+_BROKER_KEEP_ALIVE_TIMEOUT_FACTOR = 1.5
 
 if TYPE_CHECKING:
     from amqtt.broker import BrokerContext
@@ -50,11 +51,20 @@ class BrokerProtocolHandler(ProtocolHandler["BrokerContext"]):
         plugins_manager: PluginManager["BrokerContext"],
         session: Session | None = None,
         loop: AbstractEventLoop | None = None,
+        handler_config: ProtocolHandlerConfig | None = None
     ) -> None:
-        super().__init__(plugins_manager, session, loop)
+        super().__init__(plugins_manager, session, loop, handler_config)
         self._disconnect_waiter: asyncio.Future[DisconnectPacket | None] | None = None
         self._pending_subscriptions: Queue[Subscription] = Queue()
         self._pending_unsubscriptions: Queue[UnSubscription] = Queue()
+
+    def _init_session(self, session: Session) -> None:
+        super()._init_session(session)
+
+        # broker should use keep alive timeout factor [MQTT 3.1.1 §3.1.2.10]
+        self._keepalive_timeout: float | None = self.session.keep_alive * _BROKER_KEEP_ALIVE_TIMEOUT_FACTOR  # type: ignore[union-attr] # handled in super()
+        if self._keepalive_timeout is not None and self._keepalive_timeout <= 0:
+            self._keepalive_timeout = None
 
     async def start(self) -> None:
         await super().start()
@@ -84,7 +94,9 @@ class BrokerProtocolHandler(ProtocolHandler["BrokerContext"]):
         pass
 
     def handle_read_timeout(self) -> None:
-        pass
+        if self._disconnect_waiter and not self._disconnect_waiter.done():
+            self.logger.debug("Client keep-alive timeout, closing connection")
+            self._disconnect_waiter.set_result(None)
 
     async def handle_disconnect(self, disconnect: DisconnectPacket | None) -> None:
         """Handle a disconnect packet and notify the disconnect waiter."""
@@ -161,7 +173,8 @@ class BrokerProtocolHandler(ProtocolHandler["BrokerContext"]):
         writer: WriterAdapter,
         plugins_manager: PluginManager["BrokerContext"],
         loop: asyncio.AbstractEventLoop | None = None,
-    ) -> tuple["BrokerProtocolHandler", Session]:
+        handler_config: ProtocolHandlerConfig | None = None
+        ) -> tuple["BrokerProtocolHandler", Session]:
         """Initialize from a CONNECT packet and validates the connection."""
         connect = await ConnectPacket.from_stream(reader)
         await plugins_manager.fire_event(MQTTEvents.PACKET_RECEIVED, packet=connect)
@@ -199,8 +212,8 @@ class BrokerProtocolHandler(ProtocolHandler["BrokerContext"]):
             if connect.proto_level != _MQTT_PROTOCOL_LEVEL_SUPPORTED:
                 # only MQTT 3.1.1 supported
                 error_msg = (
-                    f"Invalid protocol from {format_client_message(address=remote_address, port=remote_port)}:"
-                    f" {connect.proto_level}"
+                    f"invalid protocol from {format_client_message(address=remote_address, port=remote_port)} :"
+                    f" protocol {connect.proto_level} is unsupported, use level 4"
                 )
                 connack = ConnackPacket.build(0, UNACCEPTABLE_PROTOCOL_VERSION)  # [MQTT-3.2.2-4] session_parent=0
             elif not connect.username_flag and connect.password_flag:
@@ -245,5 +258,5 @@ class BrokerProtocolHandler(ProtocolHandler["BrokerContext"]):
         else:
             incoming_session.keep_alive = 0
 
-        handler = cls(plugins_manager, loop=loop)
+        handler = cls(plugins_manager, loop=loop, handler_config=handler_config)
         return handler, incoming_session

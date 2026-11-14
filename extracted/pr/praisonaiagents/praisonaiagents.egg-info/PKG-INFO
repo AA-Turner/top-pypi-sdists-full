@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: praisonaiagents
-Version: 1.7.22
+Version: 1.7.23
 Summary: Open-source Python AI agent framework that runs on your own computers, even fully offline.
 Author: Mervin Praison
 Requires-Python: >=3.10
@@ -28,6 +28,7 @@ Provides-Extra: knowledge
 Requires-Dist: mem0ai>=0.1.0; extra == "knowledge"
 Requires-Dist: chromadb>=1.0.0; extra == "knowledge"
 Requires-Dist: markitdown[all]>=0.1.0; extra == "knowledge"
+Requires-Dist: pandas>=2.2; extra == "knowledge"
 Requires-Dist: chonkie>=1.0.2; extra == "knowledge"
 Provides-Extra: graph
 Requires-Dist: mem0ai[graph]>=0.1.0; extra == "graph"

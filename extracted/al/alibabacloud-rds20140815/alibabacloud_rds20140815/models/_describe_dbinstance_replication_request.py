@@ -19,7 +19,7 @@ class DescribeDBInstanceReplicationRequest(DaraModel):
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The resource group ID. You can leave this parameter empty.
+        # The resource group ID. This parameter can be left empty.
         self.resource_group_id = resource_group_id
 
     def validate(self):

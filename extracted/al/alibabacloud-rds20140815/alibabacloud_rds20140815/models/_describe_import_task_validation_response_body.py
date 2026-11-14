@@ -20,8 +20,8 @@ class DescribeImportTaskValidationResponseBody(DaraModel):
         self.status = status
         # Indicates whether the request is successful. Valid values:
         # 
-        # - **true**: The request is successful.
-        # - **false**: The request failed.
+        # - **true**: Successful.
+        # - **false**: Failed.
         self.success = success
 
     def validate(self):

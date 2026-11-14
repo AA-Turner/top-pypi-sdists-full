@@ -16,14 +16,14 @@ def ClinGen_get_gene_validity(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> list[Any] | dict[str, Any]:
     """
     Get ClinGen gene-disease validity curations with classifications (Definitive, Strong, Moderate, L...
 
     Parameters
     ----------
     gene : str
-        Optional: Filter by gene symbol
+        Optional: Filter by gene symbol. HGNC symbol only (e.g. BRCA1). A genomic ran...
     limit : int
         Maximum curations per page.
     offset : int
@@ -37,7 +37,7 @@ def ClinGen_get_gene_validity(
 
     Returns
     -------
-    list[Any]
+    list[Any] | dict[str, Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

@@ -18,25 +18,25 @@ class CloneParameterGroupRequest(DaraModel):
         target_region_id: str = None,
     ):
         self.owner_id = owner_id
-        # The description of the parameter template that is copied to the destination region.
+        # The description of the parameter template copied to the destination region.
         self.parameter_group_desc = parameter_group_desc
-        # The ID of the source parameter template. You can call the [DescribeParameterGroups](https://help.aliyun.com/document_detail/144491.html) operation to query the parameter template ID.
+        # The ID of the source parameter template. You can call the DescribeParameterGroups operation to query parameter template IDs.
         # 
         # This parameter is required.
         self.parameter_group_id = parameter_group_id
-        # The name of the parameter template that is copied to the destination region.
+        # The name of the parameter template copied to the destination region.
         # 
         # This parameter is required.
         self.parameter_group_name = parameter_group_name
-        # The region ID of the source parameter template. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/25609.html) operation to query the region ID.
+        # The region ID of the source parameter template. You can call the DescribeRegions operation to query region IDs.
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The resource group ID. This parameter can be left empty.
+        # The ID of the resource group. This parameter can be left empty.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The ID of the destination region. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/25609.html) operation to query the region ID.
+        # The region ID of the destination. You can call the DescribeRegions operation to query region IDs.
         # 
         # This parameter is required.
         self.target_region_id = target_region_id

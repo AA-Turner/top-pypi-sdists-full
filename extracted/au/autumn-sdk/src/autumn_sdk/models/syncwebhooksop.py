@@ -105,6 +105,8 @@ class SyncWebhooksSyncWebhooksParamsTypedDict(TypedDict):
     r"""The webhooks to create or update. Webhooks not listed are left alone unless `skip_deletions` is false."""
     skip_deletions: NotRequired[bool]
     r"""When false, `webhooks` is the environment's complete set: every webhook not listed is deleted, including ones made in the dashboard. Defaults true, which leaves unlisted webhooks alone."""
+    skip_updates: NotRequired[bool]
+    r"""When true, only webhooks whose id does not exist yet are created. Updates, adoptions of dashboard webhooks and deletions are skipped and preview as `skip`. Defaults false."""
 
 
 class SyncWebhooksSyncWebhooksParams(BaseModel):
@@ -114,9 +116,12 @@ class SyncWebhooksSyncWebhooksParams(BaseModel):
     skip_deletions: Optional[bool] = True
     r"""When false, `webhooks` is the environment's complete set: every webhook not listed is deleted, including ones made in the dashboard. Defaults true, which leaves unlisted webhooks alone."""
 
+    skip_updates: Optional[bool] = None
+    r"""When true, only webhooks whose id does not exist yet are created. Updates, adoptions of dashboard webhooks and deletions are skipped and preview as `skip`. Defaults false."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["skip_deletions"])
+        optional_fields = set(["skip_deletions", "skip_updates"])
         serialized = handler(self)
         m = {}
 

@@ -237,6 +237,7 @@ __all__ = (
     "MCPServerSigV4ConfigurationTypeDef",
     "MCPServerSigV4ServiceDetailsTypeDef",
     "MCPToolDetailTypeDef",
+    "MSTeamsBidirectionalConfigurationTypeDef",
     "MSTeamsChannelTypeDef",
     "MSTeamsConfigurationTypeDef",
     "MSTeamsTransmissionTargetTypeDef",
@@ -912,6 +913,10 @@ class MCPServerSigV4AuthorizationConfigTypeDef(TypedDict):
     roleArn: NotRequired[str]
     mcpRoleArn: NotRequired[str]
     customHeaders: NotRequired[Mapping[str, str]]
+
+class MSTeamsBidirectionalConfigurationTypeDef(TypedDict):
+    roleArn: str
+    enabled: NotRequired[bool]
 
 class MSTeamsChannelTypeDef(TypedDict):
     channelName: str
@@ -1747,6 +1752,7 @@ class MSTeamsConfigurationTypeDef(TypedDict):
     teamId: str
     teamName: str
     transmissionTarget: MSTeamsTransmissionTargetTypeDef
+    bidirectional: NotRequired[MSTeamsBidirectionalConfigurationTypeDef]
 
 class PendingMessageTypeDef(TypedDict):
     messageId: str

@@ -59,6 +59,7 @@ api_key_ws_editor/org_id,ws_id:
     - ws_editor/org_id,ws_id
 api_key_case_management/org_id,ws_id:
     - r:workspace_data/org_id,ws_id
+    - r:workspace_graph_config/org_id,ws_id
     - r+w:workspace_case/org_id,ws_id
     - w:workspace_case_flow_trigger/org_id,ws_id
     - w:workspace_case_queue/org_id,ws_id

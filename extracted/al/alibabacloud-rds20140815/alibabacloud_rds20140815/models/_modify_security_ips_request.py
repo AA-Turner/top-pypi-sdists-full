@@ -24,34 +24,34 @@ class ModifySecurityIpsRequest(DaraModel):
     ):
         # Specifies whether to enable the batch modification mode. Valid values:
         # 
-        # true: batch mode. Modifies multiple whitelist groups at a time based on the GroupItems parameter. In this case, the single-group parameters such as SecurityIps, DBInstanceIPArrayName, and DBInstanceIPArrayAttribute do not take effect.
+        # true: enables the batch modification mode. You can modify multiple IP whitelist groups at a time based on the GroupItems parameter. In this case, the SecurityIps, DBInstanceIPArrayName, and DBInstanceIPArrayAttribute parameters for a single group do not take effect.
         # 
-        # false: single-group mode. Modifies a single whitelist group based on parameters such as SecurityIps. This is the default value.
+        # false: disables the batch modification mode. You can modify a single IP whitelist group based on parameters such as SecurityIps. This is the default value.
         self.batch_mode = batch_mode
         # The attribute of the IP whitelist group.
         # 
         # - If you do not specify this parameter, the group is a regular group. This is the default value.
-        # - If you set this parameter to `hidden`, the group is a system-generated group used by services such as DMS, DTS, and DAS. These groups are not displayed in the console. Deleting or modifying these groups causes services such as DMS, DTS, and DAS to fail to access the ApsaraDB RDS instance. Proceed with caution.
+        # - If you set this parameter to `hidden`, the group is a system-generated group that is used by services such as Data Management (DMS), Data Transmission Service (DTS), and Database Autonomy Service (DAS). These groups are not displayed in the console. If you delete or modify these groups, services such as DMS, DTS, and DAS cannot access the ApsaraDB RDS instance. Proceed with caution.
         self.dbinstance_iparray_attribute = dbinstance_iparray_attribute
         # The name of the IP whitelist group to be modified. Default value: Default. If the specified group does not exist, the system automatically creates the group.
         # 
-        # > A single instance supports up to 200 IP whitelist groups.
+        # >A single instance supports up to 200 IP whitelist groups.
         self.dbinstance_iparray_name = dbinstance_iparray_name
         # The instance ID of the target instance.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The list of read-only instances to which the whitelist is synchronized.
+        # The list of read-only instances to which the IP whitelist is synchronized.
         # 
-        # - This parameter applies only to ApsaraDB RDS for PostgreSQL instances for which read-only instances are created.
+        # - This parameter applies only to ApsaraDB RDS for PostgreSQL instances that have read-only instances.
         # - If multiple read-only instances exist, separate their IDs with commas (,).
         self.fresh_white_list_readins = fresh_white_list_readins
-        # The details of the whitelist groups. This parameter is required when BatchMode is set to true. In each group, GroupName is required and must be unique. You must specify at least one of SecurityIPList and GroupTag.
+        # The details of the IP whitelist groups. This parameter is required when BatchMode is set to true. The GroupName parameter is required and must be unique for each group. You must specify at least one of the SecurityIPList and GroupTag parameters.
         self.group_items = group_items
         # The modification mode. Valid values:
-        # * **Cover**: overwrites the original IP whitelist with the value of the **SecurityIps** parameter. This is the default value.
-        # * **Append**: appends the IP addresses specified in the **SecurityIps** parameter to the original IP whitelist.
-        # * **Delete**: deletes the IP addresses specified in the **SecurityIps** parameter from the original IP whitelist. You must retain at least one IP address.
+        # * **Cover**: overwrites the existing IP whitelist with the IP addresses specified by the **SecurityIps** parameter. This is the default value.
+        # * **Append**: appends the IP addresses specified by the **SecurityIps** parameter to the existing IP whitelist.
+        # * **Delete**: deletes the IP addresses specified by the **SecurityIps** parameter from the existing IP whitelist. You must retain at least one IP address in the whitelist.
         self.modify_mode = modify_mode
         self.resource_owner_id = resource_owner_id
         # The type of the IP address. Set the value to IPv4. IPv6 is not supported.
@@ -61,21 +61,21 @@ class ModifySecurityIpsRequest(DaraModel):
         # <details>
         # <summary>Configuration rules</summary>
         # 
-        # - IP addresses (such as 10.23.XX.XX) and CIDR blocks (such as 10.23.XX.XX/24) are supported.
+        # - You can enter IP addresses such as 10.23.XX.XX or CIDR blocks such as 10.23.XX.XX/24.
         # 
         # - Separate multiple IP addresses or CIDR blocks with commas (,). Do not add spaces before or after the commas.
         # 
-        # - You can add up to 1,000 IP addresses or CIDR blocks to a single instance. If you have a large number of IP addresses, we recommend that you merge scattered IP addresses into CIDR blocks, such as 10.23.XX.XX/24.
+        # - You can add up to 1,000 IP addresses or CIDR blocks to the whitelist of a single instance. If you have a large number of IP addresses, we recommend that you merge them into CIDR blocks, such as 10.23.XX.XX/24.
         # </details>
         self.security_ips = security_ips
-        # The network type of the whitelist. Valid values:
+        # The network type of the IP whitelist. Valid values:
         # 
-        # * **MIX**: general mode. This is the default value.
-        # * **Classic**: classic network in enhanced whitelist mode.
-        # * **VPC**: VPC in enhanced whitelist mode.
+        # * **MIX**: the standard whitelist mode. This is the default value.
+        # * **Classic**: the classic network in the enhanced whitelist mode.
+        # * **VPC**: the VPC in the enhanced whitelist mode.
         # 
-        # > * For ApsaraDB RDS for PostgreSQL instances with cloud disks, the network type is fixed to MIX. If you configure another mode, the system automatically converts it to MIX.
-        # > * The enhanced whitelist mode is supported only by ApsaraDB RDS for MySQL 5.1, 5.5, 5.6, and 5.7 instances with premium local SSDs, and ApsaraDB RDS for PostgreSQL 9.4 and 10 instances with premium local SSDs.
+        # > * For ApsaraDB RDS for PostgreSQL instances with cloud disks, the network type is fixed to MIX. If you configure another mode, the system automatically changes it to MIX.
+        # > * The enhanced whitelist mode is supported only by ApsaraDB RDS for MySQL 5.1, 5.5, 5.6, and 5.7 instances with Premium Local SSDs, and ApsaraDB RDS for PostgreSQL 9.4 and 10 instances with Premium Local SSDs.
         self.whitelist_network_type = whitelist_network_type
 
     def validate(self):
@@ -173,9 +173,9 @@ class ModifySecurityIpsRequestGroupItems(DaraModel):
         group_tag: str = None,
         security_iplist: str = None,
     ):
-        # The name of the whitelist group. This parameter is required in batch mode and must be unique within the same GroupItems list.
+        # The name of the IP whitelist group. This parameter is required in batch mode and must be unique within the same GroupItems list.
         self.group_name = group_name
-        # The attribute of the whitelist group. If you set this parameter to hidden, the group is a system-generated group used by services such as DMS, DTS, and DAS. These groups are not displayed in the console. Proceed with caution. Generally, you do not need to specify this parameter. You must specify at least one of this parameter and SecurityIPList.
+        # The attribute of the IP whitelist group. If you set this parameter to hidden, the group is a system-generated group that is used by services such as DMS, DTS, and DAS. These groups are not displayed in the console. Proceed with caution. Generally, you do not need to specify this parameter. You must specify at least one of this parameter and SecurityIPList.
         self.group_tag = group_tag
         # The modified IP address whitelist of the group. Separate multiple IP addresses with commas (,). You must specify at least one of this parameter and GroupTag.
         self.security_iplist = security_iplist

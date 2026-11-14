@@ -4081,6 +4081,20 @@ def claim_review_dispatch(of_assignment_id: str) -> bool:
     --stage review --reset`` released it by hand. Scoping the release to the
     stamp is what makes it safe: a claim another dispatcher legitimately
     holds carries a different stamp and is never touched.
+
+    #4003: **a claim that outlives its dispatcher is self-healing.** When
+    this call's own ``INSERT`` loses to an existing row, that row is no
+    longer assumed to be a live competing claim just because it exists —
+    see :func:`_reclaim_leaked_review_claim`. A claim is reclaimed (and
+    this call then returns ``True``, exactly as if it had won outright)
+    only once it is both older than the grace window and has no
+    review/test-author/mock-author assignment in flight behind it; a
+    fresher claim, or one a real dispatch is still working, still denies.
+    This is what keeps a `database is locked` collision in
+    ``record_dispatched_assignment`` (the caller's own next write after a
+    successful claim) or in the deny-path
+    :func:`release_review_dispatch_claim` from stranding the claim
+    forever — see that function's own #4003 note.
     """
     if not of_assignment_id:
         return True
@@ -4162,6 +4176,217 @@ def _release_own_review_claim_local(of_assignment_id: str, claimed_at: float) ->
     return retry_on_locked(_write)
 
 
+#: #4003: grace window before an unmatched ``review_claims`` row is treated
+#: as leaked by :func:`_claim_review_dispatch_local` itself, rather than a
+#: legitimate in-flight claim. Same value, and the same reasoning, as
+#: :mod:`coord.diagnose`'s ``_REVIEW_CLAIM_LEAK_GRACE_SECS`` — this module
+#: has no business importing that one (``coord.diagnose`` imports
+#: ``coord.state``, not the reverse), so each side names the shared
+#: constant locally rather than one deriving it from the other, but both
+#: answer the SAME question ("how old before a claim with no review row
+#: behind it stops being a plausible in-flight dispatch") with the SAME
+#: number (#2096) — see that module's own docstring for the full accounting
+#: of what has to clear (candidate-machine POSTs, GitHub API calls, ...)
+#: before ``record_dispatched_assignment`` lands the review row this claim
+#: is waiting on.
+REVIEW_CLAIM_LEAK_GRACE_SECS = 600.0
+
+
+def review_claim_is_leaked(of_assignment_id: str) -> bool:
+    """#4003: True when *of_assignment_id*'s ``review_claims`` row has, in
+    fact, leaked — held with nothing left to release it.
+
+    The ONE predicate for "is this claim actually dead", answered the same
+    way by every caller that needs it (#2096):
+    :func:`_claim_review_dispatch_local`'s own self-heal
+    (:func:`_reclaim_leaked_review_claim`, below) when a losing insert
+    needs to decide whether to deny or reclaim, and
+    :mod:`coord.board_doctor`'s proactive auto-tier action for a
+    ``gate-blocked``/``review_required`` row whose own review auto-dispatch
+    came back a no-op — never two independently-tuned judgments of the
+    same question.
+
+    ``True`` only when BOTH:
+
+    * the claim is older than :data:`REVIEW_CLAIM_LEAK_GRACE_SECS` — long
+      enough to rule out "an in-flight ``claim_review_dispatch`` call that
+      has not yet reached ``record_dispatched_assignment``", the same
+      false-positive window :func:`coord.diagnose.review_claim_age_secs`'s
+      own docstring documents for the read-only diagnostic path (#3383);
+    * nothing live is backing it — what counts as "backing it" depends on
+      *of_assignment_id*'s own shape:
+
+      * an ordinary per-assignment claim (any other string): no
+        ``review``/``test-author``/``mock-author`` assignment with
+        ``review_of_assignment_id`` equal to *of_assignment_id* is sitting
+        in a non-terminal status — i.e. a review genuinely IS in flight,
+        however slowly;
+      * a #4002 per-item lease (:func:`_review_item_lease_key`'s
+        ``item-lease:{repo}:{issue}`` shape, recognized via
+        :func:`_parse_review_item_lease_key`): no ``assignments`` row EVER
+        carries ``review_of_assignment_id`` equal to a lease key — the
+        lease is claimed in ADDITION to, not instead of, a dispatcher's own
+        per-assignment claim — so the FK lookup above can never find a
+        live row for one and would read every lease as leaked the instant
+        it clears the grace window, even though
+        :func:`claim_review_item_dispatch_gate`'s own docstring says it is
+        held for the dispatched review leg's entire (often much longer)
+        life. Liveness for a lease is instead "does a non-terminal
+        ``type='review'`` assignment exist for this same
+        ``(repo_name, effective_issue_number)``" — the exact condition
+        :func:`release_review_claim_if_row_is_review` releases the lease
+        on, so the two sides agree on what "still in flight" means.
+
+      Both checked against :data:`_TERMINAL_ASSIGNMENT_STATUSES`, the SAME
+      terminal set every other assignment-status reader in this module
+      uses, never a second, narrower terminal list just for this check.
+
+    Local-DB read only, same documented caveat as :func:`has_review_claim`/
+    :func:`review_claim_age_secs`: correct on the daemon host (where the
+    local DB is canonical), undercounts on a thin client reading its own
+    stale copy.
+    """
+    age = review_claim_age_secs(of_assignment_id)
+    if age is None or age < REVIEW_CLAIM_LEAK_GRACE_SECS:
+        return False
+    conn = get_connection()
+    lease = _parse_review_item_lease_key(of_assignment_id)
+    if lease is not None:
+        from coord.models import effective_issue_number  # noqa: PLC0415
+
+        lease_repo, lease_issue = lease
+        rows = sql.execute(
+            conn,
+            "SELECT issue_number, for_issue_number FROM assignments "
+            "WHERE repo_name=? AND type='review' "
+            "AND status NOT IN ({placeholders})".format(
+                placeholders=",".join("?" for _ in _TERMINAL_ASSIGNMENT_STATUSES)
+            ),
+            (lease_repo, *_TERMINAL_ASSIGNMENT_STATUSES),
+        ).fetchall()
+        for row in rows:
+            if hasattr(row, "keys"):
+                row_issue, row_for_issue = row["issue_number"], row["for_issue_number"]
+            else:
+                row_issue, row_for_issue = row
+            effective_issue = effective_issue_number(
+                {"issue_number": row_issue, "for_issue_number": row_for_issue}
+            )
+            if effective_issue == lease_issue:
+                return False  # a review for this item is genuinely in flight
+        return True
+    live = sql.execute(
+        conn,
+        "SELECT 1 FROM assignments WHERE review_of_assignment_id=? "
+        "AND type IN ('review', 'test-author', 'mock-author') "
+        "AND status NOT IN ({placeholders})".format(
+            placeholders=",".join("?" for _ in _TERMINAL_ASSIGNMENT_STATUSES)
+        ),
+        (of_assignment_id, *_TERMINAL_ASSIGNMENT_STATUSES),
+    ).fetchone()
+    return live is None
+
+
+def _reclaim_leaked_review_claim(conn, of_assignment_id: str, stamp: float) -> bool:
+    """#4003: self-heal the chokepoint :func:`_claim_review_dispatch_local`
+    hits when its own ``INSERT ... OR IGNORE`` loses to an existing
+    ``review_claims`` row.
+
+    Before #4003 a lost race was always treated as a live competing
+    dispatch — correct when it is one, but a claim can also outlive the
+    dispatch that took it (a `database is locked` collision in the
+    caller's own ``record_dispatched_assignment`` right after the claim
+    landed, or in the deny-path ``release_review_dispatch_claim`` when the
+    dispatch declines further down — see this module's
+    ``_release_review_dispatch_claim_local``, already wrapped in
+    :func:`retry_on_locked`, but a release that exhausts even that retry
+    budget still leaves the row behind). Every LATER ``dispatch_review``
+    for the same work assignment then lost this exact race forever and
+    denied with the misleading "lost the atomic dispatch-claim race —
+    #3113" reason — the claude-coordinator#3998 incident this closes: 91
+    refusals over ~8h, recovered only by a human running ``coord diagnose
+    --stage review --reset``.
+
+    Returns ``True`` (and rewrites the row to carry *stamp*, THIS caller's
+    own claim) only when :func:`review_claim_is_leaked` says the existing
+    row has leaked.
+
+    A claim is reclaimable :data:`REVIEW_CLAIM_LEAK_GRACE_SECS` after it is
+    taken even when the original dispatcher is merely slow (branch SHA
+    fetch + PR lookup + briefing render + agent POST, all before its own
+    ``record_dispatched_assignment`` lands the review row this claim is
+    waiting on) rather than genuinely dead — permitting a duplicate review
+    in that tail. Accepted trade-off per the issue this closes: a bounded
+    chance of one extra review is far cheaper than a claim stuck for hours
+    with no automatic recovery.
+
+    Confirms the ``UPDATE`` with the SAME dialect split
+    :func:`_claim_review_dispatch_local`'s sibling insert already uses, for
+    the SAME two reasons, in the SAME direction on each:
+
+    * on SQLite, re-reads the row rather than trusting ``cursor.rowcount``
+      on the shared connection — a concurrent write on another thread can
+      misreport it in either direction, and SQLite's ``REAL`` (an 8-byte
+      IEEE double) round-trips *stamp* exactly, so the read-back compare is
+      trustworthy there.
+    * on Postgres, trusts ``cursor.rowcount`` instead — each thread gets
+      its own connection there, so the count is accurate, and the read-back
+      compare is NOT: ``review_claims.claimed_at`` is declared ``REAL``,
+      which Postgres maps to a 4-byte ``float4`` that cannot round-trip a
+      sub-second Unix timestamp (needs more significant digits than
+      ``float4`` carries). Without this split the ``UPDATE`` would commit
+      correctly but the read-back would still compare unequal, so this
+      function would report "not reclaimed" on every Postgres call — the
+      self-heal silently never firing on that backend, with the `claimed_at`
+      reset to *stamp* already landed regardless (resetting the age clock
+      on a claim this function is about to tell its caller is still denied).
+
+    The ``WHERE ... AND claimed_at=?`` clause still protects the write
+    itself either way — if some OTHER caller's own claim attempt mutated
+    the row between our read and this write, the ``UPDATE`` matches zero
+    rows and is confirmed as "not reclaimed" without having touched
+    anything, rather than overwriting a claim that turned out to be live
+    after all.
+    """
+    row = sql.execute(
+        conn,
+        "SELECT claimed_at FROM review_claims WHERE of_assignment_id=?",
+        (of_assignment_id,),
+    ).fetchone()
+    if row is None or row[0] is None:
+        return False
+    held_claimed_at = row[0]
+    if held_claimed_at == stamp:
+        return False  # our own just-written row — nothing to reclaim
+    if not review_claim_is_leaked(of_assignment_id):
+        return False
+    age = max(0.0, time.time() - held_claimed_at)
+    cur = sql.execute(
+        conn,
+        "UPDATE review_claims SET claimed_at=? "
+        "WHERE of_assignment_id=? AND claimed_at=?",
+        (stamp, of_assignment_id, held_claimed_at),
+    )
+    if sql.detect_dialect(conn) == sql.DIALECT_SQLITE:
+        check = sql.execute(
+            conn,
+            "SELECT claimed_at FROM review_claims WHERE of_assignment_id=?",
+            (of_assignment_id,),
+        ).fetchone()
+        reclaimed = bool(check is not None and check[0] == stamp)
+    else:
+        reclaimed = bool((cur.rowcount or 0) > 0)
+    if reclaimed:
+        _log.warning(
+            "review-dispatch claim for %s was leaked (held %.1fs with no "
+            "live review/test-author/mock-author row) — reclaimed instead "
+            "of denying with the misleading #3113 'lost the atomic "
+            "dispatch-claim race' reason (#4003)",
+            of_assignment_id, age,
+        )
+    return reclaimed
+
+
 def _claim_review_dispatch_local(
     of_assignment_id: str, *, claimed_at: float | None = None
 ) -> bool:
@@ -4192,6 +4417,11 @@ def _claim_review_dispatch_local(
     durably persist later — the incident this issue reports, a
     `review_claims` row held by neither of the two calls that raced for it,
     wedging vimcode#1086's review for ~13.5h.
+
+    #4003: when the `INSERT OR IGNORE` loses, the losing attempt no longer
+    assumes the existing row is a live competing claim — see
+    :func:`_reclaim_leaked_review_claim`, called right here before the
+    loss is accepted.
     """
 
     stamp = claimed_at if claimed_at is not None else _new_review_claim_stamp()
@@ -4224,6 +4454,16 @@ def _claim_review_dispatch_local(
                     (of_assignment_id,),
                 ).fetchone()
                 inserted = int(row is not None and row[0] == stamp)
+            if not inserted:
+                # #4003: the insert lost — before denying with the
+                # misleading #3113 "lost the atomic dispatch-claim race"
+                # reason, check whether the existing row has, in fact,
+                # leaked (see `_reclaim_leaked_review_claim`'s own
+                # docstring for the two conditions). A claim still inside
+                # the grace window, or one backed by a live review row,
+                # is untouched and this still denies exactly as before.
+                if _reclaim_leaked_review_claim(conn, of_assignment_id, stamp):
+                    inserted = 1
             conn.commit()
         except sql.driver_errors() as exc:  # #2784: was sqlite3.OperationalError only
             # Only this call's own row: `stamp` is unique to THIS attempt,
@@ -4379,16 +4619,58 @@ def release_review_dispatch_claim(of_assignment_id: str) -> None:
     same seam, or the claim it took on the daemon's canonical DB would never
     actually clear (a purely-local delete on the thin client would touch a
     different, likely-empty, DB and silently no-op).
+
+    #4003: **best-effort — never raises.** Most call sites are themselves a
+    deny/failure path (``dispatch_review``'s own ``_deny``, the
+    terminal-status write in ``release_review_claim_if_row_is_review``, and
+    ``coord.diagnose``'s own ``--reset`` cleanups) — code already reacting
+    to something having gone wrong, which must not be made worse by a
+    SECOND failure (a `database is locked` collision that outlasts
+    ``_release_review_dispatch_claim_local``'s own :func:`retry_on_locked`
+    budget, or a daemon round trip that times out) crashing the caller
+    outright and leaving whatever cleanup it was mid-way through undone.
+    Before this, the claude-coordinator#3998 incident: this call raised
+    `database is locked` on the deny path, and the work assignment's
+    review-dispatch claim stayed held for ~8h and 91 refusals — recoverable
+    only by a human running ``coord diagnose --stage review --reset``. A
+    release that fails here now just logs and leaves the row behind;
+    :func:`claim_review_dispatch`'s own #4003 self-heal
+    (:func:`_reclaim_leaked_review_claim`) is the backstop that recovers it
+    once the grace window passes, rather than this function pretending a
+    failed release succeeded.
+
+    Because this never raises AND never confirms, it tells a caller
+    NOTHING about whether the release actually landed — a caller that
+    needs to know (unlike the deny paths above, which are calling this
+    purely for its best-effort side effect on their way to reporting
+    failure anyway) must re-read with :func:`has_review_claim` itself, the
+    way ``coord.diagnose``'s own ``--reset`` actions do. Every call site
+    today: ``dispatch_review``'s ``_deny``,
+    ``release_review_claim_if_row_is_review``,
+    :func:`release_review_item_lease`, three in ``coord.diagnose`` (its
+    #3383 leaked-claim reset, the superseded-leg reset, and the terminal
+    review-row reset), and :mod:`coord.board_doctor_policy`'s
+    ``_release_leaked_review_claim_for_row`` (which confirms with
+    :func:`has_review_claim` itself, same as ``coord.diagnose``).
     """
     if not of_assignment_id:
         return
-    svc = _board_service()
-    resp = _route_write(
-        svc, "/review-claim-release", {"of_assignment_id": of_assignment_id}
-    )
-    if resp is not None:
-        return
-    _release_review_dispatch_claim_local(of_assignment_id)
+    try:
+        svc = _board_service()
+        resp = _route_write(
+            svc, "/review-claim-release", {"of_assignment_id": of_assignment_id}
+        )
+        if resp is not None:
+            return
+        _release_review_dispatch_claim_local(of_assignment_id)
+    except Exception as exc:  # noqa: BLE001 — best-effort, see docstring
+        _log.warning(
+            "review-dispatch claim release for %s failed (%s) — the row may "
+            "still be held; a later dispatch_review reclaims it once "
+            "REVIEW_CLAIM_LEAK_GRACE_SECS has passed and no review row has "
+            "landed (#4003)",
+            of_assignment_id, exc,
+        )
 
 
 def _release_review_dispatch_claim_local(of_assignment_id: str) -> None:
@@ -4441,6 +4723,100 @@ def _release_review_dispatch_claim_local(of_assignment_id: str) -> None:
     retry_on_locked(_write)
 
 
+#: Prefix identifying a :func:`_review_item_lease_key` key, shared with
+#: :func:`_parse_review_item_lease_key` so the two stay in lock-step.
+_REVIEW_ITEM_LEASE_PREFIX = "item-lease:"
+
+
+def _review_item_lease_key(repo_name: str, issue_number: int) -> str:
+    """The ``review_claims`` key for the #4002 per-item lease.
+
+    Deliberately NOT a schema change — reuses :func:`claim_review_dispatch`'s
+    existing ``review_claims`` table (``of_assignment_id TEXT PRIMARY KEY``
+    accepts any string) with a key shape ``of_assignment_id`` values never
+    take: the ``item-lease:`` prefix is not a shape any assignment id uses
+    today, whether the usual ``uuid4().hex[:12]`` or a synthetic one like
+    ``claim.py``'s ``adopted-{repo}-{issue}`` — so an item-lease key can
+    never collide with a real per-assignment claim's key.
+    """
+    return f"{_REVIEW_ITEM_LEASE_PREFIX}{repo_name}:{issue_number}"
+
+
+def _parse_review_item_lease_key(of_assignment_id: str) -> tuple[str, int] | None:
+    """Reverse of :func:`_review_item_lease_key` — ``None`` when
+    *of_assignment_id* is not shaped like one of its keys.
+
+    Needed by :func:`review_claim_is_leaked`: a lease's liveness can't be
+    answered by looking for an ``assignments`` row whose
+    ``review_of_assignment_id`` equals the lease key, because no row ever
+    carries that FK value — the lease is a per-``(repo, issue)`` gate
+    claimed in ADDITION to, not instead of, the per-assignment claim the FK
+    tracks (see :func:`claim_review_item_lease`'s docstring). Repo names
+    never contain ``:`` (GitHub disallows it), so splitting the issue number
+    off the end with :meth:`str.rpartition` is unambiguous.
+    """
+    if not of_assignment_id.startswith(_REVIEW_ITEM_LEASE_PREFIX):
+        return None
+    rest = of_assignment_id[len(_REVIEW_ITEM_LEASE_PREFIX):]
+    repo_name, sep, issue_str = rest.rpartition(":")
+    if not sep or not repo_name or not issue_str.isdigit():
+        return None
+    return repo_name, int(issue_str)
+
+
+def claim_review_item_lease(repo_name: str, issue_number: int) -> bool:
+    """Atomically claim the ONE-per-item review-dispatch lease for
+    *(repo_name, issue_number)* (#4002).
+
+    Every review dispatcher (:func:`coord.review.dispatch_review`,
+    :func:`coord.review.dispatch_scoped_review`,
+    ``coord.commands.dispatch_workers._dispatch_review_of``) claims this
+    through the shared :func:`coord.review.claim_review_item_dispatch_gate`
+    helper before spending a metered review, in ADDITION to its own
+    per-assignment claim (:func:`claim_review_dispatch`) — the two claims
+    key on different things on purpose. A per-assignment claim only ever
+    contends with ANOTHER dispatch of the SAME assignment id, so two
+    reviews of the same commit dispatched from two DIFFERENT assignment
+    ids (an original leg and its fix leg) never race against each other
+    there. This is a thin wrapper over :func:`claim_review_dispatch` with a
+    key shaped by :func:`_review_item_lease_key` instead of a bare assignment id — see
+    that function's docstring for why the two key shapes can't collide, and
+    :func:`claim_review_dispatch`'s own docstring for the atomic
+    ``INSERT ... OR IGNORE`` + daemon-routing mechanics this inherits
+    unchanged.
+
+    Released by :func:`release_review_item_lease` — called from every deny
+    path a caller takes after claiming (mirrors the per-assignment claim's
+    ``_claim_held`` pattern) and, on a successful dispatch, from the SAME
+    terminal-status chokepoint that releases the per-assignment claim
+    (:func:`release_review_claim_if_row_is_review`), so it is held for
+    exactly as long as the dispatched review leg is live.
+    """
+    return claim_review_dispatch(_review_item_lease_key(repo_name, issue_number))
+
+
+def release_review_item_lease(repo_name: str, issue_number: int) -> None:
+    """Release a lease taken by :func:`claim_review_item_lease`. Idempotent."""
+    release_review_dispatch_claim(_review_item_lease_key(repo_name, issue_number))
+
+
+def _release_review_item_lease_local(repo_name: str, issue_number: int) -> None:
+    """Local-DB-only sibling of :func:`release_review_item_lease`, mirroring
+    :func:`_release_review_dispatch_claim_local` — for a caller that is
+    itself already a local-only write (:func:`release_review_claim_if_row_is_review`)
+    and must not re-route this release back over HTTP via
+    :func:`_board_service`/:func:`route_write` the way the public,
+    routed :func:`release_review_item_lease` does.
+    """
+    _release_review_dispatch_claim_local(_review_item_lease_key(repo_name, issue_number))
+
+
+def has_review_item_lease(repo_name: str, issue_number: int) -> bool:
+    """True when *(repo_name, issue_number)* currently holds a #4002 item
+    lease — the read side, mirroring :func:`has_review_claim`."""
+    return has_review_claim(_review_item_lease_key(repo_name, issue_number))
+
+
 def release_review_claim_if_row_is_review(assignment_id: str) -> None:
     """Release *assignment_id*'s own review-dispatch claim, iff that row is
     itself a ``type="review"`` assignment (#3206).
@@ -4465,6 +4841,20 @@ def release_review_claim_if_row_is_review(assignment_id: str) -> None:
     nothing was racing (coord-tui#49, stuck ~11h). One shared function
     closes the gap for both existing callers and any future one.
 
+    #4002: also releases the SAME review row's per-item lease
+    (:func:`_release_review_item_lease_local`, keyed on ``(repo_name,
+    effective_issue_number)`` — see :func:`coord.models.effective_issue_number`)
+    at the exact same terminal-status chokepoint, so the one-per-item lease
+    a dispatcher took via :func:`claim_review_item_dispatch_gate` has
+    exactly the lifetime the per-assignment claim already does: held for as
+    long as the review leg is live, released the instant it reaches a
+    terminal status, through this one shared seam rather than a second,
+    independently-timed release path. Local-only, like the per-assignment
+    release just above it (:func:`_release_review_dispatch_claim_local`) —
+    this whole function is itself a local-DB write with no daemon routing
+    of its own, so a routed release here would be a same-process self-HTTP
+    round trip on any host that also has ``COORD_SERVICE_URL`` set.
+
     Best-effort: a lookup failure here must never turn a successful status
     write into a raised exception.
     """
@@ -4474,16 +4864,29 @@ def release_review_claim_if_row_is_review(assignment_id: str) -> None:
     try:
         row = sql.execute(
             conn,
-            "SELECT type, review_of_assignment_id FROM assignments WHERE assignment_id=?",
+            "SELECT type, review_of_assignment_id, repo_name, issue_number, "
+            "for_issue_number FROM assignments WHERE assignment_id=?",
             (assignment_id,),
         ).fetchone()
         if row is not None:
-            row_type = row["type"] if hasattr(row, "keys") else row[0]
-            row_of_id = (
-                row["review_of_assignment_id"] if hasattr(row, "keys") else row[1]
-            )
+            if hasattr(row, "keys"):
+                row_type = row["type"]
+                row_of_id = row["review_of_assignment_id"]
+                row_repo = row["repo_name"]
+                row_issue = row["issue_number"]
+                row_for_issue = row["for_issue_number"]
+            else:
+                row_type, row_of_id, row_repo, row_issue, row_for_issue = row
             if row_type == "review" and row_of_id:
                 _release_review_dispatch_claim_local(row_of_id)
+            if row_type == "review" and row_repo:
+                from coord.models import effective_issue_number  # noqa: PLC0415
+
+                effective_issue = effective_issue_number(
+                    {"issue_number": row_issue, "for_issue_number": row_for_issue}
+                )
+                if effective_issue:
+                    _release_review_item_lease_local(row_repo, effective_issue)
     except Exception:  # noqa: BLE001 — best-effort; never break the status write
         pass
 
@@ -10824,8 +11227,86 @@ def enqueue_drive_queue(
     )
 
 
+# #3998: a WORK_LIKE assignment row counts toward the #2972 fix-round
+# ceiling only if a worker session actually started for it. A worktree-setup
+# failure, a pre-session API/HTTP error, or a launch refused for a live
+# conflicting worktree (#3912) all land here: the agent sets `status =
+# 'failed'` directly without ever reaching `_reap` (or `_reap` runs but the
+# underlying `claude -p` process never emitted even its `system.init`
+# stream-json event), so `claude_session_id` — populated by `_reap` parsing
+# the worker's own log for that event the moment output starts — stays NULL.
+#
+# `claude_session_id` alone is NOT a reliable witness, though: it is also
+# NULL for a leg that DID run, if `_capture_claude_session_id` simply missed
+# its one look at the agent's `/status` entry (the #3314 race —
+# `list_assignments_missing_claude_session_id` / `retry_pending_
+# claude_session_id_captures` exist to retry that capture, but only within
+# `CLAUDE_SESSION_ID_RETRY_WINDOW_SECONDS` and only while the agent is
+# reachable), or if the leg's host went unreachable mid-run and
+# `coord.reconcile`'s stale-leg sweep terminated it via
+# `mark_failed_by_id` with no `/status` entry to capture from at all. Either
+# way the leg may have run for an hour and pushed real commits. So this
+# predicate requires a NULL `claude_session_id` to be CORROBORATED by every
+# other signal the board has of a session never starting, before excluding
+# the row — any one of them being non-empty means a session ran and the row
+# counts:
+#   - `failure_reason` empty: all seven reasons `coord.reconcile` stamps
+#     (usage-limit, API-error, push-failure, spend-ceiling, truncation,
+#     runtime-ceiling, host-sleep) imply a reaped transcript, i.e. a session
+#     that started. A pre-session 403 (quadraui#2347) or the #3912
+#     worktree-setup refusal stamp none of these.
+#   - `unreachable_count` zero/NULL: this is the direct witness against the
+#     reconcile-sweep path above — a leg terminated for host unreachability
+#     has this at or above `stale_threshold`, never zero.
+#   - `cost_usd` NULL: stamped once at completion (#208) only once `claude
+#     -p` actually billed tokens, so any non-NULL value means it ran.
+# A `failed` row WITH a session id (the worker started, then crashed or was
+# killed) is a real attempt and must still count regardless of these other
+# fields: `status` alone cannot tell the two apart, so the condition stays
+# scoped to `status = 'failed'`. Every OTHER terminal status (`done`,
+# `merged`, `advisory`, `refused_policy`, `refused_premise`,
+# `needs_decomposition`) always implies a session ran to completion
+# regardless of whether `claude_session_id` happens to be populated, so a
+# currently-running leg and a pre-#315 row predating the
+# `claude_session_id` column are both never miscounted.
+#
+# Expressed once here as a SQL fragment (reused verbatim by
+# `_work_leg_count_for_issue_local`'s aggregate `COUNT(*)`) and mirrored by
+# :func:`_is_infra_failed_launch` for `_leg_counts_local`, which needs the
+# same decision per already-fetched row rather than as a SQL predicate.
+_NOT_INFRA_FAILED_LAUNCH_SQL = (
+    "NOT (COALESCE(status, '') = 'failed' "
+    "AND COALESCE(claude_session_id, '') = '' "
+    "AND COALESCE(failure_reason, '') = '' "
+    "AND COALESCE(unreachable_count, 0) = 0 "
+    "AND cost_usd IS NULL)"
+)
+
+
+def _is_infra_failed_launch(
+    status: str | None,
+    claude_session_id: str | None,
+    failure_reason: str | None,
+    unreachable_count: int | None,
+    cost_usd: float | None,
+) -> bool:
+    """True iff an assignment row ended WITHOUT a worker session ever
+    starting (#3998) — see :data:`_NOT_INFRA_FAILED_LAUNCH_SQL`'s comment
+    for the exact reasoning this mirrors in SQL form, including why a NULL
+    ``claude_session_id`` alone is not sufficient."""
+    return (
+        (status or "") == "failed"
+        and not (claude_session_id or "")
+        and not (failure_reason or "")
+        and not (unreachable_count or 0)
+        and cost_usd is None
+    )
+
+
 def _work_leg_count_for_issue_local(conn, repo_name: str, issue_number: int) -> int:
-    """All-time WORK_LIKE assignment count for ONE issue, right now (#3463).
+    """All-time WORK_LIKE assignment count for ONE issue, right now (#3463),
+    EXCLUDING a leg that never started a worker session (#3998 —
+    :data:`_NOT_INFRA_FAILED_LAUNCH_SQL`).
 
     Same scope as :func:`_leg_counts_local` (both ``assignments`` and
     ``assignments_archive``, so a long-lived issue's early legs don't drop
@@ -10839,6 +11320,13 @@ def _work_leg_count_for_issue_local(conn, repo_name: str, issue_number: int) -> 
     :func:`coord.drive_queue.compute_leg_counts` uses (``t = assignment_type
     or "work"``) — which is always in ``WORK_LIKE_TYPES``, so a bare
     ``type IS NULL`` row is counted, never silently dropped.
+
+    #3998: without the infra exclusion, a brand-new row's
+    ``legs_at_enqueue`` baseline could be stamped with a leg that never
+    actually ran (a 403 from the provider, a worktree-setup error) — the
+    exact same over-count :attr:`coord.drive_queue.IssueFacts.
+    work_leg_count` must also exclude, via ``_leg_counts_local`` below,
+    for ``remaining_fix_rounds`` to read the identical figure at both ends.
     """
     placeholders = ",".join("?" for _ in WORK_LIKE_TYPES)
     total = 0
@@ -10846,7 +11334,8 @@ def _work_leg_count_for_issue_local(conn, repo_name: str, issue_number: int) -> 
         try:
             row = sql.execute(conn,
                 f"SELECT COUNT(*) AS n FROM {table} WHERE repo_name = ? "  # noqa: S608 — constant
-                f"AND issue_number = ? AND (type IS NULL OR type IN ({placeholders}))",
+                f"AND issue_number = ? AND (type IS NULL OR type IN ({placeholders})) "
+                f"AND {_NOT_INFRA_FAILED_LAUNCH_SQL}",
                 (repo_name, issue_number, *WORK_LIKE_TYPES),
             ).fetchone()
         except sql.driver_errors() as exc:  # #2784: was sqlite3.OperationalError only
@@ -11529,14 +12018,27 @@ def leg_counts() -> dict[str, dict[str, int]]:
 
 
 def _leg_counts_local() -> dict[str, dict[str, int]]:
-    from coord.drive_queue import compute_leg_counts  # noqa: PLC0415
+    from coord.drive_queue import (  # noqa: PLC0415
+        INFRA_FAILED_LAUNCH_KEY,
+        compute_leg_counts,
+    )
 
     conn = get_connection()
     rows: list[tuple[str, int, str]] = []
+    # #3998: a WORK_LIKE row that never started a worker session goes into
+    # its OWN bucket, counted separately below — see
+    # `_is_infra_failed_launch`'s docstring. Scoped to WORK_LIKE types only
+    # (matching `_work_leg_count_for_issue_local`'s own scope): a
+    # `review`/`smoke`/other non-WORK_LIKE row keeps counting exactly as
+    # before this issue, since only the #2972 WORK-leg ceiling is wrong
+    # about never-started launches.
+    infra_rows: list[tuple[str, int, str]] = []
     for table in ("assignments", "assignments_archive"):
         try:
             result = sql.execute(conn,
-                f"SELECT repo_name, issue_number, type FROM {table}",  # noqa: S608 — constant
+                f"SELECT repo_name, issue_number, type, status, "  # noqa: S608 — constant
+                f"claude_session_id, failure_reason, unreachable_count, "
+                f"cost_usd FROM {table}",
             ).fetchall()
         except sql.driver_errors() as exc:  # #2784: was sqlite3.OperationalError only
             # Mirrors `_list_issue_numbers_with_assignments_local`: `continue`
@@ -11546,8 +12048,25 @@ def _leg_counts_local() -> dict[str, dict[str, int]]:
             # later query on this connection (#2983).
             rollback_after_driver_error(conn, exc)
             continue  # assignments_archive may not exist yet (housekeeping never ran)
-        rows.extend((r[0], r[1], r[2]) for r in result)
-    return compute_leg_counts(rows)
+        for r in result:
+            repo_name, issue_number, assignment_type = r[0], r[1], r[2]
+            is_work_like = (assignment_type or "work") in WORK_LIKE_TYPES
+            if is_work_like and _is_infra_failed_launch(
+                r[3], r[4], r[5], r[6], r[7]
+            ):
+                infra_rows.append((repo_name, issue_number, assignment_type))
+            else:
+                rows.append((repo_name, issue_number, assignment_type))
+    counts = compute_leg_counts(rows)
+    # #3998: fold the infra-failed-launch rows in too, under the reserved
+    # `INFRA_FAILED_LAUNCH_KEY` pseudo-type — never a real `AssignmentType`,
+    # so every `kind in WORK_LIKE` consumer (`build_board_view`'s
+    # `work_leg_count` fold, `coord.commands.drive_queue`'s `lifetime_legs`
+    # display) excludes it automatically, while `IssueFacts.
+    # infra_failed_leg_count` still has a count to read.
+    for key, by_type in compute_leg_counts(infra_rows).items():
+        counts.setdefault(key, {})[INFRA_FAILED_LAUNCH_KEY] = sum(by_type.values())
+    return counts
 
 
 def list_audit_log(

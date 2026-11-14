@@ -18,24 +18,24 @@ class ResizeRCInstanceDiskRequest(DaraModel):
         # Specifies whether to enable automatic payment. Valid values:
         # - **true** (default): Automatic payment is enabled. Make sure that your account balance is sufficient.
         # - **false**: Only an order is generated and no payment is deducted.
-        # > If your payment method has an insufficient balance, you can set AutoPay to false. An unpaid order is generated, and you can log on to the ApsaraDB RDS console to complete the payment.
+        # > If your payment method has an insufficient balance, you can set the AutoPay parameter to false. An unpaid order is generated, and you can log on to the ApsaraDB RDS console to complete the payment.
         # >
         self.auto_pay = auto_pay
         # The cloud disk ID.
         self.disk_id = disk_id
-        # Specifies whether to perform a precheck on the operation. Valid values:
+        # Specifies whether to perform a precheck on this operation. Valid values:
         # * **true**: A precheck is performed, and the operation is not executed. Check items include request parameters, request format, business limits, and inventory.
-        # * **false** (default): A normal request is sent, and the operation is executed immediately after the precheck is passed.
+        # * **false** (default): A normal request is sent, and the operation is executed after the request passes the precheck.
         self.dry_run = dry_run
         # The instance ID.
         self.instance_id = instance_id
-        # The new size of the disk after expansion. Unit: GiB.
+        # The size of the cloud disk after expansion. Unit: GiB.
         self.new_size = new_size
         # The region ID of the instance.
         self.region_id = region_id
-        # The method used to expand the disk. Valid values:
-        # - **offline** (default): Offline expansion. You must restart the instance for the expansion to take effect.
-        # - **online**: Online expansion. The expansion takes effect without restarting the instance.
+        # The method used to expand the cloud disk. Valid values:
+        # - **offline** (default): Offline expansion. After the expansion, you must restart the instance for the changes to take effect.
+        # - **online**: Online expansion. The expansion is completed without the need to restart the instance.
         self.type = type
 
     def validate(self):

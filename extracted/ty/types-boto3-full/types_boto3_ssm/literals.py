@@ -165,6 +165,7 @@ __all__ = (
     "PatchSetType",
     "PingStatusType",
     "PlatformTypeType",
+    "ProviderType",
     "RebootOptionType",
     "RegionName",
     "ResourceDataSyncS3FormatType",
@@ -248,7 +249,7 @@ AutomationExecutionStatusType = Literal[
 AutomationSubtypeType = Literal["AccessRequest", "ChangeRequest"]
 AutomationTypeType = Literal["CrossAccount", "Local"]
 CalendarStateType = Literal["CLOSED", "OPEN"]
-CloudConnectorFilterKeyType = Literal["SubscriptionId", "TenantId"]
+CloudConnectorFilterKeyType = Literal["OrganizationId", "ProjectId", "SubscriptionId", "TenantId"]
 CommandExecutedWaiterName = Literal["command_executed"]
 CommandFilterKeyType = Literal[
     "DocumentName", "ExecutionStage", "InvokedAfter", "InvokedBefore", "Status"
@@ -589,6 +590,7 @@ PatchPropertyType = Literal[
 PatchSetType = Literal["APPLICATION", "OS"]
 PingStatusType = Literal["ConnectionLost", "Inactive", "Online"]
 PlatformTypeType = Literal["Linux", "MacOS", "Windows"]
+ProviderType = Literal["Azure", "GCP"]
 RebootOptionType = Literal["NoReboot", "RebootIfNeeded"]
 ResourceDataSyncS3FormatType = Literal["JsonSerDe"]
 ResourceTypeForTaggingType = Literal[
@@ -618,6 +620,7 @@ SourceTypeType = Literal[
     "AWS::IoT::Thing",
     "AWS::SSM::ManagedInstance",
     "Microsoft.Compute/virtualMachines",
+    "compute.googleapis.com/Instance",
 ]
 StepExecutionFilterKeyType = Literal[
     "Action",
@@ -637,13 +640,17 @@ ValidationFindingCodeType = Literal[
     "OutboundWebIdentityFederationDisabled",
     "ProviderCredentialCreationFailed",
     "SubscriptionAccessible",
+    "TargetApiDisabled",
     "TargetInaccessible",
+    "TargetMissingPermissions",
     "TargetStateWarning",
     "TargetUnusable",
     "TenantSummary",
     "WebIdentityTokenFailed",
 ]
-ValidationFindingScopeTypeType = Literal["azure:subscription", "azure:tenant"]
+ValidationFindingScopeTypeType = Literal[
+    "azure:subscription", "azure:tenant", "gcp:organization", "gcp:project"
+]
 ValidationFindingTypeType = Literal["ERROR", "INFO", "WARN"]
 SSMServiceName = Literal["ssm"]
 ServiceName = Literal[

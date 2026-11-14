@@ -602,6 +602,136 @@ class TestProcessReviewCompletion:
         # The GitHub notice must name the reviewer's original verdict.
         assert mock_notice.call_args.kwargs["original_verdict"] == "request-changes"
 
+    def test_request_changes_superseded_by_prior_approval_is_non_blocking(
+        self, config: Config, tmp_path
+    ) -> None:
+        """#4002: an approve on the current head is final. A SECOND review of
+        the EXACT SAME commit that comes back request-changes after an
+        earlier approve of that commit must not dispatch a fix round (and
+        so never increments ``fix_rounds``) — the findings are recorded as
+        non-blocking instead of reopening an already-approved item.
+
+        This reproduces the quadraui#2356 shape: two independent reviews of
+        commit ``deadbeef1234`` — one approve, one request-changes — in the
+        SAME work chain.
+        """
+        log_file = tmp_path / "review.log"
+        log_file.write_text(
+            "REVIEW_VERDICT: request-changes\n"
+            "REVIEW_BODY:\n"
+            "## Blocking findings\n"
+            "- Looks like a real problem from this reviewer's own vantage.\n"
+            "END_REVIEW\n"
+        )
+        work = _work_assignment(review_iteration=0)
+        prior_approval = _review_assignment(
+            assignment_id="review-approved-1", review_of="work-abc",
+        )
+        prior_approval.review_verdict = "approve"
+        prior_approval.review_head_sha = "deadbeef1234"
+        review = _review_assignment(assignment_id="review-xyz", review_of="work-abc")
+        review.review_head_sha = "deadbeef1234"
+
+        board = Board(
+            repos=[Repo(name="api", github="acme/api")],
+            machines=[],
+            active=[],
+            completed=[work, prior_approval, review],
+        )
+
+        mock_http = MagicMock()  # must NOT be used — no dispatch expected
+        with patch(
+            "coord.auto_loop._post_superseded_by_approval_notice"
+        ) as mock_notice:
+            actions = process_review_completion(
+                review, board, config,
+                log_path=str(log_file),
+                http_client=mock_http,
+            )
+
+        assert len(actions) == 1
+        assert actions[0].kind == "superseded_by_approval"
+        # No fix worker dispatched — this is exactly the ceiling-wasting
+        # fix round 2 the quadraui#2356 incident describes.
+        assert len(board.active) == 0
+        mock_http.post.assert_not_called()
+        # The reviewer's own genuine verdict is preserved on ITS row...
+        assert review.review_verdict == "request-changes"
+        # ...but the work row is left untouched (not reopened to
+        # request-changes) — `propagate_review_verdict` is never reached.
+        assert work.review_verdict != "request-changes"
+        mock_notice.assert_called_once()
+
+    def test_superseded_by_approval_notice_upserts_not_appends(
+        self, config: Config, tmp_path
+    ) -> None:
+        """The notice is posted via `coord.state.upsert_issue_comment`
+        (marker-keyed edit-in-place, #2109) rather than a bare
+        `post_issue_comment` — this outcome can legitimately be recomputed
+        more than once for the SAME review row (the #1582 stalled-pipeline
+        sweep re-runs `process_review_completion` while this row's
+        fix-less request-changes stays outstanding), and a bare post would
+        append a duplicate comment on every such re-run instead of being a
+        no-op."""
+        from coord.auto_loop import _post_superseded_by_approval_notice
+
+        work = _work_assignment()
+        review = _review_assignment(assignment_id="review-xyz", review_of="work-abc")
+        review.review_head_sha = "deadbeef1234"
+
+        with patch("coord.state.upsert_issue_comment") as mock_upsert:
+            _post_superseded_by_approval_notice(review, work, config)
+
+        mock_upsert.assert_called_once()
+        args, kwargs = mock_upsert.call_args
+        body = args[2] if len(args) > 2 else kwargs["body"]
+        assert "coord:event=auto_loop_superseded_by_approval" in body
+
+    def test_request_changes_with_new_commit_after_approval_still_dispatches_fix(
+        self, config: Config, tmp_path
+    ) -> None:
+        """#4002 acceptance: a NEW commit (different head SHA) still gets a
+        fresh review and, on request-changes, a fresh fix round — only an
+        EXACT-same-commit request-changes is superseded."""
+        log_file = tmp_path / "review.log"
+        log_file.write_text(
+            "REVIEW_VERDICT: request-changes\n"
+            "REVIEW_BODY:\n"
+            "## Blocking findings\n"
+            "- Still broken after the new commit.\n"
+            "END_REVIEW\n"
+        )
+        work = _work_assignment(review_iteration=1)
+        prior_approval = _review_assignment(
+            assignment_id="review-approved-1", review_of="work-abc",
+        )
+        prior_approval.review_verdict = "approve"
+        prior_approval.review_head_sha = "deadbeef1234"
+        # A fresh commit landed — this review covers a DIFFERENT SHA.
+        review = _review_assignment(assignment_id="review-xyz2", review_of="work-abc")
+        review.review_head_sha = "cafef00dcafe"
+
+        board = Board(
+            repos=[Repo(name="api", github="acme/api")],
+            machines=[],
+            active=[],
+            completed=[work, prior_approval, review],
+        )
+
+        mock_http = MagicMock()
+        mock_http.post.return_value.json.return_value = {"id": "fix-002"}
+        mock_http.post.return_value.raise_for_status = MagicMock()
+
+        with patch("coord.auto_loop.record_dispatched_assignment"):
+            actions = process_review_completion(
+                review, board, config,
+                log_path=str(log_file),
+                http_client=mock_http,
+            )
+
+        assert actions[0].kind == "fix_dispatched"
+        assert len(board.active) == 1
+
     def test_request_changes_with_blocking_still_dispatches_fix(
         self, config: Config, tmp_path
     ) -> None:
@@ -1285,6 +1415,40 @@ class TestBuildFixBriefing:
         findings = _request_changes_findings()
         briefing = _build_fix_briefing(work, findings, iteration=1, max_iter=3)
         assert "do not change the branch name" in briefing.lower()
+
+    def test_requires_only_blocking_findings(self) -> None:
+        work = _work_assignment()
+        findings = _request_changes_findings()
+        briefing = _build_fix_briefing(work, findings, iteration=1, max_iter=3)
+        assert "Fix **every** item under the reviewer's *Blocking findings*" in briefing
+        assert "Fix **every** issue identified by the reviewer" not in briefing
+        assert "Address all findings completely" not in briefing
+
+    def test_findings_without_a_blocking_section_are_all_blocking(self) -> None:
+        work = _work_assignment()
+        findings = _request_changes_findings()
+        briefing = _build_fix_briefing(work, findings, iteration=1, max_iter=3)
+        assert "treat every finding as blocking" in briefing
+
+    def test_non_blocking_items_are_optional_and_confined(self) -> None:
+        work = _work_assignment()
+        findings = ReviewFindings(
+            verdict="request-changes",
+            body=(
+                "## Blocking findings\n- Missing dependency in CI install\n\n"
+                "## Non-blocking concerns\n- Export the new module in __all__\n\n"
+                "## Nits\n- Docstring describes a call the example never makes"
+            ),
+        )
+        briefing = _build_fix_briefing(work, findings, iteration=1, max_iter=3)
+        lowered = briefing.lower()
+        assert "*non-blocking concerns* and *nits* are optional" in lowered
+        assert "inside a file this branch already changes" in lowered
+        assert "do **not** add a new file" in lowered
+        assert "public api" in lowered
+        assert "list each non-blocking concern or nit" in lowered
+        assert "Missing dependency in CI install" in briefing
+        assert "Export the new module in __all__" in briefing
 
 
 class TestBuildFixBriefingTestAuthor:
@@ -2531,6 +2695,72 @@ class TestRunForReviewTransition:
         assert entries[0]["details"]["original_verdict"] == "request-changes"
         assert entries[0]["details"]["effective_verdict"] == "approve"
         assert entries[0]["details"]["blocking"] == 0
+
+    def test_superseded_by_approval_persists_the_verdict_to_db(
+        self, config: Config, tmp_path, coord_db
+    ) -> None:
+        """#4002 review follow-up: `superseded_by_approval` mutates
+        `review.review_verdict` in place but was missing from
+        `PERSIST_ACTION_KINDS` — so `run_for_review_transition` never wrote
+        it back, the DB row stayed `review_verdict IS NULL`, and every
+        later `coord notify` pass re-detected this exact row as the #1582
+        "review done, no verdict ever captured" stall shape, which can
+        escalate to deleting and re-dispatching the review (which the
+        #4002 per-item gate then refuses, wedging the item for good).
+
+        Regression guard: the request-changes verdict must round-trip
+        through the DB as `request-changes` — recorded, not lost — and the
+        work row must be untouched (not reopened).
+        """
+        from coord.state import load_board, save_board
+
+        review_log = tmp_path / "review.log"
+        review_log.write_text(
+            "REVIEW_VERDICT: request-changes\n"
+            "REVIEW_BODY:\n"
+            "## Blocking findings\n"
+            "- Looks like a real problem from this reviewer's own vantage.\n"
+            "END_REVIEW\n"
+        )
+        work = _work_assignment()
+        prior_approval = _review_assignment(
+            assignment_id="review-approved-1", review_of="work-abc",
+        )
+        prior_approval.review_verdict = "approve"
+        prior_approval.review_head_sha = "deadbeef1234"
+        review = _review_assignment(assignment_id="review-xyz", review_of="work-abc")
+        review.review_head_sha = "deadbeef1234"
+        board = Board(
+            repos=[Repo(name="api", github="acme/api")],
+            machines=[],
+            active=[],
+            completed=[work, prior_approval, review],
+        )
+        save_board(board)
+
+        record = {"type": "review", "review_of_assignment_id": "work-abc"}
+        entry = {"log_path": str(review_log)}
+
+        with patch("coord.auto_loop._post_superseded_by_approval_notice"):
+            actions = run_for_review_transition(
+                "review-xyz", record, entry, config,
+            )
+
+        assert actions and actions[0].kind == "superseded_by_approval"
+        loaded = load_board()
+        assert loaded is not None
+        review_loaded = loaded.find_by_id("review-xyz")
+        assert review_loaded is not None
+        assert review_loaded.review_verdict == "request-changes", (
+            "the verdict must be durably recorded, not dropped — a #1582 "
+            "stall-sweep re-run must see it and never re-process this row "
+            "as 'no verdict ever captured'"
+        )
+        work_loaded = loaded.find_by_id("work-abc")
+        assert work_loaded is not None
+        assert work_loaded.review_state == "dispatched", (
+            "the work row is left untouched — superseded is not a reopen"
+        )
 
     def test_review_not_on_board_returns_empty(
         self, config: Config, tmp_path, coord_db

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from river import datasets, stream
+from river import base, datasets, stream
 
 from .base import ChangePointFileDataset
 
 
 class Bitcoin(ChangePointFileDataset):
-    """Bitcoin Market Price
+    """Bitcoin Market Price.
 
     This is a regression task, where the goal is to predict the average USD market price across
     major bitcoin exchanges. This data was collected from the official Blockchain website. There
@@ -19,7 +19,7 @@ class Bitcoin(ChangePointFileDataset):
 
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             annotations={
                 "6": [502, 580, 702, 747],
@@ -34,7 +34,8 @@ class Bitcoin(ChangePointFileDataset):
             n_features=1,
         )
 
-    def __iter__(self):
+    def __iter__(self) -> base.typing.Stream:
+
         return stream.iter_csv(
             self.path,
             target="price",

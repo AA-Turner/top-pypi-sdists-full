@@ -51,9 +51,9 @@ class DescribeRCInstanceDdosCountResponseBodyDdosCount(DaraModel):
         defense_count: str = None,
         instacen_count: str = None,
     ):
-        # The number of instances under blackhole filtering.
+        # The number of instances that are in the blackhole filtering status.
         self.blackhole_count = blackhole_count
-        # The number of instances that are undergoing traffic scrubbing.
+        # The number of instances for which traffic is being scrubbed.
         self.defense_count = defense_count
         # The total number of instances.
         self.instacen_count = instacen_count

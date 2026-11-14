@@ -12,15 +12,15 @@ class ModifyDTCSecurityIpHostsForSQLServerResponseBody(DaraModel):
         request_id: str = None,
         task_id: str = None,
     ):
-        # The ApsaraDB RDS instance ID.
+        # The instance ID of the ApsaraDB RDS instance.
         self.dbinstance_id = dbinstance_id
-        # The result of configuring the whitelist. Valid values:
-        # * **Success**: The configuration is successful.
-        # * **Fail**: The configuration failed.
+        # The result of setting the whitelist. Valid values:
+        # * **Success**: The whitelist is set.
+        # * **Fail**: The whitelist fails to be set.
         self.dtcset_result = dtcset_result
         # The request ID.
         self.request_id = request_id
-        # The task ID of the configuration task.
+        # The ID of the task.
         self.task_id = task_id
 
     def validate(self):

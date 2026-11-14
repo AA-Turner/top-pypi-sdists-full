@@ -5,47 +5,34 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .doc_ai_classify_category import DocAiClassifyCategory
-from .doc_ai_classify_config_scope import DocAiClassifyConfigScope
 from .doc_ai_classify_config_unmatched_behavior import DocAiClassifyConfigUnmatchedBehavior
-from .doc_ai_classify_inspection import DocAiClassifyInspection
+from .doc_ai_page_ranges import DocAiPageRanges
+from .doc_ai_review_policy import DocAiReviewPolicy
 
 
 class DocAiClassifyConfig(UniversalBaseModel):
-    """
-    Classify options. Use at most one page selector from `max_pages`, `target_pages` and `inspection`.
-    """
-
-    scope: typing.Optional[DocAiClassifyConfigScope] = pydantic.Field(default=None)
-    """
-    `document` returns one decision for the file. `page` returns one decision per page in `decisions`.
-    """
-
     categories: typing.Optional[typing.List[DocAiClassifyCategory]] = pydantic.Field(default=None)
     """
-    Categories to choose from. Omit them to let the API suggest a document type.
+    Categories to choose from, up to 200. Omit to let the API read types from `instructions` or suggest one.
     """
 
+    instructions: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Your own instruction text, up to 8,000 characters.
+    """
+
+    page_ranges: typing.Optional[DocAiPageRanges] = None
     unmatched_behavior: typing.Optional[DocAiClassifyConfigUnmatchedBehavior] = pydantic.Field(default=None)
     """
-    What to do when no category matches. `suggest_type` returns a `suggested_type`; `other` returns `type: "other"` without a suggestion.
+    What to do when no category matches. `suggest_type` returns a `suggested_type`; `other` suppresses it.
     """
 
-    prompt: typing.Optional[str] = pydantic.Field(default=None)
+    label_mode: typing.Optional[typing.Literal["single"]] = pydantic.Field(default=None)
     """
-    Your own instruction text.
-    """
-
-    max_pages: typing.Optional[int] = pydantic.Field(default=None)
-    """
-    Inspect only the first N pages.
+    `single` only.
     """
 
-    target_pages: typing.Optional[typing.List[int]] = pydantic.Field(default=None)
-    """
-    Inspect only these 1-based pages, e.g. `[1, 6, 8]`.
-    """
-
-    inspection: typing.Optional[DocAiClassifyInspection] = None
+    review_policy: typing.Optional[DocAiReviewPolicy] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

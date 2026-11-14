@@ -4,6 +4,7 @@ now -- and record a refused upload as a pointer row."""
 from __future__ import annotations
 import os
 import socket
+import time
 from typing import Any
 
 from ....foundation.safe_warn import safe_warn as _diagnostics
@@ -41,6 +42,11 @@ def _env_async_uploads(*, default: bool) -> bool:
 #: caller must fall through to the synchronous path. Distinct from None, which
 #: is a legitimate "queued, no row yet" answer.
 _NOT_QUEUED = object()
+#: The server's 422 detail when a presign cites a span it has not stored yet (`app/files/artifacts/uploads/anchors/run.py`).
+SPAN_NOT_FOUND = "span_id not found for this run"
+#: Seconds between the retries of such a presign (7.75 s in all): long enough for a queued span another drain is
+#: sending, or a backed-off lane's next try, to land; a file is lost only after the last one.
+SPAN_PRESIGN_RETRY_DELAYS = (0.25, 0.5, 1.0, 2.0, 4.0)
 
 
 class UploadsMixin:
@@ -387,10 +393,7 @@ class UploadsMixin:
             meta=meta or None,
         )
         try:
-            presign = self._client.transport.post(
-                f"/v1/runs/{self.id}/artifacts/uploads",
-                req.model_dump(mode="json", exclude_none=True),
-            )
+            presign = self._presign_citing_span(req.model_dump(mode="json", exclude_none=True), span_id)
             if not presign.get("have"):
                 # Stream the file (model weights fit here); never read it whole into
                 # memory. size_bytes is the fingerprinted length the presign signed.
@@ -478,6 +481,25 @@ class UploadsMixin:
                 stacklevel=4,
             )
             return recorded
+
+    def _presign_citing_span(self, body: dict, span_id: str | None) -> Any:
+        """The presign POST. When it cites a span the server has not stored yet (422 "span_id not found for this
+        run") while a span write of this run is still queued (another drain is sending it, its lane is backed off),
+        flush the run's spans again and retry after each of `SPAN_PRESIGN_RETRY_DELAYS`. With nothing of the run
+        queued the span just landed or never will: one last try at once, then its 422 stands (the caller falls back
+        to a reference). Lost rollout files on the 11-13 verl run: 25 of 72."""
+        path = f"/v1/runs/{self.id}/artifacts/uploads"
+        for delay in SPAN_PRESIGN_RETRY_DELAYS if span_id and self._client.async_writes else ():
+            try:
+                return self._client.transport.post(path, body)
+            except errors.ValidationError as exc:
+                if SPAN_NOT_FOUND not in str(exc.detail or exc):
+                    raise
+            if not self._get_queued_span_ops():
+                break
+            time.sleep(delay)
+            self._flush_for_span(span_id)
+        return self._client.transport.post(path, body)
 
 
 #: One definition, shared with the anchored-upload path in sdk/client/client.py — the hash

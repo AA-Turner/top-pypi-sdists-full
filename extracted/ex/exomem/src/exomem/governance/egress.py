@@ -2171,9 +2171,12 @@ def _page_local_path(vault_root: Path, rel_path: str, *, withheld: bool) -> bool
             or bound_writer(vault_root) is not None or ownership.relevant(rel_path)):
         return False
     if withheld:
+        from ..vault_store import read
+
         try:
-            with open(Path(vault_root) / rel_path, "rb"):
-                pass
+            if read.owned_meta(vault_root, rel_path) is None:
+                with open(Path(vault_root) / rel_path, "rb"):
+                    pass
         except OSError:
             return False
     return True
@@ -2215,7 +2218,9 @@ def content_admission(vault_root: Path, who: RequestPrincipal) -> AdmittedPredic
         allowed = content_permits(root, rel_path, who)
         return allowed, publish and _page_local_path(root, rel_path, withheld=not allowed)
 
-    return AdmittedPredicate(Admission(identity, decide))
+    return AdmittedPredicate(Admission(identity, decide, lambda paths, publish: _stored_admission_many(
+        root, paths, publish, policy=compiled, who=who, identity=identity, scalar=decide, content_only=True,
+    )))
 
 
 def name_lookup_required(vault_root: Path) -> bool:
@@ -2283,6 +2288,62 @@ def _page_bytes(vault_root: Path, rel_path: str) -> bytes:
 
     stored = read.owned_bytes(vault_root, rel_path)
     return (vault_root / rel_path).read_bytes() if stored is None else stored
+
+
+def _decision_from_scopes(
+    scope_ids: Iterable[str], *, policy: Policy, audience: str, purpose: str | None,
+    active_grants: Iterable[policy_module.StandingGrant],
+) -> Decision:
+    """The shared release kernel after scalar or stored-fact membership is established."""
+    return decide(scope_ids, audience=audience, purpose=purpose, policy=policy, active_grants=active_grants)
+
+
+def _stored_admission_many(
+    root: Path, paths: list[str], publish: bool, *, policy: Policy, who: RequestPrincipal,
+    identity: Callable[[], object], scalar: Callable[[str, bool], tuple[bool, bool]],
+    purpose: str | None = None, tombstones: frozenset[str] = frozenset(), content_only: bool = False,
+    record_outcomes: bool = False,
+) -> dict[str, tuple[bool, bool]]:
+    """Decide each ordinary scope class once; unknown facts and caller views remain scalar."""
+    from ..vault_store import read as store_read
+    from . import page_admission
+
+    memo = store_read.request_memo(root)
+    if memo is None:
+        return {path: scalar(path, publish) for path in paths}
+    named = identity()
+    scope_sets = {} if named is None else page_admission.scopes_many(root, paths, policy)
+    classes = memo.setdefault(("scope-admission", named, content_only), {})
+    denied = connector_boundary.admission_identity(root, who, policy)[0] if scope_sets else frozenset()
+    answers = {}
+    for path in paths:
+        scopes = scope_sets.get(path)
+        if scopes is None:
+            answers[path] = scalar(path, publish)
+            continue
+        if scopes not in classes:
+            permitted = connector_boundary.permits_scopes(denied, scopes)
+            decision = None
+            if permitted and not content_only:
+                decision = _decision_from_scopes(
+                    scopes, policy=policy, audience=who.audience_id, purpose=purpose,
+                    active_grants=policy.grants,
+                )
+                # A simple page has no bridge; resolving L4 can only lower it below the release floor.
+                permitted = decision.level >= RELEASE_FLOOR
+            classes[scopes] = (permitted, decision)
+        permitted, decision = classes[scopes]
+        tombstoned = not content_only and lifecycle.is_tombstoned_in(tombstones, path)
+        allowed = permitted and not tombstoned
+        if record_outcomes and not tombstoned and decision is not None and _collector() is not None:
+            content_hash, size = page_admission.evidence(root, path)
+            _outcome_for_decision(
+                root, path, decision=_resolve_l4_bridge(root, decision, policy=policy, audience=who.audience_id),
+                policy=policy, audience=who.audience_id, outcome="released" if allowed else "withheld",
+                purpose=purpose, content_hash=content_hash, size=size,
+            )
+        answers[path] = (allowed, publish)
+    return answers
 
 
 @canonical_read(projection=True, unavailable=lambda: Decision(DISCLOSURE_MIN), batch=_DECIDE_PATH_BATCH)
@@ -2449,7 +2510,7 @@ def _decide_path(
             policy=policy,
             audience=audience,
         )
-    decision = decide(
+    decision = _decision_from_scopes(
         scope_ids,
         audience=audience,
         purpose=purpose,
@@ -3620,6 +3681,12 @@ def page_release_filter(
             root, policy, who, declared_purpose, grants_hash, tombstones,
         ),
         released,
+        lambda paths, publish: _stored_admission_many(
+            root, paths, publish, policy=policy, who=who, purpose=declared_purpose,
+            tombstones=tombstones, identity=lambda: _release_admission_identity(
+                root, policy, who, declared_purpose, grants_hash, tombstones,
+            ), scalar=released,
+        ),
     ))
 
 
@@ -7752,7 +7819,10 @@ def release_walk_filter(
             vault_root, policy, who, declared_purpose, grants_hash, tombstones,
         )
 
-    keep = AdmittedPredicate(Admission(identity, judge))
+    keep = AdmittedPredicate(Admission(identity, judge, lambda paths, publish: _stored_admission_many(
+        vault_root, paths, publish, policy=policy, who=who, purpose=declared_purpose,
+        tombstones=tombstones, identity=identity, scalar=judge, record_outcomes=True,
+    )))
 
     owned = None if tombstones or fail_closed else _marker_owned_paths(vault_root, policy)
     if owned is not None:
@@ -7836,20 +7906,21 @@ def caller_restricted(
 ) -> bool:
     """Could anything, RAW included, be withheld from this caller?
 
-    The question every count, cut or diagnostic computed before admission
-    asks. Policy state (`gate_state`) is a different question: RAW withholds
-    a protected page from a guest on an ungoverned vault too.
+    The one answer to "is this caller restricted": every count, cut, refusal
+    or diagnostic that only the owner may receive asks it. Policy state
+    (`gate_state`) is a different question: RAW withholds a protected page
+    from a guest on an ungoverned vault too.
 
-    It is `restricted_release_filter(...) is not None` without building the
-    filter: a bound preview filters every caller, and in file mode the caller
-    decides it. So it loads no policy and reads no collection ownership, and
-    a receipt can ask it after the read scope has finished.
+    The principal, its RAW authority and the connector ceiling decide it, in
+    file mode and in a bound store alike. Whether a release filter exists is
+    not this answer: a bound store filters every caller's walk, the owner's
+    too, so a site that applies a filter asks `restricted_release_filter` and
+    a site that decides restriction asks this. It loads no policy and reads no
+    collection ownership, so a receipt can ask it after the read scope has
+    finished.
     """
     del purpose  # every purpose gets a filter or none alike
-    return (
-        bound_writer(vault_root) is not None
-        or file_mode_restricted_caller(vault_root, principal) is not None
-    )
+    return file_mode_restricted_caller(vault_root, principal) is not None
 
 
 #: The reason a whole-vault aggregate gives an audience it is not served to;
@@ -7947,12 +8018,19 @@ def write_target_withheld(
     that writer pays, and the owner never does (`False` for the owner and on
     an ungoverned vault).
     """
+    # A bound store filters the owner's walk too (it leaves out the trash, for one); that view
+    # withholds nothing from the owner.
+    if not caller_restricted(vault_root, principal=principal, purpose=purpose):
+        return False
     keep = restricted_release_filter(vault_root, principal=principal, purpose=purpose)
     if keep is None:
         return False
     rel = str(rel_path or "").replace("\\", "/").strip().lstrip("/")
+    from ..vault_store import read as store_read
+
     try:
-        exists = bool(rel) and (Path(vault_root) / rel).is_file()
+        # A stored page exists while the store holds it, whatever its projection shows.
+        exists = bool(rel) and store_read.holds_file(Path(vault_root), rel)
     except OSError:
         return False
     return exists and not keep(rel)
@@ -8085,7 +8163,16 @@ def page_filter_over(
         return lambda rel_path: decide(rel_path)[0]
     # A non-page reference is kept whatever the page verdicts say, so the
     # catalogue publishes only the pages `decide` hands on to the release verdict.
-    return AdmittedPredicate(Admission(offered.identity, decide))
+    def decide_many(paths: list[str], publish: bool) -> dict[str, tuple[bool, bool]]:
+        if store_read.request_memo(root) is None:
+            return {path: decide(path, publish) for path in paths}
+        held_page = store_read.held_lookup(root, paths)
+        ordinary = [path for path in paths if path not in held and held_page(path)]
+        answers = offered.decide_many(ordinary, publish)
+        answers.update({path: decide(path, publish) for path in paths if path not in answers})
+        return answers
+
+    return AdmittedPredicate(Admission(offered.identity, decide, decide_many))
 
 
 def edge_view(
@@ -8117,7 +8204,15 @@ def edge_view(
         released, release_local = release.decide(path, publish)
         return released, local and release_local
 
-    return AdmittedPredicate(Admission(identity, decide))
+    def decide_many(paths: list[str], publish: bool) -> dict[str, tuple[bool, bool]]:
+        answers = content.decide_many(paths, publish)
+        releases = release.decide_many([path for path in paths if answers[path][0]], publish)
+        return {
+            path: (releases[path][0], local and releases[path][1]) if allowed else (False, local)
+            for path, (allowed, local) in answers.items()
+        }
+
+    return AdmittedPredicate(Admission(identity, decide, decide_many))
 
 
 class ReaderViewUnavailable(RuntimeError):
@@ -8865,10 +8960,20 @@ def filter_withheld_entries(
         different answer per platform -- which is the whole thing this
         resolver exists to remove.
         """
+        from ..vault_store import read as store_read
+
         current = vault_root
         real: list[str] = []
         entry: os.DirEntry[str] | None = None
         for part in parts:
+            # A store-owned page is a leaf even when its projection is absent or is a directory.
+            if real:
+                parent = "/".join(real)
+                if store_read.serves(vault_root, parent) and (
+                    store_read.page_exists(vault_root, parent)
+                    or not store_read.holds_folder(vault_root, parent)
+                ):
+                    return None
             if current not in listings:
                 try:
                     with os.scandir(current) as scanned:

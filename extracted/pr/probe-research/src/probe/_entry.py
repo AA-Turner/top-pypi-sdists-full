@@ -64,10 +64,38 @@ def explain_no_cli() -> int:
     return 1
 
 
+def find_version_mismatch() -> tuple[str, str] | None:
+    """(CLI, SDK) versions when the folder `probe` loads from holds the two wheels at different
+    releases, else None (a source or editable tree holds neither). Upgrading one with pip only warns,
+    and the CLI then reads SDK fields that moved (`DrainReport.superseded`: a 0.545 CLI on a 0.550 SDK, 11-13)."""
+    import os
+
+    import probe
+    from probe.foundation.version.version import read_installed_version
+
+    site = [os.path.dirname(os.path.dirname(os.path.abspath(probe.__file__)))]  # `probe.cli` loads from here too
+    cli, sdk = read_installed_version(CLI_DIST, site), read_installed_version(paths=site)
+    return (cli, sdk) if cli and sdk and cli != sdk else None
+
+
+def explain_version_mismatch(cli: str, sdk: str) -> int:
+    print(
+        f"probe: the CLI ({CLI_DIST} {cli}) and the Python SDK (probe-research {sdk}) are different "
+        "releases, and the CLI runs only on the SDK release it was built with.\n"
+        f"  Match them:  pip install '{CLI_DIST}=={sdk}'\n"
+        "  (a uv tool install:  uv tool install 'probe-research[all]')",
+        file=sys.stderr,
+    )
+    return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     """``probe``: the command runs in the Probe service; this process passes its terminal and waits."""
     if is_cli_missing():
         return explain_no_cli()
+    mismatch = find_version_mismatch()
+    if mismatch:
+        return explain_version_mismatch(*mismatch)
     from probe import __version__
     from probe.foundation.cli_shim import run_command
 

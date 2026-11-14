@@ -43,15 +43,15 @@ class ModifyDBInstanceCLSRequest(DaraModel):
         self.encryption_key = encryption_key
         # The column encryption key mode. Valid values:
         # 
-        # - client_key: A user-generated random key configured on the client side.
-        # - kms_key: A custom key configured by using Alibaba Cloud KMS.
+        # - client_key: Use a user-generated random key configured on the client side.
+        # - kms_key: Use a custom key configured by using Alibaba Cloud KMS.
         # 
         # Note
         # After an instance is configured to use a KMS key, you can no longer use a random key configured on the client side.
         self.encryption_key_mode = encryption_key_mode
         # The column encryption status. Valid values:
-        # - 1: Encryption is enabled.
-        # - 0: Encryption is disabled.
+        # - 1: Enable encryption.
+        # - 0: Disable encryption.
         # 
         # This parameter is required.
         self.encryption_status = encryption_status
@@ -61,9 +61,9 @@ class ModifyDBInstanceCLSRequest(DaraModel):
         self.owner_id = owner_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The global resource descriptor of the role, used to specify the specific role. For details, see RAM role overview.
+        # The global resource descriptor of the role, used to specify a specific role. For details, see RAM role overview.
         # Note
-        # This parameter takes effect only when the column encryption key pattern is set to kms_key. If you do not specify this parameter, the internal default value is used.
+        # This parameter takes effect only when the column encryption key mode is kms_key. If this parameter is not specified, the internal default value is used.
         self.role_arn = role_arn
         # Specifies whether to enable the whitelist mode. A value of true indicates that only columns in the whitelist are encrypted. A value of false indicates that all columns are encrypted.
         self.white_list_mode = white_list_mode

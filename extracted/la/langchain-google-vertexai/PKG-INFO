@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-google-vertexai
-Version: 3.2.5
+Version: 3.3.0
 Summary: An integration package connecting Google VertexAI and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/google
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_google_vertexai/
@@ -11,14 +11,14 @@ Project-URL: Slack, https://www.langchain.com/join-community
 Project-URL: Reddit, https://www.reddit.com/r/LangChain/
 License: MIT
 License-File: LICENSE
-Requires-Python: <4.0.0,>=3.10.0
+Requires-Python: <4.0.0,>=3.11.0
 Requires-Dist: bottleneck>=1.4.0
 Requires-Dist: google-cloud-aiplatform>=1.97.0
 Requires-Dist: google-cloud-storage>=2.18.0
 Requires-Dist: google-cloud-vectorsearch>=0.2.0
 Requires-Dist: httpx-sse>=0.4.0
 Requires-Dist: httpx>=0.28.0
-Requires-Dist: langchain-core<2.0.0,>=1.4.7
+Requires-Dist: langchain-core<2.0.0,>=1.8.0
 Requires-Dist: numexpr>=2.8.6
 Requires-Dist: pydantic>=2.9.0
 Requires-Dist: validators>=0.22.0

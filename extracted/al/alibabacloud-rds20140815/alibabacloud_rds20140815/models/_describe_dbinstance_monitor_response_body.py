@@ -10,9 +10,9 @@ class DescribeDBInstanceMonitorResponseBody(DaraModel):
         period: str = None,
         request_id: str = None,
     ):
-        # The interval at which monitoring data is collected. Unit: seconds.
+        # The data collection interval for monitoring. Unit: seconds.
         self.period = period
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
 
     def validate(self):

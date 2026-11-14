@@ -11,8 +11,6 @@ from utils import get_test_data_resource
 def statsig_setup(httpserver: HTTPServer):
     dcs_content = get_test_data_resource("eval_proj_dcs.json")
     json_data = json.loads(dcs_content)
-    id_lists_content = get_test_data_resource("get_id_lists.json")
-    id_lists_json_data = json.loads(id_lists_content)
 
     httpserver.expect_request(
         "/v2/download_config_specs"

@@ -12,16 +12,16 @@ class AuthorizeRCSecurityGroupPermissionShrinkRequest(DaraModel):
         security_group_id: str = None,
         security_group_permissions_shrink: str = None,
     ):
-        # The rule direction. Valid values:
+        # The direction of the rule. Valid values:
         # 
-        # - **ingress**: inbound traffic to the security group.
-        # - **egress**: outbound traffic from the security group.
+        # - **ingress**: inbound
+        # - **egress**: outbound
         self.direction = direction
         # The region ID.
         self.region_id = region_id
         # The security group ID.
         self.security_group_id = security_group_id
-        # The security group information.
+        # The security group rules.
         self.security_group_permissions_shrink = security_group_permissions_shrink
 
     def validate(self):

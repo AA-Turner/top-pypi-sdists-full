@@ -14,7 +14,7 @@ class DescribeOssDownloadsRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
+        # The instance ID. You can call the DescribeDBInstances operation to query the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
@@ -23,7 +23,7 @@ class DescribeOssDownloadsRequest(DaraModel):
         # This parameter is required.
         self.migrate_task_id = migrate_task_id
         self.owner_id = owner_id
-        # The ID of the resource group.
+        # The resource group ID.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id

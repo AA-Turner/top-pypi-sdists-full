@@ -8,12 +8,24 @@ from typing import List, Tuple, Any, Mapping
 import stanza
 import torch
 
+from stanza.models.common.vocab import PAD_ID, UNK, VOCAB_PREFIX
 from stanza.models.lemma_classifier.constants import DEFAULT_BATCH_SIZE
 
 logger = logging.getLogger('stanza.lemmaclassifier')
 
+def unknown_upos_id(upos_to_id):
+    """
+    Return the id to use for a UPOS tag which is not in upos_to_id
+
+    upos_to_id starts with the VOCAB_PREFIX tags, so this is the id of <UNK>.
+    Models from before the VOCAB_PREFIX convention have no <UNK>, so for
+    those this is PAD_ID, the tag embedding's padding index, which has an
+    untrained zero embedding.
+    """
+    return upos_to_id.get(UNK, PAD_ID)
+
 class Dataset:
-    def __init__(self, data_path: str, batch_size: int =DEFAULT_BATCH_SIZE, get_counts: bool = False, label_decoder: dict = None, shuffle: bool = True):
+    def __init__(self, data_path: str, batch_size: int =DEFAULT_BATCH_SIZE, get_counts: bool = False, label_decoder: dict = None, shuffle: bool = True, upos_to_id: dict = None):
         """
         Loads a data file into data batches for tokenized text sentences, token indices, and true labels for each sentence.
 
@@ -21,6 +33,8 @@ class Dataset:
             data_path (str): Path to data file, containing tokenized text sentences, token index and true label for token lemma on each line.
             batch_size (int): Size of each batch of examples
             get_counts (optional, bool): Whether there should be a map of the label index to counts
+            upos_to_id (optional, dict): The UPOS tag ids of an existing model.  Tags not in it get its unknown tag id.
+                If None, a new map is built from the tags in this file, starting with the VOCAB_PREFIX tags.
 
         Returns:
             1. List[List[List[str]]]: Batches of sentences, where each token is a separate entry in each sentence
@@ -52,14 +66,21 @@ class Dataset:
         known_words = set()
 
         with open(data_path, "r+", encoding="utf-8") as fin:
-            sentences, indices, labels, upos_ids, counts, upos_to_id = [], [], [], [], Counter(), {}
+            sentences, indices, labels, upos_ids, counts = [], [], [], [], Counter()
+            if upos_to_id is None:
+                fixed_upos = False
+                upos_to_id = {tag: idx for idx, tag in enumerate(VOCAB_PREFIX)}
+            else:
+                # evaluating an existing model, which needs its own tag ids
+                fixed_upos = True
+                unknown_id = unknown_upos_id(upos_to_id)
 
             input_json = json.load(fin)
             sentences_data = input_json['sentences']
             self.target_upos = input_json['upos']
 
             for idx, sentence in enumerate(sentences_data):
-                # TODO Could replace this with sentence.values(), but need to know if Stanza requires Python 3.7 or later for backward compatability reasons
+                # TODO Could replace this with sentence.values(), but need to know if Stanza requires Python 3.7 or later for backward compatibility reasons
                 words, target_idx, upos_tags, label = sentence.get("words"), sentence.get("index"), sentence.get("upos_tags"), sentence.get("lemma")
                 if None in [words, target_idx, upos_tags, label]:
                     raise ValueError(f"Expected data to be complete but found a null value in sentence {idx}: {sentence}")
@@ -70,6 +91,9 @@ class Dataset:
 
                 converted_upos_tags = []  # convert upos tags to upos IDs
                 for upos_tag in upos_tags:
+                    if fixed_upos:
+                        converted_upos_tags.append(upos_to_id.get(upos_tag, unknown_id))
+                        continue
                     if upos_tag not in upos_to_id:
                         upos_to_id[upos_tag] = len(upos_to_id)  # create a new ID for the unknown UPOS tag
                     converted_upos_tags.append(upos_to_id[upos_tag])
@@ -97,7 +121,8 @@ class Dataset:
         self.batch_size = batch_size
         self.shuffle = shuffle
 
-        self.known_words = [x.lower() for x in sorted(known_words)]
+        # the VOCAB_PREFIX entries come first, so no real word gets the padding row of the delta embedding
+        self.known_words = list(VOCAB_PREFIX) + sorted(set(x.lower() for x in known_words))
         self.target_words = set(x.lower() for x in target_words)
 
     def __len__(self):

@@ -40,7 +40,8 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[2] / 'src' / 'pytest_gremlins'
 # Keys are package-relative POSIX paths: a file, or a directory prefix ending in "/".
 # Only renderers that run after every verdict is decided belong here. Nothing on the verdict path imports them:
 # the parallel executors and plugin.py import only reporting/results.py (GremlinResultStatus), and
-# reporting/score.py, reporting/types.py and reporting/__init__.py stay guarded.
+# reporting/score.py, reporting/types.py and reporting/__init__.py stay guarded. plugin.py stays guarded too: it
+# still holds the bootstrap exit-code mapping, the cache-key test hashing and the attributability marker.
 EXCLUDED_FROM_GUARD: dict[str, str] = {
     '__init__.py': 'Holds only __version__, which cz bump rewrites each release; decides no verdict.',
     'reporting/console.py': 'Formats finished results for the terminal; decides no verdict.',
@@ -57,21 +58,27 @@ RECORDED_RUNNER_FIDELITY_VERSION = 'rf20'
 # One entry per guarded file, sorted, one per line, with a separator comment between entries: every entry sits
 # between unchanged lines, so git merges re-records of different files, even neighbours, without a conflict.
 RECORDED_DIGESTS: dict[str, str] = {
+    'argument_files.py': '1bd1374b822df8936a6967d37d38c95b04ba7b325d0cbceb677c4e32f6ecf2a6',  # pragma: allowlist secret
+    # --
+    'ast_copy.py': 'f94a3572585f293c0798490a1685f4d77eb970f67c0f53556dcef29826998832',  # pragma: allowlist secret
+    # --
     'cache/__init__.py': '62df21d4f76d4423b6066843acd9402dc17a026cadba50937fa4efe3841ae428',  # pragma: allowlist secret
     # --
     'cache/hasher.py': 'c9dc2acff727bf1c552ddbecf312ea6b55091c1c442f8cdf0096a91e227ac2b7',  # pragma: allowlist secret
     # --
-    'cache/incremental.py': 'dd48893b76e7c0338a2436351d160177aa4863701020ffd9e51d7f4449525e51',  # pragma: allowlist secret  # noqa: E501
+    'cache/incremental.py': '9803a880a60d3bd5ede1dd14f3ee02da24a8faed7928d50a9ec93504e5a118c6',  # pragma: allowlist secret  # noqa: E501
     # --
-    'cache/store.py': '967c632516b6ae126921f43f1c72b753de59c0cac9679557793c2082e0003cc1',  # pragma: allowlist secret
+    'cache/periodic_flush.py': '20f5edde8b7f32596c6940faa3ada471eaf5333de2aacb91b14aa9345bd98417',  # pragma: allowlist secret  # noqa: E501
+    # --
+    'cache/store.py': '5f0948aacf44044a8a66ebc1863479e0df29cec9eb4ae73edd63ac2cfab8173b',  # pragma: allowlist secret
     # --
     'cache/types.py': 'e8f2a82731cb4bfaec2a4803fe312826f3a85511224868322aa7eb127339085a',  # pragma: allowlist secret
     # --
-    'cache/versions.py': '6e728070b7df009e39337fee2ad65eac5d94d722ba865a0fdf7fd8ea7eebb0e7',  # pragma: allowlist secret
+    'cache/versions.py': 'e63f95cdbc95739bebb9530781e68c368f64473f23318f3e80368ee19d498b8a',  # pragma: allowlist secret
     # --
-    'config.py': 'c505aee0edbe35832d21e600138b9ce95832d4c99094185f908f9ca9f534338a',  # pragma: allowlist secret
+    'config.py': 'f6f54470b3eaa24032742ef90b9b36df7b7215c9d9802b0dcb411b870891cde3',  # pragma: allowlist secret
     # --
-    'control_run.py': '95174e647a5cea01a3bfb54a0498df39c92f7c57168bf2dbaea3ddcbc0584270',  # pragma: allowlist secret
+    'control_run.py': '64aed4241657eb3c9b7de7d56d5a63760bc01fe5dfb98495ac322aba36528762',  # pragma: allowlist secret
     # --
     'coverage/__init__.py': 'aafaa74217e1e3936ede3a3506ba602f27eb43416b0b4b2ebbcadd1817d35854',  # pragma: allowlist secret  # noqa: E501
     # --
@@ -85,9 +92,13 @@ RECORDED_DIGESTS: dict[str, str] = {
     # --
     'coverage/prescan_main.py': '7ffea6a07f3b2216aa493ebc36b5bae3d5c90a52413a2c6be72dc7cf6161c28b',  # pragma: allowlist secret  # noqa: E501
     # --
+    'coverage/prescan_shards.py': '454744289d6a728ed4cb5cc2dfde41683d54a5ea80aed0f754f32862ba984233',  # pragma: allowlist secret  # noqa: E501
+    # --
     'coverage/prioritized_selector.py': '60c4b6fd3e094aa0627428c75fb5693a9d7de28f1f1943baf12abe7b4bc5cdc2',  # pragma: allowlist secret  # noqa: E501
     # --
     'coverage/selector.py': 'b35af2f065bb47abe40ba63c83d0dc95cacc12de744e261f65aba879f149707b',  # pragma: allowlist secret  # noqa: E501
+    # --
+    'coverage/sharded_prescan.py': 'a858b7920ad047e892b49bf61725ce49a0b25a40d8854c92505388fc644ca325',  # pragma: allowlist secret  # noqa: E501
     # --
     'coverage/subprocess_bootstrap.py': 'c0eeeb6ae0d1ee099c901d2a76432502d05309897111be48b9eb616ab37c1463',  # pragma: allowlist secret  # noqa: E501
     # --
@@ -101,7 +112,7 @@ RECORDED_DIGESTS: dict[str, str] = {
     # --
     'instrumentation/gremlin.py': 'e395cdccebf405d826b8e699db383c1b876ade684afcd03c86cf202ccd99ad89',  # pragma: allowlist secret  # noqa: E501
     # --
-    'instrumentation/origin_finder.py': '5054acd89da72cf41b3bac20f282ffcdac7509a0e6fadf0c058e85a233f7e773',  # pragma: allowlist secret  # noqa: E501
+    'instrumentation/origin_finder.py': '1c5e5f295e6d6f6f5f27ab978665e7a35e939e3c9bffd71a6c4e2d6b4eaab5dc',  # pragma: allowlist secret  # noqa: E501
     # --
     'instrumentation/pragma.py': 'c62fc42dce8d590bd58fa84e35183957ac428019b1c7227ea15ef2c4fbcf5597',  # pragma: allowlist secret  # noqa: E501
     # --
@@ -109,7 +120,7 @@ RECORDED_DIGESTS: dict[str, str] = {
     # --
     'instrumentation/switcher.py': '602bef0ec33b9e4f0edbb24db1497f2d9fbf57952662a5f11ec51dee262cff0e',  # pragma: allowlist secret  # noqa: E501
     # --
-    'instrumentation/transformer.py': '1fd0ecc046dbae7b2d2771beac1b170427d365508e1ee855f52355b79096a3f5',  # pragma: allowlist secret  # noqa: E501
+    'instrumentation/transformer.py': '1f9e4f3cf7d1df89a24c9a34a2098f6e5cfa0d7ebeb72d93f7302851f5d49a23',  # pragma: allowlist secret  # noqa: E501
     # --
     'node_id_args.py': 'd8a6f83045811ffe0c9513e74a15278966c62071db6f3722b1ebc5359c073bb9',  # pragma: allowlist secret
     # --
@@ -117,13 +128,13 @@ RECORDED_DIGESTS: dict[str, str] = {
     # --
     'operators/__init__.py': '95127c7b9b0e9bf0a142c29b7715bce2ea44da38864a26961e6e37855b6f7598',  # pragma: allowlist secret  # noqa: E501
     # --
-    'operators/arithmetic.py': '222d4c8b864303e7d883407e0996bac191d03054a197c046fb8ac1d80669cd5a',  # pragma: allowlist secret  # noqa: E501
+    'operators/arithmetic.py': '1ef004e9376f66193a7f5f6cb36e8fe31a82b0a7045badea2bb5ebb968af01e8',  # pragma: allowlist secret  # noqa: E501
     # --
-    'operators/boolean.py': 'a7db9c8a221f21021450c126890125b384bba56b6351ddb26f419009fdcab7be',  # pragma: allowlist secret  # noqa: E501
+    'operators/boolean.py': '3c5f771ae8ee74cf96c281aebca8d07d8607f79c4e911d290cd75f46df8a3f3b',  # pragma: allowlist secret  # noqa: E501
     # --
-    'operators/boundary.py': '15d660650c565532be8e39a1a4d09cc58cf50dc53a3890bad69656419d565c49',  # pragma: allowlist secret  # noqa: E501
+    'operators/boundary.py': '129242e8477589d308263a17ec424095c44a3625c049dcc803e2831594bd1ddb',  # pragma: allowlist secret  # noqa: E501
     # --
-    'operators/comparison.py': 'c17be7152001c60806e524c37cffd6f6994af35cd658e598a24cc77570805a73',  # pragma: allowlist secret  # noqa: E501
+    'operators/comparison.py': '74836039af65414b57ddfd693030b3b40c07ae1e675441e4e4fd4b32f923ddac',  # pragma: allowlist secret  # noqa: E501
     # --
     'operators/entry_points.py': 'a573e99cb07764a845d95341d53b67748e5113d0679b26c86821943347e4c4ed',  # pragma: allowlist secret  # noqa: E501
     # --
@@ -131,7 +142,7 @@ RECORDED_DIGESTS: dict[str, str] = {
     # --
     'operators/registry.py': 'd080086690b1d631cbf8d7c8b0c3a98f0c9e48309778c98bf148df9d0b897625',  # pragma: allowlist secret  # noqa: E501
     # --
-    'operators/return_value.py': 'c38d8601fa6a360995fa0fde826316f89084a518bd1829ab57c3e7f65bf97070',  # pragma: allowlist secret  # noqa: E501
+    'operators/return_value.py': 'f99d68ef54470480f5c5615708e267e4812f0a9bdc32d04abcf29c30de569568',  # pragma: allowlist secret  # noqa: E501
     # --
     'parallel/__init__.py': 'e8924a340f82b43586372f919c082e74931c371cc38298db53113ae38093a69b',  # pragma: allowlist secret  # noqa: E501
     # --
@@ -143,21 +154,21 @@ RECORDED_DIGESTS: dict[str, str] = {
     # --
     'parallel/exit_codes.py': '4b0c1b2aa2d80c2483e7b2294960f2dc59e13438a1837b48056888ad6527da14',  # pragma: allowlist secret  # noqa: E501
     # --
-    'parallel/fork_executor.py': 'a8553843606b1f21c192849e79207d71a61e8f4fc089a0ef9891337eccd9dcc3',  # pragma: allowlist secret  # noqa: E501
-    # --
-    'parallel/inprocess_executor.py': '250373b1553a8d52b9e437f2d65eea6d5fc2e977440f3e82f94a77020090bc67',  # pragma: allowlist secret  # noqa: E501
-    # --
     'parallel/lightweight.py': '72dd62804a24be6334d38305fdd058fe70c537e445a73329d1e11c81f22482db',  # pragma: allowlist secret  # noqa: E501
     # --
-    'parallel/persistent_pool.py': 'ff1309b9440529053e646d0af40990a4cb7068cb6c66e637d3cafe1fa0be220b',  # pragma: allowlist secret  # noqa: E501
+    'parallel/persistent_pool.py': '94ce77176efb2af571a37e220095a8f721efc3b0fac6677a24a4bd24223e6f7d',  # pragma: allowlist secret  # noqa: E501
     # --
-    'parallel/pool.py': 'dd1e32efef562fe73506be11431bcc516d87b064bbd0edc5f1ff73711989344a',  # pragma: allowlist secret
+    'parallel/pool.py': '56ae0611b06d35cc3d263319da52a509a23da2141f43bfa8f05bb03c7a6509a6',  # pragma: allowlist secret
     # --
-    'parallel/pool_config.py': '7af64e5f01674965d50a40aea73547967316c01c10258aa6e800f7eaa90cae20',  # pragma: allowlist secret  # noqa: E501
+    'parallel/pool_config.py': '92d388fc68203d1e6a15ef69ab96ade058d9c3c9f3fb8a86f444f57c8e0fd74a',  # pragma: allowlist secret  # noqa: E501
     # --
     'parallel/runner_eligibility.py': 'fc7e0151bb1be877e4234efcd32ec1e1a1322f2a3666f72f3d75caf4e1771423',  # pragma: allowlist secret  # noqa: E501
     # --
-    'plugin.py': '9d064a9673e6ab56717eb4907f8a38daff5a73a51fea384886f9af6477014d57',  # pragma: allowlist secret
+    'parallel/worker_kill.py': '04582134f7fa45932ce0c9cb2a6108017f2714571401e01ae5374c2f0b27339d',  # pragma: allowlist secret  # noqa: E501
+    # --
+    'plugin.py': '4d7e884b3404303eb34832cbc9340728defa7a0389221cf3f26a6176887081ee',  # pragma: allowlist secret
+    # --
+    'process_tree.py': 'f48a64afd8d30e9aac97f5d7d8ed245ee4f3283b73dc293f7c0f3553cf1a433e',  # pragma: allowlist secret
     # --
     'reporting/__init__.py': '89554da09af979ba49dee1f14ae15bfc210a64f59b7de9f99e7fd1ab31480401',  # pragma: allowlist secret  # noqa: E501
     # --
@@ -167,7 +178,11 @@ RECORDED_DIGESTS: dict[str, str] = {
     # --
     'reporting/types.py': 'f732c4d57c6173836ac0244f4176fded3e86da043c768d9b55386f42a57d0492',  # pragma: allowlist secret  # noqa: E501
     # --
-    'rerun_options.py': '988743f054ce69cdeec2be71ffc4e906cb5b0fb9f362046fcbbfdb78513ec415',  # pragma: allowlist secret
+    'rerun_options.py': '1142242889b03fd29c4a954f8faa9e0e58cde6b68b27960e20b58e9a36c37ee9',  # pragma: allowlist secret
+    # --
+    'rootdir_mismatch.py': 'da1d561f97b692fbc303589b14f7434584bebbbfdf3174b62d0998b1be2af6c4',  # pragma: allowlist secret  # noqa: E501
+    # --
+    'verdicts.py': '017360118686d694dd750f1c898155fc9e8c43a3b5cc12314d49d3580ad7162a',  # pragma: allowlist secret
     # --
     'xdist_options.py': 'cf57d1eb13c67982575c1b48f20cc462bc1dec5043f5c457f541067007101c41',  # pragma: allowlist secret
 }
@@ -380,7 +395,7 @@ class DescribeCacheVersionGuard:
         )
 
     @pytest.mark.parametrize(
-        'guarded_file', ['node_id_args.py', 'rerun_options.py', 'config.py', 'gremlins_options.py']
+        'guarded_file', ['node_id_args.py', 'rerun_options.py', 'config.py', 'gremlins_options.py', 'verdicts.py']
     )
     def it_changes_the_digest_when_a_guarded_file_changes(
         self, guarded_file: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -441,4 +456,22 @@ class DescribeCacheVersionGuard:
     def it_excludes_nothing_that_the_verdict_path_imports(self) -> None:
         guarded = {source.relative_to(PACKAGE_ROOT).as_posix() for source in guarded_sources()}
 
-        assert {'config.py', 'gremlins_options.py', 'plugin.py', 'reporting/results.py'} <= guarded
+        assert {'config.py', 'gremlins_options.py', 'plugin.py', 'verdicts.py', 'reporting/results.py'} <= guarded
+
+    def it_catches_an_edit_to_the_collection_kill_confirmation(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        package_copy = _copy_package(tmp_path, monkeypatch)
+        before = _guarded_digests()
+
+        verdicts_source = package_copy / 'verdicts.py'
+        original = 'if not is_collection_kill(result):'
+        assert original in verdicts_source.read_text()
+        verdicts_source.write_text(verdicts_source.read_text().replace(original, 'if True:'))
+
+        assert _guarded_digests() != before
+
+    def it_keeps_the_collection_kill_confirmation_out_of_plugin_py(self) -> None:
+        plugin_source = (PACKAGE_ROOT / 'plugin.py').read_text(encoding='utf-8')
+
+        assert 'def _confirm_collection_kill' not in plugin_source

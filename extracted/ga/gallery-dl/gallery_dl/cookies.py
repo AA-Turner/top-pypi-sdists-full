@@ -78,13 +78,19 @@ def load_cookies_firefox(browser_name, profile=None,
         sql = f"{sql} WHERE ( {' ) AND ( '.join(conditions)} )"
 
     with DatabaseConnection(path) as db:
+        version = db.execute('PRAGMA user_version;').fetchone()[0]
+        _log_debug("Cookies database version: %s", version)
+        ms = (version >= 16)
+        rest = {}
+
         cookies = [
             Cookie(
                 0, name, value, None, False,
                 domain, True if domain else False,
                 domain[0] == "." if domain else False,
-                path, True if path else False, secure, expires,
-                False, None, None, {},
+                path, True if path else False, secure,
+                (expires / 1000) if ms and expires is not None else expires,
+                False, None, None, rest,
             )
             for name, value, domain, path, secure, expires in db.execute(
                 sql, parameters)
@@ -167,6 +173,8 @@ def load_cookies_chromium(browser_name, profile=None,
         decryptor = _chromium_cookie_decryptor(
             config["directory"], config["keyring"], keyring, meta_version)
 
+        rest = {}
+        offset = 11_644_473_600
         cookies = []
         for domain, name, value, enc_value, path, expires, secure in rows:
 
@@ -181,7 +189,7 @@ def load_cookies_chromium(browser_name, profile=None,
 
             if expires:
                 # https://stackoverflow.com/a/43520042
-                expires = int(expires) // 1000000 - 11644473600
+                expires = int(expires / 1_000_000) - offset
             else:
                 expires = None
 
@@ -194,7 +202,7 @@ def load_cookies_chromium(browser_name, profile=None,
                 domain, True if domain else False,
                 domain[0] == "." if domain else False,
                 path, True if path else False, secure, expires,
-                False, None, None, {},
+                False, None, None, rest,
             ))
 
     if failed_cookies > 0:
@@ -420,7 +428,7 @@ def _webkit_parse_cookies_record(data, cookies, host=None):
 # chromium
 
 def _chromium_cookies_database(profile, config):
-    if profile is None:
+    if not profile:
         search_root = config["directory"]
     elif _is_path(profile):
         search_root = profile

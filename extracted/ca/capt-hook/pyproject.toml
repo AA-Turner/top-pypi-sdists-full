@@ -1,7 +1,7 @@
 [project]
 name = "capt-hook"
 # Inert sentinel — the real version is stamped from the release tag (uv version --frozen).
-version = "12.121.76"
+version = "12.121.80"
 description = "Stop repeating yourself to Claude."
 readme = "README.md"
 license = "PolyForm-Noncommercial-1.0.0"

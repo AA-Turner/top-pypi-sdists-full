@@ -14,18 +14,36 @@ Usage::
         LambdaCoreClient,
         ListNetworkConnectorVersionsPaginator,
         ListNetworkConnectorsPaginator,
+        ListRuntimeAliasesPaginator,
+        ListRuntimeVersionsPaginator,
+        ListRuntimesPaginator,
+        RuntimeAliasActiveWaiter,
+        RuntimeVersionActiveWaiter,
     )
 
     session = Session()
     client: LambdaCoreClient = session.client("lambda-core")
 
+    runtime_alias_active_waiter: RuntimeAliasActiveWaiter = client.get_waiter("runtime_alias_active")
+    runtime_version_active_waiter: RuntimeVersionActiveWaiter = client.get_waiter("runtime_version_active")
+
     list_network_connector_versions_paginator: ListNetworkConnectorVersionsPaginator = client.get_paginator("list_network_connector_versions")
     list_network_connectors_paginator: ListNetworkConnectorsPaginator = client.get_paginator("list_network_connectors")
+    list_runtime_aliases_paginator: ListRuntimeAliasesPaginator = client.get_paginator("list_runtime_aliases")
+    list_runtime_versions_paginator: ListRuntimeVersionsPaginator = client.get_paginator("list_runtime_versions")
+    list_runtimes_paginator: ListRuntimesPaginator = client.get_paginator("list_runtimes")
     ```
 """
 
 from .client import LambdaCoreClient
-from .paginator import ListNetworkConnectorsPaginator, ListNetworkConnectorVersionsPaginator
+from .paginator import (
+    ListNetworkConnectorsPaginator,
+    ListNetworkConnectorVersionsPaginator,
+    ListRuntimeAliasesPaginator,
+    ListRuntimesPaginator,
+    ListRuntimeVersionsPaginator,
+)
+from .waiter import RuntimeAliasActiveWaiter, RuntimeVersionActiveWaiter
 
 Client = LambdaCoreClient
 
@@ -35,4 +53,9 @@ __all__ = (
     "LambdaCoreClient",
     "ListNetworkConnectorVersionsPaginator",
     "ListNetworkConnectorsPaginator",
+    "ListRuntimeAliasesPaginator",
+    "ListRuntimeVersionsPaginator",
+    "ListRuntimesPaginator",
+    "RuntimeAliasActiveWaiter",
+    "RuntimeVersionActiveWaiter",
 )

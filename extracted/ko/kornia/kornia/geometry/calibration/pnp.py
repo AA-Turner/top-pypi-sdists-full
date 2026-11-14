@@ -15,6 +15,8 @@
 # limitations under the License.
 #
 
+"""Estimate a camera's world-to-camera pose from 3D-2D correspondences by the direct linear transform (PnP)."""
+
 from typing import Optional, Tuple
 
 import torch
@@ -22,7 +24,14 @@ from torch.linalg import qr as linalg_qr
 
 from kornia.core.check import KORNIA_CHECK, KORNIA_CHECK_IS_TENSOR, KORNIA_CHECK_SAME_SHAPE, KORNIA_CHECK_SHAPE
 from kornia.core.ops import eye_like
-from kornia.core.utils import _autocast_disabled, _torch_linalg_svdvals, _torch_svd_cast
+from kornia.core.utils import (
+    _at_least_float32,
+    _autocast_disabled,
+    _right_singular_vector,
+    _svd_work_dtype,
+    _torch_linalg_svdvals,
+    _torch_svd_cast,
+)
 from kornia.geometry.conversions import convert_points_to_homogeneous, normalize_points_with_intrinsics
 from kornia.geometry.linalg import transform_points
 
@@ -33,14 +42,14 @@ def _mean_isotropic_scale_normalize(
     r"""Normalize points.
 
     Args:
-       points : torch.Tensor containing the points to be normalized with shape :math:`(B, N, D)`.
+       points : torch.Tensor containing the points to be normalized with shape ``(B, N, D)``.
        eps : Small value to avoid division by zero error.
-       weights : Optional non-negative per-point weights with shape :math:`(B, N)` for the mean and the scale.
+       weights : Optional non-negative per-point weights with shape ``(B, N)`` for the mean and the scale.
           A point with weight zero does not affect the normalization.
 
     Returns:
-       Tuple containing the normalized points in the shape :math:`(B, N, D)` and the transformation matrix
-       in the shape :math:`(B, D+1, D+1)`.
+       Tuple containing the normalized points in the shape ``(B, N, D)`` and the transformation matrix
+       in the shape ``(B, D+1, D+1)``.
 
     """
     KORNIA_CHECK_SHAPE(points, ["B", "N", "D"])
@@ -72,16 +81,15 @@ def solve_pnp_dlt(
     weights: Optional[torch.Tensor] = None,
     svd_eps: float = 1e-4,
 ) -> torch.Tensor:
-    r"""Attempt to solve the Perspective-n-Point (PnP) problem using Direct Linear Transform (DLT).
+    r"""Estimate a camera's world-to-camera pose from 3D-2D correspondences by the DLT (PnP).
 
-    Given a batch (where batch size is :math:`B`) of :math:`N` 3D points
-    (where :math:`N \geq 6`) in the world space, a batch of :math:`N`
-    corresponding 2D points in the image space and a batch of
-    intrinsic matrices, this function tries to estimate a batch of
-    world to camera transformation matrices.
-
-    This implementation needs at least 6 points (i.e. :math:`N \geq 6`) to
-    provide solutions.
+    ``Rt = solve_pnp_dlt(world_points, img_points, K)`` takes ``B`` sets of :math:`N \geq 6` world points
+    ``(B, N, 3)``, their pixels ``(B, N, 2)`` and the intrinsics ``(B, 3, 3)``, and returns the world-to-camera
+    extrinsics ``[R | t]`` of each set, ``(B, 3, 4)``: the Hartley-normalized, optionally weighted, linear
+    (Direct Linear Transform) solution of the Perspective-n-Point problem, with ``R`` made orthonormal by a QR step.
+    It is not robust to outliers and does not refine the pose nonlinearly. For 2D-2D correspondences of a plane,
+    use :func:`~kornia.geometry.homography.find_homography_dlt`; for two views with no known 3D points,
+    :func:`~kornia.geometry.epipolar.find_essential`.
 
     This function cannot be used if all the 3D world points (of any element
     of the batch) lie on a line or if all the 3D world points (of any element
@@ -93,33 +101,45 @@ def solve_pnp_dlt(
     twisted cubic. However, this function does not check for this condition.
 
     Convention:
-        - the returned :math:`(B, 3, 4)` matrix is the **world-to-camera** ``[R | t]``: it maps a world point
+        - the returned ``(B, 3, 4)`` matrix is the **world-to-camera** ``[R | t]``: it maps a world point
           into the camera frame (``X_cam = X_world + (1, 0, 0)`` gives ``t = (+1, 0, 0)``), not a
           camera-to-world pose.
-        - ``intrinsics`` is the :math:`(B, 3, 3)` ``K``; the :math:`(B, 4, 4)` matrix that a
-          ``PinholeCamera`` stores is rejected.
+        - ``intrinsics`` is the ``(B, 3, 3)`` ``K``, or a ``(1, 3, 3)`` ``K`` shared by the batch; the
+          ``(B, 4, 4)`` matrix that a :class:`~kornia.geometry.camera.pinhole.PinholeCamera` stores is rejected.
         - ``weights`` scales the two rows each point contributes to the homogeneous linear system, and the
           normalization and the degeneracy check use the same weighting. A uniform ``weights`` leaves the answer
           unchanged up to rounding, and a zero weight is the same as removing the point.
         - fewer than 6 points or 6 nonzero ``weights``, or a ``world_points``, ``img_points`` or ``intrinsics``
-          in a dtype other than float32/float64, raise :class:`~kornia.core.exceptions.BaseError` naming the
-          argument; a degenerate ``world_points`` raises :class:`AssertionError` from the check above.
+          in a dtype other than float16/bfloat16/float32/float64, raise :class:`~kornia.core.exceptions.BaseError`
+          naming the argument; a degenerate ``world_points`` raises :class:`AssertionError` from the check above.
+        - float16 and bfloat16 inputs are solved in float32 and the pose is returned in the dtype of
+          ``world_points``.
         - a caller's autocast region does not change the result: float32 inputs are solved in float32.
 
     Args:
-        world_points : A torch.Tensor with shape :math:`(B, N, 3)` representing
+        world_points : A torch.Tensor with shape ``(B, N, 3)`` representing
           the points in the world space.
-        img_points : A torch.Tensor with shape :math:`(B, N, 2)` representing
+        img_points : A torch.Tensor with shape ``(B, N, 2)`` representing
           the points in the image space.
-        intrinsics : A torch.Tensor with shape :math:`(B, 3, 3)` representing
+        intrinsics : A torch.Tensor with shape ``(B, 3, 3)`` representing
           the intrinsic matrices.
-        weights : A torch.Tensor with shape :math:`(B, N)` representing the
+        weights : A torch.Tensor with shape ``(B, N)`` representing the
             weights for each point. If None, all points are considered to be equally important.
         svd_eps : A small float value to avoid numerical precision issues.
 
     Returns:
-        A torch.Tensor with shape :math:`(B, 3, 4)` representing the estimated world to
+        A torch.Tensor with shape ``(B, 3, 4)`` representing the estimated world to
         camera transformation matrices (also known as the extrinsic matrices).
+
+    See Also:
+        - :func:`~kornia.geometry.homography.find_homography_dlt`: the DLT for 2D-2D correspondences, a homography
+          rather than a pose.
+        - :func:`~kornia.geometry.epipolar.find_essential`: the relative pose of two views from 2D-2D
+          correspondences, without 3D points.
+        - :func:`~kornia.geometry.epipolar.projection_from_KRt`: the ``(B, 3, 4)`` projection matrix
+          ``K [R | t]`` of the result.
+        - :class:`~kornia.geometry.camera.pinhole.PinholeCamera`: a camera model that takes the result, padded to
+          ``(B, 4, 4)``, as its extrinsics.
 
     Example:
         >>> world_points = torch.tensor([[
@@ -163,16 +183,19 @@ def solve_pnp_dlt(
     # 3. http://rpg.ifi.uzh.ch/docs/teaching/2020/03_camera_calibration.pdf
     # 4. http://www.cs.cmu.edu/~16385/s17/Slides/11.3_Pose_Estimation.pdf
     # 5. https://www.ece.mcmaster.ca/~shirani/vision/hartley_ch7.pdf
-    accepted_dtypes = (torch.float32, torch.float64)
+    accepted_dtypes = (torch.float16, torch.bfloat16, torch.float32, torch.float64)
+    accepted = "float16, bfloat16, float32 or float64"
     KORNIA_CHECK_IS_TENSOR(world_points)
     KORNIA_CHECK_IS_TENSOR(img_points)
     KORNIA_CHECK_IS_TENSOR(intrinsics)
     KORNIA_CHECK(isinstance(svd_eps, float), f"svd_eps must be a float, got {type(svd_eps).__name__}.")
-    KORNIA_CHECK(
-        world_points.dtype in accepted_dtypes, f"world_points must be float32 or float64, got {world_points.dtype}."
-    )
-    KORNIA_CHECK(img_points.dtype in accepted_dtypes, f"img_points must be float32 or float64, got {img_points.dtype}.")
-    KORNIA_CHECK(intrinsics.dtype in accepted_dtypes, f"intrinsics must be float32 or float64, got {intrinsics.dtype}.")
+    KORNIA_CHECK(world_points.dtype in accepted_dtypes, f"world_points must be {accepted}, got {world_points.dtype}.")
+    KORNIA_CHECK(img_points.dtype in accepted_dtypes, f"img_points must be {accepted}, got {img_points.dtype}.")
+    KORNIA_CHECK(intrinsics.dtype in accepted_dtypes, f"intrinsics must be {accepted}, got {intrinsics.dtype}.")
+    # No backend factorizes half precision: half-precision inputs are solved in float32 and the pose is rounded once.
+    dtype = world_points.dtype
+    world_points, img_points = _at_least_float32(world_points), _at_least_float32(img_points)
+    intrinsics = _at_least_float32(intrinsics)
     KORNIA_CHECK_SHAPE(world_points, ["B", "N", "3"])
     KORNIA_CHECK_SHAPE(img_points, ["B", "N", "2"])
     KORNIA_CHECK_SHAPE(intrinsics, ["B", "3", "3"])
@@ -183,6 +206,7 @@ def solve_pnp_dlt(
     )
     if weights is not None:
         KORNIA_CHECK_IS_TENSOR(weights)
+        weights = _at_least_float32(weights)
 
     B, N = world_points.shape[:2]
 
@@ -246,8 +270,11 @@ def solve_pnp_dlt(
 
         # Getting the solution vectors.
         # Only the right singular vectors are used; reduced SVD avoids saving the unused (2N, 2N) U.
-        _, _, v = _torch_svd_cast(system, full_matrices=False)
-        solution = v[..., -1]
+        # The SVD is of the detached system: the solution's gradient comes from _right_singular_vector, which stays
+        # finite when other singular values are equal, as for world points on the corners of a cube.
+        work = system.detach().to(_svd_work_dtype(system))
+        _, s, v = _torch_svd_cast(work, full_matrices=False)
+        solution = _right_singular_vector(system, s, v, -1).to(system.dtype)
 
         # Reshaping the solution vectors to the correct shape.
         solution = solution.reshape(B, 3, 4)
@@ -296,4 +323,4 @@ def solve_pnp_dlt(
 
         # Preparing the final output.
         # TODO: Implement algorithm to refine the solution.
-        return torch.cat([rot_mat, temp[:, :3, 3:4]], dim=-1)
+        return torch.cat([rot_mat, temp[:, :3, 3:4]], dim=-1).to(dtype)

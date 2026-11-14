@@ -19,15 +19,15 @@ class ModifyHASwitchConfigRequest(DaraModel):
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The primary/secondary switchover setting. Valid values:
-        # * **Auto**: The system automatically switches over between the primary and secondary instances upon a fault.
-        # * **Manual**: Temporarily disables automatic switchover.
+        # The primary/secondary switchover settings. Valid values:
+        # * **Auto**: automatically performs a primary/secondary switchover when a fault occurs.
+        # * **Manual**: temporarily disables automatic switchover.
         # 
         # Default value: **Auto**.
-        # >If you set this parameter to **Manual**, you must also specify the **ManualHATime** parameter.
+        # >If you set this parameter to **Manual**, you must specify the **ManualHATime** parameter.
         self.haconfig = haconfig
-        # The deadline for temporarily disabling automatic switchover. You can set this parameter to a point in time up to 23:59:59 seven days later. Format: <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z (UTC).
-        # >This parameter takes effect only when **HAConfig** is set to **Manual**.
+        # The end time of the temporary disabling period. The latest time can be set to 23:59:59 seven days later. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
+        # >This parameter is valid only when the **HAConfig** parameter is set to **Manual**.
         self.manual_hatime = manual_hatime
         self.owner_id = owner_id
         # The region ID. You can call the DescribeRegions operation to query the region ID.

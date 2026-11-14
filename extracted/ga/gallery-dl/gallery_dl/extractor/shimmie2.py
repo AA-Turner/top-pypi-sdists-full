@@ -66,11 +66,6 @@ class Shimmie2Extractor(BaseExtractor):
 
 
 BASE_PATTERN = Shimmie2Extractor.update({
-    "cavemanon": {
-        "root": "https://booru.cavemanon.xyz",
-        "pattern": r"booru\.cavemanon\.xyz",
-        "file_url": "{0}/index.php?q=image/{2}.{4}",
-    },
     "rule34hentai": {
         "root": "https://rule34hentai.net",
         "pattern": r"rule34hentai\.net",
@@ -90,6 +85,11 @@ BASE_PATTERN = Shimmie2Extractor.update({
     "prequelfanart": {
         "root": "https://www.prequeladventure.com/fanartbooru",
         "pattern": r"(?:www\.)?prequeladventure\.com/fanartbooru",
+    },
+    "candybooru": {
+        "root": "https://www.bittersweetcandybowl.com/candybooru",
+        "pattern": r"(?:www\.)?bittersweetcandybowl\.com/candybooru",
+        "quote": "'",
     },
 }) + r"/(?:index\.php\?q=/?)?"
 
@@ -131,7 +131,7 @@ class Shimmie2TagExtractor(Shimmie2Extractor):
                 if has_pid:
                     pid = extr(" data-post-id="+quote, quote)
                 else:
-                    pid = extr(" href='/post/view/", quote)
+                    pid = extr("/post/view/", quote)
 
                 if not pid:
                     break
@@ -162,7 +162,8 @@ class Shimmie2TagExtractor(Shimmie2Extractor):
 
             pnum += 1
             if not extr(f"/{pnum}{quote}>Next</", ">") and \
-                    not extr(f"/{pnum}{quote_alt}>Next</", ">"):
+                    not extr(f"/{pnum}{quote_alt}>Next</", ">") and \
+                    not extr(f"/{pnum}{quote}>{pnum}</", ">"):
                 return
 
 
@@ -199,7 +200,8 @@ class Shimmie2PostExtractor(Shimmie2Extractor):
         }
 
         file = post.pop("")
-        post["file_url"] = base + text.extr(file, "src="+qt, qt).lstrip(".")
+        url = text.extr(file, "src="+qt, qt).lstrip(".")
+        post["file_url"] = url if url.startswith("http") else base + url
         post["width"] = text.extr(file, "data-width="+qt, qt)
         post["height"] = text.extr(
             file, "data-height="+qt, qt).partition(" ")[0]

@@ -158,10 +158,8 @@ class JSONEditorWidgetValueFormattingTests(TestCase):
         """Test formatting None value"""
         widget = JSONEditorWidget()
 
-        with self.assertRaises((TypeError, json.JSONDecodeError)):
-            widget.format_value(None)
-        with self.assertRaises((TypeError, json.JSONDecodeError)):
-            widget.format_value(None)
+        self.assertIsNone(widget.format_value(None))
+        self.assertIsNone(widget.format_value(""))
 
     def test_format_value_dict(self):
         widget = JSONEditorWidget()
@@ -182,11 +180,16 @@ class JSONEditorWidgetTemplateRenderingTests(TestCase):
 
     def test_template_exists(self):
         """Test that template exists"""
-        from os import getcwd, path
+        from pathlib import Path
+        import django_json_widget
         widget = JSONEditorWidget()
-        template_file = path.join(getcwd(), "django_json_widget", "templates", widget.template_name)
+        template_file = (
+            Path(django_json_widget.__file__).parent
+            / "templates"
+            / widget.template_name
+        )
         self.assertTrue(str(template_file).endswith("django_json_widget.html"))
-        self.assertTrue(path.exists(template_file))
+        self.assertTrue(template_file.exists())
 
     def test_render_basic(self):
         """Test basic widget rendering"""
@@ -196,7 +199,7 @@ class JSONEditorWidgetTemplateRenderingTests(TestCase):
         # Check for essential elements
         self.assertIn("id_test_field", html)
         self.assertIn("test_field", html)
-        self.assertIn("JSONEditor", html)
+        self.assertIn("data-jsoneditor-options", html)
         self.assertIn("textarea", html)
 
     def test_render_with_custom_dimensions(self):
@@ -223,8 +226,8 @@ class JSONEditorWidgetTemplateRenderingTests(TestCase):
         html = widget.render("test_field", "{}", {"id": "id_test_field"})
 
         # Should contain the serialized options
-        self.assertIn('"mode": "tree"', html)
-        self.assertIn('"search": false', html)
+        self.assertIn('&quot;mode&quot;: &quot;tree&quot;', html)
+        self.assertIn('&quot;search&quot;: false', html)
 
 
 class JSONEditorWidgetFormIntegrationTests(TestCase):
@@ -252,7 +255,7 @@ class JSONEditorWidgetFormIntegrationTests(TestCase):
         html = str(form["json_data"])
 
         self.assertIn("json_data", html)
-        self.assertIn('"mode": "tree"', html)
+        self.assertIn('&quot;mode&quot;: &quot;tree&quot;', html)
 
     def test_form_validation_with_widget(self):
         """Test form validation with widget"""

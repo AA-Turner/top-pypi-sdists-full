@@ -388,6 +388,7 @@ class StrictAdapter(
         cursor_end: str,
         columns: tuple[str, ...] | None = None,
         cursor_type: str | None = None,
+        unique_key: tuple[str, ...] = (),
     ) -> tuple[str, ...]:
         """Render SQL statements for cursor-bounded delete-insert."""
         ...
@@ -888,8 +889,10 @@ class StrictAdapter(
         ...
 
     @abstractmethod
-    def render_loader_logical_type(self, type_name: LoaderLogicalType) -> str:
-        """Render one source-loader logical type for this adapter."""
+    def render_loader_logical_type(
+        self, *, type_name: LoaderLogicalType, precision: int = 38, scale: int = 0
+    ) -> str:
+        """Render one source-loader logical type; DECIMAL uses precision and scale."""
         ...
 
     @abstractmethod
@@ -1161,6 +1164,17 @@ class StrictAdapter(
         retain_versions: int,
     ) -> str:
         """Render SQL that prunes old observations."""
+        ...
+
+    @abstractmethod
+    def render_prune_audit_results_history_sql(
+        self,
+        *,
+        database: str | None,
+        schema: str,
+        retain_versions: int,
+    ) -> str:
+        """Render SQL that prunes old audit results."""
         ...
 
     @abstractmethod

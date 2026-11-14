@@ -4,20 +4,28 @@ Testts for pydantic_zarr.v2.
 
 from __future__ import annotations
 
+import copy
 import json
 import re
+import warnings
 from contextlib import suppress
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from pydantic_zarr.core import tuplify_json
 
 from .conftest import DTYPE_EXAMPLES_V2, ZARR_PYTHON_VERSION, DTypeExample
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
     from typing import Literal
+
+    # Imported under an alias so it is not shadowed by the function-local
+    # `zarr = pytest.importorskip("zarr")` bindings used throughout this module.
+    import zarr as zarr_mod
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
@@ -30,9 +38,14 @@ from typing import TypedDict
 import numpy as np
 import numpy.typing as npt
 from packaging.version import Version
+from zarr_metadata.model import ZarrV2ArrayMetadata, ZarrV2GroupMetadata
 
 from pydantic_zarr.v2 import (
+    AnyArraySpec,
+    AnyBaseGroupSpec,
+    AnyGroupSpec,
     ArraySpec,
+    BaseGroupSpec,
     GroupSpec,
     auto_attributes,
     auto_chunks,
@@ -43,6 +56,9 @@ from pydantic_zarr.v2 import (
     auto_order,
     from_flat,
     from_zarr,
+    from_zarr_flat,
+    is_array_spec,
+    is_group_spec,
     to_flat,
     to_zarr,
 )
@@ -54,6 +70,12 @@ except ImportError:
 
 with suppress(ImportError):
     from zarr.errors import ContainsArrayError, ContainsGroupError
+
+pytestmark = pytest.mark.filterwarnings(
+    # the zarr-python IO entry points still work, warning, until pydantic-zarr 0.12;
+    # `test_zarr_io_deprecated` checks the warnings themselves
+    "ignore:`[^`]+` is deprecated and will be removed in pydantic-zarr:DeprecationWarning"
+)
 
 ArrayMemoryOrder = Literal["C", "F"]
 DimensionSeparator = Literal[".", "/"]
@@ -131,7 +153,7 @@ def test_array_spec(
     )
     attributes = {"foo": [100, 200, 300], "bar": "hello"}
     array.attrs.put(attributes)
-    spec = ArraySpec.from_zarr(array)
+    spec: AnyArraySpec = ArraySpec.from_zarr(array)
 
     assert spec.zarr_format == array.metadata.zarr_format
     assert spec.dtype == array.dtype
@@ -163,16 +185,20 @@ def test_array_spec(
     assert spec.chunks == array2.chunks
 
     if len(array2.compressors):
-        assert spec.compressor == array2.compressors[0].get_config()
+        assert spec.compressor == cast("Codec", array2.compressors[0]).get_config()
     else:
         assert spec.compressor is None
 
     if len(array2.filters):
-        assert spec.filters == [f.get_config() for f in array2.filters]
+        assert spec.filters == [cast("Codec", f).get_config() for f in array2.filters]
     else:
         assert spec.filters is None
 
-    assert spec.dimension_separator == array2.metadata.dimension_separator
+    # a Zarr V2 array's metadata always carries a dimension_separator
+    assert (
+        spec.dimension_separator
+        == array2.metadata.dimension_separator  # pyrefly: ignore[missing-attribute]
+    )
     assert spec.shape == array2.shape
     assert spec.fill_value == array2.fill_value
 
@@ -248,7 +274,7 @@ def test_array_spec_from_array(
     compressor: str | dict[str, object],
 ) -> None:
     auto_options = ("omit", "auto")
-    kwargs_out: dict[str, object] = {}
+    kwargs_out: dict[str, Any] = {}
 
     kwargs_out["chunks"] = chunks
     kwargs_out["attributes"] = attributes
@@ -261,9 +287,11 @@ def test_array_spec_from_array(
     # remove all the keyword arguments that should be defaulted
     kwargs_out = dict(filter(lambda kvp: kvp[1] != "omit", kwargs_out.items()))
 
-    spec = ArraySpec.from_array(array, **kwargs_out)
-    # arrayspec should round-trip from_array with no arguments
-    assert spec.from_array(spec) == spec
+    spec: AnyArraySpec = ArraySpec.from_array(array, **kwargs_out)
+    # arrayspec should round-trip from_array with no arguments.
+    # `from_array` is annotated for ndarray/zarr.Array but documents that it only needs
+    # `shape` and `dtype`, which `ArraySpec` supplies.
+    assert spec.from_array(spec) == spec  # type: ignore[arg-type]
 
     assert spec.dtype == array.dtype.str
     assert np.dtype(spec.dtype) == array.dtype
@@ -360,7 +388,7 @@ def test_serialize_deserialize_groupspec(
                 shape=(10,) * len(chunks),
                 chunks=chunks,
                 dtype=dtype,
-                filters=_filters,
+                filters=cast("Any", _filters),
                 compressor=compressor,
                 order=memory_order,
                 dimension_separator=dimension_separator,
@@ -370,7 +398,7 @@ def test_serialize_deserialize_groupspec(
                 shape=(5,) * len(chunks),
                 chunks=chunks,
                 dtype=dtype,
-                filters=_filters,
+                filters=cast("Any", _filters),
                 compressor=compressor,
                 order=memory_order,
                 dimension_separator=dimension_separator,
@@ -488,14 +516,17 @@ def test_validation() -> None:
     GroupA.from_zarr(groupAMat)
     GroupB.from_zarr(groupBMat)
 
-    ArrayA.from_zarr(groupAMat["a"])
-    ArrayB.from_zarr(groupBMat["a"])
+    memberA = cast("zarr_mod.Array", groupAMat["a"])
+    memberB = cast("zarr_mod.Array", groupBMat["a"])
+
+    ArrayA.from_zarr(memberA)
+    ArrayB.from_zarr(memberB)
 
     with pytest.raises(ValidationError):
-        ArrayA.from_zarr(groupBMat["a"])
+        ArrayA.from_zarr(memberB)
 
     with pytest.raises(ValidationError):
-        ArrayB.from_zarr(groupAMat["a"])
+        ArrayB.from_zarr(memberA)
 
     with pytest.raises(ValidationError):
         GroupB.from_zarr(groupAMat)
@@ -524,7 +555,7 @@ def test_from_array(shape: tuple[int, ...], dtype: str | None) -> None:
 
 @pytest.mark.parametrize("data", ["/", "a/b/c"])
 def test_member_name(data: str) -> None:
-    with pytest.raises(ValidationError, match='Strings containing "/" are invalid.'):
+    with pytest.raises(ValidationError, match=r'Strings containing "/" are invalid\.'):
         GroupSpec(attributes={}, members={data: GroupSpec(attributes={}, members={})})
 
 
@@ -541,7 +572,7 @@ def test_member_name(data: str) -> None:
                 members={"a": ArraySpec.from_array(np.arange(5), attributes={"foo": 100})},
             ),
             {
-                "": GroupSpec(attributes={"foo": 10}, members=None),
+                "": BaseGroupSpec(attributes={"foo": 10}),
                 "/a": ArraySpec.from_array(np.arange(5), attributes={"foo": 100}),
             },
         ),
@@ -557,8 +588,8 @@ def test_member_name(data: str) -> None:
                 },
             ),
             {
-                "": GroupSpec(attributes={}, members=None),
-                "/a": GroupSpec(attributes={"foo": 10}, members=None),
+                "": BaseGroupSpec(attributes={}),
+                "/a": BaseGroupSpec(attributes={"foo": 10}),
                 "/a/a": ArraySpec.from_array(np.arange(5), attributes={"foo": 100}),
                 "/b": ArraySpec.from_array(np.arange(2), attributes={"foo": 3}),
             },
@@ -591,7 +622,7 @@ def test_array_like() -> None:
 
 def test_array_like_with_zarr() -> None:
     zarr = pytest.importorskip("zarr")
-    arr = ArraySpec(shape=(1,), dtype="uint8", chunks=(1,), attributes={})
+    arr: AnyArraySpec = ArraySpec(shape=(1,), dtype="uint8", chunks=(1,), attributes={})
     store = zarr.storage.MemoryStore()
     arr_stored = arr.to_zarr(store, path="arr")
     assert arr.like(arr_stored)
@@ -599,9 +630,9 @@ def test_array_like_with_zarr() -> None:
 
 # todo: parametrize
 def test_group_like() -> None:
-    tree: dict[str, GroupSpec | ArraySpec] = {
-        "": GroupSpec(attributes={"path": ""}, members=None),
-        "/a": GroupSpec(attributes={"path": "/a"}, members=None),
+    tree: dict[str, BaseGroupSpec | ArraySpec] = {
+        "": BaseGroupSpec(attributes={"path": ""}),
+        "/a": BaseGroupSpec(attributes={"path": "/a"}),
         "/b": ArraySpec.from_array(np.arange(10), attributes={"path": "/b"}),
         "/a/b": ArraySpec.from_array(np.arange(10), attributes={"path": "/a/b"}),
     }
@@ -612,39 +643,66 @@ def test_group_like() -> None:
     assert group.like(group.model_copy(update={"attributes": None}), include={"members"})
 
 
-# todo: parametrize
-def test_from_zarr_depth() -> None:
+def _stored_hierarchy() -> tuple[zarr_mod.Group, dict[str, AnyArraySpec | AnyBaseGroupSpec]]:
+    """Store a three-level hierarchy, and return it with its flat form as read back."""
     zarr = pytest.importorskip("zarr")
-    tree: dict[str, GroupSpec | ArraySpec] = {
-        "": GroupSpec(members=None, attributes={"level": 0, "type": "group"}),
-        "/1": GroupSpec(members=None, attributes={"level": 1, "type": "group"}),
-        "/1/2": GroupSpec(members=None, attributes={"level": 2, "type": "group"}),
-        "/1/2/1": GroupSpec(members=None, attributes={"level": 3, "type": "group"}),
-        "/1/2/2": ArraySpec.from_array(np.arange(20), attributes={"level": 3, "type": "array"}),
+    array: AnyArraySpec = ArraySpec.from_array(np.arange(20), attributes={"level": 3})
+    tree: dict[str, AnyArraySpec | AnyBaseGroupSpec] = {
+        "": BaseGroupSpec(attributes={"level": 0}),
+        "/1": BaseGroupSpec(attributes={"level": 1}),
+        "/1/2": BaseGroupSpec(attributes={"level": 2}),
+        "/1/2/1": BaseGroupSpec(attributes={"level": 3}),
+        "/1/2/2": array,
     }
+    stored = GroupSpec.from_flat(tree).to_zarr(zarr.storage.MemoryStore(), path="test")
+    array_read = ArraySpec.from_zarr(cast("zarr_mod.Array", stored["1/2/2"]))
+    return stored, {**tree, "/1/2/2": array_read}
 
-    store = zarr.storage.MemoryStore()
-    group_out = GroupSpec.from_flat(tree).to_zarr(store, path="test")
-    group_in_0 = GroupSpec.from_zarr(group_out, depth=0)  # type: ignore[var-annotated]
-    assert group_in_0 == tree[""]
 
-    group_in_1 = GroupSpec.from_zarr(group_out, depth=1)  # type: ignore[var-annotated]
-    assert group_in_1.attributes == tree[""].attributes  # type: ignore[attr-defined]
-    assert group_in_1.members is not None
-    assert group_in_1.members["1"] == tree["/1"]
+@pytest.mark.parametrize(
+    ("path", "depth", "expected_keys"),
+    [
+        ("", 0, [""]),
+        ("", 1, ["", "/1"]),
+        ("", 2, ["", "/1", "/1/2"]),
+        ("", -1, ["", "/1", "/1/2", "/1/2/1", "/1/2/2"]),
+        ("1", 1, ["/1", "/1/2"]),
+        ("1/2/2", -1, ["/1/2/2"]),
+    ],
+)
+def test_from_zarr_flat(path: str, depth: int, expected_keys: list[str]) -> None:
+    """
+    `from_zarr_flat` reads a node and `depth` levels of members under it,
+    keyed by path relative to that node. Read in full, it is the flat form
+    of what `from_zarr` reads.
+    """
+    stored, flat = _stored_hierarchy()
+    node = stored[path] if path else stored
+    prefix = f"/{path}" if path else ""
+    expected = {key.removeprefix(prefix): flat[key] for key in expected_keys}
+    observed = from_zarr_flat(node, depth=depth)
+    assert observed == expected
+    if depth == -1:
+        assert from_flat(observed) == from_zarr(node)
 
-    group_in_2 = GroupSpec.from_zarr(group_out, depth=2)  # type: ignore[var-annotated]
-    assert group_in_2.members is not None
-    assert group_in_2.members["1"].members["2"] == tree["/1/2"]
-    assert group_in_2.attributes == tree[""].attributes  # type: ignore[attr-defined]
-    assert group_in_2.members["1"].attributes == tree["/1"].attributes  # type: ignore[attr-defined]
 
-    group_in_3 = GroupSpec.from_zarr(group_out, depth=3)  # type: ignore[var-annotated]
-    assert group_in_3.members is not None
-    assert group_in_3.members["1"].members["2"].members["1"] == tree["/1/2/1"]
-    assert group_in_3.attributes == tree[""].attributes  # type: ignore[attr-defined]
-    assert group_in_3.members["1"].attributes == tree["/1"].attributes  # type: ignore[attr-defined]
-    assert group_in_3.members["1"].members["2"].attributes == tree["/1/2"].attributes  # type: ignore[attr-defined]
+def test_from_zarr_flat_invalid_depth() -> None:
+    """`from_zarr_flat` refuses a depth below -1."""
+    stored, _ = _stored_hierarchy()
+    with pytest.raises(ValueError, match="Invalid value for depth"):
+        from_zarr_flat(stored, depth=-2)
+
+
+def test_members_none_refused() -> None:
+    """`members` may not be `None`: a group without members is a `BaseGroupSpec`."""
+    with pytest.raises(ValidationError, match="members"):
+        GroupSpec(members=None)  # type: ignore[arg-type]
+
+
+def test_base_group_member_refused() -> None:
+    """A `GroupSpec` is a complete hierarchy, so a `BaseGroupSpec` is not a member."""
+    with pytest.raises(ValidationError, match="members"):
+        GroupSpec(members={"a": BaseGroupSpec()})  # type: ignore[dict-item]
 
 
 @pytest.mark.parametrize(("dtype_example"), DTYPE_EXAMPLES_V2, ids=str)
@@ -653,13 +711,13 @@ def test_arrayspec_from_zarr(dtype_example: DTypeExample) -> None:
     Test that deserializing an ArraySpec from a zarr python store works as expected.
     """
     zarr = pytest.importorskip("zarr")
-    store = {}
+    store: dict[str, Any] = {}
     data_type = dtype_example.name
     if ZARR_PYTHON_VERSION >= Version("3.1.0") and data_type == "|O":
         pytest.skip(reason="Data type inference with an object dtype will fail in zarr>=3.1.0")
     arr = zarr.create_array(store=store, shape=(10,), dtype=data_type, zarr_format=2)
 
-    arr_spec = ArraySpec.from_zarr(arr)
+    arr_spec: AnyArraySpec = ArraySpec.from_zarr(arr)
 
     observed = {"attributes": arr.attrs.asdict()} | json.loads(
         store[".zarray"].to_bytes(), object_hook=tuplify_json
@@ -677,11 +735,731 @@ def test_arrayspec_from_zarr(dtype_example: DTypeExample) -> None:
 def test_mix_v3_v2_fails() -> None:
     from pydantic_zarr.v3 import ArraySpec as ArraySpecv3
 
-    members_flat = {"/a": ArraySpecv3.from_array(np.ones(1))}
+    members_flat: dict[str, Any] = {"/a": ArraySpecv3.from_array(np.ones(1))}
     with pytest.raises(
         ValueError,
         match=re.escape(
             "Value at '/a' is not a v2 ArraySpec or GroupSpec (got type(value)=<class 'pydantic_zarr.v3.ArraySpec'>)"
         ),
     ):
-        GroupSpec.from_flat(members_flat)  # type: ignore[arg-type]
+        GroupSpec.from_flat(members_flat)
+
+
+def test_typevar_defaults_v2() -> None:
+    """The v2 generic type parameters carry defaults, so the bare class names are usable."""
+    array = ArraySpec(shape=(4,), dtype="uint8", chunks=(2,), attributes={})
+    group = GroupSpec(attributes={"a": 1}, members={"x": array})
+    assert tuple(group.members) == ("x",)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("attributes", {"new": True}),
+        ("shape", (8,)),
+        ("chunks", (4,)),
+        ("fill_value", 1),
+        ("order", "F"),
+        ("filters", None),
+        ("dimension_separator", "."),
+        ("compressor", None),
+    ],
+)
+def test_replace_v2(field: str, value: object) -> None:
+    """The v2 `replace` returns a revalidated copy with the new field, everything else unchanged."""
+    spec: AnyArraySpec = ArraySpec(shape=(4,), dtype="uint8", chunks=(2,), attributes={})
+    built = spec.replace(**{field: value})  # type: ignore[arg-type]
+    assert getattr(built, field) == value
+    assert built.model_dump(exclude={field}) == spec.model_dump(exclude={field})
+
+
+def test_replace_dtype_v2() -> None:
+    """A dtype change routes through parse_dtype_v2, accepting numpy dtypes."""
+    spec: AnyArraySpec = ArraySpec(shape=(4,), dtype="uint8", chunks=(2,), attributes={})
+    assert spec.replace(dtype=np.dtype("float64")).dtype == "<f8"
+
+
+def test_base_group_spec_v2() -> None:
+    """`BaseGroupSpec` models a v2 group without members, and `like` ignores members."""
+    array: AnyArraySpec = ArraySpec(shape=(4,), dtype="uint8", chunks=(2,), attributes={})
+    group: AnyGroupSpec = GroupSpec(attributes={"a": 1}, members={"x": array})
+    base = BaseGroupSpec(attributes={"a": 1})
+    assert base.like(group)
+    assert group.like(base)
+    assert not base.like(GroupSpec(attributes={"a": 2}, members={}))
+    assert not group.like(BaseGroupSpec(attributes={"a": 2}))
+    flat = group.to_flat()
+    assert type(flat[""]) is BaseGroupSpec
+    assert GroupSpec.from_flat(flat) == group
+
+
+def test_narrowing_helpers_v2() -> None:
+    """The v2 narrowing helpers tell flat-hierarchy values apart."""
+    from pydantic_zarr.v2 import is_base_group_spec
+
+    array: AnyArraySpec = ArraySpec(shape=(4,), dtype="uint8", chunks=(2,), attributes={})
+    group: AnyGroupSpec = GroupSpec(attributes={}, members={"a": array})
+    base = BaseGroupSpec(attributes={})
+    assert is_array_spec(array)
+    assert not is_array_spec(group)
+    assert is_group_spec(group)
+    assert not is_group_spec(base)
+    assert is_base_group_spec(base)
+    assert is_base_group_spec(group)
+    assert not is_base_group_spec(array)
+
+
+def test_member_name_validation_survives_narrowing_v2() -> None:
+    """
+    The v2 member-name check is a model validator, so a subclass that narrows
+    the `members` annotation cannot drop it.
+    """
+
+    class Narrowed(GroupSpec):
+        members: dict[str, ArraySpec]  # type: ignore[assignment]
+
+    array: AnyArraySpec = ArraySpec(shape=(4,), dtype="uint8", chunks=(2,), attributes={})
+    with pytest.raises(ValidationError, match="/"):
+        Narrowed(attributes={}, members={"a/b": array})
+
+
+def test_attributes_default() -> None:
+    """
+    `attributes` defaults to the empty dict on every node class, matching a
+    stored node with no attributes document.
+    """
+    assert ArraySpec(shape=(4,), dtype="uint8", chunks=(2,)).attributes == {}
+    assert GroupSpec().attributes == {}
+    assert BaseGroupSpec().attributes == {}
+    assert GroupSpec.model_validate({"zarr_format": 2}).attributes == {}
+
+
+def test_attributes_default_narrowed_type_rejected() -> None:
+    """
+    The `attributes` default is validated, so a model whose attributes type
+    does not accept the empty dict refuses construction without attributes
+    instead of silently holding a value of the wrong type.
+    """
+
+    class RequiredAttrs(BaseModel):
+        required: int
+
+    with pytest.raises(ValidationError):
+        GroupSpec[RequiredAttrs]()
+
+
+def test_like_filters_keyword_only() -> None:
+    """`like` takes its `include`/`exclude` filters as keyword arguments only."""
+    group: AnyGroupSpec = GroupSpec()
+    with pytest.raises(TypeError):
+        group.like(group, {"attributes"})  # type: ignore[call-arg]
+
+
+def test_resolve_path_v2() -> None:
+    """
+    `resolve_path` (and `group[path]`) returns the node at a `/`-separated
+    relative path; a missing member raises `KeyError` naming the segment.
+    """
+    leaf: AnyArraySpec = ArraySpec(shape=(4,), dtype="uint8", chunks=(2,))
+    root: AnyGroupSpec = GroupSpec(members={"a": GroupSpec(members={"b": leaf})})
+    assert root.resolve_path("a/b") == leaf
+    assert root["a/b"] == leaf
+    with pytest.raises(KeyError, match="No member named 'zz' in a"):
+        root.resolve_path("a/zz")
+
+
+_TO_METADATA_JSON_ARRAY: AnyArraySpec = ArraySpec(
+    attributes={"a": [1, 2]},
+    shape=(4,),
+    chunks=(2,),
+    dtype="<f8",
+    fill_value="NaN",
+    filters=[{"id": "delta", "dtype": "<f8"}],
+    compressor={"id": "zstd", "level": 1},
+)
+
+
+@pytest.mark.parametrize(
+    ("spec", "expected"),
+    [
+        (
+            _TO_METADATA_JSON_ARRAY,
+            {
+                "zarr_format": 2,
+                "attributes": {"a": [1, 2]},
+                "shape": (4,),
+                "chunks": (2,),
+                "dtype": "<f8",
+                "fill_value": "NaN",
+                "order": "C",
+                "filters": ({"id": "delta", "dtype": "<f8"},),
+                "dimension_separator": "/",
+                "compressor": {"id": "zstd", "level": 1},
+            },
+        ),
+        (
+            ArraySpec(shape=(4,), chunks=(2,), dtype=[("a", "<i4"), ("b", "<f8")], fill_value=None),
+            {
+                "zarr_format": 2,
+                "attributes": {},
+                "shape": (4,),
+                "chunks": (2,),
+                "dtype": (("a", "<i4"), ("b", "<f8")),
+                "fill_value": None,
+                "order": "C",
+                "filters": None,
+                "dimension_separator": "/",
+                "compressor": None,
+            },
+        ),
+        (
+            ArraySpec(
+                shape=(4,),
+                chunks=(2,),
+                dtype="<U1",
+                fill_value="",
+                filters=[{"id": "categorize", "labels": ["a", "b"], "dtype": "<U1"}],
+            ),
+            {
+                "zarr_format": 2,
+                "attributes": {},
+                "shape": (4,),
+                "chunks": (2,),
+                "dtype": "<U1",
+                "fill_value": "",
+                "order": "C",
+                "filters": ({"id": "categorize", "labels": ["a", "b"], "dtype": "<U1"},),
+                "dimension_separator": "/",
+                "compressor": None,
+            },
+        ),
+        (
+            ArraySpec.model_validate({**_TO_METADATA_JSON_ARRAY.model_dump(), "foo": [1]}),
+            # extra fields are held, like other JSON values, with arrays as tuples
+            {**_TO_METADATA_JSON_ARRAY.to_metadata_json(), "foo": (1,)},
+        ),
+        (
+            BaseGroupSpec(attributes={"a": 1}),
+            {"zarr_format": 2, "attributes": {"a": 1}},
+        ),
+        (
+            GroupSpec(
+                attributes={"a": 1}, members={"x": _TO_METADATA_JSON_ARRAY, "g": GroupSpec()}
+            ),
+            {"zarr_format": 2, "attributes": {"a": 1}},
+        ),
+    ],
+    ids=[
+        "array",
+        "array-structured-dtype",
+        "array-filter-config-list",
+        "array-extra-field",
+        "base-group",
+        "group-with-members",
+    ],
+)
+def test_to_metadata_json_v2(
+    spec: AnyArraySpec | AnyBaseGroupSpec, expected: dict[str, object]
+) -> None:
+    """
+    `to_metadata_json` returns the node's Zarr V2 metadata as one document holding the `.zarray`
+    / `.zgroup` fields and, under `attributes`, the `.zattrs`, with the JSON arrays the type
+    declares as tuples held as tuples (but not those inside a codec's configuration), extra
+    fields as top-level members, and a group's members left out. (A v2 group holds no extra
+    fields: `.zgroup` admits no other keys.) The result reads as a valid document in
+    `zarr-metadata`.
+    """
+    document = spec.to_metadata_json()
+    assert document == expected
+    model = ZarrV2ArrayMetadata if is_array_spec(spec) else ZarrV2GroupMetadata
+    # compared as JSON text, which equates tuples and lists; key order is not compared
+    assert json.dumps(model.from_json(document).to_json(), sort_keys=True) == json.dumps(
+        document, sort_keys=True
+    )
+
+
+# codecs whose configurations numcodecs reads back as written, so a stored
+# layout read by zarr-python is the same spec
+_STORED_LAYOUT_ARRAY: AnyArraySpec = ArraySpec(
+    attributes={"a": [1, 2]},
+    shape=(4,),
+    chunks=(2,),
+    dtype="<f8",
+    fill_value="NaN",
+    compressor={"id": "zlib", "level": 1},
+)
+_STORED_LAYOUT_ZARRAY = {
+    "zarr_format": 2,
+    "shape": (4,),
+    "chunks": (2,),
+    "dtype": "<f8",
+    "fill_value": "NaN",
+    "order": "C",
+    "filters": None,
+    "dimension_separator": "/",
+    "compressor": {"id": "zlib", "level": 1},
+}
+_STORED_LAYOUT_GROUP = GroupSpec(
+    attributes={"a": 1},
+    members={
+        "x": _STORED_LAYOUT_ARRAY,
+        "g": GroupSpec(members={"y": _STORED_LAYOUT_ARRAY, "h": GroupSpec()}),
+    },
+)
+
+
+@pytest.mark.parametrize(
+    ("dtype", "fill_value", "expected"),
+    [
+        ("<f8", float("nan"), "NaN"),
+        ("<f8", float("inf"), "Infinity"),
+        ("<f8", float("-inf"), "-Infinity"),
+        ("<f4", np.float32("nan"), "NaN"),
+        ("<f8", np.float64("-inf"), "-Infinity"),
+        ("<f8", "NaN", "NaN"),
+        ("<f8", 1.5, 1.5),
+        ("<f8", np.float32(1.5), 1.5),
+        ("<i2", np.int16(3), 3),
+        ("|b1", np.True_, True),
+        ("<c16", complex(float("nan"), float("inf")), ("NaN", "Infinity")),
+        ("<c8", np.complex64(complex(1, float("-inf"))), (1.0, "-Infinity")),
+        ("<c16", (float("nan"), 1.0), ("NaN", 1.0)),
+        ("<c16", ["Infinity", 0.0], ("Infinity", 0.0)),
+        ("<f8", None, None),
+    ],
+)
+def test_fill_value_stored(dtype: str, fill_value: object, expected: object) -> None:
+    """
+    A fill value is stored in the JSON form the Zarr V2 spec gives it: numpy
+    scalars as Python scalars, complex numbers as pairs, and non-finite floats
+    as the strings "NaN", "Infinity" and "-Infinity", so the metadata
+    documents serialize as strict JSON.
+    """
+    spec = ArraySpec(shape=(4,), chunks=(2,), dtype=dtype, fill_value=cast("Any", fill_value))
+    assert spec.fill_value == expected
+    assert type(spec.fill_value) is type(expected)
+    assert spec.to_metadata_json()["fill_value"] == expected
+    json.dumps(spec.to_metadata_json(), allow_nan=False)
+
+
+@pytest.mark.parametrize(
+    ("dtype", "expected"),
+    [
+        ("<i4", 0),
+        ("<f8", 0.0),
+        ("|b1", False),
+        ("<c16", (0.0, 0.0)),
+        ("|S3", ""),
+        ("<U2", ""),
+        ("|V4", "AAAAAA=="),
+        ([("a", "<i4"), ("b", "<f8")], "AAAAAAAAAAAAAAAA"),
+        ("<M8[s]", "NaT"),
+        ("<m8[s]", "NaT"),
+        ("|O", None),
+    ],
+    ids=str,
+)
+def test_fill_value_default(dtype: object, expected: object) -> None:
+    """
+    A spec built without a fill value, or by `from_array` from an array with
+    none, gets the default `zarr-metadata` derives for its dtype, as
+    zarr-python does: zero, `False`, the empty string, null bytes (base64 for
+    raw and struct dtypes), `"NaT"` for the time dtypes, and `None` for `|O`,
+    whose values may be of any type.
+    """
+    built = ArraySpec(shape=(4,), chunks=(2,), dtype=cast("Any", dtype)).fill_value
+    assert built == expected
+    assert type(built) is type(expected)
+    array = np.zeros((4,), dtype=np.dtype(cast("Any", dtype)))
+    assert ArraySpec.from_array(array).fill_value == expected
+
+
+class _NaNFillArraySpec(ArraySpec):
+    fill_value: Literal["NaN"] = "NaN"
+
+
+class _OneFillArraySpec(ArraySpec):
+    fill_value: float = 1.0
+
+
+@pytest.mark.parametrize(
+    ("cls", "expected"), [(_NaNFillArraySpec, "NaN"), (_OneFillArraySpec, 1.0)], ids=str
+)
+def test_fill_value_default_subclass(cls: type[AnyArraySpec], expected: object) -> None:
+    """
+    A subclass that declares its own fill value default keeps it, instead of
+    the dtype's default.
+    """
+    assert cls(shape=(4,), chunks=(2,), dtype="<f8").fill_value == expected
+
+
+def _replacers() -> list[Callable[..., Any]]:
+    """The spellings of a validated changed copy: the method, `__replace__`, and `copy.replace` where Python has it."""
+    spellings: list[Callable[..., Any]] = [
+        lambda spec, **changes: spec.replace(**changes),
+        lambda spec, **changes: spec.__replace__(**changes),
+    ]
+    if hasattr(copy, "replace"):
+        spellings.append(lambda spec, **changes: copy.replace(spec, **changes))
+    return spellings
+
+
+@pytest.mark.parametrize(
+    ("spec", "changes", "expected"),
+    [
+        (
+            ArraySpec(shape=(4,), chunks=(2,), dtype="<i4"),
+            {"shape": (8,)},
+            ArraySpec(shape=(8,), chunks=(2,), dtype="<i4"),
+        ),
+        (BaseGroupSpec(), {"attributes": {"a": 1}}, BaseGroupSpec(attributes={"a": 1})),
+        (
+            GroupSpec(),
+            {"members": {"x": GroupSpec().model_dump()}},
+            GroupSpec(members={"x": GroupSpec()}),
+        ),
+    ],
+    ids=["array", "base-group", "group"],
+)
+def test_replace_spellings_agree_v2(spec: Any, changes: dict[str, Any], expected: Any) -> None:
+    """
+    `replace`, `__replace__` and `copy.replace` give the same revalidated
+    copy: members are validated into their spec classes, the original is
+    unchanged, and the copy has the class of the original.
+    """
+    for replace in _replacers():
+        replaced = replace(spec, **changes)
+        assert replaced == expected
+        assert type(replaced) is type(spec)
+        assert replaced is not spec
+    assert spec != expected
+
+
+@pytest.mark.parametrize(
+    "replace", _replacers(), ids=["method", "dunder", "copy"][: len(_replacers())]
+)
+def test_replace_spellings_refuse_invalid_change_v2(replace: Callable[..., Any]) -> None:
+    """
+    Every spelling refuses an invalid change, where pydantic's own
+    `__replace__`, a `model_copy` that does not validate, accepted it.
+    """
+    spec = ArraySpec(shape=(4,), chunks=(2,), dtype="<i4")
+    with pytest.raises(ValidationError, match="shape"):
+        replace(spec, shape="nonsense")
+
+
+def test_replace_dtype_keeps_fill_value() -> None:
+    """
+    A new dtype keeps the current fill value, so changing to a dtype that
+    refuses it, without a matching fill value, is a validation error.
+    """
+    spec = ArraySpec(shape=(4,), chunks=(2,), dtype="<i4")
+    assert spec.replace(dtype="|b1", fill_value=False).fill_value is False
+    with pytest.raises(ValidationError, match=r"fill_value: expected a boolean or null, got 0"):
+        spec.replace(dtype="|b1")
+
+
+def test_fill_value_invalid_for_dtype() -> None:
+    """
+    A fill value the dtype does not accept is refused when the spec is
+    validated as a Zarr V2 array metadata document.
+    """
+    with pytest.raises(ValidationError, match=r"Invalid Zarr V2 array metadata:\nfill_value: "):
+        ArraySpec(shape=(4,), chunks=(2,), dtype="<i2", fill_value=1.5)
+
+
+@pytest.mark.parametrize(
+    ("dtype", "fill_value", "expected"),
+    [
+        ("<f8", np.nan, "NaN"),
+        ("<f4", -np.inf, "-Infinity"),
+        ("<c8", complex(np.nan, np.inf), ("NaN", "Infinity")),
+    ],
+)
+def test_from_zarr_non_finite_fill_value(dtype: str, fill_value: object, expected: object) -> None:
+    """
+    A zarr-python v2 array with a non-finite fill value reads back as the spec
+    that stores it, and writing that spec stores the same fill value.
+    """
+    zarr = pytest.importorskip("zarr")
+    store = zarr.storage.MemoryStore()
+    array = zarr.create_array(
+        store, name="a", shape=(4,), chunks=(2,), dtype=dtype, fill_value=fill_value, zarr_format=2
+    )
+    spec = ArraySpec.from_zarr(array)
+    assert spec.fill_value == expected
+    assert spec.replace(fill_value=cast("Any", fill_value)) == spec
+    spec.to_zarr(store, path="b")
+    assert ArraySpec.from_zarr(zarr.open_array(store, path="b")) == spec
+
+
+@pytest.mark.parametrize(
+    ("spec", "expected"),
+    [
+        (
+            _STORED_LAYOUT_ARRAY,
+            {".zarray": _STORED_LAYOUT_ZARRAY, ".zattrs": {"a": [1, 2]}},
+        ),
+        (
+            _TO_METADATA_JSON_ARRAY,
+            {
+                ".zarray": {
+                    **_STORED_LAYOUT_ZARRAY,
+                    "filters": ({"id": "delta", "dtype": "<f8"},),
+                    "compressor": {"id": "zstd", "level": 1},
+                },
+                ".zattrs": {"a": [1, 2]},
+            },
+        ),
+        (
+            ArraySpec.model_validate({**_STORED_LAYOUT_ARRAY.model_dump(), "foo": [1]}),
+            # extra fields are members of `.zarray`
+            {".zarray": {**_STORED_LAYOUT_ZARRAY, "foo": (1,)}, ".zattrs": {"a": [1, 2]}},
+        ),
+        (
+            BaseGroupSpec(attributes={"a": 1}),
+            {".zgroup": {"zarr_format": 2}, ".zattrs": {"a": 1}},
+        ),
+        (
+            GroupSpec(),
+            {".zgroup": {"zarr_format": 2}, ".zattrs": {}},
+        ),
+        (
+            _STORED_LAYOUT_GROUP,
+            {
+                ".zgroup": {"zarr_format": 2},
+                ".zattrs": {"a": 1},
+                "x/.zarray": _STORED_LAYOUT_ZARRAY,
+                "x/.zattrs": {"a": [1, 2]},
+                "g/.zgroup": {"zarr_format": 2},
+                "g/.zattrs": {},
+                "g/y/.zarray": _STORED_LAYOUT_ZARRAY,
+                "g/y/.zattrs": {"a": [1, 2]},
+                "g/h/.zgroup": {"zarr_format": 2},
+                "g/h/.zattrs": {},
+            },
+        ),
+    ],
+    ids=[
+        "array",
+        "array-normalized-codecs",
+        "array-extra-field",
+        "base-group",
+        "group-empty",
+        "group-nested",
+    ],
+)
+def test_to_stored_metadata_json_v2(
+    spec: AnyArraySpec | AnyBaseGroupSpec, expected: dict[str, object], tmp_path: Path
+) -> None:
+    """
+    `to_stored_metadata_json` returns the Zarr V2 documents of the node and,
+    for a `GroupSpec`, of each member at any depth, each at its store key
+    prefixed by the member's path: `.zarray` / `.zgroup`, and `.zattrs`,
+    written even when the attributes are empty. Read back from JSON, each
+    node's documents are what `zarr-metadata`'s `to_key_value` writes for
+    it, and the keys and `.zattrs` documents are the ones `to_zarr` writes
+    (zarr-python normalizes codec configurations, so `.zarray` is not
+    compared). `from_stored_metadata_json` reads the layout back as the same
+    spec, and, unless zarr-python normalizes the codecs or drops the extra
+    fields, so does `from_zarr` once the documents are written as JSON.
+    """
+    stored = spec.to_stored_metadata_json()
+    assert stored == expected
+    assert type(spec).from_stored_metadata_json(stored) == spec
+    nodes = spec.to_flat() if isinstance(spec, GroupSpec) else {"": spec}
+    for node in nodes.values():
+        model = ZarrV2ArrayMetadata if is_array_spec(node) else ZarrV2GroupMetadata
+        key_value = model.from_json(node.to_metadata_json()).to_key_value()
+        assert {key: json.loads(value) for key, value in key_value.items()} == json.loads(
+            json.dumps(node.to_stored_metadata_json())
+        )
+    as_read = json.loads(json.dumps(stored))
+    zarr = pytest.importorskip("zarr")
+    store = zarr.storage.MemoryStore()
+    spec.to_zarr(store, path="")
+    written = {key: json.loads(value.to_bytes()) for key, value in store._store_dict.items()}
+    assert written.keys() == as_read.keys()
+    assert {k: v for k, v in written.items() if k.endswith(".zattrs")} == {
+        k: v for k, v in as_read.items() if k.endswith(".zattrs")
+    }
+    if spec is _TO_METADATA_JSON_ARRAY or (is_array_spec(spec) and spec.extra_fields):
+        return
+    for key, document in stored.items():
+        (tmp_path / key).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / key).write_text(json.dumps(document))
+    assert type(spec).from_zarr(zarr.open(tmp_path, mode="r", zarr_format=2)) == spec
+
+
+def test_from_stored_metadata_json_v2_base_group_reads_root() -> None:
+    """
+    `BaseGroupSpec.from_stored_metadata_json` reads a hierarchy's root alone,
+    and `GroupSpec` reads a `BaseGroupSpec`'s layout as a group with no
+    members: a layout does not tell the two apart. A missing `.zattrs` reads
+    as empty attributes.
+    """
+    assert BaseGroupSpec.from_stored_metadata_json(
+        _STORED_LAYOUT_GROUP.to_stored_metadata_json()
+    ) == BaseGroupSpec(attributes={"a": 1})
+    assert GroupSpec.from_stored_metadata_json(
+        BaseGroupSpec(attributes={"a": 1}).to_stored_metadata_json()
+    ) == GroupSpec(attributes={"a": 1}, members={})
+    assert GroupSpec.from_stored_metadata_json({".zgroup": {"zarr_format": 2}}) == GroupSpec()
+
+
+def test_from_stored_metadata_json_v2_unrecognized_key() -> None:
+    """A key other than a node's `.zarray`, `.zgroup` or `.zattrs` is refused."""
+    stored = {**_STORED_LAYOUT_GROUP.to_stored_metadata_json(), ".zmetadata": {}}
+    with pytest.raises(ValueError, match="Unrecognized store key '.zmetadata'"):
+        GroupSpec.from_stored_metadata_json(stored)
+
+
+def test_from_stored_metadata_json_v2_array_and_group() -> None:
+    """A path holding both a `.zarray` and a `.zgroup` is refused."""
+    stored = {**_STORED_LAYOUT_GROUP.to_stored_metadata_json(), "x/.zgroup": {"zarr_format": 2}}
+    with pytest.raises(ValueError, match="both a .zarray and a .zgroup at 'x'"):
+        GroupSpec.from_stored_metadata_json(stored)
+
+
+def test_from_stored_metadata_json_v2_orphan_zattrs() -> None:
+    """A `.zattrs` with neither a `.zarray` nor a `.zgroup` beside it is refused."""
+    stored = {**_STORED_LAYOUT_GROUP.to_stored_metadata_json(), "z/.zattrs": {}}
+    with pytest.raises(ValueError, match="a .zattrs at 'z', but no .zarray or .zgroup"):
+        GroupSpec.from_stored_metadata_json(stored)
+
+
+@pytest.mark.parametrize("key", ["/.zattrs", "/x/.zarray", "g//.zgroup"])
+def test_from_stored_metadata_json_v2_malformed_key(key: str) -> None:
+    """A key with a leading `/` or an empty segment, which would alias another node's, is refused."""
+    stored = {**_STORED_LAYOUT_GROUP.to_stored_metadata_json(), key: {}}
+    with pytest.raises(ValueError, match=f"Invalid store key '{key}'"):
+        GroupSpec.from_stored_metadata_json(stored)
+
+
+@pytest.mark.parametrize(
+    "member",
+    [
+        {"x/.zarray": []},
+        {"x/.zgroup": {"zarr_format": 2}, "x/.zattrs": []},
+        {"x/.zarray": {"zarr_format": 2}},
+    ],
+    ids=["zarray-not-object", "zattrs-not-object", "zarray-invalid"],
+)
+def test_from_stored_metadata_json_v2_invalid_document(member: dict[str, object]) -> None:
+    """A node whose documents are not a valid node is refused by validation."""
+    stored = {".zgroup": {"zarr_format": 2}, **member}
+    with pytest.raises(ValidationError):
+        GroupSpec.from_stored_metadata_json(stored)
+
+
+def test_from_stored_metadata_json_v2_no_root() -> None:
+    """A layout without the root's `.zgroup` is refused."""
+    stored = dict(_STORED_LAYOUT_GROUP.to_stored_metadata_json())
+    del stored[".zgroup"], stored[".zattrs"]
+    with pytest.raises(ValueError, match="no group's metadata at the root"):
+        GroupSpec.from_stored_metadata_json(stored)
+
+
+def test_from_stored_metadata_json_v2_root_of_other_type() -> None:
+    """A layout whose root is not the node type of the class is refused."""
+    with pytest.raises(ValueError, match="root is a group, not an array"):
+        ArraySpec.from_stored_metadata_json(GroupSpec().to_stored_metadata_json())
+
+
+def test_from_stored_metadata_json_v2_array_with_members() -> None:
+    """An array's layout holding other nodes' documents is refused."""
+    stored = {**_STORED_LAYOUT_ARRAY.to_stored_metadata_json(), "g/.zgroup": {"zarr_format": 2}}
+    with pytest.raises(ValueError, match="An array has no members"):
+        ArraySpec.from_stored_metadata_json(stored)
+
+
+@pytest.mark.parametrize("parent", ["missing", "array"])
+def test_from_stored_metadata_json_v2_parent_not_group(parent: str) -> None:
+    """A node whose parent is not a group in the layout is refused."""
+    stored: dict[str, object] = dict(_STORED_LAYOUT_GROUP.to_stored_metadata_json())
+    if parent == "missing":
+        del stored["g/.zgroup"], stored["g/.zattrs"]
+        member = "g/y"
+    else:
+        stored["x/z/.zgroup"] = {"zarr_format": 2}
+        member = "x/z"
+    with pytest.raises(ValueError, match=f"documents at '{member}', but no group's"):
+        GroupSpec.from_stored_metadata_json(stored)
+
+
+_DEPRECATED_IO_V2: list[
+    tuple[str, Callable[[AnyGroupSpec, zarr_mod.Group, zarr_mod.Array, Any], object]]
+] = [
+    ("GroupSpec.to_zarr", lambda spec, group, array, store: spec.to_zarr(store, path="w")),
+    (
+        "BaseGroupSpec.to_zarr",
+        lambda spec, group, array, store: BaseGroupSpec().to_zarr(store, path="w"),
+    ),
+    (
+        "ArraySpec.to_zarr",
+        lambda spec, group, array, store: cast("AnyArraySpec", spec.members["x"]).to_zarr(
+            store, path="w"
+        ),
+    ),
+    ("to_zarr", lambda spec, group, array, store: to_zarr(spec, store, "w")),
+    # over an existing node, `to_zarr` compares with it: still one warning
+    (
+        "GroupSpec.to_zarr",
+        lambda spec, group, array, store: spec.to_zarr(store, path="g", overwrite=True),
+    ),
+    (
+        "BaseGroupSpec.to_zarr",
+        lambda spec, group, array, store: BaseGroupSpec().to_zarr(store, path="g", overwrite=True),
+    ),
+    (
+        "ArraySpec.to_zarr",
+        lambda spec, group, array, store: cast("AnyArraySpec", spec.members["x"]).to_zarr(
+            store, path="g/x", overwrite=True
+        ),
+    ),
+    ("GroupSpec.from_zarr", lambda spec, group, array, store: GroupSpec.from_zarr(group)),
+    ("BaseGroupSpec.from_zarr", lambda spec, group, array, store: BaseGroupSpec.from_zarr(group)),
+    ("ArraySpec.from_zarr", lambda spec, group, array, store: ArraySpec.from_zarr(array)),
+    ("from_zarr", lambda spec, group, array, store: from_zarr(group)),
+    ("from_zarr_flat", lambda spec, group, array, store: from_zarr_flat(group)),
+    ("GroupSpec.like with a zarr.Group", lambda spec, group, array, store: spec.like(group)),
+    (
+        "BaseGroupSpec.like with a zarr.Group",
+        lambda spec, group, array, store: BaseGroupSpec().like(group),
+    ),
+    (
+        "ArraySpec.like with a zarr.Array",
+        lambda spec, group, array, store: cast("AnyArraySpec", spec.members["x"]).like(array),
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("name", "entry_point"), _DEPRECATED_IO_V2, ids=[n for n, _ in _DEPRECATED_IO_V2]
+)
+def test_zarr_io_deprecated(
+    name: str, entry_point: Callable[[AnyGroupSpec, zarr_mod.Group, zarr_mod.Array, Any], object]
+) -> None:
+    """
+    Every entry point that reads or writes zarr-python nodes warns that it is
+    deprecated, exactly once, naming itself: a group's hierarchy is handled
+    through private paths, so its members add no warnings of their own.
+    """
+    zarr = pytest.importorskip("zarr")
+    store = zarr.storage.MemoryStore()
+    group = zarr.create_group(store, path="g", zarr_format=2)
+    array_node = group.create_array("x", shape=(2,), dtype="uint8")
+    group.create_group("sub").create_array("y", shape=(2,), dtype="uint8")
+    array = ArraySpec(shape=(2,), chunks=(2,), dtype="uint8")
+    spec = GroupSpec(members={"x": array, "sub": GroupSpec(members={"y": array})})
+
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        entry_point(spec, group, array_node, store)
+    deprecations = [
+        str(w.message)
+        for w in record
+        if issubclass(w.category, DeprecationWarning) and "pydantic-zarr 0.12" in str(w.message)
+    ]
+    assert [message.split("`")[1] for message in deprecations] == [name]
+    assert "from_stored_metadata_json" in deprecations[0] or "create_hierarchy" in deprecations[0]

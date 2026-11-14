@@ -1,13 +1,38 @@
 import inspect
 import itertools as it
 import warnings
+import operator
 from typing import Optional, Union, Literal
 import numpy as np
 from numpy.typing import ArrayLike
 import scipy.stats as ss
 from scipy import integrate, special
 from statsmodels.stats.multitest import multipletests
-from pandas import DataFrame, Series, MultiIndex
+from pandas import DataFrame, Series, MultiIndex, concat
+
+
+def __numeric_array(values: Series) -> np.ndarray:
+    """Expose nullable numeric data without object arrays or integer rounding."""
+    dtype = getattr(values.dtype, "numpy_dtype", None)
+    if dtype is None:
+        return values.to_numpy()
+    if dtype.kind in "biu" and values.hasnans:
+        dtype = float
+    return values.to_numpy(dtype=dtype, na_value=np.nan)
+
+
+def __validate_n_permutations(value: int, name: str) -> int:
+    """Normalize integer counts without silently accepting booleans or floats."""
+    message = f"{name} must be a positive integer"
+    if isinstance(value, (bool, np.bool_)):
+        raise ValueError(message)  # noqa: TRY004 -- consistent error for all invalid counts
+    try:
+        count = operator.index(value)
+    except TypeError:
+        raise ValueError(message) from None
+    if count < 1:
+        raise ValueError(message)
+    return count
 
 
 def __convert_to_df(
@@ -62,10 +87,12 @@ def __convert_to_df(
     -----
     Inferrence algorithm for determining `val_id` and `group_id` args is rather
     simple, so it is better to specify them explicitly to prevent errors.
+    A two-by-two array without explicit column positions is treated as two
+    samples with two observations each.
     """
-    if not group_col:
+    if group_col is None:
         group_col = "groups"
-    if not val_col:
+    if val_col is None:
         val_col = "vals"
 
     if isinstance(a, DataFrame):
@@ -77,7 +104,11 @@ def __convert_to_df(
 
     elif isinstance(a, list) or (
         isinstance(a, np.ndarray)
-        and (not a.shape.count(2) or (a.shape[0] == 2 and a.shape[1] != 2))
+        and (
+            not a.shape.count(2)
+            or (a.shape[0] == 2 and a.shape[1] != 2)
+            or (a.shape == (2, 2) and val_id is None and group_id is None)
+        )
     ):
         grps_len = map(len, a)
         grps = list(it.chain(*[[i + 1] * grp_len for i, grp_len in enumerate(grps_len)]))
@@ -130,15 +161,27 @@ def __convert_to_block_df(
 
     if isinstance(a, DataFrame) and not melted:
         x = a.copy(deep=True)
-        x.columns.name = new_group_col
-        x.index.name = new_block_col
-        x[new_block_id_col] = np.arange(x.shape[0])
+        # Use positional labels while melting so treatment names cannot collide
+        # with the internal columns or be overwritten by block identifiers.
+        x.columns = np.arange(x.shape[1])
+        x.index = np.arange(x.shape[0])
+        x.index.name = new_block_id_col
         x = x.reset_index().melt(
-            id_vars=[new_block_col, new_block_id_col], var_name=new_group_col, value_name=new_y_col
+            id_vars=new_block_id_col, var_name=new_group_col, value_name=new_y_col
         )
+        # pandas 1.5 melt loses nullable measurement dtypes. Concatenating the
+        # original columns preserves their common dtype and missing values.
+        if x[new_y_col].dtype == object and any(
+            getattr(dtype, "numpy_dtype", None) is not None for dtype in a.dtypes
+        ):
+            x[new_y_col] = concat(
+                [a.iloc[:, column] for column in range(a.shape[1])], ignore_index=True
+            )
+        x[new_block_col] = a.index.take(x[new_block_id_col]).to_numpy()
+        x[new_group_col] = a.columns.take(x[new_group_col]).to_numpy()
 
     elif isinstance(a, DataFrame) and melted:
-        if a[block_col].duplicated().sum() > 0 and not block_id_col:
+        if a[block_col].duplicated().sum() > 0 and block_id_col is None:
             raise ValueError(
                 "`block_col` contains duplicated entries, `block_id_col` should be explicitly specified"
             )
@@ -204,7 +247,16 @@ def __complete_block_matrix(
         return None
     if np.isnan(values).any():
         return None
+    __validate_block_shape(*values.shape)
     return values, groups
+
+
+def __validate_block_shape(n_blocks: int, n_groups: int) -> None:
+    """Reject block designs with no observations to compare."""
+    if n_blocks < 1:
+        raise ValueError("At least one complete block is required")
+    if n_groups < 2:
+        raise ValueError("At least two treatments are required")
 
 
 def __drop_incomplete_blocks(
@@ -214,7 +266,40 @@ def __drop_incomplete_blocks(
     x = x.dropna(subset=[y_col, group_col, block_id_col])
     blocks = x.groupby(block_id_col, observed=True)[group_col]
     complete = blocks.size().eq(group_count) & blocks.nunique().eq(group_count)
-    return x[x[block_id_col].isin(complete[complete].index)]
+    x = x[x[block_id_col].isin(complete[complete].index)]
+    __validate_block_shape(x[block_id_col].nunique(), x[group_col].nunique())
+    return x
+
+
+def __durbin_design_counts(
+    x: DataFrame, group_col: str, block_id_col: str
+) -> tuple[int, int, int, int]:
+    """Count observed treatments/blocks and validate the balanced design."""
+    block_sizes = x.groupby(block_id_col, observed=True).size()
+    replications = x.groupby(group_col, observed=True).size()
+    b, t = len(block_sizes), len(replications)
+    __validate_block_shape(b, t)
+    message = "Durbin's test requires a balanced incomplete block design"
+    if (
+        x.duplicated([block_id_col, group_col]).any()
+        or block_sizes.nunique() != 1
+        or replications.nunique() != 1
+    ):
+        raise ValueError(message)
+    k, r = int(block_sizes.iloc[0]), int(replications.iloc[0])
+    if k < 2:
+        raise ValueError(message)
+    if k < t:
+        incidence = (
+            x.groupby([block_id_col, group_col], observed=True)
+            .size()
+            .unstack(fill_value=0)
+            .to_numpy(dtype=np.int64)
+        )
+        concurrence = (incidence.T @ incidence)[np.triu_indices(t, 1)]
+        if not np.all(concurrence == concurrence[0]):
+            raise ValueError(message)
+    return t, b, r, k
 
 
 def posthoc_conover(
@@ -280,6 +365,8 @@ def posthoc_conover(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import scikit_posthocs as sp
     >>> x = [[1,2,3,5,1], [12,31,54, np.nan], [10,12,6,74,11]]
     >>> sp.posthoc_conover(x, p_adjust = 'holm')
     """
@@ -398,6 +485,8 @@ def posthoc_dunn(
     Examples
     --------
 
+    >>> import numpy as np
+    >>> import scikit_posthocs as sp
     >>> x = [[1,2,3,5,1], [12,31,54, np.nan], [10,12,6,74,11]]
     >>> sp.posthoc_dunn(x, p_adjust = 'holm')
     """
@@ -500,6 +589,8 @@ def posthoc_nemenyi(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import scikit_posthocs as sp
     >>> x = [[1,2,3,5,1], [12,31,54, np.nan], [10,12,6,74,11]]
     >>> sp.posthoc_nemenyi(x)
     """
@@ -596,6 +687,10 @@ def posthoc_nemenyi_friedman(
         Must be specified if `a` is a pandas DataFrame object.
         Name of the column that contains treatment (group) factor values.
 
+    block_id_col : str or int, optional
+        Column identifying each block when using melted data. Specify it when
+        block labels occur more than once.
+
     melted : bool, optional
         Specifies if data are given as melted columns "y", "blocks", and
         "groups".
@@ -630,6 +725,8 @@ def posthoc_nemenyi_friedman(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import scikit_posthocs as sp
     >>> # Non-melted case, x is a block design matrix, i.e. rows are blocks
     >>> # and columns are groups.
     >>> x = np.array([[31,27,24],[31,28,31],[45,29,46],[21,18,48],[42,36,46],[32,17,40]])
@@ -781,6 +878,8 @@ def posthoc_conover_friedman(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import scikit_posthocs as sp
     >>> x = np.array([[31,27,24],[31,28,31],[45,29,46],[21,18,48],[42,36,46],[32,17,40]])
     >>> sp.posthoc_conover_friedman(x)
     """
@@ -905,7 +1004,7 @@ def posthoc_npm_test(
         Can be either "greater" (by default) or "less".
 
     nperm : int, optional
-        Number of permutations to perform for calculating p values.
+        Positive integer number of permutations for calculating p values.
 
     Returns
     -------
@@ -924,29 +1023,30 @@ def posthoc_npm_test(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import scikit_posthocs as sp
     >>> x = np.array([[102,109,114,120,124],
-                      [110,112,123,130,145],
-                      [132,141,156,160,172]])
+    ...               [110,112,123,130,145],
+    ...               [132,141,156,160,172]])
     >>> sp.posthoc_npm_test(x)
     """
+    nperm = __validate_n_permutations(nperm, "nperm")
     x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
     x = x.dropna(subset=[_val_col, _group_col])
     x = x.sort_values(by=[_group_col], ascending=True) if sort else x
-    if alternative == "less":
-        x[_val_col] *= -1
 
     groups = x[_group_col].unique()
     k = groups.size
     n = x.shape[0]
     sigma = np.sqrt(n * (n + 1) / 12.0)
-    values = x[_val_col].to_numpy()
+    values = __numeric_array(x[_val_col])
     group_values = x[_group_col].to_numpy()
     group_codes = np.empty(n, dtype=int)
     for code, group in enumerate(groups):
         group_codes[group_values == group] = code
 
     def compare(permuted):
-        ranks = Series(permuted).rank().to_numpy()
+        ranks = Series(permuted).rank(ascending=alternative != "less").to_numpy()
         valid = ~np.isnan(ranks)
         ni = np.bincount(group_codes[valid], minlength=k)
         rank_sums = np.bincount(group_codes[valid], weights=ranks[valid], minlength=k)
@@ -1059,6 +1159,8 @@ def posthoc_siegel_friedman(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import scikit_posthocs as sp
     >>> x = np.array([[31,27,24],[31,28,31],[45,29,46],[21,18,48],[42,36,46],[32,17,40]])
     >>> sp.posthoc_siegel_friedman(x)
     """
@@ -1195,6 +1297,8 @@ def posthoc_miller_friedman(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import scikit_posthocs as sp
     >>> x = np.array([[31,27,24],[31,28,31],[45,29,46],[21,18,48],[42,36,46],[32,17,40]])
     >>> sp.posthoc_miller_friedman(x)
     """
@@ -1321,6 +1425,13 @@ def posthoc_durbin(
     result : pandas.DataFrame
         P values.
 
+    Notes
+    -----
+    Rows with missing measurements, treatment labels, or block identifiers are
+    excluded. Counts use the remaining observations, so wholly missing blocks
+    and treatments are ignored. The retained design must have equal block
+    sizes, equal treatment replication, and equal pairwise concurrence.
+
     References
     ----------
     .. [1] W. J. Conover and R. L. Iman (1979), On multiple-comparisons procedures,
@@ -1330,6 +1441,8 @@ def posthoc_durbin(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import scikit_posthocs as sp
     >>> x = np.array([[31,27,24],[31,28,31],[45,29,46],[21,18,48],[42,36,46],[32,17,40]])
     >>> sp.posthoc_durbin(x)
     """
@@ -1367,13 +1480,10 @@ def posthoc_durbin(
         return pval
 
     x = x.sort_values(by=[_block_col, _group_col], ascending=True) if sort else x
-    x.dropna(inplace=True)
+    x = x.dropna(subset=[_y_col, _group_col, _block_id_col])
 
     groups = x[_group_col].unique()
-    t = len(groups)
-    b = x[_block_id_col].unique().size
-    r = len(x) / t
-    k = len(x) / b
+    t, b, r, k = __durbin_design_counts(x, _group_col, _block_id_col)
     x["y_ranked"] = x.groupby(_block_id_col, observed=True)[_y_col].rank()
     rj = x.groupby(_group_col, observed=True)["y_ranked"].sum()
     A = (x["y_ranked"] ** 2).sum()
@@ -1462,8 +1572,9 @@ def posthoc_anderson(
 
     Examples
     --------
-    >>> x = np.array([[2.9, 3.0, 2.5, 2.6, 3.2], [3.8, 2.7, 4.0, 2.4], [2.8, 3.4, 3.7, 2.2, 2.0]])
-    >>> sp.posthoc_anderson(x)
+    >>> import scikit_posthocs as sp
+    >>> x = [[2.9, 3.0, 2.5, 2.6, 3.2], [3.8, 2.7, 4.0, 2.4], [2.8, 3.4, 3.7, 2.2, 2.0]]
+    >>> p_values = sp.posthoc_anderson(x)
     """
     x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
     x = x.sort_values(by=[_group_col], ascending=True) if sort else x
@@ -1471,7 +1582,7 @@ def posthoc_anderson(
     groups = x[_group_col].unique()
     k = groups.size
     x_grouped = x.groupby(_group_col, observed=True)[_val_col]
-    samples = [x_grouped.get_group(group).dropna().to_numpy() for group in groups]
+    samples = [__numeric_array(x_grouped.get_group(group).dropna()) for group in groups]
     vs = np.zeros((k, k), dtype=float)
     combs = it.combinations(range(k), 2)
 
@@ -1545,6 +1656,10 @@ def posthoc_quade(
         Must be specified if `a` is a pandas DataFrame object.
         Name of the column that contains treatment (group) factor values.
 
+    block_id_col : str or int, optional
+        Column identifying each block when using melted data. Specify it when
+        block labels occur more than once.
+
     dist : str, optional
         Method for determining p values.
         The default distribution is "t", else "normal".
@@ -1591,6 +1706,8 @@ def posthoc_quade(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import scikit_posthocs as sp
     >>> x = np.array([[31,27,24],[31,28,31],[45,29,46],[21,18,48],[42,36,46],[32,17,40]])
     >>> sp.posthoc_quade(x)
     """
@@ -1762,8 +1879,10 @@ def posthoc_vanwaerden(
 
     Examples
     --------
-    >>> x = np.array([[10,'a'], [59,'a'], [76,'b'], [10, 'b']])
-    >>> sp.posthoc_vanwaerden(x, val_col = 0, group_col = 1)
+    >>> import scikit_posthocs as sp
+    >>> import pandas as pd
+    >>> x = pd.DataFrame({'value': [10, 59, 76, 10], 'group': ['a', 'a', 'b', 'b']})
+    >>> p_values = sp.posthoc_vanwaerden(x, val_col='value', group_col='group')
     """
     x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
     x = x.dropna(subset=[_val_col, _group_col])
@@ -1860,7 +1979,7 @@ def posthoc_dunnett(
     x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
     x = x.sort_values(by=[_group_col], ascending=True) if sort else x
     x = x.set_index(_group_col)[_val_col]
-    x_embedded = x.groupby(_group_col, observed=True).agg(lambda y: y.dropna().tolist())
+    x_embedded = x.groupby(level=0, observed=True).agg(lambda y: y.dropna().tolist())
     control_data = x_embedded.loc[control]
     treatment_data = x_embedded.drop(control)
 
@@ -1960,15 +2079,13 @@ def posthoc_ttest(
     --------
 
     >>> import scikit_posthocs as sp
-    >>> x = [[1, 2, 3, 5, 1], [12, 31, 54], [10, 12, 6, 74, 11]]
-    >>> sp.posthoc_ttest(x, p_adjust='holm').round(6)
-              1         2         3
-    1  1.000000  0.046009  0.312691
-    2  0.046009  1.000000  0.632708
-    3  0.312691  0.632708  1.000000
+    >>> x = [[1, 2, 3, 5, 1], [12, 31, 54, 62, 12], [10, 12, 6, 74, 11]]
+    >>> p_values = sp.posthoc_ttest(x, p_adjust='holm')
+    >>> round(float(p_values.loc[1, 2]), 6)
+    0.047356
     """
     x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
-    if not np.isfinite(x[_val_col].to_numpy(dtype=float)).all():
+    if not np.isfinite(x[_val_col].to_numpy(dtype=float, na_value=np.nan)).all():
         raise ValueError(
             "All observations must be finite; remove or impute missing values before calling "
             "posthoc_ttest"
@@ -1978,7 +2095,7 @@ def posthoc_ttest(
     groups = x[_group_col].unique()
     k = groups.size
     xg = x.groupby(by=_group_col, observed=True)[_val_col]
-    samples = [xg.get_group(group).to_numpy() for group in groups]
+    samples = [__numeric_array(xg.get_group(group)) for group in groups]
 
     vs = np.zeros((k, k), dtype=float)
     tri_upper = np.triu_indices(vs.shape[0], 1)
@@ -2020,33 +2137,30 @@ def posthoc_tukey_hsd(
     group_col: Optional[str] = None,
     sort: bool = True,
 ) -> DataFrame:
-    """Pairwise comparisons with Tukey's honestly significant difference test.
+    """Pairwise comparisons with Tukey's honestly significant difference test,
+    using SciPy's `scipy.stats.tukey_hsd` implementation.
 
     Parameters
     ----------
-    a : array_like or pandas DataFrame object
-        An array, any object exposing the array interface, or a pandas
-        DataFrame. Array must be two-dimensional. Groups may have different
-        lengths.
+    a : array_like or pandas DataFrame
+        Two-dimensional data containing the groups to compare. For a list or
+        array, each row is a group; groups may have different lengths in a list.
 
-    val_col : str, optional
-        Name of a DataFrame column that contains dependent variable values (test
-        or response variable). Values should have a non-nominal scale. Must be
-        specified if `a` is a pandas DataFrame object.
+    val_col : str or int, optional
+        Column containing observations when `a` is a DataFrame. Required for
+        DataFrame input.
 
-    group_col : str, optional
-        Name of a DataFrame column that contains independent variable values
-        (grouping or predictor variable). Values should have a nominal scale
-        (categorical). Must be specified if `a` is a pandas DataFrame object.
+    group_col : str or int, optional
+        Column containing group labels when `a` is a DataFrame. Required for
+        DataFrame input.
 
     sort : bool, optional
-        Specifies whether to sort DataFrame by group_col and val_col.
-        Default is True.
+        Sort by group and observation value before comparison. Default is True.
 
     Returns
     -------
     result : pandas.DataFrame
-        Pairwise p values, with group labels as rows and columns and ones on
+        Pairwise p-values, with group labels as rows and columns and ones on
         the diagonal.
 
     Notes
@@ -2057,22 +2171,18 @@ def posthoc_tukey_hsd(
     --------
     >>> import scikit_posthocs as sp
     >>> x = [[1, 2, 3, 4, 5], [35, 31, 75, 40, 21], [10, 6, 9, 6, 1]]
-    >>> sp.posthoc_tukey_hsd(x).round(6)
-              1         2         3
-    1  1.000000  0.000991  0.897449
-    2  0.000991  1.000000  0.002109
-    3  0.897449  0.002109  1.000000
+    >>> p_values = sp.posthoc_tukey_hsd(x)
+    >>> round(float(p_values.loc[1, 2]), 6)
+    0.000991
     """
     x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
     x = x.sort_values(by=[_group_col, _val_col], ascending=True) if sort else x
     groups = x[_group_col].unique()
 
-    results = ss.tukey_hsd(
-        *[
-            x.loc[idx, _val_col].to_numpy()
-            for idx in x.groupby(_group_col, observed=True, sort=False).groups.values()
-        ]
-    )
+    # Older pandas iterates ordered categoricals in category order even with
+    # sort=False. Extract samples in the same order as the output labels.
+    xg = x.groupby(_group_col, observed=True, sort=False)[_val_col]
+    results = ss.tukey_hsd(*[__numeric_array(xg.get_group(group)) for group in groups])
 
     return DataFrame(results.pvalue, index=groups, columns=groups)
 
@@ -2143,6 +2253,7 @@ def posthoc_mannwhitney(
 
     Examples
     --------
+    >>> import scikit_posthocs as sp
     >>> x = [[1,2,3,4,5], [35,31,75,40,21], [10,6,9,6,1]]
     >>> sp.posthoc_mannwhitney(x, p_adjust = 'holm')
     """
@@ -2153,7 +2264,7 @@ def posthoc_mannwhitney(
     x_len = groups.size
     vs = np.zeros((x_len, x_len))
     xg = x.groupby(_group_col, observed=True)[_val_col]
-    samples = [xg.get_group(group).to_numpy() for group in groups]
+    samples = [__numeric_array(xg.get_group(group)) for group in groups]
     tri_upper = np.triu_indices(vs.shape[0], 1)
     tri_lower = np.tril_indices(vs.shape[0], -1)
     vs[:, :] = 0
@@ -2258,6 +2369,7 @@ def posthoc_wilcoxon(
 
     Examples
     --------
+    >>> import scikit_posthocs as sp
     >>> x = [[1,2,3,4,5], [35,31,75,40,21], [10,6,9,6,1]]
     >>> sp.posthoc_wilcoxon(x)
     """
@@ -2275,7 +2387,7 @@ def posthoc_wilcoxon(
     x_len = groups.size
     vs = np.zeros((x_len, x_len))
     xg = x.groupby(_group_col, observed=True)[_val_col]
-    samples = [xg.get_group(group).to_numpy() for group in groups]
+    samples = [__numeric_array(xg.get_group(group)) for group in groups]
     tri_upper = np.triu_indices(vs.shape[0], 1)
     tri_lower = np.tril_indices(vs.shape[0], -1)
     vs[:, :] = 0
@@ -2373,8 +2485,8 @@ def posthoc_scheffe(
     tri_lower = np.tril_indices(vs.shape[0], -1)
     vs[:, :] = 0
 
-    counts = ni.reindex(groups).to_numpy()
-    means = xi.reindex(groups).to_numpy()
+    counts = __numeric_array(ni.reindex(groups))
+    means = __numeric_array(xi.reindex(groups))
     dif = means[tri_upper[0]] - means[tri_upper[1]]
     A = sin * (1.0 / counts[tri_upper[0]] + 1.0 / counts[tri_upper[1]]) * (groups.size - 1.0)
     vs[tri_upper] = dif**2.0 / A
@@ -2461,9 +2573,9 @@ def posthoc_tamhane(
     tri_lower = np.tril_indices(vs.shape[0], -1)
     vs[:, :] = 0
 
-    counts = ni.reindex(groups).to_numpy()
-    means = xi.reindex(groups).to_numpy()
-    variances = si.reindex(groups).to_numpy()
+    counts = __numeric_array(ni.reindex(groups))
+    means = __numeric_array(xi.reindex(groups))
+    variances = __numeric_array(si.reindex(groups))
     i, j = tri_upper
     scaled_variances = variances / counts
     A = scaled_variances[i] + scaled_variances[j]
@@ -2501,7 +2613,8 @@ def posthoc_tamhane(
 
     # Dunn-Sidak adjustment over the m = k(k-1)/2 pairwise comparisons
     m = groups.size * (groups.size - 1) / 2.0
-    vs[tri_upper] = 1.0 - (1.0 - vs[tri_upper]) ** m
+    with np.errstate(divide="ignore"):
+        vs[tri_upper] = -np.expm1(m * np.log1p(-vs[tri_upper]))
     vs[tri_lower] = np.transpose(vs)[tri_lower]
     vs[vs > 1] = 1
 
@@ -2578,8 +2691,8 @@ def posthoc_tukey(
     vs = np.zeros((groups.size, groups.size), dtype=float)
     tri_upper = np.triu_indices(vs.shape[0], 1)
     tri_lower = np.tril_indices(vs.shape[0], -1)
-    counts = ni.reindex(groups).to_numpy()
-    means = xi.reindex(groups).to_numpy()
+    counts = __numeric_array(ni.reindex(groups))
+    means = __numeric_array(xi.reindex(groups))
     scale = sin * 0.5 * (1.0 / counts[tri_upper[0]] + 1.0 / counts[tri_upper[1]])
     q_values = (means[tri_upper[0]] - means[tri_upper[1]]) / np.sqrt(scale)
     vs[tri_upper] = ss.studentized_range.sf(np.abs(q_values), groups.size, n - groups.size)
@@ -2654,7 +2767,7 @@ def posthoc_dscf(
     x = x.sort_values(by=[_group_col], ascending=True) if sort else x
     groups = x[_group_col].unique()
     x_grouped = x.groupby(_group_col, observed=True)[_val_col]
-    samples = [x_grouped.get_group(group).dropna().to_numpy() for group in groups]
+    samples = [__numeric_array(x_grouped.get_group(group).dropna()) for group in groups]
     k = groups.size
 
     def compare(i, j):
@@ -2767,9 +2880,9 @@ def posthoc_games_howell(
     tri_lower = np.tril_indices(vs.shape[0], -1)
     vs[:, :] = 0
 
-    counts = ni.reindex(groups).to_numpy()
-    means = xi.reindex(groups).to_numpy()
-    variances = si.reindex(groups).to_numpy()
+    counts = __numeric_array(ni.reindex(groups))
+    means = __numeric_array(xi.reindex(groups))
+    variances = __numeric_array(si.reindex(groups))
     i, j = tri_upper
     A = variances[i] / counts[i] + variances[j] / counts[j]
     q_values = (means[i] - means[j]) / np.sqrt(A) * np.sqrt(2.0)
@@ -2796,6 +2909,8 @@ def __smm_sf(t: float, df: float, m: float) -> float:
         return 1.0
     if np.isinf(t):
         return 0.0
+    if m == 1:
+        return 2.0 * ss.t.sf(t, df)
     sqrt_df = np.sqrt(df)
     # Keep the near-zero mass visible to quadrature when t is large.
     scale = min(1.0, sqrt_df / t)
@@ -2891,9 +3006,9 @@ def posthoc_dunnett_t3(
     tri_lower = np.tril_indices(vs.shape[0], -1)
     vs[:, :] = 0
 
-    counts = ni.reindex(groups).to_numpy()
-    means = xi.reindex(groups).to_numpy()
-    variances = si.reindex(groups).to_numpy()
+    counts = __numeric_array(ni.reindex(groups))
+    means = __numeric_array(xi.reindex(groups))
+    variances = __numeric_array(si.reindex(groups))
     i, j = tri_upper
     A = variances[i] / counts[i] + variances[j] / counts[j]
     t_values = (means[i] - means[j]) / np.sqrt(A)
@@ -2985,8 +3100,8 @@ def posthoc_lsd(
     tri_lower = np.tril_indices(vs.shape[0], -1)
     vs[:, :] = 0
 
-    counts = ni.reindex(groups).to_numpy()
-    means = xi.reindex(groups).to_numpy()
+    counts = __numeric_array(ni.reindex(groups))
+    means = __numeric_array(xi.reindex(groups))
     i, j = tri_upper
     A = s2in * (1.0 / counts[i] + 1.0 / counts[j])
     t_values = (means[i] - means[j]) / np.sqrt(A)
@@ -3075,8 +3190,8 @@ def posthoc_snk(
     df = n - k
 
     # rank position of each group when means are sorted in decreasing order
-    counts = ni.reindex(groups).to_numpy()
-    means = xi.reindex(groups).to_numpy()
+    counts = __numeric_array(ni.reindex(groups))
+    means = __numeric_array(xi.reindex(groups))
     order = means.argsort()[::-1]
     rank_pos = np.empty(k, dtype=int)
     rank_pos[order] = np.arange(k)
@@ -3166,8 +3281,7 @@ def posthoc_duncan(
     df = n - k
     r = k / np.sum(1.0 / ni)
 
-    counts = ni.reindex(groups).to_numpy()
-    means = xi.reindex(groups).to_numpy()
+    means = __numeric_array(xi.reindex(groups))
     order = means.argsort()[::-1]
     rank_pos = np.empty(k, dtype=int)
     rank_pos[order] = np.arange(k)
@@ -3181,7 +3295,8 @@ def posthoc_duncan(
     t_values = (means[i] - means[j]) / np.sqrt(s2in / r)
     nmeans = 1 + np.abs(rank_pos[i] - rank_pos[j])
     p_values = ss.studentized_range.sf(np.abs(t_values), nmeans, df)
-    vs[tri_upper] = 1.0 - (1.0 - p_values) ** (1.0 / (nmeans - 1))
+    with np.errstate(divide="ignore"):
+        vs[tri_upper] = -np.expm1(np.log1p(-p_values) / (nmeans - 1))
 
     vs[vs > 1] = 1.0
     vs[tri_lower] = np.transpose(vs)[tri_lower]
@@ -3365,7 +3480,7 @@ def posthoc_steel(
     x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
     x = x.sort_values(by=[_group_col], ascending=True) if sort else x
     x = x.set_index(_group_col)[_val_col]
-    x_embedded = x.groupby(_group_col, observed=True).agg(lambda y: y.dropna().tolist())
+    x_embedded = x.groupby(level=0, observed=True).agg(lambda y: y.dropna().tolist())
     control_data = x_embedded.loc[control]
     treatment_data = x_embedded.drop(control)
 

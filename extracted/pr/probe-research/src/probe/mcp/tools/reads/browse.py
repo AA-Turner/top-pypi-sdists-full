@@ -87,11 +87,13 @@ class BrowseMixin:
         runs_cursor: str | None = None,
         subprojects_cursor: str | None = None,
         people: PeopleFilters = PeopleFilters(),
+        query: str | None = None,
     ) -> dict:
         """The structured tree: what EXISTS, as opposed to what MATCHES a query.
 
         `people` (`owner`, `since`, `until`, `order="recent"`) goes to GET /v1/browse
-        as given; who `owner` matched rides the page (`owner_matched`).
+        as given; who `owner` matched rides the page (`owner_matched`). `query` (a
+        project name or slug) narrows the top level the same way.
 
         Every node -- nested children included -- carries the two labelled
         addresses the other read tools consume (slug/uuid); `available_views`
@@ -121,6 +123,7 @@ class BrowseMixin:
                 # The server filters the TOP level only and refuses a filter beside a scope: a page
                 # under one project (a delivery continuation) is that project's, unfiltered.
                 filters=people if scope is None else PeopleFilters(),
+                query=query if scope is None else None,
             )
         except errors.CapabilityUnavailable:
             # NOT an empty tree: "nothing exists" and "this server cannot tell

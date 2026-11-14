@@ -24,11 +24,11 @@ class CreateDBInstanceEndpointAddressRequest(DaraModel):
         # 
         # This parameter is required.
         self.connection_string_prefix = connection_string_prefix
-        # The ID of the endpoint. You can call the DescribeDBInstanceEndpoints operation to query the ID.
+        # The endpoint ID of the instance. You can call the DescribeDBInstanceEndpoints operation to query the endpoint ID.
         # 
         # This parameter is required.
         self.dbinstance_endpoint_id = dbinstance_endpoint_id
-        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
+        # The instance ID. You can call the DescribeDBInstances operation to query the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
@@ -40,7 +40,7 @@ class CreateDBInstanceEndpointAddressRequest(DaraModel):
         # 
         # This parameter is required.
         self.port = port
-        # The ID of the resource group. You can call the DescribeDBInstanceAttribute operation to obtain the ID.
+        # The resource group ID. You can call the DescribeDBInstanceAttribute operation to query the resource group ID.
         self.resource_group_id = resource_group_id
         self.resource_owner_id = resource_owner_id
 

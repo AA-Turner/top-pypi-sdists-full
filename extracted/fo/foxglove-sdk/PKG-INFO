@@ -1,16 +1,16 @@
 Metadata-Version: 2.4
 Name: foxglove-sdk
-Version: 0.30.3
+Version: 0.31.0
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Rust
 Requires-Dist: anywidget ; extra == 'notebook'
 Requires-Dist: mcap ; extra == 'notebook'
 Requires-Dist: traitlets ; extra == 'notebook'
-Requires-Dist: foxglove-client>=0.21.1 ; extra == 'ray'
+Requires-Dist: foxglove-client>=0.23.0 ; extra == 'ray'
 Requires-Dist: ray[data]>=2.49,<3 ; extra == 'ray'
 Requires-Dist: pyarrow>=16 ; extra == 'ray'
 Requires-Dist: mcap>=1.6,<2 ; extra == 'ray'
-Requires-Dist: foxglove-client>=0.21.1 ; extra == 'torch'
+Requires-Dist: foxglove-client>=0.23.0 ; extra == 'torch'
 Requires-Dist: torch>=2.5,<3 ; extra == 'torch'
 Requires-Dist: pyarrow>=16 ; extra == 'torch'
 Requires-Dist: mcap>=1.6,<2 ; extra == 'torch'

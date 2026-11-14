@@ -12,6 +12,7 @@ from tabpfn.preprocessing.steps.adaptive_quantile_transformer import (
 )
 from tabpfn.preprocessing.torch.gpu_preprocessing_metadata import (
     compute_effective_n_quantiles,
+    get_quantile_output_distribution,
     get_squashing_scaler_max_absolute_value,
 )
 from tabpfn.preprocessing.torch.pipeline_interface import (
@@ -21,7 +22,9 @@ from tabpfn.preprocessing.torch.pipeline_interface import (
 from tabpfn.preprocessing.torch.steps import (
     TorchAddFingerprintFeaturesStep,
     TorchAddSVDFeaturesStep,
+    TorchRandomSignFlipStep,
     TorchSelectiveQuantileTransformerStep,
+    TorchSelectiveSafePowerStep,
     TorchSelectiveSquashingScalerStep,
     TorchShuffleFeaturesStep,
     TorchSoftClipOutliersStep,
@@ -48,13 +51,13 @@ def create_gpu_preprocessing_pipeline(
     Args:
         config: Ensemble configuration.
         keep_fitted_cache: Whether to keep fitted state for cache reuse.
-        enable_gpu_preprocessing: When True, adds quantile transform, SVD, and
-            shuffle steps.  Requires ``feature_schema`` (to read GPU quantile
-            target annotations) and ``n_train_samples``.
+        enable_gpu_preprocessing: When True, adds the scheduled reshape
+            transform, SVD, and shuffle steps.  Requires ``feature_schema`` (to
+            read GPU transform annotations) and ``n_train_samples``.
         feature_schema: Feature schema from the CPU preprocessing output.
             Used to read ``scheduled_gpu_transform`` column annotations.
         n_train_samples: Number of training samples (after subsampling).
-        random_state: Random state for the SVD and shuffle steps.
+        random_state: Random state for SVD, shuffle, and random sign flips.
     """
     steps: list[tuple[TorchPreprocessingStep, set[FeatureModality] | None]] = []
     pconfig = config.preprocess_config
@@ -76,6 +79,9 @@ def create_gpu_preprocessing_pipeline(
                         n_quantiles=n_quantiles,
                         target_column_indices=quantile_target_indices,
                         extrapolate_ratio=extrapolate_ratio,
+                        output_distribution=get_quantile_output_distribution(
+                            pconfig.name
+                        ),
                     ),
                     None,  # operates on explicit indices, receives full tensor
                 )
@@ -94,6 +100,19 @@ def create_gpu_preprocessing_pipeline(
                     TorchSelectiveSquashingScalerStep(
                         max_absolute_value=max_absolute_value,
                         target_column_indices=squashing_scaler_target_indices,
+                    ),
+                    None,  # operates on explicit indices, receives full tensor
+                )
+            )
+
+        safe_power_target_indices = (
+            feature_schema.get_indices_marked_for_gpu_safe_power_transform()
+        )
+        if safe_power_target_indices:
+            steps.append(
+                (
+                    TorchSelectiveSafePowerStep(
+                        target_column_indices=safe_power_target_indices
                     ),
                     None,  # operates on explicit indices, receives full tensor
                 )
@@ -138,12 +157,19 @@ def create_gpu_preprocessing_pipeline(
             )
         )
 
-    # Outlier removal runs LAST to match the CPU-only execution order where
-    # it is the only GPU step and runs after all CPU preprocessing.
+    # Outlier removal runs after distribution transforms in both execution paths.
     if config.outlier_removal_std is not None:
         steps.append(
             (
                 TorchSoftClipOutliersStep(n_sigma=config.outlier_removal_std),
+                {FeatureModality.NUMERICAL},
+            )
+        )
+
+    if pconfig.random_sign_flip_numericals:
+        steps.append(
+            (
+                TorchRandomSignFlipStep(random_state=random_state),
                 {FeatureModality.NUMERICAL},
             )
         )

@@ -428,7 +428,10 @@ def run_download(
         from dreamscale.datasets import _empty
 
         raise _empty(dataset["name"])
-    dest = Path(folder).expanduser() if folder else Path(dataset["name"])
+    from dreamscale.uploads import bare_name
+
+    # Without a folder, the dataset's name (the server's) names one here, never elsewhere.
+    dest = Path(folder).expanduser() if folder else Path(bare_name(dataset.get("name")))
     printer, live = live_printer(print_fn)
     started = time.monotonic()
     last = [-1]

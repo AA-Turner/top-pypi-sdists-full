@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.546.0
+Version: 0.557.0
 Summary: Probe: experiment tracking for ML teams and their coding agents (SDK, CLI, read-only MCP).
 Project-URL: Homepage, https://www.useprobe.ai
 Project-URL: Documentation, https://docs.prbe.ai
@@ -34,7 +34,7 @@ Provides-Extra: all
 Requires-Dist: anyio>=4.5; extra == 'all'
 Requires-Dist: cryptography>=3.4; extra == 'all'
 Requires-Dist: mcp<2,>=1.30; extra == 'all'
-Requires-Dist: probe-research-cli==0.546.0; extra == 'all'
+Requires-Dist: probe-research-cli==0.557.0; extra == 'all'
 Requires-Dist: questionary<3,>=2.0; extra == 'all'
 Requires-Dist: tiktoken<0.14,>=0.8; extra == 'all'
 Requires-Dist: tomlkit>=0.12; extra == 'all'
@@ -42,13 +42,13 @@ Requires-Dist: typer<0.29,>=0.12; extra == 'all'
 Requires-Dist: zstandard>=0.23; extra == 'all'
 Provides-Extra: cli
 Requires-Dist: cryptography>=3.4; extra == 'cli'
-Requires-Dist: probe-research-cli==0.546.0; extra == 'cli'
+Requires-Dist: probe-research-cli==0.557.0; extra == 'cli'
 Requires-Dist: questionary<3,>=2.0; extra == 'cli'
 Requires-Dist: tomlkit>=0.12; extra == 'cli'
 Requires-Dist: typer<0.29,>=0.12; extra == 'cli'
 Requires-Dist: zstandard>=0.23; extra == 'cli'
 Provides-Extra: daemon
-Requires-Dist: probe-research-cli==0.546.0; extra == 'daemon'
+Requires-Dist: probe-research-cli==0.557.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-harness[skills]==0.36.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-skills==2.0.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-slim[mcp,openai]==2.53.0; extra == 'daemon'
@@ -67,7 +67,7 @@ Requires-Dist: safetensors>=0.4; extra == 'dev'
 Requires-Dist: zstandard>=0.23; extra == 'dev'
 Provides-Extra: harbor
 Requires-Dist: harbor<0.26,>=0.20; (python_version >= '3.12') and extra == 'harbor'
-Requires-Dist: probe-research-cli==0.546.0; extra == 'harbor'
+Requires-Dist: probe-research-cli==0.557.0; extra == 'harbor'
 Provides-Extra: huggingface
 Requires-Dist: transformers[torch]>=4.46; extra == 'huggingface'
 Provides-Extra: lightning

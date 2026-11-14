@@ -19,14 +19,14 @@ class CreateOnlineDatabaseTaskRequest(DaraModel):
         resource_owner_id: int = None,
     ):
         # The consistency check method used after the database is opened. Valid values:
-        # * **SyncExecuteDBCheck**: Executes the database check synchronously.
-        # * **AsyncExecuteDBCheck**: Executes the database check asynchronously.
+        # * **SyncExecuteDBCheck**: Synchronously executes the database check.
+        # * **AsyncExecuteDBCheck**: Asynchronously executes the database check.
         # 
         # > Compatible with SQL Server 2008 R2.
         # 
         # This parameter is required.
         self.check_dbmode = check_dbmode
-        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can generate the value of this parameter on the client side. The value must be unique across different requests and can contain a maximum of 64 ASCII characters. The value cannot contain non-ASCII characters.
+        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can generate the value of this parameter on the client side. The value must be unique across different requests and can be up to 64 ASCII characters in length. It cannot contain non-ASCII characters.
         self.client_token = client_token
         # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
         # 

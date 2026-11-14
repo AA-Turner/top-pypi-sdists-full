@@ -35,13 +35,13 @@ class ClientTransaction():
 
     def initialize(self, extractor, homepage=None):
         if homepage is None:
+            path = extractor.config("ondemand") or "/i/jf/"
             response = extractor.request(
-                extractor.root + "/home", allow_redirects=False)
+                extractor.root + path, allow_redirects=False)
             if 300 <= response.status_code < 400:
                 extractor.log.warning("HTTP redirect to login page (%s)",
                                       response.headers.get("Location"))
                 extractor.log.warning("Update your login session cookies!")
-                response = extractor.request(extractor.root + "/i/jf/")
             homepage = response.text
 
         key = self._extract_verification_key(homepage)

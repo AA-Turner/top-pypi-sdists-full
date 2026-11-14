@@ -53,6 +53,7 @@ __all__ = (
     "FleetStateType",
     "FleetStoppedWaiterName",
     "FleetTypeType",
+    "ImageBuilderAttributeType",
     "ImageBuilderStateChangeReasonCodeType",
     "ImageBuilderStateType",
     "ImageSharedWithOthersType",
@@ -177,6 +178,7 @@ FleetStartedWaiterName = Literal["fleet_started"]
 FleetStateType = Literal["RUNNING", "STARTING", "STOPPED", "STOPPING"]
 FleetStoppedWaiterName = Literal["fleet_stopped"]
 FleetTypeType = Literal["ALWAYS_ON", "ELASTIC", "ON_DEMAND"]
+ImageBuilderAttributeType = Literal["AGENT_ACCESS_CONFIG"]
 ImageBuilderStateChangeReasonCodeType = Literal["IMAGE_UNAVAILABLE", "INTERNAL_ERROR"]
 ImageBuilderStateType = Literal[
     "DELETING",
@@ -242,6 +244,7 @@ SoftwareDeploymentStatusType = Literal[
 StackAttributeType = Literal[
     "ACCESS_ENDPOINTS",
     "AGENT_ACCESS_CONFIG",
+    "AGENT_ACCESS_CONFIG_KMS_KEY_ARN",
     "CONTENT_REDIRECTION",
     "EMBED_HOST_DOMAINS",
     "FEEDBACK_URL",

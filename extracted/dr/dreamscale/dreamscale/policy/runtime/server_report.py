@@ -1,9 +1,9 @@
-"""What a server says of each answer beyond its rows (DSL-424).
+"""What a server says of each answer beyond its rows.
 
 Praxis-1's worker reports, in ``runtime_metadata.server``:
 
 - ``model_rows``: the model's real rows (21 when the call started its context, 24 after). An
-  answer is never longer than its real rows from a worker of DSL-424 on; one from an older
+  answer is never longer than its real rows from a current worker; one from an older
   worker padded the first answer to 24, and the SDK trims it back to its real rows.
 - ``restart`` and ``restart_reason``: whether the call started a new context (a cold start at
   depth 0), and why. ``episode_start`` is expected; any other reason means the robot's context
@@ -13,7 +13,7 @@ Praxis-1's worker reports, in ``runtime_metadata.server``:
   neighbour).
 - ``ik_retries`` and ``ik_misses``: target rows the joint solver had to retry from home, and
   rows it left more than 1 mm or 0.5 degrees off.
-- ``engine`` and ``engine_reason`` (DSL-429, experimental): the engine that served the answer,
+- ``engine`` and ``engine_reason`` (experimental): the engine that served the answer,
   and why standard served a lightning session's, which each ``ActionChunkResult`` carries.
 
 ``record_server_report`` adds them to the session's ``runtime_stats``, where the CLI's summary

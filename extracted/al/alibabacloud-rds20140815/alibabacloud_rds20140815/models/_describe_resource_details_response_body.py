@@ -31,7 +31,7 @@ class DescribeResourceDetailsResponseBody(DaraModel):
         self.backup_log_size = backup_log_size
         # The backup size. Unit: MB.
         self.backup_size = backup_size
-        # The storage capacity.
+        # The disk capacity.
         self.db_instance_storage = db_instance_storage
         # The name of the proxy instance.
         self.db_proxy_instance_name = db_proxy_instance_name
@@ -39,7 +39,7 @@ class DescribeResourceDetailsResponseBody(DaraModel):
         self.disk_used = disk_used
         # The instance storage type.
         self.instance_storage_type = instance_storage_type
-        # The whitelist group specifications.
+        # The whitelist group specifications of the ApsaraDB RDS instance.
         self.rds_ecs_security_group_rel = rds_ecs_security_group_rel
         # The region ID.
         self.region = region
@@ -47,11 +47,11 @@ class DescribeResourceDetailsResponseBody(DaraModel):
         self.request_id = request_id
         # The resource group ID.
         self.resource_group_id = resource_group_id
-        # The [IP address whitelist](https://help.aliyun.com/document_detail/43185.html) of the instance. Separate multiple entries with commas (,). Duplicate entries are not allowed. You can add up to 1,000 entries. The following two formats are supported:
-        # * IP address format, such as 10.10.XX.XX.
-        # * CIDR format, such as 10.10.XX.XX/24. In this format, 24 indicates the length of the prefix in the IP address, and the value ranges from 1 to 32.
+        # The [IP address whitelist](https://help.aliyun.com/document_detail/43185.html) of the instance. Separate multiple entries with commas (,). Duplicate entries are not allowed. You can add up to 1,000 entries. The following formats are supported:
+        # * IP addresses, such as 10.10.XX.XX.
+        # * CIDR blocks, such as 10.10.XX.XX/24. In this example, 24 indicates the length of the prefix in the Classless Inter-Domain Routing (CIDR) block. The prefix length ranges from 1 to 32.
         # 
-        # If this parameter is not specified, the default whitelist of the original instance is used.
+        # If you do not specify this parameter, the default whitelist of the original instance is used.
         self.security_iplist = security_iplist
         # The vSwitch ID.
         # 
@@ -171,7 +171,7 @@ class DescribeResourceDetailsResponseBodyRdsEcsSecurityGroupRel(DaraModel):
         self,
         security_group_name: str = None,
     ):
-        # The security group name.
+        # The name of the security group.
         self.security_group_name = security_group_name
 
     def validate(self):

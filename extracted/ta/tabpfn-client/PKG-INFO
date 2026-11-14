@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tabpfn-client
-Version: 0.7.1
+Version: 0.8.0
 Summary: API access for TabPFN: Foundation model for tabular data
 Project-URL: documentation, https://priorlabs.ai/docs
 Project-URL: source, https://github.com/priorlabs/tabpfn-client
@@ -230,7 +230,7 @@ Requires-Dist: pandas<=2.3.3,>=2.1.2
 Requires-Dist: password-strength<=0.0.3.post2,>=0.0.3.post2
 Requires-Dist: pyarrow<=25.0.1,>=14.0.0
 Requires-Dist: pydantic-settings<=2.15.0,>=2.14.2
-Requires-Dist: pydantic<=2.14.1,>=2.11.7
+Requires-Dist: pydantic<=2.14.2,>=2.11.7
 Requires-Dist: rich<=15.0.0,>=13.7.0
 Requires-Dist: scikit-learn<=1.9.0,>=1.3.1
 Requires-Dist: sseclient-py<=1.9.0,>=1.8.0

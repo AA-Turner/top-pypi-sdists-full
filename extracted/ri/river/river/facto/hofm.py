@@ -61,7 +61,7 @@ class HOFM(BaseFM):
 
     @classmethod
     def _unit_test_params(cls):
-        yield {"seed": 42}
+        yield {"sample_normalization": True, "seed": 42}
 
     def _unit_test_skips(self):
         # Latent factors are initialised lazily, the first time each feature is encountered. Their
@@ -126,11 +126,11 @@ class HOFM(BaseFM):
 
 
 class HOFMRegressor(HOFM, base.Regressor):
-    """Higher-Order Factorization Machine for regression.
+    r"""Higher-Order Factorization Machine for regression.
 
     The model equation is defined as:
 
-    $$\\hat{y}(x) = w_{0} + \\sum_{j=1}^{p} w_{j} x_{j}  + \\sum_{l=2}^{d} \\sum_{j_1=1}^{p} \\cdots \\sum_{j_l=j_{l-1}+1}^{p} \\left(\\prod_{j'=1}^{l} x_{j_{j'}} \\right) \\left(\\sum_{f=1}^{k_l} \\prod_{j'=1}^{l} v_{j_{j'}, f}^{(l)} \\right)$$
+    $$\hat{y}(x) = w_{0} + \sum_{j=1}^{p} w_{j} x_{j}  + \sum_{l=2}^{d} \sum_{j_1=1}^{p} \cdots \sum_{j_l=j_{l-1}+1}^{p} \left(\prod_{j'=1}^{l} x_{j_{j'}} \right) \left(\sum_{f=1}^{k_l} \prod_{j'=1}^{l} v_{j_{j'}, f}^{(l)} \right)$$
 
     For more efficiency, this model automatically one-hot encodes strings features considering
     them as categorical variables.
@@ -185,7 +185,6 @@ class HOFMRegressor(HOFM, base.Regressor):
 
     Examples
     --------
-
     >>> from river import facto
 
     >>> dataset = (
@@ -272,15 +271,15 @@ class HOFMRegressor(HOFM, base.Regressor):
 
     def predict_one(self, x):
         x = self._ohe_cat_features(x)
-        return self._raw_dot(x).item()
+        return float(self._raw_dot(x))
 
 
 class HOFMClassifier(HOFM, base.Classifier):
-    """Higher-Order Factorization Machine for binary classification.
+    r"""Higher-Order Factorization Machine for binary classification.
 
     The model equation is defined as:
 
-    $$\\hat{y}(x) = w_{0} + \\sum_{j=1}^{p} w_{j} x_{j}  + \\sum_{l=2}^{d} \\sum_{j_1=1}^{p} \\cdots \\sum_{j_l=j_{l-1}+1}^{p} \\left(\\prod_{j'=1}^{l} x_{j_{j'}} \\right) \\left(\\sum_{f=1}^{k_l} \\prod_{j'=1}^{l} v_{j_{j'}, f}^{(l)} \\right)$$
+    $$\hat{y}(x) = w_{0} + \sum_{j=1}^{p} w_{j} x_{j}  + \sum_{l=2}^{d} \sum_{j_1=1}^{p} \cdots \sum_{j_l=j_{l-1}+1}^{p} \left(\prod_{j'=1}^{l} x_{j_{j'}} \right) \left(\sum_{f=1}^{k_l} \prod_{j'=1}^{l} v_{j_{j'}, f}^{(l)} \right)$$
 
     For more efficiency, this model automatically one-hot encodes strings features considering
     them as categorical variables.
@@ -335,7 +334,6 @@ class HOFMClassifier(HOFM, base.Classifier):
 
     Examples
     --------
-
     >>> from river import facto
 
     >>> dataset = (

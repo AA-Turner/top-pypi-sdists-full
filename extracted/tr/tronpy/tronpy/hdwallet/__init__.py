@@ -5,19 +5,21 @@ from eth_utils import ValidationError
 
 from .deterministic import HDPath
 
+try:
+    from mnemonic import Mnemonic
+except ImportError:
+    Mnemonic = None  # type: ignore[assignment,misc]
+
 TRON_DEFAULT_PATH = "m/44'/195'/0'/0/0"
 
 
-def _import_mnemonic():
-    try:
-        from mnemonic import Mnemonic
-    except ImportError as e:
-        raise ImportError("Run `pip install tronpy[mnemonic]` to use mnemonic!") from e
-    return Mnemonic
+def _require_mnemonic() -> None:
+    if Mnemonic is None:
+        raise ImportError("Run `pip install tronpy[mnemonic]` to use mnemonic!")
 
 
 def generate_mnemonic(num_words: int, lang: str) -> str:
-    Mnemonic = _import_mnemonic()
+    _require_mnemonic()
     words2strength = {12: 128, 15: 160, 18: 192, 21: 224, 24: 256}
     try:
         return Mnemonic(lang).generate(words2strength[num_words])
@@ -28,7 +30,7 @@ def generate_mnemonic(num_words: int, lang: str) -> str:
 
 
 def seed_from_mnemonic(words: str, passphrase: str) -> bytes:
-    Mnemonic = _import_mnemonic()
+    _require_mnemonic()
     lang = Mnemonic.detect_language(words)
     expanded_words = Mnemonic(lang).expand(words)
     if not Mnemonic(lang).check(expanded_words):
@@ -36,5 +38,5 @@ def seed_from_mnemonic(words: str, passphrase: str) -> bytes:
     return Mnemonic.to_seed(expanded_words, passphrase)
 
 
-def key_from_seed(seed: bytes, account_path: str):
+def key_from_seed(seed: bytes, account_path: str) -> bytes:
     return HDPath(account_path).derive(seed)

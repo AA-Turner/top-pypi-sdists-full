@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import gc
 import io
 import random
 import typing
@@ -99,9 +100,22 @@ def test_values_are_cast_by_the_converters(drop_nones: bool, expected: list[Row]
     assert list(dataset) == expected
 
 
-@pytest.mark.parametrize("content", ["", "name,year,rating\n"], ids=["empty", "header-only"])
+@pytest.mark.parametrize(
+    "content",
+    ["", "name,year,rating\n", "name,year,rating\n\n\n"],
+    ids=["empty", "header-only", "blank-lines-only"],
+)
 def test_a_file_without_rows_yields_nothing(content: str) -> None:
     assert list(stream.iter_csv(io.StringIO(content))) == []
+
+
+@pytest.mark.parametrize("fraction", [1.0, 0.999], ids=["no-sampling", "sampling"])
+def test_blank_lines_are_skipped(fraction: float) -> None:
+    """`csv.DictReader` skips them, so an empty `x` never reaches a model."""
+    content = "name,year\n\na,2016\n\n\nb,2006\n\n"
+
+    dataset = stream.iter_csv(io.StringIO(content), fraction=fraction, seed=42)
+    assert [x for x, _ in dataset] == [{"name": "a", "year": "2016"}, {"name": "b", "year": "2006"}]
 
 
 def test_sampling_is_deterministic_for_a_given_seed() -> None:
@@ -154,3 +168,86 @@ def test_a_buffer_passed_in_by_the_caller_is_left_open() -> None:
     _ = list(stream.iter_csv(buffer))
 
     assert not buffer.closed
+
+
+def test_an_abandoned_stream_releases_what_it_took(
+    tmp_path: pathlib.Path, write_file: WriteFile, opened_files: list[typing.TextIO]
+) -> None:
+    """Breaking out of the loop is common, and used to leak the file and the global limit."""
+    limit = csv.field_size_limit()
+    path = write_file(tmp_path / "data.csv", CONTENT)
+
+    dataset = stream.iter_csv(path, field_size_limit=10**6)
+    _ = next(dataset)
+
+    assert csv.field_size_limit() == 10**6
+
+    del dataset
+    _ = gc.collect()
+
+    assert opened_files[0].closed
+    assert csv.field_size_limit() == limit
+
+
+@pytest.mark.parametrize(
+    ("content", "kwargs"),
+    [
+        ("a,b,c\n1,2\n", {}),
+        ("a,b,c\n1,2\n", {"restval": "NA"}),
+        ("a,b\n1,2,3,4\n", {}),
+        ("a,b\n1,2,3,4\n", {"restkey": "extra"}),
+        ("1,2\n3,4,5,6\n", {"fieldnames": ["a", "b", "c"], "restkey": "extra"}),
+    ],
+)
+def test_ragged_rows_follow_csv_dict_reader(content: str, kwargs: dict[str, typing.Any]) -> None:
+    expected = [(row, None) for row in csv.DictReader(io.StringIO(content), **kwargs)]
+
+    assert list(stream.iter_csv(io.StringIO(content), **kwargs)) == expected
+
+
+@pytest.mark.parametrize("drop_nones", [False, True])
+def test_converters_skip_missing_fields_but_convert_empty_strings(drop_nones: bool) -> None:
+    content = "a,b,c\n1,2\n3,4,\n"
+    first: dict[str, str | None] = (
+        {"a": "1", "b": "2"} if drop_nones else {"a": "1", "b": "2", "c": None}
+    )
+
+    assert list(
+        stream.iter_csv(io.StringIO(content), converters={"c": len}, drop_nones=drop_nones)
+    ) == [(first, None), ({"a": "3", "b": "4", "c": 0}, None)]
+
+
+def test_custom_restval_is_converted() -> None:
+    assert list(
+        stream.iter_csv(io.StringIO("a,b\n1\n"), restval="2.5", converters={"b": float})
+    ) == [({"a": "1", "b": 2.5}, None)]
+
+
+def test_converter_for_an_unknown_column_still_raises() -> None:
+    with pytest.raises(KeyError, match="missing"):
+        list(stream.iter_csv(io.StringIO("a,b\n1,2\n"), converters={"missing": float}))
+
+
+def test_sampling_keeps_csv_row_handling_and_seed() -> None:
+    content = "a,b\n\n1\n2,3,4\n5,6\n\n7\n8,9,10\n"
+    rng = random.Random(42)
+    expected = [
+        (row, None)
+        for row in csv.DictReader(io.StringIO(content), restkey="extra")
+        if rng.random() <= 0.5
+    ]
+
+    assert (
+        list(stream.iter_csv(io.StringIO(content), fraction=0.5, seed=42, restkey="extra"))
+        == expected
+    )
+
+
+def test_dict_reader_tracks_physical_line_numbers() -> None:
+    content = 'a,b\n\n1,"two\nlines"\n3,4\n'
+    reader = DictReader(fraction=1, rng=random.Random(42), f=io.StringIO(content))
+    reference = csv.DictReader(io.StringIO(content))
+
+    for expected in reference:
+        assert next(reader) == expected
+        assert reader.line_num == reference.line_num

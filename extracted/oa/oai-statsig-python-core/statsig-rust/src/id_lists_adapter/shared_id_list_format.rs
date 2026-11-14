@@ -176,6 +176,13 @@ impl IdListImage {
         })
     }
 
+    pub(super) fn packed_ef_section(&self) -> Option<&[u8]> {
+        if self.inline.count != 0 || self.other.count != 0 {
+            return None;
+        }
+        self.ef?.encoded_section(&self.map)
+    }
+
     pub(super) fn open(path: &Path, namespace: &[u8; 32], name: &str) -> io::Result<Self> {
         let file = File::open(path)?;
         if file.metadata()?.len() < HEADER_LEN as u64 {
@@ -827,15 +834,22 @@ pub(super) fn write_list_with_format(
         digest: Sha256::new(),
     };
     let mut writer = BufWriter::with_capacity(64 * 1024, &mut hashed);
-    encode_image(
-        &mut writer,
-        namespace,
-        name,
-        ids.collect_image_keys(),
-        INLINE_SIZING,
-        FALLBACK_SIZING,
-        compact,
-    )?;
+    if let Some(section) = ids.packed_ef_section().filter(|_| compact) {
+        // A v3 base with empty hash partitions is the local header followed by
+        // exactly the validated wire section, including its count and read padding.
+        write_header(&mut writer, namespace, name, COMPACT_VERSION, [0; 5])?;
+        writer.write_all(section)?;
+    } else {
+        encode_image(
+            &mut writer,
+            namespace,
+            name,
+            ids.collect_image_keys(),
+            INLINE_SIZING,
+            FALLBACK_SIZING,
+            compact,
+        )?;
+    }
     writer.flush()?;
     drop(writer);
     Ok(hex(&hashed.digest.finalize()))

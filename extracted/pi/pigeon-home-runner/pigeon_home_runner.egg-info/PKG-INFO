@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pigeon-home-runner
-Version: 3.16.25.11
+Version: 3.16.25.25
 Summary: Self-hosted, email-driven agent: tell your cloud SI to send signed jobs via email that execute on your machine.
 Author: Pigeon-Home
 License: Apache-2.0

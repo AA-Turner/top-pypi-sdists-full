@@ -28,21 +28,21 @@ class Distribution(abc.ABC, base.Base):
         """Probability mass/density function."""
 
     @abc.abstractmethod
-    def sample(self):
+    def sample(self) -> typing.Any:
         """Sample a random value from the distribution."""
 
     @property
     @abc.abstractmethod
-    def n_samples(self):
+    def n_samples(self) -> float:
         """The number of observed samples."""
 
     @property
     @abc.abstractmethod
-    def mode(self):
+    def mode(self) -> typing.Any:
         """The most likely value in the distribution."""
 
-    def __gt__(self, other):
-        return self.mode > other.mode
+    def __gt__(self, other: Distribution) -> bool:
+        return typing.cast(float, self.mode) > typing.cast(float, other.mode)
 
 
 class DiscreteDistribution(Distribution):
@@ -57,7 +57,7 @@ class DiscreteDistribution(Distribution):
 
     @abc.abstractmethod
     def update(self, x: typing.Hashable) -> None:
-        """Updates the parameters of the distribution given a new observation."""
+        """Update the parameters of the distribution given a new observation."""
 
     @abc.abstractmethod
     def revert(self, x: typing.Hashable) -> None:
@@ -76,7 +76,7 @@ class BinaryDistribution(Distribution):
 
     @abc.abstractmethod
     def update(self, x: bool) -> None:
-        """Updates the parameters of the distribution given a new observation."""
+        """Update the parameters of the distribution given a new observation."""
 
     @abc.abstractmethod
     def revert(self, x: bool) -> None:
@@ -95,14 +95,14 @@ class ContinuousDistribution(Distribution):
 
     @abc.abstractmethod
     def update(self, x: float) -> None:
-        """Updates the parameters of the distribution given a new observation."""
+        """Update the parameters of the distribution given a new observation."""
 
     @abc.abstractmethod
     def revert(self, x: float) -> None:
         """Reverts the parameters of the distribution for a given observation."""
 
     @abc.abstractmethod
-    def cdf(self, x: float):
+    def cdf(self, x: float) -> float:
         """Cumulative density function, i.e. P(X <= x)."""
 
 
@@ -118,7 +118,7 @@ class MultivariateContinuousDistribution(Distribution):
 
     @abc.abstractmethod
     def update(self, x: dict[str, float]) -> None:
-        """Updates the parameters of the distribution given a new observation."""
+        """Update the parameters of the distribution given a new observation."""
 
     @abc.abstractmethod
     def revert(self, x: dict[str, float]) -> None:

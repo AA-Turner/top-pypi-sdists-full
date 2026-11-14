@@ -15,7 +15,7 @@ class ListUserBackupFilesResponseBody(DaraModel):
     ):
         # The list of user backup file details.
         self.records = records
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
 
     def validate(self):
@@ -85,7 +85,7 @@ class ListUserBackupFilesResponseBodyRecords(DaraModel):
         self.creation_time = creation_time
         # The database engine.
         self.engine = engine
-        # The database engine version.
+        # The database version.
         self.engine_version = engine_version
         # The time when the user backup was successfully imported. The time is in the UNIX timestamp format. Unit: milliseconds.
         self.finish_time = finish_time
@@ -112,8 +112,8 @@ class ListUserBackupFilesResponseBodyRecords(DaraModel):
         # The status of the user backup file. Valid values:
         # * **Importing**: The backup is being imported.
         # * **Failed**: The import failed.
-        # * **CheckSuccess**: The verification passed.
-        # * **BackupSuccess**: The import succeeded.
+        # * **CheckSuccess**: The verification is successful.
+        # * **BackupSuccess**: The import is successful.
         # * **Deleted**: The backup is deleted.
         self.status = status
         # The zone ID of the user backup.

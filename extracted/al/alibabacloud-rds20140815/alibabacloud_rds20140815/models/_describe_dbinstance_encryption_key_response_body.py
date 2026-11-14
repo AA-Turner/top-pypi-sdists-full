@@ -23,7 +23,7 @@ class DescribeDBInstanceEncryptionKeyResponseBody(DaraModel):
     ):
         # The creator of the key.
         self.creator = creator
-        # The estimated time when the key is deleted. Format: yyyy-MM-ddTHH:mm:ssZ (UTC).
+        # The scheduled deletion time of the key. Format: yyyy-MM-ddTHH:mm:ssZ (UTC).
         self.delete_date = delete_date
         # The description of the key.
         self.description = description
@@ -145,7 +145,7 @@ class DescribeDBInstanceEncryptionKeyResponseBodyEncryptionKeyList(DaraModel):
         self.alias_name = alias_name
         # The creator of the key.
         self.creator = creator
-        # The estimated time when the key is deleted. Format: yyyy-MM-ddTHH:mm:ssZ (UTC).
+        # The scheduled deletion time of the key. Format: yyyy-MM-ddTHH:mm:ssZ (UTC).
         self.delete_date = delete_date
         # The description of the key.
         self.description = description
@@ -165,10 +165,9 @@ class DescribeDBInstanceEncryptionKeyResponseBodyEncryptionKeyList(DaraModel):
         self.material_expire_time = material_expire_time
         # The source of the key.
         self.origin = origin
-        # The usage of the key:
-        # 
-        # - **TDE**: transparent data encryption.
-        # - **DiskEncryption**: cloud disk encryption.
+        # The usage scenario of the key. Valid values:
+        # - **TDE**: transparent data encryption
+        # - **DiskEncryption**: cloud disk encryption
         self.used_by = used_by
 
     def validate(self):

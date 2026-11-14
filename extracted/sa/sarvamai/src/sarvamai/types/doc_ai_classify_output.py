@@ -9,7 +9,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 class DocAiClassifyOutput(UniversalBaseModel):
     include_evidence: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    Include supporting evidence (pages, blocks and a region) for each decision.
+    Add supporting evidence to the result.
     """
 
     if IS_PYDANTIC_V2:

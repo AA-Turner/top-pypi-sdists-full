@@ -7,7 +7,7 @@ from typing import Any
 
 from ...sdk import errors
 from ...sdk.artifact.anchors import Anchor
-from probe.mcp.source.people import PeopleFilters, read_owner_headers
+from probe.mcp.source.people import PeopleFilters, read_owner_headers, read_query_note_header
 
 
 class ProjectReadsMixin:
@@ -146,19 +146,27 @@ class ProjectReadsMixin:
         prefix: str | None = None,
         limit: int,
         filters: PeopleFilters = PeopleFilters(),
+        query: str | None = None,
     ) -> Any:
         """The team's Shared folder (``GET /v1/shared/files``) or one workspace's
-        files (``GET /v1/workspaces/{id}/files``), name-ordered (`order="recent"`: newest first).
-        Neither route takes a cursor; ``prefix`` is a FOLDER filter, not a name match. A list of
-        rows, or with `filters` the route's `{items, owner_matched?, unowned_count?}`."""
+        files (``GET /v1/workspaces/{id}/files``), name-ordered (`order="recent"`: newest first;
+        `query`: the loose name match, best first). Neither route takes a cursor; ``prefix`` is a
+        FOLDER filter. A list of rows, or with `filters` or `query` the route's
+        `{items, owner_matched?, unowned_count?, query_note?}`."""
         parameters: dict[str, Any] = {"limit": limit, **filters.to_query()}
         if prefix:
             parameters["prefix"] = prefix
-        if filters.is_set:
+        if query:
+            parameters["query"] = query
+        if filters.is_set or query:
             # The body stays a bare list; who `owner` matched rides the response headers.
             path = f"/v1/workspaces/{workspace_id}/files" if workspace_id is not None else "/v1/shared/files"
             response = self.client.transport.request("GET", path, params=parameters, idempotent=True)
-            return {"items": response.json() or [], **read_owner_headers(response.headers)}
+            return {
+                "items": response.json() or [],
+                **read_owner_headers(response.headers),
+                **read_query_note_header(response.headers),
+            }
         if workspace_id is not None:
             return self.client.list_anchored(Anchor.WORKSPACE, workspace_id, **parameters) or []
         return self.client.list_anchored(Anchor.SHARED, **parameters) or []

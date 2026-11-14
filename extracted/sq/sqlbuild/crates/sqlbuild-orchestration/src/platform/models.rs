@@ -5,9 +5,23 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::api::models::ControlClient;
+use crate::credentials::models::AuditRetention;
 use crate::declarations::models::TriggerDefinition;
+use crate::runs::models::{RunKind, RunLogRetention, RunNodeFailure, RunOutcome};
 use crate::sensors::models::{CustomSensorOutcome, SensorEvaluationRequest};
-use crate::warehouse_metadata::models::{WarehouseHistoryKind, WarehouseStateLocation};
+use crate::snapshots::models::SnapshotRetention;
+use crate::warehouse_metadata::models::{
+    StatisticsRetention, WarehouseHistoryKind, WarehouseStateLocation,
+};
+
+/// Every retention horizon one server's maintenance role enforces.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RetentionPolicies {
+    pub audit: AuditRetention,
+    pub statistics: StatisticsRetention,
+    pub snapshots: SnapshotRetention,
+    pub run_logs: RunLogRetention,
+}
 
 /// One pooled outbound connection; the location never receives a store handle.
 #[derive(Clone, Debug)]
@@ -46,6 +60,8 @@ pub enum WarehouseSyncFailure {
     Watermark,
     Read,
     Delivery,
+    /// Another process, such as a DuckDB build, holds the warehouse file; the sync waits for it.
+    Busy,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
@@ -57,11 +73,80 @@ pub struct LocationHealthReport {
     pub health: LocationHealth,
 }
 
+/// Narrows a location's health history to one target, so other targets' traffic cannot crowd it out.
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LocationHealthQuery {
+    pub target: Option<String>,
+}
+
 /// Receipt time belongs to the server; consumers derive freshness rather than storing availability.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct LocationHealthObservation {
     pub received_at: DateTime<Utc>,
     pub report: LocationHealthReport,
+}
+
+/// One target's state from its newest health observations, as the web UI shows it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LocationState {
+    Healthy,
+    /// The warehouse connection check after the last load failed.
+    Degraded,
+    /// The last load failed, so runs use the previous snapshot.
+    FallingBack,
+    /// No instance has checked in for 90 seconds.
+    Broken,
+}
+
+impl LocationState {
+    /// `target`'s state at `now` from observations that may cover several targets: down without a recent check-in, then a failed load, then a failed connection.
+    #[must_use]
+    pub fn of(
+        observations: &[LocationHealthObservation],
+        (target, now): (&str, DateTime<Utc>),
+    ) -> Self {
+        let own: Vec<&LocationHealthObservation> = observations
+            .iter()
+            .filter(|observation| observation.report.target == target)
+            .collect();
+        let silence =
+            chrono::TimeDelta::seconds(crate::platform::constants::LOCATION_SILENCE_SECONDS);
+        if !own
+            .iter()
+            .any(|observation| now - observation.received_at <= silence)
+        {
+            return Self::Broken;
+        }
+        let mut failed: Option<(DateTime<Utc>, i64)> = None;
+        let mut connection: Option<(DateTime<Utc>, i64, bool)> = None;
+        for observation in own {
+            let seen = observation.received_at;
+            match observation.report.health {
+                LocationHealth::CompileFailed { generation }
+                    if failed.is_none_or(|(at, _)| seen > at) =>
+                {
+                    failed = Some((seen, generation));
+                }
+                LocationHealth::Connection {
+                    generation,
+                    healthy,
+                } if connection.is_none_or(|(at, _, _)| seen > at) => {
+                    connection = Some((seen, generation, healthy));
+                }
+                _ => {}
+            }
+        }
+        match (failed, connection) {
+            (Some((_, failed)), Some((_, connected, _))) if failed >= connected => {
+                Self::FallingBack
+            }
+            (Some(_), None) => Self::FallingBack,
+            (_, Some((_, _, false))) => Self::Degraded,
+            _ => Self::Healthy,
+        }
+    }
 }
 
 /// Only named location operations cross this boundary, never arbitrary SQL or Python.
@@ -186,6 +271,7 @@ pub enum PlatformEventKind {
     CalendarHorizonLow,
     LocationBroken,
     LaunchFailed,
+    RunFailed,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
@@ -193,6 +279,8 @@ pub enum PlatformEventKind {
 pub enum PlatformEvent {
     Heartbeat {
         replica_id: Uuid,
+        /// The control store's database size on disk when the replica checked in.
+        store_bytes: i64,
     },
     SchedulerNoLeader,
     TickOverdue {
@@ -216,6 +304,18 @@ pub enum PlatformEvent {
         claim_id: Uuid,
         code: String,
     },
+    /// A job, group or ad-hoc run ended failed or partial; only the webhook receives it, never person reads.
+    RunFailed {
+        run_id: Uuid,
+        run_kind: RunKind,
+        job_key: Option<String>,
+        location_id: Uuid,
+        target: String,
+        outcome: RunOutcome,
+        /// The first failed nodes by key, with redacted and bounded error text.
+        failed_nodes: Vec<RunNodeFailure>,
+        failed_node_count: i64,
+    },
 }
 
 impl PlatformEvent {
@@ -228,6 +328,7 @@ impl PlatformEvent {
             Self::CalendarHorizonLow { .. } => PlatformEventKind::CalendarHorizonLow,
             Self::LocationBroken { .. } => PlatformEventKind::LocationBroken,
             Self::LaunchFailed { .. } => PlatformEventKind::LaunchFailed,
+            Self::RunFailed { .. } => PlatformEventKind::RunFailed,
         }
     }
 
@@ -240,6 +341,7 @@ impl PlatformEvent {
             Self::CalendarHorizonLow { .. } => "platform_calendar_horizon_low",
             Self::LocationBroken { .. } => "platform_location_broken",
             Self::LaunchFailed { .. } => "platform_launch_failed",
+            Self::RunFailed { .. } => "platform_run_failed",
         }
     }
 }
@@ -402,6 +504,8 @@ pub struct InstallationRecord {
     /// Digest of the schema; a server starts only on the exact schema it creates.
     pub schema_checksum: String,
     pub schema_applied_at: DateTime<Utc>,
+    /// The database's size on disk now: SQLite's main file, or the whole PostgreSQL database.
+    pub store_bytes: i64,
 }
 
 /// The stored installation and schema rows.

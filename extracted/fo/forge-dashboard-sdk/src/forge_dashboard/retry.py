@@ -1,10 +1,10 @@
-"""Retry transport for httpx: exponential backoff with jitter on 429/5xx,
+"""Retry transport for httpx2: exponential backoff with jitter on 429/5xx,
 honoring a server-sent ``Retry-After`` (seconds or an HTTP-date) ahead of
 the computed backoff. Never retries any other 4xx -- it won't succeed the
 second time either, and retrying only delays the real error reaching the
 caller (rules/sdk-generation.md's "Client shape").
 
-httpx's transport-level hooks (``httpx.BaseTransport``/``AsyncBaseTransport``)
+httpx2's transport-level hooks (``httpx2.BaseTransport``/``AsyncBaseTransport``)
 apply this uniformly to every request the client makes, rather than
 wrapping each generated call site in a retry loop by hand.
 """
@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 
-import httpx
+import httpx2
 
 _RETRYABLE_5XX_AND_429 = 500
 
@@ -43,7 +43,7 @@ DEFAULT_RETRY_CONFIG = RetryConfig()
 def _should_retry(
     attempt: int,
     config: RetryConfig,
-    response: httpx.Response | None,
+    response: httpx2.Response | None,
     exc: Exception | None,
 ) -> bool:
     if attempt >= config.max_retries:
@@ -57,11 +57,11 @@ def _should_retry(
         # assert, so this invariant still holds under -O and doesn't trip
         # bandit's B101.
         raise ValueError("_should_retry needs a response or an exception")
-    return response.status_code == httpx.codes.TOO_MANY_REQUESTS or response.status_code >= _RETRYABLE_5XX_AND_429
+    return response.status_code == httpx2.codes.TOO_MANY_REQUESTS or response.status_code >= _RETRYABLE_5XX_AND_429
 
 
-def _retry_after_seconds(response: httpx.Response) -> float | None:
-    value = response.headers.get("retry-after")  # pragma: no mutate - httpx.Headers lookups are case-insensitive
+def _retry_after_seconds(response: httpx2.Response) -> float | None:
+    value = response.headers.get("retry-after")  # pragma: no mutate - httpx2.Headers lookups are case-insensitive
     if not value:
         return None
     value = value.strip()
@@ -85,7 +85,7 @@ def _backoff_seconds(attempt: int, config: RetryConfig) -> float:
     return backoff / 2 + jitter / 2
 
 
-def _retry_delay(attempt: int, config: RetryConfig, response: httpx.Response | None) -> float:
+def _retry_delay(attempt: int, config: RetryConfig, response: httpx2.Response | None) -> float:
     if response is not None:
         retry_after = _retry_after_seconds(response)
         if retry_after is not None:
@@ -93,19 +93,19 @@ def _retry_delay(attempt: int, config: RetryConfig, response: httpx.Response | N
     return _backoff_seconds(attempt, config)
 
 
-class RetryTransport(httpx.BaseTransport):
-    """Wraps a sync ``httpx.BaseTransport`` with the retry policy above."""
+class RetryTransport(httpx2.BaseTransport):
+    """Wraps a sync ``httpx2.BaseTransport`` with the retry policy above."""
 
     def __init__(
         self,
         *,
-        transport: httpx.BaseTransport | None = None,
+        transport: httpx2.BaseTransport | None = None,
         retry: RetryConfig = DEFAULT_RETRY_CONFIG,
     ) -> None:
-        self._transport = transport if transport is not None else httpx.HTTPTransport()
+        self._transport = transport if transport is not None else httpx2.HTTPTransport()
         self._retry = retry
 
-    def handle_request(self, request: httpx.Request) -> httpx.Response:
+    def handle_request(self, request: httpx2.Request) -> httpx2.Response:
         # A bounded for-loop, not `while True` plus a hand-incremented
         # counter: `_should_retry` already returns False once `attempt`
         # reaches `max_retries`, so the last iteration always returns or
@@ -119,7 +119,7 @@ class RetryTransport(httpx.BaseTransport):
         for attempt in range(self._retry.max_retries + 1):  # pragma: no mutate
             try:
                 response = self._transport.handle_request(request)
-            except httpx.TransportError as exc:
+            except httpx2.TransportError as exc:
                 if not _should_retry(attempt, self._retry, None, exc):
                     raise
                 time.sleep(_retry_delay(attempt, self._retry, None))
@@ -140,19 +140,19 @@ class RetryTransport(httpx.BaseTransport):
         self._transport.close()
 
 
-class AsyncRetryTransport(httpx.AsyncBaseTransport):
-    """Wraps an async ``httpx.AsyncBaseTransport`` with the retry policy above."""
+class AsyncRetryTransport(httpx2.AsyncBaseTransport):
+    """Wraps an async ``httpx2.AsyncBaseTransport`` with the retry policy above."""
 
     def __init__(
         self,
         *,
-        transport: httpx.AsyncBaseTransport | None = None,
+        transport: httpx2.AsyncBaseTransport | None = None,
         retry: RetryConfig = DEFAULT_RETRY_CONFIG,
     ) -> None:
-        self._transport = transport if transport is not None else httpx.AsyncHTTPTransport()
+        self._transport = transport if transport is not None else httpx2.AsyncHTTPTransport()
         self._retry = retry
 
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+    async def handle_async_request(self, request: httpx2.Request) -> httpx2.Response:
         # See RetryTransport.handle_request's comments: bounded by
         # range(), not a hand-incremented counter under `while True`, and
         # the exact bound is unreachable as a binding constraint whenever
@@ -160,7 +160,7 @@ class AsyncRetryTransport(httpx.AsyncBaseTransport):
         for attempt in range(self._retry.max_retries + 1):  # pragma: no mutate
             try:
                 response = await self._transport.handle_async_request(request)
-            except httpx.TransportError as exc:
+            except httpx2.TransportError as exc:
                 if not _should_retry(attempt, self._retry, None, exc):
                     raise
                 await asyncio.sleep(_retry_delay(attempt, self._retry, None))

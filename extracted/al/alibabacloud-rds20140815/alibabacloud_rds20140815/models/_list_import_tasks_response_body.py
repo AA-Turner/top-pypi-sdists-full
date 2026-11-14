@@ -15,7 +15,7 @@ class ListImportTasksResponseBody(DaraModel):
         next_token: str = None,
         request_id: str = None,
     ):
-        # None.
+        # The list of import tasks.
         self.items = items
         # The number of entries per page. Valid values: **1 to 100**.
         # 

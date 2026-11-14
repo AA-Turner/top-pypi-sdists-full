@@ -18,18 +18,18 @@ class DescribeCrossRegionLogBackupFilesRequest(DaraModel):
         resource_owner_id: int = None,
         start_time: str = None,
     ):
-        # The ID of the destination region for cross-region backup. You can call the DescribeCrossRegionBackupDBInstance operation to query the region ID.
+        # The ID of the destination region for cross-region backups. You can call the DescribeCrossRegionBackupDBInstance operation to query the region ID.
         self.cross_backup_region = cross_backup_region
         # The instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The end time of the query. Format: <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z (UTC).
+        # The end time of the query. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
         # 
         # This parameter is required.
         self.end_time = end_time
         self.owner_id = owner_id
-        # The page number. The value must be a positive integer that does not exceed the maximum value of the Integer data type.
+        # The page number. Valid values: integers greater than 0 and up to the maximum integer value.
         # 
         # Default value: **1**.
         self.page_number = page_number
@@ -47,7 +47,7 @@ class DescribeCrossRegionLogBackupFilesRequest(DaraModel):
         self.region_id = region_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The start time of the query. Format: <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z (UTC).
+        # The start time of the query. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
         # 
         # This parameter is required.
         self.start_time = start_time

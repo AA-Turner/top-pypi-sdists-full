@@ -12,17 +12,19 @@ from probe.mcp.source.people import PeopleFilters
 
 @dataclass(frozen=True)
 class RunListQuery:
-    """browse(mode=runs)'s `filter`, `order` and `latest_metrics`, passed to `GET /v1/runs` as they are (the server
-    validates them and names a bad one in its 422)."""
+    """browse(mode=runs)'s `filter`, `order`, `latest_metrics` and `query`, passed to `GET /v1/runs` as they are
+    (the server validates them and names a bad one in its 422)."""
 
     run_filter: dict | None = None
     order: str | None = None
     latest_metrics: list[str] | None = None
+    #: The loose name match (`browse_name_query`): best first, one page.
+    name_query: str | None = None
 
     @property
     def is_ordered(self) -> bool:
-        """Sorted other than newest first: one top-N page, never continued."""
-        return self.order not in (None, "", "-created_at")
+        """Sorted other than newest first, or by best name match: one top-N page, never continued."""
+        return self.order not in (None, "", "-created_at") or bool(self.name_query)
 
 
 class RunReadsMixin:
@@ -188,6 +190,7 @@ class RunReadsMixin:
             latest_metrics=query.latest_metrics,
             limit=limit,
             cursor=cursor,
+            **({"query": query.name_query} if query.name_query else {}),
             owner=people.owner,
             since=people.since,
             until=people.until,
@@ -205,6 +208,7 @@ class RunReadsMixin:
         exclude_origin_session: str | None = None,
         run_filter: dict | None = None,
         people: PeopleFilters = PeopleFilters(),
+        name_query: str | None = None,
     ) -> dict:
         """``GET /v1/runs/counts``: `{total, by_status}` for the same filter as `run_list` (the client's own
         query builder, so both count one set). Raises on an API without the route (404) or a count past its
@@ -220,6 +224,7 @@ class RunReadsMixin:
             owner=people.owner,
             since=people.since,
             until=people.until,
+            **({"query": name_query} if name_query else {}),
         )
 
     def run_failures(self, run_ids: list[str]) -> list[dict]:

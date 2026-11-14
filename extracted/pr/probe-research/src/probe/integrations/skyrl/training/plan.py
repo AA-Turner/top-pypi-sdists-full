@@ -36,20 +36,56 @@ LOSS_REASONS = {
     "importance_sampling": "importance_sampling (Tinker's loss) sums inline without `reduce_loss` "
                            "(`ppo_utils.py:1162-1210`): no reduction to observe",
 }  # fmt: skip
-MEGATRON_REASON = ("SkyRL's Megatron worker (tensor / pipeline parallel) computes the loss inside Megatron's schedule "
-                   "(`megatron_model_wrapper.py:760`), never through `_forward_backward_micro`, the call Probe "
-                   "watches: no rows are sent")  # fmt: skip
-CRITIC_PATHS_REASON = ("the critic's value loss under packed micro-batches or sequence parallelism was not run: its "
-                       "rows are not sent (the policy's are)")  # fmt: skip
+#: The Megatron configurations a GPU proof ran (rl-trajectory-gaps T12 and T15, D19; `gpu/p2/skyrl/RESULT.md`,
+#: `gpu/p2/dp/RESULT.md`): (tensor, pipeline) parallel sizes, each at data parallel 1 or 2 and no more
+#: (`MEGATRON_PROVEN_DATA_PARALLEL`, `megatron.get_megatron_reason`). Each with
+#: context parallel 1, expert parallel 1, no virtual pipeline, sample-based micro-batches, no packing, the plain LM head,
+#: a text-only model, no router replay and no sample-support replay. Only these send rows (D18 proven boundary).
+MEGATRON_PROVEN = frozenset({(1, 1), (2, 1), (1, 2)})
+#: The largest data-parallel size any proven layout ran at (T12: DP 2 at TP 1 / PP 1; T15, 4 x A100: TP 2 x DP 2 and
+#: PP 2 x DP 2).
+MEGATRON_PROVEN_DATA_PARALLEL = 2
+MEGATRON_REASON = ("SkyRL's Megatron worker sends rows only for the GPU-proven configurations (tensor parallel 2 or "
+                   "pipeline parallel 2 at data parallel 1 or 2, or data parallel 2 alone; context and expert "
+                   "parallel 1, no virtual pipeline, sample-based micro-batches, no packing, the plain LM head, a "
+                   "text-only model, no router replay, no sample-support replay); any other trains without per-sample "
+                   "training metrics")  # fmt: skip
+#: Why a Megatron run outside `MEGATRON_PROVEN` sends no rows, by what it set (`megatron.get_megatron_reason`).
+MEGATRON_REASONS = {
+    "parallel": "SkyRL's Megatron worker at tensor parallel {tp} x pipeline parallel {pp} x data parallel {dp} was not "
+                "proven per sample (only TP 2 or PP 2 at data parallel 1 or 2, and data parallel 2 alone, were): no "
+                "rows are sent",
+    "context_parallel": "SkyRL's Megatron worker under context parallelism splits each row across ranks before the "
+                        "loss: not proven per sample, no rows are sent",
+    "expert_parallel": "SkyRL's Megatron worker under expert parallelism was not proven per sample: no rows are sent",
+    "virtual_pipeline": "SkyRL's Megatron worker under a virtual (interleaved) pipeline was not proven per sample: no "
+                        "rows are sent",
+    "packing": "SkyRL's Megatron worker with remove_microbatch_padding packs rows and computes entropy without the "
+               "per-row mean Probe reads (`megatron_model_wrapper.py:1101`): no rows are sent",
+    "token_batching": "SkyRL's Megatron worker with max_tokens_per_microbatch pads micro-batches to one size and adds "
+                      "padding micro-batches: not proven per sample, no rows are sent",
+    "fused_lm_head": "SkyRL's Megatron worker with fused_lm_head_logprob computes entropy inside the fused op, not "
+                     "through the per-row mean Probe reads: no rows are sent",
+    "sample_support": "SkyRL's Megatron worker with sample-support replay computes entropy over the sampler's support "
+                      "(`megatron_model_wrapper.py:1088`): not proven per sample, no rows are sent",
+    "mtp": "SkyRL's Megatron worker with multi-token prediction adds a draft loss to each micro-batch: not proven per "
+           "sample, no rows are sent",
+    "vlm": "SkyRL's Megatron worker on a vision-language model feeds image inputs through the vision tower before "
+           "the loss: not proven per sample, no rows are sent",
+    "router_replay": "SkyRL's Megatron worker with moe_enable_routing_replay replays the rollout's expert routing: not "
+                     "proven per sample, no rows are sent",
+}  # fmt: skip
+MEGATRON_CRITIC_REASON = ("SkyRL's Megatron critic computes its loss inside Megatron's schedule, never through "
+                          "`_forward_backward_micro`, the call Probe watches: its rows are not sent (the policy's are, "
+                          "for the proven configurations)")  # fmt: skip
 #: Paths and keys with no rows, with why. Packing (`remove_microbatch_padding`) and Ulysses sequence parallelism are
-#: GPU-proven (rl-trajectory-gaps T3): one process per data-parallel rank records.
+#: GPU-proven (rl-trajectory-gaps T3; the critic's T12): one process per data-parallel rank records. The fully async
+#: trainer stamps its rows through the same batch conversion (rl-trajectory-gaps T12, D21).
 UNSUPPORTED = {
     "policy_loss_type": f"policy losses other than {', '.join(sorted(SUPPORTED_LOSSES))} send no rows",
     **{f"policy_loss_type={name}": f"{reason}: no rows are sent" for name, reason in LOSS_REASONS.items()},
     "megatron": MEGATRON_REASON,
-    "critic_packing_or_sequence_parallel": CRITIC_PATHS_REASON,
-    "fully_async": "the fully async trainer was not run: its group recording never stamps row keys on the batch it "
-                   "trains (`hooks.py` `call_convert_groups`), so no rows reach the workers",
+    "megatron_critic": MEGATRON_CRITIC_REASON,
     # Batch statistics and inline fractions, not per-sample sums through a reducer the hook observes.
     "policy/loss_metrics/is_ratio_std": "a batch standard deviation, not a per-sample sum",
     "policy/loss_metrics/is_ratio_max": "a batch extreme, not a per-sample sum",

@@ -1075,6 +1075,186 @@ pub(super) fn spills_a_kind_into(subject: &Schema, other: &Schema, cx: &Cx<'_>) 
     whole != 0 && whole & !other.kinds_possibly_held(cx.oracle, cx.defs) != 0
 }
 
+/// A meet of sequences of one container read as the one sequence of their item-wise
+/// meets under every bound, a union of such sequences beside them distributed: an
+/// `allOf` of arrays is one array of the items' meet, and a conjunction is pushed
+/// through a disjunction [HSHP20, §4.2]. A value of the meet holds, at each position,
+/// an item of every member, and a refinement is its base met with the bound
+/// [JV20, §3.2], so the bounds stand on the one sequence. A fixed member shorter than
+/// another's prefix holds no value of the meet. So `list[str]` met with
+/// `Annotated[list[Any], MinLen(1)]` is `Annotated[list[str], MinLen(1)]`, and the
+/// meet a translation from JSON Schema writes for `minItems` beside the items,
+/// `list[J] & ([] | list[str]) & Annotated[list[Any], MinLen(1)]`, is
+/// `Annotated[list[J & str], MinLen(1)]`, its `[]` branch holding none of the bound's
+/// values: the one spelling the rules read a refinement of a sequence in. `None`
+/// where the meet holds fewer than two such members.
+///
+/// The rules ask it of every meet their other readings decline, and most hold fewer
+/// than two, so those are counted first and nothing is allocated where they are.
+pub(crate) fn a_meet_of_sequences_as_one(members: &[Schema], defs: &[Schema]) -> Option<Schema> {
+    let sequences = members
+        .iter()
+        .filter(|member| a_sequence(member).is_some())
+        .count();
+    let spreads = members
+        .iter()
+        .any(|member| a_union_of_sequences(member).is_some());
+    if sequences + usize::from(spreads) < 2 {
+        return None;
+    }
+    let mut container = None;
+    let mut parts: Vec<&Schema> = Vec::new();
+    let mut spread: Option<&[Schema]> = None;
+    let mut rest: Vec<Schema> = Vec::new();
+    for member in members {
+        if let Some((theirs, ..)) = a_sequence(member) {
+            if *container.get_or_insert(theirs) != theirs {
+                return None;
+            }
+            parts.push(member);
+        } else if spread.is_none()
+            && let Some(branches) = a_union_of_sequences(member)
+        {
+            spread = Some(branches);
+        } else {
+            rest.push(member.clone());
+        }
+    }
+    let one = |extra: Option<&Schema>| -> Option<Schema> {
+        let all: Vec<&Schema> = parts.iter().copied().chain(extra).collect();
+        one_sequence(&all, defs)
+    };
+    let combined = match spread {
+        None => one(None)?,
+        Some(branches) => {
+            let read: Option<Vec<Schema>> =
+                branches.iter().map(|branch| one(Some(branch))).collect();
+            Schema::union(read?)
+        }
+    };
+    rest.push(combined);
+    Some(Schema::meet_within(rest, defs))
+}
+
+/// The meet of `items`, less each that is a union holding another of them as a branch,
+/// `a ∩ (a ∪ b)` being `a` by absorption [FCB08, Def. 4.1], so `str` met with the JSON
+/// values is `str`. A reference is read through its definition, and the branches are
+/// compared as written.
+fn absorbed(items: &[&Schema], defs: &[Schema]) -> Schema {
+    fn branches<'a>(item: &'a Schema, defs: &'a [Schema]) -> Option<&'a [Schema]> {
+        let item = match item {
+            Schema::Ref(at) => defs.get(at.get())?,
+            item => item,
+        };
+        match item {
+            Schema::Union(branches) => Some(branches),
+            _ => None,
+        }
+    }
+    let kept = items.iter().enumerate().filter(|&(place, item)| {
+        !branches(item, defs).is_some_and(|branches| {
+            items
+                .iter()
+                .enumerate()
+                .any(|(other, held)| other != place && branches.contains(held))
+        })
+    });
+    Schema::meet_within(kept.map(|(_, item)| (*item).clone()), defs)
+}
+
+/// The branches of a union every one of which is a sequence, or a refinement of one.
+fn a_union_of_sequences(member: &Schema) -> Option<&[Schema]> {
+    match member {
+        Schema::Union(branches)
+            if !branches.is_empty()
+                && branches.iter().all(|branch| a_sequence(branch).is_some()) =>
+        {
+            Some(branches)
+        }
+        _ => None,
+    }
+}
+
+/// The sequence, or refinement of one, of a container, with its shape and its bounds.
+fn a_sequence(member: &Schema) -> Option<(SeqKind, &crate::ir::SeqShape, &[Constraint])> {
+    match member {
+        Schema::Seq { container, shape } => Some((*container, shape, &[])),
+        Schema::Refine { base, constraints } => match &**base {
+            Schema::Seq { container, shape } => Some((*container, shape, constraints)),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// The one sequence of the item-wise meet of `parts`, all of one container, under all
+/// their bounds; `Nothing` where a fixed part is shorter than another's prefix, and
+/// `None` where the parts are of two containers.
+fn one_sequence(parts: &[&Schema], defs: &[Schema]) -> Option<Schema> {
+    let read: Vec<_> = parts
+        .iter()
+        .map(|part| a_sequence(part))
+        .collect::<Option<_>>()?;
+    let (container, ..) = *read.first()?;
+    if read.iter().any(|(theirs, ..)| *theirs != container) {
+        return None;
+    }
+    let named = read
+        .iter()
+        .map(|(_, shape, _)| shape.prefix.len())
+        .max()
+        .unwrap_or(0);
+    if read
+        .iter()
+        .any(|(_, shape, _)| shape.tail.is_none() && shape.prefix.len() < named)
+    {
+        return Some(Schema::Nothing);
+    }
+    let at = |position: usize| {
+        let items: Vec<&Schema> = read
+            .iter()
+            .filter_map(|(_, shape, _)| shape.prefix.get(position).or(shape.tail.as_deref()))
+            .collect();
+        absorbed(&items, defs)
+    };
+    let prefix: Vec<Schema> = (0..named).map(at).collect();
+    let tail = read
+        .iter()
+        .all(|(_, shape, _)| shape.tail.is_some())
+        .then(|| {
+            let tails: Vec<&Schema> = read
+                .iter()
+                .filter_map(|(_, shape, _)| shape.tail.as_deref())
+                .collect();
+            std::sync::Arc::new(absorbed(&tails, defs))
+        });
+    let shape = crate::ir::SeqShape {
+        prefix: prefix.into(),
+        tail,
+    };
+    let base = match container {
+        SeqKind::List => Schema::list(shape),
+        SeqKind::Tuple => Schema::tuple(shape),
+    };
+    let bounds: Vec<Constraint> = read
+        .iter()
+        .flat_map(|(.., bounds)| bounds.iter().cloned())
+        .collect();
+    // A fixed shape holds values of its one length, which a bound may leave out.
+    let fixed = matches!(&base, Schema::Seq { shape, .. } if shape.tail.is_none());
+    if fixed
+        && (named < shortest(bounds.iter())
+            || longest(bounds.iter()).is_some_and(|most| most < named))
+    {
+        return Some(Schema::Nothing);
+    }
+    Some(if bounds.is_empty() {
+        base
+    } else {
+        Schema::refine(base, bounds)
+    })
+}
+
 /// Whether a sequence of one item, or a mapping of one entry, the subject holds
 /// lies outside every branch of a union.
 ///

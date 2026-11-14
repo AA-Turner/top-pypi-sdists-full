@@ -14,7 +14,7 @@ class ModifyReadonlyInstanceDelayReplicationTimeRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # The ID of the read-only instance. You can call DescribeDBInstances to query the instance ID.
+        # Instance ID of the read-only instance. You can call the DescribeDBInstances operation to query instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
@@ -23,7 +23,7 @@ class ModifyReadonlyInstanceDelayReplicationTimeRequest(DaraModel):
         # 
         # This parameter is required.
         self.read_sqlreplication_time = read_sqlreplication_time
-        # The ID of the resource group. You can call DescribeDBInstanceAttribute to query the resource group ID.
+        # The ID of the resource group. You can call the DescribeDBInstanceAttribute operation to query the ID.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id

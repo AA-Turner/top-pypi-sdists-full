@@ -11,14 +11,14 @@ class DeleteReplicationLinkRequest(DaraModel):
         promote_to_master: bool = None,
         resource_owner_id: int = None,
     ):
-        # The instance ID of the disaster recovery instance.
+        # The ID of the disaster recovery instance.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         # Specifies whether to delete the data synchronization link between the primary instance and the disaster recovery instance, and promote the disaster recovery instance to a primary instance. Valid values:
         # 
-        # - **true**: Yes.
-        # - **false**: No.
+        # - **true**: yes.
+        # - **false**: no.
         # 
         # This parameter is required.
         self.promote_to_master = promote_to_master

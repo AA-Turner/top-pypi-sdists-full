@@ -1,3 +1,5 @@
+#[path = "utils/partial_blob_publication.rs"]
+mod partial_blob_publication;
 mod utils;
 
 use std::collections::HashMap;
@@ -9,17 +11,14 @@ use rusty_fork::rusty_fork_test;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use statsig_rust::{
-    DynamicConfigEvaluationOptions, Statsig, StatsigOptions, StatsigUser,
+    ClientInitResponseOptions, DynamicConfigEvaluationOptions, HashAlgorithm, SpecsUpdateListener,
+    Statsig, StatsigOptions, StatsigUser,
     interned_string::InternedString,
     interned_values::{InternedStore, MmapPreloadOptions},
-    output_logger::LogLevel,
     specs_response::statsig_config_specs::{self as pb, any_value, return_value},
 };
 use tokio::time::{Duration, sleep};
-use utils::{
-    mock_data_store::MockDataStore, mock_event_logging_adapter::MockEventLoggingAdapter,
-    mock_log_provider::MockLogProvider,
-};
+use utils::{mock_data_store::MockDataStore, mock_event_logging_adapter::MockEventLoggingAdapter};
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
 
@@ -70,8 +69,30 @@ impl RemoteValue {
         Self { body, value, sha }
     }
 
+    fn response(&self) -> ResponseTemplate {
+        ResponseTemplate::new(200)
+            .insert_header("content-type", "application/json")
+            .set_body_bytes(self.body.clone())
+    }
+
     fn path(&self) -> String {
         format!("/v1/dynamic_config_value/{}", self.sha)
+    }
+}
+
+fn network_options(server: &MockServer) -> StatsigOptions {
+    StatsigOptions {
+        specs_url: Some(format!("{}/v2/download_config_specs", server.uri())),
+        remote_config_value_source_url: Some(server.uri()),
+        event_logging_adapter: Some(Arc::new(
+            MockEventLoggingAdapter::new_with_background_flush(false),
+        )),
+        specs_sync_interval_ms: Some(50),
+        enable_id_lists: Some(false),
+        disable_country_lookup: Some(true),
+        fallback_to_statsig_api: Some(false),
+        disable_all_logging: Some(true),
+        ..StatsigOptions::new()
     }
 }
 
@@ -126,11 +147,7 @@ async fn run_reuse_case(format: WireFormat, read_only: bool) {
         Mock::given(method("GET"))
             .and(path(remote.path()))
             .and(header("statsig-api-key", SDK_KEY))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .insert_header("content-type", "application/json")
-                    .set_body_bytes(remote.body.clone()),
-            )
+            .respond_with(remote.response())
             .mount(&server)
             .await;
     }
@@ -143,25 +160,12 @@ async fn run_reuse_case(format: WireFormat, read_only: bool) {
         .await;
 
     let store = Arc::new(MockDataStore::new_with_byte_cache(false).with_read_only(read_only));
-    let logs = Arc::new(MockLogProvider::new());
     let sdk = Statsig::new(
         SDK_KEY,
         Some(Arc::new(StatsigOptions {
             data_store: Some(store.clone()),
-            specs_url: Some(format!("{}/v2/download_config_specs", server.uri())),
-            remote_config_value_source_url: Some(server.uri()),
-            event_logging_adapter: Some(Arc::new(
-                MockEventLoggingAdapter::new_with_background_flush(false),
-            )),
-            specs_sync_interval_ms: Some(50),
             enable_dcs_deltas: Some(true),
-            enable_id_lists: Some(false),
-            disable_country_lookup: Some(true),
-            fallback_to_statsig_api: Some(false),
-            disable_all_logging: Some(true),
-            output_logger_provider: Some(logs.clone()),
-            output_log_level: Some(LogLevel::Error),
-            ..StatsigOptions::new()
+            ..network_options(&server)
         })),
     );
     sdk.initialize().await.unwrap();
@@ -262,26 +266,43 @@ async fn run_reuse_case(format: WireFormat, read_only: bool) {
     assert_values(&sdk, &changed, 2);
     assert_eq!(get_count(&server, &changed.path()).await, 2);
 
-    // Same SHA with a conflicting declared length is not trusted reuse.
-    // Failed updates cannot publish either new values or new provenance.
-    let prior_errors = logs.get_error_logs().len();
+    // A conflicting length invalidates the shared blob for its rule and default.
+    // Keep the successful inline rule and the independent config at their new revisions.
     let mut invalid = full(9, 3, Some(&changed), Some(changed.body.len() + 1));
-    // Serve the bad update exactly once. Subsequent polls return the last
-    // accepted cursor, avoiding a race with another rejected update in flight.
-    invalid.after_once = Some(Box::new(full(8, 2, Some(&changed), None)));
+    let no_updates = pb::SpecsTopLevel {
+        time: 9,
+        has_updates: false,
+        ..Default::default()
+    };
+    invalid.after_once = Some(Box::new(encode_response(
+        9,
+        false,
+        vec![envelope(
+            pb::SpecsEnvelopeKind::TopLevel,
+            "",
+            "",
+            no_updates.encode_to_vec(),
+        )],
+    )));
     *response.0.lock().unwrap() = invalid;
-    wait_until(|| logs.get_error_logs().len() > prior_errors).await;
-    assert_eq!(generation(&sdk), 8);
-    assert_values(&sdk, &changed, 2);
+    wait_generation(&sdk, 9).await;
+    assert!(!sdk.is_config_spec_ready());
+    for user in ["remote-user", "default-user"] {
+        let result = sdk.get_dynamic_config(&StatsigUser::with_user_id(user), LARGE_CONFIG);
+        assert!(result.details.is_blob_unavailable());
+    }
+    assert_eq!(
+        evaluate(&sdk, "normal-user", LARGE_CONFIG),
+        json!({"normalGeneration": 3})
+    );
     let after_failure_gets = get_count(&server, &changed.path()).await;
     assert_eq!(after_failure_gets, 3);
     *response.0.lock().unwrap() = full(10, 2, Some(&changed), None);
     wait_generation(&sdk, 10).await;
     assert_values(&sdk, &changed, 2);
-    assert_eq!(
-        get_count(&server, &changed.path()).await,
-        after_failure_gets
-    );
+    assert!(sdk.is_config_spec_ready());
+    let after_repair_gets = get_count(&server, &changed.path()).await;
+    assert_eq!(after_repair_gets, after_failure_gets + 1);
 
     if read_only {
         assert_eq!(store.num_set_bytes_calls(), 0);
@@ -301,7 +322,10 @@ async fn run_reuse_case(format: WireFormat, read_only: bool) {
     *response.0.lock().unwrap() = full(12, 2, Some(&changed), None);
     wait_generation(&sdk, 12).await;
     assert_values(&sdk, &changed, 2);
-    assert_eq!(get_count(&server, &changed.path()).await, 4);
+    assert_eq!(
+        get_count(&server, &changed.path()).await,
+        after_repair_gets + 1
+    );
     sdk.shutdown().await.unwrap();
 }
 
@@ -380,11 +404,7 @@ async fn run_stale_mmap_case() {
     Mock::given(method("GET"))
         .and(path(remote.path()))
         .and(header("statsig-api-key", sdk_key.as_str()))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .insert_header("content-type", "application/json")
-                .set_body_bytes(remote.body.clone()),
-        )
+        .respond_with(remote.response())
         .mount(&server)
         .await;
     let sdk = Statsig::new(
@@ -393,17 +413,7 @@ async fn run_stale_mmap_case() {
             data_store: Some(Arc::new(
                 MockDataStore::new_with_byte_cache(false).with_read_only(true),
             )),
-            specs_url: Some(format!("{}/v2/download_config_specs", server.uri())),
-            remote_config_value_source_url: Some(server.uri()),
-            event_logging_adapter: Some(Arc::new(
-                MockEventLoggingAdapter::new_with_background_flush(false),
-            )),
-            specs_sync_interval_ms: Some(50),
-            enable_id_lists: Some(false),
-            disable_country_lookup: Some(true),
-            fallback_to_statsig_api: Some(false),
-            disable_all_logging: Some(true),
-            ..StatsigOptions::new()
+            ..network_options(&server)
         })),
     );
     sdk.initialize().await.unwrap();
@@ -472,10 +482,11 @@ async fn wait_until(check: impl Fn() -> bool) {
 }
 
 async fn get_count(server: &MockServer, path: &str) -> usize {
-    server
-        .received_requests()
-        .await
-        .unwrap()
+    request_count(&server.received_requests().await.unwrap(), path)
+}
+
+fn request_count(requests: &[Request], path: &str) -> usize {
+    requests
         .iter()
         .filter(|request| request.url.path() == path)
         .count()
@@ -754,22 +765,26 @@ fn delta(
                 .parse::<u64>()
                 .unwrap()
         };
-    frames.push(envelope(
+    frames.push(checksums(sum_configs, sum_conditions, 0, 0));
+    encode_response(generation, true, frames)
+}
+
+fn checksums(configs: u64, conditions: u64, gates: u64, layers: u64) -> pb::SpecsEnvelope {
+    envelope(
         pb::SpecsEnvelopeKind::Checksums,
         "",
         "",
         pb::RulesetsChecksums {
             field_checksums: HashMap::from([
-                ("condition_map".to_string(), sum_conditions),
-                ("dynamic_configs".to_string(), sum_configs),
-                ("feature_gates".to_string(), 0),
-                ("layer_configs".to_string(), 0),
+                ("condition_map".to_string(), conditions),
+                ("dynamic_configs".to_string(), configs),
+                ("feature_gates".to_string(), gates),
+                ("layer_configs".to_string(), layers),
                 ("param_stores".to_string(), 0),
             ]),
         }
         .encode_to_vec(),
-    ));
-    encode_response(generation, true, frames)
+    )
 }
 
 fn encode_response(
@@ -853,3 +868,6 @@ fn crc32(bytes: &[u8]) -> u32 {
     }
     !crc
 }
+
+#[path = "verified_remote_value_reuse/pending_delta.rs"]
+mod pending_delta;

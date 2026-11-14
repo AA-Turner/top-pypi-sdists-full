@@ -27,7 +27,7 @@ class DescribeTasksRequest(DaraModel):
         self.end_time = end_time
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The page number. The value must be a positive integer that does not exceed the maximum value of the INTEGER data type. Default value: **1**.
+        # The page number. The value must be greater than 0 and cannot exceed the maximum value of the Integer data type. Default value: **1**.
         self.page_number = page_number
         # The number of entries to return on each page. Valid values: **30** to **100**. Default value: **30**.
         self.page_size = page_size

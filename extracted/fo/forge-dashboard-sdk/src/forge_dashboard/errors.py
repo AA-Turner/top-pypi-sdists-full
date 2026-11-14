@@ -3,7 +3,7 @@
 Every 4xx/5xx response forge-dashboard returns shares the same
 ``{error}`` body (see ``openapi/openapi.yaml``'s ``Error`` schema).
 :func:`decode_error` turns that, plus the status code, into a single
-:class:`APIError` -- never a bare string or a raw ``httpx.Response``
+:class:`APIError` -- never a bare string or a raw ``httpx2.Response``
 (rules/sdk-generation.md's "Client shape").
 """
 
@@ -17,7 +17,7 @@ from typing import Protocol
 class _ErrorResponse(Protocol):
     """What :func:`decode_error` needs from a response.
 
-    Both ``httpx.Response`` and the generated per-operation
+    Both ``httpx2.Response`` and the generated per-operation
     ``forge_dashboard._generated.types.Response`` satisfy this
     structurally -- decoding works the same whether you call a wrapper
     method or drop down to a generated ``sync_detailed``/``asyncio_detailed``

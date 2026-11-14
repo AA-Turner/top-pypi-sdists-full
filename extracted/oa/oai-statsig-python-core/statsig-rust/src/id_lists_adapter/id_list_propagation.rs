@@ -1,4 +1,7 @@
-use std::{collections::VecDeque, ops::Range};
+use std::{
+    collections::{HashMap, VecDeque},
+    ops::Range,
+};
 
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -16,11 +19,15 @@ pub struct IdListPropagationUpdate {
     pub(crate) applied_range: Option<Range<u64>>,
 }
 
-// Keep telemetry out of the public metadata struct and tolerate malformed optional fields.
+/// The `get_id_lists` response, keyed by the list name used for lookup.
+pub type IdListManifest = HashMap<String, IdListManifestEntry>;
+
+/// A manifest row decoded with the same wire schema as the SDK HTTP adapter.
 #[derive(Clone, Deserialize)]
-pub(super) struct IdListManifestEntry {
+pub struct IdListManifestEntry {
     #[serde(flatten)]
     pub metadata: IdListMetadata,
+    // Keep telemetry out of the public metadata and tolerate malformed optional fields.
     #[serde(default, deserialize_with = "optional_u64")]
     ts: Option<u64>,
 }
@@ -30,7 +37,7 @@ fn optional_u64<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<u64
 }
 
 impl IdListManifestEntry {
-    pub fn propagation_update(&self) -> IdListPropagationUpdate {
+    pub(super) fn propagation_update(&self) -> IdListPropagationUpdate {
         IdListPropagationUpdate {
             file_id: self.metadata.file_id.clone(),
             creation_time: self.metadata.creation_time,

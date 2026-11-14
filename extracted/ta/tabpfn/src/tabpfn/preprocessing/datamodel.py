@@ -111,6 +111,7 @@ class GPUTransformType(str, Enum):
 
     QUANTILE = "quantile"
     SQUASHING_SCALER = "squashing_scaler"
+    SAFE_POWER = "safe_power"
 
 
 @dataclasses.dataclass
@@ -133,6 +134,7 @@ class Feature:
             the steps run but which carry more than one distinct non-finite
             value (so they are genuinely non-constant once restored). Honoured by
             :class:`RemoveConstantFeaturesStep`.
+        is_group_id: Whether this is the feature that ``group_col`` encodes.
     """
 
     name: str
@@ -140,6 +142,7 @@ class Feature:
     scheduled_gpu_transform: GPUTransformType | None = None
     ancestor: str | None = None
     non_constant_with_inf: bool = False
+    is_group_id: bool = False
 
 
 @dataclasses.dataclass
@@ -234,6 +237,14 @@ class FeatureSchema:
             i
             for i, f in enumerate(self.features)
             if f.scheduled_gpu_transform == GPUTransformType.SQUASHING_SCALER
+        ]
+
+    def get_indices_marked_for_gpu_safe_power_transform(self) -> list[int]:
+        """Get column indices marked for GPU safe power transform."""
+        return [
+            i
+            for i, f in enumerate(self.features)
+            if f.scheduled_gpu_transform == GPUTransformType.SAFE_POWER
         ]
 
     def clear_gpu_transform_marks(self) -> FeatureSchema:

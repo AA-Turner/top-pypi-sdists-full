@@ -58,13 +58,30 @@ def split_reasoning(content: str, ids: Sequence[int], tokenizer: Any) -> tuple[s
     span_end = end + 1 if end is not None else len(ids)
     reasoning = str(tokenizer.decode(ids[(start + 1 if start is not None else 0): end if end is not None else len(ids)]))
     reasoning = reasoning.strip()
-    if not reasoning:
-        return content, None
     prefix = str(tokenizer.decode(ids[:span_end]))
-    if content.startswith(prefix):
-        return content[len(prefix):], reasoning
+    if content.startswith(prefix):  # an empty span (Qwen3's `<think>\n</think>`) comes off too: no reasoning, no tags
+        if end is None:
+            return _keep_end_token("", reasoning, tokenizer)
+        return content[len(prefix):], reasoning or None
+    # The loop's content is not the decoded turn when its parser took a tool-call block out of the span (Qwen3 can
+    # call a tool inside its thinking): the span is read off the think markers the ids proved the model emitted, from
+    # the content alone (the decoded span still holds the block, which the call already records).
+    if end is not None and THINK_END in content:
+        head, _, tail = content.partition(THINK_END)
+        return tail, head.split(THINK_START, 1)[-1].strip() or None
+    if end is None and content.lstrip().startswith(THINK_START):  # never closed: the whole turn is reasoning
+        return _keep_end_token("", content.split(THINK_START, 1)[-1].strip(), tokenizer)
     logger.debug("probe: a verl turn's content does not start with its decoded reasoning span; content kept whole")
-    return content, reasoning
+    return content, reasoning or None
+
+
+def _keep_end_token(content: str, reasoning: str, tokenizer: Any) -> tuple[str, str | None]:
+    """A span never closed runs to the turn's end, end token included: that token stays the content's (as built, F3),
+    never the reasoning's."""
+    end_text = getattr(tokenizer, "eos_token", None)
+    if isinstance(end_text, str) and end_text and reasoning.endswith(end_text):
+        return content + end_text, reasoning[: -len(end_text)].strip() or None
+    return content, reasoning or None
 
 
 def _find_token(tokenizer: Any, token: str) -> int | None:

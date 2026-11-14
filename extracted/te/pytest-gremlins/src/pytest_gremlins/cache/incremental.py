@@ -23,6 +23,7 @@ if TYPE_CHECKING:
         Iterable,
         Mapping,
     )
+    from collections.abc import Set as AbstractSet
     from pathlib import Path
 
     from pytest_gremlins.cache.types import CachedGremlinResult
@@ -110,6 +111,20 @@ Every other project keeps the ``rf20`` key it had under v1.13.1.
 PYTESTER_KEY_PART = 'pytester-615'
 """Key part added only while the pytester plugin is loaded, so just those sessions retire #615 verdicts."""
 
+XDIST_KEY_PART = 'xdist-668'
+"""Key part added only to sessions whose gremlin runs load xdist themselves (plugin autoload disabled, #668).
+
+Before #668 those runs had no xdist, so a test using ``worker_id`` or ``testrun_uid`` errored and was cached as ZAPPED.
+Only those sessions miss once; every other session keeps its key.
+"""
+
+CONFIG_FILE_KEY_PART = 'config-file-951'
+"""Key part added only to sessions that forward ``-c``/``--config-file`` to gremlin runs (#951).
+
+Before #951 those runs read an auto-discovered config file instead of the ``-c`` file, so a verdict cached then may
+differ from the one the runs now reach. Only those sessions miss once; sessions without ``-c`` keep their key.
+"""
+
 
 RerunBudget: TypeAlias = tuple[int, float]
 """``(reruns, reruns_delay)`` a gremlin run may use; see ``pytest_gremlins.rerun_options.session_rerun_budget``."""
@@ -119,10 +134,10 @@ NO_RERUNS: RerunBudget = (0, 0.0)
 
 
 def _never_loaded() -> bool:
-    """Report that pytester is not loaded; the default for caches opened outside a pytest session.
+    """Report that the plugin is not loaded; the default for caches opened outside a pytest session.
 
     Returns:
-        Always ``False``, so the key carries no ``PYTESTER_KEY_PART``.
+        Always ``False``, so the key carries no ``PYTESTER_KEY_PART`` or ``XDIST_KEY_PART``.
     """
     return False
 
@@ -218,6 +233,14 @@ def _holds_at_timeout(
 
     The same limit always holds. At another limit only a non-TIMEOUT verdict that finished strictly inside the new
     limit holds; an elapsed time equal to the limit is a miss, and an unknown elapsed time is a miss.
+
+    A TIMEOUT verdict is reused only at the identical limit. That is deliberate: reuse at another limit would
+    need the unmutated confirmation run's time stored with the result, and exact-limit reuse is the conservative
+    choice (#795).
+
+    SAFETY: the stored ``execution_time_ms`` may be a total over reruns, so it is at least any single attempt's
+    time. Comparing it strictly below the new limit therefore never reuses a verdict a cold run would not
+    reach. If elapsed time ever became smaller than a single attempt's time, this rule would need revisiting.
     """
     if stored_timeout == mutant_timeout:
         return True
@@ -248,6 +271,8 @@ class IncrementalCache:
     - rerun_settings: the other resolved rerun settings (backoff factor, filters, mode, exclusions, suite cap)
     - versions: ``CACHE_VERSION`` and operator-package versions (any change retires the whole cache)
     - PYTESTER_KEY_PART: present only while the session loads the pytester plugin (#891)
+    - XDIST_KEY_PART: present only when gremlin runs load xdist themselves because autoload is disabled (#668)
+    - CONFIG_FILE_KEY_PART: present only when the session forwards ``-c``/``--config-file`` to gremlin runs (#951)
     - RUNNER_FIDELITY_VERSION: execution-semantics marker, so verdicts from an older
       runner are recomputed once
 
@@ -271,6 +296,10 @@ class IncrementalCache:
         operators: Iterable[GremlinOperator] = (),
         project_root: Path | None = None,
         pytester_loaded: Callable[[], bool] = _never_loaded,
+        *,
+        loaded_conftests: Iterable[Path] = (),
+        xdist_loader_loaded: Callable[[], bool] = _never_loaded,
+        config_file_forwarded: bool = False,
     ) -> None:
         """Initialize the incremental cache.
 
@@ -285,13 +314,22 @@ class IncrementalCache:
                 no later run could read them.
             pytester_loaded: Reports whether the session loads the pytester plugin. It is asked each time a key is
                 built, because a nested ``conftest.py`` can enable pytester after the cache opens.
+            loaded_conftests: The ``conftest.py`` files the session has loaded when the cache opens. When an operator
+                is defined in a conftest, all of them are hashed into the versions part of every key (#899). A
+                conftest pytest loads later, during collection, is not included.
+            xdist_loader_loaded: Reports whether gremlin runs load xdist themselves (plugin autoload disabled and
+                xdist loaded in the session); such sessions add ``XDIST_KEY_PART`` (#668).
+            config_file_forwarded: Whether gremlin runs are given the session's ``-c`` file; such sessions add
+                ``CONFIG_FILE_KEY_PART`` (#951).
         """
         self._pytester_loaded = pytester_loaded
+        self._xdist_loader_loaded = xdist_loader_loaded
+        self._config_file_forwarded = config_file_forwarded
         self._cache_dir = cache_dir
         self._hasher = ContentHasher()
         self._store = ResultStore(cache_dir / 'results.db')
         self._store.delete_keys_not_ending_with(f':{RUNNER_FIDELITY_VERSION}')
-        fingerprint = versions_fingerprint(operators, project_root)
+        fingerprint = versions_fingerprint(operators, project_root, loaded_conftests)
         self._versions_hash = self._hasher.hash_string(fingerprint.text)
         self._writes_are_readable = fingerprint.writes_are_readable
         self._hits = 0
@@ -337,10 +375,12 @@ class IncrementalCache:
 
         reruns, reruns_delay = _effective_rerun_budget(rerun_budget)
         pytester_part = f':{PYTESTER_KEY_PART}' if self._pytester_loaded() else ''
+        xdist_part = f':{XDIST_KEY_PART}' if self._xdist_loader_loaded() else ''
+        config_file_part = f':{CONFIG_FILE_KEY_PART}' if self._config_file_forwarded else ''
         return (
             f'{gremlin_id}:{source_hash}:{combined_test_hash}'
             f':opt={optimize_level}:reruns={reruns}x{reruns_delay}:rr={rerun_settings}'
-            f':v={self._versions_hash}{pytester_part}:{RUNNER_FIDELITY_VERSION}'
+            f':v={self._versions_hash}{pytester_part}{xdist_part}{config_file_part}:{RUNNER_FIDELITY_VERSION}'
         )
 
     def get_cached_result(
@@ -486,6 +526,19 @@ class IncrementalCache:
             file_prefix: Prefix to match in gremlin IDs.
         """
         self._store.delete_by_prefix(f'{file_prefix}:')
+
+    def prune_stale_sources(self, current_hashes: Mapping[str, AbstractSet[str]]) -> None:
+        """Delete rows that an edit left unreadable, for the files in this run.
+
+        A row whose gremlin id belongs to one of ``current_hashes`` but whose source-hash segment is not a current
+        hash of its prefix can never hit again, so it is removed in one transaction. Rows of other files and
+        rows with the current hash are untouched. Call this from the controller process only.
+
+        Args:
+            current_hashes: Maps each file's gremlin-id prefix (``{stem}_{path_hash}``) to the current source
+                hashes of every file sharing that prefix (the path hash is short, so distinct files can collide).
+        """
+        self._store.prune_stale_source_hashes(current_hashes)
 
     def clear(self) -> None:
         """Remove all cached results."""

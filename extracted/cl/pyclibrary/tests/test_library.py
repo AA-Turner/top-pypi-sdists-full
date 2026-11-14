@@ -14,6 +14,7 @@ This actually needs ctypes to make sense but it affects all wrappers.
 import _ctypes_test
 import ctypes
 import os
+import pathlib
 
 import pytest
 from pyclibrary.c_library import CLibrary
@@ -60,6 +61,11 @@ class TestCLibrary(object):
         library = CLibrary(_ctypes_test.__file__, ["ctypes_test.h"])
         assert library._lib_
 
+    def test_accessing_library_by_pathlib_path(self):
+        CLibrary.libs.clear()
+        library = CLibrary(pathlib.Path(_ctypes_test.__file__), ["ctypes_test.h"])
+        assert library._lib_
+
     def test_accessing_library_by_object(self):
         CLibrary.libs.clear()
         lib = ctypes.CDLL(_ctypes_test.__file__)
@@ -72,7 +78,13 @@ class TestCLibrary(object):
         assert library is CLibrary(_ctypes_test.__file__, ["ctypes_test.h"])
 
     def test_accessing_prefixed_value(self):
-        pass
+        CLibrary.libs.clear()
+        library = CLibrary(_ctypes_test.__file__, ["ctypes_test.h"], prefix="an_")
+        try:
+            assert library("values", "an_integer") == 42
+            assert library("values", "integer") == 42
+        finally:
+            CLibrary.libs.clear()
 
 
 def test_function_pretty_signature():

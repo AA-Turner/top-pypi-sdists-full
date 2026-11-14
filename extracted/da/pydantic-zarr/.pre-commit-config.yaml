@@ -21,17 +21,11 @@ repos:
     hooks:
     - id: check-yaml
     - id: trailing-whitespace
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.15.0
-    hooks:
-      - id: mypy
-        files: src
-        additional_dependencies:
-          - pytest
-          - pydantic>2.0.0
-          - numpy
-          - zarr>=3.1.0
-          - numcodecs
+  # NOTE: the type checker (pyrefly) is deliberately not a pre-commit hook. Type checking
+  # runs via the `types` hatch environment (`hatch run types:check`, or `just typecheck`),
+  # which is also what the `typecheck` CI job runs. Keeping a single entry point means the
+  # type checker version and the dependencies being checked against cannot drift from what
+  # the tests actually use.
   - repo: https://github.com/scientific-python/cookie
     rev: 2025.01.22
     hooks:
@@ -45,3 +39,7 @@ repos:
     rev: v1.8.0
     hooks:
       - id: numpydoc-validation
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.25.2
+    hooks:
+      - id: zizmor

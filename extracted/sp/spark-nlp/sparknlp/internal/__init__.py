@@ -283,6 +283,13 @@ class _BGELoader(ExtendedJavaWrapper):
         )
 
 
+class _BGEM3Loader(ExtendedJavaWrapper):
+    def __init__(self, path, jspark):
+        super(_BGEM3Loader, self).__init__(
+            "com.johnsnowlabs.nlp.embeddings.BGEM3Embeddings.loadSavedModel", path, jspark
+        )
+
+
 class _GPT2Loader(ExtendedJavaWrapper):
     def __init__(self, path, jspark):
         super(_GPT2Loader, self).__init__(
@@ -336,6 +343,16 @@ class _LLAMA3Loader(ExtendedJavaWrapper):
             jspark,
             use_openvino,
         )
+
+
+class _LanguageDetectorDLLoader(ExtendedJavaWrapper):
+    def __init__(self, path, jspark):
+        super(_LanguageDetectorDLLoader, self).__init__(
+            "com.johnsnowlabs.nlp.annotators.ld.dl.LanguageDetectorDL.loadSavedModel",
+            path,
+            jspark,
+        )
+
 
 class _LongformerLoader(ExtendedJavaWrapper):
     def __init__(self, path, jspark):
@@ -1221,6 +1238,17 @@ class _Florence2TransformerLoader(ExtendedJavaWrapper):
             jspark,
             use_openvino,
         )
+
+
+class _DolphinForDocumentParsingLoader(ExtendedJavaWrapper):
+    def __init__(self, path, jspark):
+        super(_DolphinForDocumentParsingLoader, self).__init__(
+            "com.johnsnowlabs.nlp.annotators.cv.DolphinForDocumentParsing.loadSavedModel",
+            path,
+            jspark,
+        )
+
+
 class _E5VEmbeddingsLoader(ExtendedJavaWrapper):
     def __init__(self, path, jspark, use_openvino=False):
         super(_E5VEmbeddingsLoader, self).__init__(

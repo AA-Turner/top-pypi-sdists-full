@@ -593,11 +593,8 @@ impl StatsigHttpIdListsAdapter {
         file_id: Option<String>,
     ) -> Result<String, StatsigErr> {
         let job = IdListDownloadJob {
-            plan: IdListDownloadPlan {
-                private_file: false,
-                source_changed: false,
-                range_start,
-            },
+            range_start,
+            can_download_snapshots: false,
             name: "test-list".into(),
             primary_url: self.get_override_id_list_download_url(url)?,
             metadata: IdListMetadata {
@@ -650,6 +647,10 @@ impl LocalCdnProvider {
 
 #[async_trait]
 impl crate::networking::NetworkProvider for LocalCdnProvider {
+    fn supports_wire_responses_without_redirects(&self) -> bool {
+        self.delegate.supports_wire_responses_without_redirects()
+    }
+
     async fn send(&self, method: &crate::networking::HttpMethod, args: &RequestArgs) -> Response {
         self.delegate.send(method, &self.local_args(args)).await
     }

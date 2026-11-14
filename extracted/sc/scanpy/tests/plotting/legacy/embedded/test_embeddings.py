@@ -17,7 +17,7 @@ from testing.scanpy._helpers.data import pbmc3k_processed
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from scanpy.plotting._utils import _LegendLoc
+    from scanpy.plotting.legacy._utils import _LegendLoc
 
 
 def check_images(pth1: Path, pth2: Path, *, tol: int) -> None:

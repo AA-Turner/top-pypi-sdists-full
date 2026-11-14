@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pythonmonkey"
-version = "1.4.1" # automatically set by poetry-dynamic-versioning
+version = "1.5.1" # automatically set by poetry-dynamic-versioning
 description = "Seamless interop between Python and JavaScript."
 authors = ["Distributive Corp. <pm@distributive.network>"]
 license = "MIT"

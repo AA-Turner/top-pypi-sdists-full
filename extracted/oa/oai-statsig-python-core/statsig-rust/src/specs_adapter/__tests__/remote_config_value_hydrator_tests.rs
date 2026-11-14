@@ -12,12 +12,13 @@ use crate::interned_values::{
     InternedStore,
     interned_store::{MmapProjectId, preload_mmap_v2_multi_for_test, write_mmap_v2_for_test},
 };
+use crate::networking::{HttpMethod, NetworkProvider, RequestArgs, Response, ResponseLimitOutcome};
 use crate::observability::observability_client_adapter::MetricType;
 use crate::observability::ops_stats::{OPS_STATS, OpsStatsEvent, OpsStatsForInstance};
 use crate::specs_response::{
     proto_specs::{
-        ProtobufUpdate, SpecsFieldChecksums, deserialize_protobuf,
-        deserialize_protobuf_for_store_with_hydration,
+        ProtobufStoreParseBase, ProtobufUpdate, SpecsFieldChecksums, deserialize_protobuf,
+        deserialize_protobuf_for_store_with_hydration, prepare_protobuf_store_update,
     },
     proto_stream_reader::ProtoStreamReader,
     spec_types::SpecsResponseFull,
@@ -1279,7 +1280,7 @@ async fn streaming_protobuf_reuses_verified_values_without_waiting_for_response_
     assert!(first.seed_verified_values(HashMap::from([(sha, Arc::new(body.to_vec()),)])));
     let mut first_spec = spec.clone();
     let previous_values = first
-        .take_verified_spec_values(&mut first_spec)
+        .take_resolved_spec_values(&mut first_spec)
         .unwrap()
         .provenance;
     first.finish(Ok(()));
@@ -1300,7 +1301,7 @@ async fn streaming_protobuf_reuses_verified_values_without_waiting_for_response_
 
     let mut refreshed_spec = spec.clone();
     let values = refresh
-        .take_verified_spec_values(&mut refreshed_spec)
+        .take_resolved_spec_values(&mut refreshed_spec)
         .unwrap();
     assert!(values.default_value.is_some());
     assert_eq!(values.provenance.len(), 1);
@@ -2378,18 +2379,18 @@ async fn store_parser_rejects_true_marker_without_remote_metadata() {
 #[tokio::test]
 async fn store_parser_reuses_verified_hydrated_current_values_without_downloading() {
     let server = MockServer::start().await;
-    let default_body = br#"{"default":"hydrated"}"#;
+    let default_body = br#"{ "default": "hydrated" }"#;
     let rule_body = br#"{"rule":"hydrated"}"#;
     let default_sha = lowercase_hex(&Sha256::digest(default_body));
     let rule_sha = lowercase_hex(&Sha256::digest(rule_body));
     let default_path = format!("{DOWNLOAD_PATH_PREFIX}{default_sha}");
     let rule_path = format!("{DOWNLOAD_PATH_PREFIX}{rule_sha}");
-    mount_json_blob(&server, &default_path, default_body, 0).await;
+    mount_json_blob(&server, &default_path, default_body, 1).await;
     mount_json_blob(&server, &rule_path, rule_body, 0).await;
 
-    let response = |remote: bool| {
+    let response = |remote_rule: bool| {
         serialize_protobuf_envelopes(&[
-            protobuf_top_level_envelope(Some(remote)),
+            protobuf_top_level_envelope(Some(true)),
             pb::SpecsEnvelope {
                 kind: pb::SpecsEnvelopeKind::DynamicConfig as i32,
                 name: "large_config".to_string(),
@@ -2398,22 +2399,23 @@ async fn store_parser_reuses_verified_hydrated_current_values_without_downloadin
                     pb::Spec {
                         enabled: true,
                         entity: pb::EntityType::EntityDynamicConfig as i32,
-                        default_value: Some(raw_return_value(if remote {
-                            serde_json::to_vec(&serde_json::json!({"value": default_path})).unwrap()
-                        } else {
-                            default_body.to_vec()
-                        })),
-                        remote_config_metadata: remote
-                            .then(|| protobuf_metadata(&default_sha, default_body.len())),
+                        default_value: Some(raw_return_value(
+                            serde_json::to_vec(&serde_json::json!({"value": default_path}))
+                                .unwrap(),
+                        )),
+                        remote_config_metadata: Some(protobuf_metadata(
+                            &default_sha,
+                            default_body.len(),
+                        )),
                         rules: vec![pb::Rule {
                             id: "rule-id".to_string(),
-                            return_value: Some(raw_return_value(if remote {
+                            return_value: Some(raw_return_value(if remote_rule {
                                 serde_json::to_vec(&serde_json::json!({"value": rule_path}))
                                     .unwrap()
                             } else {
                                 rule_body.to_vec()
                             })),
-                            remote_config_metadata: remote
+                            remote_config_metadata: remote_rule
                                 .then(|| protobuf_metadata(&rule_sha, rule_body.len())),
                             ..Default::default()
                         }],
@@ -2429,12 +2431,22 @@ async fn store_parser_reuses_verified_hydrated_current_values_without_downloadin
     let ops_stats = OPS_STATS.get_for_instance("verified-current-reuse");
     let mut current_data = protobuf_response_data(response(false));
     let mut current_specs = SpecsResponseFull::default();
-    deserialize_protobuf(
+    let hydrator = test_hydrator("verified-current-reuse");
+    let source = server.uri();
+    let options = StoreHydrationOptions::new(
+        &source,
+        MmapProjectId::for_sdk_key("verified-current-reuse"),
+    );
+    let initial = deserialize_protobuf_for_store_with_hydration(
         ops_stats.as_ref(),
         &SpecsResponseFull::default(),
+        Default::default(),
         &mut current_specs,
         &mut current_data,
+        &hydrator,
+        options,
     )
+    .await
     .unwrap();
     let current_pointer = current_specs
         .dynamic_configs
@@ -2445,15 +2457,17 @@ async fn store_parser_reuses_verified_hydrated_current_values_without_downloadin
         .clone()
         .into_pointer()
         .unwrap();
-    let hydrator = test_hydrator("verified-current-reuse");
-
     for capture_sidecar in [false, true] {
         let mut data = protobuf_response_data(response(true));
         let mut next_specs = SpecsResponseFull::default();
-        let sidecar = deserialize_protobuf_for_store_with_hydration(
+        let update = prepare_protobuf_store_update(
             ops_stats.as_ref(),
-            &current_specs,
-            Default::default(),
+            ProtobufStoreParseBase::new(
+                &current_specs,
+                Default::default(),
+                &SpecsFieldChecksums::from_specs(&current_specs),
+                &initial.verified_remote_values,
+            ),
             &mut next_specs,
             &mut data,
             &hydrator,
@@ -2464,9 +2478,8 @@ async fn store_parser_reuses_verified_hydrated_current_values_without_downloadin
             .with_data_store_capture(capture_sidecar),
         )
         .await
-        .unwrap()
-        .hydrated_data_store_bytes;
-
+        .unwrap();
+        let sidecar = update.hydrated_data_store_bytes;
         let next_pointer = next_specs
             .dynamic_configs
             .0
@@ -2491,8 +2504,11 @@ async fn store_parser_reuses_verified_hydrated_current_values_without_downloadin
             assert!(sidecar_spec.remote_config_metadata.is_none());
             assert!(sidecar_spec.rules[0].remote_config_metadata.is_none());
             assert_eq!(
-                raw_return_value_bytes(&sidecar_spec.default_value),
-                default_body.as_slice()
+                serde_json::from_slice::<Value>(raw_return_value_bytes(
+                    &sidecar_spec.default_value
+                ))
+                .unwrap(),
+                serde_json::json!({"default": "hydrated"})
             );
             assert_eq!(
                 raw_return_value_bytes(&sidecar_spec.rules[0].return_value),
@@ -3526,7 +3542,7 @@ fn valid_json_metadata(sha256: &str, byte_length: usize) -> Value {
     })
 }
 
-fn valid_metadata(sha256: String, byte_length: u64) -> RemoteConfigValueMetadata {
+pub(super) fn valid_metadata(sha256: String, byte_length: u64) -> RemoteConfigValueMetadata {
     RemoteConfigValueMetadataWire {
         sha256,
         byte_length,
@@ -3579,6 +3595,78 @@ impl Seek for CountingCursor {
     fn seek(&mut self, position: SeekFrom) -> std::io::Result<u64> {
         self.cursor.seek(position)
     }
+}
+
+pub(super) struct DeadlineProvider {
+    healthy_url: String,
+    healthy_body: Vec<u8>,
+    pub(super) healthy_ready: tokio::sync::Notify,
+    pub(super) starts: AtomicUsize,
+}
+
+impl DeadlineProvider {
+    pub(super) fn new(healthy_url: String, healthy_body: &[u8]) -> Arc<Self> {
+        Arc::new(Self {
+            healthy_url,
+            healthy_body: healthy_body.to_vec(),
+            healthy_ready: tokio::sync::Notify::new(),
+            starts: AtomicUsize::new(0),
+        })
+    }
+
+    pub(super) fn hydrator(self: &Arc<Self>) -> RemoteConfigValueHydrator {
+        let provider: Arc<dyn NetworkProvider> = self.clone();
+        let mut network = NetworkClient::new("deadline-test", None, None);
+        network.set_network_provider_for_test(Arc::downgrade(&provider));
+        RemoteConfigValueHydrator::new_with_ops_stats(
+            Arc::new(network),
+            Arc::new(OpsStatsForInstance::new()),
+        )
+    }
+}
+
+#[async_trait::async_trait]
+impl NetworkProvider for DeadlineProvider {
+    async fn send(&self, _method: &HttpMethod, args: &RequestArgs) -> Response {
+        self.starts.fetch_add(1, Ordering::Relaxed);
+        if args.url != self.healthy_url {
+            return std::future::pending().await;
+        }
+        self.healthy_ready.notified().await;
+        Response {
+            status_code: Some(200),
+            data: Some(ResponseData::from_bytes_with_headers(
+                self.healthy_body.clone(),
+                Some(HashMap::from([(
+                    "content-type".into(),
+                    "application/json".into(),
+                )])),
+            )),
+            error: None,
+        }
+    }
+
+    async fn send_with_response_limit(
+        &self,
+        method: &HttpMethod,
+        args: &RequestArgs,
+        _max_response_bytes: u64,
+    ) -> ResponseLimitOutcome {
+        ResponseLimitOutcome::Response(self.send(method, args).await)
+    }
+}
+
+pub(super) fn remote_spec(body: &[u8]) -> (pb::Spec, String) {
+    let sha = lowercase_hex(&Sha256::digest(body));
+    let spec = pb::Spec {
+        entity: pb::EntityType::EntityDynamicConfig as i32,
+        default_value: Some(raw_return_value(
+            serde_json::to_vec(&format!("{DOWNLOAD_PATH_PREFIX}{sha}")).unwrap(),
+        )),
+        remote_config_metadata: Some(protobuf_metadata(sha.clone(), body.len())),
+        ..Default::default()
+    };
+    (spec, sha)
 }
 
 fn raw_return_value(bytes: Vec<u8>) -> pb::ReturnValue {

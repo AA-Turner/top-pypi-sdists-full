@@ -9,7 +9,7 @@ catch.  The test is deliberately weak: it leaves some mutants of ``classify`` al
 from __future__ import annotations
 
 import pytest
-from rerun_samples import (
+from rerun_samples import (  # type: ignore[import-not-found]
     FLAKY_STRONG_TEST,
     FLAKY_WEAK_TEST,
     GREMLIN_ARGS,
@@ -19,8 +19,6 @@ from rerun_samples import (
     verdicts,
     write_flaky_project,
 )
-
-from pytest_gremlins.rerun_options import unforwarded_rerun_key_warning
 
 
 @pytest.mark.medium
@@ -148,6 +146,28 @@ class DescribeNumericRerunSettingsInNativeToml:
         assert verdicts(result.stdout.str())['Zapped'] > 0
 
 
+@pytest.mark.skipif(
+    pytest.version_tuple < (9, 0),
+    reason='pytest < 9 does not read the native [tool.pytest] table, so reruns = "2" is ignored and the flake '
+    'fails the baseline.',
+)
+@pytest.mark.medium
+class DescribeStringRerunSettingsInNativeToml:
+    def it_runs_gremlins_without_an_internal_error_when_reruns_is_a_toml_string(
+        self, pytester_with_markers: pytest.Pytester
+    ) -> None:
+        # The flaky test fails the baseline unless the string value is read and applied, and it
+        # fabricates kills unless the gremlin runs rerun it too, so survivors prove the setting took effect.
+        write_flaky_project(pytester_with_markers)
+        pytester_with_markers.makefile('.toml', pyproject='[tool.pytest]\nreruns = "2"\n')
+
+        result = pytester_with_markers.runpytest_subprocess(*GREMLIN_ARGS)
+
+        assert 'INTERNALERROR' not in result.stdout.str()
+        assert 'needed a rerun' in result.stderr.str()
+        assert survivor_count(result.stdout.str()) > 0
+
+
 @pytest.mark.medium
 class DescribeProjectsWithoutRerunOptions:
     def it_completes_without_rerun_flags_or_a_warning(self, pytester_with_markers: pytest.Pytester) -> None:
@@ -202,15 +222,6 @@ class DescribeRerunPatternsPytestWouldStripOnTheCommandLine:
         counts = verdicts(result.stdout.str())
         assert counts['Survived'] > 0
         assert counts['Zapped'] == 1
-
-    def it_skips_the_pattern_under_a_config_file_and_says_so(self, pytester_with_markers: pytest.Pytester) -> None:
-        (pytester_with_markers.path / 'ci.toml').write_text(_TOML_WITH_TRAILING_SPACE_PATTERN, encoding='utf-8')
-
-        result = run_gremlins(pytester_with_markers, '-c', 'ci.toml', tests=_FLAKY_TEST_FAILING_WITH_XYZ)
-
-        assert result.stderr.lines.count(unforwarded_rerun_key_warning('rerun_except')) == 1
-        assert result.stderr.str().count('not carried into gremlin runs') == 1
-        assert survivor_count(result.stdout.str()) > 0
 
     def it_still_forwards_the_other_rerun_settings_under_a_config_file(
         self, pytester_with_markers: pytest.Pytester

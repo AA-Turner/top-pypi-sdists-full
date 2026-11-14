@@ -19,6 +19,22 @@ def test_default_statsig_options():
     assert options.disable_remote_telemetry is None
     assert options.shared_id_lists_dir is None
     assert options.id_list_init_build_concurrency is None
+    assert options.lazy_load_id_lists is None
+
+
+def test_lazy_id_list_option():
+    options = StatsigOptions(lazy_load_id_lists=True)
+    assert options.lazy_load_id_lists is True
+    options.lazy_load_id_lists = False
+    assert options.lazy_load_id_lists is False
+    options.lazy_load_id_lists = None
+    assert options.lazy_load_id_lists is None
+
+
+@pytest.mark.parametrize("value", ["true", "false", [], {}])
+def test_lazy_id_list_option_rejects_invalid_values(value):
+    with pytest.raises(TypeError):
+        StatsigOptions(lazy_load_id_lists=value)
 
 
 def test_shared_id_lists_directory_option():
@@ -68,11 +84,15 @@ def test_evaluation_cache_option():
 
 
 def test_runtime_thread_start_callback_option():
-    callback = lambda: None
+    def callback():
+        pass
+
     options = StatsigOptions(runtime_thread_start_callback=callback)
     assert options.runtime_thread_start_callback is callback
 
-    replacement = lambda: None
+    def replacement():
+        pass
+
     options.runtime_thread_start_callback = replacement
     assert options.runtime_thread_start_callback is replacement
 
@@ -140,10 +160,14 @@ def test_remote_telemetry_option_reaches_core(httpserver, disabled):
 
 
 def test_appended_statsig_options_preserve_existing_positions():
-    options = StatsigOptions(*([None] * 39), True, 3, "/tmp/shared-id-lists", False, True, 8)
+    options = StatsigOptions(
+        *([None] * 39), True, 3, "/tmp/shared-id-lists", False, True, 8, False, True
+    )
     assert options.prefer_http2 is True
     assert options.state_read_primary_attempts == 3
     assert options.shared_id_lists_dir == "/tmp/shared-id-lists"
     assert options.enable_id_list_elias_fano is False
     assert options.disable_remote_telemetry is True
     assert options.id_list_init_build_concurrency == 8
+    assert options.enable_id_list_access_metrics is False
+    assert options.lazy_load_id_lists is True

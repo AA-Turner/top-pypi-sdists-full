@@ -10,8 +10,8 @@ lineage-related cross product, the unconditioned retry), never a re-search.
 from __future__ import annotations
 
 from collections import defaultdict, deque
-from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
 from typing import cast
 
 from trilogy.constants import logger
@@ -44,6 +44,7 @@ from trilogy.core.processing.condition_utility import (
     is_scalar_condition,
 )
 from trilogy.core.processing.join_key_groups import is_join_key_group
+from trilogy.core.processing.join_resolution import PlannedPairs
 from trilogy.core.processing.model_ambiguity import validate_relation_paths
 from trilogy.core.processing.node_generators.common import (
     inject_authored_join_key_terminals,
@@ -168,6 +169,27 @@ class BridgePlan:
     # read at their own grain, re-aggregated at the merge, after the join
     # (`ObligationKind.JOINED`).
     joined_scans: tuple[str, ...] = ()
+    # The scans the search chose, and for two of them the addresses it joins
+    # them on, every member of each class spelled out.
+    scans: frozenset[str] = frozenset()
+    join_keys: Mapping[frozenset[str], frozenset[str]] = field(default_factory=dict)
+
+
+def _solution_join_keys(
+    network: SourceNetwork, solution: SourceSolution
+) -> dict[frozenset[str], frozenset[str]]:
+    """The search's joins, pair by pair, with each class label spelled as
+    every address the class holds: the merge matches its columns by
+    address."""
+    members: dict[str, set[str]] = defaultdict(set)
+    for address, label in network.equivalence.items():
+        members[label].add(address)
+    return {
+        frozenset(pair): frozenset(
+            address for key in keys for address in members.get(key, set()) | {key}
+        )
+        for pair, keys in solution.join_keys.items()
+    }
 
 
 def _graph_neighbors(graph: ReferenceGraph, node: str) -> set[str]:
@@ -711,6 +733,8 @@ def _network_source(
             connector_aliases=tuple(connector_aliases),
             assembles_axis=bool(network.axis_families),
             joined_scans=tuple(sorted(n for n in chosen if network.candidates[n].owes)),
+            scans=frozenset(chosen),
+            join_keys=_solution_join_keys(network, result.solution),
         )
     )
 
@@ -817,7 +841,14 @@ def _datasource_nodes_for_bridge(
     request: SourceRequest,
     plan: BridgePlan,
     accept_partial: bool,
+    sides: dict[int, str] | None = None,
+    unsearched: dict[str, frozenset[str]] | None = None,
 ) -> list[StrategyNode] | None:
+    """One parent per chosen scan and derived connector; `sides`, when
+    given, gets each parent's search node name, and `unsearched` what each
+    side the search did not choose pairs on."""
+    sides = {} if sides is None else sides
+    unsearched = {} if unsearched is None else unsearched
     parents: list[StrategyNode] = []
     bridge_addresses = {concept.address for concept in plan.concepts}
     # A datasource node present in the bridge graph but missing from its
@@ -853,6 +884,13 @@ def _datasource_nodes_for_bridge(
             if provides - covered:
                 plan.graph.datasources[ds_node] = source_ds
                 covered |= provides
+                # the search said nothing of its joins: it pairs on what the
+                # bridge graph links it to
+                unsearched[ds_node] = frozenset(
+                    node_address(n)
+                    for n in _graph_neighbors(plan.graph, ds_node)
+                    if n.startswith("c~")
+                )
     for ds_node in sorted(node for node in plan.graph.datasources):
         concept_nodes = _local_concept_nodes_for_datasource(
             plan.graph,
@@ -921,9 +959,10 @@ def _datasource_nodes_for_bridge(
                 depth=request.depth + 1,
             )
         )
+        sides[id(parents[-1])] = ds_node
     if accept_partial and not request.complete_partials:
         parents = _drop_redundant_subset_sources(parents)
-    parents.extend(_derived_connector_nodes(request, plan, parents))
+    parents.extend(_derived_connector_nodes(request, plan, parents, sides, unsearched))
     if not parents:
         return None
     return parents
@@ -956,6 +995,8 @@ def _derived_connector_nodes(
     request: SourceRequest,
     plan: BridgePlan,
     datasource_parents: list[StrategyNode],
+    sides: dict[int, str] | None = None,
+    unsearched: dict[str, frozenset[str]] | None = None,
 ) -> list[StrategyNode]:
     """Materialize bridge concepts whose source is a *derived* connector.
 
@@ -1055,6 +1096,13 @@ def _derived_connector_nodes(
             if info.strategy_node is not None:
                 planned.add(origin.address)
                 connectors.append(info.strategy_node)
+                if sides is not None:
+                    sides[id(info.strategy_node)] = CONNECTOR_NODE_PREFIX + alias
+                if unsearched is not None and alias not in forced:
+                    # the merged key it supplies and the keys it carries to join
+                    unsearched[CONNECTOR_NODE_PREFIX + alias] = frozenset(
+                        {concept.address, alias, origin.address} | grain_components
+                    )
     return connectors
 
 
@@ -1480,6 +1528,7 @@ def _merge_component_sources(
     output_concepts: list[BuildConcept] | None = None,
     preserve_parents: bool = False,
     joined_rollup: bool = False,
+    planned: PlannedPairs | None = None,
 ) -> StrategyNode | None:
     if not parents:
         return None
@@ -1535,6 +1584,10 @@ def _merge_component_sources(
         grouped = _group_fanning_parents(request, parents, partials, needed)
         if grouped is None:
             return None
+        if planned is not None:
+            planned = planned.rebound(
+                {id(old): id(new) for old, new in zip(parents, grouped)}
+            )
         parents = grouped
         inputs = unique(
             [concept for parent in parents for concept in parent.usable_outputs],
@@ -1553,6 +1606,7 @@ def _merge_component_sources(
         force_group=True if rollup else None,
         rollup_concepts=rollup or partials or None,
         preserve_parents=preserve_parents,
+        planned_pairs=planned,
     )
 
 
@@ -1641,6 +1695,9 @@ def _complete_partial_requested(
         environment=request.environment,
         parents=[completion, node],
         depth=request.depth,
+        planned_pairs=PlannedPairs.star(
+            completion, [(node, frozenset(partial_addresses))]
+        ),
     )
 
 
@@ -1926,6 +1983,9 @@ def _plan_finer_filter_rollup(request: SourceRequest) -> StrategyNode | None:
         parents=[scan, key_node],
         depth=request.depth,
         force_join_type=JoinType.INNER,
+        planned_pairs=PlannedPairs.star(
+            scan, [(key_node, frozenset(c.address for c in partial_keys))]
+        ),
     )
 
 
@@ -1976,8 +2036,8 @@ def _plan_joined_filter_rollup(
         environment=environment,
         depth=request.depth + 1,
     )
-    parents: list[StrategyNode] = [scan]
-    gates: list[StrategyNode] = []
+    lookups: list[tuple[StrategyNode, frozenset[str]]] = []
+    gates: list[tuple[StrategyNode, frozenset[str]]] = []
     # one lookup per key set: two dimensions on different keys of the grain
     # (`user.state`, `product.brand`) are two joins onto the summary's rows,
     # never one request the search must bridge
@@ -2001,11 +2061,15 @@ def _plan_joined_filter_rollup(
         )
         if dims is None:
             return None
-        (gates if join_keys - grain else parents).append(dims)
-    if gates:
-        # a gate keyed on a dimension's column joins rows already carrying it,
-        # on its whole grain, never on the summary key the column hangs off
-        parents = [_merged(parents, environment, request.depth)] + gates
+        (gates if join_keys - grain else lookups).append((dims, join_keys))
+    # a gate keyed on a dimension's column joins rows already carrying it,
+    # on its whole grain, never on the summary key the column hangs off
+    hub, spokes = (
+        (_merged(scan, lookups, environment, request.depth), gates)
+        if gates
+        else (scan, lookups)
+    )
+    parents = [hub, *(spoke for spoke, _ in spokes)]
     rows = unique([c for parent in parents for c in parent.usable_outputs], "address")
     # filtered at the summary's grain, so an atom over a stored aggregate reads
     # each summary row's value, not a re-sum of it
@@ -2016,6 +2080,7 @@ def _plan_joined_filter_rollup(
         parents=parents,
         depth=request.depth,
         conditions=request.conditions.conditional if request.conditions else None,
+        planned_pairs=PlannedPairs.star(hub, spokes),
     )
     return GroupNode(
         input_concepts=rows,
@@ -2041,10 +2106,15 @@ def _join_keys(concept: BuildConcept, grain: set[str]) -> frozenset[str]:
 
 
 def _merged(
-    parents: list[StrategyNode], environment: BuildEnvironment, depth: int
+    hub: StrategyNode,
+    spokes: list[tuple[StrategyNode, frozenset[str]]],
+    environment: BuildEnvironment,
+    depth: int,
 ) -> StrategyNode:
-    if len(parents) == 1:
-        return parents[0]
+    """`hub` joined to each spoke on that spoke's keys."""
+    if not spokes:
+        return hub
+    parents = [hub, *(spoke for spoke, _ in spokes)]
     rows = unique([c for parent in parents for c in parent.usable_outputs], "address")
     return MergeNode(
         input_concepts=rows,
@@ -2052,6 +2122,7 @@ def _merged(
         environment=environment,
         parents=parents,
         depth=depth,
+        planned_pairs=PlannedPairs.star(hub, spokes),
     )
 
 
@@ -2144,12 +2215,14 @@ def _plan_relation_rollup(request: SourceRequest) -> StrategyNode | None:
         environment=environment,
         depth=request.depth + 1,
     )
-    parents: list[StrategyNode] = [scan]
+    # the scan is the hub: a lookup joins it on its grain, each list's
+    # pairs on that list's keys
+    spokes: list[tuple[StrategyNode, frozenset[str]]] = []
     if unbound:
         dims = _plan_lookup(request, unbound, set(ds.grain.components))
         if dims is None:
             return None
-        parents.append(dims)
+        spokes.append((dims, frozenset(ds.grain.components)))
     by_keys: dict[frozenset[str], list[BuildConcept]] = defaultdict(list)
     for address, keys in relations.items():
         by_keys[keys].append(related[address])
@@ -2157,7 +2230,8 @@ def _plan_relation_rollup(request: SourceRequest) -> StrategyNode | None:
         pairs = _relation_pairs(request, columns, [concepts[k] for k in sorted(keys)])
         if pairs is None:
             return None
-        parents.append(pairs)
+        spokes.append((pairs, keys))
+    parents = [scan, *(node for node, _ in spokes)]
     rows = unique([c for parent in parents for c in parent.usable_outputs], "address")
     joined = MergeNode(
         input_concepts=rows,
@@ -2170,6 +2244,7 @@ def _plan_relation_rollup(request: SourceRequest) -> StrategyNode | None:
             if all(c.derivation == Derivation.UNNEST for c in related.values())
             else JoinType.FULL
         ),
+        planned_pairs=PlannedPairs.star(scan, spokes),
     )
     return GroupNode(
         input_concepts=rows,
@@ -2453,7 +2528,12 @@ def _cross_component_source(request: SourceRequest) -> StrategyNode | None:
         if component is None:
             return None
         parents.append(component)
-    return _merge_component_sources(request, parents)
+    # the components share no binding: each pairs with nothing
+    return _merge_component_sources(
+        request,
+        parents,
+        planned=PlannedPairs.star(parents[0], [(p, frozenset()) for p in parents[1:]]),
+    )
 
 
 def _filters_a_partial_derivation(request: SourceRequest, node: StrategyNode) -> bool:
@@ -2471,7 +2551,11 @@ def _filters_a_partial_derivation(request: SourceRequest, node: StrategyNode) ->
 def _emit_bridge(request: SourceRequest, bridge: BridgePlan) -> StrategyNode | None:
     # The search already priced partiality, so there is no escalation to do:
     # render at the request's own permissiveness and let the solution speak.
-    parents = _datasource_nodes_for_bridge(request, bridge, not request.require_full)
+    sides: dict[int, str] = {}
+    unsearched: dict[str, frozenset[str]] = {}
+    parents = _datasource_nodes_for_bridge(
+        request, bridge, not request.require_full, sides, unsearched
+    )
     if parents is None:
         return None
     merged = _merge_component_sources(
@@ -2480,10 +2564,46 @@ def _emit_bridge(request: SourceRequest, bridge: BridgePlan) -> StrategyNode | N
         bridge.concepts,
         bridge.assembles_axis,
         joined_rollup=bool(bridge.joined_scans),
+        planned=_bridge_plan(bridge, parents, sides, unsearched),
     )
     if merged is not None and request.complete_partials:
         merged = _complete_partial_requested(request, merged)
     return merged
+
+
+def _bridge_plan(
+    bridge: BridgePlan,
+    parents: list[StrategyNode],
+    sides: Mapping[int, str],
+    unsearched: Mapping[str, frozenset[str]] | None = None,
+) -> PlannedPairs:
+    """The search's joins as the bridge merge's plan: each parent pairs with
+    another only on what the search joined their sources on. A derived
+    connector's subplan returns rows at its own grain, finer than the keys the
+    search binds it on, so it pairs on that grain too. A side the search did
+    not choose (a gap-filled scan, a connector for a concept no scan covered)
+    pairs with every other side on what `unsearched` names for it."""
+    unsearched = unsearched or {}
+    connectors = {CONNECTOR_NODE_PREFIX + alias for alias in bridge.connector_aliases}
+    names = {sides.get(id(parent), "") for parent in parents}
+    unplanned = names - bridge.scans - connectors - unsearched.keys()
+    if unplanned:
+        raise ValueError(
+            f"Bridge sides {sorted(unplanned)} are no source the search chose "
+            "or the bridge planned. This is a planner bug."
+        )
+    keys = dict(bridge.join_keys)
+    for name, own in unsearched.items():
+        for other in names - {name}:
+            pair = frozenset({name, other})
+            keys[pair] = keys.get(pair, frozenset()) | own
+    return PlannedPairs(
+        {id(parent): frozenset({sides[id(parent)]}) for parent in parents},
+        keys,
+        grain_paired=frozenset(
+            name for name in names if name.startswith(CONNECTOR_NODE_PREFIX)
+        ),
+    )
 
 
 def _mark_grouped_at_source(node: StrategyNode) -> None:
@@ -2509,6 +2629,8 @@ def plan_source(request: SourceRequest) -> StrategyNode | None:
     component directly and merge them under a v4 node.
     """
     node = _plan_source(request)
+    if node is not None and _gates_a_pending_partial(request, node):
+        node = None
     if node is not None:
         _mark_grouped_at_source(node)
     if not plan_trace.active():
@@ -2530,6 +2652,37 @@ def plan_source(request: SourceRequest) -> StrategyNode | None:
         ),
     )
     return node
+
+
+def _gates_a_pending_partial(request: SourceRequest, node: StrategyNode) -> bool:
+    """The request's WHERE reads an aggregate a node of `node` filters on while
+    holding it only as a partial finer than its own grain (`sum(x) by city` off `(city, species)` summary
+    rows): filtered there, it is re-summed at the select's grain, never its
+    own (`Rollup.gate_partial_resummed_off_its_grain`). The aggregate's own
+    group answers it instead."""
+    gated = {
+        c.address
+        for clause in (request.conditions, request.deferred_conditions)
+        if clause is not None
+        for c in condition_row_args(clause)
+        if c.is_aggregate
+    }
+    if not gated:
+        return False
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        stack.extend(current.parents)
+        if current.conditions is None:
+            continue
+        applied = gated & {c.address for c in current.conditions.row_arguments}
+        resolved = current.resolve()
+        if any(
+            c.address in applied and not at_own_grain(c, resolved.grain)
+            for c in resolved.rollup_concepts
+        ):
+            return True
+    return False
 
 
 @plan_trace.off_clock

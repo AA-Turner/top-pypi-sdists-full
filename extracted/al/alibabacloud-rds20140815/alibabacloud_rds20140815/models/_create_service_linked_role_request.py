@@ -14,7 +14,7 @@ class CreateServiceLinkedRoleRequest(DaraModel):
         service_linked_role: str = None,
     ):
         self.owner_id = owner_id
-        # The region ID. You can call DescribeRegions to query the available regions.
+        # The region ID. You can call the DescribeRegions operation to query available regions.
         # 
         # This parameter is required.
         self.region_id = region_id
@@ -22,9 +22,9 @@ class CreateServiceLinkedRoleRequest(DaraModel):
         self.resource_owner_id = resource_owner_id
         # The service-linked role. Valid values:
         # 
-        # - **AliyunServiceRoleForRds**: the service-linked role associate with ApsaraDB RDS for MySQL.
-        # - **AliyunServiceRoleForRdsPgsqlOnEcs**: the service-linked role associate with ApsaraDB RDS for PostgreSQL.
-        # - **AliyunServiceRoleForRDSProxyOnEcs**: the service-linked role associate with the database proxy of ApsaraDB RDS for PostgreSQL.
+        # - **AliyunServiceRoleForRds**: the service-linked role for ApsaraDB RDS for MySQL.
+        # - **AliyunServiceRoleForRdsPgsqlOnEcs**: the service-linked role for ApsaraDB RDS for PostgreSQL.
+        # - **AliyunServiceRoleForRDSProxyOnEcs**: the service-linked role for the ApsaraDB RDS for PostgreSQL database proxy.
         # 
         # This parameter is required.
         self.service_linked_role = service_linked_role

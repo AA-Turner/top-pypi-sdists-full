@@ -29,7 +29,6 @@ class Perceptron(LogisticRegression):
 
     Examples
     --------
-
     >>> from river import datasets
     >>> from river import evaluate
     >>> from river import linear_model as lm
@@ -49,10 +48,10 @@ class Perceptron(LogisticRegression):
 
     def __init__(
         self,
-        l2=0.0,
-        clip_gradient=1e12,
+        l2: float = 0.0,
+        clip_gradient: float = 1e12,
         initializer: optim.initializers.Initializer | None = None,
-    ):
+    ) -> None:
         super().__init__(
             optimizer=optim.SGD(1),
             intercept_lr=1,

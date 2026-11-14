@@ -163,12 +163,32 @@ pub struct RunRequest {
     /// The selectors a person narrowed a job run with; reruns copy it with the rest of the request.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub narrowing: Option<RunNarrowing>,
+    /// Set on an automatic retry of a failed run, which is not claimed before `not_before`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry: Option<RunRetry>,
+}
+
+/// Which retry of the job's `on_failure` policy a run is, and when it may start.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RunRetry {
+    pub attempt: u8,
+    pub not_before: DateTime<Utc>,
+}
+
+impl RunRequest {
+    /// Whether a queued run may start at `now`: only a retry still waiting out its delay may not.
+    #[must_use]
+    pub fn due(&self, now: DateTime<Utc>) -> bool {
+        self.retry.is_none_or(|retry| retry.not_before <= now)
+    }
 }
 
 /// A trusted operator names a published job; execution inputs are never supplied by the caller.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct JobRunRequest {
+    /// A new random (UUID v4) or time-ordered (UUID v7) ID; name-based (v5) IDs are refused as the server derives those.
     pub run_id: Uuid,
     pub location_id: Uuid,
     pub target: String,
@@ -192,6 +212,7 @@ pub struct JobRunRequest {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RerunRequest {
+    /// A new random (UUID v4) or time-ordered (UUID v7) ID; name-based (v5) IDs are refused as the server derives those.
     pub run_id: Uuid,
     pub source_run_id: Uuid,
     pub from_failure: bool,
@@ -217,6 +238,19 @@ pub struct RunRecord {
     pub location_id: Uuid,
     pub target: String,
     pub snapshot_id: Uuid,
+    /// The published version the run executes, read from its snapshot.
+    #[serde(default)]
+    pub snapshot_generation: Option<i64>,
+    #[serde(default)]
+    pub git_revision: Option<String>,
+    #[serde(default)]
+    pub git_dirty: Option<bool>,
+    /// The `sqb` version that published the snapshot.
+    #[serde(default)]
+    pub sqb_version: Option<String>,
+    /// The deployment image the run is pinned to, when its location publishes one.
+    #[serde(default)]
+    pub image_id: Option<String>,
     pub job_key: Option<String>,
     pub kind: RunKind,
     pub origin: RunOrigin,
@@ -294,6 +328,8 @@ pub enum QueueWait {
     },
     /// An earlier queued run takes the same concurrency limit, so it goes first.
     EarlierRun { run_id: Option<Uuid>, limit: String },
+    /// An automatic retry waits out the job's retry delay.
+    RetryDelay { attempt: u8, due_at: DateTime<Utc> },
 }
 
 /// The `sqb build` selectors one run of a job was narrowed with.
@@ -708,6 +744,7 @@ pub struct RunObservation {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AdhocRunRequest {
+    /// A new random (UUID v4) or time-ordered (UUID v7) ID; name-based (v5) IDs are refused as the server derives those.
     pub run_id: Uuid,
     pub location_id: Uuid,
     pub target: String,
@@ -726,13 +763,14 @@ pub struct AdhocCheckRequest {
     pub priority: i64,
 }
 
-/// One graph resource selectors resolve over: its `kind:name` key, upstream keys, tags and model folder.
+/// One SQL resource or Python node selectors resolve over: its `kind:name` key, upstream keys, tags, file folder and a source's loader.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlannerResource {
     pub key: String,
     pub deps: Vec<String>,
     pub tags: Vec<String>,
     pub folder: Option<String>,
+    pub loader: Option<String>,
 }
 
 /// A parsed command: its verb, the exact node keys it selects and the flags it sets, by parser destination.
@@ -776,4 +814,45 @@ pub enum PersonRunRequest<'a> {
         &'a dyn CommandPlanner,
         (Uuid, &'a str, &'a crate::platform::models::PlanRequest),
     ),
+}
+
+/// Installation configuration: how long a finished run keeps its worker log, by age and by the number of newer finished runs in its location target, whichever comes first.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RunLogRetention {
+    days: u16,
+    count: u16,
+}
+
+impl RunLogRetention {
+    pub fn new(days: u16, count: u16) -> Result<Self, crate::store::errors::ControlError> {
+        if days == 0 || count == 0 {
+            return Err(crate::store::errors::ControlError::Invalid(
+                "run log retention must keep at least one day and one run".into(),
+            ));
+        }
+        Ok(Self { days, count })
+    }
+
+    pub(crate) fn cutoff(self, now: DateTime<Utc>) -> DateTime<Utc> {
+        now - chrono::TimeDelta::days(i64::from(self.days))
+    }
+
+    #[must_use]
+    pub const fn days(self) -> u16 {
+        self.days
+    }
+
+    #[must_use]
+    pub const fn count(self) -> u16 {
+        self.count
+    }
+}
+
+impl Default for RunLogRetention {
+    fn default() -> Self {
+        Self {
+            days: crate::runs::constants::DEFAULT_RUN_LOG_RETENTION_DAYS,
+            count: crate::runs::constants::DEFAULT_RUN_LOG_RETENTION_COUNT,
+        }
+    }
 }

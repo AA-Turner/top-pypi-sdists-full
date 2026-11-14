@@ -652,6 +652,11 @@ def build_parser():
         help=SUPPRESS,
     )
     configuration.add_argument(
+        "--config-strict",
+        dest="config_strict", action="store_true",
+        help="Exit on invalid default configuration files",
+    )
+    configuration.add_argument(
         "--config-create",
         dest="config", action="store_const", const="init",
         help="Create a basic configuration file",

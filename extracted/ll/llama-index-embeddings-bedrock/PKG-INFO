@@ -1,11 +1,11 @@
 Metadata-Version: 2.5
 Name: llama-index-embeddings-bedrock
-Version: 0.9.0
+Version: 0.10.0
 Summary: llama-index embeddings bedrock integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT
 License-File: LICENSE
-Requires-Python: <4.0,>=3.10
+Requires-Python: <4.0,>=3.11
 Requires-Dist: boto3<2,>=1.34.23
 Requires-Dist: llama-index-core<0.15,>=0.13.0
 Provides-Extra: async

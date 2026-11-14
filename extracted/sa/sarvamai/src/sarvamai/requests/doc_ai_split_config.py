@@ -3,45 +3,28 @@
 import typing
 
 import typing_extensions
-from ..types.doc_ai_split_config_method import DocAiSplitConfigMethod
-from ..types.doc_ai_split_config_remainder import DocAiSplitConfigRemainder
 from .doc_ai_classify_category import DocAiClassifyCategoryParams
-from .doc_ai_page_range import DocAiPageRangeParams
-from .doc_ai_split_trigger import DocAiSplitTriggerParams
+from .doc_ai_page_ranges import DocAiPageRangesParams
+from .doc_ai_review_policy import DocAiReviewPolicyParams
+from .doc_ai_split_constraints import DocAiSplitConstraintsParams
 
 
 class DocAiSplitConfigParams(typing_extensions.TypedDict):
-    """
-    Split options. `fixed_pages` needs `pages_per_segment`, `page_ranges` needs `segment_ranges` and `triggers` needs `split_on`.
-    """
-
-    method: typing_extensions.NotRequired[DocAiSplitConfigMethod]
     classify_segments: typing_extensions.NotRequired[bool]
     """
-    Label each child document. Supply `categories` when `true`; omit them when `false`.
+    Classify each document (default) or split only. With `false`, omit `categories`.
     """
 
     categories: typing_extensions.NotRequired[typing.Sequence[DocAiClassifyCategoryParams]]
     """
-    Categories to label each child document with, each with a `type` and a `description`. Required when `classify_segments` is `true`.
+    Categories to label each document. `identifier_key` fills each document's `identifier`.
     """
 
-    pages_per_segment: typing_extensions.NotRequired[int]
+    instructions: typing_extensions.NotRequired[str]
     """
-    Pages in each document, for `fixed_pages`.
-    """
-
-    remainder: typing_extensions.NotRequired[DocAiSplitConfigRemainder]
-    """
-    For `fixed_pages`. `keep` keeps the final smaller group; `error` rejects the request when pages do not divide evenly.
+    Your own instructions, up to 8,000 characters.
     """
 
-    segment_ranges: typing_extensions.NotRequired[typing.Sequence[DocAiPageRangeParams]]
-    """
-    For `page_ranges`. Ranges must cover the selected pages exactly once, in order.
-    """
-
-    split_on: typing_extensions.NotRequired[typing.Sequence[DocAiSplitTriggerParams]]
-    """
-    Markers, for `triggers`.
-    """
+    page_ranges: typing_extensions.NotRequired[DocAiPageRangesParams]
+    constraints: typing_extensions.NotRequired[DocAiSplitConstraintsParams]
+    review_policy: typing_extensions.NotRequired[DocAiReviewPolicyParams]

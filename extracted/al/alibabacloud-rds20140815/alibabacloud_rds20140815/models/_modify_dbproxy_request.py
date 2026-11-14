@@ -28,9 +28,9 @@ class ModifyDBProxyRequest(DaraModel):
     ):
         # Specifies whether to enable or disable the database proxy. Valid values:
         # 
-        # * **Startup**: enables the proxy service.
-        # * **Shutdown**: disables the proxy service.
-        # * **Modify**: modifies the proxy service.
+        # * **Startup**: Enables the proxy service.
+        # * **Shutdown**: Disables the proxy service.
+        # * **Modify**: Modifies the proxy service.
         # 
         # This parameter is required.
         self.config_dbproxy_service = config_dbproxy_service
@@ -42,13 +42,13 @@ class ModifyDBProxyRequest(DaraModel):
         self.dbproxy_engine_type = dbproxy_engine_type
         # The number of proxy instances to enable. Valid values: **1** to **16**. Default value: **1**.
         # 
-        # > More proxy instances can process more requests. You can check the load of proxy instances based on monitoring data and specify an appropriate number of proxy instances.
+        # > More proxy instances can process more requests. You can check the load of the proxy instances based on monitoring data and then adjust the Settings to an appropriate number of proxy instances.
         self.dbproxy_instance_num = dbproxy_instance_num
         # The type of the database proxy instance. Valid values:
         # - **common**: general-purpose database proxy
-        # - **exclusive**: dedicated proxy (default)
+        # - **exclusive**: dedicated database proxy (default)
         self.dbproxy_instance_type = dbproxy_instance_type
-        # The proxy nodes.
+        # The list of proxy nodes.
         self.dbproxy_nodes = dbproxy_nodes
         # The network type of the instance. Only VPC is supported. Valid value: **VPC**.
         # 
@@ -56,10 +56,10 @@ class ModifyDBProxyRequest(DaraModel):
         self.instance_network_type = instance_network_type
         self.owner_id = owner_id
         # Specifies whether to enable connection keep-alive. Valid values:
-        # - **Enabled**: enables connection keep-alive.
-        # - **Disabled**: disables connection keep-alive.
+        # - **Enabled**: Enables connection keep-alive.
+        # - **Disabled**: Disables connection keep-alive.
         # 
-        # > - This parameter is supported only for ApsaraDB RDS for MySQL.
+        # > - Only ApsaraDB RDS for MySQL supports this parameter.
         # > - When you modify the connection keep-alive status, set **ConfigDBProxyService** to **Modify**.
         self.persistent_connection_status = persistent_connection_status
         # The region ID. You can call the DescribeRegions operation to query the region ID.
@@ -68,11 +68,11 @@ class ModifyDBProxyRequest(DaraModel):
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The ID of the VPC to which the instance belongs. You can call the DescribeDBInstanceAttribute operation to query the VPC ID.
+        # The ID of the VPC to which the instance belongs. You can invoke the DescribeDBInstanceAttribute operation to query the VPC ID.
         # 
         # > This parameter is required when you enable the database proxy.
         self.vpcid = vpcid
-        # The ID of the vSwitch to which the instance belongs. You can call the DescribeDBInstanceAttribute operation to query the vSwitch ID.
+        # The ID of the vSwitch to which the instance belongs. You can invoke the DescribeDBInstanceAttribute operation to query the vSwitch ID.
         # 
         # > This parameter is required when you enable the database proxy.
         self.v_switch_id = v_switch_id

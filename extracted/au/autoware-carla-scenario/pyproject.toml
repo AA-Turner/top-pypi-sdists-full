@@ -1,6 +1,6 @@
 [project]
 name = "autoware-carla-scenario"
-version = "26.9.6"
+version = "27.2.1"
 description = "CARLA scenario testing framework for Autoware"
 readme = "README.md"
 license = "Apache-2.0"
@@ -98,6 +98,7 @@ viewer = "autoware_carla_scenario.ui:main"
 scenario-editor = "autoware_carla_scenario.editor:main"
 scenario-hils = "autoware_carla_scenario.hils.cli:main"
 scenario-t4scene = "autoware_carla_scenario.t4_scene.__main__:main"
+scenario-wosac = "autoware_carla_scenario.wosac.__main__:main"
 
 [build-system]
 requires = ["uv_build>=0.9.7,<0.10.0"]

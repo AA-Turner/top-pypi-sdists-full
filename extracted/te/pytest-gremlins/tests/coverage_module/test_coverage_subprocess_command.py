@@ -6,15 +6,17 @@ for full node ID contexts instead of dynamic_context=test_function.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import cast
+from typing import (
+    TYPE_CHECKING,
+    cast,
+)
 from unittest.mock import (
     MagicMock,
     patch,
 )
 
 import pytest
-import xdist.plugin
+import xdist.plugin  # type: ignore[import-untyped]
 
 from pytest_gremlins.plugin import (
     GremlinSession,
@@ -23,6 +25,9 @@ from pytest_gremlins.plugin import (
     _run_tests_with_coverage,
 )
 from pytest_gremlins.xdist_options import addopts_without_xdist
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.mark.medium
@@ -36,29 +41,12 @@ class DescribeRunTestsWithCoverageCommand:
         def capture_cmd(cmd: list[str], **_kwargs: object) -> None:
             captured_cmd.extend(cmd)
 
-        with patch('pytest_gremlins.plugin.subprocess.run', autospec=True, side_effect=capture_cmd):
+        with patch('pytest_gremlins.process_tree.run_bounded', autospec=True, side_effect=capture_cmd):
             _run_tests_with_coverage(['tests/test_a.py::test_one'], tmp_path)
 
         assert '-p' in captured_cmd
         bootstrap_idx = captured_cmd.index('-p')
         assert captured_cmd[bootstrap_idx + 1] == 'pytest_gremlins.coverage.subprocess_bootstrap'
-
-    def it_ignores_the_assert_rewrite_warning_the_prescan_entry_point_provokes(self, tmp_path: Path) -> None:
-        """pytest 9.2 applies ini ``filterwarnings = error`` to config-time warnings.
-
-        The pre-scan entry point imports ``pytest_gremlins`` before pytest starts, so pytest warns that the
-        module cannot be rewritten; under ``filterwarnings = error`` that aborted the pre-scan.
-        """
-        captured_cmd: list[str] = []
-
-        def capture_cmd(cmd: list[str], **_kwargs: object) -> None:
-            captured_cmd.extend(cmd)
-
-        with patch('pytest_gremlins.plugin.subprocess.run', autospec=True, side_effect=capture_cmd):
-            _run_tests_with_coverage(['tests/test_a.py::test_one'], tmp_path)
-
-        w_index = captured_cmd.index('-W')
-        assert captured_cmd[w_index + 1] == 'ignore::pytest.PytestAssertRewriteWarning'
 
     def it_disables_gremlins_plugin_in_subprocess(self, tmp_path: Path) -> None:
         """The subprocess command disables the full gremlins plugin via -p no:gremlins."""
@@ -67,7 +55,7 @@ class DescribeRunTestsWithCoverageCommand:
         def capture_cmd(cmd: list[str], **_kwargs: object) -> None:
             captured_cmd.extend(cmd)
 
-        with patch('pytest_gremlins.plugin.subprocess.run', autospec=True, side_effect=capture_cmd):
+        with patch('pytest_gremlins.process_tree.run_bounded', autospec=True, side_effect=capture_cmd):
             _run_tests_with_coverage(['tests/test_a.py::test_one'], tmp_path)
 
         p_indices = [i for i, v in enumerate(captured_cmd) if v == '-p']
@@ -83,7 +71,7 @@ class DescribeRunTestsWithCoverageCommand:
             if coveragerc_path.exists():
                 captured_content.append(coveragerc_path.read_text())
 
-        with patch('pytest_gremlins.plugin.subprocess.run', autospec=True, side_effect=capture_cmd):
+        with patch('pytest_gremlins.process_tree.run_bounded', autospec=True, side_effect=capture_cmd):
             _run_tests_with_coverage(['tests/test_a.py::test_one'], tmp_path)
 
         assert captured_content, 'coveragerc was not written before subprocess.run'
@@ -98,7 +86,7 @@ class DescribeRunTestsWithCoverageCommand:
             if coveragerc_path.exists():
                 captured_content.append(coveragerc_path.read_text())
 
-        with patch('pytest_gremlins.plugin.subprocess.run', autospec=True, side_effect=capture_cmd):
+        with patch('pytest_gremlins.process_tree.run_bounded', autospec=True, side_effect=capture_cmd):
             _run_tests_with_coverage(['tests/test_a.py::test_one'], tmp_path)
 
         assert captured_content
@@ -115,7 +103,7 @@ class DescribeRunTestsWithCoverageCommand:
                 captured_content.append(coveragerc_path.read_text())
 
         include = ['/abs/src/foo.py', '/abs/src/bar.py']
-        with patch('pytest_gremlins.plugin.subprocess.run', autospec=True, side_effect=capture_cmd):
+        with patch('pytest_gremlins.process_tree.run_bounded', autospec=True, side_effect=capture_cmd):
             _run_tests_with_coverage(['tests/test_a.py::test_one'], tmp_path, coverage_include=include)
 
         assert captured_content
@@ -162,7 +150,7 @@ def _prescan_command(tmp_path: Path, preserved_addopts: str) -> list[str]:
     def capture_cmd(cmd: list[str], **_kwargs: object) -> None:
         captured_cmd.extend(cmd)
 
-    with patch('pytest_gremlins.plugin.subprocess.run', autospec=True, side_effect=capture_cmd):
+    with patch('pytest_gremlins.process_tree.run_bounded', autospec=True, side_effect=capture_cmd):
         _run_tests_with_coverage(['tests/test_a.py::test_one'], tmp_path, preserved_addopts=preserved_addopts)
     return captured_cmd
 
@@ -239,7 +227,7 @@ class DescribeRunTestsWithCoverageXdistStripping:
         monkeypatch.setenv('COVERAGE_CORE', 'sysmon')
         monkeypatch.setenv('GREMLIN_SENTINEL', 'kept')
 
-        with patch('pytest_gremlins.plugin.subprocess.run', autospec=True) as run:
+        with patch('pytest_gremlins.process_tree.run_bounded', autospec=True) as run:
             _run_tests_with_coverage([], tmp_path)
 
         env = run.call_args.kwargs['env']

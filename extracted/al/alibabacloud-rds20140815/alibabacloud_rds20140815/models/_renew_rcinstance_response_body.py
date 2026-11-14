@@ -12,11 +12,11 @@ class RenewRCInstanceResponseBody(DaraModel):
         order_ids: str = None,
         request_id: str = None,
     ):
-        # The instance ID of the RDS Custom instance.
+        # The RDS Custom instance ID.
         self.dbinstance_id = dbinstance_id
-        # The order ID.
+        # The order IDs.
         self.order_id = order_id
-        # The order ID.
+        # The order IDs.
         self.order_ids = order_ids
         # The request ID.
         self.request_id = request_id

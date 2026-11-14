@@ -26,11 +26,11 @@ class DescribeBackupTasksRequest(DaraModel):
         # 
         # Default value: all statuses.
         self.backup_job_status = backup_job_status
-        # The backup pattern. Valid values:
+        # The backup mode. Valid values:
         # * **Automated**: automatic backup
         # * **Manual**: manual backup
         self.backup_mode = backup_mode
-        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can generate the value of this parameter on the client side. The value must be unique across different requests and can be up to 64 ASCII characters in length. It cannot contain non-ASCII characters.
+        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the value, but you must ensure that it is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
         # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
         # 

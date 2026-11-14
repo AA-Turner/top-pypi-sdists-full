@@ -89746,23 +89746,32 @@ class SharedLinkCreateDetails(bb.Struct):
     :ivar SharedLinkCreateDetails.shared_link_access_level:
         Defines who can access the shared link. Might be missing due to
         historical data gap.
+    :ivar SharedLinkCreateDetails.subdomain:
+        Team subdomain associated with this shared-link action.
     """
 
     __slots__ = [
         "_shared_link_access_level_value",
+        "_subdomain_value",
     ]
 
     _has_required_fields = False
 
-    def __init__(self, shared_link_access_level=None):
+    def __init__(self, shared_link_access_level=None, subdomain=None):
         self._shared_link_access_level_value = bb.NOT_SET
+        self._subdomain_value = bb.NOT_SET
         if shared_link_access_level is not None:
             self.shared_link_access_level = shared_link_access_level
+        if subdomain is not None:
+            self.subdomain = subdomain
 
     # Instance attribute type: SharedLinkAccessLevel (validator is set below)
     shared_link_access_level = bb.Attribute(
         "shared_link_access_level", nullable=True, user_defined=True
     )
+
+    # Instance attribute type: str (validator is set below)
+    subdomain = bb.Attribute("subdomain", nullable=True)
 
     def _process_custom_annotations(self, annotation_type, field_path, processor):
         super(SharedLinkCreateDetails, self)._process_custom_annotations(
@@ -90872,21 +90881,30 @@ class SharedLinkViewDetails(bb.Struct):
 
     :ivar SharedLinkViewDetails.shared_link_owner:
         Shared link owner details. Might be missing due to historical data gap.
+    :ivar SharedLinkViewDetails.subdomain:
+        Team subdomain used to access the shared link.
     """
 
     __slots__ = [
         "_shared_link_owner_value",
+        "_subdomain_value",
     ]
 
     _has_required_fields = False
 
-    def __init__(self, shared_link_owner=None):
+    def __init__(self, shared_link_owner=None, subdomain=None):
         self._shared_link_owner_value = bb.NOT_SET
+        self._subdomain_value = bb.NOT_SET
         if shared_link_owner is not None:
             self.shared_link_owner = shared_link_owner
+        if subdomain is not None:
+            self.subdomain = subdomain
 
     # Instance attribute type: UserLogInfo (validator is set below)
     shared_link_owner = bb.Attribute("shared_link_owner", nullable=True, user_defined=True)
+
+    # Instance attribute type: str (validator is set below)
+    subdomain = bb.Attribute("subdomain", nullable=True)
 
     def _process_custom_annotations(self, annotation_type, field_path, processor):
         super(SharedLinkViewDetails, self)._process_custom_annotations(
@@ -119092,9 +119110,16 @@ SharedLinkCopyType._all_fields_ = [("description", SharedLinkCopyType.descriptio
 SharedLinkCreateDetails.shared_link_access_level.validator = bv.Nullable(
     SharedLinkAccessLevel_validator
 )
-SharedLinkCreateDetails._all_field_names_ = set(["shared_link_access_level"])
+SharedLinkCreateDetails.subdomain.validator = bv.Nullable(bv.String())
+SharedLinkCreateDetails._all_field_names_ = set(
+    [
+        "shared_link_access_level",
+        "subdomain",
+    ]
+)
 SharedLinkCreateDetails._all_fields_ = [
-    ("shared_link_access_level", SharedLinkCreateDetails.shared_link_access_level.validator)
+    ("shared_link_access_level", SharedLinkCreateDetails.shared_link_access_level.validator),
+    ("subdomain", SharedLinkCreateDetails.subdomain.validator),
 ]
 
 SharedLinkCreateType.description.validator = bv.String()
@@ -119465,9 +119490,16 @@ SharedLinkShareType._all_field_names_ = set(["description"])
 SharedLinkShareType._all_fields_ = [("description", SharedLinkShareType.description.validator)]
 
 SharedLinkViewDetails.shared_link_owner.validator = bv.Nullable(UserLogInfo_validator)
-SharedLinkViewDetails._all_field_names_ = set(["shared_link_owner"])
+SharedLinkViewDetails.subdomain.validator = bv.Nullable(bv.String())
+SharedLinkViewDetails._all_field_names_ = set(
+    [
+        "shared_link_owner",
+        "subdomain",
+    ]
+)
 SharedLinkViewDetails._all_fields_ = [
-    ("shared_link_owner", SharedLinkViewDetails.shared_link_owner.validator)
+    ("shared_link_owner", SharedLinkViewDetails.shared_link_owner.validator),
+    ("subdomain", SharedLinkViewDetails.subdomain.validator),
 ]
 
 SharedLinkViewType.description.validator = bv.String()

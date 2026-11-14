@@ -574,6 +574,10 @@ impl EvaluatedKeys {
 }
 
 #[cfg(test)]
+#[path = "__tests__/gcir_cmab_checksum_tests.rs"]
+mod cmab_checksum_tests;
+
+#[cfg(test)]
 mod tests {
     use std::collections::{HashMap, HashSet};
 

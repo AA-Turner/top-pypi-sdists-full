@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: TikTokApi
-Version: 7.3.3
+Version: 7.3.5
 Summary: The Unofficial TikTok API Wrapper in Python 3.
 Home-page: https://github.com/davidteather/tiktok-api
 Download-URL: https://github.com/davidteather/TikTok-Api/tarball/main
@@ -24,7 +24,7 @@ License-File: LICENSE.txt
 Requires-Dist: requests<3.0,>=2.31.0
 Requires-Dist: playwright<2.0,>=1.36.0
 Requires-Dist: httpx<1.0,>=0.27.0
-Requires-Dist: proxyproviders<0.3.0,>=0.2.1
+Requires-Dist: proxyproviders<1.0.0,>=0.2.1
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -67,31 +67,15 @@ These sponsors have paid to be placed here or are my own affiliate links which I
         </div>
     </a>
     <br>
-    <a href="https://tikhub.io/?utm_source=github&utm_medium=readme&utm_campaign=tiktok_api&ref=github_davidteather_tiktokapi" target="_blank">
-        <img src="https://raw.githubusercontent.com/davidteather/TikTok-Api/main/imgs/tikhub.png" width="100" alt="TikHub API">
+    <a href="https://go.eulerstream.com/tiktok-api-img" target="_blank">
+        <img src="https://raw.githubusercontent.com/davidteather/TikTok-Api/main/imgs/eulerstream.png" width="100" alt="Euler Stream API">
         <b></b>
         <div>
-         <b>TikHub API</b> offers 700+ endpoints for fetching and analyzing data from 14+ social media platforms<br>including videos, users, comments, shops, products, and trends — all in one place.
+         <b>Euler Stream</b> is the #1 provider of TikTok API data for <b>Enterprises & Agencies</b>, trusted by 30,000+ customers. Our focus is on quick, stable APIs with world-class documentation & SDKs.
         </div>
     </a>
     <br>
-    <a href="https://zernio.com/?utm_source=github&utm_medium=readme&utm_campaign=tiktok_api" target="_blank">
-        <img src="https://raw.githubusercontent.com/davidteather/TikTok-Api/main/imgs/zernio.png" width="100" alt="Zernio">
-        <b></b>
-        <div>
-         <b>Zernio</b> — Skip TikTok's API review process. Publish videos, schedule posts, manage comments, and pull analytics through our pre-approved TikTok integration. Works with 13 other platforms too.
-        </div>
-    </a>
-    <br>
-    <a href="https://socialapis.io/?utm_source=github&utm_medium=sponsor&utm_campaign=tiktok-api" target="_blank">
-        <img src="https://raw.githubusercontent.com/davidteather/TikTok-Api/main/imgs/socialapis.png" width="96" alt="SocialAPIs">
-        <b></b>
-        <div>
-        <b>SocialAPIs</b> — Facebook data APIs that just work. Extract Pages, Groups, Posts, Reels, Comments, Ads Library & Marketplace via clean JSON endpoints. No proxies, no headless browsers. MCP included!
-        </div>
-    </a>
-    <br>
-    <a href="https://www.webshare.io/?referral_code=3x5812idzzzp" target="_blank">
+    <a href="https://go.dteather.com/webshare?src=tiktokapi&placement=readme" target="_blank">
         <img src="https://raw.githubusercontent.com/davidteather/TikTok-Api/main/imgs/webshare.png" width="100" alt="Webshare Proxies">
         <b></b>
         <div>
@@ -118,7 +102,7 @@ You can find the full documentation [here](https://davidteather.github.io/TikTok
 
 To get started using this API follow the instructions below.
 
-**Note:** If you want to learn how to web scrape websites check my [free and open-source course for learning everything web scraping](https://github.com/davidteather/everything-web-scraping)
+**Note:** If you want to learn how to web scrape websites check my [free and open-source course for learning everything web scraping](https://go.dteather.com/everything-web-scraping?src=tiktokapi&placement=readme)
 
 ### How to Support The Project
 
@@ -157,7 +141,8 @@ docker run -v TikTokApi --rm tiktokapi:latest python3 your_script.py
 ### Common Issues
 
 - **EmptyResponseException** - this means TikTok is blocking the request and detects you're a bot. This can be a problem with your setup or the library itself
-  - you may need a proxy to successfully scrape TikTok, I've made a [web scraping lesson](https://github.com/davidteather/everything-web-scraping/tree/main/002-proxies) explaining the differences of "tiers" of proxies, I've personally had success with [webshare's residential proxies](https://www.webshare.io/?referral_code=3x5812idzzzp) (affiliate link), but you might have success on their free data center IPs or a cheaper competitor.
+  - you may need a proxy to successfully scrape TikTok, I've made a [web scraping lesson](https://go.dteather.com/everything-web-scraping-proxies?src=tiktokapi&placement=readme) explaining the differences of "tiers" of proxies, I've personally had success with [webshare's residential proxies](https://go.dteather.com/webshare?src=tiktokapi&placement=readme) (affiliate link), but you might have success on their free data center IPs or a cheaper competitor.
+  - not sure which proxy provider will work for you? This library integrates with my [ProxyProviders](https://go.dteather.com/proxyproviders?src=tiktokapi&placement=readme) package, which makes it easy to try out and switch between different proxy providers with a single line via `create_sessions(proxy_provider=...)`. See [examples/proxy_provider_example.py](https://github.com/davidteather/TikTok-Api/blob/main/examples/proxy_provider_example.py) for usage.
 
 - **Browser Has no Attribute** - make sure you ran `python3 -m playwright install`, if your error persists try the [playwright-python](https://github.com/microsoft/playwright-python) quickstart guide and diagnose issues from there.
 

@@ -71,15 +71,17 @@ fn candidate(
     capture: bool,
 ) -> Result<(Box<SpecsResponseFull>, ResponseData), StatsigErr> {
     let mut data = ResponseData::from_bytes(source.as_bytes().to_vec());
-    let (snapshot, verified) = build_hydrated_json_snapshot(
+    let snapshot = build_hydrated_json_snapshot(
         input(source),
         &mut data,
         VerifiedRemoteValues::new(),
         HashMap::new(),
+        &HashMap::new(),
         capture,
     )?;
-    assert!(verified.is_empty());
-    Ok((snapshot, data))
+    assert!(snapshot.verified.is_empty());
+    assert!(snapshot.unavailable.is_empty());
+    Ok((snapshot.values, data))
 }
 
 #[test]

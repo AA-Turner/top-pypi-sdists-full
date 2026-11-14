@@ -57,6 +57,7 @@ class SessionRowsMixin:
 
     def _list_sessions_page(
         self, *, backend_cursor, cursor, data, last_sent, mode, page_size, people: PeopleFilters, scope, sent,
+        query: str | None = None,
     ) -> str | None:
         """mode=sessions: one page after the last row sent; the cursor after the page. The route's
         cursor is its own and opaque here, so a cut inside a page resumes by finding the last row sent
@@ -73,6 +74,7 @@ class SessionRowsMixin:
             project_id=project_id,
             cursor=position,
             limit=page_size if resume_after is None else self._SESSIONS_REREAD_LIMIT,
+            query=query,
         )
         data.update(get_owner_echo(page))
         rows = [

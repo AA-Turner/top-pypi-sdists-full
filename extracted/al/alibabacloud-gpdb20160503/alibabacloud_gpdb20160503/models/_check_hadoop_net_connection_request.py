@@ -16,7 +16,7 @@ class CheckHadoopNetConnectionRequest(DaraModel):
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # 1. You must specify either DataSourceId or EmrInstanceId. Otherwise, an error is returned.
+        # 1. You must specify either DataSourceId or EmrInstanceId as input. Otherwise, an error is returned.
         # 2. If both parameters are specified, EmrInstanceId takes precedence.
         # 3. If the data source specified by DataSourceId is a self-managed Hadoop cluster, an error is returned.
         self.data_source_id = data_source_id

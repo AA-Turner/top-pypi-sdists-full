@@ -51,48 +51,48 @@ class CreateRCNodePoolShrinkRequest(DaraModel):
         self.amount = amount
         # Specifies whether to enable automatic payment. Valid values:
         # 
-        # - **true**: Automatic payment is enabled. Make sure that your account balance is sufficient.
+        # - **true**: Automatic payment is enabled. You must ensure that your account balance is sufficient.
         # - **false**: Only an order is generated and no payment is made.
         # 
         # 
-        # > Default value: **true**. If the balance of your payment method is insufficient, you can set the AutoPay parameter to false. In this case, an unpaid order is generated, and you can log on to the ApsaraDB RDS console to complete the payment.
+        # > Default value: true. If your payment method has insufficient balance, you can set the AutoPay parameter to false. In this case, an unpaid order is generated, and you can log on to the ApsaraDB RDS console to complete the payment.
         # >
         self.auto_pay = auto_pay
         # Specifies whether to enable auto-renewal for the instance. This parameter is valid only when you create a subscription instance. Valid values:
-        # * **true**: yes.
-        # * **false**: no.
+        # * **true**: Yes.
+        # * **false**: No.
         # 
-        # > * If the subscription duration is one month, the auto-renewal cycle is 1 month.
-        # > * If the subscription duration is one year, the auto-renewal cycle is 1 year.
+        # > * If you purchase the instance on a monthly basis, the epoch of the Unified Auto Renewal Cycle is one month.
+        # > * If you purchase the instance on a yearly basis, the epoch of the Unified Auto Renewal Cycle is one year.
         self.auto_renew = auto_renew
         # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the value, but you must ensure that it is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # The RDS Custom container cluster ID.
+        # The ID of the RDS Custom container cluster.
         # 
         # This parameter is required.
         self.cluster_id = cluster_id
-        # Specifies whether the instance is allowed to join an ACK cluster. When this parameter is set to **1**, the created instance can be added to an ACK cluster for efficient management of containerized applications.
+        # Specifies whether to allow the instance to join an ACK cluster. If the parameter settings are set to **1**, the created instance can be added to an ACK cluster for efficient management of containerized applications. Valid values:
         # 
-        # - **1**: yes.
-        # - **0** (default): no.
+        # - **1**: Yes.
+        # - **0**: No. This is the default value.
         self.create_mode = create_mode
-        # The data cloud disks.
+        # The list of data cloud disks.
         self.data_disk_shrink = data_disk_shrink
         # The deployment set ID.
         self.deployment_set_id = deployment_set_id
         # The instance description. The description must be 2 to 256 characters in length and cannot start with http:// or https://.
         self.description = description
         # Specifies whether to perform a dry run before creating the instance. Valid values:
-        # * **true**: A dry run is performed and no instance is created. The system checks the request parameters, request format, service limits, and available resources.
-        # * **false** (default): A normal request is sent and the instance is created if the request passes the dry run.
+        # * **true**: Performs a dry run without creating the instance. The system checks items such as request parameters, request format, business limits, and resource inventory.
+        # * **false**: Does not perform a dry run and sends a normal request. If the request passes the check, the instance is directly created. This is the default value.
         self.dry_run = dry_run
         # The hostname of the instance.
         self.host_name = host_name
         # The image ID of the instance.
         self.image_id = image_id
         # The billing method. Valid values:
-        # * **Prepaid**: subscription.
-        # * **Postpaid**: pay-as-you-go.
+        # * **Prepaid**: Subscription.
+        # * **Postpaid**: Pay-as-you-go.
         self.instance_charge_type = instance_charge_type
         # The instance name.
         self.instance_name = instance_name
@@ -100,13 +100,13 @@ class CreateRCNodePoolShrinkRequest(DaraModel):
         # 
         # This parameter is required.
         self.instance_type = instance_type
-        # Reserved parameter. Not supported.
+        # The reserved parameter. This parameter is not supported.
         self.internet_charge_type = internet_charge_type
-        # Reserved parameter. Not supported.
+        # The reserved parameter. This parameter is not supported.
         self.internet_max_bandwidth_out = internet_max_bandwidth_out
-        # Reserved parameter. Not supported.
+        # The reserved parameter. This parameter is not supported.
         self.io_optimized = io_optimized
-        # The key pair name. Only one key pair name is supported.
+        # The key pair name. Only one name is supported.
         self.key_pair_name = key_pair_name
         # The node pool name.
         self.node_pool_name = node_pool_name
@@ -114,9 +114,9 @@ class CreateRCNodePoolShrinkRequest(DaraModel):
         self.password = password
         # The subscription duration of the resource. Default value: **1**.
         self.period = period
-        # The time unit of the subscription billing method. Valid values:
-        # - **Year**: year.
-        # - **Month** (default): month.
+        # The time unit of the billing for the subscription Billable methods. Valid values:
+        # - **Year**: Year.
+        # - **Month**: Month. Default value.
         self.period_unit = period_unit
         # The region ID.
         # 
@@ -124,23 +124,23 @@ class CreateRCNodePoolShrinkRequest(DaraModel):
         self.region_id = region_id
         # The resource group ID.
         self.resource_group_id = resource_group_id
-        # Reserved parameter. Not supported.
+        # The reserved parameter. This parameter is not supported.
         self.security_enhancement_strategy = security_enhancement_strategy
-        # The security group ID. You can specify an existing security group ID. If the specified security group does not exist, a security group is automatically created.
+        # The security group ID. You can specify an existing security group ID. If the specified security group does not exist, the system performs automatic creation of a security group.
         self.security_group_id = security_group_id
-        # Reserved parameter. Not supported.
+        # The reserved parameter. This parameter is not supported.
         self.spot_strategy = spot_strategy
         # The supported scenario. This parameter is required when the **createMode** parameter is set to **1**. Only **edge** is supported.
         self.support_case = support_case
         # The system cloud disk.
         self.system_disk_shrink = system_disk_shrink
-        # The tags.
+        # The list of tags.
         self.tag = tag
-        # Reserved parameter. Not supported.
+        # The reserved parameter. This parameter is not supported.
         self.user_data = user_data
         # The vSwitch ID.
         # 
-        # > The vSwitch must be in the same zone as the RDS instance.
+        # > The vSwitch must reside in the same zone as the RDS instance.
         # 
         # This parameter is required.
         self.v_switch_id = v_switch_id
@@ -380,9 +380,9 @@ class CreateRCNodePoolShrinkRequestTag(DaraModel):
         key: str = None,
         value: str = None,
     ):
-        # The tag key. You can create up to N tag keys at a time. Valid values of N: **1** to **20**. The tag key cannot be an empty string.
+        # The tag key. You can create up to N tag keys at a time. Valid values of N: **1** to **20**. Empty strings are not allowed.
         self.key = key
-        # The tag value that corresponds to the tag key. You can create up to N tag values at a time. Valid values of N: **1** to **20**. The tag value can be an empty string.
+        # The tag value that corresponds to the tag key. You can create up to N tag values at a time. Valid values of N: **1** to **20**. Empty strings are allowed.
         self.value = value
 
     def validate(self):

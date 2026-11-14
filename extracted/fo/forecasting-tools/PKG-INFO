@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: forecasting-tools
-Version: 0.3.6
+Version: 0.3.7
 Summary: AI forecasting and research tools to help humans reason about and forecast the future
 Project-URL: Repository, https://github.com/Metaculus/forecasting-tools
 Author-email: Benjamin Wilson <ben@metaculus.com>
@@ -29,7 +29,7 @@ Requires-Dist: nest-asyncio<2.0.0,>=1.5.8
 Requires-Dist: numpy<3.0.0,>=1.26.0
 Requires-Dist: openai<4.0.0,>=1.51.0
 Requires-Dist: pendulum<4.0.0,>=3.1.0
-Requires-Dist: pillow<13.0.0,>=9.0.0
+Requires-Dist: pillow<14.0.0,>=9.0.0
 Requires-Dist: pydantic<3.0.0,>=2.9.2
 Requires-Dist: python-dotenv<2.0.0,>=1.0.0
 Requires-Dist: requests<3.0.0,>=2.32.3

@@ -24,7 +24,7 @@ class ModifyDBProxyInstanceRequest(DaraModel):
         resource_owner_id: int = None,
         v_switch_ids: str = None,
     ):
-        # The instance ID. You can call the DescribeDBInstances operation to query the instance ID.
+        # The instance ID. You can call the DescribeDBInstances operation to query the ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
@@ -42,24 +42,24 @@ class ModifyDBProxyInstanceRequest(DaraModel):
         # This parameter is required.
         self.dbproxy_instance_type = dbproxy_instance_type
         # The list of proxy nodes.
-        # > This parameter is required when the current proxy instance is active in a multi-zone deployment.
+        # > This parameter is required when the current proxy instance is deployed across multiple active zones.
         self.dbproxy_nodes = dbproxy_nodes
-        # The specified time when the modifications take effect. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
+        # The specific time when the modification takes effect. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
         # > This parameter is required when **EffectiveTime** is set to **SpecificTime**.
         self.effective_specific_time = effective_specific_time
-        # The time when the modifications take effect. Valid values:
+        # The time when the modification takes effect. Valid values:
         # 
-        # * **Immediate**: The modifications take effect immediately.
-        # * **MaintainTime**: The modifications take effect within the maintenance window. For more information, see ModifyDBInstanceMaintainTime.
-        # * **SpecificTime**: The modifications take effect at a specified time.
+        # * **Immediate**: The modification immediately takes effect.
+        # * **MaintainTime**: The modification takes effect within the maintenance window. For more information, see ModifyDBInstanceMaintainTime.
+        # * **SpecificTime**: The modification takes effect at a specified time.
         # 
         # Default value: **MaintainTime**.
         self.effective_time = effective_time
-        # The list of zones to which the proxy is migrated.
-        # > Currently, only ApsaraDB RDS for MySQL instances with cloud disks support proxy instance migration across zones.
+        # The list of active zones for proxy migration.
+        # > Currently, only ApsaraDB RDS for MySQL instances with cloud disks support migrating proxy instances to other active zones.
         self.migrate_az = migrate_az
         self.owner_id = owner_id
-        # The region ID. You can call the DescribeRegions operation to query the region ID.
+        # The region ID. You can call the DescribeRegions operation to query the ID.
         self.region_id = region_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
@@ -234,7 +234,7 @@ class ModifyDBProxyInstanceRequestDBProxyNodes(DaraModel):
         # The number of CPU cores for the node. Valid values: **1** to **16**.
         # > This parameter is required when **DBProxyNodes** is specified.
         self.cpu_cores = cpu_cores
-        # The number of proxy nodes in the zone. Valid values: **1** and **2**.
+        # The number of proxy nodes in the zone. Valid values: **1** to **2**.
         # > This parameter is required when **DBProxyNodes** is specified.
         self.node_counts = node_counts
         # The zone ID of the node.

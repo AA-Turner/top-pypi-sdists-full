@@ -1,7 +1,7 @@
 """
 civic_get_assertion
 
-Get detailed information about a specific assertion in CIViC database by assertion ID. Assertions...
+Get one CIViC assertion by id, with THE EVIDENCE IT IS MADE FROM. Returns the assertion's type, d...
 """
 
 from typing import Any, Optional, Callable
@@ -16,7 +16,7 @@ def civic_get_assertion(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Get detailed information about a specific assertion in CIViC database by assertion ID. Assertions...
+    Get one CIViC assertion by id, with THE EVIDENCE IT IS MADE FROM. Returns the assertion's type, d...
 
     Parameters
     ----------

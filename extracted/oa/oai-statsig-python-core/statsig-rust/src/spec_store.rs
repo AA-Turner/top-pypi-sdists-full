@@ -1,3 +1,8 @@
+mod blob_repair;
+use blob_repair::effective_conditions;
+use blob_repair::{BlobRepair, restore_pending_configs};
+pub(crate) use blob_repair::{ConditionMap, RetainedConditions, resolve_condition};
+
 use crate::id_lists_adapter::IdListUpdateBase;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
@@ -13,7 +18,8 @@ use serde_json::Value;
 
 use crate::data_store_interface::{DataStoreCacheKeys, DataStoreTrait, RequestPath};
 use crate::evaluation::dynamic_string::DynamicString;
-use crate::evaluation::evaluation_data::{RuleRef, SpecView};
+use crate::evaluation::evaluation_data::RuleRef;
+use crate::evaluation::evaluation_details::EvaluationDetails;
 use crate::evaluation::evaluator::SpecType;
 use crate::gcir::evaluation_plan::GcirEvaluationPlan;
 use crate::global_configs::GlobalConfigs;
@@ -32,17 +38,23 @@ use crate::observability::observability_client_adapter::{
 use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
 use crate::observability::sdk_errors_observer::ErrorBoundaryEvent;
 use crate::sdk_event_emitter::{SdkEvent, SdkEventEmitter};
-use crate::specs_adapter::remote_config_value_hydrator::StoreHydrationOptions;
+use crate::specs_adapter::SpecsSyncTrigger;
+use crate::specs_adapter::remote_config_value_hydrator::{
+    HydrationFailureReason, IncompleteBlobConfigs, PartialBlobRefresh, PartialHydration,
+    RemoteConfigValueHydrator, StoreHydrationOptions,
+};
 use crate::specs_response::parse_options::{SpecsResponseParseOptions, with_parse_options};
 use crate::specs_response::proto_compression::{ProtoCompression, is_compressed_protobuf_response};
 use crate::specs_response::proto_specs::{
     ProtobufStoreParseBase, ProtobufUpdate, SpecsFieldChecksums, VerifiedRemoteConfigValues,
     deserialize_protobuf_for_store_with_options, prepare_protobuf_store_update,
+    repair_pending_blob_configs,
 };
+use crate::specs_response::spec_types::UnavailableValues;
 use crate::specs_response::spec_types::{
     ConditionOperator, ConditionType, SpecsResponseFull, SpecsResponseNoUpdates,
 };
-use crate::specs_response::specs_hash_map::{SpecDecodeStats, track_spec_decodes};
+use crate::specs_response::specs_hash_map::{SpecDecodeStats, SpecPointer, track_spec_decodes};
 use crate::statsig_options::SnapshotEvaluationSessionInitOptions;
 use crate::utils::{get_loggable_sdk_key, try_release_unused_heap_memory};
 use crate::{
@@ -86,6 +98,7 @@ pub struct SpecStoreData {
     // Verification provenance follows the snapshot's publication and lifetime.
     // Values share their parsed representation; no resident raw blob cache.
     verified_remote_values: Arc<VerifiedRemoteConfigValues>,
+    blob_repair: Option<BlobRepair>,
 }
 
 #[derive(Clone, Default)]
@@ -96,20 +109,30 @@ struct ConfigSyncCursor {
 
 impl SpecStoreData {
     fn protobuf_parse_base(&self) -> ProtobufStoreParseBase<'_> {
-        ProtobufStoreParseBase::new(
+        let mut base = ProtobufStoreParseBase::new(
             &self.snapshot,
             self.spec_decode_stats,
             &self.field_checksums,
             &self.verified_remote_values,
-        )
+        );
+        base.unavailable = self.unavailable_values();
+        base.pending_producer_configs = self.partial_blobs().map(|p| p.producer_configs());
+        base
+    }
+
+    fn specs_info(&self, lcut: u64, checksum: Option<&str>) -> SpecsInfo {
+        SpecsInfo {
+            lcut: Some(lcut),
+            checksum: checksum.map(str::to_owned),
+            source: self.source.clone(),
+            source_api: self.source_api.clone(),
+        }
     }
 
     pub(crate) fn id_list_lookup_conditions(&self) -> &[IdListLookupCondition] {
         self.id_list_lookup_conditions
             .get_or_init(|| {
-                self.snapshot
-                    .condition_map
-                    .values()
+                effective_conditions(&self.snapshot, self.retained_conditions())
                     .filter_map(|condition| {
                         if !matches!(
                             condition.compiled_operator,
@@ -166,12 +189,46 @@ impl SpecStoreData {
             .get_or_init(|| GcirEvaluationPlan::new(self.snapshot.as_ref(), hashing))
     }
 
-    pub(crate) fn lcut(&self) -> u64 {
+    pub(crate) fn unavailable_details(&self) -> EvaluationDetails {
+        EvaluationDetails::unavailable(&self.source, self.published_lcut(), self.time_received_at)
+    }
+
+    pub(crate) fn unrecognized_details(&self) -> EvaluationDetails {
+        EvaluationDetails::unrecognized(&self.source, self.published_lcut(), self.time_received_at)
+    }
+
+    // Evaluations use the producer revision even when repair requests send a zero cursor.
+    pub(crate) fn published_lcut(&self) -> u64 {
         self.sync_cursor.lcut
     }
 
+    // Bootstrap and readiness describe the evaluations a client can use, independently of HTTP repair.
+    pub(crate) fn evaluation_lcut(&self) -> u64 {
+        if self.partial_blobs().is_some()
+            || self
+                .unavailable_values()
+                .is_some_and(|values| !values.is_empty())
+        {
+            0
+        } else {
+            self.published_lcut()
+        }
+    }
+
+    pub(crate) fn lcut(&self) -> u64 {
+        if self.partial_hydration().is_some() {
+            0
+        } else {
+            self.sync_cursor.lcut
+        }
+    }
+
     fn checksum(&self) -> Option<&str> {
-        self.sync_cursor.checksum.as_deref()
+        if self.partial_hydration().is_some() {
+            None
+        } else {
+            self.sync_cursor.checksum.as_deref()
+        }
     }
 }
 
@@ -210,8 +267,27 @@ impl<'a> IdListDependencyWalker<'a> {
             IdListDependencySpecKind::Layer => snapshot.layer_configs.get(&interned_name),
         };
 
+        if spec.is_none()
+            && kind == IdListDependencySpecKind::DynamicConfig
+            && self
+                .data
+                .unavailable_values()
+                .is_some_and(|values| values.contains_key(&interned_name))
+        {
+            return;
+        }
+
         if let Some(spec) = spec.map(|pointer| pointer.view()) {
-            self.collect_spec_rules(spec);
+            let retained = if kind == IdListDependencySpecKind::DynamicConfig {
+                self.data
+                    .retained_conditions()
+                    .and_then(|by_config| by_config.get(&interned_name))
+            } else {
+                None
+            };
+            for index in 0..spec.rules_len() {
+                self.collect_rule(spec.rule(index), retained);
+            }
         }
 
         if matches!(
@@ -231,16 +307,12 @@ impl<'a> IdListDependencyWalker<'a> {
         self.collect_override_mappings(kind, name);
     }
 
-    fn collect_spec_rules(&mut self, spec: SpecView<'_>) {
-        for index in 0..spec.rules_len() {
-            self.collect_rule(spec.rule(index));
-        }
-    }
-
-    fn collect_rule(&mut self, rule: RuleRef<'_>) {
+    fn collect_rule(&mut self, rule: RuleRef<'_>, retained: Option<&ConditionMap>) {
         let snapshot = self.data.snapshot.as_ref();
         for index in 0..rule.conditions_len() {
-            let Some(condition) = rule.condition_id(index).get_from(&snapshot.condition_map) else {
+            let Some(condition) =
+                resolve_condition(rule.condition_id(index), &snapshot.condition_map, retained)
+            else {
                 continue;
             };
 
@@ -299,7 +371,7 @@ impl<'a> IdListDependencyWalker<'a> {
             if let Some(override_rules) = snapshot.override_rules.as_ref() {
                 for override_rule in &mapping.rules {
                     if let Some(rule) = override_rules.get(&override_rule.rule_name) {
-                        self.collect_rule(RuleRef::from(rule));
+                        self.collect_rule(RuleRef::from(rule), None);
                     }
                 }
             }
@@ -331,6 +403,8 @@ fn same_parse_base(expected: &SpecStoreData, current: &SpecStoreData) -> bool {
     Arc::ptr_eq(&expected.snapshot, &current.snapshot)
         && expected.sync_cursor.lcut == current.sync_cursor.lcut
         && expected.sync_cursor.checksum == current.sync_cursor.checksum
+        // A retry can repair individual blobs without replacing the serving snapshot.
+        && expected.partial_blobs().map(Arc::as_ptr) == current.partial_blobs().map(Arc::as_ptr)
 }
 
 const TAG: &str = stringify!(SpecStore);
@@ -394,7 +468,9 @@ pub struct SpecStore {
     event_emitter: Arc<SdkEventEmitter>,
     loggable_sdk_key: String,
     mmap_project_id: MmapProjectId,
+    pub(crate) enable_partial_blob_publication: bool,
     preserve_session_update_mode: bool,
+    enable_dcs_deltas: bool,
     precompute_gcir_evaluation_plan: bool,
     prepare_snapshot_evaluation_data: bool,
     prepare_time_dependence_metadata: bool,
@@ -460,6 +536,7 @@ impl SpecStore {
                 spec_decode_stats: SpecDecodeStats::default(),
                 field_checksums: SpecsFieldChecksums::default(),
                 verified_remote_values: Arc::new(VerifiedRemoteConfigValues::new()),
+                blob_repair: None,
             }),
             update_lock: Mutex::new(()),
             id_list_propagation: Mutex::new(HashMap::new()),
@@ -504,6 +581,11 @@ impl SpecStore {
                     .as_deref()
                     .unwrap_or(sdk_key),
             ),
+            enable_dcs_deltas: options.and_then(|options| options.enable_dcs_deltas) == Some(true),
+            enable_partial_blob_publication: matches!(
+                std::env::var("STATSIG_ENABLE_PARTIAL_BLOB_PUBLICATION").as_deref(),
+                Ok("true" | "1")
+            ),
             preserve_session_update_mode: session_options.preserve_dcs_session_update_mode
                 || options
                     .and_then(|options| options.preserve_dcs_session_update_mode)
@@ -537,9 +619,22 @@ impl SpecStore {
         log_d!(TAG, "Source Changed ({:?})", source);
     }
 
+    pub(crate) fn readiness_specs_info(&self) -> SpecsInfo {
+        let data = self.load_data();
+        let lcut = data.evaluation_lcut();
+        data.specs_info(
+            lcut,
+            data.sync_cursor.checksum.as_deref().filter(|_| lcut != 0),
+        )
+    }
+
     pub fn get_current_values(&self) -> Option<SpecsResponseFull> {
         let _output_scope = self.output_policy.enter();
         let data = self.load_data();
+        // A mixed snapshot cannot be exported as an offline base for the advanced cursor.
+        if data.blob_repair.is_some() {
+            return None;
+        }
         let json = serde_json::to_string(data.snapshot.as_ref()).ok()?;
         let mut values = serde_json::from_str::<SpecsResponseFull>(&json).ok()?;
         values.time = data.lcut();
@@ -669,6 +764,55 @@ fn response_body_has_updates(data: &mut ResponseData) -> bool {
     has_updates
 }
 
+#[derive(Default)]
+struct RemoteValueState {
+    verified: VerifiedRemoteConfigValues,
+    partial_hydration: Option<PartialHydration>,
+    pending_delta: Option<Box<IncompleteBlobConfigs>>,
+}
+
+impl RemoteValueState {
+    fn should_keep_current_partial_snapshot(
+        &self,
+        current: &SpecStoreData,
+        candidate: &SpecsResponseFull,
+    ) -> bool {
+        let Some(previous) = current.partial_hydration() else {
+            return false;
+        };
+        if current.snapshot.time != candidate.time
+            || current.sync_cursor.checksum != candidate.checksum
+        {
+            return false;
+        }
+        let Some(partial) = &self.partial_hydration else {
+            return false;
+        };
+        let next = &partial.unavailable;
+        if next.is_empty() {
+            // When all evaluations are already verified, another unsuccessful
+            // raw-sidecar fetch has no new in-memory snapshot to publish.
+            return partial.failed_blobs.is_empty() && previous.failed_blobs.is_empty();
+        }
+        // A retry of the same revision must never withdraw a value already served.
+        if !next.iter().all(|(name, slots)| {
+            previous
+                .unavailable
+                .get(name)
+                .is_some_and(|old| slots.is_subset(old))
+        }) {
+            return true;
+        }
+        next == &previous.unavailable
+            && !self.verified.iter().any(|(name, proofs)| {
+                let previous = current.verified_remote_values.get(name);
+                proofs
+                    .keys()
+                    .any(|sha| previous.is_none_or(|old| !old.contains_key(sha)))
+            })
+    }
+}
+
 enum PrepResult {
     HasUpdates {
         values: Box<SpecsResponseFull>,
@@ -676,7 +820,7 @@ enum PrepResult {
         response_format: SpecsFormat,
         is_delta: bool,
         spec_decode_stats: SpecDecodeStats,
-        verified_remote_values: VerifiedRemoteConfigValues,
+        remote_values: RemoteValueState,
     },
     CursorOnly {
         lcut: u64,
@@ -715,6 +859,7 @@ struct ApplyResult {
     time_received_at: u64,
     notification: SpecUpdateNotification,
     spec_decode_stats: SpecDecodeStats,
+    blob_repair: Option<BlobRepair>,
 }
 
 struct SpecUpdateNotification {
@@ -726,6 +871,20 @@ struct SpecUpdateNotification {
 }
 
 impl SpecStore {
+    fn permits_pending_delta(
+        &self,
+        update: &SpecsUpdate,
+        hydration: &SpecsUpdateHydration,
+    ) -> bool {
+        self.enable_partial_blob_publication
+            && self.enable_dcs_deltas
+            && update.source == SpecsSource::Network
+            && matches!(
+                hydration.sync_trigger,
+                Some(SpecsSyncTrigger::Background | SpecsSyncTrigger::Manual)
+            )
+    }
+
     fn hydration_options<'a>(
         &self,
         update: &SpecsUpdate,
@@ -738,6 +897,7 @@ impl SpecStore {
                 self.writable_data_store_for_update(&update.source, &update.data)
                     .is_some(),
             )
+            .with_partial_full_response(self.enable_partial_blob_publication)
     }
 
     pub(crate) async fn set_values_with_json_hydration_metrics(
@@ -747,12 +907,40 @@ impl SpecStore {
         response_has_updates: &AtomicBool,
     ) -> Result<(), StatsigErr> {
         self.output_policy
-            .scope(self.set_values_with_json_hydration(
-                update,
-                &hydration,
-                Some(response_has_updates),
-            ))
+            .scope(self.set_values_with_hydration(update, &hydration, Some(response_has_updates)))
             .await
+    }
+
+    async fn set_values_with_hydration(
+        &self,
+        update: SpecsUpdate,
+        hydration: &SpecsUpdateHydration,
+        response_has_updates: Option<&AtomicBool>,
+    ) -> Result<(), StatsigErr> {
+        let before = self
+            .permits_pending_delta(&update, hydration)
+            .then(|| self.data.load().partial_blobs().cloned())
+            .flatten();
+        match self.get_spec_response_format(&update) {
+            SpecsFormat::Protobuf => {
+                self.set_values_with_protobuf_hydration(update, hydration)
+                    .await?
+            }
+            SpecsFormat::Json => {
+                self.set_values_with_json_hydration(update, hydration, response_has_updates)
+                    .await?
+            }
+        }
+        // Materialized deltas have already retried carried targets; full responses supersede them.
+        // Cursor-only and empty responses retain the pending set and still give it a retry.
+        if let Some(before) = before {
+            let current = self.load_data();
+            if let Some(pending) = current.partial_blobs().filter(|p| Arc::ptr_eq(&before, p)) {
+                self.retry_pending_configs(&current, pending, hydration)
+                    .await?;
+            }
+        }
+        Ok(())
     }
 
     async fn set_values_with_json_hydration(
@@ -806,7 +994,12 @@ impl SpecStore {
                 response_format: SpecsFormat::Json,
                 is_delta: false,
                 spec_decode_stats: hydrated.spec_decode_stats,
-                verified_remote_values: hydrated.verified_remote_values,
+                remote_values: RemoteValueState {
+                    verified: hydrated.verified_remote_values,
+
+                    partial_hydration: hydrated.partial_hydration,
+                    pending_delta: None,
+                },
             }
         } else {
             PrepResult::NoUpdates
@@ -817,6 +1010,7 @@ impl SpecStore {
             prep_result,
             &specs_update,
             SpecsFormat::Json,
+            &hydration.hydrator,
         )?;
 
         self.finish_set_values(
@@ -842,7 +1036,9 @@ impl SpecStore {
         // response. Parsing and remote downloads happen without the writer
         // lock; publish is allowed only if this base is still current.
         let parse_base = self.load_data();
-        if proto_response_lcut(&specs_update.data).is_some_and(|lcut| lcut < parse_base.lcut()) {
+        if proto_response_lcut(&specs_update.data)
+            .is_some_and(|lcut| lcut < parse_base.published_lcut())
+        {
             return self.finish_set_values(
                 LockedSetValuesResult::CurrentValuesNewer,
                 specs_update,
@@ -850,7 +1046,13 @@ impl SpecStore {
                 true,
             );
         }
-        if proto_response_matches_cursor(&specs_update.data, &parse_base) {
+        if proto_response_matches_cursor(&specs_update.data, &parse_base)
+            && (parse_base.partial_blobs().is_none()
+                || specs_update
+                    .data
+                    .get_header_ref(DELTAS_USED_HEADER)
+                    .is_some())
+        {
             return self.finish_set_values(
                 LockedSetValuesResult::Duplicate,
                 specs_update,
@@ -860,10 +1062,18 @@ impl SpecStore {
         }
 
         let mut next_values = Box::new(SpecsResponseFull::default());
+        let partial = (self.permits_pending_delta(&specs_update, hydration)
+            && parse_base.lcut() > 0
+            && parse_base.partial_hydration().is_none())
+        .then(|| {
+            PartialBlobRefresh::new(parse_base.partial_blobs().map(|p| p.incomplete.as_ref()))
+        });
+        let mut base = parse_base.protobuf_parse_base();
+        base.partial_delta = partial.as_ref();
         let options = self.hydration_options(&specs_update, hydration);
         let hydrated = match prepare_protobuf_store_update(
             &self.ops_stats,
-            parse_base.protobuf_parse_base(),
+            base,
             next_values.as_mut(),
             &mut specs_update.data,
             &hydration.hydrator,
@@ -907,6 +1117,11 @@ impl SpecStore {
                 field_checksums,
                 is_delta,
             } => {
+                if is_delta && parse_base.partial_blobs().is_some() && partial.is_none() {
+                    return Err(StatsigErr::ChecksumFailure(
+                        "Pending blobs require a hydrated refresh delta or full DCS".into(),
+                    ));
+                }
                 if let Some(result) =
                     self.prepare_cursor_update(&parse_base, &next_values, is_delta)
                 {
@@ -918,7 +1133,15 @@ impl SpecStore {
                         response_format: SpecsFormat::Protobuf,
                         is_delta,
                         spec_decode_stats: hydrated.spec_decode_stats,
-                        verified_remote_values: hydrated.verified_remote_values,
+                        remote_values: RemoteValueState {
+                            verified: hydrated.verified_remote_values,
+
+                            partial_hydration: hydrated.partial_hydration,
+                            pending_delta: partial
+                                .as_ref()
+                                .filter(|_| is_delta)
+                                .and_then(PartialBlobRefresh::take_incomplete),
+                        },
                     }
                 } else {
                     PrepResult::NoUpdates
@@ -942,6 +1165,7 @@ impl SpecStore {
             prep_result,
             &specs_update,
             SpecsFormat::Protobuf,
+            &hydration.hydrator,
         )?;
 
         self.finish_set_values(
@@ -958,10 +1182,11 @@ impl SpecStore {
         prep_result: PrepResult,
         specs_update: &SpecsUpdate,
         response_format: SpecsFormat,
+        hydrator: &RemoteConfigValueHydrator,
     ) -> Result<LockedSetValuesResult, StatsigErr> {
-        let (operation, format_label) = match response_format {
-            SpecsFormat::Json => ("set_values_with_json_hydration", "JSON"),
-            SpecsFormat::Protobuf => ("set_values_with_protobuf_hydration", "protobuf"),
+        let (operation, format_label, metric_format) = match response_format {
+            SpecsFormat::Json => ("set_values_with_json_hydration", "JSON", "json"),
+            SpecsFormat::Protobuf => ("set_values_with_protobuf_hydration", "protobuf", "protobuf"),
         };
         let result = {
             let Some(_update_guard) = self.try_lock_for_update(operation) else {
@@ -976,6 +1201,12 @@ impl SpecStore {
             }
             self.apply_prep_result(prep_result, specs_update)
         };
+        // Scoped sources can supply their own hydration observer.
+        if let Ok(LockedSetValuesResult::Applied(_, applied, ..)) = &result {
+            if let Some(repair) = &applied.blob_repair {
+                repair.log_new_failures(hydrator, parse_base, metric_format);
+            }
+        }
         result.map_err(|error: StatsigErr| {
             log_error_to_statsig_and_console!(self.ops_stats, TAG, error);
             error
@@ -987,6 +1218,16 @@ impl SpecStore {
         prep_result: PrepResult,
         specs_update: &SpecsUpdate,
     ) -> Result<LockedSetValuesResult, StatsigErr> {
+        if self.load_data().partial_hydration().is_some()
+            && matches!(
+                &prep_result,
+                PrepResult::CursorOnly { .. } | PrepResult::HasUpdates { is_delta: true, .. }
+            )
+        {
+            return Err(StatsigErr::InvalidOperation(
+                "A full snapshot is required to repair missing remote config values".to_string(),
+            ));
+        }
         match prep_result {
             PrepResult::HasUpdates {
                 values,
@@ -994,20 +1235,27 @@ impl SpecStore {
                 response_format,
                 is_delta,
                 spec_decode_stats,
-                verified_remote_values,
+                remote_values,
             } => {
                 Self::validate_scoped_expected_metadata(
                     specs_update,
                     values.checksum.as_deref(),
                     values.time,
                 )?;
+                if remote_values.should_keep_current_partial_snapshot(&self.load_data(), &values) {
+                    return Ok(LockedSetValuesResult::NoSemanticUpdate(
+                        specs_update.source.clone(),
+                        specs_update.source_api.clone(),
+                        ConfigResponseType::from_applied_response_data(&specs_update.data),
+                    ));
+                }
                 let apply_result = self.specs_update_apply(
                     values,
                     field_checksums,
-                    specs_update,
+                    (&specs_update.source, &specs_update.source_api),
                     is_delta,
                     spec_decode_stats,
-                    verified_remote_values,
+                    remote_values,
                 )?;
                 Ok(LockedSetValuesResult::Applied(
                     response_format,
@@ -1140,9 +1388,9 @@ impl SpecStore {
             .specs_update_notify(
                 response_format,
                 response_type,
-                specs_update,
+                Some(specs_update.data),
                 apply_result,
-                allow_data_store_write,
+                allow_data_store_write && !is_delta,
             )
             .map_err(|e| {
                 log_error_to_statsig_and_console!(self.ops_stats, TAG, e);
@@ -1241,11 +1489,13 @@ impl SpecStore {
         let response_format = self.get_spec_response_format(specs_update);
         let read_data = self.load_data();
         if matches!(response_format, SpecsFormat::Protobuf)
-            && proto_response_lcut(&specs_update.data).is_some_and(|lcut| lcut < read_data.lcut())
+            && proto_response_lcut(&specs_update.data)
+                .is_some_and(|lcut| lcut < read_data.published_lcut())
         {
             return Ok(PrepResult::CurrentValuesNewer);
         }
-        if matches!(response_format, SpecsFormat::Protobuf)
+        if read_data.partial_blobs().is_none()
+            && matches!(response_format, SpecsFormat::Protobuf)
             && proto_response_matches_cursor(&specs_update.data, &read_data)
         {
             return Ok(PrepResult::Duplicate);
@@ -1263,6 +1513,13 @@ impl SpecStore {
                 },
                 spec_decode_stats,
             )) => {
+                if is_delta && read_data.partial_blobs().is_some() {
+                    // This synchronous adapter has no hydrator. A full snapshot is required to
+                    // supersede pending state without dropping outstanding targets.
+                    return Err(StatsigErr::ChecksumFailure(
+                        "Pending blobs require a hydrated delta or full DCS".into(),
+                    ));
+                }
                 // A successful in-place decode need not validate trailing bytes. Only true
                 // is conclusive here: the legacy metrics parser also calls invalid JSON full.
                 if matches!(response_format, SpecsFormat::Json) && next_values.has_updates {
@@ -1280,7 +1537,7 @@ impl SpecStore {
                         response_format,
                         is_delta,
                         spec_decode_stats,
-                        verified_remote_values: VerifiedRemoteConfigValues::new(),
+                        remote_values: RemoteValueState::default(),
                     });
                 }
 
@@ -1332,30 +1589,67 @@ impl SpecStore {
 
     fn specs_update_apply(
         &self,
-        next_values: Box<SpecsResponseFull>,
+        mut next_values: Box<SpecsResponseFull>,
         field_checksums: SpecsFieldChecksums,
-        specs_update: &SpecsUpdate,
+        (source, source_api): (&SpecsSource, &Option<String>),
         is_delta: bool,
         spec_decode_stats: SpecDecodeStats,
-        verified_remote_values: VerifiedRemoteConfigValues,
+        mut remote_values: RemoteValueState,
     ) -> Result<ApplyResult, StatsigErr> {
-        // DANGER: try_update_global_configs contains its own locks
-        self.try_update_global_configs(&next_values, is_delta);
-
         let data = self.load_data();
+        let sync_cursor = ConfigSyncCursor {
+            lcut: next_values.time,
+            checksum: next_values.checksum.clone(),
+        };
+        // Propagation measures fully hydrated publications, even if the wire cursor advanced earlier.
+        let (prev_lcut, prev_checksum) = if data.partial_blobs().is_some() {
+            (data.snapshot.time, data.snapshot.checksum.clone())
+        } else {
+            (data.lcut(), data.checksum().map(str::to_string))
+        };
+        let partial_blobs = remote_values
+            .pending_delta
+            .take()
+            .map(|incomplete| {
+                restore_pending_configs(
+                    &data,
+                    &mut next_values,
+                    &mut remote_values.verified,
+                    incomplete,
+                )
+                .map(Arc::new)
+            })
+            .transpose()?;
+        if partial_blobs.is_some() {
+            // Evaluation subscribers may persist these bytes. Only the in-memory protocol
+            // cursor can advance while we retain the missing targets for retry.
+            next_values.time = prev_lcut;
+        }
+        let partial_hydration = remote_values.partial_hydration.map(Arc::new);
+        if partial_blobs.is_some()
+            || partial_hydration
+                .as_ref()
+                .is_some_and(|repair| !repair.failed_blobs.is_empty())
+        {
+            next_values.checksum = None;
+        }
+        self.try_update_global_configs(&next_values, is_delta);
         let prev_source = data.source.clone();
-        let prev_lcut = data.lcut();
-        let prev_checksum = data.checksum().map(str::to_string);
         let time_received_at = Utc::now().timestamp_millis() as u64;
         let values: Arc<SpecsResponseFull> = Arc::from(next_values);
         // Standard SDK instances skip this preparation and conservatively report unknown/true.
         // LCUT cannot prove unchanged results across conditions or scheduled override activations.
         // Inspect the complete post-delta snapshot and retain past activations for old clients.
+        let conditions = || {
+            effective_conditions(
+                &values,
+                partial_blobs
+                    .as_ref()
+                    .map(|pending| pending.retained_conditions()),
+            )
+        };
         let may_have_time_dependent_evaluations = !self.prepare_time_dependence_metadata
-            || values
-                .condition_map
-                .values()
-                .any(|condition| condition.condition_type.as_str() == "current_time")
+            || conditions().any(|condition| condition.condition_type.as_str() == "current_time")
             || values.overrides.as_ref().is_some_and(|overrides| {
                 overrides.values().flatten().any(|mapping| {
                     mapping
@@ -1365,7 +1659,7 @@ impl SpecStore {
                 })
             });
         let has_id_list_conditions = self.prepare_snapshot_evaluation_data
-            && values.condition_map.values().any(|condition| {
+            && conditions().any(|condition| {
                 matches!(
                     condition
                         .operator
@@ -1385,13 +1679,12 @@ impl SpecStore {
             live_overlay_target_app_index
                 .get_or_init(|| build_live_overlay_target_app_index(values.as_ref()));
         }
-        let sync_cursor = ConfigSyncCursor {
-            lcut: values.time,
-            checksum: values.checksum.clone(),
-        };
+        let blob_repair = partial_blobs
+            .map(BlobRepair::Delta)
+            .or_else(|| partial_hydration.map(BlobRepair::Full));
         let notification = SpecUpdateNotification {
-            source: specs_update.source.clone(),
-            source_api: specs_update.source_api.clone(),
+            source: source.clone(),
+            source_api: source_api.clone(),
             lcut: values.time,
             checksum: values
                 .checksum
@@ -1407,8 +1700,8 @@ impl SpecStore {
         }
 
         self.publish_data(SpecStoreData {
-            source: specs_update.source.clone(),
-            source_api: specs_update.source_api.clone(),
+            source: source.clone(),
+            source_api: source_api.clone(),
             time_received_at: Some(time_received_at),
             snapshot: values,
             id_lists: data.id_lists.clone(),
@@ -1423,7 +1716,8 @@ impl SpecStore {
             sync_cursor,
             spec_decode_stats,
             field_checksums,
-            verified_remote_values: Arc::new(verified_remote_values),
+            verified_remote_values: Arc::new(remote_values.verified),
+            blob_repair: blob_repair.clone(),
         });
 
         Ok(ApplyResult {
@@ -1433,6 +1727,7 @@ impl SpecStore {
             time_received_at,
             notification,
             spec_decode_stats,
+            blob_repair,
         })
     }
 
@@ -1459,58 +1754,47 @@ impl SpecStore {
         &self,
         response_format: SpecsFormat,
         response_type: ConfigResponseType,
-        specs_update: SpecsUpdate,
+        response_data: Option<ResponseData>,
         apply_result: ApplyResult,
         allow_data_store_write: bool,
     ) -> Result<(), StatsigErr> {
-        let SpecsUpdate { data, .. } = specs_update;
-        let ApplyResult {
-            prev_source,
-            prev_lcut,
-            prev_checksum,
-            time_received_at,
-            notification,
-            spec_decode_stats: _,
-        } = apply_result;
         let SpecUpdateNotification {
             source,
             source_api,
             values,
-            lcut,
             checksum,
-        } = notification;
+            ..
+        } = &apply_result.notification;
 
-        self.emit_specs_updated_sdk_event(&source, &source_api, values.as_ref());
-        if let Some(sdk_configs) = &values.sdk_configs {
+        // An event subscriber can bootstrap another SDK from these bytes.
+        if apply_result.blob_repair.is_none() {
+            self.emit_specs_updated_sdk_event(source, source_api, values.as_ref());
+        }
+        if let (Some(_), Some(sdk_configs)) = (&response_data, &values.sdk_configs) {
             self.emit_internal_sdk_configs_updated_sdk_event(sdk_configs);
         }
 
         // Data store writes preserve the actual full-response compression in
         // codec-specific keys. Delta responses are never persisted.
-        if allow_data_store_write {
+        if apply_result.blob_repair.is_some() {
+            // Propagation measures complete publications. This snapshot still serves older
+            // values for pending configs and must not be persisted at its wire cursor.
+            return Ok(());
+        }
+        if let Some(data) = response_data.filter(|_| allow_data_store_write) {
             // A failed capability check before hydration skips sidecar capture.
             // Do not let a later successful check persist the original protobuf.
             let proto_compression = ProtoCompression::from_response(&data);
             self.try_update_data_store(
-                &source,
+                source,
                 data,
-                time_received_at,
+                apply_result.time_received_at,
                 checksum.clone(),
                 proto_compression,
             );
         }
 
-        self.ops_stats_log_config_propagation_diff(
-            lcut,
-            prev_lcut,
-            checksum.as_deref(),
-            prev_checksum.as_deref(),
-            &source,
-            &prev_source,
-            source_api,
-            response_format,
-            response_type,
-        );
+        self.ops_stats_log_config_propagation_diff(&apply_result, response_format, response_type);
 
         Ok(())
     }
@@ -1529,9 +1813,7 @@ impl SpecStore {
                     SpecsFormat::Protobuf => {
                         let update = deserialize_protobuf_for_store_with_options(
                             &self.ops_stats,
-                            current_data.snapshot.as_ref(),
-                            current_data.spec_decode_stats,
-                            &current_data.field_checksums,
+                            current_data.protobuf_parse_base(),
                             next_values.as_mut(),
                             response_data,
                             SpecsResponseParseOptions::for_store(self.preserve_session_update_mode),
@@ -1740,7 +2022,14 @@ impl SpecStore {
         let curr_checksum = data.checksum().unwrap_or_default();
         let new_checksum = next_values.checksum.as_deref().unwrap_or_default();
 
-        let cached_time_is_newer = data.lcut() > 0 && data.lcut() > next_values.time;
+        let published_time = data.published_lcut();
+        if next_values.time < published_time {
+            return Some(PrepResult::CurrentValuesNewer);
+        }
+        // A complete response at the same wire cursor can repair a partial evaluation.
+        if data.partial_blobs().is_some() && next_values.has_updates {
+            return None;
+        }
         let checksums_match = !curr_checksum.is_empty() && curr_checksum == new_checksum;
 
         if checksums_match && next_values.has_updates && next_values.time > data.lcut() {
@@ -1757,12 +2046,14 @@ impl SpecStore {
             });
         }
 
-        if cached_time_is_newer || checksums_match {
+        if checksums_match {
             log_d!(
                 TAG,
-                "Received values for [time: {}, checksum: {}], but currently has values for [time: {}, checksum: {}]. Ignoring values.",
+                "Received values for [time: {}, checksum: {}], but currently has published values for [time: {}, checksum: {}] and request cursor [time: {}, checksum: {}]. Ignoring values.",
                 next_values.time,
                 new_checksum,
+                published_time,
+                data.snapshot.checksum.as_deref().unwrap_or_default(),
                 data.lcut(),
                 curr_checksum,
             );
@@ -2067,16 +2358,9 @@ impl SpecStore {
         ));
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn ops_stats_log_config_propagation_diff(
         &self,
-        lcut: u64,
-        prev_lcut: u64,
-        checksum: Option<&str>,
-        prev_checksum: Option<&str>,
-        source: &SpecsSource,
-        prev_source: &SpecsSource,
-        source_api: Option<String>,
+        applied: &ApplyResult,
         response_format: SpecsFormat,
         response_type: ConfigResponseType,
     ) {
@@ -2084,13 +2368,21 @@ impl SpecStore {
             return;
         }
 
+        let notification = &applied.notification;
+        let source = &notification.source;
+        let lcut = notification.lcut;
+        let prev_lcut = applied.prev_lcut;
         log_d!(TAG, "Updated ({:?})", source);
 
-        if *prev_source == SpecsSource::Uninitialized || *prev_source == SpecsSource::Loading {
+        if matches!(
+            applied.prev_source,
+            SpecsSource::Uninitialized | SpecsSource::Loading
+        ) {
             return;
         }
 
-        let cursor_changed = lcut > prev_lcut || (lcut == prev_lcut && checksum != prev_checksum);
+        let cursor_changed = lcut > prev_lcut
+            || (lcut == prev_lcut && notification.checksum != applied.prev_checksum);
         if !cursor_changed {
             return;
         }
@@ -2105,7 +2397,10 @@ impl SpecStore {
                 ("source".to_string(), source.to_string()),
                 ("lcut".to_string(), lcut.to_string()),
                 ("prev_lcut".to_string(), prev_lcut.to_string()),
-                ("source_api".to_string(), source_api.unwrap_or_default()),
+                (
+                    "source_api".to_string(),
+                    notification.source_api.clone().unwrap_or_default(),
+                ),
                 ("sdk_key".to_string(), self.loggable_sdk_key.clone()),
                 (
                     "response_format".to_string(),
@@ -2139,16 +2434,7 @@ impl SpecsUpdateListener for SpecStore {
                     return self.set_values(update);
                 };
 
-                if matches!(
-                    self.get_spec_response_format(&update),
-                    SpecsFormat::Protobuf
-                ) {
-                    return self
-                        .set_values_with_protobuf_hydration(update, &hydration)
-                        .await;
-                }
-
-                self.set_values_with_json_hydration(update, &hydration, None)
+                self.set_values_with_hydration(update, &hydration, None)
                     .await
             })
             .await
@@ -2176,14 +2462,18 @@ impl SpecsUpdateListener for SpecStore {
         Ok(())
     }
 
+    fn needs_blob_hydration_repair(&self) -> bool {
+        self.load_data().partial_hydration().is_some()
+    }
+
     fn get_current_specs_info(&self) -> SpecsInfo {
         let data = self.load_data();
-        SpecsInfo {
-            lcut: Some(data.lcut()),
-            checksum: data.sync_cursor.checksum.clone(),
-            source: data.source.clone(),
-            source_api: data.source_api.clone(),
-        }
+        data.specs_info(data.lcut(), data.checksum())
+    }
+
+    fn get_published_specs_info(&self) -> SpecsInfo {
+        let data = self.load_data();
+        data.specs_info(data.sync_cursor.lcut, data.sync_cursor.checksum.as_deref())
     }
 }
 
@@ -2503,13 +2793,7 @@ impl SpecStore {
         snapshot: Option<IdList>,
         update: IdListUpdate,
     ) -> IdList {
-        let mut list = snapshot
-            .filter(|staged| {
-                previous
-                    .is_none_or(|old| old.metadata.creation_time <= staged.metadata.creation_time)
-            })
-            .or_else(|| previous.cloned())
-            .unwrap_or_else(|| IdList::new(update.new_metadata.clone()));
+        let mut list = IdList::from_update_base(previous, snapshot, &update.new_metadata);
         list.apply_update_with_encoding(self.id_list_encoding, update);
         list
     }

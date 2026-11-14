@@ -57,7 +57,9 @@ def xr1_robot_line(checkpoint: dict) -> str:
         parts.append(cmd._widths(spec))
     if spec.get("action_horizon") is not None:
         parts.append(f"{spec.get('executed_actions')} of {spec['action_horizon']} actions at "
-                     f"{cmd._hz(spec.get('action_hz'))} Hz")
+                     f"{cmd._hz(spec.get('action_hz'))} Hz"
+                     + (f" (each answer returns all {spec['action_horizon']})"
+                        if spec.get("full_chunk") else ""))
     if checkpoint.get("rtc_method") and checkpoint.get("status") != "building":
         parts.append(f"RTC {cmd.prefix_rtc(checkpoint)}")
     elif not checkpoint.get("rtc_method") and spec.get("trained_rtc_max_delay"):
@@ -100,7 +102,13 @@ def _describe_xr1(checkpoint: dict) -> list[str]:
              else [])
     actions = ("absolute end-effector poses (xyz, 6D rotation, gripper per arm); the robot "
                "holds its measured pose between chunks")
-    if base and not spec.get("arms"):
+    vector = spec.get("vector") or {}
+    if vector:
+        hold = ("holds its measured values" if vector.get("hold", "measured") == "measured"
+                else "holds zeros")
+        actions = (f"{vector.get('action')} values, absolute, in your data's order and units "
+                   f"(from a state of {vector.get('state')}); between chunks the robot {hold}")
+    elif base and not spec.get("arms"):
         actions = (f"the mobile base's {', '.join(base)}, absolute, in your data's units; "
                    "between chunks the base holds still (zero velocity)")
     elif base:
@@ -264,9 +272,11 @@ def xr1_embodiment(*, preset=None, cameras=None, arms=None, waist=None, base=Non
             "joint_unit": joint_unit, "gripper_unit": gripper_unit,
         }
     if executed is not None:
-        if type(executed) is not int or not 1 <= executed <= C.ACTION_HORIZON:
-            raise cmd._invalid(f"--executed is 1-{C.ACTION_HORIZON} actions per chunk",
-                               f"pass --executed 1-{C.ACTION_HORIZON}")
+        # The checkpoint's chunk bounds it (30 rows, or its run's): the server checks that.
+        if type(executed) is not int or not 1 <= executed <= C.MAX_ACTION_HORIZON:
+            raise cmd._invalid(f"--executed is 1-{C.MAX_ACTION_HORIZON} actions per chunk, "
+                               "within the checkpoint's chunk",
+                               f"pass --executed 1-{C.ACTION_HORIZON} (a 30-row checkpoint)")
         embodiment["executed_actions"] = executed
     if hz is not None:
         if isinstance(hz, bool) or not isinstance(hz, int | float) or not 0 < hz <= 100:

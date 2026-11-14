@@ -1,15 +1,25 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
+import pytest
 
 import scanpy as sc
 from testing.scanpy._helpers.data import pbmc68k_reduced
 from testing.scanpy._pytest.marks import needs
 
+if TYPE_CHECKING:
+    from typing import Literal
+
+
 pytestmark = [needs.igraph]
 
 
-def test_paga_positions_reproducible():
+@pytest.mark.parametrize("rng_arg", ["rng", "random_state"])
+def test_paga_positions_reproducible(
+    subtests: pytest.Subtests, rng_arg: Literal["rng", "random_state"]
+) -> None:
     """Check exact reproducibility and effect of random_state on paga positions."""
     # https://github.com/scverse/scanpy/issues/1859
     pbmc = pbmc68k_reduced()
@@ -19,9 +29,25 @@ def test_paga_positions_reproducible():
     b = pbmc.copy()
     c = pbmc.copy()
 
-    sc.pl.paga(a, show=False, random_state=42)
-    sc.pl.paga(b, show=False, random_state=42)
-    sc.pl.paga(c, show=False, random_state=13)
+    sc.pl.paga(a, show=False, **{rng_arg: 42})
+    sc.pl.paga(b, show=False, **{rng_arg: 42})
+    sc.pl.paga(c, show=False, **{rng_arg: 13})
 
-    np.testing.assert_array_equal(a.uns["paga"]["pos"], b.uns["paga"]["pos"])
-    assert a.uns["paga"]["pos"].tolist() != c.uns["paga"]["pos"].tolist()
+    with subtests.test("reproducible"):
+        np.testing.assert_array_equal(a.uns["paga"]["pos"], b.uns["paga"]["pos"])
+    with subtests.test("different positions"):
+        assert a.uns["paga"]["pos"].tolist() != c.uns["paga"]["pos"].tolist()
+
+
+def test_paga_out() -> None:
+    """`out=True` returns what’d be written."""
+    pbmc = pbmc68k_reduced()
+    pbmc.uns.pop("paga", None)
+    res = sc.tl.paga(pbmc, groups="bulk_labels", out=True)
+    assert "paga" not in pbmc.uns
+    assert res.keys() == {"connectivities", "connectivities_tree", "sizes", "groups"}
+    sc.tl.paga(pbmc, groups="bulk_labels")
+    np.testing.assert_array_equal(pbmc.uns["bulk_labels_sizes"], res["sizes"])
+    np.testing.assert_array_equal(
+        pbmc.uns["paga"]["connectivities"].toarray(), res["connectivities"].toarray()
+    )

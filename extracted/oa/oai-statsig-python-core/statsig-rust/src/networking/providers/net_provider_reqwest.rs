@@ -61,7 +61,7 @@ async fn probe_plaintext_http2(host: &str, port: u16) -> bool {
         || header[4] & 1 != 0
         || header[5..9] != [0; 4]
         || length > 16_384
-        || length % 6 != 0
+        || !length.is_multiple_of(6)
     {
         return false;
     }
@@ -273,10 +273,12 @@ pub(crate) struct EventUploadTransport {
     clients: Mutex<ClientCache<EventUploadClientKey>>,
 }
 
+type Http2CapabilityEntry = (Instant, Arc<tokio::sync::OnceCell<bool>>);
+
 struct ReqwestTransport {
     has_file_write_access: OnceLock<bool>,
     http2_clients: Mutex<ClientCache<ResponseLimitClientKey>>,
-    http2_origins: Mutex<HashMap<String, (Instant, Arc<tokio::sync::OnceCell<bool>>)>>,
+    http2_origins: Mutex<HashMap<String, Http2CapabilityEntry>>,
     response_limit_clients: Mutex<ClientCache<ResponseLimitClientKey>>,
 }
 

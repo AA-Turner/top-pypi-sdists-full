@@ -334,7 +334,7 @@ impl ParameterStore<'_> {
                     &dynamic_config.config_name,
                     self.options.into(),
                 );
-                res.get_opt(&dynamic_config.param_name)?
+                res.get_opt(&dynamic_config.param_name)
             }
             Parameter::Experiment(experiment) => {
                 let res = self._statsig_ref.get_experiment_with_options(
@@ -342,7 +342,7 @@ impl ParameterStore<'_> {
                     &experiment.experiment_name,
                     self.options.into(),
                 );
-                res.get_opt(&experiment.param_name)?
+                res.get_opt(&experiment.param_name)
             }
             Parameter::Layer(layer) => {
                 let res = self._statsig_ref.get_layer_with_options(
@@ -350,7 +350,7 @@ impl ParameterStore<'_> {
                     &layer.layer_name,
                     self.options.into(),
                 );
-                res.get_opt(&layer.param_name)?
+                res.get_opt(&layer.param_name)
             }
         }
     }

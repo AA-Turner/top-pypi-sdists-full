@@ -155,6 +155,9 @@ if t.TYPE_CHECKING:
     from atproto_client.models.app.bsky.unspecced import (
         get_atmosphere_timeline as AppBskyUnspeccedGetAtmosphereTimeline,
     )
+    from atproto_client.models.app.bsky.unspecced import (
+        get_atmosphere_timeline_v2 as AppBskyUnspeccedGetAtmosphereTimelineV2,
+    )
     from atproto_client.models.app.bsky.unspecced import get_config as AppBskyUnspeccedGetConfig
     from atproto_client.models.app.bsky.unspecced import (
         get_onboarding_suggested_starter_packs as AppBskyUnspeccedGetOnboardingSuggestedStarterPacks,
@@ -674,6 +677,7 @@ __all__ = [
     'AppBskyUnspeccedGetAtmosphereRecordView',
     'AppBskyUnspeccedGetAtmosphereRecordViews',
     'AppBskyUnspeccedGetAtmosphereTimeline',
+    'AppBskyUnspeccedGetAtmosphereTimelineV2',
     'AppBskyUnspeccedGetConfig',
     'AppBskyUnspeccedGetOnboardingSuggestedStarterPacks',
     'AppBskyUnspeccedGetOnboardingSuggestedStarterPacksSkeleton',
@@ -993,7 +997,20 @@ __all__ = [
 ]
 
 
-class _Ids:
+class _PermissionSetIds:
+    AppBskyAuthCreatePosts: str = 'app.bsky.authCreatePosts'
+    AppBskyAuthDeleteContent: str = 'app.bsky.authDeleteContent'
+    AppBskyAuthFullApp: str = 'app.bsky.authFullApp'
+    AppBskyAuthManageFeedDeclarations: str = 'app.bsky.authManageFeedDeclarations'
+    AppBskyAuthManageLabelerService: str = 'app.bsky.authManageLabelerService'
+    AppBskyAuthManageModeration: str = 'app.bsky.authManageModeration'
+    AppBskyAuthManageNotifications: str = 'app.bsky.authManageNotifications'
+    AppBskyAuthManageProfile: str = 'app.bsky.authManageProfile'
+    AppBskyAuthViewAll: str = 'app.bsky.authViewAll'
+    ChatBskyAuthFullChatClient: str = 'chat.bsky.authFullChatClient'
+
+
+class _Ids(_PermissionSetIds):
     AppBskyActorContentVisibilityDeclaration: str = 'app.bsky.actor.contentVisibilityDeclaration'
     AppBskyActorDefs: str = 'app.bsky.actor.defs'
     AppBskyActorGetPreferences: str = 'app.bsky.actor.getPreferences'
@@ -1125,6 +1142,7 @@ class _Ids:
     AppBskyUnspeccedGetAtmosphereRecordView: str = 'app.bsky.unspecced.getAtmosphereRecordView'
     AppBskyUnspeccedGetAtmosphereRecordViews: str = 'app.bsky.unspecced.getAtmosphereRecordViews'
     AppBskyUnspeccedGetAtmosphereTimeline: str = 'app.bsky.unspecced.getAtmosphereTimeline'
+    AppBskyUnspeccedGetAtmosphereTimelineV2: str = 'app.bsky.unspecced.getAtmosphereTimelineV2'
     AppBskyUnspeccedGetConfig: str = 'app.bsky.unspecced.getConfig'
     AppBskyUnspeccedGetOnboardingSuggestedStarterPacks: str = 'app.bsky.unspecced.getOnboardingSuggestedStarterPacks'
     AppBskyUnspeccedGetOnboardingSuggestedStarterPacksSkeleton: str = (

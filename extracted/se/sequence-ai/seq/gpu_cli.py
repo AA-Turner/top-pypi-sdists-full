@@ -101,8 +101,10 @@ def gpu_add(place: str, gpu: str, count: int = 1, snapshot: str | None = None, p
     [--no-wait]`:
     open the machines near `place` and, unless `--no-wait`, wait until each runs - saying so on stderr each minute - then
     say each on a line (_line), and that nothing was measured near its place where nothing was. One that failed to start
-    ends the command in its error, those that run said first; Ctrl-C cancels those not running, unbilled, says which and
-    exits 130, those that run said first. Returns what it said, as sequence_ai.gpu.add answers it.
+    ends the command in its error, those that run said first; Ctrl-C cancels those not running, says which and what each
+    was billed (GpuCancelled), and exits 130, those that run said first. Returns what it said, as sequence_ai.gpu.add
+    answers it.
+
 """
     import sequence_ai
 
@@ -112,8 +114,10 @@ def gpu_add(place: str, gpu: str, count: int = 1, snapshot: str | None = None, p
         _note(OPEN_TO_ALL)
     if wait and machines:
         ids = [str(m.get("id")) for m in machines]
-        _note(f"{', '.join(ids)} starting: waiting until {'it runs' if len(ids) == 1 else 'they run'} "
-              "(--no-wait returns at once)")
+        one = len(ids) == 1
+        _note(f"{', '.join(ids)} starting: waiting until {'it runs' if one else 'they run'} (--no-wait returns once "
+              f"{'it is' if one else 'each is'} asked for: seconds, not the minute or two {'it takes' if one else 'each takes'}"
+              " to run)")
         said = [0.0]
 
         def waiting(seconds: float, starting: list) -> None:
@@ -126,7 +130,8 @@ def gpu_add(place: str, gpu: str, count: int = 1, snapshot: str | None = None, p
         except KeyboardInterrupt as stop:
             for m in getattr(stop, "running", None) or []:
                 echo(_line(m))
-            raise GpuCancelled(getattr(stop, "cancelled", None) or [], getattr(stop, "not_cancelled", None) or []) from None
+            raise GpuCancelled(getattr(stop, "cancelled", None) or [], getattr(stop, "not_cancelled", None) or [],
+                               getattr(stop, "billed", None) or {}) from None
         except Unavailable as exc:
             for m in (exc.details or {}).get("gpus") or []:
                 if m.get("status") == "running":

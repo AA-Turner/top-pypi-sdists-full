@@ -14,7 +14,7 @@ class DescribeActiveOperationMaintainConfResponseBody(DaraModel):
     ):
         # The configuration information.
         self.config = config
-        # Specifies whether the configuration has been set. The value is 0 when you access the configuration for the first time. Valid values:
+        # Specifies whether the configuration has been set. The value is 0 for the first access. Valid values:
         # - 1: Yes. 
         # - 0: No.
         self.has_config = has_config
@@ -68,7 +68,9 @@ class DescribeActiveOperationMaintainConfResponseBodyConfig(DaraModel):
     ):
         # The creation time. The format is YYYY-MM-DDTHH:mm:ssZ.
         self.created_time = created_time
-        # The cycle time. Multiple values are separated by commas. If cycleType is Week, valid values are 1 to 7, which represent Monday to Sunday. If cycleType is Month, valid values are 1 to 28.
+        # The cycle time. Multiple values are separated by commas.
+        # - If cycleType is Week, valid values are 1 to 7, which represent Monday to Sunday.
+        # - If cycleType is Month, valid values are 1 to 28.
         self.cycle_time = cycle_time
         # The cycle type. Valid values: Month and Week.
         self.cycle_type = cycle_type
@@ -78,7 +80,7 @@ class DescribeActiveOperationMaintainConfResponseBodyConfig(DaraModel):
         self.maintain_start_time = maintain_start_time
         # The modification time. The format is YYYY-MM-DDTHH:mm:ssZ, such as 2018-05-30T14:30:00Z.
         self.modified_time = modified_time
-        # Specifies whether the configuration takes effect. Valid values: 
+        # Specifies whether the configuration is valid. Valid values: 
         # - 1: Valid. 
         # - 2: Invalid.
         self.status = status

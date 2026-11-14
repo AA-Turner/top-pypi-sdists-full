@@ -14,7 +14,7 @@ class CancelActiveOperationTasksRequest(DaraModel):
         resource_owner_id: int = None,
         security_token: str = None,
     ):
-        # The list of IDs for batch cancellation. Separate multiple IDs with commas (,). Specify no more than 25 IDs at a time.
+        # The IDs of the tasks to be canceled in batches. Separate multiple IDs with commas (,). We recommend that you specify up to 25 IDs at a time.
         # 
         # This parameter is required.
         self.ids = ids

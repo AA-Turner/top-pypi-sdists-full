@@ -86,18 +86,18 @@ class DescribeRCNodePoolResponseBodyNodePoolList(DaraModel):
         v_switch_id: str = None,
         zone_id: str = None,
     ):
-        # Indicates whether automatic payment is enabled. Valid values:
+        # Specifies whether to enable automatic payment. Valid values:
         # - **true** (default): Automatic payment is enabled. Make sure that your account balance is sufficient.
-        # - **false**: Only an order is generated and no payment is made.
+        # - **false**: An order is generated but no payment is made.
         self.auto_pay = auto_pay
-        # Indicates whether auto-renewal is enabled for the instance. Valid values:
+        # Specifies whether to enable auto-renewal for the instance. Valid values:
         # 
-        # * **true** (default): Auto-renewal is enabled.
-        # * **false**: Auto-renewal is disabled.
+        # * **true** (default): yes
+        # * **false**: no
         self.auto_renew = auto_renew
         # The ID of the RDS Custom container cluster.
         self.cluster_id = cluster_id
-        # Indicates whether joining an ACK cluster is allowed.
+        # Specifies whether the node pool is allowed to join an ACK cluster.
         self.create_mode = create_mode
         # The list of data cloud disks.
         self.data_disk = data_disk
@@ -110,18 +110,18 @@ class DescribeRCNodePoolResponseBodyNodePoolList(DaraModel):
         # The ID of the image used by the instance.
         self.image_id = image_id
         # The billing method. Valid values:
-        # * **Prepaid**: Subscription.
-        # * **Postpaid**: Pay-as-you-go.
+        # * **Prepaid**: subscription
+        # * **Postpaid**: pay-as-you-go
         self.instance_charge_type = instance_charge_type
         # The name of the instance.
         self.instance_name = instance_name
         # The instance type.
         self.instance_type = instance_type
-        # A reserved parameter. This parameter is not supported.
+        # A reserved parameter. This parameter is not currently supported.
         self.internet_charge_type = internet_charge_type
-        # A reserved parameter. This parameter is not supported.
+        # A reserved parameter. This parameter is not currently supported.
         self.internet_max_bandwidth_out = internet_max_bandwidth_out
-        # A reserved parameter. This parameter is not supported.
+        # A reserved parameter. This parameter is not currently supported.
         self.io_optimized = io_optimized
         # The name of the key pair.
         self.key_pair_name = key_pair_name
@@ -133,21 +133,21 @@ class DescribeRCNodePoolResponseBodyNodePoolList(DaraModel):
         self.password = password
         # The subscription duration.
         self.period = period
-        # The unit of the subscription duration for the subscription Billable methods. Valid values:
-        # - **Year**: Year.
-        # - **Month** (default): Month.
+        # The unit of the billing duration for the subscription billing method. Valid values:
+        # - **Year**: year
+        # - **Month** (default): month
         self.period_unit = period_unit
         # The region ID of the instance.
         self.region_id = region_id
-        # The ID of the resource group.
+        # The resource group ID.
         self.resource_group_id = resource_group_id
-        # A reserved parameter. This parameter is not supported.
+        # A reserved parameter. This parameter is not currently supported.
         self.security_enhancement_strategy = security_enhancement_strategy
-        # The ID of the security group.
+        # The security group ID.
         self.security_group_id = security_group_id
-        # A reserved parameter. This parameter is not supported.
+        # A reserved parameter. This parameter is not currently supported.
         self.spot_strategy = spot_strategy
-        # The specifications of the system cloud disk.
+        # The system cloud disk specifications.
         self.system_disk = system_disk
         # The list of tags.
         self.tag = tag
@@ -416,7 +416,7 @@ class DescribeRCNodePoolResponseBodyNodePoolListSystemDisk(DaraModel):
     ):
         # The category of the system cloud disk. Only **cloud_essd** (ESSD) is supported.
         self.category = category
-        # The performance level of the ESSD cloud disk. Valid values:
+        # The performance level of the cloud disk. Valid values:
         # 
         # - **PL0**: A single cloud disk delivers up to 10,000 random read/write IOPS.
         # - **PL1**: A single cloud disk delivers up to 50,000 random read/write IOPS.
@@ -469,14 +469,14 @@ class DescribeRCNodePoolResponseBodyNodePoolListDataDisk(DaraModel):
     ):
         # The category of the data cloud disk. Only **cloud_essd** (ESSD cloud disk) is supported.
         self.category = category
-        # A reserved parameter. This parameter is not supported.
+        # A reserved parameter. This parameter is not currently supported.
         self.delete_with_instance = delete_with_instance
-        # Indicates whether the cloud disk is encrypted. Valid values:
+        # Specifies whether to encrypt the cloud disk. Valid values:
         # 
-        # - **true**: The cloud disk is encrypted.
-        # - **false** (default): The cloud disk is not encrypted.
+        # - **true**: yes
+        # - **false** (default): no
         self.encrypted = encrypted
-        # The performance level of the ESSD cloud disk. Valid values:
+        # The performance level of the cloud disk. Valid values:
         # 
         # - **PL0**: A single cloud disk delivers up to 10,000 random read/write IOPS.
         # - **PL1**: A single cloud disk delivers up to 50,000 random read/write IOPS.

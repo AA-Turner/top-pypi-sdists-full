@@ -21,7 +21,7 @@ from probe.sdk.run.samples.points import (
 )
 
 from .loss import ROW_FIELD, ReductionWatch, get_own_mask, get_row_shares
-from .plan import CRITIC_PATHS_REASON, MEGATRON_REASON
+from .plan import MEGATRON_CRITIC_REASON
 from .training import (
     CRITIC_BOUNDARIES, KEYS_FIELD, PADDING_FIELD, WORKER_METHODS, WRAPPED_MARK, drop_dp_padding_rows, is_recording_rank,
 )
@@ -203,13 +203,12 @@ class SkyrlCriticTraining:
 
 
 def get_critic_unsupported_reason(worker: Any) -> str | None:
-    """Why this critic worker sends no rows: Megatron (no `_forward_backward_micro`), or packing / sequence parallel
-    (proven for the policy only)."""
+    """Why this critic worker sends no rows: Megatron (no `_forward_backward_micro`). Packed micro-batches and Ulysses
+    sequence parallelism are GPU-proven (rl-trajectory-gaps T12): the critic's value head pads packed rows back and
+    gathers sequence-parallel outputs before the loss (`model_wrapper.py:600-614`), so its loss sees canonical rows
+    and sequence-parallel rank 0 records (`is_recording_rank`)."""
     if "fsdp" not in type(worker).__module__:
-        return MEGATRON_REASON
-    mesh = worker.mesh_rank
-    if getattr(worker.cfg, "remove_microbatch_padding", False) or int(mesh.world_size) != int(mesh.dp_size):
-        return CRITIC_PATHS_REASON
+        return MEGATRON_CRITIC_REASON
     return None
 
 

@@ -5389,14 +5389,14 @@ def register_generated_tools(mcp, _get_client):
                 limit: Clamp the returned `accounts[]` length. Useful for typeahead pickers on agency tokens with hundreds of advertisers.
                 in_scope_only: `true` returns only the ad accounts this connection accepts as `adAccountId` on the other /v1/ads endpoints, i.e. those inside its ad-account selection (every item then has `selected: true`).
 
-        Without it, every ad account the login can reach is listed and `selected` flags selection membership. Exception: a Meta connection with a selection lists unselected ad accounts only with `live=true`.
+        Without it, every ad account the login can reach is listed and `selected` flags selection membership. Exception: a Meta or TikTok connection with a selection lists unselected ad accounts only with `live=true`.
 
-        - Meta, LinkedIn, X and Reddit: drops the ad accounts with `selected: false`; a connection without a selection keeps them all.
+        - Meta, LinkedIn, X, Reddit and TikTok: drops the ad accounts with `selected: false`; a connection without a selection keeps them all.
         - Google Ads: also drops customers the login reaches that are not on this connection (for example ones selected on another connection of the same login), which those endpoints answer with a 400.
-        - TikTok and Pinterest: no selection, so the list is unchanged.
+        - Pinterest: no selection, so the list is unchanged.
                 live: `true` lists the ad accounts the login reaches live from the platform instead of the stored catalog.
 
-        A Meta connection with an ad-account selection stores only its selected ad accounts, so without `live=true` it lists only those (a stale catalog falls back to a live listing). With it, every reachable ad account is listed, the others with `selected: false`."""
+        A Meta or TikTok connection with an ad-account selection stores only its selected ad accounts, so without `live=true` it lists only those (a stale catalog falls back to a live listing). With it, every reachable ad account is listed, the others with `selected: false`."""
         client = _get_client()
         try:
             response = client.ad_accounts.list_ad_accounts(
@@ -13555,6 +13555,35 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.ad_rules.list_ad_rule_templates()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Check whether an ad account has hourly windows",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_rules_get_ad_rule_hourly_windows(account_id: str, ad_account_id: str) -> str:
+        """Check whether an ad account has hourly windows
+
+        Hourly windows (`last_complete_hour`, `last_3h`, `today_so_far`) read campaign totals hour by hour, which Zernio syncs only for some Meta and Google ad accounts.
+
+        On an ad account without them, an hourly condition always reads as unknown and never matches. `hourlyWindows` says which case applies.
+
+        Platforms: meta, google
+
+        Args:
+            account_id: The ads connection. (required)
+            ad_account_id: The ad account on that connection. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_rules.get_ad_rule_hourly_windows(
+                account_id=account_id, ad_account_id=ad_account_id
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -25728,8 +25757,9 @@ def register_generated_tools(mcp, _get_client):
         - `redditads`: Reddit ad account id, `a2_<id>` or `t2_<id>`.
         - `microsoftads`: bare numeric account id (the Id, not the account number).
         - `twitter` (X Ads): base36 account id.
+        - `tiktok` (TikTok Ads): numeric advertiser id.
 
-        `tiktok` scopes advertisers at OAuth and `pinterest` has no ads discovery, so both ignore it.
+        `pinterest` has no ads discovery, so it ignores it.
 
         **Meta validation** against the connected token:
 
@@ -25743,18 +25773,26 @@ def register_generated_tools(mcp, _get_client):
 
         On `googleads`, `redditads` and `microsoftads` it is kept through OAuth when `redirect_url` is set, so the new connection syncs only scoped ad accounts from the first sync.
 
+        On `tiktok` it is kept through OAuth with or without `redirect_url`. The TikTok Ads connection holds only the scoped advertisers from the first sync, and is named after the first of them. Its `platformUserId` and cached Brand Identity follow that advertiser too.
+
+        A TikTok login otherwise reaches every advertiser of every Business Center it belongs to. Advertisers the login does not reach are ignored; when it reaches none of them, the connection keeps every advertiser.
+
+        On an existing TikTok Ads connection, ids it does not reach are ignored, and a list it reaches none of returns 400 `invalid_field_value`. A reconnect keeps the stored scope, minus advertisers the new login no longer reaches.
+
         **Reconnects**: business-login reconnects preserve the existing scope; supplied IDs are checked against the new grant. To change the scope after migration, call this endpoint with the IDs and omit loginMode.
                 ad_account_ids: Scope ad sync to multiple platform ad accounts (same platform support and id shapes as `adAccountId`). Repeat the param (`?adAccountIds=act_1&adAccountIds=act_2`) or comma-separate (`?adAccountIds=act_1,act_2`).
 
         - Persisted server-side; the latest call wins. De-scoped ad accounts have their synced ads, campaigns, ad sets and keywords removed.
         - On Meta only the scoped ad accounts get webhook subscriptions, including when the call starts a fresh OAuth.
         - On Meta, ad accounts left out of the scope are unsubscribed from Zernio's ad-account webhooks (unless another connection still holds them) and are no longer stored, so syncs do not add them back. `GET /v1/ads/accounts` lists them (`selected: false`) only with `live=true`; passing them again reselects them.
+        - On TikTok, advertisers left out of the scope are no longer synced or stored either, and are listed (`selected: false`) only with `live=true`.
+        - On TikTok, pixels, tracking tags, offline events, targeting search and Brand Identity default to the first selected advertiser. A TikTok Ads connection with no scope keeps every advertiser the login reaches, as before.
         - Omitting both `adAccountId` and `adAccountIds` keeps any previously persisted scope unchanged (no scope means every reachable ad account).
                 welcome: When `true`, `authUrl` opens on the Zernio-hosted welcome screen with your brand, as on GET /v1/connect/{platform}, naming the ads platform ("<brandName> wants to connect to your Meta Ads").
 
         - With no `redirect_url`, the flow ends on the branded result page instead of the Zernio dashboard.
         - Shown only with `welcome=true`: the workspace's saved "on by default" (`PUT /v1/connect/welcome-screen`) applies to GET /v1/connect/{platform} only, so ads links behave as before unless you opt in. The saved brand still fills in what the call leaves out.
-        - Without `adAccountId` or `adAccountIds`, on Meta, Google, LinkedIn, X, Reddit and Microsoft, the user then picks the ad accounts to connect on a branded Zernio-hosted page (skipped when the login reaches only one). On Meta that page starts with no ad account selected and offers Select all.
+        - Without `adAccountId` or `adAccountIds`, on Meta, Google, LinkedIn, X, Reddit, Microsoft and TikTok, the user then picks the ad accounts to connect on a branded Zernio-hosted page (skipped when the login reaches only one). On Meta and TikTok that page starts with no ad account selected and offers Select all.
         - After that page the flow ends on your `redirect_url` with `connected` set to the ads platform and `accountId` to the ads connection.
         - Cannot be combined with `headless=true` (400 `INVALID_FIELD_VALUE`).
         - Responses with `alreadyConnected: true` carry no `authUrl`, so they show no screen.
@@ -27746,11 +27784,9 @@ def register_generated_tools(mcp, _get_client):
 
         Two settings stay on the customer's side, in LINE Official Account Manager > Settings > Response settings. `nextSteps` in the response lists them:
 
-        - Turn on Webhooks. Until it is on, LINE delivers nothing to Zernio.
-        - Turn off auto-response and greeting messages.
-
-        Reconnecting the same channel on the same profile updates the existing account.
-        To get your userId for the state parameter, call GET /v1/users which includes a currentUserId field.
+        - Turn on Webhooks. Until it is on, LINE delivers nothing to Zernio. LINE's API cannot turn it on, so Zernio reads it back as `webhook.active`.
+          When it is `false`, `message` and the first entry of `nextSteps` say to turn it on. `GET /v1/accounts/{accountId}/health` keeps reporting it after connect.
+        - Turn off auto-response and greeting ...
 
         Args:
             channel_id: The Messaging API channel's Channel ID (digits only). (required)
@@ -39030,15 +39066,12 @@ def register_generated_tools(mcp, _get_client):
 
         - Only accounts connected through Facebook Login receive them.
         - Comments on the account's own posts are never listed, even when they contain its @handle.
-        - Their text is read from Instagram in the background after the first request, so `content` can be empty on the first read.
+        - Their text is read from Instagram in the background after the first request, so `content` can be empty on the first read, and stays empty when Meta refuses to serve the source (for example media Meta does not treat as organic).
         - Pass `mediaId` and `commentId` to `POST /v1/inbox/mentions/reply` to answer one.
 
         ### Facebook
 
-        Post mentions (someone tags the Page in a post) and comment mentions (someone tags it in a comment), delivered by the Page `mention` webhook with their text.
-
-        - Comments on the Page's own posts and anything the Page wrote itself are never listed.
-        - ...
+        Post mentions (someone tags the Page in a post) and comment mentions (someone tags it in a comment), delivered by the Page `mention` webhook with ...
 
         Args:
             account_id: Filter by account ID

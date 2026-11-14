@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tensor-grep
-Version: 1.138.9
+Version: 1.138.11
 Requires-Dist: typer>=0.12,<0.26
 Requires-Dist: rich>=13.0
 Requires-Dist: certifi>=2026.10.19
@@ -8,7 +8,7 @@ Requires-Dist: mcp>=1.30.0,<2
 Requires-Dist: pathspec>=1.0.4
 Requires-Dist: packaging>=24.1
 Requires-Dist: pyyaml>=6.0
-Requires-Dist: opentelemetry-api>=1.45.1
+Requires-Dist: opentelemetry-api>=1.45.2
 Requires-Dist: importlib-metadata<8.5.0 ; python_full_version < '3.12'
 Requires-Dist: cryptography>=50.0.0
 Requires-Dist: pyjwt>=2.15.0

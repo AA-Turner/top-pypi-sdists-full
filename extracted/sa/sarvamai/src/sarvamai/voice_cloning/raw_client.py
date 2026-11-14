@@ -32,6 +32,7 @@ from ..types.voice_cloning_stream_codec import VoiceCloningStreamCodec
 from ..types.voice_library_create_response import VoiceLibraryCreateResponse
 from ..types.voice_library_detail_response import VoiceLibraryDetailResponse
 from ..types.voice_library_list_response import VoiceLibraryListResponse
+from ..types.watermark_detect_response import WatermarkDetectResponse
 from .types.gender import Gender
 from .types.style import Style
 
@@ -708,6 +709,107 @@ class RawVoiceCloningClient:
                         ErrorMessage,
                         parse_obj_as(
                             type_=ErrorMessage,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def detect_watermark(
+        self, *, file: core.File, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[WatermarkDetectResponse]:
+        """
+        **Beta.** Detects whether an audio clip carries the Sarvam STFT watermark embedded by Instant Voice Cloning generation.
+
+        Upload a clip produced by `POST /voices/clone` (or stream / WebSocket) to check whether Sarvam generated it. Clips shorter than about 5 seconds usually return `inconclusive` — there is not enough signal to be confident.
+
+        Accepts `multipart/form-data` with a single `file` upload.
+
+        **Base URL:** `https://api.sarvam.ai`.
+        **Auth:** send your key in the `api-subscription-key` header.
+
+        **Limits:** max file size 10 MB; analysis is capped at 120 seconds of audio. Rate limited to 5 requests per minute.
+
+        **Billing:** free — this endpoint consumes no credits.
+
+        Parameters
+        ----------
+        file : core.File
+            See core.File for more documentation
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[WatermarkDetectResponse]
+            Detection completed.
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "voices/watermark/detect",
+            base_url=self._client_wrapper.get_environment().base,
+            method="POST",
+            data={},
+            files={
+                "file": file,
+            },
+            request_options=request_options,
+            omit=OMIT,
+            force_multipart=True,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    WatermarkDetectResponse,
+                    parse_obj_as(
+                        type_=WatermarkDetectResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1623,6 +1725,107 @@ class AsyncRawVoiceCloningClient:
                         ErrorMessage,
                         parse_obj_as(
                             type_=ErrorMessage,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def detect_watermark(
+        self, *, file: core.File, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[WatermarkDetectResponse]:
+        """
+        **Beta.** Detects whether an audio clip carries the Sarvam STFT watermark embedded by Instant Voice Cloning generation.
+
+        Upload a clip produced by `POST /voices/clone` (or stream / WebSocket) to check whether Sarvam generated it. Clips shorter than about 5 seconds usually return `inconclusive` — there is not enough signal to be confident.
+
+        Accepts `multipart/form-data` with a single `file` upload.
+
+        **Base URL:** `https://api.sarvam.ai`.
+        **Auth:** send your key in the `api-subscription-key` header.
+
+        **Limits:** max file size 10 MB; analysis is capped at 120 seconds of audio. Rate limited to 5 requests per minute.
+
+        **Billing:** free — this endpoint consumes no credits.
+
+        Parameters
+        ----------
+        file : core.File
+            See core.File for more documentation
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[WatermarkDetectResponse]
+            Detection completed.
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "voices/watermark/detect",
+            base_url=self._client_wrapper.get_environment().base,
+            method="POST",
+            data={},
+            files={
+                "file": file,
+            },
+            request_options=request_options,
+            omit=OMIT,
+            force_multipart=True,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    WatermarkDetectResponse,
+                    parse_obj_as(
+                        type_=WatermarkDetectResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

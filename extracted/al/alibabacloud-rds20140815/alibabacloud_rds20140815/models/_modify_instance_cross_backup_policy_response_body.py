@@ -17,27 +17,27 @@ class ModifyInstanceCrossBackupPolicyResponseBody(DaraModel):
         retent_type: int = None,
         retention: int = None,
     ):
-        # Indicates whether the overall cross-region backup feature is enabled. Valid values:
-        # * **Disable**: The feature is disabled.
-        # * **Enable**: The feature is enabled.
+        # The status of the overall cross-region backup switch. Valid values:
+        # * **Disable**: disabled.
+        # * **Enable**: enabled.
         self.backup_enabled = backup_enabled
-        # The ID of the destination region for cross-region backup.
+        # The ID of the destination region for cross-region backups.
         self.cross_backup_region = cross_backup_region
-        # The retention type of cross-region backups. Default value: **1**, which indicates that all backups are retained.
+        # The retention type for cross-region backups. Default value: **1**, which indicates that all backups are retained.
         self.cross_backup_type = cross_backup_type
         # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # Indicates whether cross-region log backup is enabled. Valid values:
-        # * **Disable**: Cross-region log backup is disabled.
-        # * **Enable**: Cross-region log backup is enabled.
+        # The status of the cross-region log backup switch. Valid values:
+        # * **Disable**: disabled.
+        # * **Enable**: enabled.
         self.log_backup_enabled = log_backup_enabled
         # The region ID of the source instance. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/26243.html) operation to query region IDs.
         self.region_id = region_id
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
         # The retention method for cross-region backups. Default value: **1**, which indicates that backups are retained based on a specified retention period.
         self.retent_type = retent_type
-        # The retention period of cross-region backups. Valid values: **7 to 1825**. Unit: days.
+        # The number of days to retain cross-region backups. Valid values: **7 to 1825**.
         self.retention = retention
 
     def validate(self):

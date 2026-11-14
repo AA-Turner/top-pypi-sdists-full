@@ -51,8 +51,9 @@ def scaled_dot_product_attention(
     ``quantized_kv`` supplies the keys/values as a quantized cache entry
     instead of ``k_BSJD``/``v_BSJD``.
 
-    Dequantization happens exactly once, here: whoever takes the call
-    receives dense ``k``/``v`` — unless it is a backend declaring
+    A quantized entry is handled exactly once, here: whoever takes the call
+    receives dense ``k``/``v`` cast to q's dtype, with the scales folded into
+    q and the output — unless it is a backend declaring
     ``consumes_quantized_kv = True``, which receives the entry as stored.
     """
     if isinstance(backend, str):  # "auto"
@@ -61,16 +62,47 @@ def scaled_dot_product_attention(
         )
     record_attention_backend(backend)
 
-    if quantized_kv is not None and not (
-        backend is not None and getattr(backend, "consumes_quantized_kv", False)
+    if quantized_kv is not None and not getattr(
+        backend, "consumes_quantized_kv", False
     ):
-        entry = quantized_kv.dequantize(q_BSHD.dtype)
-        k_BSJD, v_BSJD = entry.key, entry.value
-        quantized_kv = None
+        return _attend_to_quantized_kv(
+            q_BSHD, quantized_kv, backend, _backends_override
+        )
 
     if backend is not None:
         return backend.run(q_BSHD, k_BSJD, v_BSJD, quantized_kv=quantized_kv)
     return _torch_sdpa(q_BSHD, k_BSJD, v_BSJD, _backends_override)
+
+
+def _attend_to_quantized_kv(
+    q_BSHD: torch.Tensor,
+    quantized_kv: QuantizedKVCacheEntry,
+    backend: AttentionBackend | None,
+    _backends_override: list[SDPBackend] | None,
+) -> torch.Tensor:
+    """Attention over a quantized entry, with its scales folded into q and the output.
+
+    ``softmax((q * s_k) k_q^T) (v_q) * s_v`` equals attention over the dequantized
+    keys and values, so the cache is only cast to q's dtype, never scaled. The
+    scales are scalars or ``(B, 1, 1, 1)``, which broadcast over ``(B, S, H, D)``.
+    """
+    dtype = q_BSHD.dtype
+    assert quantized_kv.key is not None
+    assert quantized_kv.value is not None
+    assert quantized_kv.key_scale is not None
+    assert quantized_kv.value_scale is not None
+    # Per-head or per-token scales would broadcast silently into a wrong result.
+    batch_scale = (q_BSHD.shape[0], 1, 1, 1)
+    for scale in (quantized_kv.key_scale, quantized_kv.value_scale):
+        assert scale.ndim == 0 or scale.shape == batch_scale, scale.shape
+    q_BSHD = q_BSHD * quantized_kv.key_scale.to(dtype)
+    k_BSJD = quantized_kv.key.to(dtype)
+    v_BSJD = quantized_kv.value.to(dtype)
+    if backend is not None:
+        out_BSHD = backend.run(q_BSHD, k_BSJD, v_BSJD)
+    else:
+        out_BSHD = _torch_sdpa(q_BSHD, k_BSJD, v_BSJD, _backends_override)
+    return out_BSHD * quantized_kv.value_scale.to(dtype)
 
 
 # MATH is the reference implementation. Keeping it as a final fallback
@@ -146,12 +178,15 @@ def _torch_sdpa(
     num_q_heads = q_BHSD.shape[-3]
     num_kv_heads = k_BJSD.shape[-3]
 
-    dtype_supports_gqa = q_BHSD.dtype in {torch.float16, torch.bfloat16}
     if num_q_heads == num_kv_heads:
         keys = k_BJSD
         values = v_BJSD
         enable_gqa = {}
-    elif gqa_is_supported() and dtype_supports_gqa:
+    # The TorchScript ONNX exporter cannot convert enable_gqa, so exports copy K/V.
+    # This check stays out of the cached gqa_is_supported, since it changes per call.
+    elif not torch.onnx.is_in_onnx_export() and gqa_is_supported(
+        q_BHSD.device, q_BHSD.dtype
+    ):
         keys = k_BJSD
         values = v_BJSD
         enable_gqa = {"enable_gqa": True}
@@ -180,14 +215,23 @@ def _torch_sdpa(
         )
     sub_batch = (q_BHSD.shape[0] + num_iterations - 1) // num_iterations
 
+    # SDPA takes the permuted views; only the last dim must be contiguous. MPS SDPA
+    # returns wrong values for permuted inputs on older torch (pytorch#181133), and
+    # ROCm runs long sequences faster on contiguous inputs, so both copy.
+    copy_inputs = q_BHSD.device.type == "mps" or torch.version.hip is not None
+
+    def batch_slice(t: torch.Tensor, i: int) -> torch.Tensor:
+        sliced = t[i * sub_batch : (i + 1) * sub_batch]
+        return sliced.contiguous() if copy_inputs else sliced
+
     with sdpa_kernel(backends=backends):
         outputs = []
         for i in range(num_iterations):
             outputs.append(
                 torch.nn.functional.scaled_dot_product_attention(
-                    q_BHSD[i * sub_batch : (i + 1) * sub_batch].contiguous(),
-                    keys[i * sub_batch : (i + 1) * sub_batch].contiguous(),
-                    values[i * sub_batch : (i + 1) * sub_batch].contiguous(),
+                    batch_slice(q_BHSD, i),
+                    batch_slice(keys, i),
+                    batch_slice(values, i),
                     attn_mask=None,
                     **enable_gqa,
                 )

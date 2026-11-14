@@ -8,8 +8,8 @@ pub use gcir::gcir_formatter::GCIRResponseFormat;
 pub use gcir::gcir_options::ClientInitResponseOptions;
 pub use hashing::HashAlgorithm;
 pub use id_lists_adapter::{
-    IdListFileUpdate, IdListFileVersion, IdListMembership, IdListPropagationUpdate, IdListsAdapter,
-    StatsigHttpIdListsAdapter,
+    IdListFileUpdate, IdListFileVersion, IdListManifest, IdListManifestEntry, IdListMembership,
+    IdListMetadata, IdListPropagationUpdate, IdListsAdapter, StatsigHttpIdListsAdapter,
 };
 pub use init_details::{FailureDetails, InitializeDetails};
 pub use initialize_response::InitializeResponse;
@@ -111,7 +111,7 @@ mod initialize_v2_response;
 mod observability;
 mod persistent_storage;
 #[doc(hidden)]
-pub use statsig_id_list_ef as portable_id_list_ef;
+pub mod portable_id_list_ef;
 mod scoped_evaluation_request;
 mod scoped_id_list_membership_service;
 mod scoped_snapshot_registry;

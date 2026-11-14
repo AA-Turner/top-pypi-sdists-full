@@ -17,14 +17,14 @@ def ClinGen_get_dosage_sensitivity(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> list[Any] | dict[str, Any]:
     """
     Get ClinGen dosage sensitivity curations, including haploinsufficiency and triplosensitivity scor...
 
     Parameters
     ----------
     gene : str
-        Optional: Filter by gene symbol
+        Optional: Filter by gene symbol. HGNC symbol only (e.g. BRCA1). A genomic ran...
     include_regions : bool
         Include recurrent CNV regions (default: false)
     limit : int
@@ -40,7 +40,7 @@ def ClinGen_get_dosage_sensitivity(
 
     Returns
     -------
-    list[Any]
+    list[Any] | dict[str, Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

@@ -884,9 +884,8 @@ _CAMERA_OPTION = typer.Option(
     help="key=slot (base, left_wrist, right_wrist), repeated in the order your robot sends "
     "cameras.",
 )
-# Flags each base takes; the other base's are refused by name. Isaac 0.5, ABC-VLA and
-# InternW0-Δ are unlisted for now: their --base still works, the flags only they take are
-# hidden.
+# Flags each base takes; the other base's are refused by name. Isaac 0.5 and InternW0-Δ
+# are unlisted for now: their --base still works, the flags only they take are hidden.
 _ISAAC_ONLY = ("image_size", "action_dim", "state_dim", "chunk", "dataset", "context")
 _DEFAULT_BASE_ONLY = (
     "path", "horizon", "executed", "token_length", "no_state_in_prompt", "delta_mask", "rtc",
@@ -926,6 +925,21 @@ _RTC_HELP = (
 )
 
 
+def _engine_bases_listed() -> bool:
+    """Whether a listed base offers an engine setting: until one is (Praxis-1 is unlisted),
+    `--engine` and `deployments engine` stay out of the help, as an unlisted base's flags do."""
+    from dreamscale import deploy_bases
+
+    return any(base.engines and base.listed_as for base in deploy_bases.bases())
+
+
+_ENGINE_HELP = (
+    "What its servers run, where its base offers a choice (Praxis-1): standard (default) or "
+    "lightning (experimental: the same actions, sooner). Change it later with `dreamscale "
+    "deployments engine`."
+)
+
+
 @deployments_app.command("create", help=_CREATE_HELP)
 @endpoints_app.command("create", help=_CREATE_HELP)
 def deployments_create(
@@ -936,7 +950,7 @@ def deployments_create(
     base: str | None = typer.Option(
         None, "--base",
         help="Base model: pi0.5 (default), flux-3-action-base, lingbot-vla, hy-vla, "
-        "xiaomi-robotics-1 or gr00t-n1.7. "
+        "xiaomi-robotics-1, gr00t-n1.7, long-wam-yam, praxis-1-base or abc-vla-base. "
         "A folder `dreamscale train download` made needs none: its base is read from it."
     ),
     preset: str | None = typer.Option(
@@ -967,14 +981,15 @@ def deployments_create(
         None, "--context", help="Observation frames: 1 or 3.", hidden=True
     ),
     path: str | None = typer.Option(
-        None, "--path", help="π0.5: the checkpoint in the repo, e.g. checkpoints/55000 "
-        "(default: the latest)."
+        None, "--path", help="π0.5: the checkpoint in the repo, e.g. checkpoints/55000; "
+        "Praxis-1: the export's folder in the repo (default: the latest)."
     ),
     horizon: int | None = typer.Option(
         None, "--horizon", help="π0.5: actions the model predicts per chunk (default 50)."
     ),
     executed: int | None = typer.Option(
-        None, "--executed", help="π0.5: actions executed per chunk (default: the horizon)."
+        None, "--executed", help="π0.5: actions executed per chunk (default: the horizon); "
+        "Praxis-1: actions the robot runs before asking again (1-21, default 21)."
     ),
     token_length: int | None = typer.Option(
         None, "--token-length", help="π0.5: prompt length in tokens (default 200)."
@@ -988,8 +1003,8 @@ def deployments_create(
         "to the state), or none."
     ),
     rtc: str | None = typer.Option(
-        None, "--rtc", help="π0.5: off, test-time or trained; Hy-VLA: off or trained "
-        "(default: detected)."
+        None, "--rtc", help="π0.5: off, test-time or trained; Hy-VLA: off or trained; "
+        "Praxis-1: off (default: detected)."
     ),
     rtc_prefix: int | None = typer.Option(
         None, "--rtc-prefix", help="Hy-VLA trained RTC: at most this many planned actions "
@@ -997,7 +1012,6 @@ def deployments_create(
     ),
     steps: int | None = typer.Option(
         None, "--steps", help="ABC-VLA: denoising steps (default 10, as upstream).",
-        hidden=True,
     ),
     joint_unit: str | None = typer.Option(
         None, "--joint-unit",
@@ -1032,6 +1046,9 @@ def deployments_create(
         "checkpoint's step).",
     ),
     region_fallback: bool | None = _REGION_FALLBACK_OPTION,
+    engine: str | None = typer.Option(
+        None, "--engine", help=_ENGINE_HELP, hidden=not _engine_bases_listed(),
+    ),
     official: str | None = typer.Option(
         None, "--official", help="Instead of a repo: one of the base's own published "
         "checkpoints by name (Verne V0.5: base, robotwin, libero; `deployments list` shows "
@@ -1063,7 +1080,27 @@ def deployments_create(
         "rtc_max_delay": rtc_max_delay, "arm": arm,
     }
     from dreamscale import deploy_bases
+    from dreamscale.checkpoints_cmd import parse_engine
     from dreamscale.local_checkpoint import is_local_folder
+
+    try:
+        engine = parse_engine(engine)
+    except ValueError as error:
+        raise typer.BadParameter(str(error), param_hint="'--engine'") from None
+
+    def engine_option(chosen: str) -> dict:
+        """``engine`` for a base that offers the setting; refused for any other."""
+        if engine is None:
+            return {}
+        offered = deploy_bases.named(chosen).engines
+        if engine not in offered:
+            labels = ", ".join(base.label for base in deploy_bases.bases() if base.engines)
+            raise typer.BadParameter(
+                f"--engine applies to {labels} deployments only; "
+                f"{BASE_LABELS.get(chosen, chosen)} deployments run their standard engine.",
+                param_hint="'--engine'",
+            )
+        return {"engine": engine}
 
     if official is not None:
         if repo is not None:
@@ -1079,11 +1116,14 @@ def deployments_create(
         if create_official is None:
             raise typer.BadParameter(f"{BASE_LABELS.get(chosen, chosen)} has no official "
                                      "checkpoints", param_hint="'--official'")
+        if hz is not None:  # an official checkpoint runs at the rate it was trained at
+            raise typer.BadParameter("an official checkpoint runs at its own rate; omit --hz",
+                                     param_hint="'--hz'")
         create_official(
             official=official, preset=preset, camera=camera,
             given={k: v for k, v in given.items() if v is not None}, rtc=rtc, name=name,
             region=region, wait=not no_wait, keep_warm=keep_warm, slug=slug,
-            region_fallback=region_fallback,
+            region_fallback=region_fallback, **engine_option(chosen),
         )
         return
     if repo is None:
@@ -1104,9 +1144,10 @@ def deployments_create(
             executed=executed, steps=steps, joint_unit=joint_unit, rtc=rtc,
             rtc_prefix=rtc_prefix, revision=revision, name=name, hf_token=hf_token,
             region=region, wait=not no_wait, keep_warm=keep_warm, slug=slug,
-            region_fallback=region_fallback,
+            region_fallback=region_fallback, **engine_option(chosen),
         )
         return
+    engine_option(chosen)  # Isaac 0.5 offers none
     for flag, value in (("--rtc-prefix", rtc_prefix), ("--steps", steps),
                         ("--joint-unit", joint_unit)):
         if value is not None:
@@ -1171,7 +1212,7 @@ def deployments_inspect(
     ),
     base: str = typer.Option(
         "auto", "--base",
-        help="pi0.5, flux-3-action-base, hy-vla or auto."
+        help="pi0.5, flux-3-action-base, hy-vla, praxis-1-base or auto."
     ),
     path: str | None = typer.Option(
         None, "--path", help="π0.5: the checkpoint in the repo, e.g. checkpoints/55000."
@@ -1354,6 +1395,25 @@ def deployments_fallback(
     _run(run_fallback, checkpoint_id=checkpoint_id, on=on)
 
 
+@deployments_app.command("engine", hidden=not _engine_bases_listed())
+def deployments_engine(
+    checkpoint_id: str = typer.Argument(..., help=_DEPLOYMENT_ARG),
+    engine: str = typer.Argument(
+        ..., help="standard, or lightning (experimental: the same actions, sooner)."
+    ),
+) -> None:
+    """What a deployment's servers run, where its base offers a choice (Praxis-1): standard or
+    lightning (experimental). For its next server; one already running keeps its engine. No
+    rebuild."""
+    from dreamscale.checkpoints_cmd import parse_engine, run_engine
+
+    try:
+        engine = parse_engine(engine) or "standard"
+    except ValueError as error:
+        raise typer.BadParameter(str(error), param_hint="ENGINE") from None
+    _run(run_engine, checkpoint_id=checkpoint_id, engine=engine)
+
+
 @deployments_app.command("rename")
 def deployments_rename(
     checkpoint_id: str = typer.Argument(
@@ -1493,11 +1553,12 @@ def train_create(
     base: str | None = typer.Option(
         None, "--base", callback=_check_base,
         help="Start from pi0.5 (π0.5 base), flux-3-action-base (FLUX 3 Action), "
-        "xiaomi-robotics-1 (Xiaomi-Robotics-1), gr00t-n1.7 (GR00T N1.7) or "
-        "pi0.5-rtc-yam (π0.5 RTC YAM, our checkpoint trained on bimanual YAM; any robot) where "
-        "your organization has them, one of your runs (tr_…: its latest checkpoint, or "
-        "--base-step), or one of your deployments: one made from a run, or a π0.5 or FLUX 3 "
-        "Action checkpoint you imported (the checkpoint it serves). Required.",
+        "xiaomi-robotics-1 (Xiaomi-Robotics-1), gr00t-n1.7 (GR00T N1.7), praxis-1-base "
+        "(Praxis-1; any robot), abc-vla-base (ABC-VLA) or pi0.5-rtc-yam (π0.5 RTC YAM, our "
+        "checkpoint trained on bimanual YAM; any robot) where your organization has them, one of "
+        "your runs (tr_…: its latest checkpoint, or --base-step), or one of your deployments: one "
+        "made from a run, or a π0.5, FLUX 3 Action or Praxis-1 checkpoint you imported (the "
+        "checkpoint it serves). Required.",
     ),
     base_step: int | None = typer.Option(
         None, "--base-step", min=1, help="With --base tr_…: start from this step's checkpoint."
@@ -1516,7 +1577,7 @@ def train_create(
     ),
     rtc: bool = typer.Option(
         False, "--rtc", help="Train with real-time chunking (RTC) where the base offers it "
-        "(flux-3-action-base: experimental, off by default)."
+        "(flux-3-action-base and praxis-1-base: experimental, off by default)."
     ),
     no_rtc: bool = typer.Option(
         False, "--no-rtc", help="Train without real-time chunking (RTC; on by default for pi0.5)."
@@ -1853,6 +1914,14 @@ def train_deploy(
     ),
     no_wait: bool = typer.Option(False, "--no-wait", help="Return once the build starts."),
     region_fallback: bool | None = _REGION_FALLBACK_OPTION,
+    executed: int | None = typer.Option(
+        None, "--executed", min=1,
+        help="Rows the robot executes per chunk (default: the run's, about two thirds of a "
+        "second at its data's rate).",
+    ),
+    engine: str | None = typer.Option(
+        None, "--engine", help=_ENGINE_HELP, hidden=not _engine_bases_listed(),
+    ),
 ) -> None:
     """Deploy a checkpoint of a training run (no form: the dataset defined the robot)."""
     from dreamscale.checkpoints_cmd import parse_region
@@ -1864,7 +1933,8 @@ def train_deploy(
         raise typer.BadParameter(str(error)) from None
     deployment = _run_train(
         run_deploy, run_id=run_id, step=step, region=region, region_fallback=region_fallback,
-        wait=not no_wait,
+        executed=executed, wait=not no_wait,
+        **({"engine": engine} if engine is not None else {}),
     )
     if deployment.get("status") == "failed":
         raise typer.Exit(code=1)

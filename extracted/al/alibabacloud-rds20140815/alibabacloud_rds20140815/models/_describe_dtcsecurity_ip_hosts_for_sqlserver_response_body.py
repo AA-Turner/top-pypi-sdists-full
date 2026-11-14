@@ -20,7 +20,7 @@ class DescribeDTCSecurityIpHostsForSQLServerResponseBody(DaraModel):
         # The number of entries in the distributed transaction whitelist.
         self.ip_host_pair_num = ip_host_pair_num
         self.items = items
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
 
     def validate(self):

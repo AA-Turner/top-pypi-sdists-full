@@ -30,6 +30,7 @@ __all__ = (
     "ContainerTypeType",
     "DiskImageFormatType",
     "EbsVolumeTypeType",
+    "ImageAvailableWaiterName",
     "ImageConfigurationStepType",
     "ImageScanStatusType",
     "ImageScanningTypeType",
@@ -81,6 +82,7 @@ __all__ = (
     "ServiceName",
     "SsmParameterDataTypeType",
     "TenancyTypeType",
+    "WaiterName",
     "WorkflowExecutionStatusType",
     "WorkflowStatusType",
     "WorkflowStepActionTypeType",
@@ -97,6 +99,7 @@ ContainerRepositoryServiceType = Literal["ECR"]
 ContainerTypeType = Literal["DOCKER"]
 DiskImageFormatType = Literal["RAW", "VHD", "VMDK"]
 EbsVolumeTypeType = Literal["gp2", "gp3", "io1", "io2", "sc1", "st1", "standard"]
+ImageAvailableWaiterName = Literal["image_available"]
 ImageConfigurationStepType = Literal[
     "ASSOCIATE_LICENSES",
     "EXPORT_AMI",
@@ -650,3 +653,4 @@ PaginatorName = Literal[
     "list_workflow_step_executions",
     "list_workflows",
 ]
+WaiterName = Literal["image_available"]

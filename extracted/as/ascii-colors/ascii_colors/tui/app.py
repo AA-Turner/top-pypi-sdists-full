@@ -38,7 +38,7 @@ def _read_key() -> str:
     """Read a single key using the library's cross-platform helper."""
     from ascii_colors.utils import _get_key
 
-    return _get_key()
+    return _get_key(intercept_control=True)
 
 
 class App:
@@ -149,8 +149,6 @@ class App:
                 if not key:
                     continue
                 key = _KEY_ALIASES.get(key, key)
-                if key == "QUIT" or key in ("\x03", "\x11"):
-                    break
                 with self._lock:
                     self._dispatch_key(key)
         finally:
@@ -167,6 +165,9 @@ class App:
             return False
 
     def _enable_tui(self) -> None:
+        from ascii_colors.utils import set_windows_ctrl_c_ignored
+
+        set_windows_ctrl_c_ignored(True)
         sequence = []
         if self.alt_screen:
             sequence.append("\033[?1049h")
@@ -177,6 +178,9 @@ class App:
         self.stream.flush()
 
     def _disable_tui(self) -> None:
+        from ascii_colors.utils import set_windows_ctrl_c_ignored
+
+        set_windows_ctrl_c_ignored(False)
         sequence = []
         if self.hide_cursor:
             sequence.append("\033[?25h")
@@ -276,12 +280,24 @@ class App:
         if key in self.quit_keys:
             self._stop_event.set()
             return
-        if key == "TAB":
-            self._cycle_focus(1)
-            return
-        if key == "BACKTAB":
-            self._cycle_focus(-1)
-            return
+
         focused = self._focused_widget()
-        if focused:
+
+        if key in ("CTRL_C", "CTRL_Q"):
+            # Give the focused widget (and any open modal) first refusal so a
+            # text editor can use Ctrl+C for copy. Fall back to quitting when
+            # nothing consumes the key and no modal is trapping focus.
+            if not self._modals and (focused is None or not focused.handle_key(key)):
+                self._stop_event.set()
+            return
+
+        if key in ("TAB", "BACKTAB"):
+            # Widgets that genuinely want Tab (text editors insert an indent)
+            # get it first; everything else keeps the focus-cycling behaviour.
+            if focused is not None and focused.handle_key(key):
+                return
+            self._cycle_focus(1 if key == "TAB" else -1)
+            return
+
+        if focused is not None:
             focused.handle_key(key)

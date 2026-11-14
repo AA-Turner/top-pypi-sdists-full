@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: deadcode
-Version: 2.6.2
+Version: 2.6.3
 Summary: Find and fix unused Python code using command line.
 Project-URL: homepage, https://github.com/albertas/deadcode
 Project-URL: documentation, https://deadcode.readthedocs.io/
@@ -152,7 +152,7 @@ Create a `.pre-commit-config.yaml` file in the root of your project directory, i
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
   - repo: https://github.com/albertas/deadcode
-    rev: v2.6.2
+    rev: v2.6.3
     hooks:
       - id: deadcode
 ```
@@ -281,7 +281,7 @@ A pre-commit hook can pass the option through `args`:
 ```yaml
 repos:
   - repo: https://github.com/albertas/deadcode
-    rev: v2.6.2
+    rev: v2.6.3
     hooks:
       - id: deadcode
         args: [--ignore, DC12]
@@ -396,6 +396,9 @@ A checked entry is implemented on `main` and is included in the next release; pu
 - [ ] Investigate ways of extracting and backporting Python3.10+ `ast` implementation to lower Python versions.
 
 ## Release notes
+- **v2.6.3** `2026-11-13`:
+    - Bugfixes:
+        - Normalize paths to forward slashes in findings, discovery, fix grouping, and pattern matching
 - **v2.6.2** `2026-11-13`:
     - Features:
         - Document a staged Rust accelerator plan for issue #67 and list it in the DEP index
@@ -405,6 +408,8 @@ A checked entry is implemented on `main` and is included in the next release; pu
         - Stop reporting type-checker comments such as `# ty: ignore` as commented-out code (DC12).; Add `--ignore` to suppress findings by rule code via the CLI, `pyproject.toml` and pre-commit.
         - Add DEP 5 documenting how an unused definition shadowed by a used name could be detected.
         - Add DEP 7 documenting native SARIF output support and publish it in the DEP index
+    - Bugfixes:
+        - DEP metadata fields now render on separate lines when viewed on GitHub
 - **v2.6.1** `2026-11-11`:
     - Features:
         - Audit runtime and development dependencies for known vulnerabilities in CI on every pull request and weekly.

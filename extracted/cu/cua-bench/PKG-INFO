@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cua-bench
-Version: 0.4.4
+Version: 0.4.5
 Summary: Run computer-use benchmark datasets on sandboxes
 Project-URL: Homepage, https://github.com/trycua/cua
 Project-URL: Documentation, https://docs.trycua.com
@@ -37,9 +37,9 @@ Requires-Dist: cua-agent>=0.8.0; extra == 'agents'
 Provides-Extra: all
 Requires-Dist: anthropic>=0.26.0; extra == 'all'
 Requires-Dist: cua-agent>=0.8.0; extra == 'all'
-Requires-Dist: opentelemetry-api>=1.20.0; extra == 'all'
-Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.20.0; extra == 'all'
-Requires-Dist: opentelemetry-sdk>=1.20.0; extra == 'all'
+Requires-Dist: opentelemetry-api>=1.45.2; extra == 'all'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.45.2; extra == 'all'
+Requires-Dist: opentelemetry-sdk>=1.45.2; extra == 'all'
 Requires-Dist: pyspice>=1.5; extra == 'all'
 Provides-Extra: browser
 Provides-Extra: dev
@@ -80,9 +80,9 @@ Requires-Dist: scipy>=1.11; extra == 'osworld'
 Requires-Dist: tldextract>=5.0; extra == 'osworld'
 Requires-Dist: xmltodict>=0.13; extra == 'osworld'
 Provides-Extra: otel
-Requires-Dist: opentelemetry-api>=1.20.0; extra == 'otel'
-Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.20.0; extra == 'otel'
-Requires-Dist: opentelemetry-sdk>=1.20.0; extra == 'otel'
+Requires-Dist: opentelemetry-api>=1.45.2; extra == 'otel'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.45.2; extra == 'otel'
+Requires-Dist: opentelemetry-sdk>=1.45.2; extra == 'otel'
 Provides-Extra: packaging
 Requires-Dist: boto3>=1.26.0; extra == 'packaging'
 Provides-Extra: rl

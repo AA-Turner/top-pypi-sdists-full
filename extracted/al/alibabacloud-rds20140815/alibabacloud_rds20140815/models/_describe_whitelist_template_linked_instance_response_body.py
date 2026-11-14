@@ -20,7 +20,7 @@ class DescribeWhitelistTemplateLinkedInstanceResponseBody(DaraModel):
         # The response code. Valid values:
         # - **200**: Normal.
         # - **400**: Client fault.
-        # - **401**: Authentication failed.
+        # - **401**: Identity verification failed. Please authenticate.
         # - **404**: The requested page is not found.
         # - **500**: Server fault.
         self.code = code
@@ -33,12 +33,12 @@ class DescribeWhitelistTemplateLinkedInstanceResponseBody(DaraModel):
         self.http_status_code = http_status_code
         # The returned message.
         self.message = message
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
-        # Indicates whether the request is successful. Valid values:
+        # Indicates whether the request was successful. Valid values:
         # 
-        # - **true**: The request is successful.
-        # - **false**: The request fails.
+        # - **true**: Successful.
+        # - **false**: Failed.
         self.success = success
 
     def validate(self):

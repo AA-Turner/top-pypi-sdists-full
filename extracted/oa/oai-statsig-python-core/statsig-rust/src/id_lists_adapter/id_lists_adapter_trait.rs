@@ -25,7 +25,7 @@ pub struct IdListUpdate {
     pub new_metadata: IdListMetadata,
 }
 
-/// Private HTTP adapter handoff. Capture the previously committed cursor so
+/// HTTP adapter handoff. Capture the previously committed cursor so
 /// a concurrent replacement cannot install an older image or raw fallback.
 #[doc(hidden)]
 pub struct IdListUpdateBase {
@@ -141,7 +141,7 @@ pub trait IdListsUpdateListener: Send + Sync {
         false
     }
 
-    /// Publish verified private EF bases and ordinary raw updates together.
+    /// Publish verified EF bases and ordinary raw updates together.
     #[doc(hidden)]
     fn try_receive_id_list_snapshot_updates(
         &self,

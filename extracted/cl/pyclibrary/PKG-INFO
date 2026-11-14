@@ -1,7 +1,11 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pyclibrary
-Version: 0.3.0
+Version: 0.4.1
 Summary: C binding automation
+Project-URL: homepage, https://github.com/MatthieuDartiailh/pyclibrary
+Project-URL: documentation, https://pyclibrary.readthedocs.io/en/latest/
+Project-URL: repository, https://github.com/MatthieuDartiailh/pyclibrary
+Project-URL: changelog, https://github.com/MatthieuDartiailh/pyclibrary/blob/main/CHANGES
 Author-email: "Matthieu C. Dartiailh" <m.dartiailh@gmail.com>
 License: The MIT License (MIT)
         
@@ -26,14 +30,10 @@ License: The MIT License (MIT)
         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
         SOFTWARE.
         
-        
-Project-URL: homepage, https://github.com/MatthieuDartiailh/pyclibrary
-Project-URL: documentation, https://pyclibrary.readthedocs.io/en/latest/
-Project-URL: repository, https://github.com/MatthieuDartiailh/pyclibrary
-Project-URL: changelog, https://github.com/MatthieuDartiailh/pyclibrary/blob/main/CHANGES
+License-File: AUTHORS
+License-File: LICENSE
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
@@ -42,12 +42,10 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Description-Content-Type: text/x-rst
-License-File: LICENSE
-License-File: AUTHORS
 Requires-Dist: pyparsing<4,>=2.3.1
-Dynamic: license-file
+Description-Content-Type: text/x-rst
 
 PyClibrary
 ==========

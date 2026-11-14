@@ -14,7 +14,7 @@ class ModifyDbProxyInstanceSslRequest(DaraModel):
         db_proxy_ssl_enabled: str = None,
         region_id: str = None,
     ):
-        # A reserved parameter. No configuration is required.
+        # A reserved parameter. You do not need to specify this parameter.
         self.dbproxy_engine_type = dbproxy_engine_type
         # The instance ID. You can call the DescribeDBInstances operation to query the instance ID.
         # 
@@ -30,10 +30,10 @@ class ModifyDbProxyInstanceSslRequest(DaraModel):
         self.db_proxy_endpoint_id = db_proxy_endpoint_id
         # The operation to perform on Secure Sockets Layer (SSL) encryption. Valid values:
         # * 0: Disables Secure Sockets Layer (SSL) encryption.
-        # * 1: Enables Secure Sockets Layer (SSL) encryption or modifies the Secure Sockets Layer (SSL) encryption endpoint.
+        # * 1: Enables Secure Sockets Layer (SSL) encryption or modifies the endpoint for Secure Sockets Layer (SSL) encryption.
         # * 2: Updates the certificate validity period.
         # 
-        # > Performing the preceding operations restarts the instance. Proceed with caution.
+        # >Performing the preceding operations restarts the instance. Proceed with caution.
         # 
         # This parameter is required.
         self.db_proxy_ssl_enabled = db_proxy_ssl_enabled

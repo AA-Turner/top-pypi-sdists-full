@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <stdint.h>
 
+#define BSDIFF4_VERSION  "1.4.3"
 
 /* swap two values */
 static inline void
@@ -313,6 +314,69 @@ append_control(PyObject *control, Py_ssize_t x, Py_ssize_t y, Py_ssize_t z)
     return 0;
 }
 
+typedef struct {
+    Py_ssize_t x, y, z;
+    int initialized;  /* whether we received any control tuple yet */
+} PendingControl;
+
+/* Retain one control tuple so it can be merged with the next. */
+static int
+queue_add(PyObject *control, PendingControl *pending,
+          Py_ssize_t x, Py_ssize_t y, Py_ssize_t z)
+{
+    if (pending->initialized == 0) {
+        pending->x = x;
+        pending->y = y;
+        pending->z = z;
+        pending->initialized = 1;
+        return 0;
+    }
+
+    /* A tuple with no diff range does not access the source; any data it
+       emits is extra data.  Merge it into the preceding tuple:
+       (px, py, pz), (0, y, z) -> (px, py + y, pz + z). */
+    if (x == 0) {
+        assert(y <= PY_SSIZE_T_MAX - pending->y);
+        assert((z >= 0 && pending->z <= PY_SSIZE_T_MAX - z) ||
+               (z < 0 && pending->z >= -PY_SSIZE_T_MAX - 1 - z));
+        pending->y += y;
+        pending->z += z;
+        return 0;
+    }
+
+    /* The preceding rule may cancel intervening source seeks, leaving
+       (px, 0, 0), (x, y, z).  Merge these into (px + x, y, z), since
+       both diff ranges access consecutive source data. */
+    if (pending->y == 0 && pending->z == 0) {
+        assert(x <= PY_SSIZE_T_MAX - pending->x);
+        pending->x += x;
+        pending->y = y;
+        pending->z = z;
+        return 0;
+    }
+
+    if (append_control(control, pending->x, pending->y, pending->z) < 0)
+        return -1;
+    pending->x = x;
+    pending->y = y;
+    pending->z = z;
+    return 0;
+}
+
+/* Append the final pending tuple, unless it produces no output. */
+static int
+queue_flush(PyObject *control, const PendingControl *pending)
+{
+    if (pending->initialized == 0)
+        return 0;
+
+    /* The final source seek is irrelevant. */
+    if (pending->x == 0 && pending->y == 0)
+        return 0;
+
+    return append_control(control, pending->x, pending->y, 0);
+}
+
 /* find the best forward match length */
 static Py_ssize_t
 forward_match_length(const char *src, Py_ssize_t src_len,
@@ -388,6 +452,7 @@ compute_diff(const char *src, Py_ssize_t src_len,
     Py_ssize_t lastscan, lastpos, lastoffset;
     Py_ssize_t scan, pos, len;
     Py_ssize_t *sa;
+    PendingControl pending = {0, 0, 0, 0};
 
     result->control = PyByteArray_FromStringAndSize(NULL, 0);
     if (result->control == NULL)
@@ -467,7 +532,7 @@ compute_diff(const char *src, Py_ssize_t src_len,
             result->extra_len += extra_len;
 
             z = (pos - lenb) - (lastpos + lenf);
-            if (append_control(result->control, lenf, extra_len, z) < 0)
+            if (queue_add(result->control, &pending, lenf, extra_len, z) < 0)
                 goto error;
 
             lastscan = scan - lenb;
@@ -475,6 +540,9 @@ compute_diff(const char *src, Py_ssize_t src_len,
             lastoffset = pos - scan;
         }
     }
+
+    if (queue_flush(result->control, &pending) < 0)
+        goto error;
 
     PyMem_Free(sa);
     assert(result->diff_len <= dst_len);
@@ -641,12 +709,14 @@ mod_patch(PyObject *module, PyObject *args)
         if (update_src_pos(&src_pos, x) < 0 ||
             update_src_pos(&src_pos, z) < 0)
             goto error;
+        assert(dst_pos + diff_remaining + extra_remaining == dst_len);
     }
 
     if (dst_pos != dst_len) {
         CORRUPT("incomplete output");
         goto error;
     }
+    /* Complete output implies that both input blocks were fully consumed. */
     assert(diff_remaining == 0 && extra_remaining == 0);
 
     return result;
@@ -748,9 +818,21 @@ PyInit_core(void)
     if (m == NULL)
         return NULL;
 
+    if (PyModule_AddStringMacro(m, BSDIFF4_VERSION) < 0)
+        goto error;
+
 #ifdef Py_GIL_DISABLED
-    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+    if (PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED) < 0)
+        goto error;
+#endif
+
+#ifndef NDEBUG
+    if (PyModule_AddIntConstant(m, "DEBUG", 1) < 0)
+        goto error;
 #endif
 
     return m;
+ error:
+    Py_DECREF(m);
+    return NULL;
 }

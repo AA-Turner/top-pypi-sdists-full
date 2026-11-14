@@ -15,31 +15,31 @@ class CopyDatabaseBetweenInstancesRequest(DaraModel):
         sync_user_privilege: str = None,
         target_dbinstance_id: str = None,
     ):
-        # The ID of the backup set of the source instance. When you copy a database based on a backup set, you can call the DescribeBackups operation to query the backup set ID.
-        # >When you call this operation, you must specify either **BackupId** or **RestoreTime**.
+        # The ID of the backup set of the source instance. When you copy a database based on a backup set, you can call the DescribeBackups operation to query the ID of the backup set.
+        # > When you call this operation, you must specify either **BackupId** or **RestoreTime**.
         self.backup_id = backup_id
-        # The ID of the source instance. You can call the DescribeDBInstances operation to query the instance ID.
+        # Instance ID of the source instance. You can call the DescribeDBInstances operation to query instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The names of the databases to be copied. Specify the names in the following format: `{"Source database name":"Target database name"}`. Separate multiple databases with commas (,). Examples:
+        # The list of names of the databases to be copied. Specify the names in the following format: `{"Name of the database in the source instance":"Name of the database in the target instance"}`. Separate multiple databases with commas (,). Examples:
         # 
         # - Copy a single database: `{"zhttest":"zhttest"}`
         # - Copy multiple databases: `{"zhttest01":"zhttest01","zhttest02":"zhttest02"}`
         # 
-        # > The name of the database in the target instance can be different from that in the source instance. However, before copying, make sure that the target instance does not contain a database with the same name.
+        # > The name of the database in the target instance can be different from that in the source instance. However, before you copy the database, make sure that the target instance does not contain a database with the same name.
         # 
         # This parameter is required.
         self.db_names = db_names
         self.resource_owner_id = resource_owner_id
         # The point in time to which you want to restore the database. You can select any point in time within the backup retention period. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
-        # >When you call this operation, you must specify either **BackupId** or **RestoreTime**.
+        # > When you call this operation, you must specify either **BackupId** or **RestoreTime**.
         self.restore_time = restore_time
-        # Specifies whether to enable the replication of users and permissions. Valid values:
-        # * **YES**: Enables the replication of users and permissions. If the target instance contains a user with the same name as a user in the source instance, the permissions of the source user are added to the target user.
-        # * **NO**: Disables the replication of users and permissions. This is the default value.
+        # Specifies whether to copy users and permissions. Valid values:
+        # * **YES**: Copies users and permissions. If the target instance contains a user that has the same name as a user in the source instance, the permissions of the user in the source instance are added to the user in the target instance.
+        # * **NO**: Does not copy users and permissions. This is the default value.
         self.sync_user_privilege = sync_user_privilege
-        # The ID of the target instance. You can call the DescribeDBInstances operation to query the instance ID.
+        # The ID of the target instance. You can invoke the DescribeDBInstances operation to query the instance ID.
         # 
         # This parameter is required.
         self.target_dbinstance_id = target_dbinstance_id

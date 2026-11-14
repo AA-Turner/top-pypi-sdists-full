@@ -1,6 +1,8 @@
 """Pointwise arithmetic: add, multiply, power and multiply-add."""
 
 import math
+import platform
+import sys
 from typing import Any, Literal, TypeAlias, TypeGuard, cast, overload
 
 import cv2
@@ -27,6 +29,7 @@ from albucore.torch_backend import (
 from albucore.utils import (
     _FLOAT32_MAX,
     MAX_OPENCV_WORKING_CHANNELS,
+    NUM_RGB_CHANNELS,
     _batch_operand,
     _broadcast_channel_vector,
     clip,
@@ -50,6 +53,7 @@ _TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS = 230_400
 _NUMKONG_FLOAT16_MIN_ELEMENTS = 20_480
 _NUMPY_FLOAT16_C9_VECTOR_MIN_ELEMENTS = 184_320
 _CV16F_VECTOR_MIN_ELEMENTS = 61_440
+_MIXED_UINT8_ADD_MIN_ELEMENTS = 4_096 if sys.platform == "darwin" and platform.machine() == "arm64" else 1_048_576
 _FLOAT16_MIN_NORMAL = float(np.finfo(np.float16).tiny)
 
 
@@ -575,17 +579,68 @@ def multiply(
     )
 
 
+def _add_shared_uint8_rgb(
+    img: NDArray[np.uint8],
+    value: NDArray[np.float32],
+    out: NDArray[np.uint8] | None,
+) -> NDArray[np.uint8] | None:
+    # Mixed-depth addition uses a signed integer intermediate.
+    if not (np.min(value) >= -(2**30) and np.max(value) < 2**30):
+        return None
+    operand = np.trunc(value, order="C")
+    result = np.empty(img.shape, dtype=np.uint8) if out is None else out
+    plane = np.empty(img.shape[:2], dtype=np.uint8)
+    for channel in range(NUM_RGB_CHANNELS):
+        cv2.extractChannel(img, channel, dst=plane)
+        cv2.add(plane, operand, dst=plane, dtype=cv2.CV_8U)
+        cv2.insertChannel(plane, result, channel)
+    return result
+
+
 def _add_uint8_opencv(
     img: NDArray[np.uint8],
     value: float | np.ndarray,
     *,
     out: NDArray[np.uint8] | None = None,
 ) -> NDArray[np.uint8]:
+    if (
+        isinstance(value, np.ndarray)
+        and value.dtype == np.float32
+        and value.ndim == 3
+        and img.ndim == 3
+        and img.shape[-1] == NUM_RGB_CHANNELS
+        and img.size >= 4_096 * NUM_RGB_CHANNELS
+        and img.strides[1:] == (NUM_RGB_CHANNELS, 1)
+        and img.strides[0] >= img.shape[1] * NUM_RGB_CHANNELS
+        and (out is None or out.flags.c_contiguous)
+        and value.shape[:2] == img.shape[:2]
+        and (value.shape[-1] == 1 or (value.shape[-1] == NUM_RGB_CHANNELS and value.strides[-1] == 0))
+    ):
+        shared = _add_shared_uint8_rgb(img, value[..., 0], out)
+        if shared is not None:
+            return shared
+
     prepared = _prepare_value_opencv(img, value, "add")
     if (isinstance(prepared, (float, int)) and prepared < 0) or (
         isinstance(prepared, np.ndarray) and prepared.dtype != np.uint8
     ):
         operand: Any = prepared.astype(np.float32, copy=False) if isinstance(prepared, np.ndarray) else prepared
+        if (
+            isinstance(prepared, np.ndarray)
+            and prepared.dtype == np.float32
+            and img.ndim == 3
+            and img.size >= _MIXED_UINT8_ADD_MIN_ELEMENTS
+            and img.strides[-1] == 1
+            and img.strides[-2] == img.shape[-1]
+            and img.strides[0] >= img.shape[1] * img.shape[-1]
+            and (out is None or out.flags.c_contiguous)
+            and np.min(operand) >= -(2**30)
+            and np.max(operand) < 2**30
+        ):
+            # The operand is truncated already. Explicit dtype enables mixed-depth addition.
+            destination = None if out is None else out.reshape(-1).reshape(img.shape)
+            result = cv2.add(img, operand, dst=destination, dtype=cv2.CV_8U)
+            return cast("NDArray[np.uint8]", result.reshape(img.shape) if out is None else out)
         float_result = cast("NDArray[np.float32]", cv2.add(img.astype(np.float32), operand).reshape(img.shape))
         return clip(float_result, np.uint8, out=out)
     if out is not None and not out.flags.c_contiguous:
@@ -634,7 +689,23 @@ def _add_channels(
     out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None = None,
 ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     if _is_uint8_image(img):
-        return _apply_lut(img, value, "add", out=cast("NDArray[np.uint8] | None", out))
+        destination_u8 = cast("NDArray[np.uint8] | None", out)
+        if (
+            img.ndim == 3
+            and img.shape[-1] == NUM_RGB_CHANNELS
+            and img.strides[1:] == (NUM_RGB_CHANNELS, 1)
+            and img.strides[0] >= img.shape[1] * NUM_RGB_CHANNELS
+            and (destination_u8 is None or destination_u8.flags.c_contiguous)
+        ):
+            # Match the LUT's truncation before narrowing extended-precision offsets.
+            red, green, blue = map(float, np.trunc(value))
+            if -255 <= red <= 255 and -255 <= green <= 255 and -255 <= blue <= 255:
+                dst = None if destination_u8 is None else destination_u8.reshape(-1).reshape(img.shape)
+                shifted = cv2.add(img, (int(red), int(green), int(blue), 0), dst=dst)
+                return (
+                    cast("NDArray[np.uint8]", shifted.reshape(img.shape)) if destination_u8 is None else destination_u8
+                )
+        return _apply_lut(img, value, "add", out=destination_u8)
     if _is_float16_image(img):
         destination = cast("NDArray[np.float16] | None", out)
         result = _opencv_float16_three_channel_vector(img, value, "add", out=destination)

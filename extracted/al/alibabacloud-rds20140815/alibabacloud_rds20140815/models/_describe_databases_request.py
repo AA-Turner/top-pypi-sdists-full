@@ -25,12 +25,12 @@ class DescribeDatabasesRequest(DaraModel):
         self.dbname = dbname
         # The status of the database. Valid values:
         # * **Creating**: The database is being created.
-        # * **Running**: The database is in use.
+        # * **Running**: The database is running.
         # * **Deleting**: The database is being deleted.
         self.dbstatus = dbstatus
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The page number. Valid values: any integer greater than 0 and less than or equal to the maximum integer value.
+        # The page number. Valid values: a positive integer that does not exceed the maximum value of the Integer type.
         # 
         # Default value: **1**.
         self.page_number = page_number

@@ -19,7 +19,7 @@ class RemoveRCInstancesFromDeploymentSetRequest(DaraModel):
         # 
         # This parameter is required.
         self.rcinstance_ids = rcinstance_ids
-        # The region ID. You can call the DescribeRegions operation to query the region ID.
+        # The region ID. You can call the DescribeRegions operation to obtain the region ID.
         # 
         # This parameter is required.
         self.region_id = region_id

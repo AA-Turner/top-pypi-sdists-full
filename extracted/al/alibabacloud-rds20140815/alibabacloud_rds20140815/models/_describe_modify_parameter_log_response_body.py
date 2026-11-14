@@ -21,7 +21,7 @@ class DescribeModifyParameterLogResponseBody(DaraModel):
     ):
         # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # The database engine type.
+        # The database engine.
         self.engine = engine
         # The database engine version.
         self.engine_version = engine_version
@@ -30,7 +30,7 @@ class DescribeModifyParameterLogResponseBody(DaraModel):
         self.page_number = page_number
         # The number of entries per page.
         self.page_record_count = page_record_count
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
         # The total number of log records.
         self.total_record_count = total_record_count

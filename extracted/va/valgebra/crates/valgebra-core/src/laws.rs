@@ -4130,13 +4130,42 @@ fn crossed_sequences(schemas: &[&Schema], out: &mut Vec<Obj>) -> Vec<Obj> {
 fn sized_past(mine: &Schema, theirs: &Schema) -> Vec<Obj> {
     let pool = const_pool();
     let mut widths = Vec::new();
-    widths_named_by(theirs, &mut widths);
+    every_bound_width(theirs, &mut widths);
     widths
         .into_iter()
-        .flat_map(|(_, len)| len.saturating_sub(EDGE_SPAN)..=(len + EDGE_SPAN))
+        .flat_map(|len| len.saturating_sub(EDGE_SPAN)..=(len + EDGE_SPAN))
         .flat_map(|width| sized_like(mine, width, MEMBER_FUEL))
         .filter(|value| member_full(mine, value, &pool))
         .collect()
+}
+
+/// Every length bound a schema names, over any base, through the wrappers
+/// [`widths_named_by`] looks through.
+///
+/// [`widths_named_by`] keeps the bounds a sequence is built at, with their
+/// container, and so skips a bound over a set or a mapping. A sized schema is
+/// told from such a bound by a value of its own at the bound's width just the
+/// same: `dict[str, None]` below `dict[str, Any]` of at most one entry is
+/// refuted by a dict of two `None`s, which only the subject builds and only at
+/// a width the other schema names.
+fn every_bound_width(schema: &Schema, out: &mut Vec<usize>) {
+    match schema {
+        Schema::Refine { base, constraints } => {
+            for constraint in constraints.iter() {
+                if let Constraint::MinLen(len) | Constraint::MaxLen(len) = constraint {
+                    out.push(*len);
+                }
+            }
+            every_bound_width(base, out);
+        }
+        Schema::Complement(inner) => every_bound_width(inner, out),
+        Schema::Union(members) | Schema::Intersection(members) => {
+            for member in members.iter() {
+                every_bound_width(member, out);
+            }
+        }
+        _ => {}
+    }
 }
 
 /// How deep the crossing goes past the position it starts at.
@@ -5694,6 +5723,13 @@ fn parted_positions(
 /// by a field or by a clause, so two records can differ at a key neither declares:
 /// `{"b": list, str: Any}` and `{"b?": Any, str: ~float}` part at a float under
 /// another key.
+///
+/// Ahead of those, the member holding every name the record reads at once, each
+/// at the first value built for it or at a member of its own. A union of records
+/// is parted only by a value carrying each member's difference together, and one
+/// differing at a single name lies inside another member: `{"a?": Any, "b?":
+/// bool}` is outside `{"a?": Any} | {str: bool}` at `{"a": 1, "b": True}`, whose
+/// `"b"` the first member reads nothing with and whose `1` the second refuses.
 fn parted_fields(
     subject: &Schema,
     (fields, defaults): (&Fields, &Clauses),
@@ -5704,6 +5740,8 @@ fn parted_fields(
         return Vec::new();
     };
     let mut found = Vec::new();
+    let mut every = base.clone();
+    let mut set_any = false;
     for name in NAMES {
         let Some(mine) = schema_at(fields, defaults, name) else {
             continue;
@@ -5712,12 +5750,24 @@ fn parted_fields(
             Some(read) => parted(&mine, &read, left),
             None => a_member(&mine, MEMBER_FUEL).into_iter().collect(),
         };
+        if let Some(value) = values
+            .first()
+            .cloned()
+            .or_else(|| a_member(&mine, MEMBER_FUEL))
+        {
+            every.retain(|(key, _)| key.name() != name);
+            every.push((Key::Exact(name), value));
+            set_any = true;
+        }
         for value in values {
             let mut entries = base.clone();
             entries.retain(|(key, _)| key.name() != name);
             entries.push((Key::Exact(name), value));
             found.push(Obj::Map(entries));
         }
+    }
+    if set_any {
+        found.insert(0, Obj::Map(every));
     }
     found
 }
@@ -5811,7 +5861,11 @@ fn edges_of(schema: &Schema, out: &mut Vec<Obj>) -> Vec<Obj> {
             beside(constant, &mut mine);
         }
         Schema::Refine { base, constraints } => {
-            mine.extend(edges_of(base, out));
+            // The bound's values first, then the base's. A bound is what the
+            // refinement adds to its base, and the base's edges, read first, fill
+            // the node's cap before a neighbor past the bound is built: a map of
+            // three entries under `MaxLen(2)` was cut that way, and a list of
+            // three floats under `MinLen(2)` at a position of a fixed shape.
             for constraint in constraints.iter() {
                 match constraint {
                     Constraint::Ge(index)
@@ -5822,6 +5876,7 @@ fn edges_of(schema: &Schema, out: &mut Vec<Obj>) -> Vec<Obj> {
                         numbers_around(&const_pool()[index.get()], &mut mine);
                     }
                     Constraint::MinLen(len) | Constraint::MaxLen(len) => {
+                        mine.extend(sequences_around(base, *len));
                         for width in len.saturating_sub(EDGE_SPAN)..=(len + EDGE_SPAN) {
                             containers_of(width, &mut mine);
                         }
@@ -5829,6 +5884,7 @@ fn edges_of(schema: &Schema, out: &mut Vec<Obj>) -> Vec<Obj> {
                     Constraint::Predicate(_) | Constraint::Regex(_) => {}
                 }
             }
+            mine.extend(edges_of(base, out));
         }
         Schema::Seq { container, shape } => {
             mine.extend(sequence_edges(*container, shape, out));
@@ -5935,6 +5991,42 @@ fn candidates(schema: &Schema, out: &mut Vec<Obj>) -> Vec<Obj> {
 /// cannot do. `[Any, X]` against `[Any, int]` is separated only by a two-element
 /// list whose *second* element is an `X` outside `int`, and a corpus of
 /// single-element containers holds no such value whatever it holds at depth one.
+/// Sequences of `base`'s own items at `len` and at its two neighbors.
+///
+/// `containers_of` puts an integer at every position, which is a value of a
+/// refinement only where its base admits one. `list[float]` under `MinLen(2)`
+/// is separated from `list[Any, Any]` by three floats, and a universe whose
+/// lists of three hold integers holds no member of the refinement that long:
+/// at a position of a fixed shape, where the cap leaves a node a quarter of its
+/// values, the refutation then has no witness. So a tailed sequence is filled
+/// past its prefix with a member of its tail, ahead of the base's own edges,
+/// since the bound is what the refinement adds to them.
+fn sequences_around(base: &Schema, len: usize) -> Vec<Obj> {
+    let Schema::Seq { container, shape } = base else {
+        return Vec::new();
+    };
+    let prefix: Option<Vec<Obj>> = shape
+        .prefix
+        .iter()
+        .map(|element| a_member(element, MEMBER_FUEL))
+        .collect();
+    let tail = shape
+        .tail
+        .as_deref()
+        .and_then(|tail| a_member(tail, MEMBER_FUEL));
+    let (Some(prefix), Some(tail)) = (prefix, tail) else {
+        return Vec::new();
+    };
+    (len.saturating_sub(EDGE_SPAN)..=len + EDGE_SPAN)
+        .filter(|width| *width >= prefix.len())
+        .map(|width| {
+            let mut items = prefix.clone();
+            items.resize(width, tail.clone());
+            hold(*container, items)
+        })
+        .collect()
+}
+
 fn sequence_edges(container: SeqKind, shape: &SeqShape, out: &mut Vec<Obj>) -> Vec<Obj> {
     let mut mine = Vec::new();
     let base: Option<Vec<Obj>> = shape
@@ -7717,7 +7809,8 @@ fn a_meet_of_records_has_the_member_its_fields_meet_in() {
 /// there by a word other than `"a"`, three levels down. Nothing parts a schema
 /// from itself or from a schema it is below. Two records can differ at a key
 /// neither declares, and a list holding a complement of a complement holds a
-/// member of the set inside it.
+/// member of the set inside it. A record is parted from a union of records by a
+/// value differing from each member at once.
 #[test]
 fn a_value_is_built_where_two_shapes_differ_deep_inside() {
     let holding = |word: Schema| Schema::Seq {
@@ -7789,6 +7882,39 @@ fn a_value_is_built_where_two_shapes_differ_deep_inside() {
         },
     });
     assert!(a_value_parts(&held, &Schema::Bytes));
+
+    let optional = |name: &str, schema: Schema| Field {
+        name: name.into(),
+        schema,
+        required: false,
+    };
+    let either = Schema::KeyedMap {
+        fields: vec![
+            optional("a", Schema::ANY),
+            optional("b", Schema::Intersection(vec![Schema::Bool].into())),
+        ]
+        .into(),
+        defaults: Vec::new().into(),
+    };
+    let one_or_flags = Schema::Union(
+        vec![
+            Schema::KeyedMap {
+                fields: vec![optional("a", Schema::ANY)].into(),
+                defaults: Vec::new().into(),
+            },
+            Schema::KeyedMap {
+                fields: Vec::new().into(),
+                defaults: vec![MapClause {
+                    key: Schema::Str,
+                    value: Schema::Bool,
+                }]
+                .into(),
+            },
+        ]
+        .into(),
+    );
+    assert!(a_value_parts(&either, &one_or_flags));
+    assert_eq!(walked(&one_or_flags, &one_or_flags), Vec::new());
 }
 
 /// A meet of sequences has the member its positions meet in, and a sequence
@@ -7856,6 +7982,79 @@ fn a_meet_of_sequences_has_the_member_its_positions_meet_in() {
         .into(),
     );
     assert_eq!(a_member(&two_containers, MEMBER_FUEL), None);
+}
+
+// THEORY: subtyping-is-inclusion
+/// A length bound at a position of a fixed shape is probed one past it with the
+/// refinement's own items.
+///
+/// `[list[float] & MinLen(2), D1] <= [list[Any, Top], D1]`, with `D1` the
+/// fixpoint `int | list[~D1]`, is refuted on `[[0.0, 0.0, 0.0], 0]`: a list of
+/// three floats is no list of exactly two. The law drew it and found no value,
+/// the universe holding lists of floats of no length past two. Read through
+/// the law's own pipeline, since a simpler pair holds fewer values and misses
+/// the cap that thinned this one.
+#[test]
+fn a_length_bound_at_a_position_is_probed_one_past_it() {
+    let defs = fixpoint_defs();
+    let list = |shape| Schema::Seq {
+        container: SeqKind::List,
+        shape,
+    };
+    let floats = Schema::refine(
+        list(SeqShape::homogeneous(Schema::Float)),
+        vec![Constraint::MinLen(2)],
+    );
+    let pair = Schema::Union(
+        vec![list(SeqShape::fixed([
+            Schema::Anything(Spelling::Any),
+            Schema::ANYTHING,
+        ]))]
+        .into(),
+    );
+    let a = list(SeqShape::fixed([floats, Schema::Ref(DefIx::new(1))]));
+    let b = list(SeqShape::fixed([pair, Schema::Ref(DefIx::new(1))]));
+    assert_eq!(
+        a.subtype_relation_under(&b, &NoLeafRelations, &defs),
+        Relation::Fails
+    );
+    let subject = unfold_for_oracle(&a, &defs, ORACLE_UNFOLDS);
+    let other = unfold_for_oracle(&b, &defs, ORACLE_UNFOLDS);
+    assert!(a_value_parts(&subject, &other));
+}
+
+// THEORY: subtyping-is-inclusion
+/// A length bound over a mapping is probed one past it.
+///
+/// `dict[str, Any] <= (dict[str, Any] & MaxLen(2)) | D0`, with `D0` the fixpoint
+/// `str | list[D0]`, is refuted on a dict of three entries, which the
+/// mapping's own edges, read ahead of the bound's, left out of the universe.
+#[test]
+fn a_length_bound_over_a_map_is_probed_one_past_it() {
+    let defs = fixpoint_defs();
+    let words = || Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: vec![MapClause {
+            key: Schema::Str,
+            value: Schema::Anything(Spelling::Any),
+        }]
+        .into(),
+    };
+    let a = words();
+    let b = Schema::Union(
+        vec![
+            Schema::refine(words(), vec![Constraint::MaxLen(2)]),
+            Schema::Ref(DefIx::new(0)),
+        ]
+        .into(),
+    );
+    assert_eq!(
+        a.subtype_relation_under(&b, &NoLeafRelations, &defs),
+        Relation::Fails
+    );
+    let subject = unfold_for_oracle(&a, &defs, ORACLE_UNFOLDS);
+    let other = unfold_for_oracle(&b, &defs, ORACLE_UNFOLDS);
+    assert!(a_value_parts(&subject, &other));
 }
 
 proptest! {
@@ -9659,11 +9858,101 @@ proptest! {
     }
 }
 
+proptest! {
+    // THEORY: a-sequence-splits-across-a-union
+    /// A meet of sequences, a length bound over every list and a union of sequences
+    /// among them, is one set with the one sequence it is read as [HSHP20, §4.2], so
+    /// neither inclusion between the two is refuted, and as a list's item met with a
+    /// list of anything the meet is proved below a list of the one sequence.
+    #[test]
+    fn a_meet_of_sequences_is_the_one_sequence_it_is_read_as(
+        items in proptest::collection::vec(
+            prop_oneof![
+                Just(Schema::Int),
+                Just(Schema::Str),
+                Just(Schema::union([Schema::Int, Schema::Str])),
+                Just(Schema::Anything(Spelling::Any)),
+            ],
+            1..3,
+        ),
+        bound in proptest::collection::vec(a_length_bound(), 1..3),
+        branch in prop_oneof![Just(Schema::Int), Just(Schema::Str), Just(Schema::Bool)],
+        spread in any::<bool>(),
+    ) {
+        let list_of = |item| Schema::list(SeqShape::homogeneous(item));
+        let mut members: Vec<Schema> = items.into_iter().map(list_of).collect();
+        members.push(Schema::refine(list_of(Schema::Anything(Spelling::Any)), bound));
+        if spread {
+            members.push(Schema::union([Schema::list(SeqShape::fixed([])), list_of(branch)]));
+        }
+        let Some(one) = crate::decision::a_meet_of_sequences_as_one(&members, &[]) else {
+            return Err(TestCaseError::fail("two sequences of one container are read as one"));
+        };
+        let meet = Schema::meet(members);
+        for (below, above) in [(&one, &meet), (&meet, &one)] {
+            prop_assert_ne!(
+                below.subtype_relation_under(above, &NoLeafRelations, &[]),
+                Relation::Fails,
+                "{:?} below {:?}", below, above
+            );
+        }
+        // Below a meet the meet is a goal of its own, read as the one sequence there.
+        let items = |item: &Schema| {
+            Schema::meet([list_of(Schema::Anything(Spelling::Any)), list_of(item.clone())])
+        };
+        prop_assert_eq!(
+            items(&meet).subtype_relation_under(&list_of(one.clone()), &NoLeafRelations, &[]),
+            Relation::Holds
+        );
+        prop_assert_ne!(
+            list_of(one).subtype_relation_under(&items(&meet), &NoLeafRelations, &[]),
+            Relation::Fails
+        );
+    }
+}
+
 fn a_length_bound() -> impl Strategy<Value = Constraint> {
     prop_oneof![
         (0usize..5).prop_map(Constraint::MinLen),
         (0usize..5).prop_map(Constraint::MaxLen),
     ]
+}
+
+proptest! {
+    /// A meet of lists, one of them a length bound over every list, holds what the
+    /// one list of the items' meet under that bound holds: a value of the meet holds,
+    /// at each position, an item of every member, as an `allOf` of arrays is one array
+    /// of the items' meet [HSHP20, §4.2].
+    /// The meet is read by its positions and the one list by its own shape, and the
+    /// two never decide apart.
+    #[test]
+    fn a_meet_of_lists_reads_as_the_list_of_the_items_meet(
+        items in proptest::collection::vec(
+            prop_oneof![
+                Just(Schema::Int),
+                Just(Schema::Str),
+                Just(Schema::Bool),
+                Just(Schema::union([Schema::Int, Schema::Str])),
+                Just(Schema::Anything(Spelling::Any)),
+            ],
+            2..4,
+        ),
+        bound in proptest::collection::vec(a_length_bound(), 1..3),
+    ) {
+        let list_of = |item| Schema::list(SeqShape::homogeneous(item));
+        let mut members: Vec<Schema> = items.iter().cloned().map(list_of).collect();
+        members.push(Schema::refine(list_of(Schema::Anything(Spelling::Any)), bound.clone()));
+        let meet = Schema::meet(members);
+        let one = Schema::refine(list_of(Schema::meet(items)), bound);
+        let (by_positions, as_one) =
+            (meet.verdict_under(&NoLeafRelations), one.verdict_under(&NoLeafRelations));
+        prop_assert!(
+            by_positions == Verdict::Unknown
+                || as_one == Verdict::Unknown
+                || by_positions == as_one,
+            "{:?}: {:?} against {:?}", meet, by_positions, as_one
+        );
+    }
 }
 
 // THEORY: the-domain-is-one-model-per-interpreter

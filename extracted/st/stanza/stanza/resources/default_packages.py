@@ -32,7 +32,7 @@ default_treebanks = {
     "da":      "ddt",
     "de":      "combined",
     "egy":     "pc",
-    "el":      "gdt",
+    "el":      "combined",
     "en":      "combined",
     "es":      "combined",
     "et":      "edt",
@@ -80,7 +80,7 @@ default_treebanks = {
     "naq":     "kdt",
     "nb":      "bokmaal",
     "nds":     "lsdc",
-    "nl":      "alpino",
+    "nl":      "combined",
     "nn":      "nynorsk",
     "oc":      "ttb",
     "olo":     "kkpp",
@@ -280,8 +280,6 @@ ner_pretrains = {
     },
     "de": {
         "conll03":      "fasttextwiki",
-        # the bert version of germeval uses the smaller vector file
-        "germeval2014": "fasttextwiki",
     },
     "en": {
         "anatem":       "biomed",
@@ -297,8 +295,6 @@ ner_pretrains = {
         # the stanza-train sample NER model should use the default NER pretrain
         # for English, that is the same as ontonotes
         "sample":       "fasttextcrawl",
-
-        "conll03":      "glove",
 
         "i2b2":         "mimic",
         "radiology":    "mimic",
@@ -408,7 +404,7 @@ default_ners = {
     "ar": "aqmar_charlm",
     "bg": "bsnlp19",
     "da": "ddt",
-    "de": "germeval2014",
+    "de": "germeval2014_charlm",
     "en": "ontonotes-ww-multi_charlm",
     "es": "conll02",
     "fa": "arman",

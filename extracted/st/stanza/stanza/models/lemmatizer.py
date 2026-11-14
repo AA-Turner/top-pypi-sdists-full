@@ -18,7 +18,7 @@ import random
 import torch
 from torch import nn, optim
 
-from stanza.models.lemma.data import DataLoader
+from stanza.models.lemma.data import DataLoader, build_vocab
 from stanza.models.lemma.vocab import Vocab
 from stanza.models.lemma.trainer import Trainer
 from stanza.models.lemma import scorer, edit
@@ -35,8 +35,9 @@ def build_argparse():
     parser.add_argument('--data_dir', type=str, default='data/lemma', help='Directory for all lemma data.')
     parser.add_argument('--train_file', type=str, default=None, help='Training input file for data loader.')
     parser.add_argument('--eval_file', type=str, default=None, help='Evaluation input file for data loader.')
-    parser.add_argument('--secondary_file', type=str, default=None, help='Secondary input file for dictionary / slower learning')
-    parser.add_argument('--secondary_lr', type=float, default=0.1, help='Slower LR for the secondary input file')
+    parser.add_argument('--secondary_file', type=str, default=None, help='Secondary input file, such as a lexicon.  All of its entries go in the dictionary, and the seq2seq model also trains on it at --secondary_rate')
+    parser.add_argument('--secondary_rate', type=float, default=0.1, help='Batches of the secondary file to train the seq2seq model on, per batch of the training file.  0.1 means one secondary batch for every 10 training batches.  0 means the secondary file is only used in the dictionary')
+    parser.add_argument('--exact_dict_file', type=str, default=None, help='Dictionary file whose entries only apply to their exact word and UPOS.  They take precedence over the training data for that word and UPOS, the same word with any other UPOS is looked up as before, and the seq2seq model does not train on them')
     parser.add_argument('--output_file', type=str, default=None, help='Output CoNLL-U file.')
 
     parser.add_argument('--mode', default='train', choices=['train', 'predict'])
@@ -124,16 +125,61 @@ def all_lowercase(doc):
 def model_file_name(args):
     return utils.standard_model_file_name(args, "lemmatizer")
 
+def cycle_batches(data_loader):
+    """
+    Iterate over the batches of data_loader forever, reshuffling after each pass
+    """
+    while True:
+        for batch in data_loader:
+            yield batch
+        data_loader.reshuffle()
+
+def interleave_batches(train_batch, secondary_batches, secondary_rate):
+    """
+    Yield (batch, is_secondary) for one pass over train_batch
+
+    secondary_batches is an endless iterator, such as from cycle_batches,
+    or None to only use train_batch.  Secondary batches are spread evenly
+    among the training batches, secondary_rate of them per training batch,
+    so a rate of 0.1 adds one secondary batch after every 10th training batch.
+    """
+    num_secondary = 0
+    for batch_idx, batch in enumerate(train_batch):
+        yield batch, False
+        if secondary_batches is None:
+            continue
+        # the small epsilon covers floating point error,
+        # such as 90 * 0.7 = 62.99999999999999
+        due = int((batch_idx + 1) * secondary_rate + 1e-9)
+        while num_secondary < due:
+            yield next(secondary_batches), True
+            num_secondary += 1
+
 def train(args):
     # load data
     logger.info("[Loading data with batch size {}...]".format(args['batch_size']))
     train_doc = CoNLL.conll2doc(input_file=args['train_file'])
-    train_batch = DataLoader(train_doc, args['batch_size'], args, evaluation=False)
-    secondary_batch = None
+    if not args['caseless'] and all_lowercase(train_doc):
+        logger.info("Building a caseless model, as all of the training data is caseless")
+        args['caseless'] = True
+
+    secondary_doc = None
     if args['secondary_file']:
         secondary_doc = CoNLL.conll2doc(input_file=args['secondary_file'])
-        secondary_batch = DataLoader(secondary_doc, args['batch_size'], args, evaluation=False)
+
+    vocab = None
+    if secondary_doc is not None and args['secondary_rate'] > 0:
+        # the seq2seq model trains on the secondary data as well,
+        # so the char vocab needs to cover the characters in both files
+        vocab_data = DataLoader.load_doc(train_doc, args['caseless'], args['skip_blank_lemmas'], evaluation=False)
+        vocab_data.extend(DataLoader.load_doc(secondary_doc, args['caseless'], args['skip_blank_lemmas'], evaluation=False))
+        vocab = build_vocab(vocab_data, args['lang'])
+
+    train_batch = DataLoader(train_doc, args['batch_size'], args, vocab=vocab, evaluation=False)
     vocab = train_batch.vocab
+    secondary_batch = None
+    if secondary_doc is not None:
+        secondary_batch = DataLoader(secondary_doc, args['batch_size'], args, vocab=vocab, evaluation=False)
     args['vocab_size'] = vocab['char'].size
     args['pos_vocab_size'] = vocab['pos'].size
     dev_doc = CoNLL.conll2doc(input_file=args['eval_file'])
@@ -153,10 +199,6 @@ def train(args):
         logger.warning("[Skip training because no training data available...]")
         return
 
-    if not args['caseless'] and all_lowercase(train_doc):
-        logger.info("Building a caseless model, as all of the training data is caseless")
-        args['caseless'] = True
-
     # start training
     # train a dictionary-based lemmatizer
     logger.info("Building lemmatizer in %s", model_file)
@@ -166,6 +208,11 @@ def train(args):
     if secondary_batch:
         dict_data.extend(secondary_batch.raw_data())
     trainer.train_dict(dict_data)
+    if args['exact_dict_file']:
+        exact_doc = CoNLL.conll2doc(input_file=args['exact_dict_file'])
+        exact_entries = DataLoader.load_doc(exact_doc, args['caseless'], skip_blank_lemmas=False, evaluation=True)
+        logger.info("Adding %d exact dictionary entries from %s", len(exact_entries), args['exact_dict_file'])
+        trainer.add_exact_entries(exact_entries)
     logger.info("Evaluating on dev set...")
     dev_preds = trainer.predict_dict(dev_batch.doc.get([TEXT, UPOS]))
     dev_batch.doc.set([LEMMA], dev_preds)
@@ -195,10 +242,21 @@ def train(args):
         global_start_time = time.time()
         format_str = '{}: step {}/{} (epoch {}/{}), loss = {:.6f} ({:.3f} sec/batch), lr: {:.6f}'
 
+        secondary_batches = None
+        if secondary_batch is not None and args['secondary_rate'] > 0 and len(secondary_batch) > 0:
+            logger.info("Training the seq2seq model on %g secondary batches per training batch from %s", args['secondary_rate'], args['secondary_file'])
+            secondary_batches = cycle_batches(secondary_batch)
+
         # start training
         for epoch in range(1, args['num_epoch']+1):
             train_loss = 0
-            for i, batch in enumerate(train_batch):
+            secondary_loss = 0
+            num_secondary = 0
+            for batch, is_secondary in interleave_batches(train_batch, secondary_batches, args['secondary_rate']):
+                if is_secondary:
+                    secondary_loss += trainer.update(batch, eval=False)
+                    num_secondary += 1
+                    continue
                 start_time = time.time()
                 global_step += 1
                 loss = trainer.update(batch, eval=False) # update step
@@ -230,6 +288,8 @@ def train(args):
 
             train_loss = train_loss / train_batch.num_examples * args['batch_size'] # avg loss per batch
             logger.info("epoch {}: train_loss = {:.6f}, dev_score = {:.4f}".format(epoch, train_loss, dev_score))
+            if num_secondary > 0:
+                logger.info("epoch {}: {} secondary batches, secondary_loss = {:.6f}".format(epoch, num_secondary, secondary_loss / num_secondary))
 
             if args['wandb']:
                 wandb.log({'train_loss': train_loss, 'dev_score': dev_score})

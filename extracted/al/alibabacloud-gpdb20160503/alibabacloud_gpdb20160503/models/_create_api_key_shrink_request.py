@@ -21,7 +21,7 @@ class CreateApiKeyShrinkRequest(DaraModel):
         self.key_name = key_name
         # The region ID.
         self.region_id = region_id
-        # The IDs of the services to be authorized.
+        # The list of service IDs to authorize.
         self.service_ids_shrink = service_ids_shrink
         # The workspace ID.
         # 

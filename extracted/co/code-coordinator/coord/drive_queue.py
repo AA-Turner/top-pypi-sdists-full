@@ -92,6 +92,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from coord.decomposition_chat import is_size_triage_pending_reason
+from coord.dispatch_liveness import is_credential_probe_refusal_reason
 from coord.drive_state import TERMINAL_STATUSES, WORK_LIKE
 from coord.entry_truth import (
     EntryTruth,
@@ -1490,6 +1491,16 @@ DRIVE_STARTUP_GRACE_SECONDS = 300.0
 # the-loop delay #3695 exists to remove.
 TEST_STAGE_ROUTING_RECHECK_GRACE_SECONDS = 600.0
 
+# ── #4004: Work-dispatch credential-probe recheck grace ──────────────────────
+#
+# Same reasoning, same value, as `TEST_STAGE_ROUTING_RECHECK_GRACE_SECONDS`
+# immediately above — a `blocked` row whose cause is `is_credential_probe_
+# refusal_reason` (a live `/health`/credential probe reading, not a config
+# fact) must not bounce `reason_at` on every tick's quiet "still blocked,
+# rechecked, still nothing" case, only when the fleet reading actually flips
+# to routable.
+CREDENTIAL_ROUTING_RECHECK_GRACE_SECONDS = 600.0
+
 # ── #2587: roll-pending bounds ────────────────────────────────────────────────
 #
 # A "roll at the next inter-drive gap" marker (see `RollPending` below) must
@@ -2028,6 +2039,17 @@ def remaining_fix_rounds(
     :func:`total_fix_round_budget` reads ``0`` (no more fix rounds), the
     signal `_reconcile_running` uses to stop relaunching altogether rather
     than pass a session a budget it cannot spend down further.
+
+    #3998 deploy skew: a row's ``legs_at_enqueue`` baseline was stamped at
+    `add`/relaunch time under WHATEVER definition of "work leg" was live
+    then. A row added before this change landed has infra-failed launches
+    baked into that baseline; ``facts.work_leg_count`` now excludes them
+    going forward, so ``fix_rounds_spent`` under-counts by up to that many
+    legs until the row is next re-added (`remove` + `add` re-stamps the
+    baseline fresh). Harmless in the direction that matters — it can only
+    hand out a few EXTRA rounds to a pre-existing row, never fewer — and
+    `entry.attempts` / `max_attempts` remains an independent bound on that
+    same row regardless.
     """
     fix_rounds_spent = max(
         facts.work_leg_count - entry.legs_at_enqueue - 1, 0
@@ -2215,6 +2237,16 @@ def summarize_drive_queue(
 # :func:`summarize_drive_queue` above: the caller fetches the rows (from
 # `assignments` + `assignments_archive` on the daemon, or from a fixture's
 # seeded board), this just counts them.
+
+#: #3998: reserved pseudo-type key `coord.state._leg_counts_local` folds a
+#: WORK_LIKE issue's infra-failed-launch count under, in the SAME per-issue
+#: ``by_type`` map every real :data:`~coord.models.AssignmentType` string is
+#: counted under. Deliberately never a real assignment type (``in WORK_LIKE``
+#: is always ``False`` for it), so every existing ``kind in WORK_LIKE``
+#: filter — this module's own `build_board_view` fold into `work_leg_count`,
+#: `coord.commands.drive_queue`'s `lifetime_legs` display — excludes it
+#: automatically, with no change needed at either call site.
+INFRA_FAILED_LAUNCH_KEY = "infra_failed_launch"
 
 
 def compute_leg_counts(
@@ -2409,6 +2441,19 @@ class IssueFacts:
     # this issue (never dispatched) — reads as "budget untouched", never as a
     # false ceiling trip.
     work_leg_count: int = 0
+    # #3998: ALL-TIME count, same scope as `work_leg_count` above, of
+    # WORK_LIKE assignments for this issue that ended WITHOUT a worker
+    # session ever starting — a worktree-setup failure, a pre-session
+    # API/HTTP error, or a launch refused for a live conflicting worktree
+    # (#3912). `work_leg_count` above EXCLUDES these by construction (see
+    # `coord.state._leg_counts_local`'s split of real vs infra-failed rows
+    # before folding into `leg_counts`'s per-type map) — this field is pure
+    # diagnostics, carried so a ceiling block's reason can report "N work
+    # legs + M infra-failed launches" instead of silently losing the infra
+    # count, never consulted by `remaining_fix_rounds` itself. `0` when
+    # *leg_counts* is omitted or names nothing for this issue, same as
+    # `work_leg_count`.
+    infra_failed_leg_count: int = 0
     # #3502: the worker's (and reviewer's, when it overrode) own
     # self-reported `ISSUE_RESOLUTION:` judgment for the merged work-like
     # assignment behind `merged` — one of
@@ -2614,6 +2659,13 @@ def build_board_view(
     every pre-#2972 caller) leaves every :attr:`IssueFacts.work_leg_count` at
     its ``0`` default, which reads as "budget untouched" — the exact
     pre-#2972 behaviour for a caller that never learned about this field.
+
+    #3998: *leg_counts* may also carry each key's count under
+    :data:`INFRA_FAILED_LAUNCH_KEY` — a WORK_LIKE leg that never started a
+    worker session. That count is folded into
+    :attr:`IssueFacts.infra_failed_leg_count` instead of
+    ``work_leg_count``: it is never a member of ``WORK_LIKE``, so it was
+    already excluded from the sum above before this field existed.
     """
     facts: dict[str, dict[str, Any]] = {}
 
@@ -2934,6 +2986,11 @@ def build_board_view(
         got["work_leg_count"] = sum(
             count for kind, count in by_type.items() if kind in WORK_LIKE
         )
+        # #3998: the sibling diagnostic count, folded separately from
+        # `work_leg_count` above — `INFRA_FAILED_LAUNCH_KEY` is never a
+        # member of `WORK_LIKE`, so the sum above already excludes it; this
+        # just surfaces the number it excluded rather than discarding it.
+        got["infra_failed_leg_count"] = int(by_type.get(INFRA_FAILED_LAUNCH_KEY, 0))
 
     return BoardView(
         issues={key: IssueFacts(**value) for key, value in facts.items()},
@@ -5802,7 +5859,12 @@ def _reconcile_running(
     more budget appear). *fix_round_config_default* is ``pipeline.
     max_fix_rounds`` — the same value :func:`effective_max_fix_rounds`
     resolves against for the entry actually being launched, so this check
-    and the launch it gates read the identical number.
+    and the launch it gates read the identical number. #3998:
+    ``facts.work_leg_count`` itself excludes a leg that never started a
+    worker session (a worktree-setup failure, a pre-session API/HTTP
+    error) — those are bounded instead by the ordinary
+    ``attempts``/``max_attempts`` relaunch ceiling this same function
+    enforces, never by this fix-round budget.
 
     #3577: the ceiling above is a WORK budget — it must never fire for a
     death whose own evidence shows no further work/fix leg would even be
@@ -6264,6 +6326,47 @@ def _reconcile_running(
             None,
         )
 
+    # #4004 rides the SAME `exit_refused` evidence as the generic `permanent`
+    # branch immediately below, but reaches the OPPOSITE conclusion for ONE
+    # specific `(#1844)`-shaped refusal: `check_dispatch_liveness`'s
+    # `PREDICATE_MACHINE_UNHEALTHY` — a LIVE probe reading, not a config/
+    # policy fact. The quadraui#2361 incident (2026-11-14): precision's
+    # `/health` was intermittently slow enough to read as a dead credential,
+    # `claude -p` worked fine minutes later, and nothing ever looked again —
+    # the row (and #2362's `pre-req … it will never satisfy` dependents
+    # behind it) sat `blocked` until an operator ran `doctor-act requeue` by
+    # hand. Checked purely off `own_reason`'s own marker
+    # (`coord.dispatch_liveness.is_credential_probe_refusal_reason`),
+    # independent of `exit_refused` — same posture #2063/#2234/#3971 already
+    # established for their own distinct-conclusion carve-outs above. Blocks
+    # WITHOUT spending an attempt, same as the generic permanent branch, but
+    # as a distinct `credential_blocked` outcome (never `refused`) and with
+    # NONE of `_PERMANENT_BLOCK_MARKERS`' own text — so `is_permanent_block_
+    # reason` reads `False` for it and `_reconcile_blocked_credential_
+    # routing` (run on every later tick, mirroring #3695's Test-stage
+    # routing recheck) gets a turn to self-clear it the moment any capable
+    # machine probes routable again, no operator action needed.
+    if own_reason and is_credential_probe_refusal_reason(own_reason):
+        reason = (
+            f"{own_reason} — blocking as RE-EVALUABLE, not permanent (#4004): "
+            "the live probe that refused this dispatch can read differently "
+            "on a later tick — the queue re-checks every tick whether any "
+            "capable machine is routable and returns this row to waiting "
+            "the moment one is, no attempt spent and no operator needed"
+        )
+        return (
+            Reconcile(entry.key, "credential_blocked", reason, occupies=False),
+            Blocked(
+                entry.key,
+                reason,
+                updates={
+                    "state": STATE_BLOCKED,
+                    "last_reason": reason,
+                    "session_name": None,
+                },
+            ),
+        )
+
     permanent: tuple[str, str] | None = None
     if own_reason and (exit_refused or {}).get(entry.key):
         permanent = (
@@ -6670,13 +6773,28 @@ def _reconcile_running(
             else None
         )
         gate_note = f" (merge gate: {live_merge_reason})" if live_merge_reason else ""
+        # #3998: `facts.infra_failed_leg_count` is a LIFETIME figure (like
+        # `facts.work_leg_count` itself — unlike `row_legs` above, there is
+        # no per-row baseline to subtract it against — see `IssueFacts.
+        # infra_failed_leg_count`'s docstring), so this is reported as its
+        # own, separately-labelled count rather than folded into `row_legs`:
+        # an operator reading "N work legs" must never have to wonder
+        # whether a never-started launch is hiding inside that number.
+        infra_legs = facts.infra_failed_leg_count
+        infra_note = (
+            f", plus {infra_legs} lifetime infra-failed launch(es) that "
+            f"never started a worker session (not counted against this "
+            f"row's budget)"
+            if infra_legs
+            else ""
+        )
         reason = (
             f"fix-round ceiling reached across relaunches (#2972): "
             f"{row_legs} work leg(s) already run against this row's own "
             f"budget of {budget} (1 work dispatch + "
             f"{effective_max_fix_rounds(entry, fix_round_config_default)} fix "
-            f"round(s)) — giving up rather than relaunching with a fresh "
-            f"budget{dispatch_note}{gate_note}. Stopped (#3454): no further "
+            f"round(s)){infra_note} — giving up rather than relaunching with "
+            f"a fresh budget{dispatch_note}{gate_note}. Stopped (#3454): no further "
             f"relaunch, gate-clear resume, or auto-dispatched stale-rebase "
             f"conflict-fix "
             f"(from any of this fleet's independent dispatchers) will fire "
@@ -7155,6 +7273,120 @@ def _reconcile_blocked_test_routing(
     return Reconcile(
         entry.key,
         "test_routing_recovered",
+        reason,
+        occupies=False,
+        updates={
+            "state": STATE_WAITING,
+            "attempts": 0,
+            "resumes": entry.resumes + 1,
+            "last_reason": reason,
+        },
+    )
+
+
+# #4004: the credential-probe-refusal sibling of `_TEST_ROUTING_PROBE_NOTE_SEP`
+# above — a separate separator so the two probe notes can never collide if a
+# row somehow carried both markers.
+_CREDENTIAL_ROUTING_PROBE_NOTE_SEP = " — this tick's credential-routing recheck: "
+
+
+def _strip_credential_routing_probe_note(text: str | None) -> str:
+    """*text* with any :data:`_CREDENTIAL_ROUTING_PROBE_NOTE_SEP`-delimited
+    note a previous tick appended (via
+    :func:`_with_credential_routing_probe_note`) removed, leaving only the
+    entry's original `is_credential_probe_refusal_reason` cause intact."""
+    base, _sep, _note = (text or "").partition(_CREDENTIAL_ROUTING_PROBE_NOTE_SEP)
+    return base.rstrip()
+
+
+def _with_credential_routing_probe_note(original: str | None, note: str) -> str:
+    """*original* (an entry's ``last_reason``) with *note* — this tick's
+    credential-routing recheck finding — appended, after first stripping any
+    note an earlier tick appended the same way. The original cause (and its
+    :data:`coord.dispatch_liveness.CREDENTIAL_PROBE_REFUSAL_MARKER`) is
+    NEVER discarded, mirroring :func:`_with_test_routing_probe_note`.
+    """
+    base = _strip_credential_routing_probe_note(original)
+    return f"{base}{_CREDENTIAL_ROUTING_PROBE_NOTE_SEP}{note}" if base else note
+
+
+def _reconcile_blocked_credential_routing(
+    entry: QueueEntry,
+    now: float | None,
+    live_credential_routing_clear: Mapping[str, bool] | None,
+    live_credential_routing_reason: Mapping[str, str] | None,
+) -> Reconcile | None:
+    """#4004: re-check a Work-dispatch credential-probe refusal — fleet
+    state (a live `/health`/credential probe reading), not a permanent
+    cause — on every tick, and self-clear it the moment a capable machine
+    probes routable again.
+
+    The Work-stage sibling of :func:`_reconcile_blocked_test_routing`
+    (#3695), same shape throughout: `coord.dispatch_liveness.check_dispatch_
+    liveness`'s `PREDICATE_MACHINE_UNHEALTHY` refusal is a LIVE probe
+    reading that routinely clears within minutes (quadraui#2361,
+    2026-11-14: precision's `/health` was intermittently slow, `claude -p`
+    worked fine minutes later) — yet reached here as an ordinary
+    `(#1844)`-shaped `EXIT_DISPATCH_REFUSED`, which `_reconcile_running`'s
+    own early branch now (#4004) recognises by `own_reason`'s marker and
+    routes to THIS re-evaluable `blocked` shape instead of the generic
+    permanent one. Nothing re-examined it before this existed — the row,
+    and every `after=` dependent behind it (#2362's own re-check), stayed
+    blocked until an operator ran `coord drive-queue doctor-act requeue`
+    by hand.
+
+    Returns ``None`` — nothing to report, nothing to write — for every
+    entry except a genuine credential-probe refusal
+    (`is_credential_probe_refusal_reason(entry.last_reason)`) the shell's
+    live re-check (`live_credential_routing_clear`) has CONFIRMED is now
+    routable again, past its own recheck grace window
+    (:data:`CREDENTIAL_ROUTING_RECHECK_GRACE_SECONDS`) — identical
+    structure to `_reconcile_blocked_test_routing`; see its docstring for
+    the full case breakdown (no evidence, still refused, inside grace,
+    past `MAX_BLOCKED_RESUMES`).
+    """
+    if not is_credential_probe_refusal_reason(entry.last_reason):
+        return None
+    clear = (live_credential_routing_clear or {}).get(entry.key)
+    if not clear:
+        return None
+    age = _park_reading_age(entry, now)
+    if age is not None and age < CREDENTIAL_ROUTING_RECHECK_GRACE_SECONDS:
+        return None
+    live_reason = (live_credential_routing_reason or {}).get(entry.key) or (
+        "a capable machine now probes routable again"
+    )
+    if entry.resumes >= MAX_BLOCKED_RESUMES:
+        # #3695 review's same ceiling, same layering convention — see
+        # `_reconcile_blocked_test_routing`'s identical branch for why a
+        # wholesale `last_reason` replacement would be wrong here too.
+        probe_note = (
+            f"{entry.key}'s credential-probe refusal reads clear again "
+            f"({live_reason}), but this entry has already been auto-resumed "
+            f"{entry.resumes} time(s) and dead-ended on this same refusal "
+            "every time — staying blocked rather than oscillating (#2230, "
+            "#4004); look at what keeps re-refusing it, not just this "
+            "tick's fleet reading"
+        )
+        reason = _with_credential_routing_probe_note(entry.last_reason, probe_note)
+        if reason == entry.last_reason:
+            return None
+        return Reconcile(
+            entry.key,
+            "oscillating",
+            reason,
+            occupies=False,
+            updates={"last_reason": reason},
+        )
+    reason = (
+        f"{entry.key}'s credential-probe refusal has self-cleared: "
+        f"{live_reason} — resuming from blocked without an operator "
+        f"action, attempt budget reset (resume {entry.resumes + 1}/"
+        f"{MAX_BLOCKED_RESUMES}) (#4004)"
+    )
+    return Reconcile(
+        entry.key,
+        "credential_routing_recovered",
         reason,
         occupies=False,
         updates={
@@ -7920,6 +8152,8 @@ def plan_tick(
     live_running_merge_gate_reason: Mapping[str, str] | None = None,
     live_test_routing_clear: Mapping[str, bool] | None = None,
     live_test_routing_reason: Mapping[str, str] | None = None,
+    live_credential_routing_clear: Mapping[str, bool] | None = None,
+    live_credential_routing_reason: Mapping[str, str] | None = None,
     prereq_truth: Mapping[str, "EntryTruth"] | None = None,
 ) -> TickPlan:
     """Decide one tick.  Pure; the caller executes the returned plan.
@@ -8324,6 +8558,25 @@ def plan_tick(
     human-readable sibling, folded into the self-clear's `last_reason` so
     `coord drive-queue list`/`status` shows WHAT became routable, not just
     that something did.
+
+    *live_credential_routing_clear* (#4004) is the Work-dispatch sibling of
+    *live_test_routing_clear*: maps a `blocked` entry's key to whether a
+    FRESH re-check taken live THIS tick found at least one capable,
+    unpaused machine whose live credential/health probe now passes.
+    Threaded straight through to
+    :func:`_reconcile_blocked_credential_routing`, called right after
+    :func:`_reconcile_blocked_test_routing` in the `STATE_BLOCKED` branch
+    below — the re-check this issue authorises for a `coord.dispatch_
+    liveness.PREDICATE_MACHINE_UNHEALTHY` refusal
+    (`coord.dispatch_liveness.is_credential_probe_refusal_reason`), which
+    carries none of `_PERMANENT_BLOCK_MARKERS`' text and so was never
+    treated as permanent in the first place — but which also had NOTHING
+    re-examining it before this existed. A key ABSENT here (no live
+    opinion this tick) leaves the row `blocked`, unchanged.
+
+    *live_credential_routing_reason* (#4004) is *live_credential_routing_
+    clear*'s own human-readable sibling, folded into the self-clear's
+    `last_reason` the same way *live_test_routing_reason* is.
     """
     ordered = sorted(entries, key=lambda e: (e.position, e.key))
     states: dict[str, str] = {e.key: e.state for e in ordered}
@@ -8636,6 +8889,24 @@ def plan_tick(
                     live_test_routing_reason,
                 )
             if blocked_reconcile is None:
+                # #4004: the Work-dispatch sibling of the #3695 recheck just
+                # above — a credential-probe refusal reading is also fleet
+                # state, not a permanent cause, and also carries no
+                # `_PERMANENT_BLOCK_MARKERS` text, so `_reconcile_blocked`
+                # below would never bail out on it anyway; this still runs
+                # first so a confirmed-clear reading resumes the row the
+                # SAME tick it clears rather than waiting for
+                # `_reconcile_blocked`'s unrelated merge-gate path to also
+                # return `None` first. See
+                # :func:`_reconcile_blocked_credential_routing` for the full
+                # decision.
+                blocked_reconcile = _reconcile_blocked_credential_routing(
+                    entry,
+                    now,
+                    live_credential_routing_clear,
+                    live_credential_routing_reason,
+                )
+            if blocked_reconcile is None:
                 # Auto-heal a `blocked` entry wedged in the #2944
                 # guaranteed-false wait, BEFORE `_reconcile_blocked` below
                 # gets a turn and re-stamps its "could not be read" sentence
@@ -8682,16 +8953,24 @@ def plan_tick(
             # only `_reconcile_blocked`'s gate-clear path, leaving the
             # `after=` cascade above unstaggered even though a many-rows-
             # chained-on-one-prereq clear is the identical synchronized-poll
-            # shape). Stagger it: only the first
-            # `max_resumes_per_tick_per_repo` CONFIRMED-CLEAR resumes per
-            # repo actually release this tick, from EITHER path; the rest
-            # stay `blocked` (no state write, so they re-enter this exact
-            # branch next tick and get first refusal then) with a reason
-            # explaining why, instead of all firing at once.
+            # shape). `credential_routing_recovered` (#4004) is the SAME
+            # shape again: one host's credential/health probe coming back
+            # clears every row that was blocked on it, each driving its own
+            # live `gh` re-checks on this tick's next poll — so it staggers
+            # through the same cap, not a fourth unthrottled path. Stagger
+            # it: only the first `max_resumes_per_tick_per_repo` CONFIRMED-
+            # CLEAR resumes per repo actually release this tick, from ANY
+            # of these paths; the rest stay `blocked` (no state write, so
+            # they re-enter this exact branch next tick and get first
+            # refusal then) with a reason explaining why, instead of all
+            # firing at once.
             if (
                 blocked_reconcile is not None
                 and blocked_reconcile.outcome
-                in ("resumed", "merge_only", "test_routing_recovered")
+                in (
+                    "resumed", "merge_only", "test_routing_recovered",
+                    "credential_routing_recovered",
+                )
                 and max_resumes_per_tick_per_repo is not None
                 and max_resumes_per_tick_per_repo > 0
             ):

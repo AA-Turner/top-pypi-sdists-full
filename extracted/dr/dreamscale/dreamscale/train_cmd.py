@@ -694,14 +694,18 @@ def run_deploy(
     step: int | None = None,
     region: str | None = None,
     region_fallback: bool | None = None,
+    executed: int | None = None,
     wait: bool = True,
     client_factory: Callable[..., Any] = ControlPlaneClient,
     print_fn: Callable[[str], None] = print,
     sleep: Callable[[float], None] = time.sleep,
+    engine: str | None = None,
 ) -> dict:
     """Deploy a checkpoint (default the latest) and follow its GPU check like
     `deployments create`. ``region_fallback``: whether its server may start in the
-    next-closest region when its own is full (None: the server's default, on)."""
+    next-closest region when its own is full (None: the server's default, on). ``executed``:
+    the rows the robot executes per chunk (None: the run's own). ``engine``: where its base
+    offers a choice (None: the default, standard)."""
     region = parse_region(region)
     if region == AUTO_REGION:
         # The nearest region the run's base serves (None: the server's default).
@@ -711,6 +715,8 @@ def run_deploy(
     result = call(
         client_factory, "deploy_training", run_id, step=step, region=region,
         **({"region_fallback": region_fallback} if region_fallback is not None else {}),
+        **({"executed_actions": executed} if executed is not None else {}),
+        **({"engine": engine} if engine is not None else {}),
     )
     deployment = result.get("deployment") or result
     which = f"{run_id} step {step:,}" if step else f"{run_id}'s latest checkpoint"
@@ -796,9 +802,12 @@ def run_download(
     if link:
         print_fn(answer["url"])
         return answer
-    path = Path(output).expanduser() if output else Path(answer["filename"])
+    from dreamscale.uploads import bare_name
+
+    # The server's file name names a file in the folder chosen (or this one), never elsewhere.
+    path = Path(output).expanduser() if output else Path(bare_name(answer.get("filename")))
     if path.is_dir():
-        path = path / answer["filename"]
+        path = path / bare_name(answer.get("filename"))
     (fetch or _fetch_file)(answer["url"], path, int(answer.get("size_bytes") or 0), print_fn)
     print_fn(
         f"✓ Downloaded {path} ({size_text(path.stat().st_size)})"

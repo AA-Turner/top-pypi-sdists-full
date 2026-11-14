@@ -6,9 +6,11 @@ import ast
 from pathlib import Path
 import subprocess
 import sys
+from unittest.mock import create_autospec
 
 import pytest
 
+from pytest_gremlins import process_tree
 from pytest_gremlins.instrumentation.gremlin import Gremlin
 from pytest_gremlins.parallel import (
     persistent_pool,
@@ -18,8 +20,10 @@ from pytest_gremlins.parallel.lightweight import (
     LIGHTWEIGHT_CANNOT_VERIFY_EXIT_CODE,
     describe_runner_error,
 )
-from pytest_gremlins.plugin import _test_gremlin
 from pytest_gremlins.reporting.results import GremlinResultStatus
+from pytest_gremlins.verdicts import (
+    _test_gremlin,
+)
 
 REASON = 'test requires arguments (fixtures or parametrization)'
 EXIT_WITH_REASON = [
@@ -78,7 +82,9 @@ class DescribeCannotVerifyMapping:
                 args=['x'], returncode=LIGHTWEIGHT_CANNOT_VERIFY_EXIT_CODE, stdout=b'', stderr=REASON.encode()
             )
 
-        monkeypatch.setattr('pytest_gremlins.plugin.subprocess.run', fake_run)
+        monkeypatch.setattr(
+            'pytest_gremlins.process_tree.run_bounded', create_autospec(process_tree.run_bounded, side_effect=fake_run)
+        )
 
         result = _test_gremlin(sample_gremlin, ['pytest'], tmp_path, instrumented_dir=None, timeout=30)
 

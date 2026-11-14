@@ -1,10 +1,12 @@
-use std::io::Read;
+use std::{collections::HashMap, io::Read};
 
 use bytes::Bytes;
 use prost::Message;
 
 use crate::{
-    StatsigErr, log_error_to_statsig_and_console,
+    StatsigErr,
+    interned_string::InternedString,
+    log_error_to_statsig_and_console,
     observability::{ops_stats::OpsStatsForInstance, sdk_errors_observer::ErrorBoundaryEvent},
     specs_adapter::remote_config_value_hydrator::{
         declares_unsupported_remote_metadata, unsupported_entity_error,
@@ -12,7 +14,7 @@ use crate::{
     specs_response::{
         proto_stream_reader::ProtoStreamReader,
         spec_types::SpecsResponseFull,
-        specs_hash_map::{SpecDecodeStats, seed_spec_decode_stats},
+        specs_hash_map::{SpecDecodeStats, SpecPointer, seed_spec_decode_stats},
         statsig_config_specs as pb,
     },
 };
@@ -27,6 +29,7 @@ use super::{
 pub(super) struct ProtobufParser<'a> {
     pub(super) ops_stats: &'a OpsStatsForInstance,
     pub(super) current_specs: &'a SpecsResponseFull,
+    pub(super) pending_producer_configs: Option<&'a HashMap<InternedString, SpecPointer>>,
     current_field_checksums: &'a SpecsFieldChecksums,
     previous_spec_decode_stats: SpecDecodeStats,
     pub(super) next_specs: &'a mut SpecsResponseFull,
@@ -51,19 +54,6 @@ impl ParseState {
     fn is_delta(self) -> bool {
         !matches!(self, Self::Initial | Self::Full)
     }
-
-    fn materialize(
-        &mut self,
-        current_specs: &SpecsResponseFull,
-        next_specs: &mut SpecsResponseFull,
-        previous_spec_decode_stats: SpecDecodeStats,
-    ) {
-        if *self == Self::DeltaDeferred {
-            seed_spec_decode_stats(previous_spec_decode_stats);
-            next_specs.copy_previous_values_from(current_specs);
-            *self = Self::DeltaMaterialized;
-        }
-    }
 }
 
 impl<'a> ProtobufParser<'a> {
@@ -84,6 +74,7 @@ impl<'a> ProtobufParser<'a> {
         Ok(Self {
             ops_stats,
             current_specs,
+            pending_producer_configs: None,
             current_field_checksums,
             previous_spec_decode_stats,
             next_specs,
@@ -92,6 +83,22 @@ impl<'a> ProtobufParser<'a> {
             parsed_envelopes_count: 0,
             remote_metadata_hint: None,
         })
+    }
+
+    fn copy_previous_values(&mut self) {
+        seed_spec_decode_stats(self.previous_spec_decode_stats);
+        self.next_specs
+            .copy_previous_values_from(self.current_specs);
+        if let Some(pending) = self.pending_producer_configs {
+            self.next_specs.restore_producer_configs(pending);
+        }
+    }
+
+    fn materialize_delta(&mut self) {
+        if self.is_deferred_delta() {
+            self.copy_previous_values();
+            self.state = ParseState::DeltaMaterialized;
+        }
     }
 
     pub(super) fn is_delta(&self) -> bool {
@@ -186,11 +193,7 @@ impl<'a> ProtobufParser<'a> {
         match self.state {
             ParseState::Full => Ok(true),
             ParseState::DeltaDeferred | ParseState::DeltaMaterialized => {
-                self.state.materialize(
-                    self.current_specs,
-                    self.next_specs,
-                    self.previous_spec_decode_stats,
-                );
+                self.materialize_delta();
                 Ok(false)
             }
             ParseState::Initial | ParseState::DeltaAwaitingTopLevel => {
@@ -226,11 +229,7 @@ impl<'a> ProtobufParser<'a> {
             return Ok(None);
         }
         if !is_full {
-            self.state.materialize(
-                self.current_specs,
-                self.next_specs,
-                self.previous_spec_decode_stats,
-            );
+            self.materialize_delta();
         }
         let deleted_dynamic_configs =
             collect_dynamic_config_names.then(|| deletions.dynamic_configs.clone());
@@ -282,7 +281,7 @@ impl<'a> ProtobufParser<'a> {
         Ok(())
     }
 
-    pub(super) fn finish(self) -> Result<ProtobufUpdate, StatsigErr> {
+    pub(super) fn finish(mut self) -> Result<ProtobufUpdate, StatsigErr> {
         match self.state {
             ParseState::Full => Ok(ProtobufUpdate::Materialized {
                 field_checksums: self.next_field_checksums,
@@ -311,9 +310,7 @@ impl<'a> ProtobufParser<'a> {
                     }
                 }
 
-                seed_spec_decode_stats(self.previous_spec_decode_stats);
-                self.next_specs
-                    .copy_previous_values_from(self.current_specs);
+                self.copy_previous_values();
                 Ok(ProtobufUpdate::Materialized {
                     field_checksums: self.next_field_checksums,
                     is_delta: true,

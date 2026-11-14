@@ -17,7 +17,7 @@ class CheckCloudResourceAuthorizedResponseBody(DaraModel):
         self.authorization_state = authorization_state
         # The request ID.
         self.request_id = request_id
-        # The global resource descriptor of the role, which is used to specify a specific role. For details, see [RAM role overview](https://help.aliyun.com/document_detail/93689.html).
+        # The global resource descriptor of the role, used to specify a specific role. For details, see [RAM role overview](https://help.aliyun.com/document_detail/93689.html).
         self.role_arn = role_arn
 
     def validate(self):

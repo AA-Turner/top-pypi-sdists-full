@@ -8,36 +8,28 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+from typing import (
+    TYPE_CHECKING,
+    cast,
+)
 
 import pytest
-from rerun_samples import (
+from rerun_samples import (  # type: ignore[import-not-found]
+    AUTOLOAD_ENV_VAR,
+    FLAKY_UNDER_GREMLINS_TEST,
     GREMLIN_ARGS,
     SAMPLE,
     verdicts,
 )
 
 from pytest_gremlins import plugin
-from pytest_gremlins.cache.incremental import RUNNER_FIDELITY_VERSION
+from pytest_gremlins.cache import incremental
+from pytest_gremlins.cache.incremental import IncrementalCache
 
-AUTOLOAD_ENV_VAR = 'PYTEST_DISABLE_PLUGIN_AUTOLOAD'
+if TYPE_CHECKING:
+    from pytest_gremlins.cache.types import CachedGremlinResult
+
 LOAD_PLUGINS = ('-p', 'gremlins', '-p', 'pytest_rerunfailures')
-
-# Fails on its first call in every gremlin run (ACTIVE_GREMLIN is set only there) and passes on a rerun, and
-# leaves the mutants at the boundary alive.
-FLAKY_UNDER_GREMLINS_TEST = """
-import os
-
-from sample import classify
-
-calls = []
-
-
-def test_big():
-    calls.append(1)
-    in_gremlin_run = 'ACTIVE_GREMLIN' in os.environ
-    assert len(calls) > 1 or not in_gremlin_run, 'flaky inside gremlin runs'
-    assert classify(11) == 'big'
-"""
 
 
 def _session_with(
@@ -145,10 +137,28 @@ class DescribeRerunOptionsWhenGremlinRunsInheritTheAutoloadFlag:
         assert plugin._rerun_options_for(config) == []  # type: ignore[arg-type]
 
 
-@pytest.mark.small
+@pytest.mark.medium
 class DescribeFidelityVersionAfterTheLoaderIsForwarded:
-    def it_retires_verdicts_cached_while_gremlin_runs_never_reran(self) -> None:
-        assert RUNNER_FIDELITY_VERSION == 'rf20'
+    """Verdicts cached while gremlin runs never reran belong to an older fidelity version and must miss."""
+
+    TEST_HASHES = {'tests/test_x.py::test_a': 'hash_a'}  # noqa: RUF012
+    VERDICT = cast('CachedGremlinResult', {'status': 'survived'})
+
+    def it_misses_a_verdict_cached_under_a_previous_fidelity_version(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with IncrementalCache(tmp_path / '.gremlins_cache') as cache:
+            with monkeypatch.context() as previous:
+                previous.setattr(incremental, 'RUNNER_FIDELITY_VERSION', f'{incremental.RUNNER_FIDELITY_VERSION}-old')
+                cache.cache_result('g001', 'src_hash', self.TEST_HASHES, self.VERDICT)
+
+            assert cache.get_cached_result('g001', 'src_hash', self.TEST_HASHES) is None
+
+    def it_hits_a_verdict_cached_under_the_current_fidelity_version(self, tmp_path: Path) -> None:
+        with IncrementalCache(tmp_path / '.gremlins_cache') as cache:
+            cache.cache_result('g001', 'src_hash', self.TEST_HASHES, self.VERDICT)
+
+            assert cache.get_cached_result('g001', 'src_hash', self.TEST_HASHES) == self.VERDICT
 
 
 def _write_flaky_project(pytester: pytest.Pytester) -> None:
@@ -158,13 +168,16 @@ def _write_flaky_project(pytester: pytest.Pytester) -> None:
 
 
 @pytest.fixture
-def autoload_disabled(pytester_with_markers: pytest.Pytester, monkeypatch: pytest.MonkeyPatch) -> None:
+def autoload_disabled(
+    pytester_with_markers: pytest.Pytester,  # noqa: ARG001 - requested only so it is created first
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Disable plugin autoload for the runs below; gremlin runs inherit it.
 
     ``-p pytest_cov.plugin`` rides along in ``PYTEST_ADDOPTS`` because gremlin runs append ``--no-cov`` whenever
     pytest-cov is installed, and they would reject it without the plugin loaded (a separate bug, issue #654).
+    Requesting ``pytester_with_markers`` first matters: pytester clears ``PYTEST_ADDOPTS`` when it is created.
     """
-    assert pytester_with_markers  # pytester clears PYTEST_ADDOPTS when it is created, so it must exist first
     monkeypatch.setenv(AUTOLOAD_ENV_VAR, '1')
     monkeypatch.setenv('PYTEST_ADDOPTS', '-p pytest_cov.plugin')
 

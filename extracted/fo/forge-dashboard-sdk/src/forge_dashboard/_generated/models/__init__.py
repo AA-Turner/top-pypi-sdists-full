@@ -56,6 +56,7 @@ from .forge_error_kind import ForgeErrorKind
 from .forge_health import ForgeHealth
 from .get_image_forge import GetImageForge
 from .get_image_kind import GetImageKind
+from .get_image_width import GetImageWidth
 from .get_pull_request_rerunnable_response_200 import GetPullRequestRerunnableResponse200
 from .health import Health
 from .hidden_draft_counts import HiddenDraftCounts
@@ -193,6 +194,7 @@ __all__ = (
     "ForgeHealth",
     "GetImageForge",
     "GetImageKind",
+    "GetImageWidth",
     "GetPullRequestRerunnableResponse200",
     "Health",
     "HiddenDraftCounts",

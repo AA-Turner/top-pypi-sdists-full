@@ -19,7 +19,7 @@ class DescribeDetachedBackupsRequest(DaraModel):
         resource_owner_id: int = None,
         start_time: str = None,
     ):
-        # The ID of the backup set.
+        # The backup set ID.
         self.backup_id = backup_id
         # The backup mode. Valid values:
         # 
@@ -30,13 +30,13 @@ class DescribeDetachedBackupsRequest(DaraModel):
         # - **Success**: The backup is completed.
         # - **Failed**: The backup failed.
         self.backup_status = backup_status
-        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
+        # The instance ID. You can call the DescribeDBInstances operation to query the ID.
         self.dbinstance_id = dbinstance_id
         # The end time of the query. The end time must be later than the start time.
         # 
         # Format: <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z (UTC time).
         self.end_time = end_time
-        # The page number. Valid values: any integer greater than 0 and less than or equal to the maximum integer value.
+        # The page number. Valid values: integers greater than 0 and up to the maximum value of the Integer data type.
         # 
         # > Default value: 1.
         self.page_number = page_number
@@ -51,7 +51,7 @@ class DescribeDetachedBackupsRequest(DaraModel):
         # 
         # This parameter is required.
         self.region = region
-        # The ID of the resource group.
+        # The resource group ID.
         self.resource_group_id = resource_group_id
         self.resource_owner_id = resource_owner_id
         # The start time of the query.

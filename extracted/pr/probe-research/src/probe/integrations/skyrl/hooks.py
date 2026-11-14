@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import functools
 import math
+import threading
 from collections.abc import Mapping
 from typing import Any
 
@@ -89,16 +90,23 @@ class SkyrlHooks:
 
     # -- the trainer -------------------------------------------------------------------------------------
     def wrap_trainer(self, trainer: Any, *, is_fully_async: bool) -> Any:
-        """The batch conversions (what a step trains on, recorded before it trains) and the callback."""
+        """The batch conversion (what a step trains on, recorded before it trains, each row's key stamped for the
+        workers) and the callback. The fully async trainer converts its groups through the same
+        `convert_to_training_input` (`fully_async_trainer.py:1224`): the groups wrap only hands it the groups it
+        dropped and reads an exhausted epoch's partial batch."""
+        dropped_now = threading.local()  # the fully async conversion runs in a worker thread (`asyncio.to_thread`)
         if is_fully_async:
             self._async_trainer = trainer
-            convert = trainer.convert_generation_group_mini_batch_to_training_input
+            convert_groups = trainer.convert_generation_group_mini_batch_to_training_input
             collect = trainer._collect_generation_mini_batch
 
-            @functools.wraps(convert)
+            @functools.wraps(convert_groups)
             def call_convert_groups(kept: Any, dropped: Any = None) -> Any:
-                self.guard.call("a training batch", self._record_groups, trainer, kept, dropped or [])
-                return convert(kept, dropped)
+                dropped_now.groups = list(dropped or [])
+                try:
+                    return convert_groups(kept, dropped)
+                finally:
+                    dropped_now.groups = None
 
             @functools.wraps(collect)
             async def call_collect(*args: Any, **kwargs: Any) -> Any:
@@ -108,20 +116,24 @@ class SkyrlHooks:
 
             object.__setattr__(trainer, "convert_generation_group_mini_batch_to_training_input", call_convert_groups)
             object.__setattr__(trainer, "_collect_generation_mini_batch", call_collect)
-        else:
-            convert = trainer.convert_to_training_input
+        convert = trainer.convert_to_training_input
 
-            @functools.wraps(convert)
-            def call_convert(generator_output: Any, uids: Any) -> Any:
+        @functools.wraps(convert)
+        def call_convert(generator_output: Any, uids: Any) -> Any:
+            row_keys = None
+            if not is_fully_async:
                 row_keys = self.guard.call("a training batch", self._record_sync_batch, trainer, generator_output)
-                batch = convert(generator_output, uids)
-                if row_keys is not None:  # each row's key rides to the policy workers (per-sample metrics, T3)
-                    self.training_guard.call("per-sample training metrics", stamp_training_keys, trainer, batch,
-                                             row_keys)  # fmt: skip
-                return batch
+            elif (dropped := getattr(dropped_now, "groups", None)) is not None:  # a fully async mini-batch
+                row_keys = self.guard.call("a training batch", self._record_groups, trainer, generator_output,
+                                           dropped)  # fmt: skip
+            batch = convert(generator_output, uids)
+            if row_keys is not None:  # each row's key rides to the policy workers (per-sample metrics, T3)
+                self.training_guard.call("per-sample training metrics", stamp_training_keys, trainer, batch,
+                                         row_keys)  # fmt: skip
+            return batch
 
-            object.__setattr__(trainer, "convert_to_training_input", call_convert)
-            self.training_guard.call("per-sample training metrics", setup_trainer_wraps, trainer, self.training_guard)
+        object.__setattr__(trainer, "convert_to_training_input", call_convert)
+        self.training_guard.call("per-sample training metrics", setup_trainer_wraps, trainer, self.training_guard)
         trainer.add_callback(ProbeCallback(self))
         return trainer
 
@@ -177,12 +189,12 @@ class SkyrlHooks:
     def _record_sync_batch(self, trainer: Any, generator_output: Mapping[str, Any]) -> list[list[str]]:
         return self.recorder.record_batch(int(trainer.global_step), generator_output, should_drop_leftovers=True)
 
-    def _record_groups(self, trainer: Any, kept: Any, dropped: Any) -> None:
-        """The fully async trainer's mini-batch: each kept group's rows train at this step, each dropped
-        (zero-variance) group's rows are stored drops (`fully_async_trainer.py:1043-1068`)."""
-        output = _join_outputs([group.generator_output for group in kept])
+    def _record_groups(self, trainer: Any, output: Mapping[str, Any], dropped: Any) -> list[list[str]]:
+        """The fully async trainer's mini-batch, as it converts it: the kept groups' rows (concatenated and post-
+        processed, `fully_async_trainer.py:1043-1224`) train at this step, each dropped (zero-variance) group's rows
+        are stored drops. Returns each training row's sample keys, in order."""
         dropped_outputs = [group.generator_output for group in dropped]
-        self.recorder.record_batch(int(trainer.global_step), output, dropped=dropped_outputs)
+        return self.recorder.record_batch(int(trainer.global_step), output, dropped=dropped_outputs)
 
     def _record_exhausted(self, trainer: Any, result: Any) -> None:
         """An epoch that ran out mid mini-batch: its partial batch and the zero-variance groups dropped while
@@ -245,19 +257,6 @@ def _get_fallback_version(input_batch: Mapping[str, Any]) -> int | None:
     step = getattr(metadata, "global_step", None)
     phase = getattr(metadata, "training_phase", None)
     return None if not isinstance(step, int) else (step if phase == "eval" else max(step - 1, 0))
-
-
-def _join_outputs(outputs: list[Mapping[str, Any]]) -> dict:
-    """The rows of several generate outputs, in order (only the fields the recorder reads)."""
-    joined: dict[str, list] = {"response_ids": [], "loss_masks": [], "trajectory_ids": []}
-    for output in outputs:
-        rows = list(output.get("response_ids") or [])
-        joined["response_ids"].extend(rows)
-        masks = list(output.get("loss_masks") or [])
-        joined["loss_masks"].extend(masks + [None] * (len(rows) - len(masks)))
-        ids = list(output.get("trajectory_ids") or [])
-        joined["trajectory_ids"].extend(ids + [None] * (len(rows) - len(ids)))
-    return joined
 
 
 def _get_absolute(path: str) -> str:

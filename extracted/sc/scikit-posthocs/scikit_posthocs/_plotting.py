@@ -33,13 +33,15 @@ def sign_array(p_values: Union[List, np.ndarray, DataFrame], alpha: float = 0.05
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import scikit_posthocs as ph
     >>> p_values = np.array([[ 1.        ,  0.00119517,  0.00278329],
-                             [ 0.00119517,  1.        ,  0.18672227],
-                             [ 0.00278329,  0.18672227,  1.        ]])
+    ...                      [ 0.00119517,  1.        ,  0.18672227],
+    ...                      [ 0.00278329,  0.18672227,  1.        ]])
     >>> ph.sign_array(p_values)
-    array([[-1,  1,  1],
-           [ 1, -1,  0],
-           [ 1,  0, -1]])
+    array([[-1.,  1.,  1.],
+           [ 1., -1.,  0.],
+           [ 1.,  0., -1.]])
     """
     sig_array = np.array(p_values, dtype=float)
     sig_array[sig_array == 0] = 1e-10
@@ -52,7 +54,7 @@ def sign_array(p_values: Union[List, np.ndarray, DataFrame], alpha: float = 0.05
 
 def sign_table(
     p_values: Union[List, np.ndarray, DataFrame], lower: bool = True, upper: bool = True
-) -> Union[DataFrame, np.ndarray]:
+) -> DataFrame:
     """Significance table.
 
     Returns table that can be used in a publication. P values are replaced
@@ -72,18 +74,18 @@ def sign_table(
 
     Returns
     -------
-    result : Union[DataFrame, np.ndarray]
+    result : pandas.DataFrame
         P values masked with asterisks.
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import scikit_posthocs as ph
     >>> p_values = np.array([[-1.        ,  0.00119517,  0.00278329],
-                      [ 0.00119517, -1.        ,  0.18672227],
-                      [ 0.00278329,  0.18672227, -1.        ]])
-    >>> ph.sign_table(p_values)
-    array([['-', '**', '**'],
-           ['**', '-', 'NS'],
-           ['**', 'NS', '-']], dtype=object)
+    ...                      [ 0.00119517, -1.        ,  0.18672227],
+    ...                      [ 0.00278329,  0.18672227, -1.        ]])
+    >>> ph.sign_table(p_values).loc[0, 1]
+    '**'
     """
     if not any([lower, upper]):
         raise ValueError("Either lower or upper triangle must be returned")
@@ -182,9 +184,11 @@ def sign_plot(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import scikit_posthocs as ph
     >>> x = np.array([[ 1, 1, 1],
-                      [ 1, 1, 0],
-                      [ 1, 0, 1]])
+    ...               [ 1, 1, 0],
+    ...               [ 1, 0, 1]])
     >>> ph.sign_plot(x, flat = True)
     """
     for key in ["cbar", "vmin", "vmax", "center"]:
@@ -627,12 +631,16 @@ def critical_difference_diagram(
             ypos = -len(crossbar_levels) - 1
             crossbar_levels.append([(low, high)])
 
+        # Sort bar members by rank value: `bar` is a set whose iteration
+        # order is arbitrary, and drawing the points out of order makes the
+        # crossbar zigzag instead of a straight horizontal line (issue #89).
+        sorted_bar = sorted(bar, key=rank_values.__getitem__)
         crossbars.append(
             ax.plot(
                 # Adding a separate line between each pair enables showing a
                 # marker over each elbow with crossbar_props={'marker': 'o'}.
-                [rank_values[i] for i in bar],
-                [ypos] * len(bar),
+                [rank_values[i] for i in sorted_bar],
+                [ypos] * len(sorted_bar),
                 **crossbar_props,
             )
         )
@@ -650,7 +658,8 @@ def critical_difference_diagram(
                     **elbow_props,
                 )
             elif hue is not None:
-                assert hue_order is not None  # guaranteed by validation above
+                if hue_order is None:
+                    raise RuntimeError("hue_order was not initialized for hue-based coloring")
                 group = hue[label]
                 color = (
                     color_palette[group]

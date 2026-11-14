@@ -2,17 +2,28 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple, TypedDict
 
 import numba
 import numpy as np
 import pandas as pd
 from fast_array_utils.numba import njit
+from scverse_misc import Deprecation, deprecated_arg
 
 from .. import logging as logg
-from .._compat import CSBase, old_positionals
-from .._utils import check_use_raw, is_backed_type
-from ..get import _get_obs_rep
+from .._compat import CSBase
+from .._docs import DEPR_RAW, doc_out, doc_out_multi, doc_rng, doc_use
+from .._settings import Default, settings
+from .._utils import _doc_params, check_use_raw, is_backed_type
+from .._utils.random import _accepts_legacy_random_state, _if_legacy_apply_global
+from ..get._out import (
+    _check_legacy,
+    _out_dests,
+    _write_dests,
+    _write_out,
+    deprecated_copy,
+)
+from ..get._use import _get_arr, _resolve_layer
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Sequence
@@ -21,7 +32,10 @@ if TYPE_CHECKING:
     from anndata import AnnData
     from numpy.typing import DTypeLike, NDArray
 
-    from .._utils.random import _LegacyRandom
+    from .._utils.random import RNGLike, SeedLike
+    from ..get._out import OutKind
+    from ..get._types import LayerAcc, VecRef, _SetRep
+
 
 type _StrIdx = pd.Index[str]
 type _GetSubset = Callable[[_StrIdx], np.ndarray | CSBase]
@@ -88,23 +102,33 @@ def _sparse_nanmean(x: CSBase, /, axis: Literal[0, 1]) -> NDArray[np.float64]:
     return _sparse_nanmean_across_slots(x.data, x.indices, n_out, divisor)
 
 
-@old_positionals(
-    "ctrl_size", "gene_pool", "n_bins", "score_name", "random_state", "copy", "use_raw"
+@_doc_params(
+    rng=doc_rng,
+    use=doc_use("Which matrix to score on.", legacy=("layer",), layers_only=True),
+    out=doc_out(default="`.obs['score']`", example="obs.score"),
 )
+@_accepts_legacy_random_state(0)
+@deprecated_arg("layer", Deprecation("1.13.0", "Use `use` instead."))
+@deprecated_arg("score_name", Deprecation("1.13.0", "Use `out` instead."))
+@deprecated_copy
+@deprecated_arg("use_raw", DEPR_RAW)
 def score_genes(  # noqa: PLR0913
     adata: AnnData,
     gene_list: Sequence[str] | pd.Index[str],
     *,
-    ctrl_as_ref: bool = True,
+    ctrl_as_ref: bool | Default = Default(preset=("score_genes", "ctrl_as_ref")),
     ctrl_size: int = 50,
     gene_pool: Sequence[str] | pd.Index[str] | None = None,
     n_bins: int = 25,
-    score_name: str = "score",
-    random_state: _LegacyRandom = 0,
+    use: LayerAcc | str | None = None,
+    out: VecRef | str | bool = False,
+    rng: SeedLike | RNGLike | None = None,
+    # deprecated
+    score_name: str | None = None,
     copy: bool = False,
     use_raw: bool | None = None,
     layer: str | None = None,
-) -> AnnData | None:
+) -> AnnData | pd.Series | None:
     """Score a set of genes :cite:p:`Tirosh2016`.
 
     The score is the average expression of a set of genes after subtraction by
@@ -133,25 +157,27 @@ def score_genes(  # noqa: PLR0913
         Genes for sampling the reference set. Default is all genes.
     n_bins
         Number of expression level bins for sampling.
+    {use}
+    {out}
+    {rng}
     score_name
-        Name of the field to be added in `.obs`.
-    random_state
-        The random seed for sampling.
+        A column of :attr:`~anndata.AnnData.obs`,
+        i.e. `score_name='k'` is `out=A.obs['k']`.
     copy
-        Copy `adata` or modify it inplace.
+        Whether to return a modified copy instead of modifying `adata` in place.
     use_raw
         Whether to use `raw` attribute of `adata`. Defaults to `True` if `.raw` is present.
 
         .. versionchanged:: 1.4.5
            Default value changed from `False` to `None`.
-    layer
-        Key from `adata.layers` whose value will be used to perform tests on.
 
     Returns
     -------
-    Returns `None` if `copy=False`, else returns an `AnnData` object. Sets the following field:
+    Returns `None` if the result was written, else the scores as a
+    :class:`~pandas.Series`.
+    By default sets the following field (see `out` for others):
 
-    `adata.obs[score_name]` : :class:`numpy.ndarray` (dtype `float`)
+    `adata.obs['score']` : :class:`numpy.ndarray` (dtype `float`)
         Scores of each cell.
 
     Examples
@@ -159,20 +185,26 @@ def score_genes(  # noqa: PLR0913
     See this `notebook <https://github.com/scverse/scanpy_usage/tree/master/180209_cell_cycle>`__.
 
     """
-    start = logg.info(f"computing score {score_name!r}")
-    adata = adata.copy() if copy else adata
-    use_raw = check_use_raw(adata, use_raw, layer=layer)
+    if score_name is not None:  # deprecated: names an `.obs` column
+        _check_legacy(out, "score_name")
+        key = score_name
+    else:
+        key = "score"
+    start = logg.info(f"computing score {key if out is False else out!r}")
+    rng = np.random.default_rng(rng)
+    rng = _if_legacy_apply_global(rng)
+    use = _resolve_layer(use)
+    if isinstance(ctrl_as_ref, Default):
+        ctrl_as_ref = settings.preset.score_genes.ctrl_as_ref
+    use_raw = check_use_raw(adata, use_raw, use=use, layer=layer)
     if is_backed_type(adata.X) and not use_raw:
         msg = f"score_genes is not implemented for matrices of type {type(adata.X)}"
         raise NotImplementedError(msg)
 
-    if random_state is not None:
-        np.random.seed(random_state)
-
     gene_list, gene_pool, get_subset = _check_score_genes_args(
-        adata, gene_list, gene_pool, use_raw=use_raw, layer=layer
+        adata, gene_list, gene_pool, use=use, use_raw=use_raw, layer=layer
     )
-    del use_raw, layer, random_state
+    del use_raw, layer
 
     # Trying here to match the Seurat approach in scoring cells.
     # Basically we need to compare genes against random genes in a matched
@@ -186,6 +218,7 @@ def score_genes(  # noqa: PLR0913
         ctrl_size=ctrl_size,
         n_bins=n_bins,
         get_subset=get_subset,
+        rng=rng,
     ):
         control_genes = control_genes.union(r_genes)
 
@@ -201,20 +234,20 @@ def score_genes(  # noqa: PLR0913
     )
     score = means_list - means_control
 
-    adata.obs[score_name] = pd.Series(
-        np.array(score).ravel(), index=adata.obs_names, dtype="float64"
-    )
+    scores = pd.Series(np.array(score).ravel(), index=adata.obs_names, dtype="float64")
 
     logg.info(
         "    finished",
         time=start,
         deep=(
             "added\n"
-            f"    {score_name!r}, score of gene set (adata.obs).\n"
+            f"    {key if out is False else out!r}, score of gene set (adata.obs).\n"
             f"    {len(control_genes)} total control genes are used."
         ),
     )
-    return adata if copy else None
+    if (unwritten := _write_out(adata, scores, out=out, obs=key)) is not None:
+        return unwritten
+    return None
 
 
 def _check_score_genes_args(
@@ -222,6 +255,7 @@ def _check_score_genes_args(
     gene_list: pd.Index[str] | Sequence[str],
     gene_pool: pd.Index[str] | Sequence[str] | None,
     *,
+    use: LayerAcc | str | None,
     layer: str | None,
     use_raw: bool,
 ) -> tuple[pd.Index[str], pd.Index[str], _GetSubset]:
@@ -248,7 +282,7 @@ def _check_score_genes_args(
         raise ValueError(msg)
 
     def get_subset(genes: pd.Index[str]):
-        x = _get_obs_rep(adata, use_raw=use_raw, layer=layer)
+        x = _get_arr(adata, use, use_raw=use_raw, layer=layer)
         if len(genes) == len(var_names):
             return x
         idx = var_names.get_indexer(genes)
@@ -265,7 +299,8 @@ def _score_genes_bins(
     ctrl_size: int,
     n_bins: int,
     get_subset: _GetSubset,
-) -> Generator[pd.Index[str], None, None]:
+    rng: np.random.Generator,
+) -> Generator[pd.Index[str]]:
     # average expression of genes
     obs_avg = pd.Series(_nan_means(get_subset(gene_pool), axis=0), index=gene_pool)
     # Sometimes (and I don’t know how) missing data may be there, with NaNs for missing entries
@@ -276,7 +311,9 @@ def _score_genes_bins(
     keep_ctrl_in_obs_cut = np.False_ if ctrl_as_ref else obs_cut.index.isin(gene_list)
 
     # now pick `ctrl_size` genes from every cut
-    for cut in np.unique(obs_cut.loc[gene_list]):
+    cuts = np.unique(obs_cut.loc[gene_list])
+    # spawn sub-rngs so this can maybe be parallelized without changing random number generation
+    for cut, sub_rng in zip(cuts, rng.spawn(len(cuts)), strict=True):
         r_genes: pd.Index[str] = obs_cut[(obs_cut == cut) & ~keep_ctrl_in_obs_cut].index
         if len(r_genes) == 0:
             msg = (
@@ -285,7 +322,7 @@ def _score_genes_bins(
             )
             logg.warning(msg)
         if ctrl_size < len(r_genes):
-            r_genes = r_genes.to_series().sample(ctrl_size).index
+            r_genes = r_genes.to_series().sample(ctrl_size, random_state=sub_rng).index
         if ctrl_as_ref:  # otherwise `r_genes` is already filtered
             r_genes = r_genes.difference(gene_list)
         yield r_genes
@@ -299,15 +336,58 @@ def _nan_means(
     return np.nanmean(x, axis=axis, dtype=dtype)
 
 
-@old_positionals("s_genes", "g2m_genes", "copy")
+class CellCycleResult[V = pd.Series](NamedTuple):
+    """Outputs of :func:`~scanpy.tl.score_genes_cell_cycle`."""
+
+    s_score: V
+    """The score for S phase for each cell."""
+    g2m_score: V
+    """The score for G2M phase for each cell."""
+    phase: V
+    """The cell cycle phase (`S`, `G2M` or `G1`) for each cell."""
+
+
+class CellCycleOut(TypedDict, total=False):
+    """Where a mapping `out` of :func:`~scanpy.tl.score_genes_cell_cycle` writes each output, see :class:`~scanpy.tl.CellCycleResult`."""
+
+    s_score: VecRef
+    g2m_score: VecRef
+    phase: VecRef
+
+
+CELL_CYCLE_KINDS: CellCycleResult[set[OutKind]] = CellCycleResult(
+    {"obs"}, {"obs"}, {"obs"}
+)
+"""Where `out` can write the outputs of `tl.score_genes_cell_cycle`."""
+
+CELL_CYCLE_BASES: CellCycleResult[_SetRep] = CellCycleResult(
+    dict(obs="S_score"), dict(obs="G2M_score"), dict(obs="phase")
+)
+
+
+@_doc_params(
+    out=doc_out_multi(
+        dict(
+            s_score="By default written to `A.obs['S_score']`.",
+            g2m_score="By default written to `A.obs['G2M_score']`.",
+            phase="By default written to `A.obs['phase']`.",
+        ),
+        example="{'phase': A.obs['cc_phase']}",
+        returns=":class:`~scanpy.tl.CellCycleResult`",
+        primary=False,
+    )
+)
+@deprecated_copy
 def score_genes_cell_cycle(
     adata: AnnData,
     *,
     s_genes: Sequence[str],
     g2m_genes: Sequence[str],
+    out: CellCycleOut | bool = False,
+    # deprecated
     copy: bool = False,
     **kwargs,
-) -> AnnData | None:
+) -> AnnData | CellCycleResult | None:
     """Score cell cycle genes :cite:p:`Satija2015`.
 
     Given two lists of genes associated to S phase and G2M phase, calculates
@@ -324,6 +404,7 @@ def score_genes_cell_cycle(
         List of genes associated with S phase.
     g2m_genes
         List of genes associated with G2M phase.
+    {out}
     copy
         Copy `adata` or modify it inplace.
     **kwargs
@@ -332,7 +413,8 @@ def score_genes_cell_cycle(
 
     Returns
     -------
-    Returns `None` if `copy=False`, else returns an `AnnData` object. Sets the following fields:
+    Returns the outputs as a :class:`~scanpy.tl.CellCycleResult` if `out=True`, else `None`.
+    By default sets the following fields (see `out` for others):
 
     `adata.obs['S_score']` : :class:`pandas.Series` (dtype `object`)
         The score for S phase for each cell.
@@ -350,23 +432,33 @@ def score_genes_cell_cycle(
     See this `notebook <https://github.com/scverse/scanpy_usage/tree/master/180209_cell_cycle>`__.
 
     """
+    dests = _out_dests(
+        out,
+        None,
+        dests=lambda _: CELL_CYCLE_BASES,
+        kinds=CELL_CYCLE_KINDS,
+        primary=False,
+    )
     logg.info("calculating cell cycle phase")
 
-    adata = adata.copy() if copy else adata
     ctrl_size = min(len(s_genes), len(g2m_genes))
-    for genes, name in [(s_genes, "S_score"), (g2m_genes, "G2M_score")]:
-        score_genes(adata, genes, score_name=name, ctrl_size=ctrl_size, **kwargs)
-    scores = adata.obs[["S_score", "G2M_score"]]
+    s_score, g2m_score = (
+        score_genes(adata, genes, out=True, ctrl_size=ctrl_size, **kwargs)
+        for genes in (s_genes, g2m_genes)
+    )
 
     # default phase is S
-    phase = pd.Series("S", index=scores.index)
+    phase = pd.Series("S", index=adata.obs_names)
 
     # if G2M is higher than S, it's G2M
-    phase[scores["G2M_score"] > scores["S_score"]] = "G2M"
+    phase[g2m_score > s_score] = "G2M"
 
     # if all scores are negative, it's G1...
-    phase[np.all(scores < 0, axis=1)] = "G1"
+    phase[(s_score < 0) & (g2m_score < 0)] = "G1"
 
-    adata.obs["phase"] = phase
+    vals = CellCycleResult(s_score, g2m_score, phase)
+    if dests is True:
+        return vals
+    _write_dests(adata, vals, dests[1])
     logg.hint("    'phase', cell cycle phase (adata.obs)")
-    return adata if copy else None
+    return None

@@ -110,6 +110,49 @@ def delta_to_seconds_or_none(
         return delta_to_seconds(interval)
 
 
+def _format_wall_clock(
+    timestamp: datetime.datetime, precision: datetime.timedelta
+) -> str | None:
+    """Truncate a naive datetime by exact arithmetic, None when it cannot.
+
+    Windows cannot convert pre-epoch naive dates to timestamps, and no
+    platform converts the datetime bounds. Wall-clock arithmetic relative
+    to the naive epoch handles both. Aware datetimes, subclasses (whose
+    own arithmetic and ``__str__`` may differ), precisions that are not a
+    usable timedelta and results outside the datetime range give None, so
+    the caller keeps the 4.2.1 outcome for them.
+    """
+    if (
+        type(timestamp) is not datetime.datetime
+        or timestamp.tzinfo is not None
+    ):
+        return None
+    try:
+        return str(timestamp - (timestamp - epoch) % precision)
+    except (ArithmeticError, TypeError, ValueError):
+        return None
+
+
+def _format_datetime(
+    timestamp: datetime.datetime, precision: datetime.timedelta
+) -> str:
+    """Format a datetime even outside the platform's timestamp range."""
+    try:
+        since_epoch = datetime.timedelta(seconds=timestamp.timestamp())
+        seconds = (since_epoch - since_epoch % precision).total_seconds()
+    except (OverflowError, OSError, ValueError):
+        # 4.2.1 raised here, which stays the answer without a wall clock.
+        wall_clock: str | None = _format_wall_clock(timestamp, precision)
+        if wall_clock is None:
+            raise
+        return wall_clock
+    try:
+        return str(datetime.datetime.fromtimestamp(seconds))
+    except (OverflowError, OSError, ValueError):
+        wall_clock = _format_wall_clock(timestamp, precision)
+        return str(datetime.datetime.max) if wall_clock is None else wall_clock
+
+
 def format_time(
     timestamp: _aliases.timestamp_type,
     precision: datetime.timedelta = datetime.timedelta(seconds=1),
@@ -124,6 +167,8 @@ def format_time(
     '0:00:01'
     >>> format_time(datetime.datetime(2000, 1, 2, 3, 4, 5, 6))
     '2000-01-02 03:04:05'
+    >>> format_time(datetime.datetime(1900, 1, 2, 3, 4, 5))
+    '1900-01-02 03:04:05'
     >>> format_time(datetime.date(2000, 1, 2))
     '2000-01-02'
     >>> format_time(datetime.timedelta(seconds=3661))
@@ -152,23 +197,8 @@ def format_time(
         # whole microseconds, which keeps the modulo exact. In float seconds
         # `1.0 % 0.1` is just under 0.1 and the result drops a whole step.
         return str(timestamp - timestamp % precision)
-    elif isinstance(timestamp, datetime.datetime):  # pragma: no cover
-        # Python 2 doesn't have the timestamp method
-        if hasattr(timestamp, 'timestamp'):
-            seconds = timestamp.timestamp()
-        else:
-            seconds = timedelta_to_seconds(timestamp - epoch)
-
-        # Truncate the number to the given precision, in whole microseconds
-        # for the same reason as above
-        since_epoch: datetime.timedelta = datetime.timedelta(seconds=seconds)
-        seconds = (since_epoch - since_epoch % precision).total_seconds()
-
-        try:  # pragma: no cover
-            dt = datetime.datetime.fromtimestamp(seconds)
-        except (ValueError, OSError):  # pragma: no cover
-            dt = datetime.datetime.max
-        return str(dt)
+    elif isinstance(timestamp, datetime.datetime):
+        return _format_datetime(timestamp, precision)
     elif isinstance(timestamp, datetime.date):
         return str(timestamp)
     elif timestamp is None:

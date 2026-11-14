@@ -23,45 +23,40 @@ class CreateBranchRequest(DaraModel):
         region_id: str = None,
         tag: List[main_models.CreateBranchRequestTag] = None,
     ):
-        # The branch name.
+        # The name of the branch.
         # 
         # This parameter is required.
         self.branch_name = branch_name
-        # The client idempotency token. This token ensures the idempotence of retry requests.
+        # The client token used to ensure the idempotence of retry requests.
         self.client_token = client_token
         # The description of the branch.
         self.description = description
-        # The time when the branch automatically expires and is deleted. The value is in the ISO 8601 UTC format.
+        # The time when the branch is automatically deleted after expiration. The time is in the ISO 8601 UTC format.
         self.expires_at = expires_at
-        # The initialization source of the branch.
-        # 
-        # Valid values:
+        # The initialization source for the branch. Valid values:
         # - ParentData: copies the schema and data from the parent branch. This is the default value.
         # - SchemaOnly: copies only the schema structure.
         self.init_source = init_source
-        # The ID of the parent branch. This parameter specifies the parent branch for the new branch or query condition.
+        # The ID of the parent branch. This parameter specifies the parent branch for the new branch or query conditions.
         # 
         # This parameter is required.
         self.parent_branch_id = parent_branch_id
-        # The log sequence number (LSN) selected when creating a branch from the parent branch.
+        # The log sequence number (LSN) selected when you create a branch from the parent branch.
         self.parent_lsn = parent_lsn
-        # The point in time for data synchronization when creating a branch from the parent branch. The value is in the ISO 8601 UTC format.
-        # 
+        # The point in time for data synchronization when you create a branch from the parent branch. The time is in the ISO 8601 UTC format.
         # Default value: the current time.
         self.parent_timestamp = parent_timestamp
-        # The ID of the Supabase project that corresponds to the primary branch.
+        # The ID of the Supabase project to which the main branch belongs.
         # 
         # This parameter is required.
         self.project_id = project_id
-        # Specifies whether to enable branch protection.
-        # 
-        # Valid values:
-        # - true: Enables branch protection.
-        # - false: Disables branch protection. This is the default value.
+        # Specifies whether to enable branch protection. Valid values:
+        # - true: enables branch protection.
+        # - false: disables branch protection. This is the default value.
         self.protected = protected
-        # The region ID. This parameter is required when you create a primary branch. When you create a child branch, the region is inherited from the primary branch by default.
+        # The region ID. This parameter is required when you create a main branch. When you create a child branch, it inherits the region of the main branch by default.
         self.region_id = region_id
-        # The list of branch tags.
+        # The list of tags for the branch.
         self.tag = tag
 
     def validate(self):

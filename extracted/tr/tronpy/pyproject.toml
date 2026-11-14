@@ -33,9 +33,9 @@ dependencies = [
     "cryptography>=50.0.2",
     "eth-abi>=5.0.0,<7.0.0",
     "eth-utils",
-    "httpx",
+    "httpx2>=2.15.1",
     "pycryptodome<5",
-    "requests",
+    "universalasync>=0.6.3.1",
 ]
 
 [project.optional-dependencies]
@@ -66,6 +66,10 @@ all = [{ include-group = "dev" }, { include-group = "docs" }]
 cache-keys = [{ file = "pyproject.toml" }, { file = "tronpy/version.py" }]
 # dependency cooldowns for security
 exclude-newer = "1 week"
+
+# except for our packages
+[tool.uv.exclude-newer-package]
+universalasync = "0 days"
 
 [tool.hatch.build.targets.sdist]
 include = ["tronpy", "tests", "CHANGELOG.md"]
@@ -98,6 +102,7 @@ select = [
     "S",
     "ASYNC",
     "TID",
+    "PLC",
 ]
 ignore = ["RET502", "RET503", "S104", "S507", "ASYNC109", "ASYNC110"]
 mccabe = { max-complexity = 12 }
@@ -115,6 +120,7 @@ warn_return_any = true
 no_implicit_optional = true
 strict_optional = true
 ignore_missing_imports = true
+untyped_calls_exclude = ["eth_abi"]
 exclude = ["tests"]
 
 [tool.pytest.ini_options]

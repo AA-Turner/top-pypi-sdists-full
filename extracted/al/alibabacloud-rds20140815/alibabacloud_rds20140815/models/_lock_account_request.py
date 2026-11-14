@@ -13,11 +13,11 @@ class LockAccountRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # The name of the account to lock. You can lock only one account at a time.
+        # The name of the account to be locked. You can lock only one account at a time.
         # 
         # This parameter is required.
         self.account_name = account_name
-        # The instance ID. You can call DescribeDBInstances to query the instance ID.
+        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id

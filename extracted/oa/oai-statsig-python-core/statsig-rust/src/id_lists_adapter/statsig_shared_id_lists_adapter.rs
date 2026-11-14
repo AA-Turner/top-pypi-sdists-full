@@ -1,9 +1,9 @@
 use super::shared_id_list_store::{ManifestRead, RefreshStatus};
 use super::statsig_http_id_lists_adapter::RefreshTrigger;
 use super::{
-    IdList, IdListMetadata, IdListPropagationUpdate, IdListUpdate, IdListsAdapter,
-    IdListsUpdateListener, SharedIdListCatalog, SharedIdListLease, SharedIdListStore,
-    StatsigHttpIdListsAdapter,
+    IdList, IdListMetadata, IdListPropagationUpdate, IdListPublicationMode, IdListUpdate,
+    IdListUpdateBase, IdListsAdapter, IdListsUpdateListener, SharedIdListCatalog,
+    SharedIdListLease, SharedIdListStore, StatsigHttpIdListsAdapter,
 };
 use crate::networking::normalize_default_cdn_id_lists_manifest_url;
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
@@ -762,6 +762,32 @@ impl PublishingListener {
 }
 
 impl IdListsUpdateListener for PublishingListener {
+    fn supports_id_list_snapshot_updates(&self) -> bool {
+        true
+    }
+
+    fn try_receive_id_list_snapshot_updates(
+        &self,
+        updates: HashMap<String, IdListUpdate>,
+        bases: HashMap<String, IdListUpdateBase>,
+        propagation: HashMap<String, IdListPropagationUpdate>,
+        mode: IdListPublicationMode,
+        _eager_downloads: Option<u64>,
+    ) -> Result<(), StatsigErr> {
+        // The elected writer refreshes the catalog under one lease and refresh lock.
+        // A lazy merge would drop lists omitted from this publication.
+        let complete = match mode {
+            IdListPublicationMode::Replace => true,
+            IdListPublicationMode::IncompleteRefresh => false,
+            IdListPublicationMode::Merge => {
+                return Err(StatsigErr::InvalidOperation(
+                    "shared publisher requires a manifest refresh".into(),
+                ));
+            }
+        };
+        self.publish(updates, Some(bases), propagation, complete)
+    }
+
     fn requires_blocking_id_list_publication(&self) -> bool {
         true
     }
@@ -785,7 +811,7 @@ impl IdListsUpdateListener for PublishingListener {
         updates: HashMap<String, IdListUpdate>,
         propagation: HashMap<String, IdListPropagationUpdate>,
     ) -> Result<(), StatsigErr> {
-        self.publish(updates, propagation, true)
+        self.publish(updates, None, propagation, true)
     }
 
     fn try_receive_incomplete_id_list_refresh(
@@ -793,7 +819,7 @@ impl IdListsUpdateListener for PublishingListener {
         updates: HashMap<String, IdListUpdate>,
         propagation: HashMap<String, IdListPropagationUpdate>,
     ) -> Result<(), StatsigErr> {
-        self.publish(updates, propagation, false)
+        self.publish(updates, None, propagation, false)
     }
 }
 
@@ -801,6 +827,7 @@ impl PublishingListener {
     fn publish(
         &self,
         updates: HashMap<String, IdListUpdate>,
+        mut bases: Option<HashMap<String, IdListUpdateBase>>,
         mut propagation: HashMap<String, IdListPropagationUpdate>,
         complete: bool,
     ) -> Result<(), StatsigErr> {
@@ -812,11 +839,9 @@ impl PublishingListener {
                     propagation.insert(name.clone(), previous.clone());
                 }
             }
-            let mut list = current
-                .lists
-                .get(&name)
-                .cloned()
-                .unwrap_or_else(|| IdList::new(update.new_metadata.clone()));
+            let snapshot = bases.as_mut().and_then(|bases| bases.remove(&name)?.list);
+            let mut list =
+                IdList::from_update_base(current.lists.get(&name), snapshot, &update.new_metadata);
             list.apply_update_for_publish(update);
             lists.insert(name, list);
         }

@@ -14,18 +14,18 @@ class DescribeParameterGroupsRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # The parameter overview information.
+        # Specifies whether to return the parameter overview information. Valid values:
         # 
-        # - **false**: Returns parameter overview information. This is the default value.
+        # - **false**: returns the parameter overview information. This is the default value.
         # 
-        # - **true**: Does not return parameter overview information.
+        # - **true**: does not return the parameter overview information.
         self.enable_detail = enable_detail
         self.owner_id = owner_id
         # The region ID. You can call the DescribeRegions operation to query the region ID.
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The resource group ID.
+        # The ID of the resource group.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id

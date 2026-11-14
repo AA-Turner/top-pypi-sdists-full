@@ -2,22 +2,24 @@ from __future__ import annotations
 
 import math
 import random
+import typing
+from collections.abc import Iterator
 
 from river import base, linear_model, stats
 
 
-class ChebyshevUnderSampler(base.Wrapper, base.Regressor):
-    """Under-sampling for imbalanced regression using Chebyshev's inequality.
+class ChebyshevUnderSampler(base.Wrapper[base.Regressor], base.Regressor):
+    r"""Under-sampling for imbalanced regression using Chebyshev's inequality.
 
     Chebyshev's inequality can be used to define the probability of target observations
     being frequent values (w.r.t. the distribution mean).
 
-    Let $Y$ be a random variable with finite expected value $\\overline{y}$ and non-zero variance
-    $\\sigma^2$. For any real number $t > 0$, the Chebyshev's inequality states that, for a wide class of
-    unimodal probability distributions: $Pr(|y-\\overline{y}| \\ge t\\sigma) \\le \\dfrac{1}{t^2}$.
+    Let $Y$ be a random variable with finite expected value $\overline{y}$ and non-zero variance
+    $\sigma^2$. For any real number $t > 0$, the Chebyshev's inequality states that, for a wide class of
+    unimodal probability distributions: $Pr(|y-\overline{y}| \ge t\sigma) \le \dfrac{1}{t^2}$.
 
-    Taking $t=\\dfrac{|y-\\overline{y}|}{\\sigma}$, and assuming $t > 1$, the Chebyshev’s inequality
-    for an observation $y$ becomes: $P(|y - \\overline{y}|=t) = \\dfrac{\\sigma^2}{|y-\\overline{y}|}$.
+    Taking $t=\dfrac{|y-\overline{y}|}{\sigma}$, and assuming $t > 1$, the Chebyshev’s inequality
+    for an observation $y$ becomes: $P(|y - \overline{y}|=t) = \dfrac{\sigma^2}{|y-\overline{y}|}$.
     The reciprocal of this probability is used for under-sampling[^1] the most frequent cases. Extreme
     valued or rare cases have higher probabilities of selection, whereas the most frequent cases are
     likely to be discarded. Still, frequent cases have a small chance of being selected (controlled via
@@ -82,15 +84,22 @@ class ChebyshevUnderSampler(base.Wrapper, base.Regressor):
         self._rare_c = 0
 
     @property
-    def _wrapped_model(self):
+    def _wrapped_model(self) -> base.Regressor:
         return self.regressor
 
-    def predict_one(self, x, **kwargs):
+    def predict_one(
+        self, x: dict[base.typing.FeatureName, typing.Any], **kwargs: typing.Any
+    ) -> base.typing.RegTarget:
         return self.regressor.predict_one(x, **kwargs)
 
-    def learn_one(self, x, y, **kwargs):
+    def learn_one(
+        self,
+        x: dict[base.typing.FeatureName, typing.Any],
+        y: base.typing.RegTarget,
+        **kwargs: typing.Any,
+    ) -> None:
         self._var.update(y)
-        sd = self._var.get() ** 0.5
+        sd = math.sqrt(self._var.get())
 
         if sd > 0:
             mean = self._var.mean.get()
@@ -111,26 +120,26 @@ class ChebyshevUnderSampler(base.Wrapper, base.Regressor):
             self.regressor.learn_one(x, y, **kwargs)
 
     @classmethod
-    def _unit_test_params(cls):
+    def _unit_test_params(cls) -> Iterator[dict[str, typing.Any]]:
         yield {"regressor": linear_model.LinearRegression(), "seed": 42}
 
 
-class ChebyshevOverSampler(base.Wrapper, base.Regressor):
-    """Over-sampling for imbalanced regression using Chebyshev's inequality.
+class ChebyshevOverSampler(base.Wrapper[base.Regressor], base.Regressor):
+    r"""Over-sampling for imbalanced regression using Chebyshev's inequality.
 
     Chebyshev's inequality can be used to define the probability of target observations
     being frequent values (w.r.t. the distribution mean).
 
-    Let $Y$ be a random variable with finite expected value $\\overline{y}$ and non-zero variance
-    $\\sigma^2$. For any real number $t > 0$, the Chebyshev's inequality states that, for a wide class of
-    unimodal probability distributions: $Pr(|y-\\overline{y}| \\ge t\\sigma) \\le \\dfrac{1}{t^2}$.
+    Let $Y$ be a random variable with finite expected value $\overline{y}$ and non-zero variance
+    $\sigma^2$. For any real number $t > 0$, the Chebyshev's inequality states that, for a wide class of
+    unimodal probability distributions: $Pr(|y-\overline{y}| \ge t\sigma) \le \dfrac{1}{t^2}$.
 
-    Taking $t=\\dfrac{|y-\\overline{y}|}{\\sigma}$, and assuming $t > 1$, the Chebyshev’s inequality
-    for an observation $y$ becomes: $P(|y - \\overline{y}|=t) = \\dfrac{\\sigma^2}{|y-\\overline{y}|}$.
+    Taking $t=\dfrac{|y-\overline{y}|}{\sigma}$, and assuming $t > 1$, the Chebyshev’s inequality
+    for an observation $y$ becomes: $P(|y - \overline{y}|=t) = \dfrac{\sigma^2}{|y-\overline{y}|}$.
 
-    Alternatively, one can use $t$ directly to estimate a frequency weight $\\kappa = \\lceil t\\rceil$
+    Alternatively, one can use $t$ directly to estimate a frequency weight $\kappa = \lceil t\rceil$
     and define an over-sampling strategy for extreme and rare target values[^1]. Each incoming instance is
-    used $\\kappa$ times to update the underlying regressor. Frequent target values contribute only once
+    used $\kappa$ times to update the underlying regressor. Frequent target values contribute only once
     to the underlying regressor, whereas rares cases are used multiple times for training.
 
     Parameters
@@ -180,16 +189,23 @@ class ChebyshevOverSampler(base.Wrapper, base.Regressor):
         self._var = stats.Var()
 
     @property
-    def _wrapped_model(self):
+    def _wrapped_model(self) -> base.Regressor:
         return self.regressor
 
-    def predict_one(self, x, **kwargs):
+    def predict_one(
+        self, x: dict[base.typing.FeatureName, typing.Any], **kwargs: typing.Any
+    ) -> base.typing.RegTarget:
         return self.regressor.predict_one(x, **kwargs)
 
-    def learn_one(self, x, y, **kwargs):
+    def learn_one(
+        self,
+        x: dict[base.typing.FeatureName, typing.Any],
+        y: base.typing.RegTarget,
+        **kwargs: typing.Any,
+    ) -> None:
         self._var.update(y)
         var = self._var.get()
-        sd = var**0.5
+        sd = math.sqrt(var)
 
         if sd > 0:
             mean = self._var.mean.get()
@@ -198,11 +214,11 @@ class ChebyshevOverSampler(base.Wrapper, base.Regressor):
 
             kappa = int(math.ceil(t))
 
-            for k in range(kappa):
+            for _ in range(kappa):
                 self.regressor.learn_one(x, y, **kwargs)
         else:
             self.regressor.learn_one(x, y, **kwargs)
 
     @classmethod
-    def _unit_test_params(cls):
+    def _unit_test_params(cls) -> Iterator[dict[str, typing.Any]]:
         yield {"regressor": linear_model.LinearRegression()}

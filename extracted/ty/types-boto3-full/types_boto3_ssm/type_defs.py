@@ -104,6 +104,7 @@ from .literals import (
     PatchSetType,
     PingStatusType,
     PlatformTypeType,
+    ProviderType,
     RebootOptionType,
     ResourceTypeForTaggingType,
     ResourceTypeType,
@@ -347,6 +348,11 @@ __all__ = (
     "ExecutionPreviewTypeDef",
     "FailedCreateAssociationTypeDef",
     "FailureDetailsTypeDef",
+    "GcpConfigurationOutputTypeDef",
+    "GcpConfigurationTargetsOutputTypeDef",
+    "GcpConfigurationTargetsTypeDef",
+    "GcpConfigurationTypeDef",
+    "GcpProjectTypeDef",
     "GetAccessTokenRequestTypeDef",
     "GetAccessTokenResponseTypeDef",
     "GetAutomationExecutionRequestTypeDef",
@@ -650,6 +656,7 @@ __all__ = (
     "TargetPreviewTypeDef",
     "TargetTypeDef",
     "TargetUnionTypeDef",
+    "TargetsSummaryTypeDef",
     "TerminateSessionRequestTypeDef",
     "TerminateSessionResponseTypeDef",
     "TimestampTypeDef",
@@ -810,6 +817,14 @@ class ProgressCountersTypeDef(TypedDict):
     TimedOutSteps: NotRequired[int]
 
 
+class TargetsSummaryTypeDef(TypedDict):
+    TotalCount: NotRequired[int]
+    StartedCount: NotRequired[int]
+    CompletedCount: NotRequired[int]
+    SuccessfulCount: NotRequired[int]
+    FailedCount: NotRequired[int]
+
+
 class AzureSubscriptionTypeDef(TypedDict):
     Id: str
     DisplayName: NotRequired[str]
@@ -839,6 +854,8 @@ class CloudConnectorSummaryTypeDef(TypedDict):
     RoleArn: NotRequired[str]
     CreatedAt: NotRequired[datetime]
     UpdatedAt: NotRequired[datetime]
+    Provider: NotRequired[ProviderType]
+    ConfigConnectorArn: NotRequired[str]
 
 
 class CloudWatchOutputConfigTypeDef(TypedDict):
@@ -1367,6 +1384,11 @@ class FailureDetailsTypeDef(TypedDict):
     FailureStage: NotRequired[str]
     FailureType: NotRequired[str]
     Details: NotRequired[dict[str, list[str]]]
+
+
+class GcpProjectTypeDef(TypedDict):
+    ProjectId: str
+    ProjectDisplayName: NotRequired[str]
 
 
 class GetAccessTokenRequestTypeDef(TypedDict):
@@ -3265,6 +3287,14 @@ class EffectivePatchTypeDef(TypedDict):
     PatchStatus: NotRequired[PatchStatusTypeDef]
 
 
+class GcpConfigurationTargetsOutputTypeDef(TypedDict):
+    Projects: NotRequired[list[GcpProjectTypeDef]]
+
+
+class GcpConfigurationTargetsTypeDef(TypedDict):
+    Projects: NotRequired[Sequence[GcpProjectTypeDef]]
+
+
 class GetCommandInvocationRequestWaitTypeDef(TypedDict):
     CommandId: str
     InstanceId: str
@@ -3897,6 +3927,20 @@ class DescribeEffectivePatchesForPatchBaselineResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class GcpConfigurationOutputTypeDef(TypedDict):
+    WorkloadIdentityPoolProvider: str
+    ServiceAccountEmail: str
+    OrganizationId: NotRequired[str]
+    Targets: NotRequired[GcpConfigurationTargetsOutputTypeDef]
+
+
+class GcpConfigurationTypeDef(TypedDict):
+    WorkloadIdentityPoolProvider: str
+    ServiceAccountEmail: str
+    OrganizationId: NotRequired[str]
+    Targets: NotRequired[GcpConfigurationTargetsTypeDef]
+
+
 class InventoryAggregatorPaginatorTypeDef(TypedDict):
     Expression: NotRequired[str]
     Aggregators: NotRequired[Sequence[Mapping[str, Any]]]
@@ -4331,14 +4375,6 @@ class GetExecutionPreviewResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class CloudConnectorConfigurationOutputTypeDef(TypedDict):
-    AzureConfiguration: NotRequired[AzureConfigurationOutputTypeDef]
-
-
-class CloudConnectorConfigurationTypeDef(TypedDict):
-    AzureConfiguration: NotRequired[AzureConfigurationTypeDef]
-
-
 class GetMaintenanceWindowTaskResultTypeDef(TypedDict):
     WindowId: str
     WindowTaskId: str
@@ -4397,6 +4433,16 @@ class ListDocumentMetadataHistoryResponseTypeDef(TypedDict):
     Metadata: DocumentMetadataResponseInfoTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class CloudConnectorConfigurationOutputTypeDef(TypedDict):
+    AzureConfiguration: NotRequired[AzureConfigurationOutputTypeDef]
+    GcpConfiguration: NotRequired[GcpConfigurationOutputTypeDef]
+
+
+class CloudConnectorConfigurationTypeDef(TypedDict):
+    AzureConfiguration: NotRequired[AzureConfigurationTypeDef]
+    GcpConfiguration: NotRequired[GcpConfigurationTypeDef]
 
 
 class GetInventoryRequestPaginateTypeDef(TypedDict):
@@ -4570,6 +4616,7 @@ class AutomationExecutionTypeDef(TypedDict):
     AssociationId: NotRequired[str]
     ChangeRequestName: NotRequired[str]
     Variables: NotRequired[dict[str, list[str]]]
+    TargetsSummary: NotRequired[TargetsSummaryTypeDef]
 
 
 class DescribeAutomationStepExecutionsResultTypeDef(TypedDict):
@@ -4838,8 +4885,8 @@ class CreateCloudConnectorRequestTypeDef(TypedDict):
     DisplayName: str
     RoleArn: str
     Configuration: CloudConnectorConfigurationUnionTypeDef
-    ConfigConnectorArn: str
     Description: NotRequired[str]
+    ConfigConnectorArn: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 

@@ -257,6 +257,8 @@ class Exceptions(BaseClientExceptions):
     ResourceInUseException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
     ResourceNotReadyException: type[BotocoreClientError]
+    RuntimeAliasDeletedException: type[BotocoreClientError]
+    RuntimeVersionDeletedException: type[BotocoreClientError]
     S3FilesMountConnectivityException: type[BotocoreClientError]
     S3FilesMountFailureException: type[BotocoreClientError]
     S3FilesMountTimeoutException: type[BotocoreClientError]

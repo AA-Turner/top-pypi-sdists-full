@@ -253,7 +253,7 @@ def test_data_store_usage_get(statsig_setup):
 
     assert data_store.init_called
     assert gate.details.reason == "Adapter(DataStore):Recognized"
-    assert gate.value == True
+    assert gate.value is True
     assert gate.details.lcut == known_lcut
 
     for _ in range(100):
@@ -278,7 +278,7 @@ def test_data_store_usage_set(statsig_setup):
     gate_after = statsig.get_feature_gate(user, "test_public")
     statsig.flush_events().wait()
 
-    assert gate_after.value == True
+    assert gate_after.value is True
     assert gate_after.details.lcut == known_lcut + 10
     assert data_store.get_called_count == 1
     assert data_store.content_set is not None
@@ -296,7 +296,7 @@ def test_data_store_usage_get_bytes(statsig_bytes_setup):
 
     assert data_store.init_called
     assert gate.details.reason == "Adapter(DataStore):Recognized"
-    assert gate.value == True
+    assert gate.value is True
     assert gate.details.lcut == known_lcut
 
     for _ in range(5):
@@ -421,7 +421,7 @@ def test_data_store_usage_set_bytes(statsig_bytes_setup):
     gate_after = statsig.get_feature_gate(user, "test_public")
     statsig.flush_events().wait()
 
-    assert gate_after.value == True
+    assert gate_after.value is True
     assert gate_after.details.lcut == known_lcut + 10
     assert data_store.get_bytes_called_count == 1
     assert data_store.set_bytes_called_count > 0

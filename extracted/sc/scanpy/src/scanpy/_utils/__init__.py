@@ -9,8 +9,9 @@ from __future__ import annotations
 import importlib.util
 import inspect
 import re
-from contextlib import suppress
-from enum import Enum
+import warnings
+from collections.abc import Mapping
+from contextlib import contextmanager, suppress
 from functools import partial, reduce, singledispatch, wraps
 from operator import mul, or_, truediv
 from textwrap import indent
@@ -31,25 +32,26 @@ import h5py
 import numpy as np
 import pandas as pd
 from anndata._core.sparse_dataset import BaseCompressedSparseDataset
-from packaging.version import Version
+from array_api_compat import array_namespace
+from fast_array_utils.types import HasArrayNamespace
 
 from .. import logging as logg
-from .._compat import CSBase, DaskArray, _CSArray, pkg_version, warn
-from .._settings import settings
+from .._compat import CSBase, DaskArray, SpBase, warn
 from ._numba import _numba_thread_limit
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, KeysView, Mapping
-    from pathlib import Path
+    from collections.abc import Callable, Generator, Iterable, KeysView
     from typing import Any
 
     from anndata import AnnData
+    from anndata.acc import AdRef
     from igraph import Graph
     from numpy.typing import ArrayLike, NDArray
     from pandas._typing import Dtype as PdDtype
 
     from .._compat import CSRBase
-    from ..neighbors import NeighborsParams, RPForestDict
+    from ..neighbors import RPForestDict
+    from ..neighbors._types import NeighborsParams
 
     type _MemoryArray = NDArray | CSBase
     type _SupportedArray = _MemoryArray | DaskArray
@@ -57,11 +59,9 @@ if TYPE_CHECKING:
 
 __all__ = [
     "AssoResult",
-    "Empty",
     "NeighborsView",
-    "_choose_graph",
     "_doc_params",
-    "_empty",
+    "_get_basis",
     "_numba_thread_limit",
     "_resolve_axis",
     "annotate_doc_types",
@@ -69,15 +69,18 @@ __all__ = [
     "axis_nnz",
     "check_array_function_arguments",
     "check_nonnegative_integers",
-    "check_presence_download",
     "check_use_raw",
     "compute_association_matrix_of_groups",
     "descend_classes_and_funcs",
+    "dim_acc",
     "ensure_igraph",
+    "expose_dispatch",
     "get_igraph_from_adjacency",
     "get_literal_vals",
+    "get_networkit_from_adjacency",
     "indent",
     "is_backed_type",
+    "own_deprecations",
     "raise_not_implemented_error_if_backed_type",
     "renamed_arg",
     "sanitize_anndata",
@@ -90,16 +93,6 @@ __all__ = [
 LegacyUnionType: type = type(Union[int, str])  # noqa: UP007
 
 
-class Empty(Enum):
-    token = 0
-
-    def __repr__(self) -> str:
-        return "_empty"
-
-
-_empty = Empty.token
-
-
 def ensure_igraph() -> None:
     if importlib.util.find_spec("igraph"):
         return
@@ -107,6 +100,17 @@ def ensure_igraph() -> None:
         "Please install the igraph package: "
         "`conda install -c conda-forge python-igraph` or "
         "`pip install igraph`."
+    )
+    raise ImportError(msg)
+
+
+def ensure_networkit() -> None:
+    if importlib.util.find_spec("networkit"):
+        return
+    msg = (
+        "Please install the networkit package: "
+        "`conda install conda-forge::networkit` or "
+        "`pip install networkit`."
     )
     raise ImportError(msg)
 
@@ -269,6 +273,7 @@ def check_use_raw(
     adata: AnnData,
     use_raw: bool | None,  # noqa: FBT001
     *,
+    use: object = None,
     layer: str | None = None,
 ) -> bool:
     """Normalize checking `use_raw`.
@@ -277,7 +282,7 @@ def check_use_raw(
     """
     if use_raw is not None:
         return use_raw
-    if layer is not None:
+    if use is not None or layer is not None:
         return False
     return adata.raw is not None
 
@@ -290,6 +295,16 @@ def check_use_raw(
 def get_igraph_from_adjacency(adjacency: CSBase, *, directed: bool) -> Graph:
     """Get igraph graph from adjacency matrix."""
     import igraph as ig
+    import scipy.sparse as sps
+
+    import scanpy as sc
+
+    if sc.settings.preset is sc.Preset.ScanpyV2Preview:
+        # TODO: replace all call sites with this line
+        return ig.Graph.Weighted_Adjacency(
+            sps.coo_matrix(adjacency) if isinstance(adjacency, SpBase) else adjacency,
+            mode=ig.ADJ_DIRECTED if directed else ig.ADJ_UNDIRECTED,
+        )
 
     sources, targets = adjacency.nonzero()
     weights = dematrix(adjacency[sources, targets]).ravel() if len(sources) else []
@@ -304,6 +319,19 @@ def get_igraph_from_adjacency(adjacency: CSBase, *, directed: bool) -> Graph:
             "Your adjacency matrix contained redundant nodes."
         )
     return g
+
+
+def get_networkit_from_adjacency(adjacency: CSBase, *, weighted: bool = True):
+    """Get a NetworKit graph from an adjacency matrix.
+
+    Used func:`networkit.GraphFromCsr` (networkit/networkit#1422)
+    """
+    import networkit as nk
+    import scipy.sparse as sps
+
+    assert adjacency.shape is not None
+    upper = sps.triu(adjacency, k=1).tocsr()
+    return nk.GraphFromCsr(upper, directed=False, weighted=weighted)
 
 
 # --------------------------------------------------------------------------------
@@ -355,6 +383,8 @@ def compute_association_matrix_of_groups(
         reference labels, entries are proportional to degree of association.
 
     """
+    from .._settings import settings
+
     if normalization not in {"prediction", "reference"}:
         msg = '`normalization` needs to be either "prediction" or "reference".'
         raise ValueError(msg)
@@ -371,11 +401,11 @@ def compute_association_matrix_of_groups(
         if "?" in pred_group:
             pred_group = str(ipred_group)  # noqa: PLW2901
         # starting from numpy version 1.13, subtractions of boolean arrays are deprecated
-        mask_pred = adata.obs[prediction].values == pred_group
+        mask_pred = adata.obs[prediction].to_numpy() == pred_group
         mask_pred_int = mask_pred.astype(np.int8)
         asso_matrix += [[]]
         for ref_group in adata.obs[reference].cat.categories:
-            mask_ref = (adata.obs[reference].values == ref_group).astype(np.int8)
+            mask_ref = (adata.obs[reference].to_numpy() == ref_group).astype(np.int8)
             mask_ref_or_pred = mask_ref.copy()
             mask_ref_or_pred[mask_pred] = 1
             # e.g. if the pred group is contained in mask_ref, mask_ref and
@@ -574,6 +604,14 @@ def get_literal_vals(typ: UnionType | TypeAliasType | Any) -> KeysView[Any]:
     raise TypeError(msg)
 
 
+def _get_basis_key(adata: AnnData, basis: str) -> str | None:
+    if basis in adata.obsm:
+        return basis
+    if f"X_{basis}" in adata.obsm:
+        return f"X_{basis}"
+    return None
+
+
 # --------------------------------------------------------------------------------
 # Others
 # --------------------------------------------------------------------------------
@@ -595,6 +633,20 @@ def _check_op(op) -> None:
 @singledispatch
 def axis_mul_or_truediv(
     x: ArrayLike,
+    /,
+    scaling_array: np.ndarray,
+    axis: Literal[0, 1],
+    op: Callable[[Any, Any], Any],
+    *,
+    allow_divide_by_zero: bool = True,
+    out: ArrayLike | None = None,
+) -> np.ndarray:
+    raise NotImplementedError
+
+
+@axis_mul_or_truediv.register(np.ndarray)
+def _(
+    x: np.ndarray,
     /,
     scaling_array: np.ndarray,
     axis: Literal[0, 1],
@@ -724,36 +776,78 @@ def _[T: (DaskArray, np.ndarray)](
     )
 
 
+@axis_mul_or_truediv.register(HasArrayNamespace)
+def _(
+    x: HasArrayNamespace,
+    /,
+    scaling_array: np.ndarray,
+    axis: Literal[0, 1],
+    op: Callable[[Any, Any], Any],
+    *,
+    allow_divide_by_zero: bool = True,
+    out: ArrayLike | None = None,
+) -> Any:
+
+    _check_op(op)
+    scaling_array = _broadcast_axis(scaling_array, axis)
+    xp = array_namespace(x)
+    scaling_array = xp.asarray(scaling_array)
+    if op is mul:
+        return x * scaling_array
+    if not allow_divide_by_zero:
+        scaling_array = xp.where(
+            scaling_array == 0, xp.ones_like(scaling_array), scaling_array
+        )
+    return x / scaling_array
+
+
 @singledispatch
 def axis_nnz(x: ArrayLike, /, axis: Literal[0, 1]) -> np.ndarray:
+    raise NotImplementedError
+
+
+@axis_nnz.register(np.ndarray)
+def _(x: np.ndarray, /, axis: Literal[0, 1]) -> np.ndarray:
     return np.count_nonzero(x, axis=axis)
 
 
-if pkg_version("scipy") >= Version("1.15"):
-    # newer scipy versions support the `axis` argument for count_nonzero
-    @axis_nnz.register(CSBase)
-    def _(x: CSBase, /, axis: Literal[0, 1]) -> np.ndarray:
-        return x.count_nonzero(axis=axis)
-
-else:
-    # older scipy versions don’t have any way to get the nnz of a sparse array
-    @axis_nnz.register(CSBase)
-    def _(x: CSBase, /, axis: Literal[0, 1]) -> np.ndarray:
-        if isinstance(x, _CSArray):
-            from scipy.sparse import csc_array, csr_array  # noqa: TID251
-
-            x = (csr_array if x.format == "csr" else csc_array)(x)
-        return x.getnnz(axis=axis)
+@axis_nnz.register(CSBase)
+def _(x: CSBase, /, axis: Literal[0, 1]) -> np.ndarray:
+    return x.count_nonzero(axis=axis)
 
 
 @axis_nnz.register(DaskArray)
 def _(x: DaskArray, /, axis: Literal[0, 1]) -> DaskArray:
-    return x.map_blocks(
-        partial(axis_nnz, axis=axis),
+    import dask.array as da
+
+    # Count per block, then sum the counts across blocks.
+    # (`map_blocks(..., drop_axis=axis)` would concatenate all blocks along `axis`
+    # before counting, i.e. load all of a row-chunked array into memory for `axis=0`.)
+    return da.reduction(
+        x,
+        chunk=_axis_nnz_block,
+        # keep the in-memory result’s dtype (int32 for scipy sparse), `np.sum` upcasts
+        aggregate=lambda counts, axis, keepdims: counts.sum(
+            axis=axis, keepdims=keepdims, dtype=counts.dtype
+        ),
+        axis=axis,
         dtype=np.int64,
         meta=np.array([], dtype=np.int64),
-        drop_axis=axis,
     )
+
+
+def _axis_nnz_block(
+    x: _MemoryArray, /, *, axis: tuple[Literal[0, 1]], keepdims: bool
+) -> np.ndarray:
+    # `da.reduction` passes `axis` as a tuple and expects the reduced axis to be kept
+    (ax,) = axis
+    return np.expand_dims(axis_nnz(x, axis=ax), ax)
+
+
+@axis_nnz.register(HasArrayNamespace)
+def _(x: HasArrayNamespace, /, axis: Literal[0, 1]) -> Any:
+    xp = array_namespace(x)
+    return xp.count_nonzero(x, axis=axis)
 
 
 @singledispatch
@@ -768,6 +862,8 @@ def _check_nonnegative_integers_in_mem(x: _MemoryArray, /) -> bool:
     from numbers import Integral
 
     data = x if isinstance(x, np.ndarray) else x.data
+    if np.issubdtype(data.dtype, np.unsignedinteger):
+        return True
     # Check no negatives
     if np.signbit(data).any():
         return False
@@ -777,9 +873,32 @@ def _check_nonnegative_integers_in_mem(x: _MemoryArray, /) -> bool:
     return not np.any((data % 1) != 0)
 
 
+@check_nonnegative_integers.register(HasArrayNamespace)
+def _check_nonnegative_integers_array_api(x: HasArrayNamespace, /) -> bool:
+    xp = array_namespace(x)
+    if xp.isdtype(x.dtype, "unsigned integer"):
+        return True
+    if bool(xp.any(x < 0)):
+        return False
+    if xp.isdtype(x.dtype, "integral"):
+        return True
+    return not bool(xp.any((x % 1) != 0))
+
+
 @check_nonnegative_integers.register(DaskArray)
 def _check_nonnegative_integers_dask(x: DaskArray, /) -> DaskArray:
-    return x.map_blocks(check_nonnegative_integers, dtype=bool, drop_axis=(0, 1))
+    import dask.array as da
+
+    # One result per block, combined with `all` (see `axis_nnz` for why not `drop_axis`)
+    return da.reduction(
+        x,
+        chunk=lambda block, axis, keepdims: np.array([
+            [check_nonnegative_integers(block)]
+        ]),
+        aggregate=np.all,
+        dtype=bool,
+        meta=np.array([], dtype=bool),
+    )
 
 
 def dematrix[SA: _SupportedArray](x: SA | np.matrix) -> SA:
@@ -810,51 +929,39 @@ def select_groups(
         groups_masks_obs = adata.uns[f"{key}_masks"]
     else:
         groups_masks_obs = np.zeros(
-            (len(adata.obs[key].cat.categories), adata.obs[key].values.size), dtype=bool
+            (len(adata.obs[key].cat.categories), adata.obs[key].size), dtype=bool
         )
         for iname, name in enumerate(adata.obs[key].cat.categories):
             # if the name is not found, fallback to index retrieval
-            if name in adata.obs[key].values:
-                mask_obs = name == adata.obs[key].values
+            if name in adata.obs[key].array:
+                mask_obs = name == adata.obs[key].to_numpy()
             else:
-                mask_obs = str(iname) == adata.obs[key].values
+                mask_obs = str(iname) == adata.obs[key].to_numpy()
             groups_masks_obs[iname] = mask_obs
-    groups_ids = list(range(len(groups_order)))
-    if groups_order_subset != "all":
-        groups_ids = []
-        for name in groups_order_subset:
-            groups_ids.append(
-                np.where(adata.obs[key].cat.categories.values == name)[0][0]
-            )
-        if len(groups_ids) == 0:
-            # fallback to index retrieval
-            groups_ids = np.where(
-                np.isin(
-                    np.arange(len(adata.obs[key].cat.categories)).astype(str),
-                    np.array(groups_order_subset),
-                )
-            )[0]
-        if len(groups_ids) == 0:
-            logg.debug(
-                f"{np.array(groups_order_subset)} invalid! specify valid "
-                f"groups_order (or indices) from {adata.obs[key].cat.categories}",
-            )
-            from sys import exit
+    if groups_order_subset == "all":
+        return groups_order.to_numpy(), groups_masks_obs
 
-            exit(0)
-        groups_masks_obs = groups_masks_obs[groups_ids]
-        groups_order_subset = adata.obs[key].cat.categories[groups_ids].values
-    else:
-        groups_order_subset = groups_order.values
+    groups_ids = [
+        np.flatnonzero(adata.obs[key].cat.categories.array == name)[0]
+        for name in groups_order_subset
+    ]
+    if len(groups_ids) == 0:
+        # fallback to index retrieval
+        groups_ids = np.flatnonzero(
+            np.isin(
+                np.arange(len(adata.obs[key].cat.categories)).astype(str),
+                np.array(groups_order_subset),
+            )
+        )
+    if len(groups_ids) == 0:
+        msg = (
+            f"{np.array(groups_order_subset)} invalid! specify valid "
+            f"groups_order (or indices) from {adata.obs[key].cat.categories}"
+        )
+        raise RuntimeError(msg)
+    groups_masks_obs = groups_masks_obs[groups_ids]
+    groups_order_subset = adata.obs[key].cat.categories[groups_ids].to_numpy()
     return groups_order_subset, groups_masks_obs
-
-
-def check_presence_download(filename: Path, backup_url: str):
-    """Check if file is present otherwise download."""
-    if not filename.is_file():
-        from ..readwrite import _download
-
-        _download(backup_url, filename)
 
 
 # --------------------------------------------------------------------------------
@@ -916,15 +1023,17 @@ class NeighborsView:
                 msg = 'No "neighbors" in .uns'
                 raise KeyError(msg)
             self._neighbors_dict = adata.uns["neighbors"]
-            self._conns_key = "connectivities"
-            self._dists_key = "distances"
+            # old `.uns['neighbors']` entries don’t store their keys
+            default_conns, default_dists = "connectivities", "distances"
         else:
             if key not in adata.uns:
                 msg = f"No {key!r} in .uns"
                 raise KeyError(msg)
             self._neighbors_dict = adata.uns[key]
-            self._conns_key = self._neighbors_dict["connectivities_key"]
-            self._dists_key = self._neighbors_dict["distances_key"]
+            default_conns = default_dists = None
+        # a key is missing if `pp.neighbors`’ `out` didn’t write that matrix
+        self._conns_key = self._neighbors_dict.get("connectivities_key", default_conns)
+        self._dists_key = self._neighbors_dict.get("distances_key", default_dists)
 
         if self._conns_key in adata.obsp:
             self._connectivities = adata.obsp[self._conns_key]
@@ -939,6 +1048,34 @@ class NeighborsView:
             self._conns_key,
             self._dists_key,
         )
+
+    @classmethod
+    def from_graph(cls, adata: AnnData, graph: str) -> NeighborsView:
+        """View the neighbors whose connectivities are `.obsp[graph]`.
+
+        Uses the `.uns` entry of the :func:`~scanpy.pp.neighbors` call that wrote them, if any:
+        `out=A.obsp[graph]` names it `graph`, the default is `'neighbors'`,
+        and other entries are found by their `connectivities_key`.
+        Without one, the distances are where `out=A.obsp[graph]` would put them, if they exist.
+        """
+        candidates = dict.fromkeys([graph, "neighbors", *adata.uns])
+        for key in candidates:
+            entry = adata.uns.get(key)
+            default = "connectivities" if key == "neighbors" else None
+            if (
+                isinstance(entry, Mapping)
+                and entry.get("connectivities_key", default) == graph
+            ):
+                return cls(adata, key)
+        self = cls.__new__(cls)
+        self._neighbors_dict = {}
+        self._conns_key = graph
+        self._dists_key = (
+            "distances" if graph == "connectivities" else f"{graph}_distances"
+        )
+        self._connectivities = adata.obsp[graph]
+        self._distances = adata.obsp.get(self._dists_key)
+        return self
 
     @overload
     def __getitem__(self, key: Literal["distances", "connectivities"]) -> CSRBase: ...
@@ -974,26 +1111,6 @@ class NeighborsView:
             return key in self._neighbors_dict
 
 
-def _choose_graph(
-    adata: AnnData, obsp: str | None, neighbors_key: str | None
-) -> CSBase:
-    """Choose connectivities from neighbors or another obsp entry."""
-    if obsp is not None and neighbors_key is not None:
-        msg = "You can't specify both obsp, neighbors_key. Please select only one."
-        raise ValueError(msg)
-
-    if obsp is not None:
-        return adata.obsp[obsp]
-    else:
-        neighbors = NeighborsView(adata, neighbors_key)
-        if "connectivities" not in neighbors:
-            msg = (
-                "You need to run `pp.neighbors` first to compute a neighborhood graph."
-            )
-            raise ValueError(msg)
-        return neighbors["connectivities"]
-
-
 def _resolve_axis(
     axis: Literal["obs", 0, "var", 1],
 ) -> tuple[Literal[0], Literal["obs"]] | tuple[Literal[1], Literal["var"]]:
@@ -1003,6 +1120,52 @@ def _resolve_axis(
         return (1, "var")
     msg = f"`axis` must be either 0, 1, 'obs', or 'var', was {axis!r}"
     raise ValueError(msg)
+
+
+def dim_acc(col: str, *, dim: Literal["obs", "var"]) -> str | AdRef:
+    """Get reference to the `col`umn of `adata.{dim}` the way the active preset expects it."""
+    from .._settings import Preset, settings
+
+    if settings.preset is Preset.ScanpyV2Preview:
+        from anndata.acc import A
+
+        return getattr(A, dim)[col]
+    return col
+
+
+def expose_dispatch[F: Callable](inner: Callable) -> Callable[[F], F]:
+    """Expose `inner`’s `singledispatch` API on a validating wrapper around it.
+
+    Not `functools.wraps`: that sets `__wrapped__` even with `assigned=()`,
+    and :func:`inspect.signature` follows it – so the docs and our signature
+    conventions would see `inner`’s signature instead of the wrapper’s.
+    """
+
+    def decorate(wrapper: F) -> F:
+        for attr in ("register", "dispatch", "registry", "_clear_cache"):
+            setattr(wrapper, attr, getattr(inner, attr))
+        return wrapper
+
+    return decorate
+
+
+@contextmanager
+def own_deprecations() -> Generator[None]:
+    """Silence our own deprecation warnings for the duration of an internal call.
+
+    Internal calls sometimes have to use a deprecated parameter:
+    `use` needs `anndata.acc`, which isn’t guaranteed to be installed.
+    Users can’t act on a deprecation they didn’t trigger, so don’t show it to them.
+
+    `module=` can’t narrow this:
+    `scverse_misc`’s `warn_outside` blames the first frame outside scanpy,
+    so these warnings are attributed to the caller’s module.
+    """
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", r"The argument \w+ is deprecated", FutureWarning
+        )
+        yield
 
 
 def is_backed_type(x: object, /) -> bool:

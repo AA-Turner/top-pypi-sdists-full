@@ -16,6 +16,7 @@ from .types.list_members_request_most_recent_actions_item import ListMembersRequ
 from .types.list_members_request_order import ListMembersRequestOrder
 from .types.list_members_request_status import ListMembersRequestStatus
 from .types.list_members_response import ListMembersResponse
+from .types.update_members_request_metadata_value import UpdateMembersRequestMetadataValue
 from .types.update_members_request_unsubscribe_status import UpdateMembersRequestUnsubscribeStatus
 
 if typing.TYPE_CHECKING:
@@ -146,7 +147,7 @@ class MembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -185,6 +186,54 @@ class MembersClient:
             request_options=request_options,
         )
 
+    def create(
+        self,
+        *,
+        email: str,
+        account_id: typing.Optional[str] = OMIT,
+        name: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Member:
+        """
+        Adds a person to an account as a member. If the person is already a member of the account, that member is returned unchanged.
+
+        Parameters
+        ----------
+        email : str
+            The email address of the person to add. If no Whop user has it, one is created.
+
+        account_id : typing.Optional[str]
+            The account to add the member to (`biz_` tag). Defaults to the account the credential acts as.
+
+        name : typing.Optional[str]
+            The name of the person to add. Ignored when a user on Whop already exists for this email address.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Member
+            member created for an email with no Whop user
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-11-13-1",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        client.members.create(
+            email="jane@example.com",
+        )
+        """
+        _response = self._raw_client.create(
+            email=email, account_id=account_id, name=name, request_options=request_options
+        )
+        return _response.data
+
     def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Member:
         """
         Retrieves a member by ID. Accessible to the account and to the member's own user.
@@ -207,7 +256,7 @@ class MembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -222,23 +271,27 @@ class MembersClient:
         self,
         id: str,
         *,
+        metadata: typing.Optional[typing.Dict[str, typing.Optional[UpdateMembersRequestMetadataValue]]] = OMIT,
         name: typing.Optional[str] = OMIT,
         unsubscribe_status: typing.Optional[UpdateMembersRequestUnsubscribeStatus] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Member:
         """
-        Updates a member. The account can update `name`, the customer name its invoices show for this member; it doesn't change the user's Whop profile. The member can update `unsubscribe_status`, with a credential for their own user that holds `user:notifications:update`, to unsubscribe from the account's marketing communications or resubscribe. Each sends only its own field.
+        Updates a member.
 
         Parameters
         ----------
         id : str
             Member ID (`mber_` tag).
 
+        metadata : typing.Optional[typing.Dict[str, typing.Optional[UpdateMembersRequestMetadataValue]]]
+            Your own key-value data on this member. Up to 50 keys of at most 100 characters. Values are strings of at most 500 characters, numbers, `true`, `false`, or `null`. At most 200 KB. Replaces existing metadata, and `null` clears it. Requires `member:manage`.
+
         name : typing.Optional[str]
-            The customer name to show on this member's invoices, at most 255 bytes. Leading and trailing spaces are trimmed. `null` or a blank string clears it, so invoices show the user's own name again.
+            The name invoices show for this member, in place of the user's own. `null` clears it. Requires `member:manage`.
 
         unsubscribe_status : typing.Optional[UpdateMembersRequestUnsubscribeStatus]
-            `unsubscribed` to stop the account's marketing communications, or `null` to resubscribe. Only the member can set it.
+            `unsubscribed` to opt out of the account's marketing, `null` to opt back in. Only the member can set it, with `user:notifications:update`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -253,7 +306,7 @@ class MembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -262,7 +315,7 @@ class MembersClient:
         )
         """
         _response = self._raw_client.update(
-            id, name=name, unsubscribe_status=unsubscribe_status, request_options=request_options
+            id, metadata=metadata, name=name, unsubscribe_status=unsubscribe_status, request_options=request_options
         )
         return _response.data
 
@@ -290,7 +343,7 @@ class MembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -442,7 +495,7 @@ class AsyncMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -488,6 +541,62 @@ class AsyncMembersClient:
             request_options=request_options,
         )
 
+    async def create(
+        self,
+        *,
+        email: str,
+        account_id: typing.Optional[str] = OMIT,
+        name: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Member:
+        """
+        Adds a person to an account as a member. If the person is already a member of the account, that member is returned unchanged.
+
+        Parameters
+        ----------
+        email : str
+            The email address of the person to add. If no Whop user has it, one is created.
+
+        account_id : typing.Optional[str]
+            The account to add the member to (`biz_` tag). Defaults to the account the credential acts as.
+
+        name : typing.Optional[str]
+            The name of the person to add. Ignored when a user on Whop already exists for this email address.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Member
+            member created for an email with no Whop user
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-11-13-1",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.members.create(
+                email="jane@example.com",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create(
+            email=email, account_id=account_id, name=name, request_options=request_options
+        )
+        return _response.data
+
     async def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Member:
         """
         Retrieves a member by ID. Accessible to the account and to the member's own user.
@@ -512,7 +621,7 @@ class AsyncMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -533,23 +642,27 @@ class AsyncMembersClient:
         self,
         id: str,
         *,
+        metadata: typing.Optional[typing.Dict[str, typing.Optional[UpdateMembersRequestMetadataValue]]] = OMIT,
         name: typing.Optional[str] = OMIT,
         unsubscribe_status: typing.Optional[UpdateMembersRequestUnsubscribeStatus] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Member:
         """
-        Updates a member. The account can update `name`, the customer name its invoices show for this member; it doesn't change the user's Whop profile. The member can update `unsubscribe_status`, with a credential for their own user that holds `user:notifications:update`, to unsubscribe from the account's marketing communications or resubscribe. Each sends only its own field.
+        Updates a member.
 
         Parameters
         ----------
         id : str
             Member ID (`mber_` tag).
 
+        metadata : typing.Optional[typing.Dict[str, typing.Optional[UpdateMembersRequestMetadataValue]]]
+            Your own key-value data on this member. Up to 50 keys of at most 100 characters. Values are strings of at most 500 characters, numbers, `true`, `false`, or `null`. At most 200 KB. Replaces existing metadata, and `null` clears it. Requires `member:manage`.
+
         name : typing.Optional[str]
-            The customer name to show on this member's invoices, at most 255 bytes. Leading and trailing spaces are trimmed. `null` or a blank string clears it, so invoices show the user's own name again.
+            The name invoices show for this member, in place of the user's own. `null` clears it. Requires `member:manage`.
 
         unsubscribe_status : typing.Optional[UpdateMembersRequestUnsubscribeStatus]
-            `unsubscribed` to stop the account's marketing communications, or `null` to resubscribe. Only the member can set it.
+            `unsubscribed` to opt out of the account's marketing, `null` to opt back in. Only the member can set it, with `user:notifications:update`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -566,7 +679,7 @@ class AsyncMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -581,7 +694,7 @@ class AsyncMembersClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.update(
-            id, name=name, unsubscribe_status=unsubscribe_status, request_options=request_options
+            id, metadata=metadata, name=name, unsubscribe_status=unsubscribe_status, request_options=request_options
         )
         return _response.data
 
@@ -613,7 +726,7 @@ class AsyncMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

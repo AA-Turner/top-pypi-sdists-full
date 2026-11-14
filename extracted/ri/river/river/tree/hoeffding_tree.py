@@ -89,14 +89,14 @@ class HoeffdingTree(ABC):
         -----
         The Hoeffding bound is defined as:
 
-        $\\epsilon = \\sqrt{\\frac{R^2\\ln(1/\\delta))}{2n}}$
+        $\epsilon = \sqrt{\frac{R^2\ln(1/\delta))}{2n}}$
 
         where:
 
-        $\\epsilon$: Hoeffding bound.
+        $\epsilon$: Hoeffding bound.
         $R$: Range of a random variable. For a probability the range is 1, and for an
         information gain the range is log *c*, where *c* is the number of classes.
-        $\\delta$: Confidence. 1 minus the desired probability of choosing the correct
+        $\delta$: Confidence. 1 minus the desired probability of choosing the correct
         attribute at any given node.
         $n$: Number of samples.
 
@@ -166,6 +166,9 @@ class HoeffdingTree(ABC):
         }
         return summary
 
+    def _root_for_inspection(self):
+        return self._root
+
     def to_dataframe(self):
         """Return a representation of the current tree structure organized in a
         `pandas.DataFrame` object.
@@ -177,8 +180,9 @@ class HoeffdingTree(ABC):
         df
             A `pandas.DataFrame` depicting the tree structure.
         """
-        if self._root is not None and isinstance(self._root, DTBranch):
-            return self._root.to_dataframe()
+        root = self._root_for_inspection()
+        if root is not None and isinstance(root, DTBranch):
+            return root.to_dataframe()
 
     def _branch_selector(self, numerical_feature=True, multiway_split=False) -> type[DTBranch]:
         """Create a new split node."""
@@ -345,15 +349,16 @@ class HoeffdingTree(ABC):
         Currently, Label Combination Hoeffding Tree Classifier (for multi-label
         classification) is not supported.
         """
-        if self._root is None:
-            return
+        root = self._root_for_inspection()
+        if root is None:
+            return None
 
         # We'll redirect all the print statement to a buffer, we'll return the content of the
         # buffer at the end
         buffer = io.StringIO()
         _print = functools.partial(print, file=buffer)
 
-        for node in self._root.walk(x, until_leaf=True):
+        for node in root.walk(x, until_leaf=True):
             if isinstance(node, HTLeaf):
                 _print(repr(node))
             elif isinstance(node, DTBranch):
@@ -407,11 +412,12 @@ class HoeffdingTree(ABC):
         except ImportError as e:
             raise ValueError("You have to install graphviz to use the draw method.") from e
         counter = 0
+        root = self._root_for_inspection()
 
         def iterate(node=None):
             if node is None:
-                yield None, None, self._root, 0, None
-                yield from iterate(self._root)
+                yield None, None, root, 0, None
+                yield from iterate(root)
 
             nonlocal counter
             parent_no = counter
@@ -493,6 +499,7 @@ def _color_brew(n: int) -> list[tuple[int, int, int]]:
     Returns
     -------
         List of n tuples of form (R, G, B) being the components of each color.
+
     References
     ----------
     https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/tree/_export.py

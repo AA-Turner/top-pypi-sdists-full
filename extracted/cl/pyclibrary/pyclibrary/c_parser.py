@@ -11,6 +11,7 @@ function signatures from C header files.
 
 """
 
+import ast
 import logging
 import os
 import re
@@ -1026,9 +1027,11 @@ class CParser(object):
     def eval_preprocessor_expr(self, expr):
         # Make a few alterations so the expression can be eval'd
         macro_diffs = (
-            Literal("!").setParseAction(lambda: " not ")
+            Literal("!=")
+            | Literal("!").setParseAction(lambda: " not ")
             | Literal("&&").setParseAction(lambda: " and ")
             | Literal("||").setParseAction(lambda: " or ")
+            | integer
             | Word(alphas + "_", alphanums + "_").setParseAction(lambda: "0")
         )
         expr2 = macro_diffs.transformString(expr).strip()
@@ -1139,9 +1142,25 @@ class CParser(object):
         defn = self.defs["fnmacros"][name]
 
         try:
-            args, end = text.split(")", 1)
-            _, args = args.split("(", 1)
-            args = [a.strip() for a in args.split(",")]
+            # Split the arguments on top level commas, up to the closing paren.
+            _, text = text.split("(", 1)
+            args = [""]
+            depth = 0
+            for i, c in enumerate(text):
+                if c == "," and depth == 0:
+                    args.append("")
+                    continue
+                if c == "(":
+                    depth += 1
+                elif c == ")":
+                    if depth == 0:
+                        break
+                    depth -= 1
+                args[-1] += c
+            else:
+                raise ValueError("No closing parenthesis")
+            end = text[i + 1 :]
+            args = [a.strip() for a in args]
         except Exception:
             mess = "Function macro {} argument analysis failed :\n{}"
             raise DefinitionError(0, mess.format(name, format_exc()))
@@ -1662,7 +1681,10 @@ class CParser(object):
         expr = (quotedString | number | cast).transformString(expr)
         if expr == "":
             return None
-        return eval(expr, *args)
+        # Use C division: an integer divided by an integer stays an integer.
+        tree = _CDivision().visit(ast.parse(expr, mode="eval"))
+        code = compile(ast.fix_missing_locations(tree), "<expr>", "eval")
+        return eval(code, *args)
 
     def add_def(self, typ, name, val):
         """Add a definition of a specific type to both the definition set for
@@ -1758,6 +1780,41 @@ def flatten(lst):
     return res
 
 
+def _c_div(a, b):
+    """Divide like C: integer division truncates toward zero."""
+    if isinstance(a, int) and isinstance(b, int):
+        q = abs(a) // abs(b)
+        return q if (a < 0) == (b < 0) else -q
+    return a / b
+
+
+def _c_mod(a, b):
+    """Calculate the remainder like C, with a sign matching the dividend."""
+    if isinstance(a, int) and isinstance(b, int):
+        return a - _c_div(a, b) * b
+    return a % b
+
+
+class _CDivision(ast.NodeTransformer):
+    """Turn division and modulo into their C semantic equivalents."""
+
+    def visit_BinOp(self, node):
+        self.generic_visit(node)
+        if isinstance(node.op, ast.Div):
+            return ast.Call(
+                func=ast.Name(id="_c_div", ctx=ast.Load()),
+                args=[node.left, node.right],
+                keywords=[],
+            )
+        if isinstance(node.op, ast.Mod):
+            return ast.Call(
+                func=ast.Name(id="_c_mod", ctx=ast.Load()),
+                args=[node.left, node.right],
+                keywords=[],
+            )
+        return node
+
+
 def recombine(tok):
     """Flattens a tree of tokens and joins into one big string."""
     return " ".join(flatten(tok.asList()))
@@ -1791,9 +1848,13 @@ lparen = Literal("(").ignore(quotedString).suppress()
 rparen = Literal(")").ignore(quotedString).suppress()
 
 # Numbers
-int_strip = lambda t: t[0].rstrip("UL")  # noqa
-hexint = Regex(r"[+-]?\s*0[xX][{}]+[UL]*".format(hexnums)).setParseAction(int_strip)
-decint = Regex(r"[+-]?\s*[0-9]+[UL]*").setParseAction(int_strip)
+int_strip = lambda t: t[0].rstrip("UuLl")  # noqa
+# The lookarounds keep a literal from starting or ending inside a name, so the
+# "1L" in "A1L2" is not read as a number.
+hexint = Regex(
+    r"(?<![\w$])[+-]?\s*0[xX][{}]+[UuLl]*(?![\w$])".format(hexnums)
+).setParseAction(int_strip)
+decint = Regex(r"(?<![\w$])[+-]?\s*[0-9]+[UuLl]*(?![\w$])").setParseAction(int_strip)
 integer = hexint | decint
 # The floating regex is ugly but it is because we do not want to match
 # integer to it.
@@ -1819,7 +1880,7 @@ type_qualifier = None
 storage_class_spec = None
 extra_modifier = None
 fund_type = None
-extra_type_list = []
+extra_type_list: list[str] = []
 
 c99_int_types = [
     "int8_t",
@@ -1881,13 +1942,16 @@ def _init_cparser(extra_types=None, extra_modifiers=None):
     call_conv = Optional(Keyword("__cdecl") | Keyword("__stdcall"))("call_conv")
 
     # Removes '__name' from all type specs. may cause trouble.
+    # A '__name' right before ';', ',', ')', '[', '=' or ':' is the name being
+    # declared (e.g. 'unsigned __flags'), not a qualifier.
     underscore_2_ident = (
         WordStart(wordchars)
         + ~keyword
         + "__"
         + Word(alphanums, alphanums + "_$")
         + WordEnd(wordchars)
-    ).setParseAction(lambda t: t[0])
+        + ~oneOf("; , ) [ = :")
+    ).setParseAction(lambda t: "".join(t))
     type_qualifier = ZeroOrMore(
         (underscore_2_ident + Optional(nestedExpr())) | kwl(qualifiers)
     )

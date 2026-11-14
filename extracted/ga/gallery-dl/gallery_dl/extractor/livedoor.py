@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2019-2025 Mike Fährmann
+# Copyright 2019-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -10,6 +10,10 @@
 
 from .common import Extractor, Message
 from .. import text
+
+BASE_PATTERN = (r"(?:https?://)?("
+                r"blog\.livedoor\.jp/(\w+)|"
+                r"(\w+)\.livedoor\.(?:blog|jp))")
 
 
 class LivedoorExtractor(Extractor):
@@ -21,8 +25,14 @@ class LivedoorExtractor(Extractor):
     archive_fmt = "{post[id]}_{hash}"
 
     def __init__(self, match):
+        root, user1, user2, _ = match.groups()
+        if user2 is None:
+            self.root = "http://" + root
+            self.user = user1
+        else:
+            self.root = "https://" + root
+            self.user = user2
         Extractor.__init__(self, match)
-        self.user = match[1]
 
     def items(self):
         for post in self.posts():
@@ -33,6 +43,12 @@ class LivedoorExtractor(Extractor):
 
     def posts(self):
         """Return an iterable with post objects"""
+
+    def _extract_post(self, url):
+        extr = text.extract_from(self.request(url).text)
+        data = extr('<rdf:RDF', '</rdf:RDF>')
+        body = extr('class="article-body-inner">', 'class="article-footer">')
+        return self._load(data, body)
 
     def _load(self, data, body):
         extr = text.extract_from(data)
@@ -61,7 +77,7 @@ class LivedoorExtractor(Extractor):
 
             if not src:
                 continue
-            if "://livedoor.blogimg.jp/" in src:
+            elif "://livedoor.blogimg.jp/" in src:
                 url = src.replace("http:", "https:", 1).replace("-s.", ".")
             else:
                 url = text.urljoin(self.root, src)
@@ -82,13 +98,20 @@ class LivedoorExtractor(Extractor):
 class LivedoorBlogExtractor(LivedoorExtractor):
     """Extractor for a user's blog on blog.livedoor.jp"""
     subcategory = "blog"
-    pattern = r"(?:https?://)?blog\.livedoor\.jp/(\w+)/?(?:$|[?#])"
+    pattern = BASE_PATTERN + r"/?($|\?|#)"
     example = "http://blog.livedoor.jp/USER/"
 
     def posts(self):
-        url = f"{self.root}/{self.user}"
-        while url:
-            extr = text.extract_from(self.request(url).text)
+        response = self.request(self.root + "/")
+        page = response.text
+
+        if response.history or self.groups[2]:
+            return self.posts_custom(page)
+        return self.posts_default(page)
+
+    def posts_default(self, page):
+        while True:
+            extr = text.extract_from(page)
             while True:
                 data = extr('<rdf:RDF', '</rdf:RDF>')
                 if not data:
@@ -97,21 +120,31 @@ class LivedoorBlogExtractor(LivedoorExtractor):
                             'class="article-footer">')
                 yield self._load(data, body)
             url = extr('<a rel="next" href="', '"')
+            if not url:
+                break
+            page = self.request(url).text
+
+    def posts_custom(self, page):
+        last = None
+        while True:
+            if (pos := page.find('id="side')) >= 0:
+                page = page[:pos]
+            for match in LivedoorPostExtractor.pattern.finditer(page):
+                if last != match[0]:
+                    last = match[0]
+                    yield self._extract_post(last)
+            url = text.extr(page, '<a rel="next" href="', '"')
+            if not url:
+                break
+            page = self.request(url).text
 
 
 class LivedoorPostExtractor(LivedoorExtractor):
     """Extractor for images from a blog post on blog.livedoor.jp"""
     subcategory = "post"
-    pattern = r"(?:https?://)?blog\.livedoor\.jp/(\w+)/archives/(\d+)"
+    pattern = BASE_PATTERN + r"/archives/(\d+)\.html"
     example = "http://blog.livedoor.jp/USER/archives/12345.html"
 
-    def __init__(self, match):
-        LivedoorExtractor.__init__(self, match)
-        self.post_id = match[2]
-
     def posts(self):
-        url = f"{self.root}/{self.user}/archives/{self.post_id}.html"
-        extr = text.extract_from(self.request(url).text)
-        data = extr('<rdf:RDF', '</rdf:RDF>')
-        body = extr('class="article-body-inner">', 'class="article-footer">')
-        return (self._load(data, body),)
+        url = f"{self.root}/archives/{self.groups[3]}.html"
+        return (self._extract_post(url),)

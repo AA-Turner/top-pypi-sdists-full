@@ -24,9 +24,9 @@ class RestoreDdrTableRequest(DaraModel):
         # The ID of the cross-region backup set. You can call the DescribeCrossRegionBackups operation to query the ID.
         # >This parameter is required when **RestoreType** is set to **0**.
         self.backup_id = backup_id
-        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the token, but you must make sure that the token is unique among different requests. The token can contain a maximum of 64 ASCII characters and cannot contain non-ASCII characters.
+        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the token. The token must be unique across different requests. The token can be up to 64 characters in length and cannot contain non-ASCII characters.
         self.client_token = client_token
-        # The instance ID of the existing instance to be recovered.
+        # The instance ID of the existing instance to which data is recovered.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
@@ -43,19 +43,19 @@ class RestoreDdrTableRequest(DaraModel):
         self.restore_time = restore_time
         # The restoration method. Valid values:
         # * **0**: restores data based on a backup set. If you set this parameter to 0, you must also specify the **BackupId** parameter.
-        # * **1**: restores data to a point in time. If you set this parameter to 1, you must also specify the **RestoreTime**, **SourceRegion**, and **SourceDBInstanceName** parameters.
+        # * **1**: restores data to a specific point in time. If you set this parameter to 1, you must also specify the **RestoreTime**, **SourceRegion**, and **SourceDBInstanceName** parameters.
         # 
         # Default value: **0**.
         # 
         # This parameter is required.
         self.restore_type = restore_type
-        # The instance ID of the source instance to recover data to a point in time.
+        # The instance ID of the source instance for point-in-time recovery.
         # >This parameter is required when **RestoreType** is set to **1**.
         self.source_dbinstance_name = source_dbinstance_name
         # The ID of the source region for point-in-time restoration.
         # >This parameter is required when **RestoreType** is set to **1**.
         self.source_region = source_region
-        # The databases and tables that you want to restore. Format:
+        # The databases and tables to be restored. Format:
         # ```[{"type":"db","name":"<Name of database 1>","newname":"<New name of database 1>","tables":[{"type":"table","name":"<Name of table 1 in database 1>","newname":"<New name of table 1>"},{"type":"table","name":"<Name of table 2 in database 1>","newname":"<New name of table 2>"}]},{"type":"db","name":"<Name of database 2>","newname":"<New name of database 2>","tables":[{"type":"table","name":"<Name of table 3 in database 2>","newname":"<New name of table 3>"},{"type":"table","name":"<Name of table 4 in database 2>","newname":"<New name of table 4>"}]}]```
         # 
         # This parameter is required.

@@ -128,13 +128,14 @@ class PanesMixin:
             return self.transport.get(f"/v1/projects/{project_id}/preview")
 
     def set_preview(self, project: str, slug: str) -> dict:
-        """``PUT /v1/projects/{id}/preview {slug}``: make one of the project's own panes its preview, a
-        choice automation never replaces (also after previews were turned off here)."""
+        """``PUT /v1/projects/{id}/preview {slug}``: make one of the project's own panes its preview by
+        hand. The server refuses it (403 ``preview_agent_managed``) while previews are agent-managed:
+        ``save_pane(is_preview=True)`` to ``about`` writes the preview."""
         return self._put_preview(project, str(slug))
 
     def clear_preview(self, project: str) -> dict:
         """``PUT /v1/projects/{id}/preview {slug: null}``: turn previews off for the project; the panes
-        stay, and automation never chooses one again until someone does."""
+        stay, and automation never chooses one again."""
         return self._put_preview(project, None)
 
     def _put_preview(self, project: str, slug: str | None) -> dict:

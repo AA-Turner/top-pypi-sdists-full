@@ -13,7 +13,7 @@ class ModifyDBInstanceMetricsResponseBody(DaraModel):
     ):
         # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
         # The scope of the modification. Valid values:
         # * **instance**: instance level.

@@ -36,8 +36,6 @@ logger = logging.getLogger('stanza')
 def build_argparse():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_dir', type=str, default='data/pos', help='Root dir for saving models.')
-    parser.add_argument('--wordvec_dir', type=str, default='extern_data/wordvec', help='Directory of word vectors.')
-    parser.add_argument('--wordvec_file', type=str, default=None, help='Word vectors filename.')
     parser.add_argument('--wordvec_pretrain_file', type=str, default=None, help='Exact name of the pretrain file to read')
     parser.add_argument('--train_file', type=str, default=None, help='Input file for training.')
     parser.add_argument('--eval_file', type=str, default=None, help='Input file for scoring.')
@@ -50,6 +48,8 @@ def build_argparse():
     parser.add_argument('--tag_column_link', type=str, default=TAG_LINK_EMB, choices=TAG_LINKS, help='What a parent column hands to its children.  "tag_emb" embeds the parent tag, gold while training when the batch has it and predicted otherwise.  "hidden" hands over the parent hidden layer, which is wider and needs no tag at all.')
     parser.add_argument('--detach_parent_tags', action='store_true', default=False, help='Stop the gradient at the parent, so a child column does not train the layers it is conditioned on.  Only meaningful with --tag_column_link hidden.')
     parser.add_argument('--upos_word_regex', type=str, default=None, help='Regex to use to build a confusion matrix specifically for those words.  Example use case, to test whether adding "como" as a VERB to the Spanish dataset caused errors on ADV or SCONJ usages.  Uses "search", so an example regex for that test would be "^(?i:como)$"')
+    parser.add_argument('--feature_confusion', type=lambda x: [y for y in x.split(',') if y], default=None, help='Comma separated features which get a confusion matrix when scoring, such as "Mood,VerbForm".  Every feature gets one by default')
+    parser.add_argument('--no_feature_confusion', dest='feature_confusion', action='store_const', const=[], help='Do not print any feature confusion matrices when scoring')
 
     parser.add_argument('--mode', default='train', choices=['train', 'predict'])
     parser.add_argument('--lang', type=str, help='Language')
@@ -67,7 +67,6 @@ def build_argparse():
     parser.add_argument('--transformed_dim', type=int, default=125)
     parser.add_argument('--num_layers', type=int, default=2)
     parser.add_argument('--char_num_layers', type=int, default=1)
-    parser.add_argument('--pretrain_max_vocab', type=int, default=250000)
     parser.add_argument('--word_dropout', type=float, default=0.33)
     parser.add_argument('--dropout', type=float, default=0.5)
     parser.add_argument('--rec_dropout', type=float, default=0, help="Recurrent dropout")
@@ -172,11 +171,7 @@ def load_pretrain(args):
     pt = None
     if args['pretrain']:
         pretrain_file = pretrain.find_pretrain_file(args['wordvec_pretrain_file'], args['save_dir'], args['shorthand'], args['lang'])
-        if os.path.exists(pretrain_file):
-            vec_file = None
-        else:
-            vec_file = args['wordvec_file'] if args['wordvec_file'] else utils.get_wordvec_file(args['wordvec_dir'], args['shorthand'])
-        pt = pretrain.Pretrain(pretrain_file, vec_file, args['pretrain_max_vocab'])
+        pt = pretrain.Pretrain(pretrain_file)
     return pt
 
 def set_predictions(doc, trainer, preds, extra_preds=None):
@@ -633,10 +628,13 @@ def evaluate_trainer(args, trainer, pretrain):
         CoNLL.write_doc2conll(dev_data.doc, system_pred_file)
 
     if args['gold_labels']:
+        gold_doc = CoNLL.conll2doc(input_file=args['eval_file'])
+        scorer.score_named_tags(dev_data.doc, gold_doc, args.get('feature_confusion'))
+
         system_pred_file = "{:C}\n\n".format(dev_data.doc)
         system_pred_file = io.StringIO(system_pred_file)
         _, _, score = scorer.score(system_pred_file, args['eval_file'], eval_type=eval_type)
-        logger.info("POS Tagger score: %s %.2f", args['shorthand'], score*100)
+        logger.info("POS Tagger score on %s file %s: %.2f", args['shorthand'], args['eval_file'], score*100)
 
     return dev_data.doc
 

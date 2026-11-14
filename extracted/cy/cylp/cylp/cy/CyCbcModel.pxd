@@ -22,6 +22,9 @@ cdef extern from "CbcCompareUser.hpp":
 cdef extern from "ICbcModel.hpp":
     cdef cppclass CppICbcModel "ICbcModel":
         PyObject* getPrimalVariableSolution()
+        PyObject* getDualColumnSolution()
+        PyObject* getPrimalRowSolution()
+        PyObject* getDualRowSolution()
 
         int cbcMain()
         int getSolutionCount()
@@ -87,6 +90,7 @@ cdef class CyCbcModel:
     cdef object cyLPModel
     cdef object clpModel
     cdef object cutGenerators
+    cdef object pythonCutGenerators
     cdef setCppSelf(self, CppICbcModel* cppmodel, bint own=*)
     cdef setClpModel(self, clpmodel)
     cpdef addCutGenerator(self, CyCglCutGenerator generator,

@@ -19,69 +19,69 @@ class ModifyDBInstanceConfigRequest(DaraModel):
         switch_time: str = None,
         switch_time_mode: str = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the token, but you must make sure that the token is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the token, but you must ensure that it is unique among different requests. The token can contain a maximum of 64 ASCII characters and cannot contain non-ASCII characters.
         self.client_token = client_token
-        # The name of the configuration item to modify. This parameter is used together with ConfigValue.
+        # The name of the configuration item to be modified. This parameter must be used together with the ConfigValue parameter.
         # <details>
-        # <summary>ApsaraDB RDS for PostgreSQL configuration items</summary>
+        # <summary>Configuration items for ApsaraDB RDS for PostgreSQL</summary>
         # 
-        # - **pgbouncer**: Modifies the PgBouncer feature.
-        # - **encryptionKey**: Modifies the cloud disk encryption feature.
-        # - **duckdb_create_databases**: Configures databases of the primary instance as DuckDB column store databases in batches.
-        # - **duckdb_prepare_dependency**: Configures the primary instance with one click so that its parameters and minor engine version meet the [prerequisites](https://help.aliyun.com/document_detail/2977241.html) for creating a DuckDB-based analytical instance. If the primary instance already has read-only instances, the read-only instances are also updated.
-        # - **enable_db_visible_by_connect_rls**: Enables CONNECT RLS on the instance to control database visibility.
-        # - **set_db_visible_by_connect_rls**: Enables CONNECT RLS on a database to control database visibility. This can be called only after CONNECT RLS is enabled on the instance.
+        # - **pgbouncer**: modifies the PgBouncer feature.
+        # - **encryptionKey**: modifies the cloud disk encryption feature.
+        # - **duckdb_create_databases**: configures databases on the primary instance as DuckDB column store databases in batches.
+        # - **duckdb_prepare_dependency**: configures the primary instance with one click so that its parameters and minor engine version meet the [prerequisites](https://help.aliyun.com/document_detail/2977241.html) for creating a DuckDB-based analytical instance. If read-only instances have been created for the primary instance, the read-only instances are also modified in synchronization.
+        # - **enable_db_visible_by_connect_rls**: enables CONNECT RLS to control database visibility for the instance.
+        # - **set_db_visible_by_connect_rls**: enables CONNECT RLS to control database visibility for databases. This parameter can be invoked only after CONNECT RLS is enabled for the instance.
         # 
         # </details>
         # 
         # <details>
-        # <summary>ApsaraDB RDS for SQL Server configuration items</summary>
+        # <summary>Configuration items for ApsaraDB RDS for SQL Server</summary>
         # 
         # <props="intl">
         # 
-        # - **clear_errorlog**: Clears error logs.
-        # - **encryptionKey**: Modifies the cloud disk encryption feature. Serverless instances and shared instance types do not support this feature.
+        # - **clear_errorlog**: clears error logs.
+        # - **encryptionKey**: modifies the cloud disk encryption feature. This feature is not supported for serverless instances and instances of the shared instance type.
         # 
         # 
         # 
         # <props="china">
         # 
         # 
-        # - **backup_recovery_model**: Enables the simple recovery model feature. Only Basic Edition instances support this feature. **This feature cannot be disabled after it is enabled**.
-        # - **clear_errorlog**: Clears error logs.
-        # - **encryptionKey**: Modifies the cloud disk encryption feature. Serverless instances and shared instance types do not support this feature.
+        # - **backup_recovery_model**: enables the simple recovery model. Only Basic Edition instances support this feature. **This feature cannot be disabled after it is enabled**.
+        # - **clear_errorlog**: clears error logs.
+        # - **encryptionKey**: modifies the cloud disk encryption feature. This feature is not supported for serverless instances and instances of the shared instance type.
         # 
         # 
         # </details>
         # 
         # This parameter is required.
         self.config_name = config_name
-        # The value of the configuration item to modify. This parameter is used together with ConfigName.
+        # The value of the configuration item to be modified. This parameter must be used together with the ConfigName parameter.
         # 
         # <details>
-        # <summary>ApsaraDB RDS for PostgreSQL configuration item values</summary>
+        # <summary>Values of configuration items for ApsaraDB RDS for PostgreSQL</summary>
         # 
         # - PgBouncer feature: **true** (enable) or **false** (disable).
         # - Cloud disk encryption feature:
-        #   - **ServiceKey**: Uses an automatically generated key from Alibaba Cloud, which is the RDS-managed service key (Default Service CMK), to enable cloud disk encryption.
-        #   - **<Key>**: Uses a custom key to enable cloud disk encryption or replaces the current key. Example: `494c98ce-f2b5-48ab-96ab-36c986b6****`.
-        #   - **disabled**: Disables cloud disk encryption.
-        # - One-click fix for prerequisites to create a DuckDB-based analytical instance: **duckdb_prepare_dependency**
-        # - Configure databases of the primary instance as DuckDB column store databases in batches. The value is a JSON string. Example: `{"dbNames": "db1,db2,db3", "accountName": "yourSuperAccountName"}`, where:
-        #   - **dbNames**: The names of databases to convert to DuckDB column store databases. Separate multiple database names with commas (,).
-        #   - **accountName**: The privileged user. Specify only one privileged user.
-        # - Enable CONNECT RLS on the instance to control database visibility: **true** to enable.
-        # - Enable CONNECT RLS on a database to control database visibility: The **database names** managed by CONNECT RLS. Separate multiple database names with commas (,). Example: **testdb1,testdb2**. When a client connects to a database with CONNECT RLS enabled, the database list is displayed based on whether the client has CONNECT permissions on other databases.
+        #   - **ServiceKey**: uses an automatically generated key from Alibaba Cloud, which is the RDS-managed service key (Default Service CMK), to enable cloud disk encryption.
+        #   - **<Key>**: uses a custom key to enable cloud disk encryption or replace the current key. Example: `494c98ce-f2b5-48ab-96ab-36c986b6****`.
+        #   - **disabled**: disables cloud disk encryption.
+        # - One-click repair of prerequisites for creating a DuckDB-based analytical instance: **duckdb_prepare_dependency**.
+        # - Batch configuration of databases on the primary instance as DuckDB column store databases. The value is a JSON string. Example: `{"dbNames": "db1,db2,db3", "accountName": "yourSuperAccountName"}`, where:
+        #   - **dbNames**: the names of the databases to be converted to DuckDB column store databases. Separate multiple database names with commas (,).
+        #   - **accountName**: the privileged account. You only need to configure one privileged account.
+        # - Enable CONNECT RLS to control database visibility for the instance: **true** (enable).
+        # - Enable CONNECT RLS to control database visibility for databases: the **names of the databases** managed by CONNECT RLS. Separate multiple database names with commas (,). Example: **testdb1,testdb2**. When a client connects to a database with CONNECT RLS enabled, the database list is correctly displayed based on whether the client has the CONNECT permission on other databases.
         # </details>
         # <details>
-        # <summary>ApsaraDB RDS for SQL Server configuration item values</summary>
+        # <summary>Values of configuration items for ApsaraDB RDS for SQL Server</summary>
         # 
         # <props="intl">
         # 
         # - Error log cleanup feature: **1** (confirm cleanup).
         # - Cloud disk encryption feature (**this feature cannot be disabled after it is enabled**):
-        #   - **serviceKey**: Uses an automatically generated key from Alibaba Cloud, which is the RDS-managed service key (Default Service CMK), to enable cloud disk encryption.
-        #   - **<Key>**: Uses a custom key to enable cloud disk encryption or replaces the current key. Example: `494c98ce-f2b5-48ab-96ab-36c986b6****`.
+        #   - **serviceKey**: uses an automatically generated key from Alibaba Cloud, which is the RDS-managed service key (Default Service CMK), to enable cloud disk encryption.
+        #   - **<Key>**: uses a custom key to enable cloud disk encryption or replace the current key. Example: `494c98ce-f2b5-48ab-96ab-36c986b6****`.
         # 
         # 
         # 
@@ -91,8 +91,8 @@ class ModifyDBInstanceConfigRequest(DaraModel):
         # - Simple recovery feature: **simple** (enable simple recovery).
         # - Error log cleanup feature: **1** (confirm cleanup).
         # - Cloud disk encryption feature (**this feature cannot be disabled after it is enabled**):
-        #   - **serviceKey**: Uses an automatically generated key from Alibaba Cloud, which is the RDS-managed service key (Default Service CMK), to enable cloud disk encryption.
-        #   - **<Key>**: Uses a custom key to enable cloud disk encryption or replaces the current key. Example: `494c98ce-f2b5-48ab-96ab-36c986b6****`.
+        #   - **serviceKey**: uses an automatically generated key from Alibaba Cloud, which is the RDS-managed service key (Default Service CMK), to enable cloud disk encryption.
+        #   - **<Key>**: uses a custom key to enable cloud disk encryption or replace the current key. Example: `494c98ce-f2b5-48ab-96ab-36c986b6****`.
         # 
         # 
         # 
@@ -100,21 +100,21 @@ class ModifyDBInstanceConfigRequest(DaraModel):
         # 
         # This parameter is required.
         self.config_value = config_value
-        # The instance ID. You can call DescribeDBInstances to obtain the instance ID.
+        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The resource group ID. You can call DescribeDBInstanceAttribute to obtain the resource group ID.
+        # The ID of the resource group. You can call the DescribeDBInstanceAttribute operation to query the ID.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The time at which the modification takes effect. We recommend that you perform specification changes during off-peak hours. Format: <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z (UTC).
+        # The time when the modification is executed. Perform the modification during off-peak hours. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
         self.switch_time = switch_time
-        # The switchover time. Valid values:
-        # - **Immediate**: The modification takes effect immediately.
-        # - **MaintainTime**: The modification takes effect during the maintenance window. You can call ModifyDBInstanceMaintainTime to modify the maintenance window.
+        # The time when the modification takes effect. Valid values:
+        # - **Immediate**: takes effect immediately.
+        # - **MaintainTime**: takes effect within the maintenance window. You can call the ModifyDBInstanceMaintainTime operation to modify the maintenance window.
         self.switch_time_mode = switch_time_mode
 
     def validate(self):

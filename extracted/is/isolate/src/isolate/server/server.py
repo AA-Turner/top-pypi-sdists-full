@@ -815,6 +815,8 @@ class SingleTaskInterceptor(ServerBoundInterceptor):
 class ControllerAuthInterceptor(ServerBoundInterceptor):
     def __init__(self, controller_auth_key: str) -> None:
         super().__init__()
+        if not controller_auth_key:
+            raise ValueError("ISOLATE_CONTROLLER_AUTH_KEY must be non-empty")
         self.controller_auth_key = controller_auth_key
         self._terminator = grpc.unary_unary_rpc_method_handler(
             lambda request, context: context.abort(
@@ -873,20 +875,9 @@ def main(argv: list[str] | None = None) -> None:
 
     controller_auth_key = os.getenv("ISOLATE_CONTROLLER_AUTH_KEY")
     if not controller_auth_key:
-        # DEPRECATED: remove this after rolling new version of controller
-        controller_auth_key = os.getenv("CONTROLLER_KEY")
+        parser.error("ISOLATE_CONTROLLER_AUTH_KEY must be set and non-empty")
 
-    if controller_auth_key:
-        # Set an interceptor to only accept requests with the correct auth key
-        interceptors.append(ControllerAuthInterceptor(controller_auth_key))
-    else:
-        _SERVER_LOGGER.log(
-            LogLevel.WARNING,
-            "ISOLATE_CONTROLLER_AUTH_KEY is not set, all requests will be "
-            "accepted without authentication.",
-            source=LogSource.BRIDGE,
-            line_labels={},
-        )
+    interceptors.append(ControllerAuthInterceptor(controller_auth_key))
 
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=options.num_workers),

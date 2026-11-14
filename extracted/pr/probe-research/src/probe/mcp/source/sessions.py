@@ -54,10 +54,14 @@ class SessionReadsMixin:
         project_id: str | None = None,
         cursor: str | None = None,
         limit: int,
+        query: str | None = None,
     ) -> dict:
-        """``GET /v1/sessions``: one page of the team's agent sessions, newest activity first:
-        `{sessions, next_cursor, owner_matched?, unowned_count?}` (people and time filters B1)."""
+        """``GET /v1/sessions``: one page of the team's agent sessions, newest activity first (`query`: titles
+        matched loosely, best first, one page): `{sessions, next_cursor, owner_matched?, unowned_count?,
+        query_note?}` (people and time filters B1)."""
         parameters: dict[str, Any] = {"limit": limit, **filters.to_query()}
+        if query:
+            parameters["query"] = query
         if project_id:
             parameters["project_id"] = project_id
         if cursor:

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque, hash_map::Entry};
+use std::collections::{HashMap, HashSet, VecDeque, hash_map::Entry};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -7,11 +7,15 @@ use futures::{FutureExt, StreamExt, future::BoxFuture, stream::FuturesUnordered}
 use prost::Message;
 use serde_json::value::RawValue;
 use tokio::sync::OwnedSemaphorePermit;
+use tokio::time::{Instant as TokioInstant, timeout_at};
+
+#[cfg(test)]
 use tokio::time::timeout;
 
 #[cfg(test)]
 use std::io::Write;
 
+use crate::interned_string::InternedString;
 use crate::networking::ResponseData;
 use crate::specs_adapter::SpecsSyncTrigger;
 use crate::specs_response::proto_stream_reader::ProtoStreamReader;
@@ -30,7 +34,10 @@ use super::metadata::{
 };
 use super::telemetry::{HydrationOutcome, HydrationPhase, HydrationResult};
 use super::verified_values::{VerifiedRemoteValue, VerifiedRemoteValues};
-use super::{DOWNLOAD_CONCURRENCY, HYDRATION_TIMEOUT, RemoteConfigValueHydrator, TAG};
+use super::{
+    DOWNLOAD_CONCURRENCY, HYDRATION_TIMEOUT, RemoteConfigValueHydrator, TAG,
+    cold_start_hydration_deadline,
+};
 
 const REMOTE_METADATA_MARKER_WITHOUT_METADATA_TAG: &str = "proto::RemoteConfigMetadata";
 const REMOTE_METADATA_MARKER_WITHOUT_METADATA_MESSAGE: &str =
@@ -48,7 +55,7 @@ impl ProtobufResponseMode {
     }
 }
 
-type RemoteValueDownload<'a> = BoxFuture<'a, Result<(String, Arc<Vec<u8>>), StatsigErr>>;
+type RemoteValueDownload<'a> = BoxFuture<'a, (String, Result<Arc<Vec<u8>>, StatsigErr>)>;
 
 impl VerifiedRemoteValue {
     /// Identify the actual immutable value previously verified for this full
@@ -65,10 +72,12 @@ impl VerifiedRemoteValue {
     }
 }
 
-pub(crate) struct VerifiedSpecValues {
+pub(crate) struct ResolvedSpecValues {
     pub(crate) default_value: Option<DynamicReturnable>,
     pub(crate) rule_values: Vec<Option<DynamicReturnable>>,
     pub(crate) provenance: VerifiedRemoteValues,
+    pub(crate) unavailable_slots: HashSet<Option<usize>>,
+    pub(crate) failed_blobs: HashMap<String, HydrationFailureReason>,
 }
 
 /// Tracks one protobuf store update while the parser pauses only at dynamic
@@ -92,6 +101,12 @@ pub(crate) struct ProtobufHydrationSession<'a> {
     // update. Borrow it and retain only SHAs registered by this response.
     previous_mmap_values: Option<&'static VerifiedRemoteValues>,
     parsed_values: VerifiedRemoteValues,
+    // An unavailable SHA has no value or verification provenance.
+    failed_values: HashMap<String, HydrationFailureReason>,
+    allow_partial_hydration: bool,
+    // A delta with a complete base can retain whole configs during repair.
+    partial_delta: Option<&'a super::PartialBlobRefresh<'a>>,
+    download_deadline_expired: bool,
     // Keep the download fanout warm while the parser continues reading entity
     // envelopes. Unlike a batch-wide await, a completed request immediately
     // opens a slot for the next discovered SHA.
@@ -99,7 +114,7 @@ pub(crate) struct ProtobufHydrationSession<'a> {
     // Enqueue each SHA only on its first registration. Seeded/reused entries
     // are discarded lazily, so completed prefixes are never rescanned.
     download_queue: VecDeque<String>,
-    // Registered SHAs absent from both the parsed-value and verified-body maps.
+    // Registered SHAs absent from verified values and cold-start failures.
     pending_values: usize,
     // Charge only discovered bytes. If later metadata cannot immediately
     // extend the base reservation, one separate expansion permit guarantees
@@ -178,6 +193,10 @@ pub(super) fn begin_session<'a>(
         previous_values: HashMap::new(),
         previous_mmap_values: None,
         parsed_values: HashMap::new(),
+        failed_values: HashMap::new(),
+        allow_partial_hydration: false,
+        partial_delta: None,
+        download_deadline_expired: false,
         in_flight_downloads: FuturesUnordered::new(),
         download_queue: VecDeque::new(),
         pending_values: 0,
@@ -449,9 +468,40 @@ impl RemoteConfigValueHydrator {
     }
 }
 
-impl ProtobufHydrationSession<'_> {
+impl<'a> ProtobufHydrationSession<'a> {
     pub(crate) fn set_response_type(&mut self, is_delta: bool) {
         self.result.set_response_type(is_delta);
+    }
+
+    pub(crate) fn enable_partial_hydration(&mut self) {
+        self.allow_partial_hydration = true;
+        self.partial_delta = None;
+    }
+
+    pub(crate) fn retain_previous_configs(&mut self, refresh: &'a super::PartialBlobRefresh<'a>) {
+        self.allow_partial_hydration = true;
+        self.partial_delta = Some(refresh);
+    }
+
+    pub(crate) fn retains_previous_configs(&self) -> bool {
+        self.partial_delta.is_some()
+    }
+
+    pub(crate) fn is_degraded(&self) -> bool {
+        self.result.had_unavailable_blob()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn failed_value_reasons(&self) -> Vec<HydrationFailureReason> {
+        self.failed_values.values().copied().collect()
+    }
+
+    fn hydration_deadline(&self) -> TokioInstant {
+        if self.allow_partial_hydration && self.partial_delta.is_none() {
+            cold_start_hydration_deadline(self.started_at)
+        } else {
+            TokioInstant::from_std(self.started_at + HYDRATION_TIMEOUT)
+        }
     }
 
     pub(crate) fn mark_remote_metadata(&mut self) {
@@ -462,12 +512,34 @@ impl ProtobufHydrationSession<'_> {
     /// parser can register a bounded run of envelopes first, so the session's
     /// download fanout spans configs instead of restarting for every envelope.
     /// Return whether every remote value is already verified for this spec.
+    pub(crate) fn register_config_references(
+        &mut self,
+        name: &InternedString,
+        spec: &pb::Spec,
+        source_url: Option<&str>,
+    ) -> Result<bool, StatsigErr> {
+        let pending = self
+            .partial_delta
+            .and_then(|refresh| refresh.previous_proofs(name));
+        self.register_spec_references_from(spec, source_url.unwrap_or(self.source_url), pending)
+    }
+
+    #[cfg(test)]
     pub(crate) fn register_spec_references(&mut self, spec: &pb::Spec) -> Result<bool, StatsigErr> {
+        self.register_spec_references_from(spec, self.source_url, None)
+    }
+
+    fn register_spec_references_from(
+        &mut self,
+        spec: &pb::Spec,
+        source_url: &str,
+        pending: Option<&VerifiedRemoteValues>,
+    ) -> Result<bool, StatsigErr> {
         self.saw_remote_metadata = true;
         self.mark_remote_metadata();
 
         let mut spec_references = HashMap::<String, RemoteValueReference>::new();
-        collect_protobuf_spec_references(&mut spec_references, spec, self.source_url)?;
+        collect_protobuf_spec_references(&mut spec_references, spec, source_url)?;
         let totals = self.validated_reference_totals(&spec_references)?;
         let mut ready = true;
         for (sha256, reference) in spec_references {
@@ -479,6 +551,11 @@ impl ProtobufHydrationSession<'_> {
                         .and_then(|values| values.get(&sha256))
                 })
                 .filter(|value| value.matches_metadata(&reference.metadata))
+                .or_else(|| {
+                    pending?
+                        .get(&sha256)
+                        .filter(|value| value.matches_metadata(&reference.metadata))
+                })
                 .map(Arc::clone);
             match self.references.entry(sha256.clone()) {
                 Entry::Occupied(mut entry) => {
@@ -488,14 +565,21 @@ impl ProtobufHydrationSession<'_> {
                 }
                 Entry::Vacant(entry) => {
                     entry.insert(reference);
-                    self.download_queue.push_back(sha256.clone());
+                    if !self.download_deadline_expired {
+                        self.download_queue.push_back(sha256.clone());
+                    }
                     self.pending_values += 1;
                 }
             }
             if let Some(value) = previous {
-                self.mark_reference_ready(&sha256);
+                self.mark_reference_resolved(&sha256);
+                // Another config may have attempted this SHA before its owner supplied a proof.
+                self.failed_values.remove(&sha256);
                 self.parsed_values.insert(sha256, value);
             } else {
+                if self.download_deadline_expired && !self.has_resolved_value(&sha256) {
+                    self.record_failed_value(sha256.clone(), HydrationFailureReason::TotalTimeout);
+                }
                 ready &= self.has_verified_value(&sha256);
             }
         }
@@ -544,14 +628,15 @@ impl ProtobufHydrationSession<'_> {
     pub(crate) fn seed_verified_values(&mut self, values: HashMap<String, Arc<Vec<u8>>>) -> bool {
         if values.is_empty()
             || values.iter().any(|(sha256, value)| {
-                self.references.get(sha256).is_none_or(|reference| {
-                    super::download::verify_body(
-                        value.as_slice(),
-                        &reference.metadata,
-                        reference.metadata.content_type.as_str(),
-                    )
-                    .is_err()
-                })
+                self.failed_values.contains_key(sha256)
+                    || self.references.get(sha256).is_none_or(|reference| {
+                        super::download::verify_body(
+                            value.as_slice(),
+                            &reference.metadata,
+                            reference.metadata.content_type.as_str(),
+                        )
+                        .is_err()
+                    })
             })
         {
             return false;
@@ -562,7 +647,7 @@ impl ProtobufHydrationSession<'_> {
         }
 
         for (sha256, value) in values {
-            self.mark_reference_ready(&sha256);
+            self.mark_reference_resolved(&sha256);
             self.verified_bodies.insert(sha256, value);
         }
         true
@@ -572,7 +657,7 @@ impl ProtobufHydrationSession<'_> {
     /// When the parser discovers more SHAs than the active window can hold,
     /// wait for only one completion before starting the next value.
     pub(crate) async fn advance_download_window(&mut self) -> Result<(), StatsigErr> {
-        self.reserve_response_budget().await?;
+        self.reserve_download_budget().await?;
         self.start_available_downloads();
         while self.has_unstarted_references() {
             self.await_one_download().await?;
@@ -585,12 +670,34 @@ impl ProtobufHydrationSession<'_> {
     /// entity batch. This is reserved for real parser boundaries; ordinary
     /// concurrency backpressure uses `advance_download_window` instead.
     pub(crate) async fn download_registered_references(&mut self) -> Result<(), StatsigErr> {
-        self.reserve_response_budget().await?;
+        self.reserve_download_budget().await?;
         while self.pending_values > 0 {
             self.start_available_downloads();
             self.await_one_download().await?;
         }
         Ok(())
+    }
+
+    async fn reserve_download_budget(&mut self) -> Result<(), StatsigErr> {
+        if self.download_deadline_expired {
+            return Ok(());
+        }
+        if self.allow_partial_hydration
+            && self.pending_values > 0
+            && TokioInstant::now() >= self.hydration_deadline()
+        {
+            return self.handle_timeout(HydrationTimeoutStep::PermitPrecheck);
+        }
+        match self.reserve_response_budget().await {
+            Err(error)
+                if self.allow_partial_hydration
+                    && HydrationFailureReason::from_error(&error)
+                        == Some(HydrationFailureReason::TotalTimeout) =>
+            {
+                self.settle_timed_out_references()
+            }
+            result => result,
+        }
     }
 
     async fn reserve_response_budget(&mut self) -> Result<(), StatsigErr> {
@@ -602,17 +709,17 @@ impl ProtobufHydrationSession<'_> {
             return Ok(());
         }
 
-        let remaining = HYDRATION_TIMEOUT
-            .checked_sub(self.started_at.elapsed())
-            .ok_or_else(|| {
-                self.hydrator
-                    .total_timeout_error(self.started_at, HydrationTimeoutStep::PermitPrecheck)
-            })?;
+        let deadline = self.hydration_deadline();
+        if TokioInstant::now() >= deadline {
+            return Err(self
+                .hydrator
+                .total_timeout_error(self.started_at, HydrationTimeoutStep::PermitPrecheck));
+        }
         if let Some(reservation) = &self.response_budget {
             let expansion =
                 (self.hydrator.response_budget.capacity - reservation.num_permits()) as u64;
-            let permit = timeout(
-                remaining,
+            let permit = timeout_at(
+                deadline,
                 self.hydrator.reserve_response_expansion_bytes(expansion),
             )
             .await
@@ -622,8 +729,8 @@ impl ProtobufHydrationSession<'_> {
             })??;
             self.response_expansion_budget = Some(permit);
         } else {
-            let permit = timeout(
-                remaining,
+            let permit = timeout_at(
+                deadline,
                 self.hydrator
                     .reserve_response_bytes(self.reference_totals.total_bytes),
             )
@@ -670,6 +777,7 @@ impl ProtobufHydrationSession<'_> {
     }
 
     fn start_available_downloads(&mut self) {
+        let deadline = self.hydration_deadline();
         while self.in_flight_downloads.len() < DOWNLOAD_CONCURRENCY {
             let Some((sha256, reference)) = self.next_unstarted_reference() else {
                 break;
@@ -677,8 +785,8 @@ impl ProtobufHydrationSession<'_> {
             let hydrator = self.hydrator;
             self.in_flight_downloads.push(
                 async move {
-                    let value = hydrator.download_one(&reference).await?;
-                    Ok((sha256, value))
+                    let value = hydrator.download_one(&reference, Some(deadline)).await;
+                    (sha256, value)
                 }
                 .boxed(),
             );
@@ -704,7 +812,7 @@ impl ProtobufHydrationSession<'_> {
         while self
             .download_queue
             .front()
-            .is_some_and(|sha256| self.has_verified_value(sha256))
+            .is_some_and(|sha256| self.has_resolved_value(sha256))
         {
             self.download_queue.pop_front();
         }
@@ -714,36 +822,127 @@ impl ProtobufHydrationSession<'_> {
         self.parsed_values.contains_key(sha256) || self.verified_bodies.contains_key(sha256)
     }
 
-    fn mark_reference_ready(&mut self, sha256: &str) {
+    fn has_resolved_value(&self, sha256: &str) -> bool {
+        self.has_verified_value(sha256) || self.failed_values.contains_key(sha256)
+    }
+
+    fn mark_reference_resolved(&mut self, sha256: &str) {
         // Seeding can overlap parsed reuse or an active download. Only the
-        // first transition to an available value completes a pending SHA.
-        if !self.has_verified_value(sha256) {
+        // first transition to a verified or failed value completes a pending SHA.
+        if !self.has_resolved_value(sha256) {
             self.pending_values -= 1;
         }
     }
 
+    fn record_failed_value(&mut self, sha256: String, reason: HydrationFailureReason) {
+        if self.failed_values.contains_key(&sha256) {
+            return;
+        }
+        self.mark_reference_resolved(&sha256);
+        self.verified_bodies.remove(&sha256);
+        self.parsed_values.remove(&sha256);
+        self.failed_values.insert(sha256, reason);
+        self.result.record_unavailable_blob(reason);
+    }
+
+    fn handle_timeout(&mut self, step: HydrationTimeoutStep) -> Result<(), StatsigErr> {
+        let error = self.hydrator.total_timeout_error(self.started_at, step);
+        if self.allow_partial_hydration {
+            self.settle_timed_out_references()
+        } else {
+            Err(error)
+        }
+    }
+
+    fn settle_timed_out_references(&mut self) -> Result<(), StatsigErr> {
+        // Settle the existing registry once. Later metadata still validates,
+        // but its unresolved SHAs fail during registration without rescanning
+        // every previously registered value for each new envelope.
+        self.download_deadline_expired = true;
+        // Retain any downloads that completed at the deadline before cancelling
+        // the remainder. Later registered links use the same response deadline.
+        while let Some(Some((sha256, result))) = self.in_flight_downloads.next().now_or_never() {
+            if result.is_ok() || !self.has_resolved_value(&sha256) {
+                self.complete_download(sha256, result)?;
+            }
+        }
+        self.in_flight_downloads = FuturesUnordered::new();
+        self.download_queue.clear();
+        let unresolved: Vec<_> = self
+            .references
+            .keys()
+            .filter(|sha256| !self.has_resolved_value(sha256))
+            .cloned()
+            .collect();
+        for sha256 in unresolved {
+            self.record_failed_value(sha256, HydrationFailureReason::TotalTimeout);
+        }
+        Ok(())
+    }
+
     async fn await_one_download(&mut self) -> Result<(), StatsigErr> {
-        let remaining = HYDRATION_TIMEOUT
-            .checked_sub(self.started_at.elapsed())
-            .ok_or_else(|| {
-                self.hydrator
-                    .total_timeout_error(self.started_at, HydrationTimeoutStep::DownloadPrecheck)
-            })?;
+        let deadline = self.hydration_deadline();
+        if TokioInstant::now() >= deadline {
+            return self.handle_timeout(HydrationTimeoutStep::DownloadPrecheck);
+        }
         let started_at = Instant::now();
-        let download = timeout(remaining, self.in_flight_downloads.next()).await;
+        let download = timeout_at(deadline, self.in_flight_downloads.next()).await;
         self.hydrator
             .log_phase_latency(started_at.elapsed(), HydrationPhase::DownloadWait);
-        let download = download
-            .map_err(|_| {
-                self.hydrator
-                    .total_timeout_error(self.started_at, HydrationTimeoutStep::DownloadWait)
-            })?
-            .expect("pending remote references must have an active download");
-        let (sha256, value) =
-            download.inspect_err(|error| self.result.record_download_error(error))?;
-        self.mark_reference_ready(&sha256);
-        self.verified_bodies.insert(sha256, value);
+        match download {
+            Ok(Some((sha256, result))) => self.complete_download(sha256, result),
+            Ok(None) => unreachable!("pending remote references must have an active download"),
+            Err(_) => self.handle_timeout(HydrationTimeoutStep::DownloadWait),
+        }
+    }
+
+    fn complete_download(
+        &mut self,
+        sha256: String,
+        value: Result<Arc<Vec<u8>>, StatsigErr>,
+    ) -> Result<(), StatsigErr> {
+        match value {
+            Ok(value) => {
+                self.mark_reference_resolved(&sha256);
+                self.verified_bodies.insert(sha256, value);
+            }
+            Err(error) => {
+                self.result.record_download_error(&error);
+                if !self.allow_partial_hydration {
+                    return Err(error);
+                }
+                if !self.has_resolved_value(&sha256) {
+                    let reason = HydrationFailureReason::recoverable(&error).ok_or(error)?;
+                    self.record_failed_value(sha256, reason);
+                }
+            }
+        }
         Ok(())
+    }
+
+    pub(crate) fn clear_pending_config(&self, name: &crate::interned_string::InternedString) {
+        if let Some(refresh) = self.partial_delta {
+            refresh.clear_config(name);
+        }
+    }
+
+    pub(crate) fn defer_config(
+        &self,
+        name: &crate::interned_string::InternedString,
+        envelope: &mut pb::SpecsEnvelope,
+        values: ResolvedSpecValues,
+    ) {
+        self.partial_delta
+            .expect("partial delta download failed")
+            .defer(
+                name,
+                Arc::new(super::partial::PendingBlobDefinition {
+                    data: envelope.data.take().expect("spec was decoded"),
+                    checksum: envelope.checksum.clone(),
+                    source_url: Arc::from(self.source_url),
+                }),
+                values,
+            )
     }
 
     pub(crate) fn saw_remote_metadata(&self) -> bool {
@@ -752,11 +951,28 @@ impl ProtobufHydrationSession<'_> {
 
     /// Resolve downloaded bodies once per SHA and return parsed overrides in
     /// wire rule order. Run synchronously within the parser's mmap scope.
-    pub(crate) fn take_verified_spec_values(
+    pub(crate) fn take_resolved_spec_values(
         &mut self,
         spec: &mut pb::Spec,
-    ) -> Result<VerifiedSpecValues, StatsigErr> {
+    ) -> Result<ResolvedSpecValues, StatsigErr> {
         let mut entries = HashMap::new();
+        let mut unavailable_slots = HashSet::new();
+        let mut failed_blobs = HashMap::new();
+        let mut resolve = |metadata: &pb::RemoteConfigValueMetadata, slot| {
+            let proof = self.resolve_spec_value(metadata)?;
+            if let Some(proof) = proof {
+                let value = proof.value.clone();
+                entries.insert(metadata.sha256.clone(), proof);
+                Ok(Some(value))
+            } else {
+                unavailable_slots.insert(slot);
+                failed_blobs.insert(
+                    metadata.sha256.clone(),
+                    self.failed_values[&metadata.sha256],
+                );
+                Ok(None)
+            }
+        };
         let default_value = if let Some(metadata) = &spec.remote_config_metadata {
             if spec.default_value.is_none() {
                 return Err(hydration_error(
@@ -764,14 +980,12 @@ impl ProtobufHydrationSession<'_> {
                     "protobuf remote metadata had no matching default value",
                 ));
             }
-            let value = self.resolve_verified_value(metadata)?;
-            entries.insert(metadata.sha256.clone(), Arc::clone(&value));
-            Some(value.value.clone())
+            resolve(metadata, None)?
         } else {
             None
         };
         let mut rule_values = Vec::with_capacity(spec.rules.len());
-        for rule in &spec.rules {
+        for (index, rule) in spec.rules.iter().enumerate() {
             let value = if let Some(metadata) = &rule.remote_config_metadata {
                 if rule.return_value.is_none() {
                     return Err(hydration_error(
@@ -779,9 +993,7 @@ impl ProtobufHydrationSession<'_> {
                         "protobuf remote metadata had no matching rule value",
                     ));
                 }
-                let value = self.resolve_verified_value(metadata)?;
-                entries.insert(metadata.sha256.clone(), Arc::clone(&value));
-                Some(value.value.clone())
+                resolve(metadata, Some(index))?
             } else {
                 None
             };
@@ -791,37 +1003,53 @@ impl ProtobufHydrationSession<'_> {
         // Mutate the protobuf only after every remote slot resolved. The
         // normal decoder handles ordinary values and cannot decode a remote
         // URL placeholder after the corresponding override is installed.
-        if default_value.is_some() {
-            spec.remote_config_metadata = None;
+        if spec.remote_config_metadata.take().is_some() {
             spec.default_value = None;
         }
-        for (rule, value) in spec.rules.iter_mut().zip(&rule_values) {
-            if value.is_some() {
-                rule.remote_config_metadata = None;
+        for rule in &mut spec.rules {
+            if rule.remote_config_metadata.take().is_some() {
                 rule.return_value = None;
             }
         }
-        Ok(VerifiedSpecValues {
+        Ok(ResolvedSpecValues {
             default_value,
             rule_values,
             provenance: entries,
+            unavailable_slots,
+            failed_blobs,
         })
     }
 
-    fn resolve_verified_value(
+    fn resolve_spec_value(
         &mut self,
         metadata: &pb::RemoteConfigValueMetadata,
-    ) -> Result<Arc<VerifiedRemoteValue>, StatsigErr> {
-        let metadata = self.registered_metadata(metadata)?;
-        let sha256 = metadata.sha256.as_str();
-        if let Some(value) = self.parsed_values.get(sha256) {
-            return Ok(Arc::clone(value));
+    ) -> Result<Option<Arc<VerifiedRemoteValue>>, StatsigErr> {
+        // A failed link must match its registered tuple just like a verified link.
+        let registered = self.registered_metadata(metadata)?;
+        let sha = &metadata.sha256;
+        if self.failed_values.contains_key(sha) {
+            return Ok(None);
         }
-        let body = hydrated_value(&self.verified_bodies, sha256)?;
-        let entry = Arc::new(VerifiedRemoteValue::from_verified_body(metadata, body)?);
-        self.parsed_values
-            .insert(entry.sha256().to_string(), Arc::clone(&entry));
-        Ok(entry)
+        if let Some(value) = self.parsed_values.get(sha) {
+            return Ok(Some(Arc::clone(value)));
+        }
+        let body = hydrated_value(&self.verified_bodies, sha)?;
+        match VerifiedRemoteValue::from_verified_body(registered, body) {
+            Ok(value) => {
+                let value = Arc::new(value);
+                self.parsed_values.insert(sha.clone(), Arc::clone(&value));
+                Ok(Some(value))
+            }
+            Err(error)
+                if self.allow_partial_hydration
+                    && HydrationFailureReason::from_error(&error)
+                        == Some(HydrationFailureReason::InvalidJson) =>
+            {
+                self.record_failed_value(sha.clone(), HydrationFailureReason::InvalidJson);
+                Ok(None)
+            }
+            Err(error) => Err(error),
+        }
     }
 
     fn registered_metadata(
@@ -894,14 +1122,16 @@ impl ProtobufHydrationSession<'_> {
         }
 
         let succeeded = result.is_ok();
-        let outcome = if succeeded {
+        let outcome = if succeeded && self.is_degraded() {
+            HydrationOutcome::Degraded
+        } else if succeeded {
             HydrationOutcome::Success
         } else {
             HydrationOutcome::Failure
         };
         self.result.log_hydration_outcome(self.started_at, outcome);
 
-        if succeeded {
+        if succeeded && !self.is_degraded() {
             self.result.log_hydration_success(
                 self.reference_totals.reference_count,
                 self.reference_totals.total_bytes,
@@ -1429,3 +1659,7 @@ pub(crate) fn remote_metadata_marker_without_metadata_error() -> StatsigErr {
         REMOTE_METADATA_MARKER_WITHOUT_METADATA_MESSAGE.to_string(),
     )
 }
+
+#[cfg(test)]
+#[path = "../__tests__/protobuf_cold_start_session_tests.rs"]
+mod cold_start_tests;

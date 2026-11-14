@@ -267,10 +267,10 @@ class InferenceConfig:
     the model, which can be significantly faster for large datasets (>10 k rows).
     When ``False`` (default), all preprocessing runs on CPU / sklearn as before.
 
-    Only ``quantile_uni*`` transforms are accelerated (the torch quantile
-    transformer only supports uniform output).  Other transforms stay on CPU
-    regardless of this flag.  SVD and shuffle always move to GPU / torch when this
-    flag is set."""
+    Only the ``quantile_uni*``, ``quantile_norm*``, ``squashing_scaler_*`` and
+    ``safepower`` transforms are accelerated.  Other transforms stay on CPU
+    regardless of this flag.  SVD and shuffle always move to GPU / torch when
+    this flag is set."""
 
     FEATURE_SUBSAMPLING_METHOD: Literal[
         "balanced",
@@ -327,6 +327,12 @@ class InferenceConfig:
         - One of the options from
           `tabpfn.preprocessing.get_all_reshape_feature_distribution_preprocessors()`
     """
+
+    REGRESSION_TARGET_SIGN_FLIP: bool = False
+    """If True, about half the regression ensemble members, alternating within each
+    combination of preprocessing and target transform, see the negated output of
+    their target pipeline. Their predicted distributions are mirrored back. Ignored
+    for classification."""
 
     USE_SKLEARN_16_DECIMAL_PRECISION: bool = False
     """Whether to round the probabilities to float 16 to match the precision of

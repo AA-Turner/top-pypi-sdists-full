@@ -15,10 +15,10 @@ readme = "README.md"
 
 [workspace]
 resolver = "3"
-members = ["crates/_ryo3-dev", "crates/_ryo3-quick-maths", "crates/ryo3", "crates/ryo3-aws-lc", "crates/ryo3-brotli", "crates/ryo3-burli", "crates/ryo3-bytes", "crates/ryo3-bzip2", "crates/ryo3-cookie", "crates/ryo3-core", "crates/ryo3-dirs", "crates/ryo3-flate2", "crates/ryo3-fnv", "crates/ryo3-fspath", "crates/ryo3-glob", "crates/ryo3-globset", "crates/ryo3-heck", "crates/ryo3-http", "crates/ryo3-jiff", "crates/ryo3-jiff-core", "crates/ryo3-jiter", "crates/ryo3-json", "crates/ryo3-json-ser", "crates/ryo3-lz4rip", "crates/ryo3-macro-rules", "crates/ryo3-memchr", "crates/ryo3-pydantic", "crates/ryo3-regex", "crates/ryo3-reqwest", "crates/ryo3-same-file", "crates/ryo3-serde", "crates/ryo3-shlex", "crates/ryo3-size", "crates/ryo3-sqlformat", "crates/ryo3-std", "crates/ryo3-tokio", "crates/ryo3-tokio-rt", "crates/ryo3-tokio-websockets", "crates/ryo3-twox-hash", "crates/ryo3-ulid", "crates/ryo3-unindent", "crates/ryo3-url", "crates/ryo3-uuid", "crates/ryo3-walkdir", "crates/ryo3-which", "crates/ryo3-zstd"]
+members = ["crates/_ryo3-dev", "crates/_ryo3-quick-maths", "crates/ryo3", "crates/ryo3-aws-lc", "crates/ryo3-brotli", "crates/ryo3-burli", "crates/ryo3-bytes", "crates/ryo3-cookie", "crates/ryo3-core", "crates/ryo3-dirs", "crates/ryo3-flate2", "crates/ryo3-fnv", "crates/ryo3-fspath", "crates/ryo3-glob", "crates/ryo3-globset", "crates/ryo3-heck", "crates/ryo3-http", "crates/ryo3-jiff", "crates/ryo3-jiff-core", "crates/ryo3-jiter", "crates/ryo3-json", "crates/ryo3-json-ser", "crates/ryo3-lz4rip", "crates/ryo3-macro-rules", "crates/ryo3-memchr", "crates/ryo3-pydantic", "crates/ryo3-regex", "crates/ryo3-reqwest", "crates/ryo3-same-file", "crates/ryo3-serde", "crates/ryo3-shlex", "crates/ryo3-size", "crates/ryo3-sqlformat", "crates/ryo3-std", "crates/ryo3-tokio", "crates/ryo3-tokio-rt", "crates/ryo3-tokio-websockets", "crates/ryo3-twox-hash", "crates/ryo3-ulid", "crates/ryo3-unindent", "crates/ryo3-url", "crates/ryo3-uuid", "crates/ryo3-walkdir", "crates/ryo3-which", "crates/ryo3-zstd"]
 
 [workspace.package]
-version = "0.0.108"
+version = "0.0.109"
 authors = [
   # hopefully you will contribute!
   "jesse k rubin <jessekrubin@gmail.com>",
@@ -26,8 +26,8 @@ authors = [
 categories = ["api-bindings"]
 documentation = "https://github.com/jessekrubin/ry"
 edition = "2024"
-rust-version = "1.95"
-homepage = "https://github.com/jessekrubin/ry"
+rust-version = "1.100"
+homepage = "https://ryo3.dev"
 keywords = ["python", "pyo3", "ryo3"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/jessekrubin/ry"
@@ -43,7 +43,6 @@ ryo3-aws-lc = { path = "./crates/ryo3-aws-lc" }
 ryo3-brotli = { path = "./crates/ryo3-brotli" }
 ryo3-burli = { path = "./crates/ryo3-burli" }
 ryo3-bytes = { path = "./crates/ryo3-bytes" }
-ryo3-bzip2 = { path = "./crates/ryo3-bzip2" }
 ryo3-cookie = { path = "./crates/ryo3-cookie" }
 ryo3-core = { path = "./crates/ryo3-core" }
 ryo3-crc32fast = { path = "./crates/ryo3-crc32fast" }
@@ -56,7 +55,6 @@ ryo3-glob = { path = "./crates/ryo3-glob" }
 ryo3-globset = { path = "./crates/ryo3-globset" }
 ryo3-heck = { path = "./crates/ryo3-heck" }
 ryo3-http = { path = "./crates/ryo3-http" }
-ryo3-ignore = { path = "./crates/_future/ryo3-ignore" }
 ryo3-jiff = { path = "./crates/ryo3-jiff" }
 ryo3-jiff-core = { path = "./crates/ryo3-jiff-core" }
 ryo3-jiter = { path = "./crates/ryo3-jiter" }
@@ -101,7 +99,6 @@ aws-lc-rs = { version = "1.18.2", default-features = true }
 brotli = { version = "9", default-features = false }
 burli-encode = { version = "0.3.6", default-features = false }
 bytes = { version = "1.11.0", default-features = false }
-bzip2 = { version = "0.6.1", default-features = false, features = ["default"] }
 cookie = { version = "0.18.1", default-features = false, features = [
   "percent-encode",
 ] }
@@ -120,7 +117,7 @@ http-body = { version = "1.0.1", default-features = false }
 http-body-util = { version = "0.1.3", default-features = false, features = [] }
 ignore = { version = "0.4.24", default-features = false, features = [] }
 itoap = { version = "1.0.1", default-features = false, features = ["std", "simd"] }
-jiff = { version = "0.2.42", default-features = false, features = [
+jiff = { version = "0.2.43", default-features = false, features = [
   "default",
   "perf-inline",
   "tzdb-bundle-always",
@@ -169,7 +166,7 @@ uuid = { version = "1.29.2", default-features = false, features = [] }
 walkdir = { version = "2.5.0", default-features = false, features = [] }
 which = { version = "8.0.2", default-features = false, features = [] }
 zmij = { version = "1.0.23", default-features = false }
-zstd = { version = "0.14.2", default-features = false, features = [] }
+zstd = { version = "0.14.4", default-features = false, features = [] }
 
 [workspace.lints.rust]
 missing_copy_implementations = "warn"

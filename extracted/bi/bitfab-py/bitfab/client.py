@@ -186,14 +186,22 @@ def _too_large_stub(value: Any) -> str:
     return f"<unserializable: {_safe_type_name(value)} ({too_large_reason(_MAX_HUMAN_PAYLOAD_BYTES)})>"
 
 
-def _cap_payload_size(value: Any) -> Any:
+def _sized_stub(stub: str) -> tuple[str, int]:
+    return stub, len(json.dumps(stub))
+
+
+def _sized_payload(value: Any) -> tuple[Any, int]:
     try:
         size = len(json.dumps(value, default=str))
     except Exception:
-        return f"<unserializable: {_safe_type_name(value)} (json_dumps_failed)>"
+        return _sized_stub(
+            f"<unserializable: {_safe_type_name(value)} (json_dumps_failed)>"
+        )
     if size > _MAX_HUMAN_PAYLOAD_BYTES:
-        return f"<unserializable: {_safe_type_name(value)} (too_large_{size}_bytes)>"
-    return value
+        return _sized_stub(
+            f"<unserializable: {_safe_type_name(value)} (too_large_{size}_bytes)>"
+        )
+    return value, size
 
 
 # Type variables for generic function signatures
@@ -2254,6 +2262,7 @@ class Bitfab:
         on_experiment_start: Callable[[ReplayExperimentStart], None] | None = None,
         resume: str | None = None,
         force: bool = False,
+        retry_errored: bool = False,
         on_interrupt: Callable[[ReplayInterrupt], None] | None = None,
     ) -> ReplayResult:
         """Replay historical traces through a function and create an experiment.
@@ -2447,6 +2456,12 @@ class Bitfab:
             force: Resume even when the experiment had activity in the last
                 two minutes or its code change differs from the one it started
                 with. Only valid with ``resume``.
+            retry_errored: With ``resume``, also re-run the items that
+                finished with an error, in the same experiment, replacing their
+                errored results. Use it when items failed for a reason outside
+                the code under test, such as a database that timed out. Without
+                it, errored items are returned as carried-over errors. Only
+                valid with ``resume``.
             on_interrupt: Optional callback invoked when SIGINT (Ctrl-C) or
                 SIGTERM stops the run after the experiment started, once the
                 experiment is marked interrupted. It receives
@@ -2527,6 +2542,7 @@ class Bitfab:
             on_experiment_start=on_experiment_start,
             resume=resume,
             force=force,
+            retry_errored=retry_errored,
             on_interrupt=on_interrupt,
         )
 
@@ -4353,6 +4369,7 @@ class Bitfab:
         contexts: list[ContextEntry] | None = None,
         prompt: str | None = None,
         metadata: dict[str, Any] | None = None,
+        on_payload_bytes: Callable[[int], None] | None = None,
     ) -> None:
         try:
             self._send_span(
@@ -4380,6 +4397,7 @@ class Bitfab:
                 contexts=contexts,
                 prompt=prompt,
                 metadata=metadata,
+                on_payload_bytes=on_payload_bytes,
             )
         except Exception as error:
             warn_once(
@@ -4396,6 +4414,7 @@ class Bitfab:
         mock_on_replay_default: bool = False,
         max_depth: int | None = subtree.DEFAULT_MAX_DEPTH,
         max_captured_subtree_spans: int | None = None,
+        max_payload_bytes_per_function: int | None = None,
         exclude: Collection[str] = (),
         include_wrappers: bool = False,
     ) -> Callable[[Callable[P, T]], Callable[P, T]]:
@@ -4474,6 +4493,16 @@ class Bitfab:
                 still applies to them. Resolved from this argument, then
                 ``Bitfab(max_captured_subtree_spans=...)``, then
                 ``BITFAB_MAX_CAPTURED_SUBTREE_SPANS``, then 500.
+            max_payload_bytes_per_function: Maximum serialized bytes of
+                inputs and outputs that one discovered function may record
+                within a single call of the root (default 250,000,000). Once a
+                function has recorded this much, its later calls beneath that
+                root call are not recorded, so a helper called in a loop with a
+                large argument cannot fill memory. Only calls that count toward
+                ``max_captured_subtree_spans`` count here: declared nodes, LLM
+                calls, nested trace roots, framework integration spans, and
+                spans the loaded sim plan turned capture off for keep
+                recording past it.
             exclude: Function names never recorded as descendant spans.
             include_wrappers: Record decorator wrappers too. Off by default; a
                 wrapper is identified by taking only ``*args, **kwargs``.
@@ -4527,6 +4556,11 @@ class Bitfab:
                     max_depth=max_depth,
                     max_captured_subtree_spans=self._resolve_max_captured_subtree_spans(
                         max_captured_subtree_spans
+                    ),
+                    max_payload_bytes_per_function=(
+                        subtree.DEFAULT_MAX_PAYLOAD_BYTES_PER_FUNCTION
+                        if max_payload_bytes_per_function is None
+                        else max_payload_bytes_per_function
                     ),
                     content_off=functools.partial(
                         self._simulation_plan.skips_content, trace_function_key
@@ -5703,15 +5737,19 @@ class Bitfab:
 
     def _readable_inputs(
         self, args: tuple[Any, ...], kwargs: dict[str, Any]
-    ) -> tuple[Any, bool]:
+    ) -> tuple[Any, bool, int]:
         if exceeds_readable_budget([*args, *kwargs.values()], _MAX_HUMAN_PAYLOAD_BYTES):
-            return _too_large_stub([]), True
-        return _cap_payload_size(self._serialize_inputs(args, kwargs)), False
+            stub, size = _sized_stub(_too_large_stub([]))
+            return stub, True, size
+        readable, size = _sized_payload(self._serialize_inputs(args, kwargs))
+        return readable, False, size
 
-    def _readable_output(self, result: Any) -> tuple[Any, bool]:
+    def _readable_output(self, result: Any) -> tuple[Any, bool, int]:
         if exceeds_readable_budget([result], _MAX_HUMAN_PAYLOAD_BYTES):
-            return _too_large_stub(result), True
-        return _cap_payload_size(self._serialize_value(result)), False
+            stub, size = _sized_stub(_too_large_stub(result))
+            return stub, True, size
+        readable, size = _sized_payload(self._serialize_value(result))
+        return readable, False, size
 
     def _input_meta(
         self, args: tuple[Any, ...], kwargs: dict[str, Any], readable: Any
@@ -5727,10 +5765,18 @@ class Bitfab:
         return build_input_meta(prepared_args, prepared_kwargs, readable)
 
     def _span_content(
-        self, raw_args: tuple[Any, ...], raw_kwargs: dict[str, Any], result: Any
+        self,
+        raw_args: tuple[Any, ...],
+        raw_kwargs: dict[str, Any],
+        result: Any,
+        on_payload_bytes: Callable[[int], None] | None = None,
     ) -> dict[str, Any]:
-        readable_input, input_too_large = self._readable_inputs(raw_args, raw_kwargs)
-        readable_output, output_too_large = self._readable_output(result)
+        readable_input, input_too_large, input_size = self._readable_inputs(
+            raw_args, raw_kwargs
+        )
+        readable_output, output_too_large, output_size = self._readable_output(result)
+        if on_payload_bytes is not None:
+            on_payload_bytes(input_size + output_size)
         content: dict[str, Any] = {"input": readable_input, "output": readable_output}
         input_meta = (
             None
@@ -5787,6 +5833,7 @@ class Bitfab:
         nearest_captured_ancestor_span_id: str | None = None,
         replay_reusable: bool = False,
         replay_json_safe: bool = False,
+        on_payload_bytes: Callable[[int], None] | None = None,
     ) -> None:
         """Send span data to the server.
 
@@ -5833,7 +5880,9 @@ class Bitfab:
             span_data[CONTENT_OFF_KEY] = True
             prompt = None
         else:
-            span_data.update(self._span_content(raw_args, raw_kwargs, result))
+            span_data.update(
+                self._span_content(raw_args, raw_kwargs, result, on_payload_bytes)
+            )
 
         if function_name is not None:
             span_data["function_name"] = function_name
@@ -6105,6 +6154,7 @@ class BitfabFunction:
         mock_on_replay_default: bool = False,
         max_depth: int | None = subtree.DEFAULT_MAX_DEPTH,
         max_captured_subtree_spans: int | None = None,
+        max_payload_bytes_per_function: int | None = None,
         exclude: Collection[str] = (),
         include_wrappers: bool = False,
     ) -> Callable[[Callable[P, T]], Callable[P, T]]:
@@ -6132,6 +6182,12 @@ class BitfabFunction:
                 still applies to them. Resolved from this argument, then
                 ``Bitfab(max_captured_subtree_spans=...)``, then
                 ``BITFAB_MAX_CAPTURED_SUBTREE_SPANS``, then 500.
+            max_payload_bytes_per_function: Maximum serialized bytes of
+                inputs and outputs that one discovered function may record
+                within a single call of the root (default 250,000,000). Once a
+                function has recorded this much, its later calls beneath that
+                root call are not recorded. Declared nodes and LLM calls do not
+                count toward it.
             exclude: Function names never recorded as descendants.
             include_wrappers: Record decorator wrappers when True.
 
@@ -6146,6 +6202,7 @@ class BitfabFunction:
             mock_on_replay_default=mock_on_replay_default,
             max_depth=max_depth,
             max_captured_subtree_spans=max_captured_subtree_spans,
+            max_payload_bytes_per_function=max_payload_bytes_per_function,
             exclude=exclude,
             include_wrappers=include_wrappers,
         )

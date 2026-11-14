@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: smart_open
-Version: 9.0.3
+Version: 9.0.4
 Summary: Utils for streaming large files (S3, HDFS, GCS, SFTP, Azure Blob Storage, gzip, bz2, zst...)
 Author-email: Radim Rehurek <me@radimrehurek.com>
+License-Expression: MIT
 Project-URL: Repository, https://github.com/piskvorky/smart_open
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -94,7 +94,7 @@ Working with large remote files, for example using Amazon's [boto3](https://boto
 >>> for line in open('s3://commoncrawl/robots.txt'):
 ...    print(repr(line))
 ...    break
-'User-Agent: *\n'
+'# this disallow is for crawlers. of course you are welcome to download our data via https.\n'
 
 >>> # stream from/to compressed files, with transparent (de)compression:
 >>> for line in open('tests/test_data/1984.txt.gz', encoding='utf-8'):
@@ -121,8 +121,8 @@ Working with large remote files, for example using Amazon's [boto3](https://boto
 ...         break
 ...     offset = fin.seek(0)  # seek to the beginning
 ...     print(fin.read(4))
-'User-Agent: *\n'
-b'User'
+'# this disallow is for crawlers. of course you are welcome to download our data via https.\n'
+b'# th'
 
 >>> # stream from HTTP
 >>> for line in open('http://example.com'):

@@ -20,7 +20,7 @@ class ValidateImportTaskRequest(DaraModel):
         user: str = None,
         xtrabackup_path: str = None,
     ):
-        # The instance ID. You can call the DescribeDBInstances operation to query the instance ID.
+        # The ID of the instance. You can call the DescribeDBInstances operation to query the instance ID.
         # 
         # This parameter is required.
         self.db_instance_id = db_instance_id
@@ -48,7 +48,7 @@ class ValidateImportTaskRequest(DaraModel):
         # The type of the source platform. Valid values:
         # - ECS
         self.source_platform = source_platform
-        # The port number for backup transmission.
+        # The port number used for backup transmission.
         # 
         # This parameter is required.
         self.stream_port = stream_port
@@ -56,7 +56,7 @@ class ValidateImportTaskRequest(DaraModel):
         # 
         # This parameter is required.
         self.user = user
-        # The path to the XtraBackup tool on the source instance.
+        # The path of the XtraBackup tool on the source instance.
         self.xtrabackup_path = xtrabackup_path
 
     def validate(self):

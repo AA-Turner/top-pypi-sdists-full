@@ -6,7 +6,10 @@ setting from being switched off and keep the list of pages left out on purpose f
 
 from __future__ import annotations
 
-from typing import Any
+from typing import (
+    Any,
+    cast,
+)
 
 import pytest
 import yaml
@@ -18,14 +21,16 @@ from .docs_facts import (
 
 
 class _MkdocsLoader(yaml.SafeLoader):
-    """Reads mkdocs.yml without running the ``!!python/...`` tags that the markdown extensions use."""
+    """Reads mkdocs.yml without running the ``!!python/...`` or ``!ENV`` tags that mkdocs resolves itself."""
 
 
 _MkdocsLoader.add_multi_constructor('tag:yaml.org,2002:python/', lambda _loader, _suffix, _node: None)
+_MkdocsLoader.add_constructor('!ENV', lambda _loader, _node: None)
 
 
 def _mkdocs_config() -> dict[str, Any]:
-    return yaml.load((REPO_ROOT / 'mkdocs.yml').read_text(encoding='utf-8'), Loader=_MkdocsLoader)  # noqa: S506
+    config = yaml.load((REPO_ROOT / 'mkdocs.yml').read_text(encoding='utf-8'), Loader=_MkdocsLoader)  # noqa: S506
+    return cast('dict[str, Any]', config)
 
 
 @pytest.mark.medium

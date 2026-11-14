@@ -1,0 +1,1 @@
+const e="maibot-quick-chat-draft";function s(t){try{sessionStorage.setItem(e,t)}catch{}}function a(){try{const t=sessionStorage.getItem(e);return sessionStorage.removeItem(e),t?.trim()?t:null}catch{return null}}export{s,a as t};

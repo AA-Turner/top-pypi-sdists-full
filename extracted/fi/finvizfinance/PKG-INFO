@@ -1,11 +1,12 @@
 Metadata-Version: 2.5
 Name: finvizfinance
-Version: 1.6.0
+Version: 1.6.1
 Summary: Finviz Finance. Information downloader.
 Project-URL: Homepage, https://github.com/lit26/finvizfinance
 Project-URL: Documentation, https://finvizfinance.readthedocs.io/en/latest/
 Project-URL: Repository, https://github.com/lit26/finvizfinance
 Project-URL: Issues, https://github.com/lit26/finvizfinance/issues
+Project-URL: Changelog, https://github.com/lit26/finvizfinance/blob/master/CHANGELOG.md
 Author-email: Tianning Li <ltianningli@gmail.com>
 License: MIT License
         
@@ -41,12 +42,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Office/Business :: Financial :: Investment
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: beautifulsoup4>=4.9
 Requires-Dist: lxml>=4.6
 Requires-Dist: pandas>=1.5
 Requires-Dist: requests>=2.32.0
-Requires-Dist: xlsxwriter>=3.0
 Provides-Extra: dev
 Requires-Dist: coverage>=7.5; extra == 'dev'
 Requires-Dist: docutils>=0.20; extra == 'dev'
@@ -57,13 +58,17 @@ Requires-Dist: pytest>=7.0; extra == 'dev'
 Requires-Dist: ruff>=0.6; extra == 'dev'
 Requires-Dist: sphinx-rtd-theme>=2.0; extra == 'dev'
 Requires-Dist: sphinx>=7.2; extra == 'dev'
+Requires-Dist: xlsxwriter>=3.0; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: docutils>=0.20; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme>=2.0; extra == 'docs'
 Requires-Dist: sphinx>=7.2; extra == 'docs'
+Provides-Extra: excel
+Requires-Dist: xlsxwriter>=3.0; extra == 'excel'
 Provides-Extra: test
 Requires-Dist: pytest-mock; extra == 'test'
 Requires-Dist: pytest>=7.0; extra == 'test'
+Requires-Dist: xlsxwriter>=3.0; extra == 'test'
 Description-Content-Type: text/markdown
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/finvizfinance)
@@ -299,8 +304,9 @@ fearnings = Earnings(period='This Week')
 days = fearnings.partition_days(mode='financial')
 
 # optionally export the partitioned tables
-fearnings.output_excel('earning_days.xlsx')
 fearnings.output_csv('earning_days')
+# Excel export needs the optional extra: pip install finvizfinance[excel]
+fearnings.output_excel('earning_days.xlsx')
 ```
 
 ### Future
@@ -327,6 +333,11 @@ from finvizfinance.util import set_proxy
 proxies={'http': 'http://127.0.0.1:8080'}
 set_proxy(proxies)
 ```
+
+`set_proxy`, `set_timeout` and `set_session` apply to the calling thread or
+async task only — a web app can configure each request handler differently
+without the settings bleeding into other callers. Threads that were given no
+session get their own default one, since `requests.Session` is not thread-safe.
 
 ### Credit
 

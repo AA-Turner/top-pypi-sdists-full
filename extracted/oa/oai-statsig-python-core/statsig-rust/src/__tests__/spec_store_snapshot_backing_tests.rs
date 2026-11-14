@@ -127,13 +127,22 @@ fn json_update(value: Value) -> SpecsUpdate {
 }
 
 fn store(key: &str) -> SpecStore {
+    test_store(key, None)
+}
+
+fn test_store(key: &str, enable_dcs_deltas: Option<bool>) -> SpecStore {
+    let options = StatsigOptions {
+        enable_dcs_deltas,
+        ..StatsigOptions::default()
+    };
     let mut store = SpecStore::new(
         key,
         key.to_string(),
         StatsigRuntime::get_runtime(),
         Arc::new(SdkEventEmitter::default()),
-        None,
+        Some(&options),
     );
+    store.enable_partial_blob_publication = true;
     store.release_unused_heap_memory_after_update = false;
     store
 }
@@ -157,6 +166,26 @@ async fn apply_json(
     store
         .set_values_with_json_hydration(json_update(value), hydration, None)
         .await
+}
+
+async fn apply_background(
+    store: &SpecStore,
+    server: &MockServer,
+    update: SpecsUpdate,
+) -> Result<(), StatsigErr> {
+    let hydration = hydration(store, server).with_sync_trigger(SpecsSyncTrigger::Background);
+    store
+        .did_receive_specs_update_async(update, Some(hydration))
+        .await
+}
+
+fn inline_proto(value: Value) -> pb::Spec {
+    pb::Spec {
+        enabled: true,
+        entity: pb::EntityType::EntityDynamicConfig as i32,
+        default_value: Some(raw_return_value(value)),
+        ..Default::default()
+    }
 }
 
 fn take_backing_metrics(receiver: &mut Receiver<OpsStatsEvent>) -> Vec<(String, f64)> {
@@ -188,6 +217,27 @@ fn assert_backing_counts(receiver: &mut Receiver<OpsStatsEvent>, mmap: f64, non_
     );
 }
 
+fn assert_delta_failure_counts(receiver: &mut Receiver<OpsStatsEvent>, expected: &[f64]) {
+    let mut counts = Vec::new();
+    while let Ok(event) = receiver.try_recv() {
+        let OpsStatsEvent::Observability(event) = event else {
+            continue;
+        };
+        if event.metric_name == "remote_config_hydration.unavailable_blob" {
+            assert!(matches!(event.metric_type, MetricType::Increment));
+            assert_eq!(
+                event.tags.unwrap(),
+                HashMap::from([
+                    ("format".into(), "protobuf".into()),
+                    ("failure_reason".into(), "download_failed".into()),
+                ])
+            );
+            counts.push(event.value);
+        }
+    }
+    assert_eq!(counts, expected);
+}
+
 fn raw_return_value(value: Value) -> pb::ReturnValue {
     pb::ReturnValue {
         value: Some(return_value::Value::RawValue(
@@ -202,6 +252,24 @@ fn proto_update(
     delta: bool,
     deleted: &[&str],
     config_checksum_sum: u64,
+) -> SpecsUpdate {
+    proto_update_with_rest(
+        time,
+        configs,
+        delta,
+        deleted,
+        config_checksum_sum,
+        json!({"experiment_to_layer": {}, "condition_map": {}}),
+    )
+}
+
+fn proto_update_with_rest(
+    time: u64,
+    configs: Vec<(&str, u32, pb::Spec)>,
+    delta: bool,
+    deleted: &[&str],
+    config_checksum_sum: u64,
+    rest: Value,
 ) -> SpecsUpdate {
     let mut envelopes = Vec::new();
     let has_remote_metadata = configs.iter().any(|(_, _, config)| {
@@ -226,7 +294,7 @@ fn proto_update(
                 company_id: "snapshot-backing-tests".to_string(),
                 response_format: "dcs-v2".to_string(),
                 checksum: format!("snapshot-{time}"),
-                rest: br#"{"experiment_to_layer":{},"condition_map":{}}"#.to_vec(),
+                rest: serde_json::to_vec(&rest).unwrap(),
                 may_have_remote_config_metadata: Some(has_remote_metadata),
             }
             .encode_to_vec(),
@@ -466,6 +534,194 @@ async fn snapshot_backing_metric_scan_benchmark() {
 }
 
 #[tokio::test]
+async fn partial_delta_requires_opt_in_and_a_warm_sync_trigger() {
+    for (opt_in, trigger) in [
+        (None, SpecsSyncTrigger::Background),
+        (Some(false), SpecsSyncTrigger::Background),
+        (Some(true), SpecsSyncTrigger::Initial),
+    ] {
+        let server = MockServer::start().await;
+        let store = test_store("ineligible-partial-delta", opt_in);
+        store.set_values(json_update(full(1, json!({})))).unwrap();
+        let installed = store.load_data();
+        let missing = Blob::new("missing").proto_config();
+        let update = proto_update(2, vec![("missing", 13, missing)], true, &[], 13);
+        let hydration = hydration(&store, &server).with_sync_trigger(trigger);
+        let error = store
+            .did_receive_specs_update_async(update, Some(hydration))
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("download_failed"), "{error}");
+        assert!(Arc::ptr_eq(&installed, &store.load_data()));
+        assert_eq!(store.get_current_specs_info().lcut, Some(1));
+    }
+}
+
+#[tokio::test]
+async fn incomplete_delta_releases_superseded_id_lists() -> Result<(), StatsigErr> {
+    let server = MockServer::start().await;
+    let store = test_store("partial-delta-id-lists", Some(true));
+    store.set_values(json_update(full(1, json!({}))))?;
+    let metadata = serde_json::from_value(json!({
+        "name": "members", "url": "", "size": 0, "creationTime": 1
+    }))
+    .unwrap();
+    let list = IdList::new(metadata);
+    let old_ids = Arc::downgrade(&list.ids);
+    let lists = HashMap::from([("members".into(), list)]);
+    store.did_receive_id_list_snapshot(lists, HashMap::new())?;
+
+    let missing = Blob::new("missing").proto_config();
+    let delta = proto_update(2, vec![("new", 13, missing)], true, &[], 13);
+    apply_background(&store, &server, delta).await?;
+    assert_eq!(store.get_current_specs_info().lcut, Some(2));
+    assert!(old_ids.upgrade().is_some());
+    store.did_receive_id_list_snapshot(HashMap::new(), HashMap::new())?;
+    assert!(old_ids.upgrade().is_none());
+    Ok(())
+}
+
+#[tokio::test]
+async fn pending_blob_retains_a_config_only_for_the_same_target_apps() {
+    for (config_apps, client_app, retained) in [
+        (vec!["b", "a", "a"], "a", true),
+        (vec!["a", "c"], "a", false),
+        (vec![], "a", false),
+        (vec!["a", "b"], "c", false),
+    ] {
+        let server = MockServer::start().await;
+        let store = test_store("pending-app-scope", Some(true));
+        let mut old = inline_proto(json!({"private": true}));
+        old.target_app_ids = vec!["a".into(), "b".into()];
+        let routing =
+            |app| json!({"experiment_to_layer": {}, "sdk_keys_to_app_ids": {"client": app}});
+        store
+            .set_values(proto_update_with_rest(
+                1,
+                vec![("scoped", 7, old)],
+                false,
+                &[],
+                7,
+                routing("a"),
+            ))
+            .unwrap();
+        let mut next = Blob::new("missing").proto_config();
+        next.target_app_ids = config_apps.into_iter().map(str::to_owned).collect();
+        let metadata = routing(client_app);
+        apply_background(
+            &store,
+            &server,
+            proto_update_with_rest(2, vec![("scoped", 13, next)], true, &[], 13, metadata),
+        )
+        .await
+        .unwrap();
+        let current = store.load_data();
+        assert_eq!(current.lcut(), 2);
+        assert_eq!(
+            current
+                .snapshot
+                .dynamic_configs
+                .get(&InternedString::from_str_ref("scoped"))
+                .is_some(),
+            retained
+        );
+    }
+}
+
+#[tokio::test]
+async fn failed_new_config_at_either_end_of_an_old_or_new_mapping_rejects_the_delta() {
+    let server = MockServer::start().await;
+    let missing = Blob::new("missing");
+    for (source, destination) in [("working", "pending"), ("pending", "working")] {
+        let mapping = json!({(source): [{
+            "new_config_name": destination,
+            "rules": [{"rule_name": "all"}],
+        }]});
+        let unmapped = json!({});
+        for (old, new) in [(&unmapped, &mapping), (&mapping, &unmapped)] {
+            let store = test_store("pending-mapping", Some(true));
+            store
+                .set_values(proto_update_with_rest(
+                    1,
+                    vec![("working", 7, inline_proto(json!({"v": 1})))],
+                    false,
+                    &[],
+                    7,
+                    json!({"experiment_to_layer": {}, "overrides": old}),
+                ))
+                .unwrap();
+            let previous = store.load_data();
+            let delta = proto_update_with_rest(
+                2,
+                vec![
+                    ("pending", 13, missing.proto_config()),
+                    ("working", 11, inline_proto(json!({"v": 2}))),
+                ],
+                true,
+                &[],
+                24,
+                json!({"experiment_to_layer": {}, "overrides": new}),
+            );
+            let err = apply_background(&store, &server, delta).await.unwrap_err();
+            assert!(
+                err.to_string().contains("routing for a mapped config"),
+                "{err}"
+            );
+            assert!(Arc::ptr_eq(&previous, &store.load_data()));
+            assert_eq!(store.get_current_specs_info().lcut, Some(1));
+        }
+    }
+}
+
+#[tokio::test]
+async fn removing_a_withheld_roots_mapping_keeps_its_destination_private() {
+    let server = MockServer::start().await;
+    let store = test_store("pending-route-privacy", Some(true));
+    store.set_values(json_update(full(1, json!({})))).unwrap();
+    let delta = |time, mappings| {
+        proto_update_with_rest(
+            time,
+            vec![
+                ("root", 13, Blob::new("missing").proto_config()),
+                ("private_a", 11, inline_proto(json!({"private": true}))),
+                ("private_b", 17, inline_proto(json!({"private": true}))),
+            ],
+            true,
+            &[],
+            41,
+            json!({"experiment_to_layer": {}, "overrides": mappings}),
+        )
+    };
+    let mapping = |names: &[&str]| {
+        let routes: Vec<_> = names
+            .iter()
+            .map(|name| json!({"new_config_name": name, "rules": []}))
+            .collect();
+        json!({"root": routes})
+    };
+    for (time, names) in [
+        (2, &["private_a", "private_b"][..]),
+        (3, &["private_b", "private_a", "private_a"][..]),
+    ] {
+        apply_background(&store, &server, delta(time, mapping(names)))
+            .await
+            .unwrap();
+    }
+    let serving = store.load_data();
+    assert!(
+        serving
+            .gcir_evaluation_plan(&HashUtil::new())
+            .dynamic_configs
+            .is_empty()
+    );
+    let err = apply_background(&store, &server, delta(4, mapping(&["private_b"])))
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("routing for a mapped config"));
+    assert!(Arc::ptr_eq(&serving, &store.load_data()));
+}
+
+#[tokio::test]
 async fn protobuf_deltas_keep_unchanged_proofs_and_clear_replaced_or_deleted_configs() {
     let server = MockServer::start().await;
     let blob = Blob::new("snapshot-protobuf-delta");
@@ -520,44 +776,103 @@ async fn protobuf_deltas_keep_unchanged_proofs_and_clear_replaced_or_deleted_con
 }
 
 #[tokio::test]
-async fn full_inline_replacement_resets_gauges_and_failed_hydration_keeps_active_counts() {
+async fn partial_full_snapshot_reports_only_verified_values_until_same_revision_repair() {
     let server = MockServer::start().await;
-    let blob = Blob::new("snapshot-failure-active-value");
-    blob.mount(&server, 1).await;
-    let store = store("secret-snapshot-failed-update");
-    let mut receiver = store.ops_stats.subscribe_for_test();
+    let store = store("partial-snapshot");
     let hydration = hydration(&store, &server);
-    apply_json(&store, &hydration, full(1, json!({"a": blob.config()})))
+    let mut metrics = store.ops_stats.subscribe_for_test();
+    let healthy = Blob::new("healthy");
+    let missing = Blob::new("missing");
+    healthy.mount(&server, 1).await;
+    let old = full(1, json!({"a": healthy.config(), "b": healthy.config()}));
+    apply_json(&store, &hydration, old.clone()).await.unwrap();
+    assert_backing_counts(&mut metrics, 0.0, 2.0);
+
+    let updates = Arc::new(Mutex::new(Vec::new()));
+    let seen = Arc::clone(&updates);
+    store
+        .event_emitter
+        .subscribe(SdkEvent::SPECS_UPDATED, move |event| {
+            if let SdkEvent::SpecsUpdated { values, .. } = event {
+                seen.lock().push((values.time, values.checksum.clone()));
+            }
+        });
+    let mut missing_config = missing.config();
+    missing_config["checksum"] = json!("13");
+    let payload = full(2, json!({"a": missing_config, "b": healthy.config()}));
+    apply_json(&store, &hydration, payload.clone())
         .await
         .unwrap();
-    assert_backing_counts(&mut receiver, 0.0, 1.0);
-    let active = store.load_data();
-
-    let invalid = Blob::new("snapshot-failed-new-value");
-    Mock::given(method("GET"))
-        .and(path(invalid.path()))
-        .respond_with(ResponseTemplate::new(200).set_body_bytes(blob.body.clone()))
-        .mount(&server)
-        .await;
-    assert!(
-        apply_json(&store, &hydration, full(2, json!({"a": invalid.config()})))
-            .await
-            .is_err()
+    let partial = store.load_data();
+    let a = InternedString::from_str_ref("a");
+    assert_eq!(partial.snapshot.time, 2);
+    assert!(partial.snapshot.checksum.is_none());
+    assert_eq!(
+        partial.unavailable_values().unwrap()[&a],
+        HashSet::from([None, Some(0)])
     );
-    assert!(Arc::ptr_eq(&active, &store.load_data()));
-    assert!(take_backing_metrics(&mut receiver).is_empty());
+    assert_eq!(
+        store.get_published_specs_info().checksum.as_deref(),
+        Some("snapshot-2")
+    );
+    assert_eq!(store.get_current_specs_info().lcut, Some(0));
+    assert!(store.get_current_values().is_none());
+    assert_backing_counts(&mut metrics, 0.0, 1.0);
 
     store
         .set_values(json_update(json!({"has_updates": false})))
         .unwrap();
-    assert_backing_counts(&mut receiver, 0.0, 1.0);
+    assert_backing_counts(&mut metrics, 0.0, 1.0);
+    apply_json(&store, &hydration, payload.clone())
+        .await
+        .unwrap();
+    apply_json(&store, &hydration, old).await.unwrap();
+    assert!(Arc::ptr_eq(&partial.snapshot, &store.load_data().snapshot));
+    assert!(updates.lock().is_empty());
+
+    // The producer can inline the repaired value without changing its entity checksum.
+    let expected = json!({"marker": "missing"});
+    let inline = pb::Spec {
+        entity: pb::EntityType::EntityDynamicConfig as i32,
+        enabled: true,
+        default_value: Some(raw_return_value(expected.clone())),
+        ..Default::default()
+    };
+    store
+        .set_values_with_protobuf_hydration(
+            proto_update(2, vec![("a", 13, inline)], false, &[], 13),
+            &hydration,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        json!(
+            store
+                .load_data()
+                .snapshot
+                .dynamic_configs
+                .get(&a)
+                .unwrap()
+                .view()
+                .default_value()
+                .json_value()
+                .unwrap()
+        ),
+        expected
+    );
+    assert_eq!(
+        store.get_current_values().unwrap().checksum.as_deref(),
+        Some("snapshot-2")
+    );
+    assert_eq!(*updates.lock(), vec![(2, Some("snapshot-2".to_owned()))]);
+    let mut metrics = store.ops_stats.subscribe_for_test();
     store
         .set_values(json_update(full(
             3,
-            json!({"a": inline_config(json!({"now": "inline"}))}),
+            json!({"a":inline_config(json!({"now":"inline"}))}),
         )))
         .unwrap();
-    assert_backing_counts(&mut receiver, 0.0, 0.0);
+    assert_backing_counts(&mut metrics, 0.0, 0.0);
     server.verify().await;
 }
 
@@ -660,6 +975,203 @@ async fn json_cursor_advance_emits_one_snapshot_gauge_pair() {
 }
 
 #[tokio::test]
+async fn pending_config_retains_proofs_from_deleted_configs_and_incomplete_repairs() {
+    let server = MockServer::start().await;
+    let store = test_store("pending-config-proofs", Some(true));
+    let mut metrics = store.ops_stats.subscribe_for_test();
+    let x = Blob::new("shared-with-deleted-config");
+    let y = Blob::new("recovered-first");
+    let z = Blob::new("recovered-last");
+
+    x.mount(&server, 1).await;
+    let full = proto_update(1, vec![("b", 11, x.proto_config())], false, &[], 11);
+    apply_background(&store, &server, full).await.unwrap();
+    server.verify().await;
+    server.reset().await;
+
+    let mut a = x.proto_config();
+    a.rules = y.proto_config().rules;
+    let mut last_rule = z.proto_config().rules.pop().unwrap();
+    last_rule.id = "last".into();
+    a.rules.push(last_rule);
+    let delta = proto_update(2, vec![("a", 13, a)], true, &["b"], 13);
+    apply_background(&store, &server, delta).await.unwrap();
+    assert_delta_failure_counts(&mut metrics, &[2.0]);
+    let snapshot = store.load_data();
+    assert_eq!(snapshot.lcut(), 2);
+    assert!(snapshot.snapshot.dynamic_configs.0.is_empty());
+
+    y.mount(&server, 1).await;
+    let no_change = || json_update(json!({"has_updates": false}));
+    apply_background(&store, &server, no_change())
+        .await
+        .unwrap();
+    assert_delta_failure_counts(&mut metrics, &[]);
+    assert!(store.get_current_values().is_none());
+    server.verify().await;
+    server.reset().await;
+
+    // Only Z is online now. The original snapshot supplied X and the first retry supplied Y.
+    z.mount(&server, 1).await;
+    apply_background(&store, &server, no_change())
+        .await
+        .unwrap();
+    assert_delta_failure_counts(&mut metrics, &[]);
+    let export = store
+        .get_current_values()
+        .expect("all three values verified");
+    let config = export
+        .dynamic_configs
+        .get(&InternedString::from_str_ref("a"))
+        .unwrap()
+        .as_spec_ref();
+    let values = [
+        &config.default_value,
+        &config.rules[0].return_value,
+        &config.rules[1].return_value,
+    ];
+    for (value, blob) in values.into_iter().zip([&x, &y, &z]) {
+        assert_eq!(serde_json::to_vec(value).unwrap(), blob.body);
+    }
+    assert_eq!(server.received_requests().await.unwrap().len(), 1);
+    server.verify().await;
+    server.reset().await;
+
+    // Removing A releases the recovered SHA. When it fails again in two new
+    // configs, the publication counts the recurrence once.
+    let delete = proto_update(3, vec![], true, &["a"], 0);
+    apply_background(&store, &server, delete).await.unwrap();
+    let configs = vec![("c", 17, z.proto_config()), ("d", 19, z.proto_config())];
+    let recurrence = proto_update(4, configs, true, &[], 36);
+    apply_background(&store, &server, recurrence).await.unwrap();
+    assert_delta_failure_counts(&mut metrics, &[1.0]);
+    apply_background(&store, &server, no_change())
+        .await
+        .unwrap();
+    assert_delta_failure_counts(&mut metrics, &[]);
+}
+
+#[tokio::test]
+async fn metadata_conflicting_with_a_carried_config_rejects_the_new_delta() {
+    let server = MockServer::start().await;
+    let store = test_store("pending-metadata-conflict", Some(true));
+    store.set_values(json_update(full(1, json!({})))).unwrap();
+
+    let mut config = Blob::new("missing").proto_config();
+    config.rules.clear();
+    let first = proto_update(2, vec![("pending", 13, config.clone())], true, &[], 13);
+    apply_background(&store, &server, first).await.unwrap();
+    let previous = store.load_data();
+    assert_eq!(previous.lcut(), 2);
+
+    // Only the definition carried from the earlier delta conflicts with this one.
+    config.remote_config_metadata.as_mut().unwrap().byte_length += 1;
+    let next = proto_update(3, vec![("new", 17, config)], true, &[], 30);
+    let err = apply_background(&store, &server, next).await.unwrap_err();
+    assert!(err.to_string().contains("metadata_conflict"), "{err}");
+    assert!(Arc::ptr_eq(&previous, &store.load_data()));
+    assert_eq!(store.get_current_specs_info().lcut, Some(2));
+}
+
+#[tokio::test]
+async fn partial_delta_applies_sdk_settings_without_exporting_an_incomplete_cursor() {
+    for delete in [false, true] {
+        let server = MockServer::start().await;
+        let store = test_store("partial-delta-settings", Some(true));
+        store.set_values(json_update(full(1, json!({})))).unwrap();
+        let mut metrics = store.ops_stats.subscribe_for_test();
+        let missing = Blob::new("missing");
+        let delta = proto_update_with_rest(
+            2,
+            vec![("pending", 13, missing.proto_config())],
+            true,
+            &[],
+            13,
+            json!({"experiment_to_layer": {}, "sdk_configs": {"exposure_dedupe_ttl_ms": 2000}}),
+        );
+        apply_background(&store, &server, delta).await.unwrap();
+        assert_delta_failure_counts(&mut metrics, &[1.0]);
+        assert_eq!(store.get_current_specs_info().lcut, Some(2));
+        assert_eq!(store.readiness_specs_info().lcut, Some(0));
+        assert_eq!(
+            store
+                .global_configs
+                .as_ref()
+                .unwrap()
+                .get_exposure_dedupe_ttl_ms(),
+            2000
+        );
+        assert!(store.get_current_values().is_none());
+
+        for version in [3, 4] {
+            let healthy = inline_proto(json!({"version":version}));
+            let checksum = version as u32;
+            let configs = vec![("healthy", checksum, healthy)];
+            let delta = proto_update(version, configs, true, &[], 13 + version);
+            apply_background(&store, &server, delta).await.unwrap();
+            assert_delta_failure_counts(&mut metrics, &[]);
+            let data = store.load_data();
+            assert_eq!(data.lcut(), version);
+            assert_eq!(data.spec_decode_stats.total, 2);
+            let name = InternedString::from_str_ref("healthy");
+            let healthy = data.snapshot.dynamic_configs.get(&name).unwrap();
+            assert_eq!(
+                serde_json::to_value(&healthy.as_spec_ref().default_value).unwrap(),
+                json!({"version":version})
+            );
+            assert!(
+                data.unavailable_values()
+                    .unwrap()
+                    .contains_key(&InternedString::from_str_ref("pending"))
+            );
+        }
+
+        // Pause the retry after its GET arrives. Apply the replacement or
+        // deletion before letting that older response reach the store.
+        let started = Arc::new(tokio::sync::Notify::new());
+        let notify = started.clone();
+        let old_body = missing.body.clone();
+        Mock::given(method("GET"))
+            .and(path(missing.path()))
+            .respond_with(move |_: &wiremock::Request| {
+                notify.notify_one();
+                ResponseTemplate::new(200)
+                    .insert_header("content-type", "application/json")
+                    .set_body_bytes(old_body.clone())
+                    .set_delay(std::time::Duration::from_millis(100))
+            })
+            .expect(1)
+            .mount(&server)
+            .await;
+        let repair = apply_background(&store, &server, json_update(json!({"has_updates": false})));
+        tokio::pin!(repair);
+        tokio::select! {
+            result = &mut repair => panic!("repair returned before issuing the GET: {result:?}"),
+            timeout = tokio::time::timeout(std::time::Duration::from_secs(3), started.notified()) => {
+                timeout.expect("repair did not request the pending blob");
+            }
+        }
+        let replacement = inline_proto(json!({"replacement": true}));
+        let newer = if delete {
+            proto_update(5, vec![], true, &["pending"], 4)
+        } else {
+            proto_update(5, vec![("pending", 17, replacement)], true, &[], 21)
+        };
+        apply_background(&store, &server, newer).await.unwrap();
+        let _stale_result = repair.await;
+        let export = store.get_current_values().unwrap();
+        assert_eq!(export.time, 5);
+        assert!(store.load_data().unavailable_values().is_none());
+        let name = InternedString::from_str_ref("pending");
+        let value = export
+            .dynamic_configs
+            .get(&name)
+            .map(|spec| serde_json::to_value(&spec.as_spec_ref().default_value).unwrap());
+        assert_eq!(value, (!delete).then(|| json!({"replacement": true})));
+    }
+}
+
+#[tokio::test]
 async fn protobuf_cursor_advance_emits_one_snapshot_gauge_pair() {
     let server = MockServer::start().await;
     let blob = Blob::new("snapshot-protobuf-cursor");
@@ -695,6 +1207,31 @@ async fn protobuf_cursor_advance_emits_one_snapshot_gauge_pair() {
 }
 
 rusty_fork_test! {
+    #[test]
+    fn partial_blob_publication_is_latched_when_the_store_is_created() {
+        const ENV: &str = "STATSIG_ENABLE_PARTIAL_BLOB_PUBLICATION";
+        tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(async {
+            let server = MockServer::start().await;
+            for (setting, enabled) in [(None, false), (Some("false"), false), (Some("yes"), false), (Some("true"), true), (Some("1"), true)] {
+                match setting {
+                    Some(value) => std::env::set_var(ENV, value),
+                    None => std::env::remove_var(ENV),
+                }
+                let store = SpecStore::new("local-policy", "local-policy".into(), StatsigRuntime::get_runtime(),
+                    Arc::new(SdkEventEmitter::default()), None);
+                std::env::set_var(ENV, if enabled { "false" } else { "true" });
+                let hydration = hydration(&store, &server);
+                let inline = json!({"a": inline_config(json!({"v": 1}))});
+                apply_json(&store, &hydration, full(1, inline.clone())).await.unwrap();
+                let pending = full(2, json!({"a": Blob::new("missing").config()}));
+                assert_eq!(apply_json(&store, &hydration, pending).await.is_ok(), enabled);
+                assert_eq!(store.get_current_values().is_none(), enabled);
+                apply_json(&store, &hydration, full(2, inline)).await.unwrap();
+                assert_eq!(store.get_current_values().unwrap().time, 2);
+            }
+        });
+    }
+
     #[test]
     fn snapshot_backing_reports_by_default_and_ignores_removed_environment_control() {
         const REMOVED_ENV: &str = "STATSIG_ENABLE_BLOB_SNAPSHOT_BACKING_METRICS";

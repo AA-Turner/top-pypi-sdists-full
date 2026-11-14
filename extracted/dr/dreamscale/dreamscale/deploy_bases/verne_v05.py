@@ -35,6 +35,9 @@ UNITS = PresetUnits(
     # A robot with Verne's cameras by role (camera_0 left wrist, camera_1 right wrist,
     # camera_2 head) under its own keys: `--preset custom --camera <key>=camera_N`.
     custom_cameras=tuple(feature for _, feature in C.CAMERAS),
+    # `--hz`: its server refuses a declared rate (verne_v05_deploy_base's embodiment fields), so
+    # the SDK does too; None once its server takes one, and the server's validation decides.
+    declared_rates=(),
 )
 # `deployments create --base verne-v05-base`, without the CLI.
 run_add_verne_v05 = UNITS.run_add

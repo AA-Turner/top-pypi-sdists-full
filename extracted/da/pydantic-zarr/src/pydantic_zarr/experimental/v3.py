@@ -13,6 +13,7 @@ from typing import (
     NotRequired,
     Self,
     TypeVar,
+    cast,
     overload,
 )
 
@@ -20,7 +21,6 @@ import numpy as np
 import numpy.typing as npt
 from packaging.version import Version
 from pydantic import (
-    BaseModel,
     BeforeValidator,
     ConfigDict,
     TypeAdapter,
@@ -29,6 +29,7 @@ from pydantic import (
 )
 from typing_extensions import TypedDict
 
+from pydantic_zarr.core import _OpenModel
 from pydantic_zarr.experimental.core import (
     BaseAttributes,
     IncEx,
@@ -42,7 +43,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     import numpy.typing as npt
-    import zarr  # noqa: TC004
+    import zarr
     from zarr.abc.store import Store
     from zarr.core.array_spec import ArrayConfigParams
 
@@ -63,7 +64,7 @@ TName = TypeVar("TName", bound=str)
 TConfig = TypeVar("TConfig", bound=Mapping[str, object])
 
 
-class NamedConfig(TypedDict, Generic[TName, TConfig]):
+class NamedConfig(TypedDict, Generic[TName, TConfig], extra_items=object):
     """
     A Zarr V3 metadata object.
 
@@ -75,13 +76,15 @@ class NamedConfig(TypedDict, Generic[TName, TConfig]):
         The name of the metadata object.
     configuration: NotRequired[TConfig]
         The configuration of the metadata object.
+
+    Other members, such as `must_understand`, are kept as they are.
     """
 
     name: TName
     configuration: NotRequired[TConfig]
 
 
-class AnyNamedConfig(NamedConfig[str, Mapping[str, object]]):
+class AnyNamedConfig(NamedConfig[str, Mapping[str, object]], extra_items=object):
     """
     This class models any Zarr metadata object that takes the form of a
     {"name": ..., "configuration": ...} dict, where the "configuration" key is not required.
@@ -92,18 +95,25 @@ CodecLike = str | AnyNamedConfig
 """A type modelling the permissible declarations for codecs"""
 
 
-class RegularChunkingConfig(TypedDict):
+class RegularChunkingConfig(TypedDict, extra_items=object):
     chunk_shape: tuple[int, ...]
 
 
 RegularChunking = NamedConfig[Literal["regular"], RegularChunkingConfig]
 
 
-class DefaultChunkKeyEncodingConfig(TypedDict):
+class DefaultChunkKeyEncodingConfig(TypedDict, extra_items=object):
     separator: Literal[".", "/"]
 
 
 DefaultChunkKeyEncoding = NamedConfig[Literal["default"], DefaultChunkKeyEncodingConfig]
+
+
+class V2ChunkKeyEncodingConfig(TypedDict, extra_items=object):
+    separator: Literal[".", "/"]
+
+
+V2ChunkKeyEncoding = NamedConfig[Literal["v2"], V2ChunkKeyEncodingConfig]
 
 
 class AllowedExtraField(TypedDict):
@@ -119,20 +129,28 @@ extra_checker: TypeAdapter[dict[str, AllowedExtraField] | None] = TypeAdapter(
 )
 
 
-class StrictBase(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="allow")
-
-
-class NodeSpec(StrictBase):
+class NodeSpec(_OpenModel):
     """
     The base class for V3 ArraySpec and GroupSpec.
+
+    The members of a metadata document that the spec does not declare are
+    read through the read-only `extra_fields` mapping and dumped back as
+    top-level members (a dump's `include` and `exclude` name them by key,
+    and `model_copy(update=...)` sets them). The model
+    sets no `extra` configuration, so the TypedDicts it holds say their own
+    openness: this module's metadata objects keep unknown members, and an
+    attributes TypedDict behaves as it would anywhere else.
 
     Attributes
     ----------
 
     zarr_format: Literal[3]
         The Zarr version represented by this node. Must be 3.
+    extra_fields: Mapping[str, Any]
+        The document's members that this class does not declare, by key.
     """
+
+    model_config = ConfigDict(frozen=True)
 
     zarr_format: Literal[3] = 3
 
@@ -143,7 +161,7 @@ class NodeSpec(StrictBase):
 
         Extra fields must be dicts with a 'must_understand' key set to False.
         """
-        extra_checker.validate_python(self.__pydantic_extra__)
+        extra_checker.validate_python(dict(self.extra_fields))
         return self
 
 
@@ -175,9 +193,9 @@ def parse_dtype_v3(dtype: npt.DTypeLike | Mapping[str, object]) -> Mapping[str, 
                 return "float16"
             case np.dtypes.Float32DType():
                 return "float32"
-            case np.dtypes.Float16DType():
+            case np.dtypes.Float64DType():
                 return "float64"
-            case np.dtypes.Float32DType():
+            case np.dtypes.Complex64DType():
                 return "complex64"
             case np.dtypes.Complex128DType():
                 return "complex128"
@@ -212,7 +230,7 @@ class ArraySpec(NodeSpec):
     fill_value: FillValue
         The fill value for this array.
     codecs: Sequence[NamedConfig]
-        The sequence of codices for this array.
+        The sequence of codecs for this array.
     storage_transformers: Optional[Sequence[NamedConfig]]
         An optional sequence of `NamedConfig` objects that define the storage
         transformers for this array.
@@ -225,7 +243,9 @@ class ArraySpec(NodeSpec):
     shape: tuple[int, ...]
     data_type: DTypeLike
     chunk_grid: RegularChunking  # todo: validate this against shape
-    chunk_key_encoding: DefaultChunkKeyEncoding  # todo: validate this against shape
+    chunk_key_encoding: (
+        DefaultChunkKeyEncoding | V2ChunkKeyEncoding
+    )  # todo: validate this against shape
     fill_value: FillValue  # todo: validate this against the data type
     codecs: CodecTuple
     storage_transformers: tuple[AnyNamedConfig, ...] = ()
@@ -249,8 +269,8 @@ class ArraySpec(NodeSpec):
         """
         d = super().model_dump(**kwargs)
 
-        if d["dimension_names"] is None:
-            d.pop("dimension_names")
+        if d.get("dimension_names") is None:
+            d.pop("dimension_names", None)
         return d
 
     @classmethod
@@ -371,16 +391,17 @@ class ArraySpec(NodeSpec):
             meta_json = json.loads(json.dumps(array.metadata.to_dict(), cls=V3JsonEncoder))
         else:
             meta_json = array.metadata.to_dict()
+        meta_any = cast("dict[str, Any]", meta_json)
         return cls(
-            attributes=meta_json["attributes"],
+            attributes=meta_any["attributes"],
             shape=array.shape,
-            data_type=meta_json["data_type"],
-            chunk_grid=meta_json["chunk_grid"],
-            chunk_key_encoding=meta_json["chunk_key_encoding"],
-            fill_value=meta_json["fill_value"],
-            codecs=meta_json["codecs"],
-            storage_transformers=meta_json["storage_transformers"],
-            dimension_names=meta_json.get("dimension_names", None),
+            data_type=meta_any["data_type"],
+            chunk_grid=meta_any["chunk_grid"],
+            chunk_key_encoding=meta_any["chunk_key_encoding"],
+            fill_value=meta_any["fill_value"],
+            codecs=meta_any["codecs"],
+            storage_transformers=meta_any["storage_transformers"],
+            dimension_names=meta_any.get("dimension_names", None),
         )
 
     def to_zarr(
@@ -448,7 +469,7 @@ class ArraySpec(NodeSpec):
         exclude: IncEx = None,
     ) -> bool:
         """
-        Compare am `ArraySpec` to another `ArraySpec` or a `zarr.Array`, parameterized over the
+        Compare an `ArraySpec` to another `ArraySpec` or a `zarr.Array`, parameterized over the
         fields to exclude or include in the comparison. Models are first converted to `dict` via the
         `model_dump` method of `pydantic.BaseModel`, then compared with the `==` operator.
 
@@ -513,7 +534,7 @@ class ArraySpec(NodeSpec):
         ArraySpec
             A copy of this model with a new `attributes` field.
         """
-        return type(self)(**{**self.model_dump(), "attributes": attributes})
+        return type(self).model_validate({**self.model_dump(), "attributes": attributes})
 
     def with_shape(self, shape: tuple[int, ...]) -> Self:
         """
@@ -529,7 +550,7 @@ class ArraySpec(NodeSpec):
         ArraySpec
             A copy of this model with a new `shape` field.
         """
-        return type(self)(**{**self.model_dump(), "shape": shape})
+        return type(self).model_validate({**self.model_dump(), "shape": shape})
 
     def with_data_type(self, data_type: DTypeLike) -> Self:
         """
@@ -545,7 +566,7 @@ class ArraySpec(NodeSpec):
         ArraySpec
             A copy of this model with a new `data_type` field.
         """
-        return type(self)(**{**self.model_dump(), "data_type": data_type})
+        return type(self).model_validate({**self.model_dump(), "data_type": data_type})
 
     def with_chunk_grid(self, chunk_grid: AnyNamedConfig) -> Self:
         """
@@ -561,7 +582,7 @@ class ArraySpec(NodeSpec):
         ArraySpec
             A copy of this model with a new `chunk_grid` field.
         """
-        return type(self)(**{**self.model_dump(), "chunk_grid": chunk_grid})
+        return type(self).model_validate({**self.model_dump(), "chunk_grid": chunk_grid})
 
     def with_chunk_key_encoding(self, chunk_key_encoding: AnyNamedConfig) -> Self:
         """
@@ -577,7 +598,9 @@ class ArraySpec(NodeSpec):
         ArraySpec
             A copy of this model with a new `chunk_key_encoding` field.
         """
-        return type(self)(**{**self.model_dump(), "chunk_key_encoding": chunk_key_encoding})
+        return type(self).model_validate(
+            {**self.model_dump(), "chunk_key_encoding": chunk_key_encoding}
+        )
 
     def with_fill_value(self, fill_value: FillValue) -> Self:
         """
@@ -593,7 +616,7 @@ class ArraySpec(NodeSpec):
         ArraySpec
             A copy of this model with a new `fill_value` field.
         """
-        return type(self)(**{**self.model_dump(), "fill_value": fill_value})
+        return type(self).model_validate({**self.model_dump(), "fill_value": fill_value})
 
     def with_codecs(self, codecs: CodecTuple) -> Self:
         """
@@ -609,7 +632,7 @@ class ArraySpec(NodeSpec):
         ArraySpec
             A copy of this model with a new `codecs` field.
         """
-        return type(self)(**{**self.model_dump(), "codecs": codecs})
+        return type(self).model_validate({**self.model_dump(), "codecs": codecs})
 
     def with_storage_transformers(self, storage_transformers: tuple[AnyNamedConfig, ...]) -> Self:
         """
@@ -625,7 +648,9 @@ class ArraySpec(NodeSpec):
         ArraySpec
             A copy of this model with a new `storage_transformers` field.
         """
-        return type(self)(**{**self.model_dump(), "storage_transformers": storage_transformers})
+        return type(self).model_validate(
+            {**self.model_dump(), "storage_transformers": storage_transformers}
+        )
 
     def with_dimension_names(self, dimension_names: tuple[str | None, ...] | None) -> Self:
         """
@@ -641,7 +666,7 @@ class ArraySpec(NodeSpec):
         ArraySpec
             A copy of this model with a new `dimension_names` field.
         """
-        return type(self)(**{**self.model_dump(), "dimension_names": dimension_names})
+        return type(self).model_validate({**self.model_dump(), "dimension_names": dimension_names})
 
 
 class BaseGroupSpec(NodeSpec):
@@ -668,7 +693,7 @@ class BaseGroupSpec(NodeSpec):
             A copy of this model with a new `attributes` field.
 
         """
-        return type(self)(**{**self.model_dump(), "attributes": attributes})
+        return type(self).model_validate({**self.model_dump(), "attributes": attributes})
 
 
 class GroupSpec(BaseGroupSpec):
@@ -711,7 +736,7 @@ class GroupSpec(BaseGroupSpec):
         -------
         A copy of this model with a new `members` field.
         """
-        return type(self)(**{**self.model_dump(), "members": members})
+        return type(self).model_validate({**self.model_dump(), "members": members})
 
     @classmethod
     def from_flat(cls, data: Mapping[str, ArraySpec | BaseGroupSpec]) -> Self:
@@ -764,7 +789,7 @@ class GroupSpec(BaseGroupSpec):
         ```
         """
         from_flated = from_flat_group(data)
-        return cls(**from_flated.model_dump())
+        return cls.model_validate(from_flated.model_dump())
 
     def to_flat(self, root_path: str = "") -> dict[str, ArraySpec | BaseGroupSpec]:
         """
@@ -839,7 +864,7 @@ class GroupSpec(BaseGroupSpec):
             )
             raise ValueError(msg)
         if depth == 0:
-            extra_fields = {}
+            extra_fields: dict[str, Any] = {}
             if group.metadata.consolidated_metadata is not None:
                 extra_fields["consolidated_metadata"] = (
                     group.metadata.consolidated_metadata.to_dict()
@@ -860,11 +885,11 @@ class GroupSpec(BaseGroupSpec):
 
                 raise ValueError(msg)  # noqa: TRY004
 
-        extra_fields = {}
+        extra_fields2: dict[str, Any] = {}
         if group.metadata.consolidated_metadata is not None:
-            extra_fields["consolidated_metadata"] = group.metadata.consolidated_metadata.to_dict()
+            extra_fields2["consolidated_metadata"] = group.metadata.consolidated_metadata.to_dict()
 
-        result = cls(attributes=attributes, members=members, **extra_fields)
+        result = cls(attributes=attributes, members=members, **extra_fields2)
         return result
 
     def to_zarr(
@@ -1041,6 +1066,8 @@ def from_zarr(element: zarr.Array | zarr.Group, *, depth: int = -1) -> ArraySpec
     structure of the zarr group or array.
     """
 
+    import zarr
+
     if isinstance(element, zarr.Array):
         return ArraySpec.from_zarr(element)
     else:
@@ -1177,7 +1204,7 @@ def from_flat_group(
     # populates member_groups
     submember_by_parent_name: dict[str, dict[str, ArraySpec | BaseGroupSpec]] = {}
     # copy the input to ensure that mutations are contained inside this function
-    data_copy = dict(data).copy()
+    data_copy = dict(data)
     # Get the root node
     try:
         # The root node is a GroupSpec with the key ""
@@ -1253,9 +1280,9 @@ def auto_fill_value(data: object) -> FillValue:
             return False
         elif kind in ["i", "u"]:
             return 0
-        elif kind in ["f"]:
+        elif kind == "f":
             return "NaN"
-        elif kind in ["c"]:
+        elif kind == "c":
             return ("NaN", "NaN")
         else:
             raise ValueError(f"Cannot determine default fill value for data type {kind}")
@@ -1269,6 +1296,9 @@ def auto_codecs(data: object) -> tuple[CodecLike, ...]:
     if hasattr(data, "codecs"):
         # todo: type check
         return tuple(data.codecs)
+    if hasattr(data, "dtype") and np.dtype(data.dtype).itemsize > 1:
+        # the zarr v3 spec requires the ``endian`` configuration for multi-byte data types
+        return ({"name": "bytes", "configuration": {"endian": "little"}},)
     return ({"name": "bytes"},)
 
 

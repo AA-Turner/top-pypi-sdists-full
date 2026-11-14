@@ -91,7 +91,7 @@ class DescribeCustinsResourceInfoResponseBodyData(DaraModel):
         self.cpu_increase_ratio_value = cpu_increase_ratio_value
         # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # The maximum number of I/O requests per second.
+        # The maximum number of I/O operations per second.
         self.iops_adjustable_max_value = iops_adjustable_max_value
         # The deadline for maximum connection adjustment.
         self.max_conn_adjust_deadline = max_conn_adjust_deadline
@@ -103,11 +103,11 @@ class DescribeCustinsResourceInfoResponseBodyData(DaraModel):
         self.max_conn_increase_ratio_value = max_conn_increase_ratio_value
         # The deadline for maximum IOPS adjustment.
         self.max_iops_adjust_deadline = max_iops_adjust_deadline
-        # The maximum number of I/O requests per second.
+        # The maximum number of I/O operations per second.
         self.max_iops_increase_ratio = max_iops_increase_ratio
-        # The maximum number of I/O requests per second.
+        # The maximum number of I/O operations per second.
         self.max_iops_increase_ratio_value = max_iops_increase_ratio_value
-        # The maximum adjustable ratio for the memory.
+        # The maximum adjustable ratio for memory.
         self.mem_adjustable_max_ratio = mem_adjustable_max_ratio
         # The maximum value of the resource to be evaluated.
         self.mem_adjustable_max_value = mem_adjustable_max_value
@@ -121,7 +121,7 @@ class DescribeCustinsResourceInfoResponseBodyData(DaraModel):
         self.origin_cpu = origin_cpu
         # The maximum number of concurrent connections.
         self.origin_max_conn = origin_max_conn
-        # The maximum number of I/O requests per second.
+        # The maximum number of I/O operations per second.
         self.origin_max_iops = origin_max_iops
         # The actual memory used. Unit: MB.
         self.origin_memory = origin_memory

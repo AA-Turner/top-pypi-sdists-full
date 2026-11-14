@@ -10,7 +10,7 @@ class CheckDBNameAvailableResponseBody(DaraModel):
         request_id: str = None,
     ):
         # The request ID.
-        # >If only the request ID is returned, the database name is available. Otherwise, an error message is returned, indicating that the database name is duplicate or does not comply with naming conventions.
+        # >If only the request ID is returned, the database name is available. Otherwise, an error message is returned, indicating that the database name is duplicated or does not comply with naming conventions.
         self.request_id = request_id
 
     def validate(self):

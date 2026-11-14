@@ -17,14 +17,14 @@ def ClinGen_get_variant_classifications(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> list[Any] | dict[str, Any]:
     """
     Get variant pathogenicity classifications from ClinGen Evidence Repository. Returns expert-curate...
 
     Parameters
     ----------
     gene : str
-        Optional: Filter by gene symbol
+        Optional: Filter by gene symbol. HGNC symbol only (e.g. BRCA1). A genomic ran...
     variant : str
         Optional: filter to one variant. Accepts a ClinGen canonical allele ID ('CA16...
     limit : int
@@ -40,7 +40,7 @@ def ClinGen_get_variant_classifications(
 
     Returns
     -------
-    list[Any]
+    list[Any] | dict[str, Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

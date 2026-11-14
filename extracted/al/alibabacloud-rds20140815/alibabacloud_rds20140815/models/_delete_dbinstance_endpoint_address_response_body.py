@@ -13,7 +13,7 @@ class DeleteDBInstanceEndpointAddressResponseBody(DaraModel):
     ):
         # The list of returned data.
         self.data = data
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
 
     def validate(self):
@@ -50,7 +50,7 @@ class DeleteDBInstanceEndpointAddressResponseBodyData(DaraModel):
         dbinstance_endpoint_id: str = None,
         dbinstance_name: str = None,
     ):
-        # The ID of the endpoint.
+        # The endpoint ID of the instance.
         self.dbinstance_endpoint_id = dbinstance_endpoint_id
         # The instance ID.
         self.dbinstance_name = dbinstance_name

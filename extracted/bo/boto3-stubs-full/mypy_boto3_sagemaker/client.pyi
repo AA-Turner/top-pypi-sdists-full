@@ -43,7 +43,9 @@ from .paginator import (
     ListCandidatesForAutoMLJobPaginator,
     ListClusterEventsPaginator,
     ListClusterExtensionsPaginator,
+    ListClusterExtensionVersionsPaginator,
     ListClusterNodesPaginator,
+    ListClusterOperationsPaginator,
     ListClusterSchedulerConfigsPaginator,
     ListClustersPaginator,
     ListCodeRepositoriesPaginator,
@@ -395,6 +397,8 @@ from .type_defs import (
     DescribeClusterExtensionResponseTypeDef,
     DescribeClusterNodeRequestTypeDef,
     DescribeClusterNodeResponseTypeDef,
+    DescribeClusterOperationRequestTypeDef,
+    DescribeClusterOperationResponseTypeDef,
     DescribeClusterRequestTypeDef,
     DescribeClusterResponseTypeDef,
     DescribeClusterSchedulerConfigRequestTypeDef,
@@ -573,8 +577,12 @@ from .type_defs import (
     ListClusterEventsResponseTypeDef,
     ListClusterExtensionsRequestTypeDef,
     ListClusterExtensionsResponseTypeDef,
+    ListClusterExtensionVersionsRequestTypeDef,
+    ListClusterExtensionVersionsResponseTypeDef,
     ListClusterNodesRequestTypeDef,
     ListClusterNodesResponseTypeDef,
+    ListClusterOperationsRequestTypeDef,
+    ListClusterOperationsResponseTypeDef,
     ListClusterSchedulerConfigsRequestTypeDef,
     ListClusterSchedulerConfigsResponseTypeDef,
     ListClustersRequestTypeDef,
@@ -2584,6 +2592,17 @@ class SageMakerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_cluster_node)
         """
 
+    def describe_cluster_operation(
+        self, **kwargs: Unpack[DescribeClusterOperationRequestTypeDef]
+    ) -> DescribeClusterOperationResponseTypeDef:
+        """
+        Retrieves detailed information about a specific operation for a given HyperPod
+        cluster, such as a scaling operation or a deep health check.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_cluster_operation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_cluster_operation)
+        """
+
     def describe_cluster_scheduler_config(
         self, **kwargs: Unpack[DescribeClusterSchedulerConfigRequestTypeDef]
     ) -> DescribeClusterSchedulerConfigResponseTypeDef:
@@ -3479,6 +3498,17 @@ class SageMakerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_cluster_events)
         """
 
+    def list_cluster_extension_versions(
+        self, **kwargs: Unpack[ListClusterExtensionVersionsRequestTypeDef]
+    ) -> ListClusterExtensionVersionsResponseTypeDef:
+        """
+        Lists the versions of an extension that you can install on a SageMaker HyperPod
+        cluster, from the highest version to the lowest.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_cluster_extension_versions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_cluster_extension_versions)
+        """
+
     def list_cluster_extensions(
         self, **kwargs: Unpack[ListClusterExtensionsRequestTypeDef]
     ) -> ListClusterExtensionsResponseTypeDef:
@@ -3498,6 +3528,17 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_cluster_nodes.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_cluster_nodes)
+        """
+
+    def list_cluster_operations(
+        self, **kwargs: Unpack[ListClusterOperationsRequestTypeDef]
+    ) -> ListClusterOperationsResponseTypeDef:
+        """
+        Retrieves a list of operation summaries for a specified HyperPod cluster, such
+        as scaling operations and deep health checks.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_cluster_operations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_cluster_operations)
         """
 
     def list_cluster_scheduler_configs(
@@ -5278,6 +5319,17 @@ class SageMakerClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_cluster_extension_versions"]
+    ) -> ListClusterExtensionVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_cluster_extensions"]
     ) -> ListClusterExtensionsPaginator:
         """
@@ -5291,6 +5343,17 @@ class SageMakerClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_cluster_nodes"]
     ) -> ListClusterNodesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_cluster_operations"]
+    ) -> ListClusterOperationsPaginator:
         """
         Create a paginator for an operation.
 

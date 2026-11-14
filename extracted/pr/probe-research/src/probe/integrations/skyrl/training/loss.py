@@ -63,14 +63,16 @@ class MicroCalls:
 
 class ReductionWatch:
     """SkyRL's `reduce_loss` and both `masked_mean`s, observed in the modules that call them between `start` and
-    `stop`."""
+    `stop`. ``worker_module``: the module whose `masked_mean` takes the entropy and KL (the FSDP worker's, or the
+    Megatron model wrapper's, `megatron.py`)."""
 
-    def __init__(self) -> None:
+    def __init__(self, worker_module: str = WORKER_MODULE) -> None:
         self.calls = MicroCalls()
+        self._worker_module = worker_module
         self._saved: list[tuple[Any, str, Any]] = []
 
     def start(self) -> MicroCalls:
-        losses_module, worker = sys.modules[POLICY_LOSSES_MODULE], sys.modules[WORKER_MODULE]
+        losses_module, worker = sys.modules[POLICY_LOSSES_MODULE], sys.modules[self._worker_module]
         self._patch(losses_module, "reduce_loss", lambda real: _make_reduce_watch(real, self.calls))
         self._patch(worker, "masked_mean", lambda real: _make_mean_watch(real, "worker", self.calls))
         self._patch(losses_module, "masked_mean", lambda real: _make_mean_watch(real, "ppo_utils", self.calls))

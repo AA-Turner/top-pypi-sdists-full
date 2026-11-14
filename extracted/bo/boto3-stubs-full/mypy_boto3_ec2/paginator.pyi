@@ -92,6 +92,8 @@ Usage::
         DescribeNetworkInsightsPathsPaginator,
         DescribeNetworkInterfacePermissionsPaginator,
         DescribeNetworkInterfacesPaginator,
+        DescribeNetworkingFlexCostAllocationPoliciesPaginator,
+        DescribeNetworkingFlexCostAllocationPolicyAssociationsPaginator,
         DescribePrefixListsPaginator,
         DescribePrincipalIdFormatPaginator,
         DescribePublicIpv4PoolsPaginator,
@@ -272,6 +274,8 @@ Usage::
     describe_network_insights_paths_paginator: DescribeNetworkInsightsPathsPaginator = client.get_paginator("describe_network_insights_paths")
     describe_network_interface_permissions_paginator: DescribeNetworkInterfacePermissionsPaginator = client.get_paginator("describe_network_interface_permissions")
     describe_network_interfaces_paginator: DescribeNetworkInterfacesPaginator = client.get_paginator("describe_network_interfaces")
+    describe_networking_flex_cost_allocation_policies_paginator: DescribeNetworkingFlexCostAllocationPoliciesPaginator = client.get_paginator("describe_networking_flex_cost_allocation_policies")
+    describe_networking_flex_cost_allocation_policy_associations_paginator: DescribeNetworkingFlexCostAllocationPolicyAssociationsPaginator = client.get_paginator("describe_networking_flex_cost_allocation_policy_associations")
     describe_prefix_lists_paginator: DescribePrefixListsPaginator = client.get_paginator("describe_prefix_lists")
     describe_principal_id_format_paginator: DescribePrincipalIdFormatPaginator = client.get_paginator("describe_principal_id_format")
     describe_public_ipv4_pools_paginator: DescribePublicIpv4PoolsPaginator = client.get_paginator("describe_public_ipv4_pools")
@@ -526,6 +530,10 @@ from .type_defs import (
     DescribeNatGatewaysResultTypeDef,
     DescribeNetworkAclsRequestPaginateTypeDef,
     DescribeNetworkAclsResultTypeDef,
+    DescribeNetworkingFlexCostAllocationPoliciesRequestPaginateTypeDef,
+    DescribeNetworkingFlexCostAllocationPoliciesResultTypeDef,
+    DescribeNetworkingFlexCostAllocationPolicyAssociationsRequestPaginateTypeDef,
+    DescribeNetworkingFlexCostAllocationPolicyAssociationsResultTypeDef,
     DescribeNetworkInsightsAccessScopeAnalysesRequestPaginateTypeDef,
     DescribeNetworkInsightsAccessScopeAnalysesResultTypeDef,
     DescribeNetworkInsightsAccessScopesRequestPaginateTypeDef,
@@ -816,6 +824,8 @@ __all__ = (
     "DescribeNetworkInsightsPathsPaginator",
     "DescribeNetworkInterfacePermissionsPaginator",
     "DescribeNetworkInterfacesPaginator",
+    "DescribeNetworkingFlexCostAllocationPoliciesPaginator",
+    "DescribeNetworkingFlexCostAllocationPolicyAssociationsPaginator",
     "DescribePrefixListsPaginator",
     "DescribePrincipalIdFormatPaginator",
     "DescribePublicIpv4PoolsPaginator",
@@ -2467,6 +2477,53 @@ class DescribeNetworkInterfacesPaginator(_DescribeNetworkInterfacesPaginatorBase
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeNetworkInterfaces.html#EC2.Paginator.DescribeNetworkInterfaces.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/paginators/#describenetworkinterfacespaginator)
+        """
+
+if TYPE_CHECKING:
+    _DescribeNetworkingFlexCostAllocationPoliciesPaginatorBase = Paginator[
+        DescribeNetworkingFlexCostAllocationPoliciesResultTypeDef
+    ]
+else:
+    _DescribeNetworkingFlexCostAllocationPoliciesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class DescribeNetworkingFlexCostAllocationPoliciesPaginator(
+    _DescribeNetworkingFlexCostAllocationPoliciesPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeNetworkingFlexCostAllocationPolicies.html#EC2.Paginator.DescribeNetworkingFlexCostAllocationPolicies)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/paginators/#describenetworkingflexcostallocationpoliciespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeNetworkingFlexCostAllocationPoliciesRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeNetworkingFlexCostAllocationPoliciesResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeNetworkingFlexCostAllocationPolicies.html#EC2.Paginator.DescribeNetworkingFlexCostAllocationPolicies.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/paginators/#describenetworkingflexcostallocationpoliciespaginator)
+        """
+
+if TYPE_CHECKING:
+    _DescribeNetworkingFlexCostAllocationPolicyAssociationsPaginatorBase = Paginator[
+        DescribeNetworkingFlexCostAllocationPolicyAssociationsResultTypeDef
+    ]
+else:
+    _DescribeNetworkingFlexCostAllocationPolicyAssociationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class DescribeNetworkingFlexCostAllocationPolicyAssociationsPaginator(
+    _DescribeNetworkingFlexCostAllocationPolicyAssociationsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeNetworkingFlexCostAllocationPolicyAssociations.html#EC2.Paginator.DescribeNetworkingFlexCostAllocationPolicyAssociations)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/paginators/#describenetworkingflexcostallocationpolicyassociationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self,
+        **kwargs: Unpack[
+            DescribeNetworkingFlexCostAllocationPolicyAssociationsRequestPaginateTypeDef
+        ],
+    ) -> PageIterator[DescribeNetworkingFlexCostAllocationPolicyAssociationsResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeNetworkingFlexCostAllocationPolicyAssociations.html#EC2.Paginator.DescribeNetworkingFlexCostAllocationPolicyAssociations.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/paginators/#describenetworkingflexcostallocationpolicyassociationspaginator)
         """
 
 if TYPE_CHECKING:

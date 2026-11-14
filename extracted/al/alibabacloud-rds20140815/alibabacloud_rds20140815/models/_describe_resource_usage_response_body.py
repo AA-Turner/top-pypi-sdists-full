@@ -24,15 +24,15 @@ class DescribeResourceUsageResponseBody(DaraModel):
         request_id: str = None,
         sqlsize: int = None,
     ):
-        # The storage space occupied by archive backups. Unit: bytes.
+        # The storage space occupied by archived backups. Unit: bytes.
         self.archive_backup_size = archive_backup_size
-        # The total storage space occupied by data backups, excluding archive backups. Unit: bytes.
+        # The total storage space occupied by data backups, excluding archived backups. Unit: bytes.
         # 
         # > For **SQL Server** instances, this parameter indicates the total size of physical backups and snapshot backups.
         self.backup_data_size = backup_data_size
-        # The storage space occupied by snapshot backups of **SQL Server** instances. Unit: bytes. A value of 0 indicates that no data is available.
+        # The storage space occupied by snapshot backups for **SQL Server** instances. Unit: bytes. A value of 0 indicates that no data is available.
         self.backup_ecs_snapshot_size = backup_ecs_snapshot_size
-        # The total storage space occupied by log backups, excluding archive backups. Unit: bytes.
+        # The total storage space occupied by log backups, excluding archived backups. Unit: bytes.
         self.backup_log_size = backup_log_size
         # The size of data files in backup sets stored in OSS. Unit: bytes. A value of 0 indicates that no data is available.
         # 
@@ -50,11 +50,11 @@ class DescribeResourceUsageResponseBody(DaraModel):
         self.data_size = data_size
         # The used storage space, which is the sum of DataSize and LogSize. Unit: bytes. A value of -1 indicates that no data is available.
         self.disk_used = disk_used
-        # The database engine.
+        # The database engine type.
         self.engine = engine
         # The storage space occupied by logs. Unit: bytes. A value of -1 indicates that no data is available.
         self.log_size = log_size
-        # The storage space occupied by backups that you are billed for after the free quota is deducted. Unit: bytes.
+        # The storage space occupied by backups that are billed after the free quota is deducted. Unit: bytes.
         self.paid_backup_size = paid_backup_size
         # The ID of the request.
         self.request_id = request_id

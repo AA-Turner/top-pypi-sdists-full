@@ -119,9 +119,15 @@ async def wait_until_ready(
                         f"Using {region_label(current.routed_region)} for faster compute "
                         "availability."
                     )
-                if current.engine == "lightning" and current.engine_reason == "unavailable":
-                    progress("The lightning engine is unavailable; the standard engine serves "
-                             "this session.")
+                if current.engine == "lightning" and current.engine_reason in (
+                    "unavailable", "busy",
+                ):
+                    progress(f"The lightning engine is {current.engine_reason}; the standard "
+                             "engine serves this session.")
+                elif current.engine_reason == "deployment_standard":
+                    progress("This deployment runs the standard engine; it serves this session. "
+                             "Set it with `dreamscale deployments engine <deployment> "
+                             "lightning`.")
                 if current.low_balance:
                     progress(
                         f"Low balance. {errors.CREDITS_FIX} before the session is interrupted."

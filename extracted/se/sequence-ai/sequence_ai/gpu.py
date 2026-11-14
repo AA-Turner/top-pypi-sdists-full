@@ -9,10 +9,11 @@ address, nothing of ours in between; `remove` ends the machine and its disk, and
 
 These are owner-scoped: a full key or a signed-in session, never a robot key. They count against
 your account's GPU limit — the ceiling serving and evals share — and draw on its credit like any
-machine. A refusal is one of three of its own where it is one of these (`seq gpu` exits 2, 3 and 4 for
-them): GpuBadRequest, for what was asked; GpuOverLimit, at a limit of your account's or its credit;
-GpuNoCard, for a card not to be had. `sequence_ai.gpus()` (no namespace) is a different thing entirely:
-the catalogue of cards and their prices.
+machine. A refusal is one of three of its own where it is one of these: GpuBadRequest, for what was
+asked; GpuOverLimit, at a limit of your account's or its credit; GpuNoCard, for a card not to be had -
+`seq gpu` exiting by each one's code, as every `seq` command does. `sequence_ai.gpus()` (no namespace) is
+a different thing entirely: the catalogue of cards and their prices.
+
 """
 from __future__ import annotations
 
@@ -23,6 +24,7 @@ from urllib.parse import urlencode
 
 import httpx
 
+from ._core.money import money
 from ._core.names import segment
 from ._core.transport import Transport
 from .errors import (Conflict, GpuBadRequest, GpuNoCard, GpuOverLimit, InvalidRequest, OutOfCredit, SequencesError,
@@ -95,7 +97,8 @@ def add(place: str, gpu: str, count: int = 1, *, snapshot: str | None = None, po
     them, one dict each, as `list` says them — `"address"`, `"ports"`, `"image"` among them — with
     `"expected_rtt"`: `{"ms", "probes", "within_km", "days"}`, the median round trip measured from
     within `within_km` of `place` over the last `days` days (`"ms"` None where nothing that near was
-    measured), or None where it could not be read. `wait=False` returns at once, each "starting".
+    measured), or None where it could not be read. `wait=False` returns once each is asked for -
+    seconds, where running takes a minute or two -, each "starting".
 
     `place` is the exact spot you want them near, in the United States — a US city ("San Francisco,
     CA") or a lat,lon in the US ("37.77,-122.42"); `places` lists the US cities. The platform opens
@@ -120,8 +123,10 @@ def add(place: str, gpu: str, count: int = 1, *, snapshot: str | None = None, po
     one still saving or failed, a name that cannot be one or is asked of several),
     GpuOverLimit at a limit of your account's or its credit, GpuNoCard where no card is to be had, now
     or within the 20 minutes the platform gives each - never billed (`details["gpus"]` holds each as it
-    ended or runs). A KeyboardInterrupt while it waits removes those not running yet, unbilled, and is
-    raised on, its `cancelled` the ids removed and its `running` those left running. Owner-scoped: a
+    ended or runs). A KeyboardInterrupt while it waits removes those not running yet and is raised on:
+    its `cancelled` the ids removed, its `billed` what each of those was billed, by id, as the platform
+    says it once removed - 0 for none, the seconds one of the places asked for it held a card where one
+    did, None where it could not be read -, and its `running` those left running. Owner-scoped: a
     full key or a signed-in session, never a robot key.
     """
     body: dict[str, Any] = {"place": place, "gpu": gpu, "count": int(count)}
@@ -209,9 +214,12 @@ def _read(t: Transport, ids: list[str]) -> dict[str, dict[str, Any]]:
 
 
 def _cancel(t: Transport, ids: list[str], by: dict[str, dict[str, Any]], stop: BaseException) -> None:
-    """Ctrl-C while waiting: each of `ids` not running, as the list says it now, removed - one removed before it answers
-    is not billed -, those that run left running; `stop` told which (its `cancelled`, `running`, and `not_cancelled`,
-    those whose removal was not answered). A second Ctrl-C meanwhile stops none of it.
+    """Ctrl-C while waiting: each of `ids` not running, as the list says it now, removed, those that run left running;
+    `stop` told which (its `cancelled`, `running`, and `not_cancelled`, those whose removal was not answered) and what each
+    removed was billed (`billed`, read once removed: _spent) - none of its own time, as it never ran, but the seconds one of
+    the places asked for it held a card, as each that held one is billed. A second Ctrl-C meanwhile stops none of it.
+    
+
 """
     try:
         by = _read(t, ids)
@@ -228,15 +236,49 @@ def _cancel(t: Transport, ids: list[str], by: dict[str, dict[str, Any]], stop: B
         except (SequencesError, KeyboardInterrupt):
             kept.append(i)
     stop.cancelled, stop.running, stop.not_cancelled = cancelled, running, kept
+    stop.billed = _spent(t, cancelled)
+
+
+def _usd(v: Any) -> float | None:
+    """An amount the platform said, None where it said none."""
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def _spent(t: Transport, ids: list[str]) -> dict[str, float | None]:
+    """What each of `ids` was billed, by id, as the platform says it now - its `usd_so_far`, which counts the seconds each
+    place asked for it held a card -, None where it could not be read. The DELETE's answer carries no amount, and its
+    platform bills those places as it removes a GPU, before it answers, so a read after it says the whole of it. {sequence-
+    gateway routes/gpus.remove: `return {"id": gpu_id, "status": gpu.SHUT_DOWN}`; machines/gpu._finish: "those of its pool
+    first, each billed for a card it held, then its own"}"""
+    if not ids:
+        return {}
+    try:
+        by = _read(t, ids)
+    except (SequencesError, KeyboardInterrupt):
+        by = {}
+    return {i: _usd((by.get(i) or {}).get("usd_so_far")) for i in ids}
+
+
+def _billed(usd: float | None) -> str:
+    """What a GPU that never ran was billed, in words: "not billed" for nothing, else the amount and what it is for - the
+    seconds one of the places asked for it held a card, which its owner pays -, or that it could not be read. Said as
+    the platform said it, never worked out here.
+"""
+    if usd is None:
+        return "what was billed could not be read - seq gpu history says it"
+    if not usd:
+        return "not billed"
+    return f"billed {money(usd)} for the seconds one of the places asked for it held a card"
 
 
 def _why(g: dict[str, Any]) -> str:
-    """Why a GPU that failed to start did, in words: no card near its place in 20 minutes, unbilled, or what its reason says."""
+    """Why a GPU that failed to start did, in words, and what it was billed (_billed): no card near its place in 20
+    minutes, its card had and no start in them, or what its reason says."""
     reason = g.get("reason")
     if reason == "gpu_no_card":
-        return "got no card near its place within 20 minutes: not billed"
+        return f"got no card near its place within 20 minutes: {_billed(_usd(g.get('usd_so_far')))}"
     if reason == "could_not_start":
-        return "had its card and did not start within 20 minutes: not billed"
+        return f"had its card and did not start within 20 minutes: {_billed(_usd(g.get('usd_so_far')))}"
     return f"ended as it started ({reason or g.get('status')})"
 
 

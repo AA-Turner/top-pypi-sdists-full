@@ -393,13 +393,11 @@ def test_what_is_not_enabled_is_said_as_setup_and_not_as_a_mistake() -> None:
     triage = APP_CATALOGUE["inbox-triage"]
     assert app_problems(triage) == []
     assert app_setup(triage) == ["The agent 'worker-mail-triage:0.0.1' is not enabled."]
-    # An application naming an agent that is not: that is setup, said in words, and not
-    # a problem of the spec (its odoo-accounting server is on since 0.0.162).
+    # Its agent, worker-accountant, is enabled since 0.0.184 (14 November 2026), and its
+    # odoo-accounting server since 0.0.162: nothing left to set up.
     accounting = APP_CATALOGUE["accounting"]
     assert app_problems(accounting) == []
-    assert app_setup(accounting) == [
-        "The agent 'worker-accountant:0.0.1' is not enabled.",
-    ]
+    assert app_setup(accounting) == []
 
 
 def test_an_example_is_offered_where_its_agent_works_and_says_why_otherwise() -> None:
@@ -423,7 +421,11 @@ def test_an_example_is_offered_where_its_agent_works_and_says_why_otherwise() ->
     for identity in ("quote-calculator", "report-from-a-file", "customer-interview"):
         spec = APP_CATALOGUE[identity]
         assert spec.enabled and spec.unavailable_because == "", identity
+        # Their agent, jupyter-data-analyst, is enabled and out of the pickers since 0.0.187
+        # (`listed: false`, 14 November 2026): nothing to set up.
         assert app_setup(spec) == [], identity
+    # Decide's agent, example-simple, the neutral default, likewise.
+    assert app_setup(APP_CATALOGUE["decide"]) == []
     # Support Desk's agent, Document Q&A, is out of the agents' catalogue since 0.0.164
     # (8 November 2026): the application is still offered, and says so as setup.
     support = APP_CATALOGUE["support-desk"]
@@ -913,6 +915,13 @@ EXAMPLES = {
     "deck-maker": AppKind.CHAT,
     "player": AppKind.CHAT,
     "sheet-maker": AppKind.CHAT,
+    # The home page's live demos (moved from the landing, 14 November 2026): chats on
+    # example data that a visitor signed out may talk to, each its agent's variant.
+    "demo-marketer": AppKind.CHAT,
+    "demo-shopper": AppKind.CHAT,
+    "demo-terra": AppKind.CHAT,
+    "demo-accountant": AppKind.CHAT,
+    "demo-aws-steward": AppKind.CHAT,
 }
 
 #: Each of the SDK's seven recorded PAP journeys (agent-runtimes' trace examples) and the example it became.
@@ -995,7 +1004,9 @@ def test_the_protocol_examples_reach_the_hosted_counterparts() -> None:
 def test_the_examples_are_in_the_catalogue() -> None:
     """E-01: every example, and Decide, of its kind, with its face its own."""
     assert {identity: found.kind for identity, found in APP_CATALOGUE.items()} == EXAMPLES
-    faces = [found.emoji for found in APP_CATALOGUE.values()]
+    # A home page demo (tagged `demo`) keeps the face the home page shows, which may be
+    # another application's; every other face is its own.
+    faces = [found.emoji for found in APP_CATALOGUE.values() if "demo" not in found.tags]
     assert len(set(faces)) == len(faces)
     for identity in ["support-desk", "customer-interview", "report-from-a-file", "pipeline-report"]:
         found = APP_CATALOGUE[identity]
@@ -1054,9 +1065,7 @@ def test_accounting_only_reads_the_books_and_asks_before_anything_that_would_cha
     assert found.interface.avatar == "wizard"
     assert found.interface.avatar != APP_CATALOGUE["sales"].interface.avatar
     assert app_problems(found) == []
-    assert app_setup(found) == [
-        "The agent 'worker-accountant:0.0.1' is not enabled.",
-    ]
+    assert app_setup(found) == []
 
 
 def test_the_python_examples_sit_beside_their_spec() -> None:
@@ -1888,7 +1897,8 @@ def test_an_application_has_a_face_and_reaches_nothing_it_was_not_granted() -> N
     assert granted.permissions.spaces[0].access is Access.WRITE
     assert granted.permissions.computer.browse and not granted.permissions.computer.shell
     # Every application of the catalogue has a face of its own.
-    faces = [found.emoji for found in APP_CATALOGUE.values()]
+    # A home page demo (tagged `demo`) keeps the face the home page shows.
+    faces = [found.emoji for found in APP_CATALOGUE.values() if "demo" not in found.tags]
     assert len(set(faces)) == len(faces) and "\U0001f440" not in faces
 
 

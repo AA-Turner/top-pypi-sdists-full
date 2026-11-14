@@ -13,18 +13,16 @@ class ActivateMigrationTargetInstanceRequest(DaraModel):
         switch_time: str = None,
         switch_time_mode: str = None,
     ):
-        # The ID of the target instance. You can invoke the DescribeDBInstances operation to query the instance ID.
+        # The instance ID of the target instance. You can call the DescribeDBInstances operation to query the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_name = dbinstance_name
-        # Set the value to 1, which specifies a forced switchover.
+        # Set the value to 1 to force the switchover.
         self.force_switch = force_switch
         self.resource_owner_id = resource_owner_id
-        # The reserved parameter. This parameter does not take effect.
+        # Reserved parameter. This parameter does not take effect.
         self.switch_time = switch_time
-        # The switchover time mode for cloud migration.
-        # 
-        # Set the value to 0, which specifies an immediate switchover.
+        # The switchover mode for cloud migration. Set the value to 0, which indicates an immediate switchover.
         self.switch_time_mode = switch_time_mode
 
     def validate(self):

@@ -67,6 +67,7 @@ from coord.drive_queue import (
     find_cycle,
     is_empty_branch_death_reason,
     is_merge_gate_block_reason,
+    INFRA_FAILED_LAUNCH_KEY,
     merge_gate_remedy_command,
     merge_plan_inspect_command,
     parse_after_spec,
@@ -1494,6 +1495,34 @@ def test_build_board_view_leg_counts_default_leaves_work_leg_count_at_zero():
     assert view.facts(entry_key(REPO, 1650)).work_leg_count == 0
 
 
+# ── #3998: a leg that never started a worker session is not a fix round ────
+#
+# `coord.state._leg_counts_local` folds a WORK_LIKE issue's infra-failed-
+# launch count (a worktree-setup failure, a pre-session API/HTTP error, a
+# #3912 conflicting-worktree refusal) under the reserved
+# `INFRA_FAILED_LAUNCH_KEY` pseudo-type rather than under the leg's own real
+# type — these tests pin what `build_board_view` does with that key.
+
+
+def test_build_board_view_excludes_infra_failed_launches_from_work_leg_count():
+    """`INFRA_FAILED_LAUNCH_KEY` is never a member of `WORK_LIKE`, so it must
+    not inflate `work_leg_count` the way a real `"work"` count would."""
+    key = entry_key(REPO, 1650)
+    view = build_board_view(
+        {},
+        leg_counts={key: {"work": 2, INFRA_FAILED_LAUNCH_KEY: 2}},
+    )
+    facts = view.facts(key)
+    assert facts.work_leg_count == 2
+    assert facts.infra_failed_leg_count == 2
+
+
+def test_build_board_view_infra_failed_leg_count_defaults_to_zero():
+    key = entry_key(REPO, 1650)
+    view = build_board_view({}, leg_counts={key: {"work": 2}})
+    assert view.facts(key).infra_failed_leg_count == 0
+
+
 def test_build_board_view_leg_counts_covers_an_issue_absent_from_the_rest_of_the_payload():
     """An issue whose entire history has aged into `assignments_archive`
     (#3060) — nothing about it in `issues`/`assignments`/`merge_plan` — still
@@ -1549,6 +1578,46 @@ def test_a_relaunch_at_the_ceiling_blocks_instead_of_retrying():
     assert "budget of 3" in blocked.reason
 
 
+def test_ceiling_block_reason_reports_infra_failed_launches_separately():
+    """#3998: quadraui#2347's exact shape — a worktree-setup failure and a
+    #3912 conflicting-worktree refusal, neither of which ever started a
+    worker session. `facts.infra_failed_leg_count` must be named in the
+    block reason, visibly separate from the real `work_leg_count`, so an
+    operator reading the ceiling message is never left to wonder whether a
+    never-started launch is hiding inside the "work leg(s)" figure."""
+    facts = IssueFacts(
+        known=True, issue_state="open", work_leg_count=3, infra_failed_leg_count=2,
+    )
+    view = BoardView(issues={entry_key(REPO, 1650): facts})
+    plan = plan_tick(
+        [_dead_running_entry(attempts=0)],
+        view,
+        capacity=1,
+        now=NOW,
+        fix_round_config_default=None,
+    )
+    assert len(plan.blocked) == 1
+    reason = plan.blocked[0].reason
+    assert "3 work leg(s)" in reason
+    assert "2 lifetime infra-failed launch(es)" in reason
+    assert "not counted against this row's budget" in reason
+
+
+def test_ceiling_block_reason_omits_the_infra_note_when_there_are_none():
+    """The common case (`infra_failed_leg_count == 0`) must not grow a
+    dangling "+ 0 infra-failed launch(es)" clause."""
+    facts = IssueFacts(known=True, issue_state="open", work_leg_count=3)
+    view = BoardView(issues={entry_key(REPO, 1650): facts})
+    plan = plan_tick(
+        [_dead_running_entry(attempts=0)],
+        view,
+        capacity=1,
+        now=NOW,
+        fix_round_config_default=None,
+    )
+    assert "infra-failed" not in plan.blocked[0].reason
+
+
 def test_a_relaunch_past_the_ceiling_also_blocks():
     """Comfortably over budget (a stale re-add, a hand-edited count) still
     blocks — the check is `<=`, not `==`."""
@@ -1556,6 +1625,174 @@ def test_a_relaunch_past_the_ceiling_also_blocks():
     view = BoardView(issues={entry_key(REPO, 1650): facts})
     plan = plan_tick([_dead_running_entry()], view, capacity=1, now=NOW)
     assert plan.reconciles[0].outcome == "exhausted"
+
+
+# ── #3998: coord.state's own split of real vs infra-failed launches ────────
+#
+# `build_board_view`'s fold (pinned above) trusts whatever `coord.state.
+# leg_counts()`/`_leg_counts_local()` hand it — these exercise THAT split
+# against a real DB, the quadraui#2347 evidence table itself: a worktree-
+# setup failure and a `#3912` conflicting-worktree refusal, both status
+# `failed` with no `claude_session_id` ever captured, alongside the two
+# real `done` legs that actually ran.
+#
+# These are `coord.state`-internal, DB-backed tests, which this module's own
+# docstring scopes to "the pure half" — they live here rather than in
+# `tests/test_state.py` because #3998's briefing named only this file for
+# test changes; they hit `coord_db` directly (unlike this module's usual
+# `coord.state`-patching style) for the same reason the functions under
+# test do: `_leg_counts_local`/`_work_leg_count_for_issue_local` only make
+# sense against real `assignments`/`assignments_archive` rows.
+
+
+def _insert_assignment_leg(
+    conn,
+    *,
+    assignment_id: str,
+    issue_number: int = 1650,
+    status: str = "done",
+    assignment_type: str = "work",
+    claude_session_id: str | None = "a-real-session-id",
+    failure_reason: str | None = None,
+    unreachable_count: int = 0,
+    cost_usd: float | None = None,
+) -> None:
+    conn.execute(
+        """INSERT INTO assignments
+           (assignment_id, machine_name, repo_name, repo_github,
+            issue_number, issue_title, status, type, claude_session_id,
+            failure_reason, unreachable_count, cost_usd)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            assignment_id,
+            "dell64",
+            REPO,
+            "acme/" + REPO,
+            issue_number,
+            "Some issue",
+            status,
+            assignment_type,
+            claude_session_id,
+            failure_reason,
+            unreachable_count,
+            cost_usd,
+        ),
+    )
+    conn.commit()
+
+
+def test_leg_counts_local_excludes_a_never_started_launch(coord_db):
+    """quadraui#2347's exact shape: a worktree-setup failure
+    (`a367583a5247`) and a #3912 conflicting-worktree refusal
+    (`704ee7e88fd9`) — both `status='failed'`, neither ever captured a
+    `claude_session_id` — must not count as real work legs, while the two
+    `done` legs that actually ran (`fbc1554e1abd`, `74b7a803cbdf`) still do."""
+    from coord.state import _leg_counts_local
+
+    _insert_assignment_leg(
+        coord_db, assignment_id="a367583a5247", status="failed",
+        claude_session_id=None,
+    )
+    _insert_assignment_leg(
+        coord_db, assignment_id="704ee7e88fd9", status="failed",
+        claude_session_id=None,
+    )
+    _insert_assignment_leg(coord_db, assignment_id="fbc1554e1abd", status="done")
+    _insert_assignment_leg(coord_db, assignment_id="74b7a803cbdf", status="done")
+
+    counts = _leg_counts_local()
+    by_type = counts[entry_key(REPO, 1650)]
+    assert by_type["work"] == 2
+    assert by_type[INFRA_FAILED_LAUNCH_KEY] == 2
+
+
+def test_leg_counts_local_counts_a_failed_leg_with_a_session_as_real(coord_db):
+    """A `failed` leg that DID capture a session id (the worker started,
+    then crashed) is a real attempt and must count as a normal `work` leg,
+    not an infra-failed launch — `status` alone must never decide this."""
+    from coord.state import _leg_counts_local
+
+    _insert_assignment_leg(
+        coord_db, assignment_id="crashed-mid-run", status="failed",
+        claude_session_id="sess-123",
+    )
+
+    counts = _leg_counts_local()
+    by_type = counts[entry_key(REPO, 1650)]
+    assert by_type["work"] == 1
+    assert INFRA_FAILED_LAUNCH_KEY not in by_type
+
+
+@pytest.mark.parametrize(
+    "witness_kwargs",
+    [
+        pytest.param({"failure_reason": "usage-limit"}, id="failure_reason"),
+        pytest.param({"unreachable_count": 3}, id="unreachable_count"),
+        pytest.param({"cost_usd": 1.23}, id="cost_usd"),
+    ],
+)
+def test_leg_counts_local_counts_a_failed_leg_with_run_evidence_as_real(
+    coord_db, witness_kwargs
+):
+    """`status='failed'` with no `claude_session_id` is NOT sufficient on
+    its own to exclude a leg: the #3314 capture race drops a session id
+    for a leg that DID run, and `coord.reconcile`'s stale-host sweep
+    terminates a leg via `mark_failed_by_id` with no `/status` entry to
+    capture a session id from at all — both land in this exact shape. Any
+    ONE positive witness that a session actually ran (a `failure_reason`
+    `coord.reconcile` stamps, a nonzero `unreachable_count` from the
+    stale-host sweep, or a billed `cost_usd`) must be enough to still
+    count the leg as real work, never as an infra-failed launch."""
+    from coord.state import _leg_counts_local
+
+    _insert_assignment_leg(
+        coord_db, assignment_id="ran-but-no-session-id", status="failed",
+        claude_session_id=None, **witness_kwargs,
+    )
+
+    counts = _leg_counts_local()
+    by_type = counts[entry_key(REPO, 1650)]
+    assert by_type["work"] == 1
+    assert INFRA_FAILED_LAUNCH_KEY not in by_type
+
+
+def test_work_leg_count_for_issue_local_excludes_infra_failed_launches(coord_db):
+    """`_enqueue_drive_queue_local`'s `legs_at_enqueue` baseline must use the
+    SAME real-leg-only definition `_leg_counts_local` does, or a freshly
+    re-added row's budget would be computed against two different
+    counts."""
+    from coord.db import get_connection
+    from coord.state import _work_leg_count_for_issue_local
+
+    _insert_assignment_leg(
+        coord_db, assignment_id="a367583a5247", status="failed",
+        claude_session_id=None,
+    )
+    _insert_assignment_leg(coord_db, assignment_id="fbc1554e1abd", status="done")
+
+    conn = get_connection()
+    assert _work_leg_count_for_issue_local(conn, REPO, 1650) == 1
+
+
+def test_work_leg_count_for_issue_local_counts_a_failed_leg_with_run_evidence(
+    coord_db,
+):
+    """Same inverse shape as `test_leg_counts_local_counts_a_failed_leg_
+    with_run_evidence_as_real`, pinned against the SQL-predicate path
+    (`_NOT_INFRA_FAILED_LAUNCH_SQL`) rather than the Python mirror
+    (`_is_infra_failed_launch`) — a `failed` leg with no `claude_session_id`
+    but a nonzero `unreachable_count` (the stale-host reconcile sweep)
+    still counts toward the budget baseline."""
+    from coord.db import get_connection
+    from coord.state import _work_leg_count_for_issue_local
+
+    _insert_assignment_leg(
+        coord_db, assignment_id="host-went-unreachable-mid-run", status="failed",
+        claude_session_id=None, unreachable_count=5,
+    )
+
+    conn = get_connection()
+    assert _work_leg_count_for_issue_local(conn, REPO, 1650) == 1
 
 
 # ── #3577: a merge-stage exit must not be charged to the fix-round budget ───
@@ -7886,6 +8123,221 @@ def test_a_parked_triage_pending_entry_resumes_once_the_verdict_posts():
     assert reconcile.outcome == "resumed"
     assert reconcile.updates["state"] == STATE_WAITING
     assert reconcile.updates["attempts"] == 0
+
+
+# ── #4004: a Work dispatch refused by the live credential/health probe is
+# RE-EVALUABLE, not permanent (#1844) ────────────────────────────────────────
+#
+# quadraui#2361 (2026-11-14): precision's `/health` was intermittently slow
+# enough that `coord.dispatch_liveness.check_dispatch_liveness`'s
+# `PREDICATE_MACHINE_UNHEALTHY` refused the dispatch, which reaches `coord
+# drive`'s subprocess boundary with the SAME `EXIT_DISPATCH_REFUSED` code
+# every OTHER `DispatchRefused` carries (#1844) — but `claude -p` on
+# precision worked fine minutes later. Before this, it fell into the
+# generic `exit_refused` → `blocked` branch and stayed blocked forever
+# (and #2362 cascaded `blocked` onto every `after=` dependent), requiring
+# `coord drive-queue doctor-act requeue` by hand.
+
+CREDENTIAL_REFUSAL = (
+    "drive exited for claude-coordinator#2361 (exit_code=5): dispatch "
+    "failed: machine 'precision' failed a live health/credential probe — "
+    "not routable (#3371/#3376): re-authenticate (`claude` or `claude "
+    "setup-token`) on that host, or approve/assign this to a different "
+    "machine. [credential-probe-refusal #4004]"
+)
+
+
+def test_a_credential_probe_refusal_blocks_as_re_evaluable_not_permanent():
+    """The acceptance bar: NOT the generic `refused` outcome — a distinct
+    `credential_blocked` one, with NONE of `_PERMANENT_BLOCK_MARKERS`' own
+    text in the stored reason, so a later tick's `is_permanent_block_
+    reason` reads `False` for this row."""
+    from coord.drive_queue import is_permanent_block_reason
+
+    entries = [entry(2361, position=3, state=STATE_RUNNING, attempts=0)]
+    plan = plan_tick(
+        entries, board(), capacity=1,
+        exit_reasons={entry_key(REPO, 2361): CREDENTIAL_REFUSAL},
+        exit_refused={entry_key(REPO, 2361): True},
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "credential_blocked"
+    assert reconcile.occupies is False
+    assert "attempts" not in reconcile.updates
+    blocked = plan.blocked[0]
+    assert blocked.updates["state"] == STATE_BLOCKED
+    assert CREDENTIAL_REFUSAL in blocked.updates["last_reason"]
+    assert not is_permanent_block_reason(blocked.updates["last_reason"])
+    assert "(#1844)" not in blocked.updates["last_reason"]
+
+
+def test_a_credential_probe_refusal_stays_blocked_while_still_unroutable():
+    """No live evidence, or still-refused evidence, leaves the row
+    untouched — the no-opinion convention every other live recheck in this
+    module shares."""
+    entries = [
+        entry(
+            2361, position=3, state=STATE_BLOCKED,
+            last_reason=CREDENTIAL_REFUSAL,
+        )
+    ]
+    plan_no_evidence = plan_tick(
+        entries, board(), capacity=1, live_credential_routing_clear={},
+    )
+    assert plan_no_evidence.reconciles == ()
+    assert plan_no_evidence.launch is None
+
+    plan_still_refused = plan_tick(
+        entries, board(), capacity=1,
+        live_credential_routing_clear={entry_key(REPO, 2361): False},
+    )
+    assert plan_still_refused.reconciles == ()
+    assert plan_still_refused.launch is None
+
+
+def test_a_credential_probe_refusal_resumes_when_a_machine_probes_routable():
+    """Scenario (a): the shell's live re-check confirms a capable machine
+    now probes routable — the row returns to `waiting` with its attempt
+    budget reset, no operator action, falling straight into this tick's
+    launch selection."""
+    entries = [
+        entry(
+            2361, position=3, state=STATE_BLOCKED,
+            last_reason=CREDENTIAL_REFUSAL,
+        )
+    ]
+    plan = plan_tick(
+        entries, board(), capacity=1,
+        live_credential_routing_clear={entry_key(REPO, 2361): True},
+        live_credential_routing_reason={
+            entry_key(REPO, 2361): "macmini now probes routable"
+        },
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "credential_routing_recovered"
+    assert reconcile.updates["state"] == STATE_WAITING
+    assert reconcile.updates["attempts"] == 0
+    assert reconcile.updates["resumes"] == 1
+    assert "macmini now probes routable" in reconcile.reason
+    assert plan.launch is not None and plan.launch.issue == 2361
+
+
+def test_a_credential_probe_refusal_inside_its_grace_window_is_not_resumed_yet():
+    """#3536-style anti-flap, same as the Test-stage routing sibling: a
+    row whose `last_reason` was recorded less than
+    `CREDENTIAL_ROUTING_RECHECK_GRACE_SECONDS` ago must not be bounced back
+    to `waiting` on this same tick."""
+    from coord.drive_queue import CREDENTIAL_ROUTING_RECHECK_GRACE_SECONDS
+
+    entries = [
+        entry(
+            2361, position=3, state=STATE_BLOCKED,
+            last_reason=CREDENTIAL_REFUSAL,
+            reason_at=NOW - (CREDENTIAL_ROUTING_RECHECK_GRACE_SECONDS / 2),
+        )
+    ]
+    plan = plan_tick(
+        entries, board(), capacity=1, now=NOW,
+        live_credential_routing_clear={entry_key(REPO, 2361): True},
+    )
+    assert plan.reconciles == ()
+    assert plan.launch is None
+
+
+def test_a_credential_probe_refusal_past_max_resumes_reports_oscillating():
+    """#2230's churn bound applies here too, layering the note on top of
+    the original cause rather than replacing it wholesale — a wholesale
+    replacement would strip `CREDENTIAL_PROBE_REFUSAL_MARKER` and make the
+    row fall out of `is_credential_probe_refusal_reason` on the very next
+    tick."""
+    from coord.drive_queue import MAX_BLOCKED_RESUMES, is_permanent_block_reason
+    from coord.dispatch_liveness import is_credential_probe_refusal_reason
+
+    entries = [
+        entry(
+            2361, position=3, state=STATE_BLOCKED,
+            last_reason=CREDENTIAL_REFUSAL, resumes=MAX_BLOCKED_RESUMES,
+        )
+    ]
+    plan = plan_tick(
+        entries, board(), capacity=1,
+        live_credential_routing_clear={entry_key(REPO, 2361): True},
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "oscillating"
+    assert reconcile.updates.get("state") != STATE_WAITING
+    assert str(MAX_BLOCKED_RESUMES) in reconcile.reason
+    assert plan.launch is None
+
+    noted_reason = reconcile.updates["last_reason"]
+    assert is_credential_probe_refusal_reason(noted_reason)
+    assert not is_permanent_block_reason(noted_reason)
+
+    entries_again = [
+        entry(
+            2361, position=3, state=STATE_BLOCKED,
+            last_reason=noted_reason, resumes=MAX_BLOCKED_RESUMES,
+        )
+    ]
+    plan_again = plan_tick(
+        entries_again, board(), capacity=1,
+        live_credential_routing_clear={entry_key(REPO, 2361): True},
+    )
+    assert plan_again.reconciles == ()
+    assert plan_again.launch is None
+
+
+def test_an_unrelated_1844_refusal_never_gets_the_credential_treatment():
+    """`is_credential_probe_refusal_reason` is marker-based — an ordinary
+    oracle-readiness/epic-guard refusal (no `CREDENTIAL_PROBE_REFUSAL_
+    MARKER`) must still get the generic PERMANENT `refused` treatment,
+    unchanged by this issue."""
+    entries = [entry(1817, state=STATE_RUNNING, attempts=0)]
+    plan = plan_tick(
+        entries, board(), capacity=1,
+        exit_reasons={entry_key(REPO, 1817): REFUSAL},
+        exit_refused={entry_key(REPO, 1817): True},
+    )
+    assert plan.reconciles[0].outcome == "refused"
+
+
+def test_a_mass_credential_routing_recovery_is_also_staggered():
+    """#3536 review (round 1 of #4004): one host's credential/health probe
+    coming back routable is the SAME many-rows-one-latch clear shape as a
+    merge-gate latch (#2230) or an `after=` prereq cascade (#2362) — one
+    `coord drive-queue` tick's live re-check can confirm EVERY row blocked
+    on that host at once, each then driving its own live `gh` re-checks on
+    the very next poll. `credential_routing_recovered` must count against
+    the SAME per-repo `max_resumes_per_tick_per_repo` stagger cap, not
+    release unthrottled as a fourth, uncapped path."""
+    entries = [
+        entry(
+            2361 + i, position=i, state=STATE_BLOCKED,
+            last_reason=CREDENTIAL_REFUSAL, resumes=0,
+        )
+        for i in range(3)
+    ]
+    plan = plan_tick(
+        entries, board(), capacity=4,
+        live_credential_routing_clear={
+            entry_key(REPO, 2361 + i): True for i in range(3)
+        },
+    )
+    by_key = {r.key: r for r in plan.reconciles}
+    resumed = [k for k, r in by_key.items() if r.outcome == "credential_routing_recovered"]
+    staggered = [k for k, r in by_key.items() if r.outcome == "resume_staggered"]
+    # Default cap is 2 — the two earliest-positioned rows recover this
+    # tick; the third is staggered exactly like a #2230/#2362 mass clear
+    # would be.
+    assert sorted(resumed) == sorted(
+        [entry_key(REPO, 2361), entry_key(REPO, 2362)]
+    )
+    assert staggered == [entry_key(REPO, 2363)]
+
+    staggered_reconcile = by_key[entry_key(REPO, 2363)]
+    assert "state" not in staggered_reconcile.updates  # stays blocked
+    assert "resumes" not in staggered_reconcile.updates  # budget not spent
+    assert "#3536" in staggered_reconcile.reason
 
 
 # ── plan_tick: a dead-end exit blocks the entry (#2019) ──────────────────────

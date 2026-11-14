@@ -12,7 +12,7 @@ class CheckHadoopDataSourceRequest(DaraModel):
         data_source_id: str = None,
         region_id: str = None,
     ):
-        # The Hadoop path to be checked.
+        # The Hadoop path to check.
         # 
         # This parameter is required.
         self.check_dir = check_dir

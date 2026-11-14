@@ -11,11 +11,11 @@ class RebuildDBInstanceResponseBody(DaraModel):
         request_id: str = None,
         task_id: int = None,
     ):
-        # The queue number for the rebuild. When the number is 0, the rebuild migration starts.
+        # The queue number for the rebuild task. When the number is 0, the rebuild and migration process starts.
         self.migration_id = migration_id
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
-        # The task ID.
+        # The ID of the task.
         self.task_id = task_id
 
     def validate(self):

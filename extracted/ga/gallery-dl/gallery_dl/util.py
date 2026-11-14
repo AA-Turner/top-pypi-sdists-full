@@ -362,7 +362,7 @@ Response Headers
             else:
                 cookies = "\n".join(f"{c.name}: {c.value} ({c.expires or 0})"
                                     for c in response.cookies)
-        output = f"""{output}
+            output = f"""{output}
 Response Cookies
 ----------------
 {cookies}

@@ -19,18 +19,18 @@ class AllocateReadWriteSplittingConnectionRequest(DaraModel):
         resource_owner_id: int = None,
         weight: str = None,
     ):
-        # The prefix of the read-only endpoint. The prefix must be unique, can contain lowercase letters and hyphens (-), must start with a letter, and cannot exceed 30 characters in length.
+        # The prefix of the read-only endpoint. The prefix must be unique and can contain only lowercase letters and hyphens. It must start with a letter and be up to 30 characters in length.
         # 
-        # > By default, the prefix is in the format of "instance name + rw".
+        # > By default, the prefix consists of the instance name followed by "rw".
         self.connection_string_prefix = connection_string_prefix
-        # The ID of the primary instance. You can call DescribeDBInstances to query the instance ID.
+        # Instance ID of the primary instance. You can call the DescribeDBInstances operation to query instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The mode of read weight distribution. Valid values:
+        # The read weight distribution mode. Valid values:
         # 
-        # - **Standard**: Read weights are automatically assigned based on instance specifications.
-        # - **Custom**: Read weights are manually assigned.
+        # - **Standard**: automatic distribution based on instance specifications
+        # - **Custom**: custom weight distribution
         self.distribution_type = distribution_type
         # The latency threshold. Valid values: 0 to 7200. Unit: seconds. Default value: 30.
         # 
@@ -38,10 +38,10 @@ class AllocateReadWriteSplittingConnectionRequest(DaraModel):
         self.max_delay_time = max_delay_time
         # The network type of the read-only endpoint. Valid values:
         # 
-        # - **Internet**: public endpoint.
-        # - **Intranet**: internal endpoint.
+        # - **Internet**: public network
+        # - **Intranet**: internal network
         # 
-        # > The default value is Intranet, and the network type of the internal endpoint is the same as that of the primary instance.
+        # > Default value: Intranet. The internal network type is consistent with that of the primary instance.
         self.net_type = net_type
         self.owner_account = owner_account
         self.owner_id = owner_id
@@ -49,13 +49,13 @@ class AllocateReadWriteSplittingConnectionRequest(DaraModel):
         self.port = port
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The read weight distribution, which specifies the ratio of read requests that are routed to the primary instance and read-only instances. The value is incremented in steps of 100. Maximum value: 10000.
+        # The read weight distribution, which specifies the ratio of read requests routed to the primary and read-only instances. The value must be a multiple of 100. Maximum value: 10000.
         # 
         # * Format for ApsaraDB RDS instances: `{"<Read-only instance ID>":<Weight>,"master":<Weight>,"slave":<Weight>}`
-        # * Format for MyBASE instances: `[{"instanceName":"<Primary instance ID>","weight":<Weight>,"role":"master"},{"instanceName":"<Primary instance ID>","weight":<Weight>,"role":"slave"},{"instanceName":"<Read-only instance ID>","weight":<Weight>,"role":"master"}]`
+        # * Format for ApsaraDB MyBase instances: `[{"instanceName":"<Primary instance ID>","weight":<Weight>,"role":"master"},{"instanceName":"<Primary instance ID>","weight":<Weight>,"role":"slave"},{"instanceName":"<Read-only instance ID>","weight":<Weight>,"role":"master"}]`
         # 
-        # > - This parameter is required when **DistributionType** is set to **Custom**.
-        # > - This parameter is invalid when **DistributionType** is set to **Standard**.
+        # > - If **DistributionType** is set to **Custom**, this parameter is required.
+        # > - If **DistributionType** is set to **Standard**, this parameter is invalid.
         self.weight = weight
 
     def validate(self):

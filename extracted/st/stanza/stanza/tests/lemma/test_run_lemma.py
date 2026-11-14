@@ -272,7 +272,8 @@ def trained_model_path(tmp_path_factory, pretrain_file):
 
     command_args = argparse.Namespace(
         # No charlm: keeps the test fast and avoids downloads.
-        # lemma_classifier == None means "use classifiers iff charlm is set",
+        # lemma_classifier == None would skip the classifier for a
+        # nocharlm en_combined model, since English has a charlm,
         # so we set it explicitly to True to always exercise the classifier path.
         charlm=None,
         save_output=False,
@@ -285,7 +286,9 @@ def trained_model_path(tmp_path_factory, pretrain_file):
         save_dir=None,
         save_name=None,
         wordvec_pretrain_file=str(pretrain_file),
-        # currently not tested
+        # no en_combined.dict.conllu is written to the data dir, so this
+        # trains without an external dictionary.  The dictionary handling
+        # is tested in test_convert_en_specialist.py
         secondary_file=None,
         use_secondary_file=True,
     )

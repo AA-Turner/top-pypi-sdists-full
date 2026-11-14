@@ -1,18 +1,20 @@
 """The short id an agent names one review item by, and how a decision binds it.
 
 A review item carries a `ref` that names it and a `fingerprint` that names the signal as read. The
-id is `<head of ref>.<tail of fingerprint>`. Triage binds it before writer admission by
-reading the review queues once: the item that still holds the ref and the fingerprint supplies the
-guards the decision needs, and a stale id is refused with the current one.
+id is `<head of ref>.<tail of fingerprint>`. Triage binds it before writer admission: the item that
+still holds the ref and the fingerprint supplies the guards the decision needs, and a stale id is
+refused with the current one. A stored due entry binds its own id (`bind_decision`); the review
+queues are read for any other id (`bind`).
 """
 
 from __future__ import annotations
 
 import functools
+import sys
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from . import page_ids, relation_queue
+from . import attention, page_ids, relation_queue
 from .cli_ops import OpError
 from .public_tools import REVIEW_QUEUES
 
@@ -20,7 +22,8 @@ from .public_tools import REVIEW_QUEUES
 #: listing gave is found where it came from. One source: the listing's own queue table.
 QUEUE_MODES: tuple[str, ...] = tuple(dict.fromkeys(REVIEW_QUEUES.values()))
 RELATION_QUEUE_MODES: tuple[str, ...] = (REVIEW_QUEUES["relation_suggestions"],)
-_SCAN_LIMIT = 200
+#: The limit of a whole read: each queue lists every item, or clamps to its own maximum page.
+_WHOLE = sys.maxsize
 
 
 def item_id(item: Mapping[str, Any]) -> str | None:
@@ -71,15 +74,17 @@ def bind(
 ) -> dict[str, str]:
     """The `ref`, `expected_fingerprint` and `source_path` (a relation suggestion's page) that `item` stands for.
 
-    `read(mode=..., limit=..., [state=...])` is the review reader. The first queue of `modes` that
-    holds the id's head decides; a held head with another version is stale.
+    `read(mode=..., limit=..., [state=...])` is the review reader. It reads each queue whole, so
+    an item ranked anywhere binds, and records no surfacing. The first queue of `modes` that holds
+    the id's head decides; a held head with another version is stale.
     """
     head = item.partition(".")[0]
     for mode in modes:
         try:
             # `state="all"` lets a dismissed or snoozed item be found to reopen; a queue without
             # states ignores it.
-            reply = read(mode=mode, limit=_SCAN_LIMIT, state="all")
+            with attention.lookup():
+                reply = read(mode=mode, limit=_WHOLE, state="all")
         except (ValueError, OpError):
             # A queue this principal or vault cannot read holds no item to bind; the next one may.
             continue
@@ -106,3 +111,21 @@ def bind(
         f"review item {item} is on no review queue; list the review items for the current ids.",
     )
 
+
+def bind_decision(
+    read: Callable[..., Any], *, item: str, stored: list[tuple[str, str]]
+) -> dict[str, str]:
+    """What a triage decision's `item` stands for: its stored due entry, else what `bind` finds.
+
+    `stored` holds the `(ref, fingerprint)` of each stored due entry with the id's head
+    (`due_state.stored_by_head`). A due entry's id is given out by responses that are not review
+    listings, for families that no listing holds, so only the stored entry can bind it.
+
+    Only the entry's own id binds here. A listed item can fuse a stored entry with other signals
+    of its page under the same reference, and only its queue knows that fingerprint, so an id
+    that is not a stored entry's exact id binds from the queues as before.
+    """
+    for ref, fingerprint in stored:
+        if page_ids.part_id(ref, fingerprint) == item:
+            return {"ref": ref, "expected_fingerprint": fingerprint}
+    return bind(read, item=item)

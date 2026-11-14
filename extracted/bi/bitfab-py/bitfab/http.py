@@ -1283,6 +1283,7 @@ class HttpClient:
         *,
         code_change_files: list[dict[str, str]] | None = None,
         force: bool = False,
+        retry_errored: bool = False,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "experimentId": experiment_id,
@@ -1293,6 +1294,8 @@ class HttpClient:
             payload["codeChangeFiles"] = code_change_files
         if force:
             payload["force"] = True
+        if retry_errored:
+            payload["retryErrored"] = True
         git_state = resolved_git_state()
         if git_state is not None and not is_empty_git_state(git_state):
             payload["git"] = git_state

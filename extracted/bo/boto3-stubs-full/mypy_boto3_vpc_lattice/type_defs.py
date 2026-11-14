@@ -815,6 +815,7 @@ class UpdateAccessLogSubscriptionRequestTypeDef(TypedDict):
 class UpdateResourceGatewayRequestTypeDef(TypedDict):
     resourceGatewayIdentifier: str
     securityGroupIds: NotRequired[Sequence[str]]
+    resourceConfigDnsResolution: NotRequired[ResourceConfigDnsResolutionType]
 
 
 class UpdateServiceNetworkRequestTypeDef(TypedDict):
@@ -1025,6 +1026,7 @@ UpdateResourceGatewayResponseTypeDef = TypedDict(
         "subnetIds": list[str],
         "securityGroupIds": list[str],
         "ipAddressType": IpAddressTypeType,
+        "resourceConfigDnsResolution": ResourceConfigDnsResolutionType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

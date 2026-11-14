@@ -53,7 +53,7 @@ class XArm7Rig(JointRig):
     groups = ARMS
     value_labels = (*(f"joint {i}" for i in range(1, JOINTS + 1)), "gripper")
     value_units = ("rad",) * JOINTS + ("intent",)
-    control_period_s = 1 / 20
+    control_period_s = 1 / 20  # a Hy-VLA session sets its deployment's rate when it binds
     fault_error = XArm7RigError
     stopped_error = XArm7TaskStopped
     limits_name = "arm's joint limits"

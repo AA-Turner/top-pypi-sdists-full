@@ -4,21 +4,33 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .doc_ai_example import DocAiExample
 
 
 class DocAiClassifyCategory(UniversalBaseModel):
-    """
-    A category to label documents with. Names are yours to choose and must be unique, ignoring case and surrounding spaces.
-    """
-
     type: str = pydantic.Field()
     """
-    Category name returned as the result `type`. Must be unique.
+    Category name, returned as the result `type`.
     """
 
-    description: str = pydantic.Field()
+    description: typing.Optional[str] = pydantic.Field(default=None)
     """
     What belongs in this category. Clear descriptions improve accuracy.
+    """
+
+    identifier_key: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Plain words naming the value that identifies one document of this type, e.g. `"invoice number"`. Returned as `identifier`.
+    """
+
+    positive_examples: typing.Optional[typing.List[DocAiExample]] = pydantic.Field(default=None)
+    """
+    Up to 8 example documents that belong in this category.
+    """
+
+    negative_examples: typing.Optional[typing.List[DocAiExample]] = pydantic.Field(default=None)
+    """
+    Up to 8 example documents that do not belong in this category.
     """
 
     if IS_PYDANTIC_V2:

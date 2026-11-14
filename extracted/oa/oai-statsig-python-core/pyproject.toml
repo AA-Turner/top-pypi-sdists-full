@@ -29,3 +29,13 @@ features = ["pyo3/extension-module", "pyo3/abi3-py310"]
 include = ["statsig_python_core.pyi"]
 manifest-path = "statsig-pyo3/Cargo.toml"
 python-source = "py_src"
+
+[tool.ruff]
+extend-exclude = ["py_src/statsig_python_core/statsig_python_core.pyi"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# The package exposes the public names from the native extension and SDK modules.
+"py_src/statsig_python_core/__init__.py" = ["F403"]

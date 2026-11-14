@@ -1,15 +1,13 @@
 Metadata-Version: 2.4
 Name: fastdigest
-Version: 0.12.0
+Version: 0.13.0
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Rust
@@ -23,17 +21,17 @@ Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE
-Summary: A fast t-digest library for Python built on Rust.
+Summary: Fast online statistics using t-digest
 Keywords: t-digest,tdigest,statistics,quantile,percentile,online learning,streaming,big data,aggregation,real-time analytics,anomaly detection,rust,pyo3
 Author-email: Moritz Mucha <fastdigestlibrary@gmail.com>
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Repository, https://github.com/moritzmucha/fastdigest
 
 # fastDigest
 
 [![PyPI](https://img.shields.io/pypi/v/fastdigest.svg)](https://pypi.org/project/fastdigest/)
-[![Python](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Build](https://github.com/moritzmucha/fastdigest/actions/workflows/build.yml/badge.svg)](https://github.com/moritzmucha/fastdigest/actions)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
@@ -77,22 +75,20 @@ pip install fastdigest
 
 ### Installing from source
 
-To build and install *fastDigest* from source, you will need Rust and *maturin*.
+Install Python 3.10+ and [Rust](https://rustup.rs), then download or clone this repository and open a terminal in its root directory.
+Then you can either:
 
-1. Install the Rust toolchain &rarr; see https://rustup.rs
+- Directly build and install *fastDigest* in your active Python environment in a single step:
 
-2. Install *maturin* via pip:
+  ```bash
+  pip install .
+  ```
 
-```bash
-pip install maturin
-```
+- Or use [uv](https://docs.astral.sh/uv/) to build a release wheel with the project's locked dependencies:
 
-3. `git clone` or download and extract this repository, open a terminal in its root directory, then build and install the package:
-
-```bash
-maturin build --release
-pip install target/wheels/fastdigest-0.12.0-<platform-tag>.whl
-```
+  ```bash
+  uv run --locked maturin build --release
+  ```
 
 ## Usage
 
@@ -149,7 +145,6 @@ digest.update(3)
 Optionally specify weights in the second argument `w`:
 
 ```python
-
 digest.update(4, 0.4)  # single weighted value
 digest.batch_update([5, 6, 7], w=1.5)  # whole-batch weight
 digest.batch_update([8, 9], [1.0, 2.0])  # per-value weights

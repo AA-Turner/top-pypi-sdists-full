@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bsdiff4
-Version: 1.4.2
+Version: 1.4.3
 Summary: binary diff and patch using the BSDIFF4-format
 Home-page: https://github.com/ilanschnell/bsdiff4
 Author: Ilan Schnell
@@ -90,6 +90,6 @@ Example:
    >>> b[100:106] = b' diff '
    >>> p = bsdiff4.diff(a, bytes(b))
    >>> len(p)
-   154
+   153
    >>> bsdiff4.patch(a, p) == b
    True

@@ -458,6 +458,12 @@ impl IdListIds {
             _ => None,
         }
     }
+    pub(super) fn packed_ef_section(&self) -> Option<&[u8]> {
+        match &self.storage {
+            Storage::Image(image) => image.packed_ef_section(),
+            _ => None,
+        }
+    }
     pub(crate) fn mapped_bytes(&self) -> usize {
         match &self.storage {
             Storage::Owned(_) => 0,

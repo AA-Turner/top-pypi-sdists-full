@@ -1,41 +1,34 @@
 Metadata-Version: 2.4
 Name: django-simple-captcha
-Version: 0.7.0
+Version: 0.8.0
 Summary: A very simple, yet powerful, Django captcha application
-Home-page: https://github.com/mbi/django-simple-captcha
-Author: Marco Bonetti
-Author-email: mbonetti@gmail.com
-License: MIT
+Author-email: Marco Bonetti <mbonetti@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/mbi/django-simple-captcha
+Project-URL: Source, https://github.com/mbi/django-simple-captcha
+Project-URL: Changelog, https://github.com/mbi/django-simple-captcha/blob/master/CHANGES
+Keywords: django,captcha,security
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Topic :: Security
 Classifier: Topic :: Internet :: WWW/HTTP
-Classifier: Framework :: Django
+Classifier: Topic :: Security
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: Django>=4.2
+Requires-Dist: Django>=5.2
 Requires-Dist: Pillow>=6.2.0
 Requires-Dist: django-ranged-response==0.2.0
 Provides-Extra: test
 Requires-Dist: testfixtures; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
 
 *********************
 Django Simple Captcha
@@ -67,7 +60,7 @@ Features
 Requirements
 ++++++++++++
 
-* Django 4.2+, Python3.8+
+* Django 5.2+, Python 3.10+
 * A recent version of the Pillow compiled with FreeType support
 * Flite is required for text-to-speech (audio) output, but not mandatory
 

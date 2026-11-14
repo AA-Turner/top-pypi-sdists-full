@@ -13,7 +13,11 @@ from pathlib import Path
 from typing import Any, Mapping, Optional
 
 from ...config_flags import check_flag
-from ...constants import DEFAULT_TM_PORT, FIXED_DELTA_SECONDS
+from ...constants import (
+    CARLA_BICYCLE_BLUEPRINTS,
+    DEFAULT_TM_PORT,
+    FIXED_DELTA_SECONDS,
+)
 from ..fidelity import MesoscopicConfig, _number
 from ..parameters import BICYCLE_PARAMETER_BACKENDS
 from .signal_states import sumo_step
@@ -31,11 +35,7 @@ _SCENARIO_VEHICLE_DRIVERS = ("traffic_manager", "sumo")
 _SCENARIO_PEDESTRIAN_DRIVERS = ("traffic_manager", "sumo")
 _VEHICLE_CONTROLS = ("physics", "teleport")
 #: CARLA's bicycles, any of which a SUMO bicycle is mirrored as.
-DEFAULT_BICYCLE_BLUEPRINTS = (
-    "vehicle.bh.crossbike",
-    "vehicle.diamondback.century",
-    "vehicle.gazelle.omafiets",
-)
+DEFAULT_BICYCLE_BLUEPRINTS = CARLA_BICYCLE_BLUEPRINTS
 
 
 def _check_count(key: str, value: Optional[int]) -> None:
@@ -473,8 +473,9 @@ class SumoBackendConfig:
             nearest to the ego first; ``None`` for no limit, ``0`` for none
             (they drive in SUMO only, where its traffic still sees them).
         mesoscopic: Simulate SUMO's vehicles far from the ego (and from every
-            vehicle CARLA drives) in a mesoscopic queue model instead of in
-            SUMO, with no actor in CARLA, and put them back into SUMO -- and
+            vehicle CARLA drives) in a mesoscopic model -- SUMO's own
+            (``--mesosim``, a second SUMO) or the in-process queue model, as
+            its ``engine`` says -- instead of in SUMO, with no actor in CARLA, and put them back into SUMO -- and
             CARLA -- when they come near
             (:class:`~autoware_carla_scenario.traffic.fidelity.MesoscopicConfig`).
             Off by default.
@@ -639,4 +640,10 @@ class SumoBackendConfig:
         """The directory converted networks are cached in."""
         if self.cache_dir:
             return Path(self.cache_dir).expanduser()
-        return Path.home() / ".cache" / "autoware_carla_scenario" / "sumo"
+        return default_cache_dir()
+
+
+def default_cache_dir() -> Path:
+    """Where converted networks are cached unless ``cache_dir`` says
+    otherwise: one cache for every backend that converts the world's map."""
+    return Path.home() / ".cache" / "autoware_carla_scenario" / "sumo"

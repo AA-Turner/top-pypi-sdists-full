@@ -16,9 +16,10 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from ..sanitizers.normalizer import normalize_unicode
+from ..sanitizers.normalizer import normalize_for_detection, normalize_unicode
 from ..types import MultiheadConfig, RiskLevel, Tier2Result
 from ..utils.boundary import strip_boundary_patterns
+from ..utils.text import utf16_len
 from .onnx_classifier import BatchTokenStats, OnnxClassifier, get_default_model_path
 
 _logger = logging.getLogger(__name__)
@@ -108,6 +109,88 @@ def _coerce_float(value: Any) -> float | None:
     return None
 
 
+# 4+ repeats of the same non-word char (box-drawing ``─``, ``===``) tokenize one
+# token per char and score off-distribution, so they collapse to 3. (\w is
+# Unicode-aware in Python, so accented letters are kept.)
+_DECORATIVE_RUN = re.compile(r"([^\w\s])\1{3,}")
+
+
+_vocab_cache: dict[str, frozenset[str] | None] = {}
+_PUNCT_SPLIT = re.compile(r"([^a-z0-9])")
+
+
+def _wordpiece_vocab(model_dir: str) -> frozenset[str] | None:
+    """The model's WordPiece vocabulary, read from its ``tokenizer.json`` once. ``None`` unless the
+    tokenizer is BERT-style WordPiece, the one ``count_word_pieces`` mirrors: the leet gate is then
+    skipped."""
+    if model_dir not in _vocab_cache:
+        vocab = None
+        try:
+            with open(os.path.join(model_dir, "tokenizer.json"), encoding="utf-8") as f:
+                doc = json.load(f)
+            model = doc.get("model") or {}
+            normalizer = doc.get("normalizer") or {}
+            bert = (
+                model.get("type") == "WordPiece"
+                and model.get("continuing_subword_prefix", "##") == "##"
+                and model.get("max_input_chars_per_word", 100) == 100
+                and normalizer.get("type") == "BertNormalizer"
+                and normalizer.get("lowercase") is True
+                and (doc.get("pre_tokenizer") or {}).get("type") == "BertPreTokenizer"
+            )
+            if bert:
+                vocab = frozenset(model["vocab"])
+        except (OSError, ValueError, AttributeError):
+            pass  # No readable tokenizer.json: decode leet as Tier 1 does.
+        _vocab_cache[model_dir] = vocab
+    return _vocab_cache[model_dir]
+
+
+def count_word_pieces(word: str, vocab: frozenset[str]) -> int:
+    """How many WordPiece tokens the model's tokenizer splits a word into: lowercased,
+    punctuation split off, greedy longest match. A word it can't split (or over 100
+    chars) is one unknown token."""
+    count = 0
+    for part in _PUNCT_SPLIT.split(word.lower()):
+        if not part:
+            continue
+        if len(part) > 100:
+            count += 1
+            continue
+        pieces = 0
+        i = 0
+        while i < len(part):
+            j = len(part)
+            while j > i and (part[:j] if i == 0 else "##" + part[i:j]) not in vocab:
+                j -= 1
+            if j == i:
+                pieces = 1
+                break
+            i = j
+            pieces += 1
+        count += pieces
+    return count
+
+
+def normalize_for_classification(text: str, model_dir: str | None = None) -> str:
+    """Tier 2's input: boundary markers stripped, obfuscation undone, decorative
+    runs collapsed. Never returned to callers.
+
+    Unlike Tier 1's copy, URLs and emails keep their separators, and a leet token is
+    decoded only when the model reads it in at most half the tokens ("1gn0r3" ->
+    "ignore", while "8a1c" stays): decoded IDs and split-up URLs read as words the
+    model never saw there. A model without a WordPiece tokenizer gets every leet token decoded.
+    """
+    vocab = _wordpiece_vocab(model_dir or get_default_model_path())
+    gate = None
+    if vocab is not None:
+        gate = lambda token, decoded: 2 * count_word_pieces(decoded, vocab) <= count_word_pieces(token, vocab)  # noqa: E731
+    normalised = normalize_for_detection(
+        strip_boundary_patterns(normalize_unicode(text)), keep_links=True, leet_gate=gate
+    )
+    return _DECORATIVE_RUN.sub(r"\1\1\1", normalised)
+
+
 class Tier2Classifier:
     """Tier 2 Classifier using ONNX inference.
 
@@ -163,7 +246,10 @@ class Tier2Classifier:
         self._degeneracy_max_token_share: float = float(merged["degeneracy_max_token_share"])
 
         self._onnx = OnnxClassifier(
-            self._model_path, self._temperature_t, self._degeneracy_max_token_share
+            self._model_path,
+            self._temperature_t,
+            self._degeneracy_max_token_share,
+            merged.get("onnx_threads"),
         )
 
     # ------------------------------------------------------------------
@@ -180,31 +266,17 @@ class Tier2Classifier:
     # Single-text classify
     # ------------------------------------------------------------------
 
-    # Collapse 4+ repeats of the same non-word char down to 3. Decorative runs
-    # (box-drawing ``─``, ``===``, ``---``, ``###``) tokenize one-token-per-char,
-    # so a rule line becomes ~85% one repeated token; under mean pooling the
-    # pooled vector lands off-distribution and the head returns an arbitrary
-    # (often high) score. Classifier input only — the returned payload is never
-    # modified. (\\w is Unicode-aware in Python, so accented letters are kept.)
-    _DECORATIVE_RUN = re.compile(r"([^\w\s])\1{3,}")
-
-    def _normalize_for_classification(self, text: str) -> str:
-        # NFKC-fold unicode (fullwidth/math-styled -> ASCII) so obfuscated attacks
-        # tokenize as real words instead of [UNK]; then strip boundary markers and
-        # collapse decorative runs. Classifier input only — payload never mutated.
-        return self._DECORATIVE_RUN.sub(r"\1\1\1", strip_boundary_patterns(normalize_unicode(text)))
-
     def classify(self, text: str) -> Tier2Result:
         start = time.perf_counter()
         # Strip defender's own boundary markers before tokenization so nested
         # tool-call chains and spoofed boundary patterns don't corrupt scores.
-        text = self._normalize_for_classification(text)
-        if len(text) < self._min_text_length:
+        text = normalize_for_classification(text, self._model_path)
+        if utf16_len(text) < self._min_text_length:
             return Tier2Result(
                 score=0,
                 confidence=0,
                 skipped=True,
-                skip_reason=f"Text too short ({len(text)} < {self._min_text_length})",
+                skip_reason=f"Text too short ({utf16_len(text)} < {self._min_text_length})",
                 latency_ms=_ms(start),
             )
 
@@ -247,7 +319,7 @@ class Tier2Classifier:
     def classify_by_sentence(self, text: str) -> dict[str, Any]:
         """Classify text by sentence and return max main score."""
         start = time.perf_counter()
-        text = self._normalize_for_classification(text)
+        text = normalize_for_classification(text, self._model_path)
         sentences = _split_into_sentences(text)
         if not sentences:
             return _skipped(start, "No sentences found")
@@ -255,7 +327,7 @@ class Tier2Classifier:
         original_sentences: list[str] = []
         classifiable: list[str] = []
         for sentence in sentences:
-            if len(sentence) < self._min_text_length:
+            if utf16_len(sentence) < self._min_text_length:
                 continue
             original_sentences.append(sentence)
             classifiable.append(
@@ -291,8 +363,8 @@ class Tier2Classifier:
 
     def classify_by_chunks(self, text: str) -> dict[str, Any]:
         start = time.perf_counter()
-        text = self._normalize_for_classification(text)
-        if len(text) < self._min_text_length:
+        text = normalize_for_classification(text, self._model_path)
+        if utf16_len(text) < self._min_text_length:
             return _skipped(start, "Text below minTextLength")
 
         model_max_len = self._onnx.get_max_length()
@@ -324,7 +396,7 @@ class Tier2Classifier:
             }
 
         max_content_tokens = model_max_len - 2
-        sentences = [s for s in _split_into_sentences(bounded) if len(s) >= self._min_text_length]
+        sentences = [s for s in _split_into_sentences(bounded) if utf16_len(s) >= self._min_text_length]
         if not sentences:
             return _skipped(start, "No classifiable sentences")
 
@@ -354,9 +426,13 @@ class Tier2Classifier:
             "latency_ms": _ms(start),
         }
 
+    def normalize(self, text: str) -> str:
+        """The text Tier 2 scores, normalised with this model's tokenizer."""
+        return normalize_for_classification(text, self._model_path)
+
     def prepare_chunks(self, text: str) -> dict[str, Any]:
-        text = self._normalize_for_classification(text)
-        if len(text) < self._min_text_length:
+        text = normalize_for_classification(text, self._model_path)
+        if utf16_len(text) < self._min_text_length:
             return {"chunks": [], "skipped": True, "skip_reason": "Text below minTextLength"}
 
         model_max_len = self._onnx.get_max_length()
@@ -377,7 +453,7 @@ class Tier2Classifier:
             return {"chunks": [bounded], "skipped": False}
 
         max_content_tokens = model_max_len - 2
-        sentences = [s for s in _split_into_sentences(bounded) if len(s) >= self._min_text_length]
+        sentences = [s for s in _split_into_sentences(bounded) if utf16_len(s) >= self._min_text_length]
         if not sentences:
             return {"chunks": [], "skipped": True, "skip_reason": "No classifiable sentences"}
         return {"chunks": self._pack_sentences(sentences, max_content_tokens), "skipped": False}
@@ -457,6 +533,7 @@ class Tier2Classifier:
             "onnx_model_path": self._model_path,
             "temperature_t": self.get_temperature(),
             "multihead": self._multihead,
+            "onnx_threads": self._onnx._onnx_threads,
             "degeneracy_max_token_share": self._degeneracy_max_token_share,
         }
 

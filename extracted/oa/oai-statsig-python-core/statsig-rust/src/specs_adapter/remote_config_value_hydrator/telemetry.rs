@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
 use crate::specs_adapter::SpecsSyncTrigger;
-use crate::{StatsigErr, log_d};
+use crate::{StatsigErr, log_d, log_w};
 
 use super::errors::{HydrationFailureReason, HydrationTimeoutStep, hydration_error};
 use super::{HYDRATION_TIMEOUT, RemoteConfigValueHydrator, TAG};
@@ -49,6 +49,7 @@ impl HydrationPhase {
 pub(super) enum HydrationOutcome {
     Success,
     Failure,
+    Degraded,
 }
 
 impl HydrationOutcome {
@@ -56,6 +57,7 @@ impl HydrationOutcome {
         match self {
             Self::Success => "success",
             Self::Failure => "failure",
+            Self::Degraded => "degraded",
         }
     }
 }
@@ -68,7 +70,8 @@ pub(super) struct HydrationResult<'a> {
     response_type: &'static str,
     saw_remote_metadata: bool,
     finished: bool,
-    download_failure: Option<HydrationFailureReason>,
+    recorded_failure_reason: Option<HydrationFailureReason>,
+    had_unavailable_blob: bool,
 }
 
 impl<'a> HydrationResult<'a> {
@@ -87,7 +90,8 @@ impl<'a> HydrationResult<'a> {
             response_type: "unknown",
             saw_remote_metadata: false,
             finished: false,
-            download_failure: None,
+            recorded_failure_reason: None,
+            had_unavailable_blob: false,
         }
     }
 
@@ -148,10 +152,19 @@ impl<'a> HydrationResult<'a> {
     }
 
     pub(super) fn record_download_error(&mut self, error: &StatsigErr) {
-        self.download_failure = Some(
+        self.recorded_failure_reason = Some(
             HydrationFailureReason::from_error(error)
                 .unwrap_or(HydrationFailureReason::BodyReadFailed),
         );
+    }
+
+    pub(super) fn had_unavailable_blob(&self) -> bool {
+        self.had_unavailable_blob
+    }
+
+    pub(super) fn record_unavailable_blob(&mut self, reason: HydrationFailureReason) {
+        self.had_unavailable_blob = true;
+        self.recorded_failure_reason = Some(reason);
     }
 
     pub(super) fn finish(&mut self, result: Result<(), &StatsigErr>) {
@@ -160,6 +173,12 @@ impl<'a> HydrationResult<'a> {
         }
         self.finished = true;
         let (outcome, reason) = match result {
+            Ok(()) if self.had_unavailable_blob => (
+                "degraded",
+                self.recorded_failure_reason
+                    .unwrap_or(HydrationFailureReason::DownloadFailed)
+                    .as_str(),
+            ),
             Ok(()) => ("success", "none"),
             // The envelope guard can abort before the session registers its
             // first dynamic config. Report the contract violation in that case too.
@@ -174,7 +193,7 @@ impl<'a> HydrationResult<'a> {
                 )
             }
             Err(error) => match self
-                .download_failure
+                .recorded_failure_reason
                 .or_else(|| HydrationFailureReason::from_error(error))
             {
                 Some(reason) => ("failure", reason.as_str()),
@@ -214,6 +233,45 @@ impl Drop for HydrationResult<'_> {
 }
 
 impl RemoteConfigValueHydrator {
+    fn log_failed_blob(&self, sha256: &str, reason: HydrationFailureReason, format: &str) {
+        log_w!(
+            TAG,
+            "Blob hydration failed: sha256={}, format={}, failure_reason={}",
+            sha256,
+            format,
+            reason.as_str()
+        );
+    }
+
+    pub(crate) fn log_unavailable_blobs<'a>(
+        &self,
+        failed: impl Iterator<Item = (&'a String, &'a HydrationFailureReason)>,
+        previous: impl Iterator<Item = (&'a String, &'a HydrationFailureReason)>,
+        format: &str,
+    ) {
+        // A SHA can occur in several pending configs in either snapshot.
+        let mut seen: HashSet<_> = previous.map(|(sha, _)| sha).collect();
+        let mut counts = HashMap::<&str, usize>::new();
+        for (sha, reason) in failed {
+            if !seen.insert(sha) {
+                continue;
+            }
+            self.log_failed_blob(sha, *reason, format);
+            *counts.entry(reason.as_str()).or_default() += 1;
+        }
+        for (reason, count) in counts {
+            self.log_metric(
+                MetricType::Increment,
+                "remote_config_hydration.unavailable_blob",
+                count as f64,
+                Some(HashMap::from([
+                    ("failure_reason".to_string(), reason.to_string()),
+                    ("format".to_string(), format.to_string()),
+                ])),
+            );
+        }
+    }
+
     pub(crate) fn log_phase_latency(&self, elapsed: Duration, phase: HydrationPhase) {
         self.log_metric(
             MetricType::Dist,

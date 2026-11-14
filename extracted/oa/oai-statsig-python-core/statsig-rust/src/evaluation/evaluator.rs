@@ -25,6 +25,7 @@ use crate::evaluation::get_unit_id::get_unit_id;
 use crate::evaluation::user_agent_parsing::UserAgentParser;
 use crate::hashing::{IdListFingerprintWidth, hash_one};
 use crate::interned_string::InternedString;
+use crate::spec_store::{ConditionMap, resolve_condition};
 use crate::specs_response::explicit_params::ExplicitParameters;
 use crate::specs_response::spec_types::{Condition, ConditionOperator, ConditionType};
 use crate::user::user_value::UserValueRef;
@@ -74,6 +75,7 @@ impl Evaluator {
         spec_type: &SpecType,
     ) -> Result<Recognition, StatsigErr> {
         let spec_name = spec_name_intern.as_str();
+        ctx.result.blob_unavailable = false;
 
         let opt_spec = match spec_type {
             SpecType::Gate => ctx.specs_data.feature_gates.get(spec_name_intern),
@@ -90,6 +92,18 @@ impl Evaluator {
             return Ok(Recognition::Recognized);
         }
 
+        let reads_dynamic_configs =
+            matches!(spec_type, SpecType::DynamicConfig | SpecType::Experiment);
+        let unavailable_slots = ctx
+            .unavailable_values
+            .filter(|_| reads_dynamic_configs)
+            .and_then(|values| values.get(spec_name_intern));
+
+        if opt_spec.is_none() && unavailable_slots.is_some() {
+            ctx.result.blob_unavailable = true;
+            return Ok(Recognition::Recognized);
+        }
+
         if try_apply_config_mapping(ctx, spec_name, spec_type, opt_spec) {
             return Ok(Recognition::Recognized);
         }
@@ -98,7 +112,9 @@ impl Evaluator {
             return Ok(Recognition::Recognized);
         }
 
-        let spec = unwrap_or_return!(opt_spec, Ok(Recognition::Unrecognized));
+        let Some(spec) = opt_spec else {
+            return Ok(Recognition::Unrecognized);
+        };
 
         if ctx.result.name.is_none() {
             ctx.result.name = Some(spec_name_intern.clone());
@@ -134,9 +150,13 @@ impl Evaluator {
             };
         }
 
+        let retained_conditions = ctx
+            .retained_conditions
+            .filter(|_| reads_dynamic_configs)
+            .and_then(|configs| configs.get(spec_name_intern));
         for index in 0..spec.rules_len() {
             let rule = spec.rule(index);
-            evaluate_rule(ctx, rule)?;
+            evaluate_rule(ctx, rule, retained_conditions)?;
 
             if ctx.result.unsupported {
                 return Ok(Recognition::Recognized);
@@ -186,6 +206,8 @@ impl Evaluator {
             } else {
                 return_value.bool_value() == Some(true)
             };
+            ctx.result.blob_unavailable =
+                unavailable_slots.is_some_and(|slots| slots.contains(&did_pass.then_some(index)));
             ctx.result.json_value = Some(return_value.to_owned());
             ctx.result.rule_id = Some(rule.id().to_interned());
             ctx.result.rule_pass_percentage =
@@ -199,6 +221,7 @@ impl Evaluator {
 
         let default_value = spec.default_value();
         ctx.result.bool_value = default_value.bool_value() == Some(true);
+        ctx.result.blob_unavailable = unavailable_slots.is_some_and(|slots| slots.contains(&None));
         ctx.result.json_value = Some(default_value.to_owned());
         ctx.result.rule_id = match spec.enabled() {
             true => Some(InternedString::default_rule_id()),
@@ -230,7 +253,7 @@ fn new_layer_eval<'a, const BUILD_VALUES: bool>(
 
     for index in 0..spec.rules_len() {
         let rule = spec.rule(index);
-        evaluate_rule(ctx, rule)?;
+        evaluate_rule(ctx, rule, None)?;
         let rule_secondary_exposures = std::mem::take(&mut ctx.result.secondary_exposures);
         secondary_exposures.extend(rule_secondary_exposures.iter().cloned());
         undelegated_secondary_exposures.extend(rule_secondary_exposures);
@@ -269,7 +292,11 @@ fn new_layer_eval<'a, const BUILD_VALUES: bool>(
 
         if evaluate_config_delegate(ctx, rule)? {
             if has_passed_rule {
+                ctx.result.blob_unavailable = false;
                 continue;
+            }
+            if ctx.result.blob_unavailable {
+                return Ok(Recognition::Recognized);
             }
             let delegate_value = match &ctx.result.json_value {
                 // An accepted delegate precedes every contributing layer rule.
@@ -445,7 +472,7 @@ fn try_apply_config_mapping(
                 None => continue,
             };
             let rule = RuleRef::from(rule);
-            match evaluate_rule(ctx, rule) {
+            match evaluate_rule(ctx, rule, None) {
                 Ok(_) => {}
                 Err(_) => {
                     ctx.reset_result();
@@ -525,13 +552,23 @@ fn try_apply_override(
     })
 }
 
-fn evaluate_rule<'a>(ctx: &mut EvaluatorContext<'a>, rule: RuleRef<'a>) -> Result<(), StatsigErr> {
+fn evaluate_rule<'a>(
+    ctx: &mut EvaluatorContext<'a>,
+    rule: RuleRef<'a>,
+    retained_conditions: Option<&'a ConditionMap>,
+) -> Result<(), StatsigErr> {
     let mut all_conditions_pass = true;
     // println!("--- Eval Rule {} ---", rule.id);
     for index in 0..rule.conditions_len() {
         let condition_hash = rule.condition_id(index);
         // println!("Condition Hash {}", condition_hash);
-        let opt_condition = condition_hash.get_from(&ctx.specs_data.condition_map);
+        // A retained config may still reference a condition removed by the latest delta.
+        // A nested gate resolves its own rules against the current snapshot.
+        let opt_condition = resolve_condition(
+            condition_hash,
+            &ctx.specs_data.condition_map,
+            retained_conditions,
+        );
         let condition = if let Some(c) = opt_condition {
             c
         } else {
@@ -801,11 +838,12 @@ fn evaluate_experiment_group<'a>(
 
     let recognized = matches!(&recognition, Ok(Recognition::Recognized));
     let group_name = match recognition {
-        Ok(Recognition::Recognized) if !ctx.result.unsupported => ctx
-            .result
-            .group_name
-            .as_ref()
-            .map(|group_name| group_name.as_str().to_string()),
+        Ok(Recognition::Recognized) if !ctx.result.unsupported && !ctx.result.blob_unavailable => {
+            ctx.result
+                .group_name
+                .as_ref()
+                .map(|group_name| group_name.as_str().to_string())
+        }
         Ok(_) => None,
         Err(error) => {
             ctx.result = parent_result;
@@ -977,10 +1015,14 @@ fn evaluate_config_delegate<'a>(
     rule: RuleRef<'a>,
 ) -> Result<bool, StatsigErr> {
     let delegate = unwrap_or_return!(rule.config_delegate(), Ok(false));
-    let delegate_spec = unwrap_or_return!(
-        delegate.get_from(&ctx.specs_data.dynamic_configs.0),
-        Ok(false)
-    );
+    let Some(delegate_spec) = delegate.get_from(&ctx.specs_data.dynamic_configs.0) else {
+        // A withheld, known delegate has no published rule or value to fall through to.
+        let pending = ctx
+            .unavailable_values
+            .is_some_and(|values| delegate.get_from(values).is_some());
+        ctx.result.blob_unavailable = pending;
+        return Ok(pending);
+    };
     let delegate_owned = delegate.to_interned();
 
     ctx.result.undelegated_secondary_exposures = Some(ctx.result.secondary_exposures.clone());

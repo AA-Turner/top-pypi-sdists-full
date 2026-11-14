@@ -15,7 +15,7 @@ class ModifyDBInstanceDescriptionRequest(DaraModel):
         resource_owner_id: int = None,
     ):
         # The name of the ApsaraDB RDS instance.
-        # >The name must be 2 to 64 characters in length.
+        # > The name must be 2 to 64 characters in length.
         # 
         # This parameter is required.
         self.dbinstance_description = dbinstance_description

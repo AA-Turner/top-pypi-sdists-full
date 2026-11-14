@@ -15,11 +15,11 @@ class GetDBInstanceTopologyResponseBody(DaraModel):
         message: str = None,
         request_id: str = None,
     ):
-        # An internal parameter. You can ignore this parameter.
+        # The internal parameter. You can ignore this parameter.
         self.code = code
         # The topology details.
         self.data = data
-        # An internal parameter. You can ignore this parameter.
+        # The internal parameter. You can ignore this parameter.
         self.message = message
         # The request ID.
         self.request_id = request_id
@@ -140,15 +140,15 @@ class GetDBInstanceTopologyResponseBodyDataNodes(DaraModel):
         # The instance ID.
         self.dbinstance_name = dbinstance_name
         # The ID of the dedicated cluster.
-        # > An empty value is returned for instances that are not deployed in a dedicated cluster.
+        # > An empty value is returned for instances that do not belong to a dedicated cluster.
         self.dedicated_host_group_id = dedicated_host_group_id
         # The ID of the host in the dedicated cluster.
-        # > An empty value is returned for instances that are not deployed in a dedicated cluster.
+        # > An empty value is returned for instances that do not belong to a dedicated cluster.
         self.dedicated_host_id = dedicated_host_id
         # The unique identifier of the instance.
-        # > **-1** is returned for instances that are not deployed in a dedicated cluster.
+        # > **-1** is returned for instances that do not belong to a dedicated cluster.
         self.node_id = node_id
-        # The role of the node. Valid values:
+        # The node type. Valid values:
         # * **Master**: primary node.
         # * **Slave**: secondary node.
         self.role = role
@@ -217,7 +217,7 @@ class GetDBInstanceTopologyResponseBodyDataConnections(DaraModel):
         self.connection_string = connection_string
         # The instance ID.
         self.dbinstance_name = dbinstance_name
-        # The network endpoint type of the instance. Valid values:
+        # The type of the network endpoint for the instance. Valid values:
         # 
         # * **vpc**: internal endpoint.
         # * **public**: public endpoint.

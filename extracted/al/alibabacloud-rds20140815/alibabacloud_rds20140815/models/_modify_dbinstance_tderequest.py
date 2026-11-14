@@ -24,46 +24,46 @@ class ModifyDBInstanceTDERequest(DaraModel):
         # The certificate file.
         # 
         # Format:
-        # - Public endpoint: `oss-<region ID>.aliyuncs.com:<bucket name>:<certificate file name with extension>`
-        # - Internal network address: `oss-<region ID>-internal.aliyuncs.com:<bucket name>:<certificate file name with extension>`
+        # - Public endpoint: `oss-<region ID>.aliyuncs.com:<bucket name>:<certificate file name (with extension)>`
+        # - Internal endpoint: `oss-<region ID>-internal.aliyuncs.com:<bucket name>:<certificate file name (with extension)>`
         # 
-        # > - This parameter is active only for SQL Server 2019 Standard Edition, SQL Server 2022 Standard Edition, SQL Server 2025 Standard Edition, and SQL Server Enterprise instance.
-        # > - You can call the [DescribeRegions](https://help.aliyun.com/document_detail/26243.html) operation to query active region IDs.
+        # > - This parameter is available only for instances that run SQL Server 2019 Standard Edition, SQL Server 2022 Standard Edition, SQL Server 2025 Standard Edition, or SQL Server Enterprise Edition.
+        # > - You can call the [DescribeRegions](https://help.aliyun.com/document_detail/26243.html) operation to query available region IDs.
         self.certificate = certificate
-        # The instance ID. You can call the DescribeDBInstances operation to query the ID.
+        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The names of the databases for which you want to enable TDE. You can specify multiple database names separated by commas (,). A maximum of 50 database names can be specified.
-        # > This parameter is required and active only for SQL Server 2019 Standard Edition, SQL Server 2022 Standard Edition, SQL Server 2025 Standard Edition, and SQL Server Enterprise instance.
+        # The names of the databases for which you want to enable TDE. You can specify multiple database names separated by commas (,). You can specify up to 50 database names.
+        # > This parameter is available only for instances that run SQL Server 2019 Standard Edition, SQL Server 2022 Standard Edition, SQL Server 2025 Standard Edition, or SQL Server Enterprise Edition. This parameter is required.
         self.dbname = dbname
         # The ID of the custom key.
-        # > This parameter is available only for RDS MySQL or RDS PostgreSQL instances.
+        # > This parameter is available only for MySQL or PostgreSQL instances.
         self.encryption_key = encryption_key
         # Specifies whether to rotate the key. Valid values:
         # - **true**: Rotates the key.
-        # - **false**: Does not rotate the key. This is the default value.
+        # - **false** (default): Does not rotate the key.
         # 
         # > This parameter is applicable only to RDS PostgreSQL instances.
         self.is_rotate = is_rotate
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The password of the certificate.
-        # > This parameter is active only for SQL Server 2019 Standard Edition, SQL Server 2022 Standard Edition, SQL Server 2025 Standard Edition, and SQL Server Enterprise instance.
+        # The certificate password.
+        # > This parameter is available only for instances that run SQL Server 2019 Standard Edition, SQL Server 2022 Standard Edition, SQL Server 2025 Standard Edition, or SQL Server Enterprise Edition.
         self.pass_word = pass_word
         # The private key file.
         # 
         # Format:
-        # - Public endpoint: `oss-<region ID>.aliyuncs.com:<bucket name>:<private key file name with extension>`
-        # - Internal network address: `oss-<region ID>-internal.aliyuncs.com:<bucket name>:<private key file name with extension>`
+        # - Public endpoint: `oss-<region ID>.aliyuncs.com:<bucket name>:<private key file name (with extension)>`
+        # - Internal endpoint: `oss-<region ID>-internal.aliyuncs.com:<bucket name>:<private key file name (with extension)>`
         # 
-        # > - This parameter is active only for SQL Server 2019 Standard Edition, SQL Server 2022 Standard Edition, SQL Server 2025 Standard Edition, and SQL Server Enterprise instance.
-        # > - You can call the [DescribeRegions](https://help.aliyun.com/document_detail/26243.html) operation to query active region IDs.
+        # > - This parameter is available only for instances that run SQL Server 2019 Standard Edition, SQL Server 2022 Standard Edition, SQL Server 2025 Standard Edition, or SQL Server Enterprise Edition.
+        # > - You can call the [DescribeRegions](https://help.aliyun.com/document_detail/26243.html) operation to query available region IDs.
         self.private_key = private_key
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The global resource descriptor of the role, which is used to specify the role. For details, see [RAM role overview](https://help.aliyun.com/document_detail/93689.html).
-        # > This parameter is active only for ApsaraDB RDS for MySQL and ApsaraDB RDS for PostgreSQL instances.
+        # The global resource descriptor of the role, which is used to specify the specific role. For more information, see [RAM role overview](https://help.aliyun.com/document_detail/93689.html).
+        # > This parameter is available only for MySQL and PostgreSQL instances.
         self.role_arn = role_arn
         # The TDE status. Valid values:
         # - **Enabled** 

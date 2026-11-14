@@ -22,13 +22,13 @@ class DescribeReplicationLinkLogsRequest(DaraModel):
         self.page_number = page_number
         # The maximum number of entries per page.
         self.page_size = page_size
-        # The task ID. This ID is returned when you call the **CreateReplicationLink** operation to create a disaster recovery instance.
+        # The task ID. This is the task ID returned when you call the **CreateReplicationLink** operation to create a disaster recovery instance.
         self.task_id = task_id
-        # The task name. This is the name of the task when you call the **CreateReplicationLink** operation to create a disaster recovery instance.
+        # The task name. This is the task name specified when you call the **CreateReplicationLink** operation to create a disaster recovery instance.
         self.task_name = task_name
         # The task type. Valid values:
-        # - **create**: Creates a synchronization link.
-        # - **create-dryrun**: Performs a precheck for creating a synchronization link.
+        # - **create**: Creates a replication link.
+        # - **create-dryrun**: Performs a precheck for creating a replication link.
         # 
         # This parameter is required.
         self.task_type = task_type

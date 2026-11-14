@@ -381,9 +381,11 @@ class _HyVlaJointPolicy:
         if on_conversion is not None and not callable(on_conversion):
             raise HyVlaXArm7Error("IK reports need a callable.")
         self.on_conversion = on_conversion
-        # The rig's chunk is the deployment's executed actions.
+        # The rig's chunk is the deployment's executed actions, and its control period the
+        # deployment's rate (the step its velocity caps allow per row).
         try:
             rig.chunk_size = self.execution_contract.chunk_size
+            rig.control_period_s = 1.0 / float(self.execution_contract.action_hz)
         except AttributeError:
             pass
         self.ik_chunks = self.ik_failed_chunks = self.ik_failed_rows = 0

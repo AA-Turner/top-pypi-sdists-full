@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: valgebra
-Version: 0.0.25
+Version: 0.0.26
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Rust

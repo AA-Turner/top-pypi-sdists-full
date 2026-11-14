@@ -21,10 +21,10 @@ class DescribeCrossRegionBackupsRequest(DaraModel):
         resource_owner_id: int = None,
         start_time: str = None,
     ):
-        # The ID of the user backup.
+        # The backup ID.
         self.backup_id = backup_id
         # The ID of the cross-region backup file.
-        # >You must specify either **CrossBackupId** or the start and end time parameters (**StartTime** and **EndTime**).
+        # > You must specify either **CrossBackupId** or the time range parameters (**StartTime** and **EndTime**).
         self.cross_backup_id = cross_backup_id
         # The ID of the destination region for cross-region backup.
         self.cross_backup_region = cross_backup_region
@@ -34,10 +34,10 @@ class DescribeCrossRegionBackupsRequest(DaraModel):
         self.dbinstance_id = dbinstance_id
         # The end time of the query. Specify the time in the *yyyy-MM-dd*T*HH:mm:ss*Z format. The time must be in UTC.
         # 
-        # > If the time zone is not UTC+0, you must subtract 8 hours from the actual time.
+        # > For time zones other than UTC+0, subtract 8 hours from the local time.
         self.end_time = end_time
         self.owner_id = owner_id
-        # The page number. Valid values: any integer greater than 0 and less than or equal to the maximum value of the Integer type.
+        # The page number. Valid values: any integer greater than 0 and less than or equal to the maximum integer value.
         # 
         # Default value: **1**.
         self.page_number = page_number
@@ -53,13 +53,13 @@ class DescribeCrossRegionBackupsRequest(DaraModel):
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The ID of the resource group.
+        # The resource group ID.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
         # The start time of the query. Specify the time in the *yyyy-MM-dd*T*HH:mm:ss*Z format. The time must be in UTC.
         # 
-        # > If the time zone is not UTC+0, you must subtract 8 hours from the actual time.
+        # > For time zones other than UTC+0, subtract 8 hours from the local time.
         self.start_time = start_time
 
     def validate(self):

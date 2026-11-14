@@ -22,36 +22,36 @@ class ModifyDBInstanceNetworkTypeRequest(DaraModel):
         v_switch_id: str = None,
     ):
         # The number of days for the classic network address reservation. Valid values: **1** to **120**. Unit: days. Default value: **7**.
-        # >This parameter is required when the **RetainClassic** parameter is set to **True**.
+        # >If you set **RetainClassic** to **True**, this parameter is required.
         self.classic_expired_days = classic_expired_days
         # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The target network type. Set the value to **VPC**, which indicates a virtual private cloud (VPC).
+        # The target network type. Set the value to **VPC**.
         # 
         # This parameter is required.
         self.instance_network_type = instance_network_type
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # Settings for the internal network IP address of the instance. The IP address must be within the address range of the specified vSwitch. By default, the system automatically allocates an IP address based on the **VPCId** and **VSwitchId** parameters.
+        # Settings for the internal network IP address of the instance. The IP address must be within the address range of the specified vSwitch. By default, the system automatically allocates an IP address based on **VPCId** and **VSwitchId**.
         self.private_ip_address = private_ip_address
         # The number of days for the classic network address reservation for read/write splitting. Valid values: **1** to **120**. Unit: days. Default value: **7**.
-        # >This parameter takes effect only when the instance has a read/write splitting address of the classic network type and the **RetainClassic** parameter is set to **True**.
+        # >This parameter takes effect only when the instance has a read/write splitting endpoint of the classic network type and **RetainClassic** is set to **True**.
         self.read_write_splitting_classic_expired_days = read_write_splitting_classic_expired_days
-        # Settings for the internal network IP address of the read/write splitting endpoint for the instance. The IP address must be within the address range of the specified vSwitch. By default, the system automatically allocates an IP address based on the **VPCId** and **VSwitchId** parameters.
+        # Settings for the internal network IP address of the read/write splitting endpoint for the instance. The IP address must be within the address range of the specified vSwitch. By default, the system automatically allocates an IP address based on **VPCId** and **VSwitchId**.
         # 
-        # >This parameter takes effect only when the instance has a read/write splitting address of the classic network type.
+        # >This parameter takes effect only when the instance has a read/write splitting endpoint of the classic network type.
         self.read_write_splitting_private_ip_address = read_write_splitting_private_ip_address
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
         # Specifies whether to retain the classic network endpoint. Valid values:
         # * **True**: Retains the classic network endpoint.
-        # * **False**: Does not retain the classic network endpoint. This is the default value.
+        # * **False** (default): Does not retain the classic network endpoint.
         self.retain_classic = retain_classic
         # The VPC ID.
         self.vpcid = vpcid
-        # The ID of the vSwitch. This parameter is required when the **VPCId** parameter is specified.
+        # The vSwitch ID. If you specify **VPCId**, this parameter is required.
         self.v_switch_id = v_switch_id
 
     def validate(self):

@@ -163,6 +163,11 @@ from .literals import (
     FleetReservationTypeType,
     FleetStateCodeType,
     FleetTypeType,
+    FlexCostAllocationAssociationModeType,
+    FlexCostAllocationCostDimensionType,
+    FlexCostAllocationNetworkResourceScopeTypeType,
+    FlexCostAllocationNetworkResourceTypeType,
+    FlexCostAllocationReportingGranularityType,
     FlexibleEnaQueuesSupportType,
     FlowLogsResourceTypeType,
     FpgaImageAttributeNameType,
@@ -581,6 +586,8 @@ __all__ = (
     "AssociateIpamResourceDiscoveryResultTypeDef",
     "AssociateNatGatewayAddressRequestTypeDef",
     "AssociateNatGatewayAddressResultTypeDef",
+    "AssociateNetworkingFlexCostAllocationPolicyRequestTypeDef",
+    "AssociateNetworkingFlexCostAllocationPolicyResultTypeDef",
     "AssociateRouteServerRequestTypeDef",
     "AssociateRouteServerResultTypeDef",
     "AssociateRouteTableRequestRouteTableAssociateWithSubnetTypeDef",
@@ -908,6 +915,8 @@ __all__ = (
     "CreateNetworkInterfaceRequestSubnetCreateNetworkInterfaceTypeDef",
     "CreateNetworkInterfaceRequestTypeDef",
     "CreateNetworkInterfaceResultTypeDef",
+    "CreateNetworkingFlexCostAllocationPolicyRequestTypeDef",
+    "CreateNetworkingFlexCostAllocationPolicyResultTypeDef",
     "CreatePlacementGroupRequestServiceResourceCreatePlacementGroupTypeDef",
     "CreatePlacementGroupRequestTypeDef",
     "CreatePlacementGroupResultTypeDef",
@@ -1153,6 +1162,8 @@ __all__ = (
     "DeleteNetworkInterfacePermissionResultTypeDef",
     "DeleteNetworkInterfaceRequestNetworkInterfaceDeleteTypeDef",
     "DeleteNetworkInterfaceRequestTypeDef",
+    "DeleteNetworkingFlexCostAllocationPoliciesRequestTypeDef",
+    "DeleteNetworkingFlexCostAllocationPoliciesResultTypeDef",
     "DeletePlacementGroupRequestPlacementGroupDeleteTypeDef",
     "DeletePlacementGroupRequestTypeDef",
     "DeletePublicIpv4PoolRequestTypeDef",
@@ -1607,6 +1618,12 @@ __all__ = (
     "DescribeNetworkInterfacesRequestTypeDef",
     "DescribeNetworkInterfacesRequestWaitTypeDef",
     "DescribeNetworkInterfacesResultTypeDef",
+    "DescribeNetworkingFlexCostAllocationPoliciesRequestPaginateTypeDef",
+    "DescribeNetworkingFlexCostAllocationPoliciesRequestTypeDef",
+    "DescribeNetworkingFlexCostAllocationPoliciesResultTypeDef",
+    "DescribeNetworkingFlexCostAllocationPolicyAssociationsRequestPaginateTypeDef",
+    "DescribeNetworkingFlexCostAllocationPolicyAssociationsRequestTypeDef",
+    "DescribeNetworkingFlexCostAllocationPolicyAssociationsResultTypeDef",
     "DescribeOutpostLagsRequestTypeDef",
     "DescribeOutpostLagsResultTypeDef",
     "DescribePlacementGroupsRequestTypeDef",
@@ -1950,6 +1967,8 @@ __all__ = (
     "DisassociateIpamResourceDiscoveryResultTypeDef",
     "DisassociateNatGatewayAddressRequestTypeDef",
     "DisassociateNatGatewayAddressResultTypeDef",
+    "DisassociateNetworkingFlexCostAllocationPolicyRequestTypeDef",
+    "DisassociateNetworkingFlexCostAllocationPolicyResultTypeDef",
     "DisassociateRouteServerRequestTypeDef",
     "DisassociateRouteServerResultTypeDef",
     "DisassociateRouteTableRequestRouteTableAssociationDeleteTypeDef",
@@ -2107,6 +2126,14 @@ __all__ = (
     "FleetSpotCapacityRebalanceTypeDef",
     "FleetSpotMaintenanceStrategiesRequestTypeDef",
     "FleetSpotMaintenanceStrategiesTypeDef",
+    "FlexCostAllocationCidrMappingTypeDef",
+    "FlexCostAllocationCidrRangeSpecificationsOutputTypeDef",
+    "FlexCostAllocationCidrRangeSpecificationsTypeDef",
+    "FlexCostAllocationNetworkResourceScopeTypeDef",
+    "FlexCostAllocationOperationFailureTypeDef",
+    "FlexCostAllocationPolicyAssociationDescriptionTypeDef",
+    "FlexCostAllocationPolicyDescriptionTypeDef",
+    "FlexCostAllocationPolicyVersionTypeDef",
     "FlowLogTypeDef",
     "FpgaDeviceInfoTypeDef",
     "FpgaDeviceMemoryInfoTypeDef",
@@ -2245,6 +2272,8 @@ __all__ = (
     "GetNetworkInsightsAccessScopeAnalysisFindingsResultTypeDef",
     "GetNetworkInsightsAccessScopeContentRequestTypeDef",
     "GetNetworkInsightsAccessScopeContentResultTypeDef",
+    "GetNetworkingFlexCostAllocationPolicyVersionsRequestTypeDef",
+    "GetNetworkingFlexCostAllocationPolicyVersionsResultTypeDef",
     "GetPasswordDataRequestInstancePasswordDataTypeDef",
     "GetPasswordDataRequestTypeDef",
     "GetPasswordDataRequestWaitTypeDef",
@@ -2405,6 +2434,9 @@ __all__ = (
     "InstanceEventWindowTypeDef",
     "InstanceExportDetailsTypeDef",
     "InstanceFamilyCreditSpecificationTypeDef",
+    "InstanceFlexCostAllocationPolicyDocumentOutputTypeDef",
+    "InstanceFlexCostAllocationPolicyDocumentTypeDef",
+    "InstanceFlexCostAllocationPolicyDocumentUnionTypeDef",
     "InstanceImageMetadataTypeDef",
     "InstanceIpv4PrefixTypeDef",
     "InstanceIpv6AddressRequestTypeDef",
@@ -2715,6 +2747,8 @@ __all__ = (
     "ModifyMetricCategoryResultTypeDef",
     "ModifyNetworkInterfaceAttributeRequestNetworkInterfaceModifyAttributeTypeDef",
     "ModifyNetworkInterfaceAttributeRequestTypeDef",
+    "ModifyNetworkingFlexCostAllocationPolicyRequestTypeDef",
+    "ModifyNetworkingFlexCostAllocationPolicyResultTypeDef",
     "ModifyPrivateDnsNameOptionsRequestTypeDef",
     "ModifyPrivateDnsNameOptionsResultTypeDef",
     "ModifyPublicIpDnsNameOptionsRequestTypeDef",
@@ -2822,6 +2856,9 @@ __all__ = (
     "MoveCapacityReservationInstancesRequestTypeDef",
     "MoveCapacityReservationInstancesResultTypeDef",
     "MovingAddressStatusTypeDef",
+    "NatFlexCostAllocationPolicyDocumentOutputTypeDef",
+    "NatFlexCostAllocationPolicyDocumentTypeDef",
+    "NatFlexCostAllocationPolicyDocumentUnionTypeDef",
     "NatGatewayAddressTypeDef",
     "NatGatewayAttachedApplianceTypeDef",
     "NatGatewayTypeDef",
@@ -2872,6 +2909,9 @@ __all__ = (
     "PathStatementTypeDef",
     "PayerResponsibilityEntryTypeDef",
     "PciIdTypeDef",
+    "PcxFlexCostAllocationPolicyDocumentOutputTypeDef",
+    "PcxFlexCostAllocationPolicyDocumentTypeDef",
+    "PcxFlexCostAllocationPolicyDocumentUnionTypeDef",
     "PeeringAttachmentStatusTypeDef",
     "PeeringConnectionOptionsRequestTypeDef",
     "PeeringConnectionOptionsTypeDef",
@@ -3790,6 +3830,25 @@ class AssociateNatGatewayAddressRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     AvailabilityZone: NotRequired[str]
     AvailabilityZoneId: NotRequired[str]
+
+class FlexCostAllocationNetworkResourceScopeTypeDef(TypedDict):
+    ResourceType: FlexCostAllocationNetworkResourceScopeTypeType
+    ResourceIds: Sequence[str]
+
+class FlexCostAllocationOperationFailureTypeDef(TypedDict):
+    ResourceId: NotRequired[str]
+    FailureCode: NotRequired[str]
+    FailureReason: NotRequired[str]
+
+class FlexCostAllocationPolicyAssociationDescriptionTypeDef(TypedDict):
+    FcaPolicyAssociationId: NotRequired[str]
+    FcaPolicyId: NotRequired[str]
+    NetworkResourceId: NotRequired[str]
+    OwnerAccount: NotRequired[str]
+    AssociatedAt: NotRequired[datetime]
+    ExpectedEffectiveAt: NotRequired[datetime]
+    AssociationMode: NotRequired[FlexCostAllocationAssociationModeType]
+    ManagedBy: NotRequired[ManagedByType]
 
 class AssociateRouteServerRequestTypeDef(TypedDict):
     RouteServerId: str
@@ -5171,6 +5230,10 @@ class DeleteNetworkInterfaceRequestTypeDef(TypedDict):
     NetworkInterfaceId: str
     DryRun: NotRequired[bool]
 
+class DeleteNetworkingFlexCostAllocationPoliciesRequestTypeDef(TypedDict):
+    FcaPolicyIds: Sequence[str]
+    DryRun: NotRequired[bool]
+
 class DeletePlacementGroupRequestPlacementGroupDeleteTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
@@ -6086,6 +6149,10 @@ class DisassociateNatGatewayAddressRequestTypeDef(TypedDict):
     MaxDrainDurationSeconds: NotRequired[int]
     DryRun: NotRequired[bool]
 
+class DisassociateNetworkingFlexCostAllocationPolicyRequestTypeDef(TypedDict):
+    FcaPolicyAssociationIds: Sequence[str]
+    DryRun: NotRequired[bool]
+
 class DisassociateRouteServerRequestTypeDef(TypedDict):
     RouteServerId: str
     VpcId: str
@@ -6535,6 +6602,10 @@ class FleetSpotCapacityRebalanceTypeDef(TypedDict):
     ReplacementStrategy: NotRequired[FleetReplacementStrategyType]
     TerminationDelay: NotRequired[int]
 
+class FlexCostAllocationCidrMappingTypeDef(TypedDict):
+    CidrRange: str
+    CidrLabel: str
+
 class TagFieldSpecificationResponseTypeDef(TypedDict):
     ResourceType: NotRequired[TaggableResourceTypeType]
     TagKeys: NotRequired[list[str]]
@@ -6827,6 +6898,11 @@ class GetNetworkInsightsAccessScopeAnalysisFindingsRequestTypeDef(TypedDict):
 
 class GetNetworkInsightsAccessScopeContentRequestTypeDef(TypedDict):
     NetworkInsightsAccessScopeId: str
+    DryRun: NotRequired[bool]
+
+class GetNetworkingFlexCostAllocationPolicyVersionsRequestTypeDef(TypedDict):
+    FcaPolicyId: str
+    VersionsToInclude: NotRequired[Sequence[int]]
     DryRun: NotRequired[bool]
 
 class GetPasswordDataRequestInstancePasswordDataTypeDef(TypedDict):
@@ -9226,6 +9302,13 @@ class CreateInterruptibleCapacityReservationAllocationResultTypeDef(TypedDict):
     InterruptionType: Literal["adhoc"]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateNetworkingFlexCostAllocationPolicyResultTypeDef(TypedDict):
+    FcaPolicyId: str
+    FcaPolicyArn: str
+    CreatedAt: datetime
+    ExpectedEffectiveAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreatePublicIpv4PoolResultTypeDef(TypedDict):
     PoolId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -9666,6 +9749,13 @@ class ModifyInstanceNetworkPerformanceResultTypeDef(TypedDict):
 
 class ModifyInstancePlacementResultTypeDef(TypedDict):
     Return: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ModifyNetworkingFlexCostAllocationPolicyResultTypeDef(TypedDict):
+    FcaPolicyId: str
+    UpdatedAt: datetime
+    Version: int
+    VersionExpectedEffectiveAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ModifyPrivateDnsNameOptionsResultTypeDef(TypedDict):
@@ -10802,6 +10892,33 @@ class AssociateIamInstanceProfileRequestTypeDef(TypedDict):
 class ReplaceIamInstanceProfileAssociationRequestTypeDef(TypedDict):
     IamInstanceProfile: IamInstanceProfileSpecificationTypeDef
     AssociationId: str
+
+class AssociateNetworkingFlexCostAllocationPolicyRequestTypeDef(TypedDict):
+    FcaPolicyId: str
+    NetworkResourceIds: NotRequired[Sequence[str]]
+    NetworkResourceScope: NotRequired[FlexCostAllocationNetworkResourceScopeTypeDef]
+    ClientToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+
+class DeleteNetworkingFlexCostAllocationPoliciesResultTypeDef(TypedDict):
+    Successful: list[str]
+    Failed: list[FlexCostAllocationOperationFailureTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DisassociateNetworkingFlexCostAllocationPolicyResultTypeDef(TypedDict):
+    FcaPolicyDisassociations: list[str]
+    FcaPolicyDisassociationFailures: list[FlexCostAllocationOperationFailureTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class AssociateNetworkingFlexCostAllocationPolicyResultTypeDef(TypedDict):
+    FcaPolicyAssociations: list[FlexCostAllocationPolicyAssociationDescriptionTypeDef]
+    FcaPolicyAssociationFailures: list[FlexCostAllocationOperationFailureTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeNetworkingFlexCostAllocationPolicyAssociationsResultTypeDef(TypedDict):
+    FcaPolicyAssociations: list[FlexCostAllocationPolicyAssociationDescriptionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class AssociateRouteServerResultTypeDef(TypedDict):
     RouteServerAssociation: RouteServerAssociationTypeDef
@@ -13030,6 +13147,32 @@ class DescribeNetworkInterfacesRequestTypeDef(TypedDict):
     NetworkInterfaceIds: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
 
+class DescribeNetworkingFlexCostAllocationPoliciesRequestPaginateTypeDef(TypedDict):
+    FcaPolicyIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class DescribeNetworkingFlexCostAllocationPoliciesRequestTypeDef(TypedDict):
+    FcaPolicyIds: NotRequired[Sequence[str]]
+    MaxResults: NotRequired[int]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    NextToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+
+class DescribeNetworkingFlexCostAllocationPolicyAssociationsRequestPaginateTypeDef(TypedDict):
+    FcaPolicyAssociationIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class DescribeNetworkingFlexCostAllocationPolicyAssociationsRequestTypeDef(TypedDict):
+    FcaPolicyAssociationIds: NotRequired[Sequence[str]]
+    MaxResults: NotRequired[int]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    NextToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+
 class DescribeOutpostLagsRequestTypeDef(TypedDict):
     OutpostLagIds: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -14979,6 +15122,14 @@ class FleetSpotMaintenanceStrategiesRequestTypeDef(TypedDict):
 
 class FleetSpotMaintenanceStrategiesTypeDef(TypedDict):
     CapacityRebalance: NotRequired[FleetSpotCapacityRebalanceTypeDef]
+
+class FlexCostAllocationCidrRangeSpecificationsOutputTypeDef(TypedDict):
+    PrefixesType: str
+    Prefixes: list[FlexCostAllocationCidrMappingTypeDef]
+
+class FlexCostAllocationCidrRangeSpecificationsTypeDef(TypedDict):
+    PrefixesType: str
+    Prefixes: Sequence[FlexCostAllocationCidrMappingTypeDef]
 
 class FlowLogTypeDef(TypedDict):
     CreationTime: NotRequired[datetime]
@@ -18126,6 +18277,36 @@ class SpotOptionsTypeDef(TypedDict):
     MinTargetCapacity: NotRequired[int]
     MaxTotalPrice: NotRequired[str]
 
+class InstanceFlexCostAllocationPolicyDocumentOutputTypeDef(TypedDict):
+    ReportingGranularity: list[FlexCostAllocationReportingGranularityType]
+    Dimensions: list[FlexCostAllocationCostDimensionType]
+    CidrRangeSpecifications: NotRequired[FlexCostAllocationCidrRangeSpecificationsOutputTypeDef]
+
+class NatFlexCostAllocationPolicyDocumentOutputTypeDef(TypedDict):
+    ReportingGranularity: list[FlexCostAllocationReportingGranularityType]
+    Dimensions: list[FlexCostAllocationCostDimensionType]
+    CidrRangeSpecifications: NotRequired[FlexCostAllocationCidrRangeSpecificationsOutputTypeDef]
+
+class PcxFlexCostAllocationPolicyDocumentOutputTypeDef(TypedDict):
+    ReportingGranularity: list[FlexCostAllocationReportingGranularityType]
+    Dimensions: list[FlexCostAllocationCostDimensionType]
+    CidrRangeSpecifications: NotRequired[FlexCostAllocationCidrRangeSpecificationsOutputTypeDef]
+
+class InstanceFlexCostAllocationPolicyDocumentTypeDef(TypedDict):
+    ReportingGranularity: Sequence[FlexCostAllocationReportingGranularityType]
+    Dimensions: Sequence[FlexCostAllocationCostDimensionType]
+    CidrRangeSpecifications: NotRequired[FlexCostAllocationCidrRangeSpecificationsTypeDef]
+
+class NatFlexCostAllocationPolicyDocumentTypeDef(TypedDict):
+    ReportingGranularity: Sequence[FlexCostAllocationReportingGranularityType]
+    Dimensions: Sequence[FlexCostAllocationCostDimensionType]
+    CidrRangeSpecifications: NotRequired[FlexCostAllocationCidrRangeSpecificationsTypeDef]
+
+class PcxFlexCostAllocationPolicyDocumentTypeDef(TypedDict):
+    ReportingGranularity: Sequence[FlexCostAllocationReportingGranularityType]
+    Dimensions: Sequence[FlexCostAllocationCostDimensionType]
+    CidrRangeSpecifications: NotRequired[FlexCostAllocationCidrRangeSpecificationsTypeDef]
+
 class DescribeFlowLogsResultTypeDef(TypedDict):
     FlowLogs: list[FlowLogTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -21072,6 +21253,46 @@ class DescribeNetworkInsightsPathsResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class FlexCostAllocationPolicyDescriptionTypeDef(TypedDict):
+    FcaPolicyId: NotRequired[str]
+    FcaPolicyArn: NotRequired[str]
+    NetworkResourceType: NotRequired[FlexCostAllocationNetworkResourceTypeType]
+    NatFcaPolicyDocument: NotRequired[NatFlexCostAllocationPolicyDocumentOutputTypeDef]
+    InstanceFcaPolicyDocument: NotRequired[InstanceFlexCostAllocationPolicyDocumentOutputTypeDef]
+    PcxFcaPolicyDocument: NotRequired[PcxFlexCostAllocationPolicyDocumentOutputTypeDef]
+    ShowBackEnabled: NotRequired[bool]
+    OwnerAccount: NotRequired[str]
+    Description: NotRequired[str]
+    LatestVersion: NotRequired[int]
+    VersionExpectedEffectiveAt: NotRequired[datetime]
+    PolicyCreatedAt: NotRequired[datetime]
+    UpdatedAt: NotRequired[datetime]
+    ManagedBy: NotRequired[ManagedByType]
+    Tags: NotRequired[list[TagTypeDef]]
+
+class FlexCostAllocationPolicyVersionTypeDef(TypedDict):
+    FcaPolicyId: NotRequired[str]
+    Version: NotRequired[int]
+    NetworkResourceType: NotRequired[FlexCostAllocationNetworkResourceTypeType]
+    NatFcaPolicyDocument: NotRequired[NatFlexCostAllocationPolicyDocumentOutputTypeDef]
+    InstanceFcaPolicyDocument: NotRequired[InstanceFlexCostAllocationPolicyDocumentOutputTypeDef]
+    PcxFcaPolicyDocument: NotRequired[PcxFlexCostAllocationPolicyDocumentOutputTypeDef]
+    ShowBackEnabled: NotRequired[bool]
+    Description: NotRequired[str]
+    ExpectedEffectiveAt: NotRequired[datetime]
+    CreatedAt: NotRequired[datetime]
+
+InstanceFlexCostAllocationPolicyDocumentUnionTypeDef = Union[
+    InstanceFlexCostAllocationPolicyDocumentTypeDef,
+    InstanceFlexCostAllocationPolicyDocumentOutputTypeDef,
+]
+NatFlexCostAllocationPolicyDocumentUnionTypeDef = Union[
+    NatFlexCostAllocationPolicyDocumentTypeDef, NatFlexCostAllocationPolicyDocumentOutputTypeDef
+]
+PcxFlexCostAllocationPolicyDocumentUnionTypeDef = Union[
+    PcxFlexCostAllocationPolicyDocumentTypeDef, PcxFlexCostAllocationPolicyDocumentOutputTypeDef
+]
+
 class CreateApplicationStatusCheckResultTypeDef(TypedDict):
     ApplicationStatusCheck: ApplicationStatusCheckResponseObjectTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -21881,6 +22102,36 @@ class RunInstancesRequestTypeDef(TypedDict):
     NetworkInterfaces: NotRequired[Sequence[InstanceNetworkInterfaceSpecificationUnionTypeDef]]
     IamInstanceProfile: NotRequired[IamInstanceProfileSpecificationTypeDef]
     EbsOptimized: NotRequired[bool]
+
+class DescribeNetworkingFlexCostAllocationPoliciesResultTypeDef(TypedDict):
+    FlexCostAllocationPolicies: list[FlexCostAllocationPolicyDescriptionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class GetNetworkingFlexCostAllocationPolicyVersionsResultTypeDef(TypedDict):
+    FcaPolicyVersions: list[FlexCostAllocationPolicyVersionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateNetworkingFlexCostAllocationPolicyRequestTypeDef(TypedDict):
+    NetworkResourceType: FlexCostAllocationNetworkResourceTypeType
+    NatFcaPolicyDocument: NotRequired[NatFlexCostAllocationPolicyDocumentUnionTypeDef]
+    InstanceFcaPolicyDocument: NotRequired[InstanceFlexCostAllocationPolicyDocumentUnionTypeDef]
+    PcxFcaPolicyDocument: NotRequired[PcxFlexCostAllocationPolicyDocumentUnionTypeDef]
+    ShowBackEnabled: NotRequired[bool]
+    Description: NotRequired[str]
+    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    ClientToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+
+class ModifyNetworkingFlexCostAllocationPolicyRequestTypeDef(TypedDict):
+    FcaPolicyId: str
+    NatFcaPolicyDocument: NotRequired[NatFlexCostAllocationPolicyDocumentUnionTypeDef]
+    InstanceFcaPolicyDocument: NotRequired[InstanceFlexCostAllocationPolicyDocumentUnionTypeDef]
+    PcxFcaPolicyDocument: NotRequired[PcxFlexCostAllocationPolicyDocumentUnionTypeDef]
+    ShowBackEnabled: NotRequired[bool]
+    Description: NotRequired[str]
+    ClientToken: NotRequired[str]
+    DryRun: NotRequired[bool]
 
 class InstanceTypeDef(TypedDict):
     Architecture: NotRequired[ArchitectureValuesType]

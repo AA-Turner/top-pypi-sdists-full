@@ -977,6 +977,7 @@ def replay(
     on_experiment_start: Callable[[ReplayExperimentStart], None] | None = None,
     resume: str | None = None,
     force: bool = False,
+    retry_errored: bool = False,
     on_interrupt: Callable[[ReplayInterrupt], None] | None = None,
 ) -> ReplayResult:
     """Replay historical traces through a function and create an experiment.
@@ -1195,6 +1196,12 @@ def replay(
         force: Resume even when the experiment had activity in the last two
             minutes or its code change differs from the one it started with.
             Only valid with ``resume``.
+        retry_errored: With ``resume``, also re-run the items that finished
+            with an error, in the same experiment, replacing their errored
+            results. Use it when items failed for a reason outside the code
+            under test, such as a database that timed out. Without it, errored
+            items are returned as carried-over errors. Only valid with
+            ``resume``.
         on_interrupt: Optional callback invoked when SIGINT (Ctrl-C) or SIGTERM
             stops the run after the experiment started, once replay has asked
             Bitfab to mark the experiment interrupted. It receives
@@ -1227,6 +1234,10 @@ def replay(
             )
     if force and resume is None:
         raise ValueError("force only applies to resume: pass resume=<experiment ID>.")
+    if retry_errored and resume is None:
+        raise ValueError(
+            "retry_errored only applies to resume: pass resume=<experiment ID>."
+        )
     if experiment_group_name is not None and experiment_group_id is None:
         raise ValueError(
             "experiment_group_name names an experiment group, so it needs "
@@ -1325,6 +1336,7 @@ def replay(
             trace_function_key,
             code_change_files=request_code_change_files,
             force=force,
+            retry_errored=retry_errored,
         )
         stored_db_branch = _stored_db_branch(replay_data)
         if db_branch is not None and (

@@ -12,14 +12,14 @@ from typing import Any
 from . import enums
 from .error import Error
 try:
-    from .parser import fingerprint, get_postgresql_version, parse_sql, scan, split
+    from .parser import fingerprint, get_postgresql_version, normalize, parse_sql, scan, split
 except ModuleNotFoundError:  # pragma: no cover
     # bootstrap
     pass
 
 
 # This is injected automatically at release time
-__version__ = 'v8.7'
+__version__ = 'v8.8'
 "Package's version."
 
 __author__ = 'Lele Gaifax <lele@metapensiero.it>'
@@ -239,4 +239,4 @@ def prettify(statement: str, safety_belt: bool = False, preserve_comments: bool 
 
 
 __all__ = ('Error', 'enums', 'fingerprint', 'get_postgresql_version',
-           'parse_plpgsql', 'parse_sql', 'prettify', 'split')
+           'normalize', 'parse_plpgsql', 'parse_sql', 'prettify', 'split')

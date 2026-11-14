@@ -38,17 +38,24 @@ from ._browser_security import (
     apply_agent_tasks_payload,
     classify_domains_payload,
     create_destination_group_payload,
+    create_sensitive_data_profile_payload,
     deactivate_agents_payload,
     query_combined_seraphic_agents_payload,
     query_destination_groups_payload,
+    query_sensitive_data_profiles_payload,
     query_seraphic_agents_payload,
     query_seraphic_rules_payload,
     update_destination_group_payload,
+    update_sensitive_data_profile_payload,
     update_seraphic_rule_payload,
     )
 from ._cloud_security_assets import cloud_security_assets_entities_post_payload
 from ._cloud_security_detections import cspm_evaluations_iom_entities_post_payload
 from ._code_security import exchange_github_app_code_payload, register_scm_app_payload
+from ._eval_dataset_entries import create_eval_dataset_entry_payload, update_eval_dataset_entry_payload
+from ._eval_datasets import create_eval_dataset_payload, update_eval_dataset_payload
+from ._eval_evaluators import create_eval_evaluator_payload, update_eval_evaluator_payload
+from ._eval_runs import create_eval_run_payload, perform_eval_run_action_payload
 from ._falcon_id import update_third_party_passkey_registry_payload
 from ._federated_connections import patch_federated_connections_config_payload, post_federated_connections_config_payload
 from ._generic import (
@@ -80,6 +87,10 @@ from ._correlation_rules import (
     correlation_rules_template_payload
 )
 from ._case_management import (
+    add_case_access_tags_payload,
+    add_case_alert_evidence_v2_payload,
+    add_case_custom_evidence_payload,
+    add_case_user_evidence_payload,
     case_evidence_payload,
     case_manage_payload,
     case_management_create_notification_payload,
@@ -189,16 +200,21 @@ from ._ioa_exclusions import (
     ioa_ss_default_exclusion_payload
     )
 from ._it_automation import (
-    task_payload,
-    task_execution_payload,
+    aggregate_patch_deployment_configs_payload,
+    aggregate_patch_deployment_executions_payload,
+    aggregate_patch_host_deployments_payload,
+    automation_live_query_payload,
+    automation_policy_payload,
+    automation_user_group_payload,
+    cancel_task_execution_payload,
+    create_patch_deployment_config_payload,
     execution_results_search_payload,
+    policy_host_group_payload,
     rerun_payload,
     scheduled_task_payload,
-    automation_policy_payload,
-    policy_host_group_payload,
-    automation_live_query_payload,
-    automation_user_group_payload,
-    cancel_task_execution_payload
+    task_execution_payload,
+    task_payload,
+    update_patch_deployment_config_payload,
     )
 from ._mobile_enrollment import mobile_enrollment_payload
 from ._network_scan_global_configs import network_scan_global_configs_payload
@@ -243,6 +259,7 @@ from ._ngsiem import (
     bulk_update_saved_query_labels_payload,
     create_parser_extension_payload,
     create_persisted_aggregation_payload,
+    create_scheduled_report_payload,
     ngsiem_auto_update_policy_payload,
     ngsiem_bulk_install_parsers_payload,
     ngsiem_clone_parser_payload,
@@ -257,6 +274,7 @@ from ._ngsiem import (
     update_parser_extension_payload,
     update_persisted_aggregation_payload,
     update_saved_query_labels_payload,
+    update_scheduled_report_payload,
     )
 from ._prevention_policy import prevention_policy_payload
 from ._saas_security import (
@@ -264,6 +282,7 @@ from ._saas_security import (
     create_check_journal_comment_payload,
     create_user_journal_comment_payload,
     restore_affected_entity_payload,
+    set_check_impact_payload,
     set_check_param_payload,
     )
 from ._scanning_orchestrator import create_schedules_payload, trigger_scan_by_schedule_payload, update_schedules_payload
@@ -332,6 +351,8 @@ from ._cloud_snapshots import (
     snapshot_launch_payload
     )
 from ._user_management import (
+    get_permission_groups_payload,
+    get_permissions_payload,
     get_user_allowed_actions_payload,
     get_user_invitations_payload,
     retrieve_users_v2_payload,
@@ -461,5 +482,18 @@ __all__ = [
     "create_check_journal_comment_payload", "create_user_journal_comment_payload",
     "restore_affected_entity_payload", "set_check_param_payload",
     "get_user_allowed_actions_payload", "get_user_invitations_payload",
-    "retrieve_users_v2_payload", "update_user_roles_payload"
+    "retrieve_users_v2_payload", "update_user_roles_payload",
+    "create_sensitive_data_profile_payload", "query_sensitive_data_profiles_payload",
+    "update_sensitive_data_profile_payload", "add_case_access_tags_payload",
+    "add_case_alert_evidence_v2_payload", "add_case_custom_evidence_payload",
+    "add_case_user_evidence_payload", "create_eval_dataset_entry_payload",
+    "update_eval_dataset_entry_payload", "create_eval_dataset_payload",
+    "update_eval_dataset_payload", "create_eval_evaluator_payload",
+    "update_eval_evaluator_payload", "create_eval_run_payload",
+    "perform_eval_run_action_payload",
+    "aggregate_patch_deployment_configs_payload", "aggregate_patch_deployment_executions_payload",
+    "aggregate_patch_host_deployments_payload", "create_patch_deployment_config_payload",
+    "update_patch_deployment_config_payload", "create_scheduled_report_payload",
+    "update_scheduled_report_payload", "set_check_impact_payload",
+    "get_permission_groups_payload", "get_permissions_payload"
 ]

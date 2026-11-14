@@ -13,7 +13,14 @@ columns); then the waist, when the robot has one; then a mobile base's measured 
 components (``base_components``, in their declared order). Each chunk row is ``action_dim``
 absolute end-effector targets (``absolute_eef_6d``): per arm xyz, 6D and gripper; then the waist,
 then the base velocity (3, or the declared components). Between chunks the robot holds its
-measured pose (``current_position``); a mobile base holds still (zero velocity).
+measured pose (``current_position``); a mobile base holds still (zero velocity). A vector robot
+(a run trained with the ``vector`` input) sends its ``vector.state`` values and gets
+``vector.action`` absolute values a row, holding its measured values (equal widths) or zeros.
+
+A chunk is ``action_horizon`` rows (30 at 30 Hz; a training run's is about one second at its
+data's rate); each answer holds the ``executed_actions`` the robot runs, or all of them when the
+deployment returns its whole chunk (``full_chunk``), of which the robot runs the first
+``executed_actions``.
 Trained RTC's committed rows are those absolute rows as the robot received them; the server
 re-expresses them against the request's pose.
 
@@ -31,6 +38,10 @@ A robot that is only a mobile base (a run trained with the ``mobile_base`` input
 speed and steering) sends no arms, only its components in their declared order::
 
     state = deployment.state(base={"vx": speed, "wz": steering})   # or base=[...] in order
+
+A vector robot sends its values in its data's order::
+
+    state = deployment.state(vector=[curvature, speed])
 """
 
 from __future__ import annotations
@@ -50,8 +61,8 @@ _REQUIRED = (
     "action_space", "trained_rtc_max_delay", "rtc_method",
 )
 # ... and defaulted where the semantic defaults them.
-_OPTIONAL = ("waist", "base", "base_components", "step", "denoising_steps",
-             "max_instruction_tokens", "source_format")
+_OPTIONAL = ("waist", "base", "base_components", "vector", "full_chunk", "step",
+             "denoising_steps", "max_instruction_tokens", "source_format")
 _SEMANTIC_KEYS = tuple(key for key in (*_REQUIRED, *_OPTIONAL) if key not in (
     "id", "state_dim", "action_dim", "gripper_indices", "rtc_method"))
 
@@ -95,6 +106,10 @@ class Xr1SessionDeployment:
     step: int | None = None
     # A mobile base's velocity components (in its state and rows, in this order).
     base_components: tuple[str, ...] = ()
+    # A vector robot's widths and hold (its state and rows are plain values), or None.
+    vector: C.Xr1Vector | None = None
+    # Whether each answer holds the whole chunk (else the executed rows).
+    full_chunk: bool = False
     # The robot's semantic (placeholders for the checkpoint's own fields; see ``_semantic``).
     semantic: C.Xr1DeploymentSemantic | None = field(default=None, repr=False, compare=False)
     # No joint layout of its own: its actions are end-effector poses.
@@ -113,6 +128,11 @@ class Xr1SessionDeployment:
     @property
     def rtc_contract(self) -> str | None:
         return C.rtc_contract_for(self.rtc_method)
+
+    @property
+    def returned_actions(self) -> int:
+        """Rows each answer holds: the whole chunk (``full_chunk``), else the executed rows."""
+        return self.action_horizon if self.full_chunk else self.executed_actions
 
     @classmethod
     def from_json(cls, data: Any) -> Xr1SessionDeployment:
@@ -161,7 +181,7 @@ class Xr1SessionDeployment:
             max_instruction_tokens=semantic.max_instruction_tokens,
             trained_rtc_max_delay=trained, rtc_method=method, rtc_max_delay=cap,
             step=semantic.step, base_components=tuple(semantic.base_components),
-            semantic=semantic,
+            vector=semantic.vector, full_chunk=semantic.full_chunk, semantic=semantic,
         )
 
     @property
@@ -169,7 +189,12 @@ class Xr1SessionDeployment:
         """The row that holds the measured pose (``current_position``), as each action value's
         index in the state (RuntimeContract.hold_indices; -1: zero): per arm its xyz, 6D and
         gripper as measured, the waist where it is, the base still: zero velocity, either kind
-        of base (the transport's ``hold_row`` on the same state)."""
+        of base; a vector robot its measured values (equal widths) or zeros (the transport's
+        ``hold_row`` on the same state)."""
+        if self.vector is not None:
+            if self.vector.hold == "measured":
+                return tuple(range(self.action_dim))
+            return (-1,) * self.action_dim
         out: list[int] = []
         at = 0
         for arm in self.arms:
@@ -184,14 +209,18 @@ class Xr1SessionDeployment:
         return tuple(out)
 
     def state(self, *, arms: Mapping[str, Mapping[str, Any]] | None = None,
-              waist: float | None = None, base: Any = None) -> list[float]:
+              waist: float | None = None, base: Any = None,
+              vector: Any = None) -> list[float]:
         """This deployment's state vector (``robot_state``)."""
+        if self.vector is not None or vector is not None:
+            return _vector_state(self.vector, arms, waist, base, vector)
         return _state(self.arms, self.waist, arms, waist, self.base_components, base)
 
 
 def robot_state(embodiment: Xr1SessionDeployment | Mapping[str, Any], *,
                 arms: Mapping[str, Mapping[str, Any]] | None = None,
-                waist: float | None = None, base: Any = None) -> list[float]:
+                waist: float | None = None, base: Any = None,
+                vector: Any = None) -> list[float]:
     """The state vector a request sends, in the deployment's layout: per declared arm (left
     before right) its ``joints`` (as many as it declared, in ``joint_unit``), ``gripper`` (in
     ``gripper_unit``), end-effector ``position`` (xyz, metres) and ``rotation`` (a 3x3 rotation
@@ -199,12 +228,17 @@ def robot_state(embodiment: Xr1SessionDeployment | Mapping[str, Any], *,
     when the robot has one; then a mobile base's ``base`` (its declared ``base_components``: a
     dict by component, or the values in their declared order). ``embodiment``: a session's
     deployment, or a deployment row's ``embodiment`` (``{"preset": "bimanual_yam"}`` will do for
-    the preset). Refuses a missing or extra arm or base value, a wrong width, a non-finite value
-    and a rotation that isn't one."""
+    the preset). A vector robot's state is its ``vector`` values, in its data's order. Refuses a
+    missing or extra arm or base value, a wrong width, a non-finite value and a rotation that
+    isn't one."""
     if isinstance(embodiment, Xr1SessionDeployment):
-        return embodiment.state(arms=arms, waist=waist, base=base)
+        return embodiment.state(arms=arms, waist=waist, base=base, vector=vector)
     if not isinstance(embodiment, Mapping):
         raise ValueError(f"a {LABEL} embodiment is a deployment or its embodiment dict")
+    if embodiment.get("vector") is not None or vector is not None:
+        declared_vector = (C.Xr1Vector.model_validate(embodiment["vector"])
+                           if embodiment.get("vector") is not None else None)
+        return _vector_state(declared_vector, arms, waist, base, vector)
     declared = embodiment.get("arms")
     if declared is None and embodiment.get("preset") == C.PRESET:
         declared = [{"side": side, "joints": C.YAM_JOINTS} for side in C.SIDES]
@@ -270,6 +304,19 @@ def _state(layout: Sequence[C.Xr1Arm], has_waist: bool,
     return out
 
 
+def _vector_state(declared: C.Xr1Vector | None, arms: Any, waist: Any, base: Any,
+                  vector: Any) -> list[float]:
+    """A vector robot's state: its ``vector.state`` values, nothing else."""
+    if declared is None:
+        raise ValueError("this robot is not a vector robot: pass its arms, waist or base")
+    if arms is not None or waist is not None or base is not None:
+        raise ValueError("a vector robot's state is its values alone: pass vector=")
+    if vector is None:
+        raise ValueError(f"this robot is a vector robot: pass vector= its {declared.state} "
+                         "values")
+    return _vector(vector, "vector's values", declared.state).tolist()
+
+
 def _vector(values: Any, name: str, width: int) -> np.ndarray:
     items = list(values) if isinstance(values, Sequence | np.ndarray) else None
     if items is None or len(items) != width or not all(
@@ -302,7 +349,7 @@ def runtime_contract(resolved: Any, deployment: Any) -> Any:
         "rtc": "on" if trained else "off",
         "rtc_contract": C.TRAINED_RTC_CONTRACT if trained else None,
         "action_hz": deployment.action_hz,
-        "chunk_size": deployment.executed_actions,
+        "chunk_size": deployment.returned_actions,
         "action_dim": deployment.action_dim,
         "action_space": C.ACTION_SPACE,
         # Absolute end-effector rows: between chunks the robot holds its measured pose.
@@ -312,7 +359,9 @@ def runtime_contract(resolved: Any, deployment: Any) -> Any:
         raise ValueError(f"{LABEL} runtime differs from the deployment's sealed contract")
     return RuntimeContract(
         action_hz=float(deployment.action_hz),
-        chunk_size=deployment.executed_actions,
+        # Each answer's rows (the whole chunk when it returns it); the robot runs the first
+        # executed_actions of them.
+        chunk_size=deployment.returned_actions,
         action_dim=deployment.action_dim,
         action_space=C.ACTION_SPACE,
         hold_behavior=C.HOLD_BEHAVIOR,

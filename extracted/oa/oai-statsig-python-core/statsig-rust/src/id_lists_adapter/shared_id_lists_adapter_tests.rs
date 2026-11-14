@@ -102,6 +102,20 @@ impl Fixture {
         let no_download = self.server.mock("GET", "/members").expect(0).create();
         (manifest, no_download)
     }
+    #[cfg(not(feature = "custom_network_provider"))]
+    fn file_request(&mut self, start: u64, offer_snapshot: bool) -> Mock {
+        use mockito::Matcher;
+        let accept = if offer_snapshot {
+            Matcher::Exact(crate::portable_id_list_ef::MEDIA_TYPE.into())
+        } else {
+            Matcher::AnyOf(vec![Matcher::Missing, Matcher::Exact("*/*".into())])
+        };
+        self.server
+            .mock("GET", "/members")
+            .match_header("range", format!("bytes={start}-").as_str())
+            .match_header("accept", accept)
+            .expect(1)
+    }
     fn response(
         &mut self,
         size: u64,
@@ -137,9 +151,15 @@ async fn start(
     directory: &std::path::Path,
     service: &str,
 ) -> (Arc<StatsigSharedIdListsAdapter>, Arc<Listener>) {
+    start_with_options(&fixture.options(directory, service)).await
+}
+
+async fn start_with_options(
+    options: &StatsigOptions,
+) -> (Arc<StatsigSharedIdListsAdapter>, Arc<Listener>) {
     let adapter = Arc::new(StatsigSharedIdListsAdapter::new(
         "secret-shared-fixture",
-        &fixture.options(directory, service),
+        options,
     ));
     let listener = Arc::new(Listener::default());
     adapter
@@ -153,6 +173,117 @@ fn verify(mock: &(Mock, Option<Mock>)) {
     mock.0.assert();
     if let Some(file) = &mock.1 {
         file.assert();
+    }
+}
+
+#[cfg(not(feature = "custom_network_provider"))]
+#[tokio::test]
+async fn shared_ef_snapshot_is_mapped_and_successor_resumes_its_raw_cursor() {
+    use super::shared_id_list_format::{HEADER_LEN, digest, hex};
+    use crate::portable_id_list_ef::{MEDIA_TYPE, encode_prefix_v1};
+
+    let directory = tempfile::tempdir().unwrap();
+    let mut fixture = Fixture::new().await;
+    let mut options = fixture.options(directory.path(), "snapshot");
+    options.enable_id_list_elias_fano = Some(true);
+    options.download_id_list_file_api = Some(fixture.server.url());
+
+    let (end, mut section) = encode_prefix_v1(b"+AAAAAAAA\n+AAAAAAAA\n+CCCCCCCC\n", 0)
+        .unwrap()
+        .unwrap();
+    // Repacking the index would erase this byte in its unused read padding.
+    *section.last_mut().unwrap() = 0x42;
+    let manifest = fixture.manifest(50, 1, 123, 1);
+    let image = fixture
+        .file_request(0, true)
+        .with_header("content-type", MEDIA_TYPE)
+        .with_header("x-statsig-id-list-file-id", "file-1")
+        .with_header("x-statsig-id-list-raw-end", &end.to_string())
+        .with_header("x-statsig-id-list-sha256", &hex(&digest(&section)))
+        .with_body(&section)
+        .create();
+    let (leader, owner) = start_with_options(&options).await;
+    let (successor, reader) = start_with_options(&options).await;
+    manifest.assert();
+    image.assert();
+    assert_eq!(successor.role_for_test().await, "follower");
+    for view in [&owner, &reader] {
+        let lists = view.lists.lock();
+        let list = &lists["members"];
+        assert!(list.ids.is_mapped() && list.ids.has_compact_base());
+        assert_eq!(list.metadata.size, 30);
+        assert_eq!(list.ids.len(), 2);
+        assert!(list.ids.contains("AAAAAAAA") && list.ids.contains("CCCCCCCC"));
+        assert_eq!(
+            view.propagation.lock()["members"].applied_range,
+            Some(0..30)
+        );
+    }
+    let pinned = reader.lists.lock()["members"].clone();
+    assert_eq!(pinned.ids.packed_ef_section(), Some(section.as_slice()));
+    let path = leader
+        .store_for_test()
+        .directory()
+        .join(pinned.ids.base_file().unwrap());
+    assert_eq!(&std::fs::read(path).unwrap()[HEADER_LEN..], &section);
+    leader.shutdown(Duration::from_secs(1)).await.unwrap();
+    let manifest = fixture.manifest(50, 1, 124, 1);
+    let tail = fixture
+        .file_request(30, false)
+        .with_status(206)
+        .with_header("content-range", "bytes 30-49/50")
+        .with_body("-AAAAAAAA\n+BBBBBBBB\n")
+        .create();
+    successor.poll_for_test().await.unwrap();
+    manifest.assert();
+    tail.assert();
+    assert_eq!(successor.role_for_test().await, "leader");
+    let next = reader.lists.lock()["members"].clone();
+    assert_eq!(next.metadata.size, 50);
+    assert!(next.ids.is_mapped() && next.ids.contains("BBBBBBBB") && next.ids.contains("CCCCCCCC"));
+    assert!(!next.ids.contains("AAAAAAAA"));
+    assert!(pinned.ids.contains("AAAAAAAA"));
+    successor.force_shutdown();
+}
+
+#[cfg(not(feature = "custom_network_provider"))]
+#[tokio::test]
+async fn shared_ef_snapshot_negotiation_preserves_raw_publication() {
+    for (ef, endpoint, offer, status) in [
+        (Some(true), true, true, 200),
+        (Some(true), true, true, 206),
+        (Some(true), false, false, 206),
+        (Some(false), true, false, 206),
+        (None, true, false, 206),
+    ] {
+        let directory = tempfile::tempdir().unwrap();
+        let mut fixture = Fixture::new().await;
+        let mut options = fixture.options(directory.path(), "raw");
+        options.enable_id_list_elias_fano = ef;
+        options.download_id_list_file_api = endpoint.then(|| fixture.server.url());
+        let manifest = fixture.manifest(20, 1, 123, 1);
+        let file = fixture
+            .file_request(0, offer)
+            .with_status(status)
+            .with_body("+AAAAAAAA\n+BBBBBBBB\n");
+        let file = if status == 206 {
+            file.with_header("content-range", "bytes 0-19/20")
+        } else {
+            file
+        }
+        .create();
+        let (leader, _) = start_with_options(&options).await;
+        let (follower, view) = start_with_options(&options).await;
+        manifest.assert();
+        file.assert();
+        let list = view.lists.lock()["members"].clone();
+        assert_eq!(list.metadata.size, 20);
+        assert!(
+            list.ids.is_mapped() && list.ids.contains("AAAAAAAA") && list.ids.contains("BBBBBBBB")
+        );
+        assert_eq!(list.ids.has_compact_base(), ef == Some(true));
+        follower.force_shutdown();
+        leader.force_shutdown();
     }
 }
 

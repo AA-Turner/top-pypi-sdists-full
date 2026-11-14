@@ -58,11 +58,11 @@ class DescribeHistoryEventsStatResponseBodyItems(DaraModel):
         event_category: str = None,
         total_count: int = None,
     ):
-        # The categorization of system events. Valid values:
-        # - **Exception**: abnormal events.
-        # - **Optimize**: optimization events.
-        # - **Notification**: notification events.
-        # - **Maintenance**: scheduled O&M events.
+        # The category of the system event. Valid values:
+        # - **Exception**: Exception events.
+        # - **Optimize**: Optimization events.
+        # - **Notification**: Notification events.
+        # - **Maintenance**: Scheduled O&M events.
         self.event_category = event_category
         # The total number of entries.
         self.total_count = total_count

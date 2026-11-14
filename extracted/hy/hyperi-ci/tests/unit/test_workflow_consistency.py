@@ -493,10 +493,12 @@ class TestFromHeadThreading:
         )
         assert commit["run"].endswith('"$RELEASE_VERSION"')
         assert commit["env"]["RELEASE_VERSION"] == "${{ inputs.next-version }}"
-        # A tag dispatch checks out an old tag, so its VERSION and CHANGELOG.md
-        # committed onto main would move the branch backwards (issue #350).
-        assert "inputs.tag == ''" in str(commit["if"]), (
-            "release-commit must skip a retroactive tag dispatch"
+        # A tag dispatch checks out the tagged commit, so its own CHANGELOG.md
+        # would move main backwards (issue #350). --from-tag builds on main's copy.
+        assert commit["env"]["HYPERCI_RELEASE_FROM_TAG"] == "${{ inputs.tag != '' }}"
+        # release-commit refuses an rc on main, and the refusal files an issue.
+        assert "inputs.candidate != 'true'" in str(commit["if"]), (
+            "release-commit must skip a release candidate"
         )
         assert commit["continue-on-error"] is True, (
             "bookkeeping after a shipped release must not turn it red"
@@ -1858,9 +1860,13 @@ class TestFirstReleaseAndOrphanGuards:
             "tag-less branch must be tag-head; the else branch must be "
             "the real semantic-release run"
         )
-        # tag-head goes through `gh api` -- the step needs GH_TOKEN.
-        assert "GH_TOKEN" in sr.get("env", {}), (
-            "Tag step must export GH_TOKEN for tag-head's gh api call"
+        # tag-head goes through `gh api` and needs GH_TOKEN, but semantic-release
+        # must see one token variable or it vets auth URLs with a push dry-run.
+        assert 'GH_TOKEN="$GITHUB_TOKEN"' in run[idx_if:idx_tag_head], (
+            "tag-head must get GH_TOKEN on its own command line"
+        )
+        assert "GH_TOKEN" not in sr.get("env", {}), (
+            "semantic-release must see GITHUB_TOKEN alone (issue #738)"
         )
 
 

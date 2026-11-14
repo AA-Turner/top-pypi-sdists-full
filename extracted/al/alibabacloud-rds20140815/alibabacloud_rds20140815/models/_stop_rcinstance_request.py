@@ -12,11 +12,11 @@ class StopRCInstanceRequest(DaraModel):
         region_id: str = None,
         stopped_mode: str = None,
     ):
-        # Specifies whether to force a shutdown. Valid values:
+        # Specifies whether to force shutdown. Valid values:
         # 
-        # - **true**: Forces a shutdown.
+        # -   **true**: Forces the instance to shut down.
         # 
-        # - **false** (default): Performs a normal shutdown.
+        # -   **false** (default): Shuts down the instance normally.
         self.force_stop = force_stop
         # The instance ID.
         # 
@@ -26,12 +26,12 @@ class StopRCInstanceRequest(DaraModel):
         self.region_id = region_id
         # The stop mode configured when the instance is stopped. Valid values:
         # 
-        #   - StopCharging: Economical mode. After economical mode is enabled:
+        #   - StopCharging: economical mode. After economical mode is enabled:
         #     - Billing for compute resources is suspended.
         #     - Billing for the system cloud disk and data cloud disks continues.
-        #     - Because compute resources are reclaimed, the instance may fail to start due to insufficient inventory. Try again later or change the instance type. 
+        #     - Because compute resources are reclaimed, the instance may fail to start due to insufficient resources. In this case, try again later or change the instance type. 
         # 
-        #   - KeepCharging: Standard mode. The instance continues to be billed after it is stopped.
+        #   - KeepCharging: standard mode. The instance continues to be billed after it is stopped.
         self.stopped_mode = stopped_mode
 
     def validate(self):

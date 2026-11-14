@@ -13,7 +13,7 @@ use pyo3::exceptions::{PyBufferError, PyIndexError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::pybacked::PyBackedBytes;
 use pyo3::types::slice::PySliceIndices;
-use pyo3::types::{PyDict, PyInt, PySlice, PyString, PyTuple};
+use pyo3::types::{PyBytes, PyInt, PySlice, PyString, PyTuple, PyType};
 use pyo3::{IntoPyObjectExt, ffi};
 
 use crate::alloc::{AllocError, try_with_capacity};
@@ -41,8 +41,8 @@ const PY_HASH_NONE: isize = -1;
 ///
 /// ### Buffer protocol export
 ///
-/// `PyBytes` implements the Python buffer protocol to enable Python to access the underlying `Bytes`
-/// data view without copies. In Python, this `PyBytes` object can be passed to Python `bytes` or
+/// `RyBytes` implements the Python buffer protocol to enable Python to access the underlying `Bytes`
+/// data view without copies. In Python, this `RyBytes` object can be passed to Python `bytes` or
 /// `memoryview` constructors, `numpy.frombuffer`, or any other function that supports buffer
 /// protocol input.
 #[pyclass(name = "Bytes", frozen, sequence, weakref)]
@@ -101,9 +101,15 @@ impl AsRef<[u8]> for RyBytes {
 }
 
 impl RyBytes {
-    /// Construct a new [`PyBytes`]
+    /// Construct a new [`RyBytes`]
     pub const fn new(buffer: Bytes) -> Self {
         Self(buffer, AtomicIsize::new(PY_HASH_NONE))
+    }
+
+    /// Construct an empty [`RyBytes`] object
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self::new(Bytes::new())
     }
 
     /// Consume and return the [Bytes]
@@ -217,7 +223,7 @@ impl From<BytesMut> for RyBytes {
 
 #[pymethods]
 impl RyBytes {
-    // By setting the argument to PyBytes, this means that any buffer-protocol object is supported
+    // By setting the argument to RyBytes, this means that any buffer-protocol object is supported
     // here, since it will use the FromPyObject impl.
     #[new]
     #[pyo3(
@@ -250,11 +256,9 @@ impl RyBytes {
         Self::from(self.0.clone())
     }
 
-    fn __getnewargs_ex__<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
-        let py_bytes = self.to_bytes(py);
-        let args = PyTuple::new(py, vec![py_bytes])?.into_bound_py_any(py)?;
-        let kwargs = PyDict::new(py).into_bound_py_any(py)?;
-        PyTuple::new(py, [args, kwargs])
+    // TODO: something funky here prolly w/ subclass feat on
+    fn __reduce__<'py>(&'py self, py: Python<'py>) -> (Bound<'py, PyType>, (Bound<'py, PyBytes>,)) {
+        (py.get_type::<Self>(), (self.to_bytes(py),))
     }
 
     /// The number of bytes in this Bytes
@@ -968,7 +972,7 @@ impl std::fmt::Debug for RyBytes {
     }
 }
 
-/// A key for the `__getitem__` method of `PyBytes` - int/slice
+/// A key for the `__getitem__` method of `RyBytes` - int/slice
 enum BytesGetItemKey<'py> {
     /// An integer index
     Int(isize),
@@ -1006,7 +1010,7 @@ impl<'py> FromPyObject<'_, 'py> for BytesGetItemKey<'py> {
 enum BytesGetItemResult<'py> {
     /// A single byte as an integer
     Byte(u8),
-    /// A slice of bytes as a new `PyBytes`
+    /// A slice of bytes as a new `RyBytes`
     Slice(RyBytes),
     /// Whole-buffer slice (`b[:]`)
     Same(Bound<'py, RyBytes>),
@@ -1246,7 +1250,7 @@ impl ExactSizeIterator for BytesSliceIterRanges {
     }
 }
 
-/// Iterator of bytes ranges to slice with [`PyBytesSliceIter`].
+/// Iterator of bytes ranges to slice with [`RyBytesSliceIter`].
 #[derive(Clone, Debug)]
 struct BytesWindowRanges<const REVERSE: bool> {
     len: usize,

@@ -1436,8 +1436,15 @@ def test_diagnose_review_detects_leaked_claim_with_no_review_rows(
     assert res.recovered is False
     assert res.needs_reset is True
     assert any("review_claims" in f or "review-dispatch claim" in f for f in res.findings)
-    # A dry-run must not touch the claim.
-    assert state.claim_review_dispatch("w1") is False
+    # A dry-run must not touch the claim — probed through the read-only
+    # `review_claims` accessors, not `claim_review_dispatch`. The claim this
+    # test builds IS leaked by `state.review_claim_is_leaked`'s definition, so
+    # a claim attempt would legitimately reclaim it and could never observe
+    # "still held"; the row's survival AND its untouched `claimed_at` stamp
+    # are what "the dry-run changed nothing" actually means.
+    assert state.has_review_claim("w1") is True
+    age = state.review_claim_age_secs("w1")
+    assert age is not None and age >= 3600.0
 
 
 def test_reset_review_releases_leaked_claim_with_no_review_rows(
@@ -1463,8 +1470,14 @@ def test_reset_review_releases_leaked_claim_with_no_review_rows(
 
     assert res.reset_performed is True
     assert res.recovered is True
-    # The claim is gone — a fresh claim attempt for "w1" must succeed again,
-    # exactly like `dispatch_review` would need for a real re-dispatch.
+    # The claim row is gone — asserted on the row itself, because a claim
+    # attempt alone no longer distinguishes "released" from "still held but
+    # reclaimable": `claim_review_dispatch` would also return True against a
+    # surviving leaked row (see `state.review_claim_is_leaked`), making that
+    # probe unable to fail here.
+    assert state.has_review_claim("w1") is False
+    # And it is dispatchable again, exactly like `dispatch_review` would need
+    # for a real re-dispatch.
     assert state.claim_review_dispatch("w1") is True
 
 
@@ -1505,8 +1518,11 @@ def test_reset_review_reports_leaked_claim_delete_failure_when_row_survives(
         "did NOT persist" in f
         for f in res.findings
     )
-    # Still held — the release never actually took.
-    assert state.claim_review_dispatch("w1") is False
+    # Still present — the release never actually took. Read the row, not a
+    # claim attempt: a surviving leaked row is reclaimable by design, so
+    # `claim_review_dispatch` returning True here would say nothing about
+    # whether the delete persisted.
+    assert state.has_review_claim("w1") is True
 
 
 def test_diagnose_review_fresh_claim_without_row_not_treated_as_leaked(
@@ -1573,6 +1589,48 @@ def test_reset_review_reports_delete_failure_when_row_survives(
     assert res.reset_performed is True
     assert any("did NOT persist" in a for a in res.actions_taken)
     assert not any(a.startswith("deleted 1 review row(s)") for a in res.actions_taken)
+
+
+def test_reset_review_stage_reports_claim_release_failure_when_claim_survives(
+    monkeypatch, config, coord_db
+) -> None:
+    """Sibling of the delete-failure regression above for the OTHER write
+    `_reset_review_stage` performs right after it: `release_review_dispatch_
+    claim` is best-effort and never raises, so a swallowed `database is
+    locked` collision must not be reported as a clean release either."""
+    from coord import state
+
+    _stub(monkeypatch, session="dead")
+    _record(_assign(
+        aid="w1", typ="work", status="done", review_state="done",
+        dispatched_at=100.0,
+    ))
+    _record(_assign(
+        aid="rv1", typ="review", status="failed", dispatched_at=200.0, review_of="w1",
+    ))
+    assert state.claim_review_dispatch("w1") is True
+    # Simulate a release call that reports success but never actually
+    # removes the row.
+    monkeypatch.setattr(state, "release_review_dispatch_claim", lambda *a, **k: None)
+
+    board = Board(completed=[
+        _assign(aid="w1", typ="work", status="done", dispatched_at=100.0),
+        _assign(
+            aid="rv1", typ="review", status="failed", dispatched_at=200.0,
+            review_of="w1",
+        ),
+    ])
+
+    res = diagnose.diagnose_stage(board, config, "api", 42, "review", reset=True)
+
+    assert res.reset_performed is True
+    assert any(
+        "release requested for w1's review-dispatch claim" in a
+        and "did NOT persist" in a
+        for a in res.actions_taken
+    )
+    # Still present — the release never actually took.
+    assert state.has_review_claim("w1") is True
 
 
 def test_reset_review_real_db_resets_test_author_via_review_fk_sparing_sibling(
@@ -3496,6 +3554,42 @@ def test_reset_superseded_review_targets_newest_leg_and_keeps_history(
     assert rows["w2"] == "pending"
     assert rows["w1"] == "done"
     assert "rv1" in rows  # older leg's review row kept
+
+
+def test_reset_superseded_review_reports_release_failure_when_claim_survives(
+    monkeypatch, config, coord_db
+) -> None:
+    """`release_review_dispatch_claim` is best-effort and never raises — a
+    swallowed `database is locked` collision must not be reported as a
+    clean release. The re-read confirms it, and `review_state` still gets
+    reset to pending regardless (the claim release and the state reset are
+    independent effects)."""
+    from coord import state
+
+    _stub(monkeypatch, session="dead")
+    board = _superseded_board()
+    for a in board.completed:
+        _record(a)
+    coord_db.execute(
+        "UPDATE assignments SET review_state='dispatched' WHERE assignment_id='w2'"
+    )
+    coord_db.commit()
+    assert state.claim_review_dispatch("w2") is True  # leaked claim on the head
+    # Simulate a release call that reports success but never actually
+    # removes the row.
+    monkeypatch.setattr(state, "release_review_dispatch_claim", lambda *a, **k: None)
+
+    res = diagnose.diagnose_stage(board, config, "api", 42, "review", reset=True)
+
+    assert res.reset_performed is True
+    assert res.recovered is True
+    assert any("did NOT persist" in f for f in res.actions_taken)
+    # Still present — the release never actually took.
+    assert state.has_review_claim("w2") is True
+    rows = dict(coord_db.execute(
+        "SELECT assignment_id, review_state FROM assignments"
+    ).fetchall())
+    assert rows["w2"] == "pending"
 
 
 def test_diagnose_review_superseded_leg_names_the_guard_holding_it(

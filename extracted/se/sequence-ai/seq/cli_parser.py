@@ -832,8 +832,9 @@ def build_parser() -> argparse.ArgumentParser:
                         "NAME.<your id>.gpu.generalsequences.com, which moves to each GPU you add later with this name once "
                         "it runs - set your robots up with it once. One GPU's: not with --count above 1")
     p.add_argument("--no-wait", action="store_true", dest="no_wait",
-                   help="return as soon as they are asked for; by default it waits until each runs and says its address, "
-                        "and Ctrl-C meanwhile cancels those not running, unbilled")
+                   help="return once each GPU is asked for - seconds, not the minute or two it takes to run; by default it "
+                        "waits until each runs and says its address, and Ctrl-C meanwhile cancels those not running and "
+                        "says what each was billed")
     p = gpusub.add_parser("places", help="the US cities a --place can be, whose name or another name they go by starts "
                                          "with the words, the largest first: each with its latitude and longitude, "
                                          "and the other name it was found by (as Big Apple)")

@@ -20,6 +20,7 @@ from __future__ import annotations
 import copy
 import dataclasses
 import logging
+import numbers
 import typing
 import warnings
 from collections.abc import Iterator, Sequence
@@ -34,10 +35,10 @@ from sklearn import config_context
 from sklearn.base import (
     BaseEstimator,
     RegressorMixin,
-    TransformerMixin,
     check_is_fitted,
     clone,
 )
+from sklearn.pipeline import Pipeline
 from tqdm.auto import tqdm
 
 from tabpfn.architectures.shared.bar_distribution import FullSupportBarDistribution
@@ -96,9 +97,18 @@ from tabpfn.preprocessing.ensemble import (
     TabPFNEnsemblePreprocessor,
     scale_n_estimators_for_feature_coverage,
 )
+from tabpfn.preprocessing.group_ids import (
+    GroupIdEncoder,
+    as_group_feature,
+    reject_group_col,
+)
 from tabpfn.preprocessing.modality_detection import detect_feature_modalities
 from tabpfn.preprocessing.steps import (
     get_all_reshape_feature_distribution_preprocessors,
+)
+from tabpfn.preprocessing.target_transform import (
+    StandardizeTarget,
+    make_target_transform,
 )
 from tabpfn.preprocessing.text import TextTransformer
 from tabpfn.utils import (
@@ -120,7 +130,6 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     import numpy.typing as npt
-    from sklearn.pipeline import Pipeline
     from torch.types import _dtype
 
     from tabpfn.architectures.interface import (
@@ -177,6 +186,21 @@ RegressionResultType = np.ndarray | list[np.ndarray] | MainOutputDict | FullOutp
 """The type hint for the return value of the `predict` method."""
 
 DEFAULT_REGRESSION_EVAL_METRIC = RegressorEvalMetrics.NLL
+
+
+def _unflip_member(
+    output: torch.Tensor,
+    std_borders: np.ndarray,
+    config: RegressorEnsembleConfig,
+) -> tuple[torch.Tensor, np.ndarray]:
+    """Return a member's logits and the standardized borders they belong to.
+
+    A member that saw the negated target predicts on the mirrored grid: its bucket
+    j is bucket -1 - j there.
+    """
+    if not config.flip_target:
+        return output, std_borders
+    return output.flip(-1), -std_borders[::-1]
 
 
 class TabPFNRegressor(RegressorMixin, BaseEstimator):
@@ -263,6 +287,14 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
     text_transformer_: TextTransformer
     """The transformer that expanded every text column before validation."""
 
+    group_encoder_: GroupIdEncoder
+    """The encoder that replaced the `group_col` columns with one categorical
+    feature, holding the key-to-code mapping fitted on the training rows."""
+
+    group_feature_index_: int | None
+    """Where the encoded group feature sits in the cleaned input, or `None`
+    without `group_col`."""
+
     categorical_features_indices_: list[int] | None
     """Declared categorical column positions after date/text expansion, including
     columns declared through pandas `category` dtype. Expanded source columns are
@@ -287,6 +319,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         n_estimators: int | Literal["auto"] = "auto",
         auto_scale_n_estimators: bool = True,
         categorical_features_indices: Sequence[int] | None = None,
+        group_col: str | list[str] | None = None,
         softmax_temperature: float | Literal["auto"] = "auto",
         average_before_softmax: bool = False,
         model_path: str
@@ -369,6 +402,19 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                     model and the `.fit()`, consider setting the
                     `.categorical_features_indices` attribute after the model was
                     initialized and before `.fit()`.
+
+            group_col:
+                The label of the column that says which group a row belongs to,
+                e.g. a patient, or a list of labels whose joint value is one
+                composite key. The selected columns are replaced by one
+                categorical feature holding that key's integer code.
+
+                The codes are fitted on the training rows alone, every group
+                keeping its own; a key `fit` did not see becomes a missing
+                value. When set, `fit` and `predict` take a DataFrame holding
+                those columns and raise `ValueError` otherwise.
+                Combining it with `tuning_config`, `differentiable_input=True`
+                or `fit_from_preprocessed` raises `ValueError` too.
 
             softmax_temperature:
                 The temperature for the softmax function. This is used to control the
@@ -463,6 +509,11 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                   that your device is compatible with mixed-precision.
                 - If `"auto"`, we determine whether to use autocast or not depending on
                   the device type.
+
+                Only `torch.float64` makes a row's prediction exactly independent of the
+                other rows predicted with it, because matrix products are summed in an
+                order that depends on the batch size. Otherwise it can change by a
+                relative 1e-6 (`torch.float32`) or 1e-3 (autocast).
 
             fit_mode:
                 Determine how the TabPFN model is "fitted". The mode determines how the
@@ -606,6 +657,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         self.n_estimators = n_estimators
         self.auto_scale_n_estimators = auto_scale_n_estimators
         self.categorical_features_indices = categorical_features_indices
+        self.group_col = group_col
         self.softmax_temperature = softmax_temperature
         self.average_before_softmax = average_before_softmax
         self.model_path = model_path
@@ -901,6 +953,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         # Minimal preprocessing for prompt tuning: no categorical features,
         # all-numerical schema, identity preprocessor that preserves grads.
         reject_categoricals_for_differentiable_input(self.categorical_features_indices)
+        reject_group_col(self.group_col, "differentiable_input=True")
         n_features = X.shape[1]
         # One Feature instance per column — list multiplication would share
         # the same dataclass and any later in-place update would leak across
@@ -910,10 +963,13 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             for _ in range(n_features)
         ]
         self.inferred_feature_schema_ = FeatureSchema(features=features)
-        # A tensor holds no dates or strings, so these fit nothing; set anyway, so
-        # every predict path converts through them without first checking.
+        # A tensor holds no dates, strings or named columns, so these fit nothing;
+        # set anyway, so every predict path converts through them without first
+        # checking.
         self.date_transformer_ = DateTransformer().fit(X)
         self.text_transformer_ = TextTransformer().fit(X)
+        self.group_encoder_ = GroupIdEncoder().fit(X)
+        self.group_feature_index_ = None
         self.n_features_in_ = n_features
 
         preprocessor_configs = [PreprocessorConfig("none", differentiable=True)]
@@ -923,6 +979,12 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             preprocessor_configs=preprocessor_configs,
             auto_scale_n_estimators=self.auto_scale_n_estimators,
         )
+        if self.inference_config_.REGRESSION_TARGET_SIGN_FLIP:
+            warnings.warn(
+                "REGRESSION_TARGET_SIGN_FLIP is ignored with differentiable input.",
+                UserWarning,
+                stacklevel=3,
+            )
         # Polynomial features go through sklearn StandardScaler on numpy and
         # are not differentiable; force "no" regardless of the runtime default
         # (the regressor config defaults to a non-zero value).
@@ -968,6 +1030,11 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         categorical_indices = resolve_categorical_features_indices(
             X, self.categorical_features_indices
         )
+        # Before the expansion below, so each group key is read as the caller
+        # passed it rather than as the features a date or text column becomes.
+        self.group_encoder_ = GroupIdEncoder(group_col=self.group_col)
+        X = self.group_encoder_.fit_transform(X)
+        categorical_indices = self.group_encoder_.output_indices(categorical_indices)
         X, date_transformer, text_transformer, feature_names, categorical_indices = (
             expand_dates_and_text(
                 X,
@@ -999,10 +1066,20 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             min_unique_for_numerical=self.inference_config_.MIN_UNIQUE_FOR_NUMERICAL_FEATURES,
             min_cardinality_for_text=self.inference_config_.MIN_CARDINALITY_FOR_TEXT,
         )
+        # Numerical through cleaning, so neither the ordinal encoder nor the
+        # constant-column restore rewrites an unseen group's NaN; categorical
+        # after it, whatever the number of groups.
+        self.group_feature_index_ = self.group_encoder_.feature_index(feature_names)
+        feature_schema = as_group_feature(
+            feature_schema, self.group_feature_index_, FeatureModality.NUMERICAL
+        )
         X, ordinal_encoder, feature_schema = clean_data(
             X=X,
             feature_schema=feature_schema,
             passthrough_inf=self.get_inference_config().PASSTHROUGH_INF,
+        )
+        feature_schema = as_group_feature(
+            feature_schema, self.group_feature_index_, FeatureModality.CATEGORICAL
         )
         self.inferred_feature_schema_ = feature_schema
         self.ordinal_encoder_ = ordinal_encoder
@@ -1016,15 +1093,50 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             num_examples=y.shape[0],  # Use length of validated y
             random_state=random_state,  # Use the provided rng
         )
-        target_preprocessors: list[TransformerMixin | Pipeline | None] = []
-        for (
-            y_target_preprocessor
-        ) in self.inference_config_.REGRESSION_Y_PREPROCESS_TRANSFORMS:
-            if y_target_preprocessor is not None:
-                preprocessor = possible_target_transforms[y_target_preprocessor]
-            else:
-                preprocessor = None
-            target_preprocessors.append(preprocessor)
+        for preset in self.inference_config_.REGRESSION_Y_PREPROCESS_TRANSFORMS:
+            if preset == "log" and np.any(y <= 0):
+                raise ValueError(
+                    "The 'log' regression target transform requires strictly positive "
+                    "raw targets (y > 0). Use 'safepower' or None for "
+                    "nonpositive targets."
+                )
+            if preset == "1_plus_log" and np.any(y <= -1):
+                raise ValueError(
+                    "The '1_plus_log' regression target transform requires raw targets "
+                    "greater than -1. Use 'safepower' or None for targets <= -1."
+                )
+            if preset == "exp":
+                overflow_threshold = np.log(np.finfo(np.float32).max)
+                overflow_count = np.count_nonzero(y >= overflow_threshold)
+                if overflow_count:
+                    warnings.warn(
+                        f"The 'exp' regression target transform would make "
+                        f"{overflow_count} of {y.size} raw targets overflow "
+                        "in float32. "
+                        "Even one infinite value makes target standardization invalid. "
+                        "Rescale the targets or use 'safepower' or None.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+        # Yeo-Johnson depends on units and offset; fit it on standardized targets.
+        for preset in ("power", "safepower"):
+            possible_target_transforms[preset] = Pipeline(
+                steps=[
+                    ("standardize_input", StandardizeTarget()),
+                    (preset, possible_target_transforms[preset]),
+                ]
+            )
+        # Each member fits its target pipeline on raw targets.
+        target_preprocessors: list[Pipeline] = [
+            make_target_transform(
+                None
+                if y_target_preprocessor in (None, "none")
+                else possible_target_transforms[y_target_preprocessor]
+            )
+            for y_target_preprocessor in (
+                self.inference_config_.REGRESSION_Y_PREPROCESS_TRANSFORMS
+            )
+        ]
 
         preprocessor_configs = self.inference_config_.PREPROCESS_TRANSFORMS
         self.n_estimators_ = scale_n_estimators_for_feature_coverage(
@@ -1046,6 +1158,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 estimator_type=self.estimator_type
             ),
             passthrough_inf=self.get_inference_config().PASSTHROUGH_INF,
+            target_sign_flip=self.inference_config_.REGRESSION_TARGET_SIGN_FLIP,
         )
 
         self.znorm_space_bardist_ = self.znorm_space_bardist_.to(self.devices_[0])
@@ -1119,6 +1232,8 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         configs: list[list[EnsembleConfig]],  # Should be RegressorEnsembleConfig
         *,
         performance_options: PerformanceOptions,
+        y_train_mean: float,
+        y_train_std: float,
         no_refit: bool = True,
     ) -> TabPFNRegressor:
         """Used in Fine-Tuning. Fit the model to preprocessed inputs from torch
@@ -1137,9 +1252,14 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 model on each forward call inside the resulting executor.
                 Compilation is enabled if either these options or the estimator's
                 `enable_torch_compile` parameter enables it.
+            y_train_mean: Raw training-target mean for the batch.
+            y_train_std: Raw training-target standard deviation plus epsilon.
             no_refit: if True, the classifier will not be reinitialized when calling
                 fit multiple times.
         """
+        reject_group_col(self.group_col, "fit_from_preprocessed")
+        self.y_train_mean_ = y_train_mean
+        self.y_train_std_ = y_train_std
         if self.fit_mode != "batched":
             logging.warning(
                 "The model was not in 'batched' mode. "
@@ -1170,6 +1290,8 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         # duration, like any fitted one.
         self.date_transformer_ = DateTransformer().fit(X_preprocessed[0])
         self.text_transformer_ = TextTransformer().fit(X_preprocessed[0])
+        self.group_encoder_ = GroupIdEncoder().fit(X_preprocessed[0])
+        self.group_feature_index_ = None
 
         self.n_estimators_ = len(configs[0])
         self.executor_ = InferenceEngineBatchedNoPreprocessing(
@@ -1359,16 +1481,13 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             # No need to create an inference engine for a constant prediction
             return self
 
-        # Must run on the raw `y`, before the z-normalisation below: each fold's
-        # tuning regressor derives its own mean/std from its own training split.
+        # Each tuning fold must derive its target statistics from its own raw targets.
         self._maybe_calibrate_ensemble_temperature(X=X, y=y)
 
         y_raw = np.asarray(y, dtype=np.float64)
-        mean, std = np.mean(y), np.std(y)
-        # TODO: y_train_std_ and y_train_mean_ don't seem to be used anywhere else.
-        self.y_train_std_ = std.item() + 1e-20
-        self.y_train_mean_ = mean.item()
-        y = (y - self.y_train_mean_) / self.y_train_std_
+        # Shared aggregation frame; each member standardizes raw targets separately.
+        self.y_train_mean_ = float(np.mean(y))
+        self.y_train_std_ = float(np.std(y)) + StandardizeTarget.EPSILON
         self._rebuild_raw_space_bardist()
 
         self._build_ensemble_preprocessor_and_executor(
@@ -1463,6 +1582,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
 
         # TODO: Move these at some point to InferenceEngine
         check_input_shape_matches(X, estimator=self)
+        X = self.group_encoder_.transform(X)
         X = self.date_transformer_.transform(X)
         X = self.text_transformer_.transform(X)
         X = ensure_compatible_predict_input_sklearn(X, self)
@@ -1471,10 +1591,11 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
 
         if quantiles is None:
             quantiles = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-        elif not all((0 <= q <= 1) and isinstance(q, float) for q in quantiles):
+        elif not all(isinstance(q, numbers.Real) and 0 <= q <= 1 for q in quantiles):
             raise TabPFNValidationError(
-                "All quantiles must be between 0 and 1 and floats."
+                f"All quantiles must be real numbers between 0 and 1, got {quantiles}."
             )
+        quantiles = [float(q) for q in quantiles]
         if output_type not in _USABLE_OUTPUT_TYPES:
             raise TabPFNValidationError(f"Invalid output type: {output_type}")
 
@@ -1559,6 +1680,13 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
 
         if not tuning_config_resolved.calibrate_temperature:
             return
+
+        if self.group_encoder_.group_columns_:
+            raise TabPFNValidationError(
+                "`tuning_config` cannot be combined with `group_col` yet: tuning "
+                "holds out random rows, not whole groups. Set `tuning_config=None` "
+                "or drop `group_col`."
+            )
 
         holdout_folds = self._compute_holdout_validation_data(
             X=X,
@@ -1647,6 +1775,9 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             # are the untempered aggregated logits, with the per-estimator
             # `softmax_temperature` correctly still applied.
             check_input_shape_matches(X_holdout_NhF, estimator=tuning_regressor)
+            X_holdout_NhF = tuning_regressor.group_encoder_.transform(  # noqa: PLW2901
+                X_holdout_NhF
+            )
             X_holdout_NhF = tuning_regressor.date_transformer_.transform(  # noqa: PLW2901
                 X_holdout_NhF
             )
@@ -1903,10 +2034,11 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
 
         if quantiles is None:
             quantiles = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-        elif not all((0 <= q <= 1) and isinstance(q, float) for q in quantiles):
+        elif not all(isinstance(q, numbers.Real) and 0 <= q <= 1 for q in quantiles):
             raise TabPFNValidationError(
-                "All quantiles must be between 0 and 1 and floats."
+                f"All quantiles must be real numbers between 0 and 1, got {quantiles}."
             )
+        quantiles = [float(q) for q in quantiles]
         if output_type not in _USABLE_OUTPUT_TYPES:
             raise TabPFNValidationError(f"Invalid output type: {output_type}")
 
@@ -1958,6 +2090,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             # Clean X_test as the standard predict path does, so DataFrames,
             # categoricals and NaNs behave identically.
             check_input_shape_matches(X_test, estimator=worker)
+            X_test = worker.group_encoder_.transform(X_test)  # noqa: PLW2901
             X_test = worker.date_transformer_.transform(X_test)  # noqa: PLW2901
             X_test = worker.text_transformer_.transform(X_test)  # noqa: PLW2901
             X_test = ensure_compatible_predict_input_sklearn(X_test, worker)  # noqa: PLW2901
@@ -2005,6 +2138,8 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                     # hold the ``target_transform`` that preprocessing fitted, which
                     # the border mapping needs.
                     configs=[m.config for m in members],
+                    y_train_mean=worker.y_train_mean_,
+                    y_train_std=worker.y_train_std_,
                     raw_space_bardist=worker.raw_space_bardist_,
                     znorm_space_bardist=worker.znorm_space_bardist_,
                     X_query_raw=torch.zeros(n_test, 1),
@@ -2037,6 +2172,8 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                     batch.cat_indices,
                     batch.configs,
                     performance_options=PerformanceOptions(),
+                    y_train_mean=batch.y_train_mean,
+                    y_train_std=batch.y_train_std,
                 )
                 accumulated: list[torch.Tensor | None] = [None] * len(group)
                 n_estimators = 0
@@ -2051,6 +2188,8 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                             config=configs[lane],
                             znorm_borders=znorm_borders,
                             std_borders=std_borders,
+                            znorm_mean=group_items[lane].y_train_mean,
+                            znorm_std=group_items[lane].y_train_std,
                         )
                         previous = accumulated[lane]
                         accumulated[lane] = (
@@ -2090,27 +2229,35 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         config: RegressorEnsembleConfig,
         znorm_borders: torch.Tensor,
         std_borders: np.ndarray,
+        znorm_mean: float,
+        znorm_std: float,
     ) -> torch.Tensor:
         """Map one estimator's output for one dataset onto the shared borders.
 
         Same border translation as :meth:`predict`, for a single
-        (estimator, dataset) pair of the fused forward.
+        (estimator, dataset) pair of the fused forward. `znorm_mean` and
+        `znorm_std` belong to this dataset, not to `self`: the worker is refitted
+        per dataset, so its own attributes only ever hold the last one's.
         """
         out_d = output.float()
         temperature = resolved_softmax_temperature(self)
         if temperature != 1:
             out_d = out_d / temperature
         if config.target_transform is None:
-            borders_t = std_borders.copy()
-            logit_cancel_mask = None
-        else:
-            logit_cancel_mask, descending_borders, borders_t = transform_borders_one(
-                std_borders,
-                target_transform=config.target_transform,
-                repair_nan_borders_after_transform=self.inference_config_.FIX_NAN_BORDERS_AFTER_TARGET_TRANSFORM,
+            raise ValueError(
+                "A fitted target pipeline is required for batched prediction."
             )
-            if descending_borders:
-                borders_t = borders_t.flip(-1)  # type: ignore
+        out_d, member_borders = _unflip_member(out_d, std_borders, config)
+        logit_cancel_mask, descending_borders, borders_t = transform_borders_one(
+            member_borders,
+            target_transform=config.target_transform,
+            znorm_mean=znorm_mean,
+            znorm_std=znorm_std,
+            repair_nan_borders_after_transform=self.inference_config_.FIX_NAN_BORDERS_AFTER_TARGET_TRANSFORM,
+        )
+        if descending_borders:
+            # The borders come back reversed to ascending; reverse the buckets too.
+            out_d = out_d.flip(-1)
         if logit_cancel_mask is not None:
             out_d = out_d.clone()
             out_d[..., logit_cancel_mask] = float("-inf")
@@ -2219,7 +2366,10 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         for output, config in self.executor_.iter_outputs(
             X, autocast=self.use_autocast_, task_type="regression"
         ):
-            output = output.float()  # noqa: PLW2901
+            # Widen half-precision autocast output, but keep float64 when
+            # `inference_precision=torch.float64` asked for it.
+            if output.dtype in (torch.float16, torch.bfloat16):
+                output = output.float()  # noqa: PLW2901
             if temperature != 1:
                 output = output / temperature  # noqa: PLW2901
 
@@ -2244,20 +2394,28 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 # along with the specific config the output belongs to. This is because
                 # the transformation done to the borders for a given output is dependant
                 # upon the target_transform of the config.
+                output, member_borders = _unflip_member(  # noqa: PLW2901
+                    output, std_borders, config_for_ensemble
+                )
                 if config_for_ensemble.target_transform is None:
-                    borders_t = std_borders.copy()
+                    # The differentiable-input path supplies standardized targets.
+                    borders_t = member_borders.copy()
                     logit_cancel_mask = None
                     descending_borders = False
                 else:
                     logit_cancel_mask, descending_borders, borders_t = (
                         transform_borders_one(
-                            std_borders,
+                            member_borders,
                             target_transform=config_for_ensemble.target_transform,
+                            znorm_mean=self.y_train_mean_,
+                            znorm_std=self.y_train_std_,
                             repair_nan_borders_after_transform=self.inference_config_.FIX_NAN_BORDERS_AFTER_TARGET_TRANSFORM,
                         )
                     )
                     if descending_borders:
-                        borders_t = borders_t.flip(-1)  # type: ignore
+                        # The borders come back reversed to ascending; reverse
+                        # the buckets too.
+                        output = output.flip(-1)  # noqa: PLW2901
 
                 if logit_cancel_mask is not None:
                     output = output.clone()  # noqa: PLW2901

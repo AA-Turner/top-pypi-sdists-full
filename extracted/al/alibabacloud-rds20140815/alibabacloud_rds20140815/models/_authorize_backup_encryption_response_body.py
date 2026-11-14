@@ -16,7 +16,7 @@ class AuthorizeBackupEncryptionResponseBody(DaraModel):
         # - 0: Not authorized.
         # - 1: Authorized.
         self.authorization_state = authorization_state
-        # The error message.
+        # The error message returned by the API.
         self.message = message
         # The request ID.
         self.request_id = request_id

@@ -24,7 +24,7 @@ from stanza.models import lemmatizer
 from stanza.utils.training import common
 from stanza.utils.training.common import Mode, add_charlm_args, build_lemma_charlm_args, choose_lemma_charlm
 
-from stanza.utils.datasets.prepare_lemma_treebank import check_lemmas
+from stanza.utils.datasets.prepare_lemma_treebank import check_lemmas, dictionary_filename, exact_dictionary_filename
 import stanza.utils.datasets.prepare_lemma_classifier as prepare_lemma_classifier
 
 logger = logging.getLogger('stanza')
@@ -33,38 +33,44 @@ def add_lemma_args(parser):
     add_charlm_args(parser)
 
     parser.add_argument('--lemma_classifier', dest='lemma_classifier', action='store_true', default=None,
-                        help="Don't use the lemma classifier datasets.  Default is to build lemma classifier as part of the original lemmatizer if the charlm is used")
+                        help="Build the lemma classifier and attach it to the lemmatizer.  Default is to attach it to the charlm lemmatizer, or to the nocharlm lemmatizer if the treebank has no charlm")
     parser.add_argument('--no_lemma_classifier', dest='lemma_classifier', action='store_false',
-                        help="Don't use the lemma classifier datasets.  Default is to build lemma classifier as part of the original lemmatizer if the charlm is used")
+                        help="Don't use the lemma classifier datasets.  Default is to attach it to the charlm lemmatizer, or to the nocharlm lemmatizer if the treebank has no charlm")
 
     parser.add_argument('--wordvec_pretrain_file', default=None, type=str,
                         help="Location for finding the word vectors, if not default.  Used by the lemma classifier (which not all languages support)")
     parser.add_argument('--lemma_classifier_save_dir', default=None, type=str,
                         help="Save the lemma classifiers in this directory instead of the default lemma classifier home")
 
-    parser.add_argument('--secondary_file', default=None, type=str, help='Which file to use as an external dictionary, if any.  If there is a default for the language, this overrides that default.  If you wish to cancel the default, use --no_use_secondary_file')
+    parser.add_argument('--secondary_file', default=None, type=str, help='Which file to use as an external dictionary, if any.  Overrides the {short_name}.dict.conllu written by prepare_lemma_treebank')
     parser.add_argument('--no_use_secondary_file', default=True, dest='use_secondary_file', action='store_false',
-                        help="For datasets such as sl_combined which use an external dictionary, don't use that dictionary")
+                        help="Don't use an external dictionary, even if prepare_lemma_treebank wrote one for this dataset (such as de_combined, el_combined, en_combined, or sl_combined)")
 
-def maybe_rebuild_external_dictionary(paths, short_name):
+def find_secondary_file(paths, short_name, command_args):
     """
-    If the dataset is associated with an external lexicon (such as sl_combined)
-    either return the path or attempt to regenerate the lexicon
+    Return the external dictionary to train with, or None
+
+    --secondary_file takes precedence.  Otherwise, the dictionary which
+    prepare_lemma_treebank writes as {short_name}.dict.conllu is used
+    if it exists.  --no_use_secondary_file turns off both.
     """
-    if short_name != 'sl_combined':
+    if not command_args.use_secondary_file:
         return None
+    if command_args.secondary_file:
+        return command_args.secondary_file
+    dict_file = dictionary_filename(paths["LEMMA_DATA_DIR"], short_name)
+    if os.path.exists(dict_file):
+        return dict_file
+    return None
 
-    extern_dir = paths["STANZA_EXTERN_DIR"]
-    sloleks_dir = os.path.join(extern_dir, "slovenian", "Sloleks.3.1")
-    if not os.path.exists(sloleks_dir):
-        raise FileNotFoundError("Could not find the Sloleks 3.1 dataset at %s ... please check https://www.clarin.si/repository/xmlui/handle/11356/2080" % sloleks_dir)
-    lexicon = os.path.join(sloleks_dir, "lemmas.conllu")
-    if os.path.exists(lexicon):
-        return lexicon
-
-    from stanza.utils.datasets.slovenian.sloleks_lemmas import convert_directory
-    logger.info("External lexicon for %s does not exist in %s.  Rebuilding...", short_name, lexicon)
-    convert_directory(sloleks_dir, lexicon)
+def find_exact_dict_file(paths, short_name):
+    """
+    Return the {short_name}.exact_dict.conllu written by prepare_lemma_treebank, or None if there isn't one
+    """
+    exact_file = exact_dictionary_filename(paths["LEMMA_DATA_DIR"], short_name)
+    if os.path.exists(exact_file):
+        return exact_file
+    return None
 
 
 def build_model_filename(paths, short_name, command_args, extra_args):
@@ -156,13 +162,14 @@ def run_treebank(mode, paths, treebank, short_name, command_args, extra_args):
                           "--num_epoch", num_epochs,
                           "--mode", "train"]
             train_args = train_args + charlm_args + extra_args
-            if command_args.use_secondary_file:
-                if command_args.secondary_file:
-                    secondary_file = command_args.secondary_file
-                else:
-                    secondary_file = maybe_rebuild_external_dictionary(paths, short_name)
-                    if secondary_file is not None:
-                        train_args.extend(["--secondary_file", secondary_file])
+            secondary_file = find_secondary_file(paths, short_name, command_args)
+            if secondary_file is not None:
+                logger.info("Using %s as the external dictionary for %s", secondary_file, short_name)
+                train_args.extend(["--secondary_file", secondary_file])
+            exact_dict_file = find_exact_dict_file(paths, short_name)
+            if exact_dict_file is not None:
+                logger.info("Using %s as the exact dictionary for %s", exact_dict_file, short_name)
+                train_args.extend(["--exact_dict_file", exact_dict_file])
 
             logger.info("Running train lemmatizer for {} with args {}".format(treebank, train_args))
             lemmatizer.main(train_args)
@@ -189,8 +196,12 @@ def run_treebank(mode, paths, treebank, short_name, command_args, extra_args):
 
         use_lemma_classifier = command_args.lemma_classifier
         if use_lemma_classifier is None:
-            use_lemma_classifier = command_args.charlm is not None
-        use_lemma_classifier = use_lemma_classifier and short_name in prepare_lemma_classifier.DATASET_MAPPING
+            charlm = choose_lemma_charlm(short_language, dataset, command_args.charlm)
+            use_lemma_classifier = prepare_lemma_classifier.uses_lemma_classifier(short_name, charlm)
+        else:
+            # an explicit --lemma_classifier can attach a classifier to a model
+            # prepare_resources.py won't expect it on, so it won't get a pretrain dependency
+            use_lemma_classifier = use_lemma_classifier and short_name in prepare_lemma_classifier.DATASET_MAPPING
         if use_lemma_classifier and mode == Mode.TRAIN:
             # some installations may not have transformers,
             # so we bury the lemma_classifier import in the codepath

@@ -17,15 +17,21 @@ class DescribeModifyPGHbaConfigLogRequest(DaraModel):
         resource_owner_id: int = None,
         start_time: str = None,
     ):
+        # The reserved parameter. You do not need to configure this parameter.
         self.client_token = client_token
+        # The instance ID. You can call DescribeDBInstances to obtain the instance ID.
+        # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
+        # The end time of the query. Format: yyyy-MM-ddTHH:mmZ (UTC).
         self.end_time = end_time
         self.owner_account = owner_account
         self.owner_id = owner_id
+        # The resource group ID.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
+        # The start time of the query. Format: yyyy-MM-ddTHH:mmZ (UTC).
         self.start_time = start_time
 
     def validate(self):

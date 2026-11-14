@@ -38,13 +38,11 @@ from xdsl.dialects.utils import (
     parse_assignment,
     print_assignment,
 )
-from xdsl.ir import Attribute, Block, Dialect, Operation, Region, SSAValue
+from xdsl.ir import Attribute, Block, Dialect, OperandArg, Operation, Region, SSAValue
 from xdsl.irdl import (
     AnyAttr,
-    BaseAttr,
     VarConstraint,
     attr_def,
-    base,
     irdl_op_definition,
     lazy_traits_def,
     operand_def,
@@ -116,17 +114,17 @@ class ScfgwiOp(RISCVInstruction):
     name = "riscv_snitch.scfgwi"
 
     rs1 = operand_def(IntRegisterType)
-    immediate = attr_def(IntegerAttr[SI12])
+    immediate = prop_def(IntegerAttr[SI12])
 
     assembly_format = (
-        "$rs1 `,` $immediate attr-dict `:` `(` type($rs1) `)` `->` `(` `)`"
+        "$rs1 `,` $immediate attr-dict `:` functional-type(operands, results)"
     )
 
     traits = traits_def(MemoryWriteEffect())
 
     def __init__(
         self,
-        rs1: Operation | SSAValue,
+        rs1: OperandArg,
         immediate: int | IntegerAttr[SI12],
         *,
         comment: str | StringAttr | None = None,
@@ -137,8 +135,8 @@ class ScfgwiOp(RISCVInstruction):
             comment = StringAttr(comment)
         super().__init__(
             operands=[rs1],
+            properties={"immediate": immediate},
             attributes={
-                "immediate": immediate,
                 "comment": comment,
             },
         )
@@ -316,9 +314,9 @@ class FRepOperation(RISCVInstruction):
 
     def __init__(
         self,
-        max_rep: SSAValue | Operation,
+        max_rep: OperandArg,
         body: Sequence[Operation] | Sequence[Block] | Region,
-        iter_args: Sequence[SSAValue | Operation] = (),
+        iter_args: Sequence[OperandArg] = (),
         stagger_mask: IntegerAttr[I4] | None = None,
         stagger_count: IntegerAttr[I3] | None = None,
     ):
@@ -591,8 +589,8 @@ class GetStreamOp(RISCVAsmOperation, RISCVRegallocOperation):
     name = "riscv_snitch.get_stream"
 
     stream = result_def(
-        snitch.ReadableStreamType.constr(BaseAttr(riscv.FloatRegisterType))
-        | snitch.WritableStreamType.constr(BaseAttr(riscv.FloatRegisterType))
+        snitch.ReadableStreamType.constr(riscv.FloatRegisterType)
+        | snitch.WritableStreamType.constr(riscv.FloatRegisterType)
     )
 
     traits = traits_def(NoMemoryEffect())
@@ -628,14 +626,16 @@ class DMSourceOp(RISCVInstruction):
     ptrlo = operand_def(riscv.IntRegisterType)
     ptrhi = operand_def(riscv.IntRegisterType)
 
-    assembly_format = "$ptrlo `,` $ptrhi attr-dict `:` `(` type($ptrlo) `,` type($ptrhi) `)` `->` `(` `)`"
+    assembly_format = (
+        "$ptrlo `,` $ptrhi attr-dict `:` functional-type(operands, results)"
+    )
 
     traits = traits_def(
         StaticInsnRepresentation(insn=".insn r 0x2b, 0, 0, x0, {0}, {1}"),
         MemoryWriteEffect(),
     )
 
-    def __init__(self, ptrlo: SSAValue | Operation, ptrhi: SSAValue | Operation):
+    def __init__(self, ptrlo: OperandArg, ptrhi: OperandArg):
         super().__init__(operands=[ptrlo, ptrhi])
 
     def assembly_line_args(self) -> tuple[AssemblyInstructionArg | None, ...]:
@@ -649,14 +649,16 @@ class DMDestinationOp(RISCVInstruction):
     ptrlo = operand_def(riscv.IntRegisterType)
     ptrhi = operand_def(riscv.IntRegisterType)
 
-    assembly_format = "$ptrlo `,` $ptrhi attr-dict `:` `(` type($ptrlo) `,` type($ptrhi) `)` `->` `(` `)`"
+    assembly_format = (
+        "$ptrlo `,` $ptrhi attr-dict `:` functional-type(operands, results)"
+    )
 
     traits = traits_def(
         StaticInsnRepresentation(insn=".insn r 0x2b, 0, 1, x0, {0}, {1}"),
         MemoryWriteEffect(),
     )
 
-    def __init__(self, ptrlo: SSAValue | Operation, ptrhi: SSAValue | Operation):
+    def __init__(self, ptrlo: OperandArg, ptrhi: OperandArg):
         super().__init__(operands=[ptrlo, ptrhi])
 
     def assembly_line_args(self) -> tuple[AssemblyInstructionArg | None, ...]:
@@ -670,14 +672,16 @@ class DMStrideOp(RISCVInstruction):
     srcstrd = operand_def(riscv.IntRegisterType)
     dststrd = operand_def(riscv.IntRegisterType)
 
-    assembly_format = "$srcstrd `,` $dststrd attr-dict `:` `(` type($srcstrd) `,` type($dststrd) `)` `->` `(` `)`"
+    assembly_format = (
+        "$srcstrd `,` $dststrd attr-dict `:` functional-type(operands, results)"
+    )
 
     traits = traits_def(
         StaticInsnRepresentation(insn=".insn r 0x2b, 0, 6, x0, {0}, {1}"),
         MemoryWriteEffect(),
     )
 
-    def __init__(self, srcstrd: SSAValue | Operation, dststrd: SSAValue | Operation):
+    def __init__(self, srcstrd: OperandArg, dststrd: OperandArg):
         super().__init__(operands=[srcstrd, dststrd])
 
     def assembly_line_args(self) -> tuple[AssemblyInstructionArg | None, ...]:
@@ -690,14 +694,14 @@ class DMRepOp(RISCVInstruction):
 
     reps = operand_def(riscv.IntRegisterType)
 
-    assembly_format = "$reps attr-dict `:` `(` type($reps) `)` `->` `(` `)`"
+    assembly_format = "$reps attr-dict `:` functional-type(operands, results)"
 
     traits = traits_def(
         StaticInsnRepresentation(insn=".insn r 0x2b, 0, 7, x0, {0}, x0"),
         MemoryWriteEffect(),
     )
 
-    def __init__(self, reps: SSAValue | Operation):
+    def __init__(self, reps: OperandArg):
         super().__init__(operands=[reps])
 
     def assembly_line_args(self) -> tuple[AssemblyInstructionArg | None, ...]:
@@ -742,8 +746,8 @@ class DMCopyOp(RISCVInstruction):
 
     def __init__(
         self,
-        size: SSAValue | Operation,
-        config: SSAValue | Operation,
+        size: OperandArg,
+        config: OperandArg,
         result_type: IntRegisterType = riscv.Registers.UNALLOCATED_INT,
     ):
         super().__init__(operands=[size, config], result_types=[result_type])
@@ -768,7 +772,7 @@ class DMStatOp(RISCVInstruction):
 
     def __init__(
         self,
-        status: SSAValue | Operation,
+        status: OperandArg,
         result_type: IntRegisterType = riscv.Registers.UNALLOCATED_INT,
     ):
         super().__init__(operands=[status], result_types=[result_type])
@@ -815,7 +819,7 @@ class DMCopyImmOp(RISCVInstruction):
 
     def __init__(
         self,
-        size: SSAValue | Operation,
+        size: OperandArg,
         config: int | IntegerAttr[UI5],
         result_type: IntRegisterType = riscv.Registers.UNALLOCATED_INT,
     ):
@@ -838,7 +842,7 @@ class DMStatImmOp(RISCVInstruction):
     dest = result_def(riscv.IntRegisterType)
     status = prop_def(IntegerAttr[UI5])
 
-    assembly_format = "$status attr-dict `:` `(` `)` `->` type($dest)"
+    assembly_format = "$status attr-dict `:` functional-type(operands, results)"
 
     traits = traits_def(
         StaticInsnRepresentation(insn=".insn r 0x2b, 0, 4, {0}, {1}, {2}"),
@@ -1033,8 +1037,8 @@ class RdRsRsAccumulatingFloatOperationWithFastMath(RISCVInstruction, ABC):
     be annotated with fastmath flags.
     """
 
-    SAME_FLOAT_REGISTER_TYPE: ClassVar = VarConstraint(
-        "SAME_FLOAT_REGISTER_TYPE", base(FloatRegisterType)
+    SAME_FLOAT_REGISTER_TYPE: ClassVar = VarConstraint.get(
+        "SAME_FLOAT_REGISTER_TYPE", FloatRegisterType
     )
 
     rd_out = result_def(SAME_FLOAT_REGISTER_TYPE)
@@ -1042,7 +1046,7 @@ class RdRsRsAccumulatingFloatOperationWithFastMath(RISCVInstruction, ABC):
     rs1 = operand_def(FloatRegisterType)
     rs2 = operand_def(FloatRegisterType)
 
-    fastmath = attr_def(FastMathFlagsAttr, default_value=FastMathFlagsAttr("none"))
+    fastmath = prop_def(FastMathFlagsAttr, default_value=FastMathFlagsAttr("none"))
 
     assembly_format = (
         "$rd_in `,` $rs1 `,` $rs2 (`fastmath` `` $fastmath^)? attr-dict `:` "
@@ -1053,9 +1057,9 @@ class RdRsRsAccumulatingFloatOperationWithFastMath(RISCVInstruction, ABC):
 
     def __init__(
         self,
-        rd: Operation | SSAValue,
-        rs1: Operation | SSAValue,
-        rs2: Operation | SSAValue,
+        rd: OperandArg,
+        rs1: OperandArg,
+        rs2: OperandArg,
         *,
         fastmath: FastMathFlagsAttr | None = None,
         comment: str | StringAttr | None = None,
@@ -1067,8 +1071,8 @@ class RdRsRsAccumulatingFloatOperationWithFastMath(RISCVInstruction, ABC):
 
         super().__init__(
             operands=[rd, rs1, rs2],
+            properties={"fastmath": fastmath},
             attributes={
-                "fastmath": fastmath,
                 "comment": comment,
             },
             result_types=[rd.type],
@@ -1089,8 +1093,8 @@ class RdRsAccumulatingFloatOperation(RISCVInstruction, ABC):
     that also acts as a source register, and a source floating-point register.
     """
 
-    SAME_FLOAT_REGISTER_TYPE: ClassVar = VarConstraint(
-        "SAME_FLOAT_REGISTER_TYPE", base(FloatRegisterType)
+    SAME_FLOAT_REGISTER_TYPE: ClassVar = VarConstraint.get(
+        "SAME_FLOAT_REGISTER_TYPE", FloatRegisterType
     )
 
     rd_out = result_def(SAME_FLOAT_REGISTER_TYPE)
@@ -1103,8 +1107,8 @@ class RdRsAccumulatingFloatOperation(RISCVInstruction, ABC):
 
     def __init__(
         self,
-        rd: Operation | SSAValue,
-        rs: Operation | SSAValue,
+        rd: OperandArg,
+        rs: OperandArg,
         *,
         comment: str | StringAttr | None = None,
     ):

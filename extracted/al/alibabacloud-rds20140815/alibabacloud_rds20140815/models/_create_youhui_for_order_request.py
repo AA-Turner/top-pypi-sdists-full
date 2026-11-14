@@ -19,11 +19,11 @@ class CreateYouhuiForOrderRequest(DaraModel):
         # This parameter is required.
         self.activity_id = activity_id
         self.owner_id = owner_id
-        # The promotion ID. You can call the GetResourcePrice operation to obtain the promotion ID.
+        # The promotion ID. You can obtain this ID by calling the GetResourcePrice operation.
         # 
         # This parameter is required.
         self.promotion_id = promotion_id
-        # The region ID. You can call the DescribeRegions operation to query region IDs.
+        # The region ID. You can call the DescribeRegions operation to query the region ID.
         # 
         # This parameter is required.
         self.region_id = region_id

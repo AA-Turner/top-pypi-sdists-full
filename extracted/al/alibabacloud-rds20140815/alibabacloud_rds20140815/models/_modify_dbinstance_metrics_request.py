@@ -12,7 +12,7 @@ class ModifyDBInstanceMetricsRequest(DaraModel):
         resource_owner_id: int = None,
         scope: str = None,
     ):
-        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
+        # The instance ID. You can call the DescribeDBInstances operation to query the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_name = dbinstance_name

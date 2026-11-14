@@ -36,6 +36,7 @@ __all__ = (
     "ChallengeNameType",
     "ChallengeNameTypeType",
     "ChallengeResponseType",
+    "ClientTypeTypeType",
     "CognitoIdentityProviderServiceName",
     "ColorSchemeModeTypeType",
     "CompromisedCredentialsEventActionTypeType",
@@ -77,6 +78,7 @@ __all__ = (
     "RegionName",
     "ReplicaRoleTypeType",
     "ReplicaStatusTypeType",
+    "ResourceServerManagedByTypeType",
     "ResourceServiceName",
     "RevokeAssociatedSessionsTypeType",
     "RiskDecisionTypeType",
@@ -159,6 +161,7 @@ ChallengeNameTypeType = Literal[
     "WEB_AUTHN",
 ]
 ChallengeResponseType = Literal["Failure", "Success"]
+ClientTypeTypeType = Literal["DCR", "REGULAR"]
 ColorSchemeModeTypeType = Literal["DARK", "DYNAMIC", "LIGHT"]
 CompromisedCredentialsEventActionTypeType = Literal["BLOCK", "NO_ACTION"]
 CustomEmailSenderLambdaVersionTypeType = Literal["V1_0"]
@@ -209,6 +212,7 @@ PreventUserExistenceErrorTypesType = Literal["ENABLED", "LEGACY"]
 RecoveryOptionNameTypeType = Literal["admin_only", "verified_email", "verified_phone_number"]
 ReplicaRoleTypeType = Literal["PRIMARY", "SECONDARY"]
 ReplicaStatusTypeType = Literal["ACTIVE", "CREATING", "DELETING", "INACTIVE"]
+ResourceServerManagedByTypeType = Literal["COGNITO"]
 RevokeAssociatedSessionsTypeType = Literal["LINKED", "NONE"]
 RiskDecisionTypeType = Literal["AccountTakeover", "Block", "NoRisk"]
 RiskLevelTypeType = Literal["High", "Low", "Medium"]

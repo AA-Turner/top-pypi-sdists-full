@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use ahash::HashMap as AHashMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -23,6 +26,9 @@ use crate::specs_response::specs_hash_map::{
 use crate::{DynamicValue, hashing};
 
 use super::{cmab_types::CMABConfig, param_store_types::ParameterStore};
+
+// Only populated on partial snapshots. None identifies the default, Some(i) the wire rule index.
+pub(crate) type UnavailableValues = HashMap<InternedString, HashSet<Option<usize>>>;
 
 // DO_NOT_CLONE: Please do not add the Clone trait to this struct. We intentionally
 // avoid cloning this data at all costs as it can be quite large.
@@ -349,6 +355,15 @@ macro_rules! flatten_struct {
             }
 
             #[allow(dead_code)]
+            pub(super) fn copy_common_fields_from(&mut self, other: &Self) -> serde_json::Result<()> {
+                #[derive(Serialize)]
+                struct CommonFields<'a> { $( $common_field: &'a $common_ty, )* }
+                let fields = CommonFields { $( $common_field: &other.$common_field, )* };
+                self.merge_from_partial(serde_json::from_slice(&serde_json::to_vec(&fields)?)?);
+                Ok(())
+            }
+
+            #[allow(dead_code)]
             pub(crate) fn common_fields_match(&self, other: &SpecsResponseFull) -> bool {
                 true $( && self.$common_field == other.$common_field )*
             }
@@ -437,6 +452,15 @@ pub struct SpecsResponseNoUpdates {
 }
 
 impl Condition {
+    pub(crate) fn has_same_targeting(&self, other: &Self) -> bool {
+        self.condition_type == other.condition_type
+            && self.id_type == other.id_type
+            && self.field == other.field
+            && self.operator == other.operator
+            && self.target_value == other.target_value
+            && self.additional_values == other.additional_values
+    }
+
     pub(crate) fn compile_cron_window(&mut self) {
         self.compiled_cron_window = None;
         if !matches!(self.compiled_condition_type, ConditionType::CurrentTime)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: invisible_core
-Version: 63.68.0
+Version: 64.71.0
 Summary: Pure config for a stealth Firefox profile: seed -> fingerprint -> prefs, engine download, proxy, geo, and the Juggler client the wrappers drive it with. Zero Playwright.
 Project-URL: Homepage, https://github.com/oss-invisible/core
 Project-URL: Repository, https://github.com/oss-invisible/core

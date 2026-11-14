@@ -51,7 +51,7 @@ class ImagepondExtractor(Extractor):
 
 class ImagepondFileExtractor(ImagepondExtractor):
     subcategory = "file"
-    pattern = BASE_PATTERN + r"(/(?:i(?:mg|mage)?|video)/[^/?#]+)"
+    pattern = BASE_PATTERN + r"(/(?:i(?:mg|mage)?|videos?)/[^/?#]+)"
     example = "https://www.imagepond.net/i/ID"
 
     def items(self):

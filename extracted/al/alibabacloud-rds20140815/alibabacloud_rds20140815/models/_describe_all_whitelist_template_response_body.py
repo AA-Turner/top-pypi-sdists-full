@@ -20,10 +20,10 @@ class DescribeAllWhitelistTemplateResponseBody(DaraModel):
         # The response code. Valid values:
         # 
         # - **200**: Normal.
-        # - **400**: Client error.
+        # - **400**: Client fault.
         # - **401**: Failed to authenticate.
         # - **404**: Requested page not found.
-        # - **500**: Server error.
+        # - **500**: Server fault.
         self.code = code
         # The returned data.
         self.data = data
@@ -35,12 +35,12 @@ class DescribeAllWhitelistTemplateResponseBody(DaraModel):
         self.http_status_code = http_status_code
         # The returned message.
         self.message = message
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
-        # Indicates whether the request was successful. Valid values:
+        # Indicates whether the request is successful. Valid values:
         # 
-        # - **true**: Successful.
-        # - **false**: Failed.
+        # - **true**: The request is successful.
+        # - **false**: The request fails.
         self.success = success
 
     def validate(self):
@@ -106,17 +106,17 @@ class DescribeAllWhitelistTemplateResponseBodyData(DaraModel):
         total_page_numbers: int = None,
         total_records: int = None,
     ):
-        # The current page number.
+        # The page number.
         self.curr_page_numbers = curr_page_numbers
         # Indicates whether the queried data has a next page. Valid values:
         # 
-        # - **true**: Yes.
-        # - **false**: No.
+        # - **true**: yes.
+        # - **false**: no.
         self.has_next = has_next
         # Indicates whether the queried data has a previous page. Valid values:
         # 
-        # - **true**: Yes.
-        # - **false**: No.
+        # - **true**: yes.
+        # - **false**: no.
         self.has_prev = has_prev
         # The number of entries per page.
         self.max_records_per_page = max_records_per_page

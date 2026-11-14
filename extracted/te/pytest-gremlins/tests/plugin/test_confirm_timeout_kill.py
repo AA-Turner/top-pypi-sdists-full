@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import ast
-from pathlib import Path
+from typing import (
+    TYPE_CHECKING,
+    cast,
+)
 from unittest.mock import (
     MagicMock,
     create_autospec,
@@ -20,18 +23,23 @@ from pytest_gremlins.control_run import (
 from pytest_gremlins.instrumentation.gremlin import Gremlin
 from pytest_gremlins.parallel.exit_codes import COLLECTION_KILLING_TEST
 from pytest_gremlins.plugin import (
-    TIMEOUT_CONFIRMATION_HEADROOM,
     GremlinSession,
     _cache_gremlin_result,
-    _collect_unmutated,
-    _confirm_kill,
-    _confirm_timeout_kill,
 )
 from pytest_gremlins.reporting.results import (
     TIMEOUT_NOT_CONFIRMED_PREFIX,
     GremlinResult,
     GremlinResultStatus,
 )
+from pytest_gremlins.verdicts import (
+    TIMEOUT_CONFIRMATION_HEADROOM,
+    _collect_unmutated,
+    _confirm_kill,
+    _confirm_timeout_kill,
+)
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 FINISHES = UnmutatedRunOutcome(timed_out=False, seconds=0.1)
 HANGS = UnmutatedRunOutcome(timed_out=True, seconds=1.0)
@@ -62,8 +70,8 @@ def session(tmp_path: Path) -> GremlinSession:
 @pytest.fixture
 def fake_unmutated_run(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     unmutated_run = create_autospec(run_unmutated, return_value=FINISHES)
-    monkeypatch.setattr('pytest_gremlins.plugin.run_unmutated', unmutated_run)
-    return unmutated_run
+    monkeypatch.setattr('pytest_gremlins.verdicts.run_unmutated', unmutated_run)
+    return cast('MagicMock', unmutated_run)
 
 
 @pytest.mark.medium
@@ -205,7 +213,7 @@ class DescribeConfirmKill:
         self, session: GremlinSession, fake_unmutated_run: MagicMock, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            'pytest_gremlins.plugin._collect_unmutated',
+            'pytest_gremlins.verdicts._collect_unmutated',
             create_autospec(_collect_unmutated, return_value=ControlRunOutcome(False, 'boom', 0.1)),
         )
         collection_kill = GremlinResult(

@@ -261,6 +261,10 @@ fn given_browser_session_roles_when_work_is_requested_then_scope_revocation_and_
                             ("origin", json!("manual")),
                             ("job_key", json!("orders")),
                             ("requester_name", json!("orders-person")),
+                            ("snapshot_generation", json!(published.generation)),
+                            ("git_revision", json!(input.git_revision)),
+                            ("git_dirty", json!(input.git_dirty)),
+                            ("sqb_version", json!(input.sqb_version)),
                             ("root_run_id", launched["run_id"].clone()),
                             ("parent_run_id", Value::Null),
                             ("trigger_name", Value::Null),
@@ -415,10 +419,10 @@ fn given_browser_session_roles_when_work_is_requested_then_scope_revocation_and_
                     let expected_jobs = [
                         json!({"job_key": "nightly", "kind": "group", "description": "Nightly orders",
                             "selection": ["orders"], "concurrency_groups": [], "snapshot_id": published.snapshot_id,
-                            "select": null, "declared_at": null}),
+                            "select": null, "declared_at": null, "owner": null, "overlap": "queue", "on_failure": null}),
                         json!({"job_key": "orders", "kind": "job", "description": "Refresh orders",
                             "selection": ["orders"], "concurrency_groups": ["warehouse_heavy"], "snapshot_id": published.snapshot_id,
-                            "select": null, "declared_at": null}),
+                            "select": null, "declared_at": null, "owner": null, "overlap": "queue", "on_failure": null}),
                     ];
                     assert_eq!(
                         listed_jobs,

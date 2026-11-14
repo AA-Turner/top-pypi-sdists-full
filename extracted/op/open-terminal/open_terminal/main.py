@@ -41,7 +41,7 @@ from open_terminal.utils.fs import UserFS, FullFileResponse as FileResponse, Tem
 from open_terminal.utils.limits import (CHUNK_SIZE, NormalizeNullQueryMiddleware, run_io, run_worker)
 from open_terminal.utils.file_compare import CompareRequest, run_comparison
 from open_terminal.utils.git import GitRepository
-from open_terminal.utils.system import collect_system_info
+from open_terminal.utils.system import collect_system_info, foreground_process
 from open_terminal.utils.events import system_events
 from open_terminal.utils.search import search_entries, matching_files, ranked_page
 from open_terminal.utils.skills import join_skill_path, list_skill_resources, parse_skill_frontmatter
@@ -798,9 +798,9 @@ async def git_worktrees(http_request: Request, root: str = ".", fs: UserFS = Dep
 
 @app.get("/git/pr/{view}", dependencies=[Depends(verify_api_key)], include_in_schema=False)
 async def git_pull_requests(http_request: Request, view: str, root: str = ".", number: int = 0,
-                            state: str = "open", fs: UserFS = Depends(get_filesystem)):
+                            state: str = "open", search: str = "", fs: UserFS = Depends(get_filesystem)):
     cwd = _get_session_cwd(http_request.headers.get("x-session-id"), fs)
-    return await GitRepository(fs, root, cwd).pull_requests(view, number, state)
+    return await GitRepository(fs, root, cwd).pull_requests(view, number, state, search)
 
 
 class PullRequestAction(BaseModel):
@@ -824,6 +824,27 @@ async def git_pull_request_action(http_request: Request, action: str, payload: P
             raise HTTPException(400, "Invalid review event")
         action = {"approve": "approve", "comment": "review-comment", "request_changes": "request-changes"}[payload.event]
     return await GitRepository(fs, payload.root, cwd).pull_request_action(action, method=payload.strategy, **fields)
+
+
+@app.get("/git/issue/{view}", dependencies=[Depends(verify_api_key)], include_in_schema=False)
+async def git_issues(http_request: Request, view: str, root: str = ".", number: int = 0,
+                     state: str = "open", search: str = "", fs: UserFS = Depends(get_filesystem)):
+    cwd = _get_session_cwd(http_request.headers.get("x-session-id"), fs)
+    return await GitRepository(fs, root, cwd).issues(view, number, state, search)
+
+
+class IssueAction(BaseModel):
+    root: str = "."
+    number: int = 0
+    title: str = ""
+    body: str = ""
+    reason: str = "completed"
+
+
+@app.post("/git/issue/{action}", dependencies=[Depends(verify_api_key)], include_in_schema=False)
+async def git_issue_action(http_request: Request, action: str, payload: IssueAction, fs: UserFS = Depends(get_filesystem)):
+    cwd = _get_session_cwd(http_request.headers.get("x-session-id"), fs)
+    return await GitRepository(fs, payload.root, cwd).issue_action(action, **payload.model_dump(exclude={"root"}))
 
 
 class GitActionRequest(BaseModel):
@@ -2458,6 +2479,9 @@ if ENABLE_TERMINAL:
         ``{"type": "ack", "cursor": <output end>}`` to release more data.
         Reads pause when the attached viewer falls behind; detached shells keep
         running with bounded history.
+
+        Set ``process_info`` to true in auth to receive foreground process
+        changes as ``{"type": "process", "pid": ..., "name": ...}`` on Unix.
         """
         session = _terminal_sessions.get(session_id)
         if session is None:
@@ -2519,6 +2543,13 @@ if ENABLE_TERMINAL:
 
         async def _pty_reader():
             nonlocal cursor
+            # shortcut: winpty needs separate console foreground detection for Windows.
+            process_info = payload.get("process_info") is True and backend == "pty"
+            # Reset stale titles from retained output before following the live process.
+            replay_end = session["output_offset"]
+            last_process = None
+            last_group = None
+            sampled_at = 0.0
             if flow_control:
                 await ws.send_json({"type": "flow_control"})
             while not stop_event.is_set():
@@ -2526,6 +2557,18 @@ if ENABLE_TERMINAL:
                     session["output_consumed"].clear()
                     await session["output_consumed"].wait()
                 session["output_changed"].clear()
+                if process_info and cursor >= replay_end:
+                    try:
+                        group = os.tcgetpgrp(master_fd)
+                    except OSError:
+                        group = None
+                    now = time.monotonic()
+                    if group != last_group or now - sampled_at >= 0.5:
+                        current = await asyncio.to_thread(foreground_process, master_fd)
+                        last_group, sampled_at = group, now
+                        if current is not None and current != last_process:
+                            await ws.send_json({"type": "process", **current})
+                            last_process = current
                 oldest = session["output_offset"] - len(session["output"])
                 start = max(cursor, oldest)
                 end = min(session["output_offset"], start + 64 * 1024)
@@ -2541,7 +2584,13 @@ if ENABLE_TERMINAL:
                     continue
                 if session["reader_done"]:
                     return
-                await session["output_changed"].wait()
+                if process_info:
+                    try:
+                        await asyncio.wait_for(session["output_changed"].wait(), timeout=0.5)
+                    except asyncio.TimeoutError:
+                        pass
+                else:
+                    await session["output_changed"].wait()
 
         input_queue = asyncio.Queue(maxsize=64)
         input_bytes = 0

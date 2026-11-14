@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: harbor
-Version: 0.25.0
+Version: 0.26.0
 Summary: A framework for evaluating and optimizing agents and models using sandboxed environments.
 Author: Alex Shaw
 Author-email: Alex Shaw <alexgshaw64@gmail.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Dist: certifi>=2026.10.19
-Requires-Dist: pydantic>=2.12.0
+Requires-Dist: pydantic>=2.14.0
 Requires-Dist: shortuuid>=1.0.13
 Requires-Dist: typer>=0.16.0
 Requires-Dist: requests>=2.32.4
@@ -21,8 +21,9 @@ Requires-Dist: jinja2>=3.1.6
 Requires-Dist: dirhash>=0.5.0
 Requires-Dist: packaging>=25.0
 Requires-Dist: semver>=3.0.4
-Requires-Dist: fastapi>=0.128.0
+Requires-Dist: fastapi>=0.162.0
 Requires-Dist: uvicorn>=0.38.0
+Requires-Dist: websockets>=15.0.1
 Requires-Dist: pathspec>=1.0.3
 Requires-Dist: supabase>=2.28.2
 Requires-Dist: httpx>=0.27.0
@@ -30,6 +31,10 @@ Requires-Dist: filelock>=3.29.4
 Requires-Dist: platformdirs>=4.10.0
 Requires-Dist: pyjwt>=2.10.1
 Requires-Dist: jsonschema>=4.23.0
+Requires-Dist: fastmcp>=4.1.6,<5
+Requires-Dist: cryptography>=50.0.2
+Requires-Dist: azure-containerapps-sandbox>=0.1.0b4 ; extra == 'aca-sandbox'
+Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'aca-sandbox'
 Requires-Dist: claude-agent-sdk>=0.1.17 ; extra == 'adapter'
 Requires-Dist: harbor[cloud] ; extra == 'all'
 Requires-Dist: harbor[tinker] ; extra == 'all'
@@ -38,8 +43,9 @@ Requires-Dist: harbor[dspy] ; extra == 'all'
 Requires-Dist: harbor[adapter] ; extra == 'all'
 Requires-Dist: beam-client>=0.2.211 ; extra == 'beam'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'beam'
-Requires-Dist: blaxel>=0.2.52 ; extra == 'blaxel'
+Requires-Dist: blaxel>=0.4.24 ; extra == 'blaxel'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'blaxel'
+Requires-Dist: boxd>=0.3.0 ; extra == 'boxd'
 Requires-Dist: harbor[cwsandbox] ; extra == 'cloud'
 Requires-Dist: harbor[e2b] ; extra == 'cloud'
 Requires-Dist: harbor[daytona] ; extra == 'cloud'
@@ -64,6 +70,9 @@ Requires-Dist: harbor[runta] ; extra == 'cloud'
 Requires-Dist: harbor[prime] ; extra == 'cloud'
 Requires-Dist: harbor[sail] ; extra == 'cloud'
 Requires-Dist: harbor[kernel] ; extra == 'cloud'
+Requires-Dist: harbor[boxd] ; extra == 'cloud'
+Requires-Dist: harbor[superserve] ; extra == 'cloud'
+Requires-Dist: harbor[aca-sandbox] ; extra == 'cloud'
 Requires-Dist: openai>=2.0 ; extra == 'computer-1'
 Requires-Dist: anthropic[bedrock]>=0.102.0 ; extra == 'computer-1'
 Requires-Dist: google-genai>=2.3.0 ; extra == 'computer-1'
@@ -71,11 +80,12 @@ Requires-Dist: cua-train>=0.1.0 ; extra == 'cua'
 Requires-Dist: cwsandbox[wandb]>=1.14.2 ; extra == 'cwsandbox'
 Requires-Dist: daytona>=0.210.0 ; extra == 'daytona'
 Requires-Dist: dspy>=2.6.0 ; extra == 'dspy'
-Requires-Dist: e2b>=2.25.0 ; extra == 'e2b'
+Requires-Dist: e2b>=2.52.0 ; extra == 'e2b'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'e2b'
 Requires-Dist: boto3>=1.41.5 ; extra == 'ec2'
-Requires-Dist: nemo-fabric-runtime==0.5.* ; extra == 'fabric'
-Requires-Dist: nemo-fabric-adapter-catalog==0.5.* ; extra == 'fabric'
+Requires-Dist: nemo-fabric-runtime>=0.6.0,<0.7 ; extra == 'fabric'
+Requires-Dist: nemo-fabric-adapter-catalog>=0.6.0,<0.7 ; extra == 'fabric'
+Requires-Dist: nemo-fabric-evidence>=0.6.0,<0.7 ; extra == 'fabric'
 Requires-Dist: kubernetes>=32.0.0 ; extra == 'gke'
 Requires-Dist: huggingface-hub>=1.22.0 ; extra == 'hf-sandbox'
 Requires-Dist: datasets>=4.4.1 ; extra == 'huggingface'
@@ -87,7 +97,7 @@ Requires-Dist: kernel>=0.123.0 ; extra == 'kernel'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'kernel'
 Requires-Dist: harbor-langsmith ; extra == 'langsmith'
 Requires-Dist: langsmith[sandbox]>=0.8.8 ; extra == 'langsmith'
-Requires-Dist: modal>=1.5.4 ; extra == 'modal'
+Requires-Dist: modal>=1.6.0 ; extra == 'modal'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'modal'
 Requires-Dist: mosaic-sandbox>=0.14.0 ; extra == 'mosaic'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'mosaic'
@@ -97,26 +107,32 @@ Requires-Dist: opensandbox>=0.1.7 ; extra == 'opensandbox'
 Requires-Dist: prime-sandboxes>=0.3.0 ; extra == 'prime'
 Requires-Dist: runloop-api-client>=1.23.2 ; extra == 'runloop'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'runloop'
-Requires-Dist: runta-sdk>=0.2.5,<0.3.0 ; extra == 'runta'
-Requires-Dist: sail>=0.13.0 ; extra == 'sail'
+Requires-Dist: runta-sdk>=0.2.6,<0.3.0 ; extra == 'runta'
+Requires-Dist: sail>=0.16.0 ; extra == 'sail'
 Requires-Dist: python-multipart>=0.0.32 ; extra == 'sbx'
 Requires-Dist: skypilot-nightly>=0.10.0 ; extra == 'skypilot'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'skypilot'
 Requires-Dist: smolmachines[tunnel]>=1.20.0 ; (platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'smol') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'smol') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'smol')
-Requires-Dist: tensorlake>=0.5.135 ; extra == 'tensorlake'
-Requires-Dist: tinker>=0.33.1 ; extra == 'tinker'
-Requires-Dist: tinker-cookbook>=0.5.7 ; (platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'tinker') or (sys_platform != 'darwin' and sys_platform != 'win32' and extra == 'tinker')
+Requires-Dist: snowflake-sandbox-python>=0.2.2a5 ; extra == 'snowflake'
+Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'snowflake'
+Requires-Dist: superserve>=0.11.5,<0.12 ; extra == 'superserve'
+Requires-Dist: tensorlake>=0.5.155 ; extra == 'tensorlake'
+Requires-Dist: tinker>=0.38.0 ; extra == 'tinker'
+Requires-Dist: tinker-cookbook>=0.6.1 ; (platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'tinker') or (sys_platform != 'darwin' and sys_platform != 'win32' and extra == 'tinker')
 Requires-Dist: tml-renderers>=0.1.0 ; (platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'tinker') or (sys_platform != 'darwin' and sys_platform != 'win32' and extra == 'tinker')
 Requires-Dist: tinker-cookbook>=0.2.0,<0.5.4 ; (platform_machine != 'arm64' and sys_platform == 'darwin' and extra == 'tinker') or (sys_platform == 'win32' and extra == 'tinker')
 Requires-Dist: transformers>=5.3.0,<=5.5.4 ; extra == 'tinker'
 Requires-Dist: use-computer>=0.0.2 ; extra == 'use-computer'
-Requires-Dist: vercel>=0.10.0 ; extra == 'vercel'
+Requires-Dist: vercel==0.12.* ; extra == 'vercel'
+Requires-Dist: vercel-sandbox==0.10.* ; extra == 'vercel'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'vercel'
 Requires-Python: >=3.12
+Provides-Extra: aca-sandbox
 Provides-Extra: adapter
 Provides-Extra: all
 Provides-Extra: beam
 Provides-Extra: blaxel
+Provides-Extra: boxd
 Provides-Extra: cloud
 Provides-Extra: computer-1
 Provides-Extra: cua
@@ -144,6 +160,8 @@ Provides-Extra: sail
 Provides-Extra: sbx
 Provides-Extra: skypilot
 Provides-Extra: smol
+Provides-Extra: snowflake
+Provides-Extra: superserve
 Provides-Extra: tensorlake
 Provides-Extra: tinker
 Provides-Extra: use-computer

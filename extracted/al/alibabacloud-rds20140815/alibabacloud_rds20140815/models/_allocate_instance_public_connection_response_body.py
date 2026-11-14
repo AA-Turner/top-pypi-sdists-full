@@ -15,7 +15,7 @@ class AllocateInstancePublicConnectionResponseBody(DaraModel):
         self.connection_string = connection_string
         # The instance ID.
         self.db_instance_name = db_instance_name
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
 
     def validate(self):

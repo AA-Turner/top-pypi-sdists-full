@@ -381,6 +381,7 @@ exported_vars_test_vector = [
     "ReservedCodeException",
     "UnhashableKeyException",
     "DuplicateKeyException",
+    "MaximumDepthException",
     "KeyNotPrimitiveException",
     "KeyDuplicateException",
     "ext_serializable",
@@ -438,9 +439,9 @@ class TestUmsgpack(unittest.TestCase):
             # one we end up with depends on the architecture (32-bit/64-bit)
             if sys.version_info[0] == 2:
                 # Allow both {int,long} -> unpackb -> {int,long}
-                if isinstance(obj, int) or isinstance(obj, long):
+                if isinstance(obj, int) or isinstance(obj, long):  # noqa: F821
                     self.assertTrue(isinstance(unpacked, int) or
-                                    isinstance(unpacked, long))
+                                    isinstance(unpacked, long))  # noqa: F821
                 else:
                     self.assertTrue(isinstance(unpacked, type(obj)))
             # In Python3, we only have the int integer type
@@ -490,7 +491,7 @@ class TestUmsgpack(unittest.TestCase):
             # so convert any string obj to bytes before comparison
             if sys.version_info[0] == 3 and isinstance(obj, str):
                 _obj = obj.encode('utf-8')
-            elif sys.version_info[0] == 2 and isinstance(obj, unicode):
+            elif sys.version_info[0] == 2 and isinstance(obj, unicode):  # noqa: F821
                 _obj = bytes(obj)
             else:
                 _obj = obj
@@ -712,11 +713,6 @@ class TestUmsgpack(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             umsgpack.unpackb(b"\xd4\x21\x00")
 
-        # Unregister Ext serializable classes to prevent interference with
-        # subsequent tests
-        umsgpack._ext_classes_to_code = {}
-        umsgpack._ext_code_to_classes = {}
-
     def test_ext_serializable_subclass(self):
         @umsgpack.ext_serializable(0x10)
         class Rectangle:
@@ -746,17 +742,12 @@ class TestUmsgpack(unittest.TestCase):
         unpacked = umsgpack.unpackb(packed)
         self.assertEqual(unpacked, Rectangle(5, 5))
 
-        # Unregister Ext serializable classes to prevent interference with
-        # subsequent tests
-        umsgpack._ext_classes_to_code = {}
-        umsgpack._ext_code_to_classes = {}
-
     def test_streaming_writer(self):
         # Try first composite test vector
         (_, obj, data) = composite_test_vectors[0]
         writer = io.BytesIO()
         umsgpack.pack(obj, writer)
-        self.assertTrue(writer.getvalue(), data)
+        self.assertEqual(writer.getvalue(), data)
 
     def test_streaming_reader(self):
         # Try first composite test vector
@@ -764,12 +755,34 @@ class TestUmsgpack(unittest.TestCase):
         reader = io.BytesIO(data)
         self.assertEqual(umsgpack.unpack(reader), obj)
 
+    def test_max_depth_default_wraps_recursion(self):
+        # Default (no max_depth): deeply nested input must raise a
+        # MaximumDepthException (an UnpackException), not a bare RecursionError.
+        payload = b"\x91" * 5000 + b"\xc0"
+        self.assertRaises(umsgpack.MaximumDepthException, umsgpack.unpackb, payload)
+        self.assertRaises(umsgpack.UnpackException, umsgpack.unpackb, payload)
+        # Moderate nesting still works.
+        self.assertEqual(umsgpack.unpackb(b"\x91" * 100 + b"\xc0"),
+                         umsgpack.unpackb(b"\x91" * 100 + b"\xc0"))
+
+    def test_max_depth_cap_arrays_and_maps(self):
+        self.assertTrue(
+            umsgpack.unpackb(b"\x91" * 32 + b"\xc0", max_depth=32) is not None)
+        self.assertRaises(umsgpack.MaximumDepthException,
+                          umsgpack.unpackb, b"\x91" * 33 + b"\xc0", max_depth=32)
+        self.assertRaises(umsgpack.MaximumDepthException,
+                          umsgpack.unpackb, b"\x81\xa1k" * 17 + b"\xc0", max_depth=16)
+        # Siblings are not counted, only nesting depth.
+        self.assertEqual(
+            len(umsgpack.unpackb(b"\xdc\x00\xc8" + b"\xc0" * 200, max_depth=1)), 200)
+
     def test_namespacing(self):
         # Get a list of global variables from umsgpack module
         exported_vars = list([x for x in dir(umsgpack) if not x.startswith("_")])
         # Ignore imports
-        exported_vars = list([x for x in exported_vars if x != "struct" and x != "collections" and x != "datetime" and x !=
-                                    "sys" and x != "io" and x != "xrange" and x != "Hashable"])
+        ignore_vars = ["struct", "collections", "datetime", "sys", "io",
+                       "xrange", "Hashable", "functools"]
+        exported_vars = [x for x in exported_vars if x not in ignore_vars]
 
         self.assertTrue(len(exported_vars) == len(exported_vars_test_vector))
         for var in exported_vars_test_vector:

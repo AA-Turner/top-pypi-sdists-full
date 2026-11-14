@@ -15,17 +15,17 @@ class ModifyDBInstanceNetworkExpireTimeRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # The number of days for the classic network endpoint reservation. Valid values: **1 to 120**. Unit: days.
+        # The number of days to retain the classic network endpoint. Valid values: **1 to 120**. Unit: days.
         # 
         # This parameter is required.
         self.classic_expired_days = classic_expired_days
-        # The classic network connectivity endpoint to be extended. Two types of classic network endpoints are supported:
-        # * Classic network internal network endpoint
+        # The classic network endpoint to be extended. Classic network endpoints are of the following types:
+        # * Classic network internal endpoint
         # * Classic network read/write splitting endpoint
         # 
         # This parameter is required.
         self.connection_string = connection_string
-        # The instance ID. You can call DescribeDBInstances to obtain the instance ID.
+        # The instance ID. You can call the DescribeDBInstances operation to query the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id

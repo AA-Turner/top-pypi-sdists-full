@@ -5,6 +5,7 @@ import json
 import uuid
 from typing import Any
 from ....sdk import errors
+from ....sdk.client import BROWSE_NAME_QUERY_FEATURE
 from ...delivery import accounting
 from ..views import branch_projection as _branches
 from ....shared.reads.search_contract import (
@@ -127,15 +128,17 @@ class BrowseListMixin:
     #: The ONLY filters each mode sends; `server._BROWSE_MODE_ARGS` refuses
     #: the rest before they reach here.
     _CATALOG_FILTERS: dict[BrowseMode, dict[str, str]] = {
-        BrowseMode.DATASETS: {"query": "q", "project": "project", "registered": "registered"},
+        # `query` is the loose name match (`browse_name_query`); an older server reads it as `q`, its text filter.
+        BrowseMode.DATASETS: {"query": "query", "project": "project", "registered": "registered"},
         BrowseMode.CHECKPOINTS: {
+            "query": "query",
             "project": "project",
             "experiment": "experiment",
             "run": "run",
             "best": "best",
             "stored": "stored",
         },
-        BrowseMode.SOURCES: {"query": "q", "provider": "provider", "kind": "kind"},
+        BrowseMode.SOURCES: {"query": "query", "provider": "provider", "kind": "kind"},
     }
     #: The catalog routes' own `limit` ceiling (`le=100`): what a continuation
     #: re-reads to find the row it stopped after.
@@ -251,7 +254,7 @@ class BrowseListMixin:
                 hide_session=hide_session, kind=kind, missing=missing, mode=mode,
                 page_size=page_size, scope=scope, sent=sent, status=status, tags=tags,
                 query=RunListQuery(run_filter=run_filter or None, order=order or None,
-                                   latest_metrics=latest_metrics or None),
+                                   latest_metrics=latest_metrics or None, name_query=query or None),
                 people=people,
             )
         elif mode in self._CATALOG_FILTERS:
@@ -360,13 +363,13 @@ class BrowseListMixin:
             views_by_kind = set()
         elif mode is BrowseMode.PEOPLE:
             end = self._list_people_page(
-                last_sent=last_sent, mode=mode, page_size=page_size, sent=sent
+                last_sent=last_sent, mode=mode, page_size=page_size, sent=sent, query=query
             )
             views_by_kind = set()
         elif mode is BrowseMode.SESSIONS:
             end = self._list_sessions_page(
                 backend_cursor=backend_cursor, cursor=native_cursor, data=data, last_sent=last_sent,
-                mode=mode, page_size=page_size, people=people, scope=scope, sent=sent,
+                mode=mode, page_size=page_size, people=people, scope=scope, sent=sent, query=query,
             )
             views_by_kind = {row["entity_type"] for row, _ in sent}
         elif mode is BrowseMode.BRANCHES:
@@ -415,7 +418,7 @@ class BrowseListMixin:
             end, views_by_kind = self._list_other_page(
                 data=data, end=end, last_sent=last_sent, missing=missing, mode=mode,
                 page_size=page_size, prefix=prefix, sent=sent, workspace_id=workspace_id,
-                people=people,
+                people=people, query=query,
             )
 
         data[list_key] = [row for row, _ in sent]
@@ -543,6 +546,7 @@ class BrowseListMixin:
                     exclude_origin_session=hide_session,
                     run_filter=query.run_filter,
                     people=people,
+                    name_query=query.name_query,
                 )
             except Exception:  # noqa: BLE001 -- an older API or a count past its bound
                 missing.append(MissingMarker.TOTALS_UNAVAILABLE)
@@ -550,7 +554,7 @@ class BrowseListMixin:
                 # The list's body is a bare array, so who `owner` matched rides the counts.
                 data.update(get_owner_echo(totals))
                 data["totals"] = (
-                    {k: v for k, v in totals.items() if k not in ("owner_matched", "unowned_count")}
+                    {k: v for k, v in totals.items() if k not in ("owner_matched", "unowned_count", "query_note")}
                     if isinstance(totals, dict)
                     else totals
                 )
@@ -580,6 +584,9 @@ class BrowseListMixin:
             for name, route_name in self._CATALOG_FILTERS[mode].items()
             if given[name] is not None
         }
+        if "query" in filters and not self.source.has_feature(BROWSE_NAME_QUERY_FEATURE):
+            # Before the loose match: the route's literal text filter, as this mode always sent it.
+            filters["q"] = filters.pop("query")
         data.update(
             {name: given[name] for name in self._CATALOG_FILTERS[mode] if given[name] is not None}
         )
@@ -656,13 +663,13 @@ class BrowseListMixin:
             and not hidden
         ):
             # Bytes and counts for the WHOLE filtered listing, not this page.
-            data["totals"] = page["totals"]
+            data["totals"] = _get_capped_totals(page["totals"])
         views_by_kind = {row["entity_type"] for row, _ in sent}
         return end, hidden_count, views_by_kind
 
 
     def _list_other_page(
-        self, *, data, end, last_sent, missing, mode, page_size, prefix, sent, workspace_id, people,
+        self, *, data, end, last_sent, missing, mode, page_size, prefix, sent, workspace_id, people, query=None,
     ):
         """The remaining modes: one page of their rows, a workspace's when one is named."""
         if workspace_id is not None:
@@ -690,7 +697,10 @@ class BrowseListMixin:
                 else self._FILES_BACKEND_MAX
             ),
             filters=people,
+            query=query,
         )
+        if query:
+            data["query"] = query
         # A bare list, or with a person or time filter the route's `{items, owner_matched?, ...}`.
         if isinstance(answer, dict):
             data.update(get_owner_echo(answer))
@@ -701,8 +711,8 @@ class BrowseListMixin:
             found = next(
                 (i for i, row in enumerate(rows) if row.get("name") == last_sent), None
             )
-            if found is None and people.is_recent:
-                # Newest first, a name says nothing about where the rest resume.
+            if found is None and (people.is_recent or query):
+                # Newest or best first, a name says nothing about where the rest resume.
                 raise self._gone("file")
             # A file deleted since the last page: continue at the first name
             # after it. Code-point order IS the route's `ORDER BY name` order
@@ -732,6 +742,23 @@ class BrowseListMixin:
         views_by_kind = {EntityType.ARTIFACT.value}
         return end, views_by_kind
 
+
+#: The biggest projects a checkpoint listing's `totals.by_project` keeps: a team with 159 projects sent 57 KB of
+#: them, so no budget fit even one row. The server sorts them biggest first; `by_project_more` counts the rest.
+_TOTALS_PROJECT_CAP = 5
+
+
+def _get_capped_totals(totals: dict) -> dict:
+    """`totals` with only its `_TOTALS_PROJECT_CAP` biggest addresses (a project or an experiment); filter by
+    `experiment` or `project` to see another one."""
+    projects = totals.get("by_project")
+    if not isinstance(projects, list) or len(projects) <= _TOTALS_PROJECT_CAP:
+        return totals
+    return {
+        **totals,
+        "by_project": projects[:_TOTALS_PROJECT_CAP],
+        "by_project_more": len(projects) - _TOTALS_PROJECT_CAP,
+    }
 
 # The people and sessions modes' pages and rows (people and time filters, A1), folded in here rather than
 # composed in tools.py: they are `listings/` variants, reached through this listing.

@@ -27,8 +27,8 @@ class ModifyRCInstanceChargeTypeRequest(DaraModel):
         self.auto_pay = auto_pay
         # Specifies whether to enable auto-renewal. Valid values:
         # 
-        # * **true**: enables auto-renewal (default)
-        # * **false**: disables auto-renewal
+        # * **true**: enabled (default)
+        # * **false**: disabled
         # 
         # > * This parameter takes effect only when you change the billing method from pay-as-you-go to subscription.
         # > * Any string other than **true** is processed as **false**.
@@ -58,9 +58,9 @@ class ModifyRCInstanceChargeTypeRequest(DaraModel):
         # * **Prepaid**: subscription
         # * **Postpaid**: pay-as-you-go
         self.pay_type = pay_type
-        # Specifies the subscription period unit. Valid values:
-        # * **Year**: year
-        # * **Month**: month
+        # The subscription period of the subscription instance. Valid values:
+        # * **Year**: yearly subscription
+        # * **Month**: monthly subscription
         # 
         # > This parameter is required if **PayType** is set to **Prepaid**.
         self.period = period
@@ -70,7 +70,7 @@ class ModifyRCInstanceChargeTypeRequest(DaraModel):
         # 
         # This parameter is required.
         self.region_id = region_id
-        # Specifies the subscription duration. Valid values:
+        # The subscription duration. Valid values:
         # * If the **Period** parameter is set to **Year**, the value of UsedTime ranges from **1** to **5**.
         # * If the **Period** parameter is set to **Month**, the value of UsedTime ranges from **1** to **11**.
         # 

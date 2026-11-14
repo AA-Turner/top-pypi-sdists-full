@@ -15,15 +15,15 @@ class DescribeSlotsRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. You can generate the token on your client. Make sure that the token is unique among different requests. The ClientToken parameter supports only ASCII characters.
+        # The client token that is used to ensure the idempotence of the request. You can generate the token on your client and ensure that it is unique across different requests. The client token supports only ASCII characters.
         self.client_token = client_token
-        # The instance ID. You can call the DescribeDBInstances operation to query the instance ID.
+        # The ID of the instance. You can call the DescribeDBInstances operation to query the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The resource group ID. This parameter can be left empty.
+        # The ID of the resource group. This parameter can be left empty.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id

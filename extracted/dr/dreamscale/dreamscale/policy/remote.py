@@ -1764,8 +1764,11 @@ def _run_sync_policy_loop(
     failure = None
     measured_bootstrap = contract.measured_bootstrap
     startup_wait_ms = 0.0
+    # The session this run drives. The public policy's own session can go (released, or
+    # lost and reopened) before the run ends; the result is still this session's.
+    session = policy._async_policy
     controller = AsyncActionController(
-        policy=policy._async_policy,
+        policy=session,
         strategy=strategy,
         skip_calibration=False,
         hooks=hooks,
@@ -1947,9 +1950,10 @@ def _run_sync_policy_loop(
             stop_reason=stop_reason,
             timing=telemetry.summary(),
             model=policy.model,
-            region=policy.region,
-            transport_mode=policy.transport_mode,
-            fallback_reason=policy.fallback_reason,
+            # Read defensively: building the result must never replace the run's own error.
+            region=getattr(policy, "region", None),
+            transport_mode=getattr(policy, "transport_mode", None),
+            fallback_reason=getattr(policy, "fallback_reason", None),
             startup_holds=startup_holds,
             execution_underruns=execution_underruns,
             startup_wait_ms=startup_wait_ms,
@@ -1959,7 +1963,7 @@ def _run_sync_policy_loop(
         )
         policy.last_run_result = result
         publish_run_summary(
-            policy._async_policy,
+            session,
             hooks,
             result,
             preserve_error=report_error is not None,

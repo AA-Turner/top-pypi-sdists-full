@@ -17,15 +17,15 @@ class DescribeBackupPolicyRequest(DaraModel):
         resource_owner_id: int = None,
     ):
         # The backup type. Valid values:
-        # * **DataBackupPolicy**: data backup
-        # * **LogBackupPolicy**: log backup
+        # * **DataBackupPolicy**: data backup.
+        # * **LogBackupPolicy**: log backup.
         self.backup_policy_mode = backup_policy_mode
         # The backup compression method. Valid values:
-        # * **0**: no compression
-        # * **1**: zlib compression
-        # * **2**: parallel zlib compression
-        # * **4**: QuickLZ compression with database and table restoration enabled
-        # * **8**: QuickLZ compression without database and table restoration supported
+        # * **0**: no compression.
+        # * **1**: zlib compression.
+        # * **2**: parallel zlib compression.
+        # * **4**: quicklz compression with database and table restoration enabled.
+        # * **8**: quicklz compression without database and table restoration supported.
         self.compress_type = compress_type
         # The instance ID. You can call the DescribeDBInstances operation to obtain the ID.
         # 
@@ -33,11 +33,11 @@ class DescribeBackupPolicyRequest(DaraModel):
         self.dbinstance_id = dbinstance_id
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The data retention policy for archived backups of a deleted **ApsaraDB RDS for MySQL** instance. Valid values:
+        # The data retention policy for archive backups of deleted **ApsaraDB RDS for MySQL** instances. Valid values:
         # 
-        # * **None**: does not retain archived backups
-        # * **Lastest**: retains only the last archived backup
-        # * **All**: retains all archived backups
+        # * **None**: do not retain.
+        # * **Lastest**: retain the last one.
+        # * **All**: retain all.
         self.released_keep_policy = released_keep_policy
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id

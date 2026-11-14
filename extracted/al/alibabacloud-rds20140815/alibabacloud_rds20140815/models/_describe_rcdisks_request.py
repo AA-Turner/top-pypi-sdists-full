@@ -19,9 +19,9 @@ class DescribeRCDisksRequest(DaraModel):
         status: str = None,
         tag: List[main_models.DescribeRCDisksRequestTag] = None,
     ):
-        # The disk IDs. The value is a JSON array that supports up to 100 IDs separated by commas (,). Example: ["DiskId1", "DiskId2"].
+        # The disk IDs. The value is a JSON array that supports up to 100 IDs separated by commas (,). Format: `["disk ID 1", "disk ID 2"]`.
         self.disk_ids = disk_ids
-        # The type of the cloud disk or elastic ephemeral disk to query. Valid values:
+        # The type of cloud disk or elastic ephemeral disk to query. Valid values:
         # - all: Queries both system cloud disks and data cloud disks.
         # - system: Queries only system cloud disks.
         # - data: Queries only data cloud disks.
@@ -39,7 +39,7 @@ class DescribeRCDisksRequest(DaraModel):
         self.region_id = region_id
         # The disk status. Valid values:
         # - In_use: In use.
-        # - Available: Available.
+        # - Available: Unattached.
         # - Attaching: Attaching.
         # - Detaching: Detaching.
         # - Creating: Creating.
@@ -47,7 +47,7 @@ class DescribeRCDisksRequest(DaraModel):
         # - All: All statuses.
         # Default value: All.
         self.status = status
-        # The tags.
+        # The list of tags.
         self.tag = tag
 
     def validate(self):
@@ -126,9 +126,9 @@ class DescribeRCDisksRequestTag(DaraModel):
         key: str = None,
         value: str = None,
     ):
-        # The tag key. Empty values and duplicates are not allowed.
+        # The tag key. Empty or duplicate values are **not allowed**.
         self.key = key
-        # The tag value. Empty values are allowed.
+        # The tag value. Empty values are **allowed**.
         self.value = value
 
     def validate(self):

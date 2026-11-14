@@ -2,4 +2,6 @@
 
 import typing
 
-DocAiClassifyJobRequestReasoningInput = typing.Union[typing.Literal["auto", "text_only"], typing.Any]
+DocAiClassifyJobRequestReasoningInput = typing.Union[
+    typing.Literal["auto", "text_only", "images_for_scans", "vision"], typing.Any
+]

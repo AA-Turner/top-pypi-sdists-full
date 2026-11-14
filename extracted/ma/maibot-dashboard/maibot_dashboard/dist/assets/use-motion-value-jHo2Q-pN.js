@@ -1,0 +1,1 @@
+import{dw as a,$ as u,r as t,dx as c}from"./index-97eL3NRY.js";function f(o){const e=a(()=>u(o)),{isStatic:s}=t.useContext(c);if(s){const[,n]=t.useState(o);t.useEffect(()=>e.on("change",n),[])}return e}export{f as u};

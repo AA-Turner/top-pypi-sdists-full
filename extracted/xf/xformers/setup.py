@@ -8,7 +8,6 @@
 import datetime
 import distutils.command.clean
 import glob
-import importlib.util
 import json
 import os
 import platform
@@ -17,38 +16,22 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List
 
 import setuptools
-import torch
-from torch.utils.cpp_extension import (
-    BuildExtension,
-    CppExtension,
-    CUDA_HOME,
-    CUDAExtension,
-    ROCM_HOME,
-)
+import setuptools.command.build_py
+
+# NOTE: torch is deliberately not imported at module level. The open-source
+# build compiles nothing, so it can run without PyTorch installed at all. It is
+# imported on the paths that do compile.
 
 try:
     from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
 except ImportError:
-    _bdist_wheel = None
+    _bdist_wheel = object
 
 this_dir = os.path.dirname(__file__)
-pt_attn_compat_file_path = os.path.join(
-    this_dir, "xformers", "ops", "fmha", "torch_attention_compat.py"
-)
-
-# Define the module name
-module_name = "torch_attention_compat"
-
-# Load the module
-spec = importlib.util.spec_from_file_location(module_name, pt_attn_compat_file_path)
-assert spec is not None
-attn_compat_module = importlib.util.module_from_spec(spec)
-sys.modules[module_name] = attn_compat_module
-assert spec.loader is not None
-spec.loader.exec_module(attn_compat_module)
+PKG_NAME = "xformers"
 
 
 def get_extra_nvcc_flags_for_build_type(cuda_version: int) -> List[str]:
@@ -108,26 +91,9 @@ def get_cuda_version(cuda_dir) -> int:
     return bare_metal_major * 100 + bare_metal_minor
 
 
-def get_hip_version(rocm_dir) -> Optional[str]:
-    hipcc_bin = "hipcc" if rocm_dir is None else os.path.join(rocm_dir, "bin", "hipcc")
-    try:
-        raw_output = subprocess.check_output(
-            [hipcc_bin, "--version"], universal_newlines=True
-        )
-    except Exception as e:
-        print(
-            f"hip installation not found: {e} ROCM_PATH={os.environ.get('ROCM_PATH')}"
-        )
-        return None
-    for line in raw_output.split("\n"):
-        if "HIP version" in line:
-            return line.split()[-1]
-    return None
-
-
-def rename_cpp_cu(cpp_files):
-    for entry in cpp_files:
-        shutil.copy(entry, os.path.splitext(entry)[0] + ".cu")
+def is_fairinternal_only(path: str) -> bool:
+    """Whether the sync to the open-source repo strips this file."""
+    return any("fairinternal" in part for part in Path(path).parts)
 
 
 def get_extensions():
@@ -135,43 +101,20 @@ def get_extensions():
 
     sources = glob.glob(os.path.join(extensions_dir, "**", "*.cpp"), recursive=True)
     source_cuda = glob.glob(os.path.join(extensions_dir, "**", "*.cu"), recursive=True)
-    fmha_source_cuda = glob.glob(
-        os.path.join(extensions_dir, "**", "fmha", "**", "*.cu"), recursive=True
-    )
-    exclude_files = ["small_k.cu", "decoder.cu", "attention_cutlass_rand_uniform.cu"]
-    fmha_source_cuda = [
-        c
-        for c in fmha_source_cuda
-        if not any(exclude_file in c for exclude_file in exclude_files)
-    ]
-
-    source_hip = glob.glob(
-        os.path.join(extensions_dir, "attention", "hip_*", "**", "*.cpp"),
-        recursive=True,
-    )
-
-    source_hip_generated = glob.glob(
-        os.path.join(extensions_dir, "attention", "hip_*", "**", "*.cu"),
-        recursive=True,
-    )
-    # avoid the temporary .cu files generated under xformers/csrc/attention/hip_fmha
-    source_cuda = list(set(source_cuda) - set(source_hip_generated))
-    sources = list(set(sources) - set(source_hip))
-
-    xformers_pt_cutlass_attn = os.getenv("XFORMERS_PT_CUTLASS_ATTN")
-    # By default, we try to link to torch internal CUTLASS attention implementation
-    # and silently switch to local CUTLASS attention build if no compatibility
-    # If we force 'torch CUTLASS switch' then setup will fail when no compatibility
-    if (
-        xformers_pt_cutlass_attn is None or xformers_pt_cutlass_attn == "1"
-    ) and attn_compat_module.is_pt_cutlass_compatible(
-        force=xformers_pt_cutlass_attn == "1"
-    ):
-        source_cuda = list(set(source_cuda) - set(fmha_source_cuda))
 
     if "XFORMERS_SELECTIVE_BUILD" in os.environ:
         pattern = os.environ["XFORMERS_SELECTIVE_BUILD"]
         source_cuda = [f for f in source_cuda if pattern in str(f)]
+
+    # Only the fairinternal kernels still need compiling. What is left of
+    # xformers/csrc in the open-source repo is there to support them and is
+    # unused without them, so the open-source build has no extension at all
+    # and produces a pure-Python wheel.
+    if not any(is_fairinternal_only(f) for f in sources + source_cuda):
+        return [], None
+
+    import torch
+    from torch.utils.cpp_extension import CppExtension, CUDA_HOME, CUDAExtension
 
     cutlass_dir = os.path.join(this_dir, "third_party", "cutlass", "include")
     cutlass_util_dir = os.path.join(
@@ -203,7 +146,11 @@ def get_extensions():
     include_dirs = [extensions_dir]
     ext_modules = []
     cuda_version = None
-    hip_version = None
+    stable_args = [
+        "-DTORCH_STABLE_ONLY",
+        "-DTORCH_TARGET_VERSION=0x020a000000000000",
+    ]
+    extra_compile_args["cxx"].extend(stable_args)
 
     if (
         (
@@ -255,12 +202,6 @@ def get_extensions():
             ]
         extra_compile_args["nvcc"] = nvcc_flags
 
-        # For now we enforce the PyTorch stable ABI only for CUDA builds (not HIP).
-        stable_args = [
-            "-DTORCH_STABLE_ONLY",
-            "-DTORCH_TARGET_VERSION=0x020a000000000000",
-        ]
-        extra_compile_args["cxx"].extend(stable_args)
         extra_compile_args["nvcc"].extend(stable_args + ["-DUSE_CUDA"])
 
         if (
@@ -272,62 +213,6 @@ def get_extensions():
                 "--ptxas-options=-O2",
                 "--ptxas-options=-allow-expensive-optimizations=true",
             ]
-    elif (
-        torch.version.hip
-        and os.getenv("XFORMERS_CK_FLASH_ATTN", "1") == "1"
-        and (torch.cuda.is_available() or os.getenv("HIP_ARCHITECTURES", "") != "")
-    ):
-        rename_cpp_cu(source_hip)
-        hip_version = get_hip_version(ROCM_HOME)
-
-        source_hip_cu = []
-        for ff in source_hip:
-            source_hip_cu += [ff.replace(".cpp", ".cu")]
-
-        extension = CUDAExtension
-        sources += source_hip_cu
-        include_dirs += [
-            Path(this_dir) / "xformers" / "csrc" / "attention" / "hip_fmha",
-            Path(this_dir) / "xformers" / "csrc" / "attention" / "hip_decoder",
-        ]
-
-        include_dirs += [
-            Path(this_dir) / "third_party" / "composable_kernel_tiled" / "include"
-        ]
-
-        cc_flag = ["-DBUILD_PYTHON_PACKAGE"]
-        use_rtn_bf16_convert = os.getenv("ENABLE_HIP_FMHA_RTN_BF16_CONVERT", "0")
-        if use_rtn_bf16_convert == "1":
-            cc_flag += ["-DCK_TILE_FLOAT_TO_BFLOAT16_DEFAULT=3"]
-
-        arch_list = os.getenv("HIP_ARCHITECTURES", "native").split()
-
-        offload_compress_flag = []
-        if hip_version >= "6.2.":
-            offload_compress_flag = ["--offload-compress"]
-
-        extra_compile_args["nvcc"] = [
-            "-O3",
-            "-std=c++17",
-            *[f"--offload-arch={arch}" for arch in arch_list],
-            *offload_compress_flag,
-            "-U__CUDA_NO_HALF_OPERATORS__",
-            "-U__CUDA_NO_HALF_CONVERSIONS__",
-            "-DCK_TILE_FMHA_FWD_FAST_EXP2=1",
-            "-fgpu-flush-denormals-to-zero",
-            "-Werror",
-            "-Wc++11-narrowing",
-            "-Woverloaded-virtual",
-            "-mllvm",
-            "-enable-post-misched=0",
-            "-mllvm",
-            "-amdgpu-early-inline-all=true",
-            "-mllvm",
-            "-amdgpu-function-calls=false",
-            "-mllvm",
-            "-greedy-reverse-local-assignment=1",
-        ] + cc_flag
-
     ext_modules.append(
         extension(
             "xformers._C",
@@ -341,7 +226,7 @@ def get_extensions():
     return ext_modules, {
         "version": {
             "cuda": cuda_version,
-            "hip": hip_version,
+            "hip": None,
             "torch": torch.__version__,
             "python": platform.python_version(),
         },
@@ -375,20 +260,36 @@ class clean(distutils.command.clean.clean):  # type: ignore
         distutils.command.clean.clean.run(self)
 
 
-class bdist_wheel_abi_none(_bdist_wheel if _bdist_wheel else object):
+class bdist_wheel_abi_none(_bdist_wheel):
     """
     Custom wheel builder that tags wheels as ABI-independent despite containing compiled code.
     The compiled extensions are plain shared libraries (.so/.dll) that use only PyTorch's
     TORCH_LIBRARY mechanism, with no Python C API dependencies. This allows the same wheel
     to work across different Python versions and variants (including free-threaded builds).
+
+    Without an extension there is nothing platform-specific left either, and we
+    produce a single py3-none-any wheel.
     """
 
+    def finalize_options(self) -> None:
+        super().finalize_options()
+        if not self.distribution.ext_modules:
+            # Ignore the --plat-name that CI passes for the builds which do
+            # contain a .so. Only the tag is affected: root_is_pure stays true,
+            # so the layout is unchanged.
+            self.plat_name_supplied = False
+
     def get_tag(self):
-        if _bdist_wheel is None:
+        if _bdist_wheel is object:
             raise RuntimeError("wheel package is required to build wheels")
 
         # Get the default tags from parent class
         python_tag, abi_tag, plat_tag = super().get_tag()
+
+        if not self.distribution.ext_modules:
+            # Already py3-none-any: one wheel for every Python, platform and
+            # PyTorch build.
+            return python_tag, abi_tag, plat_tag
 
         # Override ABI tag to 'none' since our .so files have no Python ABI dependency
         # Use 'py39' as python tag to indicate minimum Python version (3.9+)
@@ -396,56 +297,74 @@ class bdist_wheel_abi_none(_bdist_wheel if _bdist_wheel else object):
         return "py39", "none", plat_tag
 
 
-class BuildExtensionWithExtraFiles(BuildExtension):
+class BuildPyWithExtraFiles(setuptools.command.build_py.build_py):
+    """A `build_py` that also writes our generated files (`version.py`, and
+    `cpp_lib.json` when we build an extension).
+
+    These used to be written by `build_ext`, but `build_ext.run()` returns
+    immediately when there are no extensions, which is the case for the
+    open-source build.
+    """
+
+    @classmethod
+    def with_options(cls, **options):
+        # Same trick as torch's BuildExtension, which setuptools' commands
+        # don't provide: setuptools instantiates the cmdclass itself, so bind
+        # our arguments here.
+        def init_with_options(*args, **kwargs):
+            return cls(*args, **{**kwargs, **options})
+
+        return init_with_options
+
     def __init__(self, *args, **kwargs) -> None:
-        self.xformers_build_metadata = kwargs.pop("extra_files")
-        self.pkg_name = "xformers"
+        self.extra_files: Dict[str, str] = kwargs.pop("extra_files")
         super().__init__(*args, **kwargs)
 
-    def get_export_symbols(self, ext):
-        # Don't export PyInit_* symbols since our extension doesn't use the
-        # Python C API. It registers operators with PyTorch via
-        # STABLE_TORCH_LIBRARY_FRAGMENT and is loaded via torch.ops.load_library().
-        return []
+    def run(self) -> None:
+        super().run()
+        self._write_extra_files(os.path.join(self.build_lib, PKG_NAME))
+        if getattr(self, "editable_mode", False):
+            # An editable install imports from the source tree, so the
+            # generated files have to land there too. Both destinations
+            # are gitignored.
+            self._write_extra_files(self.get_package_dir(PKG_NAME))
 
-    def build_extensions(self) -> None:
-        super().build_extensions()
-
-        for filename, content in self.xformers_build_metadata.items():
-            with open(
-                os.path.join(self.build_lib, self.pkg_name, filename), "w+"
-            ) as fp:
+    def _write_extra_files(self, directory: str) -> None:
+        os.makedirs(directory, exist_ok=True)
+        for filename, content in self.extra_files.items():
+            with open(os.path.join(directory, filename), "w") as fp:
                 fp.write(content)
 
-    def copy_extensions_to_source(self) -> None:
-        """
-        Used for `pip install -e .`
-        Copies everything we built back into the source repo
-        """
-        build_py = self.get_finalized_command("build_py")
-        package_dir = build_py.get_package_dir(self.pkg_name)
 
-        for filename in self.xformers_build_metadata.keys():
-            inplace_file = os.path.join(package_dir, filename)
-            regular_file = os.path.join(self.build_lib, self.pkg_name, filename)
-            self.copy_file(regular_file, inplace_file, level=self.verbose)
-        super().copy_extensions_to_source()
+def make_build_ext():
+    """Our `build_ext`, which subclasses torch's, so it can only be defined
+    once we know we are compiling and may import torch."""
+    from torch.utils.cpp_extension import BuildExtension
 
-    def get_ext_filename(self, ext_name):
-        # Return plain .so/.pyd names without Python version tags
-        # This creates ABI-independent binaries that work with any Python version
-        ext_path = ext_name.split(".")
-        ext_basename = ext_path[-1]
-        ext_dir = os.path.join(*ext_path[:-1]) if len(ext_path) > 1 else ""
+    class BuildExtensionNoPythonAbi(BuildExtension):
+        def get_export_symbols(self, ext):
+            # Don't export PyInit_* symbols since our extension doesn't use the
+            # Python C API. It registers operators with PyTorch via
+            # STABLE_TORCH_LIBRARY_FRAGMENT and is loaded via torch.ops.load_library().
+            return []
 
-        if sys.platform == "win32":
-            # Windows: use .pyd extension (required for importlib to find it)
-            filename = f"{ext_basename}.pyd"
-        else:
-            # Linux/Mac: use plain .so extension
-            filename = f"{ext_basename}.so"
+        def get_ext_filename(self, ext_name):
+            # Return plain .so/.pyd names without Python version tags
+            # This creates ABI-independent binaries that work with any Python version
+            ext_path = ext_name.split(".")
+            ext_basename = ext_path[-1]
+            ext_dir = os.path.join(*ext_path[:-1]) if len(ext_path) > 1 else ""
 
-        return os.path.join(ext_dir, filename) if ext_dir else filename
+            if sys.platform == "win32":
+                # Windows: use .pyd extension (required for importlib to find it)
+                filename = f"{ext_basename}.pyd"
+            else:
+                # Linux/Mac: use plain .so extension
+                filename = f"{ext_basename}.so"
+
+            return os.path.join(ext_dir, filename) if ext_dir else filename
+
+    return BuildExtensionNoPythonAbi.with_options(no_python_abi_suffix=True)
 
 
 if __name__ == "__main__":
@@ -458,6 +377,18 @@ if __name__ == "__main__":
         version += get_local_version_suffix()
 
     extensions, extensions_metadata = get_extensions()
+    extra_files = {"version.py": generate_version_py(version)}
+    if extensions:
+        extra_files["cpp_lib.json"] = json.dumps(extensions_metadata)
+
+    cmdclass: Dict[str, type] = {
+        "clean": clean,
+        "bdist_wheel": bdist_wheel_abi_none,
+        "build_py": BuildPyWithExtraFiles.with_options(extra_files=extra_files),
+    }
+    if extensions:
+        cmdclass["build_ext"] = make_build_ext()
+
     setuptools.setup(
         name="xformers",
         description="XFormers: A collection of composable Transformer building blocks.",
@@ -465,19 +396,9 @@ if __name__ == "__main__":
         install_requires=fetch_requirements(),
         packages=setuptools.find_packages(exclude=("tests*", "benchmarks*")),
         ext_modules=extensions,
-        cmdclass={
-            "build_ext": BuildExtensionWithExtraFiles.with_options(
-                no_python_abi_suffix=True,
-                extra_files={
-                    "cpp_lib.json": json.dumps(extensions_metadata),
-                    "version.py": generate_version_py(version),
-                },
-            ),
-            "bdist_wheel": bdist_wheel_abi_none,
-            "clean": clean,
-        },
+        cmdclass=cmdclass,
         url="https://facebookresearch.github.io/xformers/",
-        python_requires=">=3.9",
+        python_requires=">=3.10",
         author="Facebook AI Research",
         author_email="oncall+xformers@xmail.facebook.com",
         long_description="XFormers: A collection of composable Transformer building blocks."
@@ -485,10 +406,11 @@ if __name__ == "__main__":
         + "defined as compatible and combined building blocks as opposed to monolithic models",
         long_description_content_type="text/markdown",
         classifiers=[
-            "Programming Language :: Python :: 3.9",
             "Programming Language :: Python :: 3.10",
             "Programming Language :: Python :: 3.11",
             "Programming Language :: Python :: 3.12",
+            "Programming Language :: Python :: 3.13",
+            "Programming Language :: Python :: 3.14",
             "License :: OSI Approved :: BSD License",
             "Topic :: Scientific/Engineering :: Artificial Intelligence",
             "Operating System :: OS Independent",

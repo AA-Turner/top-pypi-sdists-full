@@ -40,7 +40,7 @@ class CreateParameterGroupRequest(DaraModel):
         # This parameter is required.
         self.engine_version = engine_version
         self.owner_id = owner_id
-        # The description of the parameter template. The description can be up to 200 characters in length.
+        # The description of the parameter template. The description must be 0 to 200 characters in length.
         self.parameter_group_desc = parameter_group_desc
         # The name of the parameter template.
         # * The name must start with a letter and can contain letters, digits, periods (.), and underscores (_).
@@ -48,15 +48,15 @@ class CreateParameterGroupRequest(DaraModel):
         # 
         # This parameter is required.
         self.parameter_group_name = parameter_group_name
-        # A JSON string that consists of parameters and their values. Format: {"Parameter 1":"Value of Parameter 1","Parameter 2":"Value of Parameter 2"...}. For more information about the parameters that can be modified, see [Modify the parameters of an ApsaraDB RDS for MySQL instance](https://help.aliyun.com/document_detail/96063.html) or [Modify the parameters of an ApsaraDB RDS for PostgreSQL instance](https://help.aliyun.com/document_detail/96751.html).
+        # The JSON string of parameters and values. Format: {"Parameter 1":"Value 1","Parameter 2":"Value 2"...}. For more information about the parameters that can be modified, see [Set the parameters of an ApsaraDB RDS for MySQL instance](https://help.aliyun.com/document_detail/96063.html) or [Set the parameters of an ApsaraDB RDS for PostgreSQL instance](https://help.aliyun.com/document_detail/96751.html).
         # 
         # This parameter is required.
         self.parameters = parameters
-        # The region ID of the parameter template. You can call the [DescribeRegions](~~DescribeRegions~~) operation to query the most recent region list.
+        # The region ID of the parameter template. You can call the DescribeRegions operation to query region IDs.
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The resource group ID. You can call the DescribeDBInstanceAttribute operation to query the resource group ID.
+        # The ID of the resource group. You can call the DescribeDBInstanceAttribute operation to query the resource group ID.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id

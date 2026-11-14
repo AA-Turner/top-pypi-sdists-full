@@ -23,36 +23,36 @@ class TransformDBInstancePayTypeRequest(DaraModel):
     ):
         # Specifies whether to enable auto-renewal. Valid values:
         # 
-        # * **true**: Enables auto-renewal.
-        # * **false**: Disables auto-renewal.
+        # * **true**: enables auto-renewal.
+        # * **false**: disables auto-renewal.
         # 
         # > * This parameter takes effect only when you change the billing method from pay-as-you-go to subscription.
         # > * Any string other than **true** is processed as **false**.
         self.auto_renew = auto_renew
         # Specifies whether to use vouchers to offset fees. Valid values:
         # 
-        # - **true**: Uses vouchers.
-        # - **false**: Does not use vouchers. This is the default value.
+        # - **true**: uses vouchers.
+        # - **false**: does not use vouchers. This is the default value.
         self.auto_use_coupon = auto_use_coupon
-        # The extended business parameters.
+        # The business extension parameters.
         self.business_info = business_info
-        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the value, but you must ensure that it is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # Ensures the idempotence of the request and prevents duplicate requests. The client generates the value of this parameter. The value must be unique across different requests and can be up to 64 ASCII characters in length. The value cannot contain non-ASCII characters.
         self.client_token = client_token
-        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
+        # The instance ID. You can call the DescribeDBInstances operation to query the ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         self.owner_account = owner_account
         self.owner_id = owner_id
         # The billing method to which the instance is changed. Valid values:
-        # * **Postpaid**: Pay-as-you-go.
-        # * **Prepaid**: Subscription.
+        # * **Postpaid**: pay-as-you-go
+        # * **Prepaid**: subscription
         # 
         # This parameter is required.
         self.pay_type = pay_type
-        # The subscription type of the subscription instance. Valid values:
-        # * **Year**: Yearly subscription.
-        # * **Month**: Monthly subscription.
+        # Specifies the subscription type of the subscription instance. Valid values:
+        # * **Year**: yearly subscription
+        # * **Month**: monthly subscription
         # 
         # > This parameter is required if the **PayType** parameter is set to **Prepaid**.
         self.period = period
@@ -60,9 +60,9 @@ class TransformDBInstancePayTypeRequest(DaraModel):
         self.promotion_code = promotion_code
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The subscription duration. Valid values:
-        # * If the **Period** parameter is set to **Year**, the value of the UsedTime parameter ranges from **1** to **5**.
-        # * If the **Period** parameter is set to **Month**, the value of the UsedTime parameter ranges from **1** to **11**.
+        # Specifies the subscription duration. Valid values:
+        # * If the **Period** parameter is set to **Year**, set the value to **1** to **5**.
+        # * If the **Period** parameter is set to **Month**, set the value to **1** to **11**.
         # 
         # > This parameter is required if the **PayType** parameter is set to **Prepaid**.
         self.used_time = used_time

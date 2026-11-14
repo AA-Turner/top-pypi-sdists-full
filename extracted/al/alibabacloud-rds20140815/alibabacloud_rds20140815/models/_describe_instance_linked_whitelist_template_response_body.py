@@ -38,7 +38,7 @@ class DescribeInstanceLinkedWhitelistTemplateResponseBody(DaraModel):
         # Indicates whether the request is successful. Valid values:
         # 
         # - **true**: The request is successful.
-        # - **false**: The request failed.
+        # - **false**: The request fails.
         self.success = success
 
     def validate(self):
@@ -101,7 +101,7 @@ class DescribeInstanceLinkedWhitelistTemplateResponseBodyData(DaraModel):
     ):
         # The name of the instance.
         self.ins_name = ins_name
-        # The paginated whitelist template information.
+        # The information about the whitelist templates returned in pages.
         self.templates = templates
 
     def validate(self):

@@ -31,7 +31,7 @@ dev = [
 all = ["connector-sdk-types[dev]"]
 
 [project.urls]
-Documentation = "https://developers.lumos.com/reference/the-lumos-connector-api"
+Documentation = "https://docs.lumos.com/reference/the-lumos-connector-api"
 
 [build-system]
 requires = ["setuptools >= 77.0.3"]

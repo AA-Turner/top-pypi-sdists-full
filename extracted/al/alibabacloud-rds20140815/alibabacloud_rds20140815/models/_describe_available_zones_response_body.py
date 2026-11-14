@@ -61,7 +61,7 @@ class DescribeAvailableZonesResponseBodyAvailableZones(DaraModel):
     ):
         # The region ID.
         self.region_id = region_id
-        # The list of available database engines.
+        # The list of supported database engine types.
         self.supported_engines = supported_engines
         # The zone ID.
         self.zone_id = zone_id
@@ -112,9 +112,9 @@ class DescribeAvailableZonesResponseBodyAvailableZonesSupportedEngines(DaraModel
         engine: str = None,
         supported_engine_versions: List[main_models.DescribeAvailableZonesResponseBodyAvailableZonesSupportedEnginesSupportedEngineVersions] = None,
     ):
-        # The database engine.
+        # The database engine type.
         self.engine = engine
-        # The list of available database engine versions.
+        # The list of supported database engine versions.
         self.supported_engine_versions = supported_engine_versions
 
     def validate(self):
@@ -157,7 +157,7 @@ class DescribeAvailableZonesResponseBodyAvailableZonesSupportedEnginesSupportedE
         supported_categorys: List[main_models.DescribeAvailableZonesResponseBodyAvailableZonesSupportedEnginesSupportedEngineVersionsSupportedCategorys] = None,
         version: str = None,
     ):
-        # The list of available instance editions.
+        # The list of supported instance editions.
         self.supported_categorys = supported_categorys
         # The database engine version.
         self.version = version
@@ -204,7 +204,7 @@ class DescribeAvailableZonesResponseBodyAvailableZonesSupportedEnginesSupportedE
     ):
         # The instance edition.
         self.category = category
-        # The list of available storage types.
+        # The list of supported storage types.
         self.supported_storage_types = supported_storage_types
 
     def validate(self):

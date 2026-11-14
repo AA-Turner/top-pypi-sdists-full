@@ -10,7 +10,7 @@ from .money import Money
 class InvoiceLineItem(UniversalBaseModel):
     description: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Text shown under the item on the invoice, its email, and its PDF, read from the variant's `description`. A custom charge sets it with the item's `description`; a product variant keeps its own. Null when the variant has none or has since been deleted.
+    Text shown under the item on the invoice, its email, and its PDF, read from the variant's `description`. A custom charge sets it with the item's `description`. A product variant keeps its own. Null when the variant has none or has since been deleted.
     """
 
     discount_amount: typing.Optional[Money] = pydantic.Field(default=None)
@@ -50,7 +50,7 @@ class InvoiceLineItem(UniversalBaseModel):
 
     unit_amount: typing.Optional[Money] = pydantic.Field(default=None)
     """
-    The price of one unit before discounts, in the payment's `currency`. Null when the payment recorded no price.
+    The saved price of one unit before discounts, in the payment's `currency`. Creating or replacing recurring items includes the upfront fee and first billing period. Renewal invoices exclude the upfront fee. Other edits preserve saved prices. Null when the payment recorded no price.
     """
 
     variant_id: typing.Optional[str] = pydantic.Field(default=None)

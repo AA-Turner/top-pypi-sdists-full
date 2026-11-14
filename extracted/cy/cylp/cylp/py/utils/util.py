@@ -1,20 +1,38 @@
+import warnings
 import numpy as np
+from functools import wraps
 from math import atan2
 from cylp.py import Constants
 from operator import mul
 
+def deprecatedWithQP(f):
+    '''
+    Mark *f* as deprecated. Only cylp.py.QP uses it, and it will be removed
+    with cylp.py.QP.
+    '''
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        warnings.warn('cylp.py.utils.util.%s is deprecated and will be '
+                      'removed in CyLP 0.95, along with cylp.py.QP.' %
+                      f.__name__, DeprecationWarning, stacklevel=2)
+        return f(*args, **kwargs)
+    return wrapper
+
+@deprecatedWithQP
 def sign(x):
     if x > 0 or (x == 0 and atan2(x, -1.) > 0.):
         return 1
     else:
         return -1
 
+@deprecatedWithQP
 def get_cs(w1, w2):
     omega = float(sign(w1) * (w1**2 + w2**2)**0.5)
     c = w1 / omega
     s = w2 / omega
     return c, s
 
+@deprecatedWithQP
 def givens(n, i, j, w1, w2):
     g = np.identity(n, float)
     if abs(w1) < Constants.EPSILON and abs(w2) < Constants.EPSILON:
@@ -23,6 +41,7 @@ def givens(n, i, j, w1, w2):
     g[i,i], g[j,j], g[i,j], g[j,i] = c, -c, s, s
     return g
 
+@deprecatedWithQP
 def applyGivens(vec):
     'Applies dim-1 givens matrices so that vec contains only one non-zero element'
     v = vec.copy()
@@ -37,6 +56,7 @@ def applyGivens(vec):
             Q_bar = Q * Q_bar
     return Qlist, Q_bar, v[0,0]
 
+@deprecatedWithQP
 def UH2UT(mat):
     m = mat.copy()
     nrows, ncols = mat.shape
@@ -113,37 +133,29 @@ class Ind:
     def __init__(self, key, dim):
         '''
         Create an instance of Ind using *key* that can be
-        an integer, a slice, a list, or a numpy array.
+        an integer, a slice, a list, or a numpy array. As in Python,
+        negative indices count from the end.
         '''
         if isinstance(key, slice):
-            sl = key
-            if sl.stop and (sl.start > dim or sl.start >= sl.stop):
-                raise Exception('Indexing problem: %s, dim=%d:' % (str(sl), dim))
-
-            if  not sl.stop or sl.stop > dim:
-                stop = dim
-            else:
-                stop = sl.stop
-            if not sl.start:
-                start = 0
-            else:
-                start = sl.start
-            self.indices = range(start, stop)
-            self.dim = dim
-        elif isinstance(key, int):
-            if key >= dim:
-                raise Exception('Index (%d) out of range (%d)' % (key, dim))
-            self.indices = [key]
-            self.dim = dim
+            self.indices = range(*key.indices(dim))
+            if len(self.indices) == 0:
+                raise IndexError('Indexing problem: %s, dim=%d:' % (str(key), dim))
+        elif isinstance(key, (int, np.integer)):
+            if not -dim <= key < dim:
+                raise IndexError('Index (%d) out of range (%d)' % (key, dim))
+            self.indices = [int(key) % dim]
         elif isinstance(key, (list, np.ndarray)):
-            self.indices = key
-            self.dim = dim
-            # Here to avoid checking all the inds, I suppose that normally
-            # the list of indices is sorted. So just check the last number
-            if key[-1] >= dim:
-                raise Exception('Index (%d) out of range (%d)' % (key[-1], dim))
+            ind = np.asarray(key)
+            if ind.size and ind.dtype.kind not in 'iu':
+                raise TypeError('Error indexing with %s' % ind.dtype)
+            outside = (ind < -dim) | (ind >= dim)
+            if outside.any():
+                raise IndexError('Index (%d) out of range (%d)' %
+                                 (ind[outside][0], dim))
+            self.indices = ind.astype(np.int64) % dim
         else:
-            raise Exception('Error indexing with unrecognized type %s' % key.__class__)
+            raise TypeError('Error indexing with unrecognized type %s' % key.__class__)
+        self.dim = dim
 
 
     def __repr__(self):

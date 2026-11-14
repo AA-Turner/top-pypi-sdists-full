@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_lambda_core.literals import ComputeResourceTypeType
+    from types_boto3_lambda_core.literals import CompatibilityPolicyType
 
-    data: ComputeResourceTypeType = "MicroVm"
+    data: CompatibilityPolicyType = "NotSupported"
     ```
 """
 
@@ -23,10 +23,15 @@ else:
 
 
 __all__ = (
+    "CompatibilityPolicyType",
     "ComputeResourceTypeType",
+    "IntegrationModelType",
     "LambdaCoreServiceName",
     "ListNetworkConnectorVersionsPaginatorName",
     "ListNetworkConnectorsPaginatorName",
+    "ListRuntimeAliasesPaginatorName",
+    "ListRuntimeVersionsPaginatorName",
+    "ListRuntimesPaginatorName",
     "NetworkConnectorLastUpdateStatusReasonCodeType",
     "NetworkConnectorLastUpdateStatusType",
     "NetworkConnectorStateReasonCodeType",
@@ -36,13 +41,26 @@ __all__ = (
     "PaginatorName",
     "RegionName",
     "ResourceServiceName",
+    "RuntimeAliasActiveWaiterName",
+    "RuntimeAliasStateType",
+    "RuntimeArchitectureType",
+    "RuntimeReleaseStateType",
+    "RuntimeStateType",
+    "RuntimeVersionActiveWaiterName",
+    "RuntimeVersionStateType",
     "ServiceName",
+    "WaiterName",
 )
 
 
+CompatibilityPolicyType = Literal["NotSupported", "Supported"]
 ComputeResourceTypeType = Literal["MicroVm", "WebFunction"]
+IntegrationModelType = Literal["RuntimeAPI"]
 ListNetworkConnectorVersionsPaginatorName = Literal["list_network_connector_versions"]
 ListNetworkConnectorsPaginatorName = Literal["list_network_connectors"]
+ListRuntimeAliasesPaginatorName = Literal["list_runtime_aliases"]
+ListRuntimeVersionsPaginatorName = Literal["list_runtime_versions"]
+ListRuntimesPaginatorName = Literal["list_runtimes"]
 NetworkConnectorLastUpdateStatusReasonCodeType = Literal[
     "DisallowedByVpcEncryptionControl",
     "Ec2RequestLimitExceeded",
@@ -69,6 +87,13 @@ NetworkConnectorStateType = Literal[
 ]
 NetworkConnectorTypeType = Literal["VPC_EGRESS"]
 NetworkProtocolType = Literal["DualStack", "IPv4"]
+RuntimeAliasActiveWaiterName = Literal["runtime_alias_active"]
+RuntimeAliasStateType = Literal["ACTIVE", "CREATING", "DELETING", "PENDING_DELETION", "UPDATING"]
+RuntimeArchitectureType = Literal["arm64", "x86_64"]
+RuntimeReleaseStateType = Literal["DEPRECATED", "GA", "PREVIEW"]
+RuntimeStateType = Literal["ACTIVE", "DELETING", "FAILED", "PENDING_DELETION"]
+RuntimeVersionActiveWaiterName = Literal["runtime_version_active"]
+RuntimeVersionStateType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "PENDING_DELETION"]
 LambdaCoreServiceName = Literal["lambda-core"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -510,7 +535,14 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_network_connector_versions", "list_network_connectors"]
+PaginatorName = Literal[
+    "list_network_connector_versions",
+    "list_network_connectors",
+    "list_runtime_aliases",
+    "list_runtime_versions",
+    "list_runtimes",
+]
+WaiterName = Literal["runtime_alias_active", "runtime_version_active"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

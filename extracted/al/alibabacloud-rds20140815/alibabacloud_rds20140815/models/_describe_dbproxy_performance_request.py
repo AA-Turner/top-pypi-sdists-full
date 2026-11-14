@@ -19,25 +19,24 @@ class DescribeDBProxyPerformanceRequest(DaraModel):
         resource_owner_id: int = None,
         start_time: str = None,
     ):
-        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
+        # The instance ID. You can call the DescribeDBInstances operation to query the ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # A reserved parameter. You do not need to specify this parameter.
+        # The reserved parameter. You do not need to configure this parameter.
         self.dbproxy_engine_type = dbproxy_engine_type
         # The type of the database proxy instance. Valid values:
         # - common: general-purpose database proxy
         # - exclusive: dedicated database proxy
         self.dbproxy_instance_type = dbproxy_instance_type
-        # The aggregation dimension. You cannot specify both service and server at the same time. Valid values:
-        # 
+        # The aggregation dimension. Valid values:
         # - service: aggregates monitoring metrics by proxy endpoint.
-        # 
         # - node: aggregates monitoring metrics by proxy node.
-        # 
         # - server: aggregates monitoring metrics by database node.
+        # 
+        # You cannot specify both service and server at the same time.
         self.dimension = dimension
-        # The end time of the query. The end time must be later than the start time. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
+        # The end time of the query. The end time must be later than or equal to the start time. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
         # 
         # This parameter is required.
         self.end_time = end_time
@@ -55,12 +54,12 @@ class DescribeDBProxyPerformanceRequest(DaraModel):
         # - **Maxscale_MemUsage**: memory utilization
         # - **Maxscale_CpuUsage**: CPU utilization
         # 
-        # To query multiple performance metrics, separate the metrics with commas (,). You can query up to six performance metrics at a time.
+        # To query multiple performance metrics, separate them with commas (,). You can query up to six performance metrics at a time.
         # 
         # This parameter is required.
         self.metrics_name = metrics_name
         self.owner_id = owner_id
-        # The region ID. You can call the DescribeRegions operation to query the region ID.
+        # The region ID. You can call the DescribeRegions operation to query the ID.
         # 
         # This parameter is required.
         self.region_id = region_id

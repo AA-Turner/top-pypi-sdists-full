@@ -193,7 +193,7 @@ class DeviceAuth:
     request = self._http.build_request(method, self.base_url + path, json=payload, timeout=timeout)
     for header in ("Authorization", "X-API-Key", "Cookie", "X-Model-Endpoint-Access-Token"):
       request.headers.pop(header, None)
-    request.headers["Trajectory-API-Version"] = "tmp-contract"
+    request.headers["Trajectory-API-Version"] = "2026-10-14"
     if api_key:
       request.headers["X-API-Key"] = api_key
     try:

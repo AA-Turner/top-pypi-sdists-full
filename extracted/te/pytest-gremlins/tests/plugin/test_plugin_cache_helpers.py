@@ -21,11 +21,13 @@ from pytest_gremlins.plugin import (
     _build_test_hashes_for_gremlin,
     _cache_gremlin_result,
     _check_cache_for_gremlin,
-    _test_gremlin,
 )
 from pytest_gremlins.reporting.results import (
     GremlinResult,
     GremlinResultStatus,
+)
+from pytest_gremlins.verdicts import (
+    _test_gremlin,
 )
 
 
@@ -203,7 +205,7 @@ class DescribeGremlinSubprocessEnvVars:
             result.returncode = 0
             return result
 
-        with patch('pytest_gremlins.plugin.subprocess.run', side_effect=capture_env):
+        with patch('pytest_gremlins.process_tree.run_bounded', autospec=True, side_effect=capture_env):
             _test_gremlin(gremlin, ['pytest'], tmp_path, instrumented_dir=tmp_path, timeout=30)
 
         assert captured_sources == [str(tmp_path / 'sources.json')]
@@ -222,7 +224,7 @@ class DescribeGremlinSubprocessEnvVars:
             result.returncode = 0
             return result
 
-        with patch('pytest_gremlins.plugin.subprocess.run', side_effect=capture_env):
+        with patch('pytest_gremlins.process_tree.run_bounded', autospec=True, side_effect=capture_env):
             _test_gremlin(gremlin, ['pytest'], tmp_path, instrumented_dir=None, timeout=30)
 
         assert captured_sources == [None]

@@ -24,7 +24,6 @@ class Discard(base.Transformer):
 
     Examples
     --------
-
     >>> from river import compose
 
     >>> x = {'a': 42, 'b': 12, 'c': 13}
@@ -76,7 +75,6 @@ class Select(base.MiniBatchTransformer):
 
     Examples
     --------
-
     >>> from river import compose
 
     >>> x = {'a': 42, 'b': 12, 'c': 13}
@@ -114,7 +112,7 @@ class Select(base.MiniBatchTransformer):
     {'x_1': 8.874551899214413, 'x_2': 10.021421152413449}
 
     >>> import pandas as pd
-    >>> X = pd.DataFrame.from_dict(X)
+    >>> X = pd.DataFrame(X)
 
     You can then call `transform_many` to transform a mini-batch of features:
 
@@ -165,7 +163,6 @@ class SelectType(base.Transformer):
 
     Examples
     --------
-
     >>> import numbers
     >>> from river import compose
     >>> from river import linear_model

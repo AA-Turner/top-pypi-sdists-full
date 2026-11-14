@@ -11,6 +11,8 @@ from keras.src.backend.common import KerasTensor
 from keras.src.backend.common import any_symbolic_tensors
 from keras.src.backend.common import dtypes
 from keras.src.backend.common import is_float_dtype
+from keras.src.backend.common import is_int_dtype
+from keras.src.backend.common import result_type
 from keras.src.backend.common import standardize_dtype
 from keras.src.backend.common.backend_utils import canonicalize_axes
 from keras.src.backend.common.backend_utils import canonicalize_axis
@@ -3813,7 +3815,7 @@ def full_like(x, fill_value, dtype=None):
 
 class Gcd(Operation):
     def call(self, x1, x2):
-        return backend.ops.numpy.gcd(x1, x2)
+        return _gcd(x1, x2)
 
     def compute_output_spec(self, x1, x2):
         x1_shape = getattr(x1, "shape", [])
@@ -3839,7 +3841,47 @@ def gcd(x1, x2):
     """
     if any_symbolic_tensors((x1, x2)):
         return Gcd().symbolic_call(x1, x2)
-    return backend.ops.numpy.gcd(x1, x2)
+    return _gcd(x1, x2)
+
+
+def _gcd(x1, x2):
+    if not config._use_backend_agnostic_ops() and hasattr(
+        backend.ops.numpy, "gcd"
+    ):
+        return backend.ops.numpy.gcd(x1, x2)
+    x1 = backend.ops.convert_to_tensor(x1)
+    x2 = backend.ops.convert_to_tensor(x2)
+    dtype = dtypes.result_type(x1.dtype, x2.dtype)
+    if not is_int_dtype(dtype):
+        raise ValueError(
+            f"Arguments to gcd must be integers. Received: dtype={dtype}"
+        )
+    x1 = backend.ops.numpy.absolute(backend.ops.cast(x1, dtype))
+    x2 = backend.ops.numpy.absolute(backend.ops.cast(x2, dtype))
+    x1, x2 = (
+        backend.ops.numpy.add(x1, backend.ops.numpy.zeros_like(x2)),
+        backend.ops.numpy.add(x2, backend.ops.numpy.zeros_like(x1)),
+    )
+
+    def cond(x1, x2):
+        return backend.ops.numpy.any(backend.ops.numpy.not_equal(x2, 0))
+
+    def body(x1, x2):
+        x2_is_zero = backend.ops.numpy.equal(x2, 0)
+        x2_safe = backend.ops.numpy.where(
+            x2_is_zero, backend.ops.numpy.ones_like(x2), x2
+        )
+        return (
+            backend.ops.numpy.where(x2_is_zero, x1, x2),
+            backend.ops.numpy.where(
+                x2_is_zero,
+                backend.ops.numpy.zeros_like(x2),
+                backend.ops.numpy.mod(x1, x2_safe),
+            ),
+        )
+
+    x1, _ = backend.ops.while_loop(cond, body, (x1, x2))
+    return x1
 
 
 class GetItem(Operation):
@@ -3953,7 +3995,7 @@ class Geomspace(Operation):
             if self.dtype is not None
             else standardize_dtype(getattr(start, "dtype", type(start)))
         )
-        dtype = backend.result_type(dtype, float)
+        dtype = result_type(dtype, float)
         return KerasTensor(output_shape, dtype=dtype)
 
 
@@ -4736,7 +4778,7 @@ class Linspace(Operation):
             if self.dtype is not None
             else standardize_dtype(getattr(start, "dtype", type(start)))
         )
-        dtype = backend.result_type(dtype, float)
+        dtype = result_type(dtype, float)
         if self.retstep:
             return (KerasTensor(output_shape, dtype=dtype), None)
         return KerasTensor(output_shape, dtype=dtype)
@@ -5109,7 +5151,7 @@ class Logspace(Operation):
             if self.dtype is not None
             else standardize_dtype(getattr(start, "dtype", type(start)))
         )
-        dtype = backend.result_type(dtype, float)
+        dtype = result_type(dtype, float)
         return KerasTensor(output_shape, dtype=dtype)
 
 
@@ -6785,7 +6827,7 @@ class Nanstd(Operation):
         return _nanstd(x, axis=self.axis, keepdims=self.keepdims)
 
     def compute_output_spec(self, x):
-        output_dtype = backend.result_type(getattr(x, "dtype", type(x)), float)
+        output_dtype = result_type(getattr(x, "dtype", type(x)), float)
         return KerasTensor(
             reduce_shape(x.shape, axis=self.axis, keepdims=self.keepdims),
             dtype=output_dtype,
@@ -6917,7 +6959,7 @@ class Nanvar(Operation):
         return _nanvar(x, axis=self.axis, keepdims=self.keepdims)
 
     def compute_output_spec(self, x):
-        output_dtype = backend.result_type(getattr(x, "dtype", type(x)), float)
+        output_dtype = result_type(getattr(x, "dtype", type(x)), float)
         return KerasTensor(
             reduce_shape(x.shape, axis=self.axis, keepdims=self.keepdims),
             dtype=output_dtype,
@@ -6965,7 +7007,7 @@ def _nanvar(x, axis=None, keepdims=False):
     ):
         return backend.ops.numpy.nanvar(x, axis=axis, keepdims=keepdims)
     x = backend.ops.convert_to_tensor(x)
-    dtype = backend.result_type(x.dtype, float)
+    dtype = result_type(x.dtype, float)
     x = backend.ops.cast(x, dtype)
     nan_mask = backend.ops.numpy.isnan(x)
     mean = _nanmean(x, axis=axis, keepdims=True)
@@ -7179,7 +7221,7 @@ class Outer(Operation):
         else:
             x2_flatten_shape = python_math.prod(x2_shape)
         output_shape = (x1_flatten_shape, x2_flatten_shape)
-        output_dtype = backend.result_type(
+        output_dtype = result_type(
             getattr(x1, "dtype", type(x1)),
             getattr(x2, "dtype", type(x2)),
         )
@@ -9574,7 +9616,7 @@ class Trapezoid(Operation):
         out_shape = list(y.shape)
         if self.axis is not None and len(out_shape) > 0:
             out_shape.pop(self.axis % len(out_shape))
-        dtype = backend.result_type(getattr(y, "dtype", type(y)), float)
+        dtype = result_type(getattr(y, "dtype", type(y)), float)
         return KerasTensor(tuple(out_shape), dtype=dtype)
 
 
@@ -9727,7 +9769,7 @@ class Var(Operation):
         return backend.ops.numpy.var(x, axis=self.axis, keepdims=self.keepdims)
 
     def compute_output_spec(self, x):
-        output_dtype = backend.result_type(getattr(x, "dtype", type(x)), float)
+        output_dtype = result_type(getattr(x, "dtype", type(x)), float)
         return KerasTensor(
             reduce_shape(x.shape, axis=self.axis, keepdims=self.keepdims),
             dtype=output_dtype,

@@ -146,6 +146,7 @@ class CaptureReasonCode(StrEnum):
     BUNDLE_MISSING = "bundle_missing"  # a sealed bundle digest matches no stored artifact
     BATCH_REFUSED = "batch_refused"  # a sample batch was refused late (cap, dead letter)
     ADAPTER_HOOKS_MISSING = "adapter_hooks_missing"  # a producer trained but recorded no batch
+    FILES_NOT_STORED = "files_not_stored"  # sample files whose upload failed: kept as references, no bytes
 
 
 class CaptureReason(BaseModel):

@@ -10,7 +10,7 @@ from .common import Extractor, Message, Dispatch
 from .. import text, util
 import hashlib
 
-BASE_PATTERN = r"(?:https?://)?(?:www\.)?iwara\.(tv|ai)"
+BASE_PATTERN = r"(?:https?://)?(?:www\.|ecchi\.)?iwara\.(tv|ai)"
 USER_PATTERN = BASE_PATTERN + r"/profile/([^/?#]+)"
 
 

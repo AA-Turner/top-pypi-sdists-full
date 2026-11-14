@@ -13,7 +13,7 @@ class DescribeWhitelistTemplateLinkedInstanceRequest(DaraModel):
         resource_owner_id: int = None,
         template_id: int = None,
     ):
-        # The region ID. You can call the DescribeRegions operation to query the region ID.
+        # The region ID. You can call the DescribeRegions operation to query the ID.
         self.region_id = region_id
         # The ID of the resource group. This parameter can be left empty.
         self.resource_group_id = resource_group_id

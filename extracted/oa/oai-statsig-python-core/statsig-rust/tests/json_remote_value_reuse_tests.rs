@@ -1,3 +1,5 @@
+#[path = "utils/partial_blob_publication.rs"]
+mod partial_blob_publication;
 mod utils;
 
 use std::sync::{
@@ -9,7 +11,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use statsig_rust::{
     DynamicConfigEvaluationOptions, SpecAdapterConfig, SpecsAdapterType, SpecsSource, SpecsUpdate,
-    Statsig, StatsigOptions, StatsigUser, interned_string::InternedString,
+    SpecsUpdateListener, Statsig, StatsigOptions, StatsigUser, interned_string::InternedString,
     networking::ResponseData,
 };
 use tokio::time::{Duration, sleep, timeout};
@@ -545,7 +547,6 @@ async fn numeric_remote_values_preserve_writable_sidecars_and_reuse_without_publ
             if read_only || write_once { 1 } else { 2 },
         );
         await_writes(&sdk).await;
-        sdk.shutdown().await.unwrap();
         if read_only {
             assert_eq!(store.num_set_bytes_calls(), 0);
             assert_eq!(store.num_set_calls(), 0);
@@ -562,7 +563,44 @@ async fn numeric_remote_values_preserve_writable_sidecars_and_reuse_without_publ
             );
             let snapshot: Value = serde_json::from_slice(&sidecar).unwrap();
             assert_eq!(snapshot["time"], 2);
+
+            // Only the sidecar needs the number's original spelling.
+            blob.replace(ResponseTemplate::new(404));
+            dcs.once(full(3, 3, Some(&remote)), no_update(3));
+            wait_until(|| generation(&sdk) == 3).await;
+            let selected =
+                sdk.get_dynamic_config(&StatsigUser::with_user_id("default-user"), "large_config");
+            assert!(!selected.details.is_blob_unavailable());
+            assert_values(&sdk, &remote, 3);
+            assert!(sdk.is_config_spec_ready());
+            assert_eq!(
+                sdk.get_client_init_response(&StatsigUser::with_user_id("user"))
+                    .time,
+                3
+            );
+            await_writes(&sdk).await;
+            assert_eq!(
+                store.stored_json_bytes().as_deref(),
+                Some(sidecar.as_slice())
+            );
+            assert_eq!(store.num_set_bytes_calls(), 2);
+            assert!(sdk.get_context().spec_store.needs_blob_hydration_repair());
+
+            blob.replace(blob_response(&remote));
+            dcs.once(full(3, 3, Some(&remote)), no_update(3));
+            wait_until(|| !sdk.get_context().spec_store.needs_blob_hydration_repair()).await;
+            await_writes(&sdk).await;
+            assert_eq!(store.num_set_bytes_calls(), 3);
+            let repaired = store.stored_json_bytes().unwrap();
+            let payload: Value = serde_json::from_slice(&repaired).unwrap();
+            assert_eq!(payload["time"], 3);
+            assert!(
+                std::str::from_utf8(&repaired)
+                    .unwrap()
+                    .contains(REMOTE_NUMBER)
+            );
         }
+        sdk.shutdown().await.unwrap();
     }
 
     // Digits inside a string are lossless in the parsed representation. They
@@ -673,7 +711,7 @@ async fn json_full_omission_and_inline_replacement_prune_verified_values() {
 }
 
 #[tokio::test]
-async fn json_same_sha_with_different_metadata_does_not_reuse_or_advance_cursor() {
+async fn json_same_sha_with_different_metadata_is_unavailable_and_does_not_advance_sync_cursor() {
     for field in ["byteLength", "compression"] {
         let server = MockServer::start().await;
         let remote = RemoteValue::new("tuple", true);
@@ -697,32 +735,49 @@ async fn json_same_sha_with_different_metadata_does_not_reuse_or_advance_cursor(
         let polls = get_count(&server, DCS_PATH).await;
         dcs.once(invalid, no_update(1));
         wait_requests(&server, DCS_PATH, polls + 3).await;
+        assert_eq!(generation(&sdk), 2, "healthy slots should see the new spec");
+        let user = StatsigUser::with_user_id("normal-user");
         assert_eq!(
-            generation(&sdk),
-            1,
-            "rejected {field} metadata advanced the cursor"
+            sdk.get_dynamic_config(&user, "large_config").details.lcut,
+            Some(2)
         );
-        assert_values(&sdk, &remote, 1);
+        assert_eq!(
+            sdk.get_client_init_response(&user).time,
+            0,
+            "a partial bootstrap must allow same-revision repair"
+        );
+        let store_info = sdk.get_context().spec_store.get_current_specs_info();
+        assert_eq!(store_info.lcut, Some(0));
+        assert!(store_info.checksum.is_none());
+        assert!(
+            sdk.get_dynamic_config(&StatsigUser::with_user_id("remote-user"), "large_config")
+                .details
+                .is_blob_unavailable()
+        );
+        assert_eq!(
+            evaluate(&sdk, "normal-user", "large_config"),
+            json!({"normalGeneration": 2})
+        );
         assert!(
             get_count(&server, &remote.path()).await > 1,
             "incompatible {field} tuple reused provenance"
         );
         assert_eq!(store.stored_json_bytes(), initial_sidecar);
         let failed_gets = get_count(&server, &remote.path()).await;
-        blob.replace(ResponseTemplate::new(503));
+        blob.replace(blob_response(&remote));
         dcs.replace(full(3, 3, Some(&remote)));
-        wait_until(|| generation(&sdk) == 3).await;
+        wait_until(|| sdk.is_config_spec_ready() && generation(&sdk) == 3).await;
         assert_values(&sdk, &remote, 3);
-        assert_eq!(get_count(&server, &remote.path()).await, failed_gets);
+        assert!(get_count(&server, &remote.path()).await > failed_gets);
         sdk.shutdown().await.unwrap();
     }
 }
 
 #[tokio::test]
-async fn failed_json_mixed_downloads_do_not_publish_verified_values() {
+async fn partial_json_downloads_publish_only_verified_values_and_reuse_their_provenance() {
     let server = MockServer::start().await;
     let original = RemoteValue::new("original", true);
-    let new = RemoteValue::new("unpublished", true);
+    let new = RemoteValue::new("verified-in-partial", true);
     let corrupt = RemoteValue::new("wrong-sha", true);
     CurrentBlob::mount(&server, &original).await;
     let new_blob = CurrentBlob::mount(&server, &new).await;
@@ -749,24 +804,23 @@ async fn failed_json_mixed_downloads_do_not_publish_verified_values() {
     dcs.once(invalid, no_update(1));
     wait_requests(&server, DCS_PATH, polls + 3).await;
     assert_eq!(get_count(&server, &new.path()).await, 1);
-    assert_eq!(generation(&sdk), 1);
-    assert_values(&sdk, &original, 1);
+    assert_eq!(generation(&sdk), 2);
+    assert_values(&sdk, &original, 2);
+    assert_eq!(evaluate(&sdk, "user", "new_config"), new.value);
+    assert!(
+        sdk.get_dynamic_config(&StatsigUser::with_user_id("user"), "corrupt_config")
+            .details
+            .is_blob_unavailable()
+    );
     assert_eq!(store.stored_json_bytes(), initial_sidecar);
 
     new_blob.replace(ResponseTemplate::new(503));
     let polls = get_count(&server, DCS_PATH).await;
-    dcs.once(full(3, 3, Some(&new)), no_update(1));
+    dcs.once(full(3, 3, Some(&new)), no_update(3));
     wait_requests(&server, DCS_PATH, polls + 3).await;
-    assert!(get_count(&server, &new.path()).await > 1);
-    assert_eq!(
-        generation(&sdk),
-        1,
-        "failed update leaked newly verified provenance"
-    );
-    new_blob.replace(blob_response(&new));
-    dcs.replace(full(4, 4, Some(&new)));
-    wait_until(|| generation(&sdk) == 4).await;
-    assert_values(&sdk, &new, 4);
+    assert_eq!(get_count(&server, &new.path()).await, 1);
+    assert_eq!(generation(&sdk), 3);
+    assert_values(&sdk, &new, 3);
     sdk.shutdown().await.unwrap();
 }
 
@@ -812,9 +866,15 @@ async fn delayed_json_download_does_not_overwrite_newer_bootstrap_or_leak_proven
     let polls = get_count(&server, DCS_PATH).await;
     dcs.once(full(11, 11, Some(&delayed)), no_update(10));
     wait_requests(&server, DCS_PATH, polls + 3).await;
+    assert_eq!(generation(&sdk), 11);
     assert_eq!(
-        generation(&sdk),
-        10,
+        evaluate(&sdk, "normal-user", "large_config"),
+        json!({"normalGeneration": 11})
+    );
+    assert!(
+        sdk.get_dynamic_config(&StatsigUser::with_user_id("remote-user"), "large_config")
+            .details
+            .is_blob_unavailable(),
         "rejected stale response seeded provenance"
     );
     assert!(get_count(&server, &delayed.path()).await > stale_gets);

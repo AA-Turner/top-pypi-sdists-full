@@ -17,19 +17,19 @@ class SwitchDBInstanceNetTypeRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the token, but you must make sure that the token is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the value, and you must ensure that the value is unique across different requests. The value can contain a maximum of 64 ASCII characters and cannot contain non-ASCII characters.
         self.client_token = client_token
-        # The prefix of the custom endpoint. The prefix must start with a lowercase letter and can contain lowercase letters and digits. The prefix must be 8 to 64 characters in length. The complete endpoint is in the format of prefix.engine.rds.aliyuncs.com. Example: test1234.mysql.rds.aliyuncs.com.
+        # The prefix of the custom endpoint. The prefix must be 8 to 64 characters in length and can contain letters and digits. It must start with a lowercase letter. The complete endpoint is in the following format: Prefix.EngineName.rds.aliyuncs.com. Example: test1234.mysql.rds.aliyuncs.com.
         # 
         # This parameter is required.
         self.connection_string_prefix = connection_string_prefix
         # The type of the endpoint. Valid values:
-        # * **Normal**: standard endpoint.
-        # * **ReadWriteSplitting**: read/write splitting connection.
+        # * **Normal**: regular endpoint
+        # * **ReadWriteSplitting**: read/write splitting connection
         # 
         # By default, all endpoints are returned.
         self.connection_string_type = connection_string_type
-        # The instance ID. You can call DescribeDBInstances to query the instance ID.
+        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id

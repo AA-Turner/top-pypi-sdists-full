@@ -1,4 +1,4 @@
-"""browse mode=people: the team's members with the user ids `owner` takes, one page of the whole roster."""
+"""browse mode=people: the team's members with the user ids `owner` takes, one page of the roster (or of the ones `query` names)."""
 
 from __future__ import annotations
 import json
@@ -23,9 +23,15 @@ class PeopleRowsMixin:
         out.update({key: row[key] for key in ("role", "joined_at") if row.get(key) is not None})
         return out
 
-    def _list_people_page(self, *, last_sent: str | None, mode, page_size: int, sent: list) -> str | None:
-        """mode=people: `page_size` rows of the roster after `last_sent`; the cursor after the page."""
-        rows = sorted((row for row in self.source.fetch_people() if row.get("user_id")), key=self._get_person_key)
+    def _list_people_page(
+        self, *, last_sent: str | None, mode, page_size: int, sent: list, query: str | None = None
+    ) -> str | None:
+        """mode=people: `page_size` rows of the roster after `last_sent`; the cursor after the page. With
+        `query`, the server's rows in its order (best match first), resumed after the last row sent."""
+        query = (query or "").strip() or None  # blank lists everyone, as the server reads it
+        rows = [row for row in self.source.fetch_people(query) if row.get("user_id")]
+        if not query:
+            rows.sort(key=self._get_person_key)
         start = 0
         if last_sent is not None:
             try:
@@ -37,7 +43,14 @@ class PeopleRowsMixin:
                     "the same arguments",
                     status=422,
                 ) from None
-            start = next((i for i, row in enumerate(rows) if self._get_person_key(row) > resume), len(rows))
+            keys = [self._get_person_key(row) for row in rows]
+            if query:
+                # Ranked, not sorted: resume after that row, or refuse when it is gone (never guess).
+                if resume not in keys:
+                    raise self._gone("teammate")
+                start = keys.index(resume) + 1
+            else:
+                start = next((i for i, key in enumerate(keys) if key > resume), len(rows))
         window = rows[start : start + page_size]
         for offset, row in enumerate(window, start=start):
             after = (

@@ -1,14 +1,14 @@
 Metadata-Version: 2.5
 Name: llama-index-embeddings-azure-openai
-Version: 0.6.1
+Version: 0.7.0
 Summary: llama-index embeddings azure openai integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT
 License-File: LICENSE
-Requires-Python: <4.0,>=3.10
+Requires-Python: <4.0,>=3.11
 Requires-Dist: llama-index-core<0.15,>=0.13.0
 Requires-Dist: llama-index-embeddings-openai<0.7,>=0.6.0
-Requires-Dist: llama-index-llms-azure-openai<0.7,>=0.4.0
+Requires-Dist: llama-index-llms-azure-openai<0.8,>=0.4.0
 Description-Content-Type: text/markdown
 
 # LlamaIndex Embeddings Integration: Azure Openai

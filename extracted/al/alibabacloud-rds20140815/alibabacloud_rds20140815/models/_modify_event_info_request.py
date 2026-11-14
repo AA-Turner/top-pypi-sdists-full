@@ -19,9 +19,9 @@ class ModifyEventInfoRequest(DaraModel):
         # - **timePoint**: Executes the task at a specified point in time.
         # - **immediate**: Executes the task immediately.
         # 
-        # The recoverTime parameter specifies the recovery time. The time must be in UTC+0 and in the yyyy-MM-ddTHH:mm:ssZ format. When the recoverMode parameter is set to timePoint, the recoverTime parameter is required.
+        # The recoverTime parameter specifies the recovery time in UTC. The format is yyyy-MM-ddTHH:mm:ssZ. When the recoverMode parameter is set to timePoint, the recoverTime parameter is required.
         self.action_params = action_params
-        # The action to process the event. Valid values:
+        # The action to be performed on the event. Valid values:
         # - **archive**: Archives the event.
         # - **undo**: Does not process the event.
         # > This parameter is required.

@@ -14,9 +14,9 @@ class DescribeRenewalPriceResponseBody(DaraModel):
         request_id: str = None,
         rules: main_models.DescribeRenewalPriceResponseBodyRules = None,
     ):
-        # The pricing information.
+        # The price information.
         self.price_info = price_info
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
         self.rules = rules
 
@@ -146,7 +146,7 @@ class DescribeRenewalPriceResponseBodyPriceInfo(DaraModel):
         rule_ids: main_models.DescribeRenewalPriceResponseBodyPriceInfoRuleIds = None,
         trade_price: float = None,
     ):
-        # The pricing information.
+        # The promotion information.
         self.activity_info = activity_info
         self.coupons = coupons
         # The currency.
@@ -347,7 +347,7 @@ class DescribeRenewalPriceResponseBodyPriceInfoActivityInfo(DaraModel):
         self.check_err_msg = check_err_msg
         # The error code.
         self.error_code = error_code
-        # Indicates whether the request was successful.
+        # Indicates whether the request is successful.
         self.success = success
 
     def validate(self):

@@ -13,7 +13,6 @@ import pytest
 import seaborn as sns
 from anndata import AnnData
 from matplotlib.testing.compare import compare_images
-from packaging.version import Version
 
 import scanpy as sc
 from scanpy._compat import pkg_version
@@ -105,12 +104,13 @@ def test_heatmap(plot_cmp, params: dict[str, Any], key: str) -> None:
     plot_cmp(key)
 
 
+@needs.anndata_acc
 @needs.leidenalg
 def test_heatmap_var_as_dict(plot_cmp) -> None:
     pbmc = pbmc68k_reduced()
     sc.tl.leiden(
         pbmc,
-        key_added="clusters",
+        out="obs.clusters",
         resolution=0.5,
         flavor="igraph",
         n_iterations=2,
@@ -535,7 +535,7 @@ def test_violin(subtests: pytest.Subtests, exit_stack: ExitStack, plot_cmp) -> N
     pbmc.layers["negative"] = pbmc.X * -1
 
     with subtests.test("default"):
-        np.random.seed(0)
+        np.random.seed(0)  # noqa: NPY002
         sc.pl.violin(
             pbmc,
             ["n_genes", "percent_mito", "n_counts"],
@@ -547,7 +547,7 @@ def test_violin(subtests: pytest.Subtests, exit_stack: ExitStack, plot_cmp) -> N
         plot_cmp("violin_multi_panel")
 
     with subtests.test(groupby="bulk_labels"):
-        np.random.seed(0)
+        np.random.seed(0)  # noqa: NPY002
         sc.pl.violin(
             pbmc,
             ["n_genes", "percent_mito", "n_counts"],
@@ -567,7 +567,7 @@ def test_violin(subtests: pytest.Subtests, exit_stack: ExitStack, plot_cmp) -> N
             plot_cmp("violin_multi_panel_with_groupby")
 
     with subtests.test(layer="negative"):
-        np.random.seed(0)
+        np.random.seed(0)  # noqa: NPY002
         sc.pl.violin(
             pbmc,
             "CST3",
@@ -581,6 +581,50 @@ def test_violin(subtests: pytest.Subtests, exit_stack: ExitStack, plot_cmp) -> N
             rotation=90,
         )
         plot_cmp("violin_multi_panel_with_layer")
+
+    with subtests.test("ncols"):
+        sc.pl.violin(
+            pbmc,
+            ["n_genes", "percent_mito", "n_counts"],
+            multi_panel=True,
+            ncols=2,
+            show=False,
+        )
+        assert len(plt.gcf().axes) == 3
+        plot_cmp("violin_ncols_wrap")
+
+    with subtests.test("ncols_groupby"):
+        # Covers the gridspec branch (Path B) used when groupby is set.
+        sc.pl.violin(
+            pbmc,
+            ["n_genes", "percent_mito", "n_counts"],
+            groupby="bulk_labels",
+            ncols=2,
+            show=False,
+            rotation=90,
+        )
+        assert len(plt.gcf().axes) == 3
+        with context.xfail(
+            SEABORN_PANDAS30_XFAIL,
+            reason="seaborn violin hue colors are wrong with pandas 3.0",
+            raises=AssertionError,
+        ):
+            plot_cmp("violin_ncols_with_groupby")
+
+    with subtests.test("ax_provided_single_key"):
+        # Covers the `ax is not None` branch with ncols left as default (None).
+        fig, ax = plt.subplots()
+        sc.pl.violin(pbmc, "n_genes", ax=ax, show=False)
+        plt.close(fig)
+
+    with subtests.test("ax_with_ncols_raises"):
+        # Covers the error branch: `ax` and `ncols` cannot be combined.
+        fig, ax = plt.subplots()
+        with pytest.raises(
+            ValueError, match=r"`ncols` cannot be combined with a pre-supplied `ax`"
+        ):
+            sc.pl.violin(pbmc, "n_genes", ax=ax, ncols=2, show=False)
+        plt.close(fig)
 
 
 # TODO: Generalize test to more plotting types
@@ -849,7 +893,7 @@ def test_rank_genes_groups(plot_cmp, name: str, fn: Callable[[AnnData], None]) -
 
 
 def test_rank_genes_group_axes(plot_cmp):
-    fn = next(p.values[0] for p in _RANK_GENES_GROUPS_PARAMS if p.id == "basic")
+    fn = next(p.values[0] for p in _RANK_GENES_GROUPS_PARAMS if p.id == "basic")  # noqa: PD011
 
     pbmc = pbmc68k_reduced()
     sc.tl.rank_genes_groups(pbmc, "louvain", n_genes=pbmc.raw.shape[1])
@@ -1046,6 +1090,21 @@ def test_genes_symbols(plot_cmp, id, fn):
     plot_cmp(f"{id}_gene_symbols")
 
 
+@pytest.mark.parametrize(
+    "fn",
+    [
+        sc.pl.heatmap,
+        sc.pl.tracksplot,
+        sc.pl.dotplot,
+        sc.pl.matrixplot,
+        sc.pl.stacked_violin,
+    ],
+)
+def test_var_names_gene_symbols_documented(fn):
+    """Docs must state that `gene_symbols` changes where `var_names` are looked up."""
+    assert "adata.var[gene_symbols]" in fn.__doc__
+
+
 @pytest.fixture(scope="session")
 def pbmc_scatterplots_session() -> AnnData:
     # Wrapped in another fixture to avoid mutation
@@ -1194,7 +1253,11 @@ def pbmc_scatterplots(pbmc_scatterplots_session) -> AnnData:
             "umap_with_edges",
             partial(sc.pl.umap, color="louvain", edges=True, edges_width=0.1, s=50),
         ),
-        # ('diffmap', partial(sc.pl.diffmap, components='all', color=['CD3D'])),
+        ("diffmap", partial(sc.pl.diffmap, color="bulk_labels")),
+        (
+            "diffmap_gene",
+            partial(sc.pl.diffmap, color="CD3D", components="1,2"),
+        ),
         (
             "umap_symbols",
             partial(sc.pl.umap, color=["1", "2", "3"], gene_symbols="numbers"),
@@ -1353,8 +1416,8 @@ def test_scatter_embedding_add_outline_vmin_vmax_norm_ref(tmp_path, check_same_i
 def pbmc_68k_dpt_session() -> AnnData:
     adata = pbmc68k_reduced()
     sc.pp.neighbors(adata, n_neighbors=5, method="gauss", knn=False)
-    sc.tl.leiden(adata, resolution=0.5, key_added="leiden_0_5", flavor="leidenalg")
-    adata.uns["iroot"] = np.flatnonzero(adata.obs["leiden_0_5"] == "0")[0]
+    sc.tl.leiden(adata, resolution=0.5, flavor="leidenalg")
+    adata.uns["iroot"] = np.flatnonzero(adata.obs["leiden"] == "0")[0]
     sc.tl.diffmap(adata, n_comps=10)
     with warnings.catch_warnings():
         warnings.filterwarnings(
@@ -1404,10 +1467,7 @@ def test_binary_scatter(plot_cmp):
     )
     sc.pp.pca(data)
     sc.pl.pca(data, color="binary", show=False)
-    if pkg_version("scikit-learn") >= Version("1.5.0rc1"):
-        plot_cmp("binary_pca")
-    else:
-        plot_cmp("binary_pca_old")
+    plot_cmp("binary_pca")
 
 
 def test_scatter_specify_layer_and_raw():
@@ -1568,10 +1628,11 @@ def test_no_copy():
     # https://github.com/scverse/scanpy/issues/1000
     # Tests that plotting functions don't make a copy from a view unless they
     # actually have to
+    rng = np.random.default_rng()
     actual = pbmc68k_reduced()
     sc.pl.umap(actual, color=["bulk_labels", "louvain"], show=False)  # Set colors
 
-    view = actual[np.random.choice(actual.obs_names, size=actual.shape[0] // 5), :]
+    view = actual[rng.choice(actual.obs_names, size=actual.shape[0] // 5), :]
 
     sc.pl.umap(view, color=["bulk_labels", "louvain"], show=False)
     assert view.is_view
@@ -1627,10 +1688,27 @@ def test_groupby_index(plot_cmp):
     plot_cmp("dotplot_groupby_index")
 
 
-def test_groupby_list() -> None:
-    """Test category order when groupby is a list.
+def _mixed_with_nan(n: int) -> np.ndarray:
+    col = np.array(["control", 1] * (n // 2) + ["control"] * (n % 2), dtype=object)
+    col[:10] = np.nan
+    return col
 
-    See <https://github.com/scverse/scanpy/issues/1735>
+
+@pytest.mark.parametrize(
+    "make_other",
+    [
+        pytest.param(lambda a: a.obs["cell_type"], id="categorical"),
+        pytest.param(
+            lambda a: pd.Categorical(np.arange(a.n_obs) % 2 + 1), id="int_categorical"
+        ),
+        pytest.param(lambda a: np.where(np.arange(a.n_obs) % 2, 2.0, 0.5), id="float"),
+        pytest.param(lambda a: _mixed_with_nan(a.n_obs), id="mixed_with_nan"),
+    ],
+)
+def test_groupby_list(make_other: Callable[[AnnData], object]) -> None:
+    """Test category order when groupby is a list, incl. non-string and missing values.
+
+    See <https://github.com/scverse/scanpy/issues/1735> and #4384.
     """
     rng = np.random.default_rng()
     adata = krumsiek11()
@@ -1639,11 +1717,12 @@ def test_groupby_list() -> None:
     cats = adata.obs.cell_type.cat.categories.tolist()
     rng.shuffle(cats)
     adata.obs["rand_cat"] = pd.Categorical(cat_val, categories=cats)
+    adata.obs["other"] = make_other(adata)
 
     plot = sc.pl.dotplot(
         adata,
         ["Gata1", "Gata2"],
-        ["rand_cat", "cell_type"],
+        ["rand_cat", "other"],
         swap_axes=True,
         show=False,
         return_fig=True,
@@ -1651,13 +1730,15 @@ def test_groupby_list() -> None:
     plot.make_figure()
     ticks = [t.get_text() for t in plot.get_axes()["mainplot_ax"].get_xticklabels()]
 
-    # each group’s categories determine the tick order, unobserved pairs are dropped
-    observed = set(zip(adata.obs.rand_cat, adata.obs.cell_type, strict=True))
+    # each group’s categories determine the tick order,
+    # unobserved pairs and rows with missing values are dropped
+    other = adata.obs["other"]
+    observed = set(zip(adata.obs.rand_cat, other, strict=True))
     assert ticks == [
-        f"{rand}_{cell}"
+        f"{rand}_{o}"
         for rand in cats
-        for cell in adata.obs.cell_type.cat.categories
-        if (rand, cell) in observed
+        for o in other.astype("category").cat.categories
+        if (rand, o) in observed
     ]
 
 
@@ -1681,12 +1762,14 @@ def test_color_cycler(caplog):
 
 def test_repeated_colors_w_missing_value():
     # https://github.com/scverse/scanpy/issues/2133
+    rng = np.random.default_rng()
+
     v = pd.Series(np.arange(10).astype(str))
     v[0] = np.nan
     v = v.astype("category")
 
     ad = sc.AnnData(obs=dict(value=v))
-    ad.obsm["X_umap"] = np.random.normal(size=(ad.n_obs, 2))
+    ad.obsm["X_umap"] = rng.standard_normal((ad.n_obs, 2))
 
     sc.pl.umap(ad, color="value", show=False)
 
@@ -1715,14 +1798,13 @@ def test_filter_rank_genes_groups_plots(tmp_path, plot, check_same_image):
 
     sc.tl.filter_rank_genes_groups(
         adata,
-        key_added="rank_genes_groups_filtered",
         min_in_group_fraction=0.25,
         min_fold_change=1,
         max_out_group_fraction=0.5,
     )
 
     conditions = "logfoldchanges >= 1 & pct_nz_group >= .25 & pct_nz_reference < .5"
-    df = sc.get.rank_genes_groups_df(adata, group=None, key="rank_genes_groups")
+    df = sc.get.rank_genes_groups_df(adata, group=None)
     df = df.query(conditions)[["group", "names"]]
 
     var_names = {
@@ -1751,7 +1833,12 @@ def test_filter_rank_genes_groups_plots(tmp_path, plot, check_same_image):
         pytest.param("scrublet", {}, id="scrublet"),
         pytest.param("scrublet_no_threshold", {}, id="scrublet_no_threshold"),
         pytest.param(
-            "scrublet_with_batches", dict(batch_key="batch"), id="scrublet_with_batches"
+            "scrublet_with_batches",
+            dict(batch_key="batch"),
+            marks=pytest.mark.filterwarnings(
+                "ignore:.*argument batch_key is deprecated:FutureWarning"
+            ),
+            id="scrublet_with_batches",
         ),
     ],
 )

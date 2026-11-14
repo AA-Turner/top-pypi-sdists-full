@@ -1,11 +1,11 @@
 Metadata-Version: 2.5
 Name: llama-index-llms-anthropic
-Version: 0.12.3
+Version: 0.13.0
 Summary: llama-index llms anthropic integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT
 License-File: LICENSE
-Requires-Python: <4.0,>=3.10
+Requires-Python: <4.0,>=3.11
 Requires-Dist: anthropic[bedrock,vertex]>=0.75.0
 Requires-Dist: llama-index-core<0.15,>=0.14.5
 Description-Content-Type: text/markdown

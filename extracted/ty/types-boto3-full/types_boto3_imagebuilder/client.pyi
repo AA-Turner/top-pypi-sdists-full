@@ -203,6 +203,7 @@ from .type_defs import (
     UpdateLifecyclePolicyRequestTypeDef,
     UpdateLifecyclePolicyResponseTypeDef,
 )
+from .waiter import ImageAvailableWaiter
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
@@ -1275,4 +1276,14 @@ class ImagebuilderClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_paginator.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_paginator)
+        """
+
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["image_available"]
+    ) -> ImageAvailableWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_waiter)
         """

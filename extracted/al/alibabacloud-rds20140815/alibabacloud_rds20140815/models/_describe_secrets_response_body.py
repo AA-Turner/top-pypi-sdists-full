@@ -15,7 +15,7 @@ class DescribeSecretsResponseBody(DaraModel):
         request_id: str = None,
         secrets: List[main_models.DescribeSecretsResponseBodySecrets] = None,
     ):
-        # The page number of the query result.
+        # The page number.
         self.page_number = page_number
         # The number of entries per page.
         self.page_size = page_size

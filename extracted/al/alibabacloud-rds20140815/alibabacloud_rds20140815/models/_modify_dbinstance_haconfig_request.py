@@ -20,9 +20,8 @@ class ModifyDBInstanceHAConfigRequest(DaraModel):
         # This parameter is required.
         self.db_instance_id = db_instance_id
         # The High-availability Mode. Valid values:
-        # 
-        # - RPO: Data consistency is preferred. The instance ensures data reliability to the greatest extent, which minimizes the amount of data loss. Use RPO mode if you have high requirements for data consistency.
-        # - RTO: Instance availability is preferred. The instance recovers services as soon as possible, which maximizes the active time. Use RTO mode if you have high requirements for database uptime.
+        # - RPO: Recovery Point Objective. Data consistency is prioritized. The instance ensures data reliability to minimize data loss. This mode is suitable for users who have high requirements for data consistency.
+        # - RTO: Recovery Time Objective. Instance availability is prioritized. The instance restores services as quickly as possible to maximize available time. This mode is suitable for users who have high requirements for database online time.
         # 
         # This parameter is required.
         self.hamode = hamode
@@ -30,8 +29,7 @@ class ModifyDBInstanceHAConfigRequest(DaraModel):
         self.owner_id = owner_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The data replication method. Valid values:
-        # 
+        # The data replication mode. Valid values:
         # - Semi-sync: semi-synchronous replication.
         # - Sync: synchronous replication.
         # - Async: asynchronous replication.

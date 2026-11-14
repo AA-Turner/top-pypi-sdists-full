@@ -18,32 +18,31 @@ class DescribeMigrateTaskByIdResponseBody(DaraModel):
         request_id: str = None,
         status: str = None,
     ):
-        # The type of the OSS backup migration task. Valid values:
+        # The type of the backup-to-cloud task. Valid values:
         # 
-        # - **FULL**: restores data by using a full log file.
-        # - **UPDF**: restores incremental data by using differential or log log files.
+        # - **FULL**: restores data by using a full backup file.
+        # - **UPDF**: restores incremental data by using an incremental backup file or a log file.
         self.backup_mode = backup_mode
-        # The time when the OSS backup migration task was created. The time follows the ISO 8601 standard in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time is displayed in UTC.
+        # The time when the backup-to-cloud task was created. The time follows the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time is displayed in UTC.
         self.create_time = create_time
         # The instance ID.
         self.dbinstance_name = dbinstance_name
         # The name of the database.
         self.dbname = dbname
-        # The description of the OSS backup migration task.
+        # The description of the backup-to-cloud task.
         self.description = description
-        # The time when the OSS backup migration task ended. The time follows the ISO 8601 standard in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time is displayed in UTC.
+        # The time when the backup-to-cloud task ended. The time follows the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time is displayed in UTC.
         self.end_time = end_time
         # Specifies whether the import overwrites the existing database. Valid values: 
         # 
-        # - **False**: no
-        # - **True**: yes
+        # - **False**: no.
+        # - **True**: yes.
         self.is_dbreplaced = is_dbreplaced
-        # The ID of the OSS backup migration task.
+        # The ID of the OSS backup-to-cloud task.
         self.migrate_task_id = migrate_task_id
         # The ID of the request.
         self.request_id = request_id
-        # The status of the OSS backup migration task. Valid values:
-        # 
+        # The status of the backup-to-cloud task. Valid values:
         # - **NoStart**: The task is not started.
         # - **Running**: The task is running.
         # - **Success**: The task is successful.

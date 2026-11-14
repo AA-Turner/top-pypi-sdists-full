@@ -27,7 +27,7 @@ from trajectory.lib.benchmark_progress import (
 )
 from trajectory.lib.benchmark_submission import DEFAULT_UPLOAD_MAX_RETRIES, SubmissionUpload
 from trajectory.lib.files import DEFAULT_UPLOAD_TIMEOUT, UploadFile
-from trajectory.types.batch_item_failure import BatchItemFailure
+from trajectory.types import BatchItemFailure
 from trajectory.types.benchmark_images_page import BenchmarkImage
 from trajectory.types.benchmarks.benchmark_spec import BenchmarkSpec
 from trajectory.types.benchmarks.image_spec import ImageSpec

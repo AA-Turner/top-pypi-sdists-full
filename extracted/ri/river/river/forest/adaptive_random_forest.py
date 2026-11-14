@@ -117,7 +117,6 @@ class BaseForest(base.Ensemble):
             The number of concept drift warnings detected.
 
         """
-
         if self._warning_detection_disabled:
             return 0
 
@@ -141,7 +140,6 @@ class BaseForest(base.Ensemble):
             The number of concept drifts detected.
 
         """
-
         if self._drift_detection_disabled:
             return 0
 
@@ -280,6 +278,8 @@ class BaseTreeClassifier(HoeffdingTreeClassifier):
         merit_preprune: bool = True,
         rng: random.Random | None = None,
     ):
+        self.max_features = max_features
+        self.rng = rng
         super().__init__(
             grace_period=grace_period,
             max_depth=max_depth,
@@ -300,8 +300,20 @@ class BaseTreeClassifier(HoeffdingTreeClassifier):
             merit_preprune=merit_preprune,
         )
 
-        self.max_features = max_features
-        self.rng = rng
+    def _native_backend_is_compatible(self):
+        return True
+
+    def _native_max_features(self):
+        return self.max_features
+
+    def _native_rng(self):
+        return self.rng
+
+    def _native_sort_features(self):
+        return True
+
+    def _native_memory_estimate_period_is_compatible(self, memory_estimate_period):
+        return memory_estimate_period in {1_000_000, 2_000_000}
 
     def _new_leaf(self, initial_stats=None, parent=None):
         if initial_stats is None:
@@ -396,7 +408,6 @@ class BaseTreeRegressor(HoeffdingTreeRegressor):
 
         The type of learning node depends on the tree configuration.
         """
-
         if parent is not None:
             depth = parent.depth + 1
         else:
@@ -550,7 +561,6 @@ class ARFClassifier(BaseForest, base.Classifier):
 
     Examples
     --------
-
     >>> from river import evaluate
     >>> from river import forest
     >>> from river import metrics
@@ -567,11 +577,11 @@ class ARFClassifier(BaseForest, base.Classifier):
     >>> metric = metrics.Accuracy()
 
     >>> evaluate.progressive_val_score(dataset, model, metric)
-    Accuracy: 67.97%
+    Accuracy: 73.47%
 
     The total number of warnings and drifts detected, respectively
     >>> model.n_warnings_detected(), model.n_drifts_detected()
-    (2, 1)
+    (4, 3)
 
     The number of warnings detected by tree number 2
     >>> model.n_warnings_detected(2)
@@ -579,7 +589,7 @@ class ARFClassifier(BaseForest, base.Classifier):
 
     And the corresponding number of actual concept drift detected
     >>> model.n_drifts_detected(2)
-    1
+    0
 
     References
     ----------
@@ -714,7 +724,7 @@ class ARFClassifier(BaseForest, base.Classifier):
 
 
 class ARFRegressor(BaseForest, base.Regressor):
-    """Adaptive Random Forest regressor.
+    r"""Adaptive Random Forest regressor.
 
     The 3 most important aspects of Adaptive Random Forest [^1] are:
 
@@ -732,7 +742,7 @@ class ARFRegressor(BaseForest, base.Regressor):
     predictions and check for concept drifts. The deviations of the predictions
     to the target are monitored and normalized in the [0, 1] range to fulfill ADWIN's
     requirements. We assume that the data subjected to the normalization follows
-    a normal distribution, and thus, lies within the interval of the mean $\\pm3\\sigma$.
+    a normal distribution, and thus, lies within the interval of the mean $\pm3\sigma$.
 
     Parameters
     ----------
@@ -836,7 +846,6 @@ class ARFRegressor(BaseForest, base.Regressor):
 
     Examples
     --------
-
     >>> from river import datasets
     >>> from river import evaluate
     >>> from river import forest

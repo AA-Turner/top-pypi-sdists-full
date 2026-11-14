@@ -45,6 +45,19 @@ OWNER_MATCHED_HEADER = "X-Probe-Owner-Matched"
 UNOWNED_COUNT_HEADER = "X-Probe-Unowned-Count"
 
 
+#: The header a bare-list route answers a name `query`'s one-line note in (`app/shared/name_match.py`).
+QUERY_NOTE_HEADER = "X-Probe-Query-Note"
+
+
+def read_query_note_header(headers: Any) -> dict[str, str]:
+    """`{query_note}` from a bare-list route's headers (ASCII JSON); a malformed one is left out."""
+    try:
+        note = json.loads(headers.get(QUERY_NOTE_HEADER) or "null")
+    except ValueError:
+        return {}
+    return {"query_note": note} if isinstance(note, str) and note else {}
+
+
 def read_owner_headers(headers: Any) -> dict[str, Any]:
     """`{owner_matched, unowned_count}` from a bare-list route's headers; a malformed one is left out."""
     echo: dict[str, Any] = {}
@@ -63,9 +76,10 @@ def read_owner_headers(headers: Any) -> dict[str, Any]:
 class PeopleReadsMixin:
     """Part of ResearchOSSource: its methods run with `self` the ResearchOSSource; compose() folds them into ResearchOSSource."""
 
-    def fetch_people(self) -> list[dict]:
-        """``GET /v1/people``: every active teammate, `{user_id, name, email, role, joined_at}`."""
-        answer = self.client.transport.get("/v1/people")
+    def fetch_people(self, query: str | None = None) -> list[dict]:
+        """``GET /v1/people``: every active teammate, `{user_id, name, email, role, joined_at}`; with `query`,
+        the ones it names, best first. No feature switch: an older server ignores `query` and lists everyone."""
+        answer = self.client.transport.get("/v1/people", params={"query": query} if query else None)
         return [row for row in (answer or {}).get("people") or [] if isinstance(row, dict)]
 
     def has_feature(self, name: str) -> bool:

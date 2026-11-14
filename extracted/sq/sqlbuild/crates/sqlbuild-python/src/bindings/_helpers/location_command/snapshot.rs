@@ -1,13 +1,14 @@
 //! Location publication assembles catalog data and planner-owned local identities.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyRef, PyResult};
 use pyo3::types::{PyDict, PyDictMethods};
 use pyo3::{IntoPyObject, pyfunction};
-use serde_json::json;
+use serde_json::{Value, json};
+use sqlbuild_analysis::planner_scope::main::node_loads::node_loads;
 use sqlbuild_core::models::DiagnosticSeverity;
 use sqlbuild_discovery::project_validation::main::validate_orchestration_names::validate_orchestration_names;
 use sqlbuild_orchestration::snapshots::models::{SnapshotInput, SnapshotNode};
@@ -23,14 +24,21 @@ use crate::bindings::_helpers::compiled_project::snapshot_roles::compile_project
 use crate::bindings::_helpers::compiled_views::project_view::NativeProjectView;
 use crate::bindings::_helpers::discovery::project_facts::{named_node_rows, project_facts};
 use crate::bindings::_helpers::discovery::project_validation::validation_error;
+use crate::bindings::_helpers::graph::python_selection::ProjectSelection;
 use crate::bindings::_helpers::location_command::snapshot_lineage::column_lineage_document;
+use crate::bindings::_helpers::location_command::snapshot_providers::providers_document;
 use crate::bindings::_helpers::native_host::orchestration_declarations::{
     collect_declarations, orchestration_names,
 };
 use crate::bindings::_helpers::native_host::orchestration_environment::environment_hash;
+use crate::bindings::_helpers::planner_identity::graph::execution_deps;
 use crate::bindings::_helpers::planner_identity::identities::direct_model_version_identities;
 use crate::bindings::_helpers::planner_scope::scope::build_planner_scope;
+use crate::bindings::_helpers::planner_scope::values::project_graph;
 use crate::bindings::_helpers::records::fields::field;
+
+/// The Python node kind whose functions load sources.
+const LOADER_KIND: &str = "loader";
 
 /// Where declarations passed to the snapshot directly are reported as declared.
 const DECLARATIONS_ARGUMENT: &str = "declarations argument";
@@ -107,6 +115,12 @@ pub(crate) fn orchestration_snapshot<'py>(
     }
     input.nodes = resource_nodes(py, &project, &owner, input.nodes)?;
     drop(owner);
+    let selected =
+        ProjectSelection::new((&project).into_pyobject(py)?.as_any(), &discovered_inputs)?;
+    input.nodes = python_nodes(&selected, input.nodes)?;
+    if let Some(providers) = providers_document(&discovered_inputs, &input.nodes)? {
+        input.documents.insert("providers".into(), providers);
+    }
     let declarations = match declarations {
         Some(declarations) => declarations
             .into_iter()
@@ -130,17 +144,93 @@ pub(crate) fn orchestration_snapshot<'py>(
         input = compile_declarations(
             py,
             input,
-            (&project_dir, graph.bind(py).get().graph()),
+            (&project_dir, graph.bind(py).get().graph(), &selected),
             authored,
         )?;
     }
-    input = compile_project_roles(py, input, (&project_dir, graph.bind(py).get().graph()))?;
+    input = compile_project_roles(
+        py,
+        input,
+        (&project_dir, graph.bind(py).get().graph(), &selected),
+    )?;
     let project = project.into_pyobject(py)?;
     if let Some(lineage) = column_lineage_document(project.as_any())? {
         input.documents.insert("lineage".into(), lineage);
     }
     input.nodes = identity_nodes(project.as_any(), input.nodes)?;
+    input.nodes = load_nodes(project.as_any(), input.nodes)?;
     Ok(NativeOrchestrationSnapshot { input })
+}
+
+/// Python nodes publish their `deps` and tags, and each intermediate loader publishes the source it writes, so the server orders, selects and grants them as the CLI does.
+fn python_nodes(
+    selected: &ProjectSelection,
+    mut nodes: BTreeMap<String, SnapshotNode>,
+) -> PyResult<BTreeMap<String, SnapshotNode>> {
+    let graph = &selected.nodes;
+    let mut tags: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for (tag, names) in &graph.tags {
+        for name in names {
+            tags.entry(name.as_str()).or_default().push(tag.as_str());
+        }
+    }
+    let upstream: BTreeMap<&str, &[String]> = graph
+        .upstream
+        .iter()
+        .map(|(name, names)| (name.as_str(), names.as_slice()))
+        .collect();
+    let mut outputs: Vec<(String, SnapshotNode)> = Vec::new();
+    for node in &graph.nodes {
+        let key = format!("{}:{}", node.kind, node.name);
+        let Some(published) = nodes.get_mut(&key) else {
+            return Err(PyValueError::new_err(format!(
+                "Python node {key} is missing from the snapshot"
+            )));
+        };
+        let deps: BTreeSet<String> = upstream
+            .get(node.name.as_str())
+            .into_iter()
+            .flat_map(|names| names.iter())
+            .filter_map(|name| selected.node_key(name))
+            .chain(
+                node.sql_deps
+                    .iter()
+                    .map(|(kind, name)| format!("{kind}:{name}")),
+            )
+            .collect();
+        published.definition["deps"] = json!(deps);
+        published.definition["tags"] =
+            json!(tags.get(node.name.as_str()).cloned().unwrap_or_default());
+        if node.kind == LOADER_KIND && selected.intermediate_loader(&node.name) {
+            let mut definition = json!({
+                "name": node.name,
+                "entry": {"loader": node.name},
+                "intermediate_loader": true,
+                "deps": [key],
+            });
+            if let Some(path) = published.definition.get("path") {
+                definition["path"] = path.clone();
+            }
+            outputs.push((
+                format!("source:{}", node.name),
+                SnapshotNode {
+                    kind: "source".into(),
+                    definition,
+                    raw_sql: None,
+                    compiled_sql: None,
+                    python_source: None,
+                },
+            ));
+        }
+    }
+    for (key, node) in outputs {
+        if nodes.insert(key.clone(), node).is_some() {
+            return Err(PyValueError::new_err(format!(
+                "intermediate loader {key} collides with a published node"
+            )));
+        }
+    }
+    Ok(nodes)
 }
 
 fn identity_nodes(
@@ -151,9 +241,10 @@ fn identity_nodes(
     let options = PyDict::new(py);
     options.set_item("project", project)?;
     let scope = build_planner_scope(py, Some(options))?;
+    let dialect: Option<String> = field(project, "sql_analysis_dialect")?.extract()?;
     let identities = direct_model_version_identities(
         (&field(project, "functions")?, &scope),
-        field(project, "sql_analysis_dialect")?.extract()?,
+        dialect.clone(),
         (
             &field(project, "seeds")?,
             &py.None().into_bound(py),
@@ -162,15 +253,51 @@ fn identity_nodes(
         &py.None().into_bound(py),
     )?;
     for node in nodes.values_mut() {
-        let hashes = match node.kind.as_str() {
-            "model" => "model_local_hashes",
-            "udf" | "table_fn" => "function_local_hashes",
-            "seed" => "seed_version_hashes",
+        let (hashes, with_dialect) = match node.kind.as_str() {
+            "model" => ("model_local_hashes", true),
+            "udf" | "table_fn" => ("function_local_hashes", false),
+            "seed" => ("seed_version_hashes", false),
             _ => continue,
         };
         let name = node.definition["name"].as_str().unwrap_or_default();
         let hash: String = field(&identities, hashes)?.get_item(name)?.extract()?;
-        node.definition["planner_identity"] = json!({"local_hash": hash});
+        node.definition["planner_identity"] = if with_dialect {
+            json!({"local_hash": hash, "dialect": dialect})
+        } else {
+            json!({"local_hash": hash})
+        };
     }
     Ok(nodes)
+}
+
+/// `loads` lists the source writers a loading build of the node plans beyond its compiled `deps`, absent when none.
+fn load_nodes(
+    project: &Bound<'_, PyAny>,
+    mut nodes: BTreeMap<String, SnapshotNode>,
+) -> PyResult<BTreeMap<String, SnapshotNode>> {
+    for ((kind, name), writers) in node_loads(&project_graph(project)?, &execution_deps(project)?) {
+        let Some(node) = nodes.get_mut(&format!("{kind}:{name}")) else {
+            continue;
+        };
+        let deps: Vec<Value> = node
+            .definition
+            .get("deps")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        let loads: Vec<String> = writers
+            .into_iter()
+            .map(|(kind, name)| format!("{kind}:{name}"))
+            .filter(|key| !listed(&deps, key))
+            .collect();
+        if !loads.is_empty() {
+            node.definition["loads"] = json!(loads);
+        }
+    }
+    Ok(nodes)
+}
+
+/// Whether `key` is already one of the node's compiled `deps`.
+fn listed(deps: &[Value], key: &str) -> bool {
+    deps.iter().any(|dep| dep.as_str() == Some(key))
 }

@@ -29,9 +29,18 @@ from .readers import (
     read_row_keys,
     read_versions,
 )
-from .rows import CRITIC_WARMUP_DROP, RowMapper, VerlRow
+from .rows import CRITIC_WARMUP_DROP, RowMapper, Split, VerlRow, make_sample_key
 from .training import has_entropy_rows, stamp_update_batch
-from .training.driver import build_entropy_points, get_reduction, read_entropy_rows
+from .training.driver import (
+    Stamp,
+    build_entropy_points,
+    get_logged_place,
+    get_reduction,
+    read_entropy_rows,
+    read_transfer_queue_entropy,
+    stamp_transfer_queue_batch,
+)
+from .training.plan import FULLY_ASYNC_UNLOGGED
 
 #: Marks a verl method Probe already wrapped (installs are idempotent).
 WRAPPED_MARK = "__probe_verl_wrapped__"
@@ -123,6 +132,27 @@ class TrainerFamily:
         """Start collecting what the validation pass's prompts were; returns what puts things back."""
         return lambda: None
 
+    # -- per-sample training metrics (`training/`) ----------------------------------------------------------
+    #: `actor/entropy` folds per old-log-prob pass, then over the log's passes (`build_entropy_points`).
+    is_entropy_per_mini_step = False
+
+    def stamp_actor(self, trainer: Any, batch: Any, step: int, keys: list[str]) -> Stamp | None:
+        """Stamp the actor's training batch with the row ids and ``step``'s facts; None: this family sends none."""
+        return None
+
+    def stamp_critic(self, trainer: Any, batch: Any) -> Callable[[], None] | None:
+        """Stamp the critic's training batch (D4); returns what takes it off, None: no critic rows."""
+        return None
+
+    def read_entropy(self, trainer: Any, batch: Any, kept: list[tuple[float, float]] | None) -> Any:
+        """Each real row's (entropy sum, tokens) from the step's old-log-prob pass; ``kept``: what the
+        `_compute_old_log_prob` wrap read off the pass's output."""
+        return kept
+
+    def get_unsupported(self, trainer: Any) -> dict[str, str]:
+        """What this family adds to the training plan's unsupported keys."""
+        return {}
+
 
 class DataProtoFamily(TrainerFamily):
     """`RayPPOTrainer` (`trainer/ppo/ray_trainer.py:285`) and trainers built on it (`OneStepOffRayTrainer`): the
@@ -135,6 +165,15 @@ class DataProtoFamily(TrainerFamily):
 
     def read_train_rows(self, trainer: Any, batch: Any) -> list[VerlRow]:
         return read_dataproto_rows(batch)
+
+    def stamp_actor(self, trainer: Any, batch: Any, step: int, keys: list[str]) -> Stamp | None:
+        clear = stamp_update_batch(trainer, batch, step, keys)  # the legacy path S0 proved (T3)
+        return Stamp(clear, step) if clear is not None else None
+
+    def stamp_critic(self, trainer: Any, batch: Any) -> Callable[[], None] | None:
+        """The critic's batch stamped with the keys the actor's update records next (its `uid` column alone)."""
+        step = self.get_train_step(trainer)
+        return stamp_update_batch(trainer, batch, step, read_row_keys(batch, step), role="critic")
 
     def watch_validation(self, trainer: Any, capture: ValidationCapture) -> Callable[[], None]:
         """Keep each generated batch's rows from the rollout manager `_validate` calls (`ray_trainer.py:640`), on the
@@ -192,6 +231,25 @@ class FullyAsyncFamily(DataProtoFamily):
     def get_stale_count(self, batch: Any) -> Any:
         return (getattr(batch, "meta_info", None) or {}).get(STALE_COUNT_KEY)
 
+    is_entropy_per_mini_step = True
+
+    def stamp_actor(self, trainer: Any, batch: Any, step: int, keys: list[str]) -> Stamp | None:
+        """At the step verl LOGS the mini-step's metrics (`driver.get_logged_place`), which is one step past the one
+        that consumed its samples for a cycle's last mini-step (T2c finding 3)."""
+        place = get_logged_place(trainer)
+        clear = stamp_update_batch(trainer, batch, place.step, keys, place=place)
+        return Stamp(clear, place.step) if clear is not None else None
+
+    def stamp_critic(self, trainer: Any, batch: Any) -> Callable[[], None] | None:
+        """At the step verl logs the mini-step's `critic/*` metrics: the actor's place (`fit_step` trains the critic,
+        then the actor, before either moves the counters; T11)."""
+        place = get_logged_place(trainer)
+        return stamp_update_batch(trainer, batch, place.step, read_row_keys(batch, self.get_train_step(trainer)),
+                                  role="critic", place=place)  # fmt: skip
+
+    def get_unsupported(self, trainer: Any) -> dict[str, str]:
+        return dict(FULLY_ASYNC_UNLOGGED)
+
 
 class RollouterFamily(DataProtoFamily):
     """`FullyAsyncRollouter` (`fully_async_policy/fully_async_rollouter.py:329-330`, a Ray actor built on
@@ -225,6 +283,30 @@ class TransferQueueFamily(TrainerFamily):
         import transfer_queue
 
         return fetch_transfer_queue_rows(batch, transfer_queue.kv_batch_get)
+
+    def stamp_actor(self, trainer: Any, batch: Any, step: int, keys: list[str]) -> Stamp | None:
+        import transfer_queue
+
+        clear = stamp_transfer_queue_batch(trainer, batch, step, keys, transfer_queue.kv_batch_put)
+        return Stamp(clear, step) if clear is not None else None
+
+    def stamp_critic(self, trainer: Any, batch: Any) -> Callable[[], None] | None:
+        """The critic trains on the step's `KVBatchMeta` before the actor's update records it (`trainer_base.py:1817`):
+        its rows' keys as the recorder names them, the row ids in the TransferQueue (T11)."""
+        import transfer_queue
+
+        step = self.get_train_step(trainer)
+        keys = [make_sample_key(Split.TRAIN, step, row) for row in self.read_train_rows(trainer, batch)]
+        return stamp_transfer_queue_batch(trainer, batch, step, keys, transfer_queue.kv_batch_put, role="critic")
+
+    def read_entropy(self, trainer: Any, batch: Any, kept: list[tuple[float, float]] | None) -> Any:
+        """Read at the update from the TransferQueue, where the old-log-prob pass left `entropy` (T2c)."""
+        import transfer_queue
+
+        if not has_entropy_rows(trainer.config):
+            return None
+        return read_transfer_queue_entropy(batch, transfer_queue.kv_batch_get)
+
 
     def watch_validation(self, trainer: Any, capture: ValidationCapture) -> Callable[[], None]:
         """`_validate` gives each validation batch dict its uids in place (`:1048-1052`): a loader that remembers
@@ -478,13 +560,15 @@ class TrainerWraps:
             recorded = session.guard.call("a training batch", self._record_batch, session, family, trainer, batch)
             step, keys = recorded if recorded is not None else (None, None)
             clear = None
-            entropy = self._entropy.pop(id(trainer), None)
-            if keys is not None and type(family) is DataProtoFamily:  # the legacy path S0 proved (T3)
-                clear = session.training_guard.call("per-sample training metrics", stamp_update_batch, trainer, batch,
+            kept = self._entropy.pop(id(trainer), None)
+            stamp = None
+            if keys is not None:
+                stamp = session.training_guard.call("per-sample training metrics", family.stamp_actor, trainer, batch,
                                                     step, keys)  # fmt: skip
-                if entropy is not None:
-                    session.training_guard.call("per-sample entropy", self._send_entropy, session, trainer, step, keys,
-                                                entropy)  # fmt: skip
+            if stamp is not None:
+                clear = stamp.clear
+                session.training_guard.call("per-sample entropy", self._send_entropy, session, family, trainer, batch,
+                                            stamp.step, keys, kept)  # fmt: skip
             try:
                 with self._mark_inside("_update_actor"):
                     result = original(trainer, batch, *args, **kwargs)
@@ -505,8 +589,8 @@ class TrainerWraps:
                 return original(trainer, batch, *args, **kwargs)
             clear = None
             is_warmup = session.guard.call("the critic warmup", family.is_critic_warmup, trainer)
-            if type(family) is DataProtoFamily and not is_warmup:  # the critic's rows, beside the actor's (D4)
-                clear = session.training_guard.call("per-sample training metrics", self._stamp_critic, family, trainer,
+            if not is_warmup:  # the critic's rows, beside the actor's (D4)
+                clear = session.training_guard.call("per-sample training metrics", family.stamp_critic, trainer,
                                                     batch)  # fmt: skip
             try:
                 with self._mark_inside("_update_critic"):
@@ -525,7 +609,7 @@ class TrainerWraps:
         def call_compute_old_log_prob(trainer: Any, batch: Any, *args: Any, **kwargs: Any) -> Any:
             result = original(trainer, batch, *args, **kwargs)
             session, family = self._get_recording(trainer, "_compute_old_log_prob")
-            if session is not None and type(family) is DataProtoFamily:  # the fully async trainer's own pass: not run
+            if session is not None:  # a `DataProto` pass (legacy, fully async); V1's is read at the update
                 rows = session.training_guard.call("per-sample entropy", self._read_entropy, trainer, batch, result)
                 # Always replace: a warmup step leaves its rows unsent, and a failed read must never resend them
                 # under the next step's keys.
@@ -540,14 +624,13 @@ class TrainerWraps:
         return read_entropy_rows(batch, result) if has_entropy_rows(trainer.config) else None
 
     @staticmethod
-    def _stamp_critic(family: TrainerFamily, trainer: Any, batch: Any) -> Callable[[], None] | None:
-        """The critic's batch stamped with the keys the actor's update records next (its `uid` column alone)."""
-        step = family.get_train_step(trainer)
-        return stamp_update_batch(trainer, batch, step, read_row_keys(batch, step), role="critic")
-
-    @staticmethod
-    def _send_entropy(session: Any, trainer: Any, step: int, keys: list[str], rows: list[tuple[float, float]]) -> None:
-        points = build_entropy_points(step, keys, rows, get_reduction(trainer.config))
+    def _send_entropy(session: Any, family: TrainerFamily, trainer: Any, batch: Any, step: int, keys: list[str],
+                      kept: list[tuple[float, float]] | None) -> None:  # fmt: skip
+        """`actor/entropy` rows at ``step`` (where the stamp put the step's rows) under the recorder's keys."""
+        rows = family.read_entropy(trainer, batch, kept)
+        if rows is None:
+            return
+        points = build_entropy_points(step, keys, rows, get_reduction(trainer.config), family.is_entropy_per_mini_step)
         if points:
             session.samples.log_metrics_many(points)
 

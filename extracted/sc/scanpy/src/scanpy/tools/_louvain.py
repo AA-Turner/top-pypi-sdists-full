@@ -1,25 +1,35 @@
 from __future__ import annotations
 
-from types import MappingProxyType
+import sys
 from typing import TYPE_CHECKING
+
+if sys.version_info < (3, 15):
+    from types import MappingProxyType as frozendict  # noqa: N813
 
 import numpy as np
 import pandas as pd
 from natsort import natsorted
-from packaging.version import Version
-from scverse_misc import Deprecation, deprecated
+from scverse_misc import Deprecation, deprecated, deprecated_arg
 
 from .. import _utils
 from .. import logging as logg
-from .._compat import old_positionals, pkg_version, warn
-from .._utils import _choose_graph, _doc_params, dematrix
+from .._docs import (
+    DEPR_ADJACENCY,
+    DEPR_KEY_ADDED,
+    DEPR_NEIGHBORS_KEY,
+    DEPR_OBSP_GRAPH,
+    doc_out_key,
+)
+from .._utils import _doc_params
+from ..get._out import _out_key, deprecated_copy
+from ..neighbors._common import _use_graph
 from ._docs import (
     doc_adata,
     doc_adjacency,
     doc_neighbors_key,
     doc_obsp,
-    doc_random_state,
     doc_restrict_to,
+    doc_use_neighbors,
 )
 from ._utils_clustering import rename_groups, restrict_adjacency
 
@@ -31,55 +41,60 @@ if TYPE_CHECKING:
 
     from .._compat import CSBase
     from .._utils.random import _LegacyRandom
+    from ..get._types import GraphAcc, VecRef
 
     try:  # sphinx-autodoc-typehints + optional dependency
         from louvain.VertexPartition import MutableVertexPartition
     except ImportError:
         if not TYPE_CHECKING:
-            MutableVertexPartition = type("MutableVertexPartition", (), {})
-            MutableVertexPartition.__module__ = "louvain.VertexPartition"
+            MutableVertexPartition = type(
+                "MutableVertexPartition", (), dict(__module__="louvain.VertexPartition")
+            )
 
 
-@old_positionals(
-    "random_state",
-    "restrict_to",
-    "key_added",
-    "adjacency",
-    "flavor",
-    "directed",
-    "use_weights",
-    "partition_type",
-    "partition_kwargs",
-    "neighbors_key",
-    "obsp",
-    "copy",
-)
 @deprecated(Deprecation("1.12.0", "Use :func:`scanpy.tl.leiden` instead."))
 @_doc_params(
     doc_adata=doc_adata,
-    random_state=doc_random_state,
     restrict_to=doc_restrict_to,
     adjacency=doc_adjacency,
     neighbors_key=doc_neighbors_key.format(method="louvain"),
     obsp=doc_obsp,
+    use=doc_use_neighbors(),
+    out=doc_out_key(
+        "the cluster labels",
+        example="A.obs['clusters']",
+        key_added="`key_added='k'` is `out=A.obs['k']`.",
+        default=(
+            "`.obs['louvain']` and `.uns['louvain']` "
+            "(`'louvain_R'` if `restrict_to` is passed)"
+        ),
+    ),
 )
+@deprecated_arg("key_added", DEPR_KEY_ADDED)
+@deprecated_arg("adjacency", DEPR_ADJACENCY)
+@deprecated_arg("neighbors_key", DEPR_NEIGHBORS_KEY)
+@deprecated_arg("obsp", DEPR_OBSP_GRAPH)
+@deprecated_copy
 def louvain(  # noqa: PLR0912, PLR0913, PLR0915
     adata: AnnData,
     resolution: float | None = None,
     *,
     random_state: _LegacyRandom = 0,
     restrict_to: tuple[str, Sequence[str]] | None = None,
-    key_added: str = "louvain",
-    adjacency: CSBase | None = None,
-    flavor: Literal["vtraag", "igraph", "rapids"] = "vtraag",
+    flavor: Literal["vtraag", "igraph"] = "vtraag",
     directed: bool = True,
     use_weights: bool = False,
     partition_type: type[MutableVertexPartition] | None = None,
-    partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
+    partition_kwargs: Mapping[str, Any] = frozendict({}),
+    use: GraphAcc | str | None = None,
+    out: VecRef | bool = False,
+    # deprecated
+    adjacency: CSBase | None = None,
     neighbors_key: str | None = None,
     obsp: str | None = None,
+    key_added: str | None = None,
     copy: bool = False,
-) -> AnnData | None:
+) -> AnnData | pd.Categorical | None:
     """Cluster cells into subgroups :cite:p:`Blondel2008,Levine2015,Traag2017`.
 
     Cluster cells using the Louvain algorithm :cite:p:`Blondel2008` in the implementation
@@ -87,8 +102,7 @@ def louvain(  # noqa: PLR0912, PLR0913, PLR0915
     analysis by :cite:t:`Levine2015`.
 
     This requires having run :func:`~scanpy.pp.neighbors` or
-    :func:`~scanpy.external.pp.bbknn` first,
-    or explicitly passing a ``adjacency`` matrix.
+    :func:`~scanpy.pp.bbknn` first (see `use`).
 
     .. array-support:: tl.louvain
 
@@ -100,11 +114,9 @@ def louvain(  # noqa: PLR0912, PLR0913, PLR0915
         resolution (higher resolution means finding more and smaller clusters),
         which defaults to 1.0.
         See “Time as a resolution parameter” in :cite:t:`Lambiotte2014`.
-    {random_state}
+    random_state
+        Change the initialization of the optimization.
     {restrict_to}
-    key_added
-        Key under which to add the cluster labels. (default: ``'louvain'``)
-    {adjacency}
     flavor
         Choose between to packages for computing the clustering.
 
@@ -112,13 +124,8 @@ def louvain(  # noqa: PLR0912, PLR0913, PLR0915
             Much more powerful than ``'igraph'``, and the default.
         ``'igraph'``
             Built in ``igraph`` method.
-        ``'rapids'``
-            GPU accelerated implementation.
-
-            .. deprecated:: 1.10.0
-                Use :func:`rapids_singlecell.tl.louvain` instead.
     directed
-        Interpret the ``adjacency`` matrix as directed graph?
+        Interpret the graph as directed?
     use_weights
         Use weights from knn graph.
     partition_type
@@ -127,6 +134,9 @@ def louvain(  # noqa: PLR0912, PLR0913, PLR0915
     partition_kwargs
         Key word arguments to pass to partitioning,
         if ``vtraag`` method is being used.
+    {use}
+    {out}
+    {adjacency}
     {neighbors_key}
     {obsp}
     copy
@@ -134,25 +144,30 @@ def louvain(  # noqa: PLR0912, PLR0913, PLR0915
 
     Returns
     -------
-    Returns `None` if `copy=False`, else returns an `AnnData` object. Sets the following fields:
+    Returns the cluster labels if `out=True`, else `None`.
+    By default sets the following fields (see `out` for others):
 
-    `adata.obs['louvain' | key_added]` : :class:`pandas.Series` (dtype ``category``)
+    `adata.obs['louvain']` : :class:`pandas.Series` (dtype ``category``)
         Array of dim (number of samples) that stores the subgroup id
         (``'0'``, ``'1'``, ...) for each cell.
 
-    `adata.uns['louvain' | key_added]['params']` : :class:`dict`
+    `adata.uns['louvain']['params']` : :class:`dict`
         A dict with the values for the parameters `resolution`, `random_state`,
         and `n_iterations`.
 
     """
+    key = _out_key(out, key_added, kind="obs", default="louvain")
+    # like `key_added`, the default key gets a suffix, keys from `out` are literal
+    if restrict_to is not None and key == "louvain" and out is False:
+        key += "_R"
     partition_kwargs = dict(partition_kwargs)
     start = logg.info("running Louvain clustering")
     if (flavor != "vtraag") and (partition_type is not None):
         msg = '`partition_type` is only a valid argument when `flavour` is "vtraag"'
         raise ValueError(msg)
-    adata = adata.copy() if copy else adata
-    if adjacency is None:
-        adjacency = _choose_graph(adata, obsp, neighbors_key)
+    adjacency = _use_graph(
+        adata, use, adjacency=adjacency, obsp=obsp, neighbors_key=neighbors_key
+    )
     if restrict_to is not None:
         restrict_key, restrict_categories = restrict_to
         adjacency, restrict_indices = restrict_adjacency(
@@ -179,10 +194,7 @@ def louvain(  # noqa: PLR0912, PLR0913, PLR0915
                 partition_kwargs["resolution_parameter"] = resolution
             if use_weights:
                 partition_kwargs["weights"] = weights
-            if pkg_version("louvain") < Version("0.7.0"):
-                louvain.set_rng_seed(random_state)
-            else:
-                partition_kwargs["seed"] = random_state
+            partition_kwargs["seed"] = random_state
             logg.info('    using the "louvain" package of Traag (2017)')
             part = louvain.find_partition(
                 g,
@@ -193,44 +205,6 @@ def louvain(  # noqa: PLR0912, PLR0913, PLR0915
         else:
             part = g.community_multilevel(weights=weights)
         groups = np.array(part.membership)
-    elif flavor == "rapids":
-        msg = (
-            "`flavor='rapids'` is deprecated. "
-            "Use `rapids_singlecell.tl.louvain` instead."
-        )
-        warn(msg, FutureWarning)
-        # nvLouvain only works with undirected graphs,
-        # and `adjacency` must have a directed edge in both directions
-        import cudf
-        import cugraph
-
-        offsets = cudf.Series(adjacency.indptr)
-        indices = cudf.Series(adjacency.indices)
-        if use_weights:
-            sources, targets = adjacency.nonzero()
-            weights = dematrix(adjacency[sources, targets]).ravel()
-            weights = cudf.Series(weights)
-        else:
-            weights = None
-        g = cugraph.Graph()
-
-        if hasattr(g, "add_adj_list"):
-            g.add_adj_list(offsets, indices, weights)
-        else:
-            g.from_cudf_adjlist(offsets, indices, weights)
-
-        logg.info('    using the "louvain" package of rapids')
-        if resolution is not None:
-            louvain_parts, _ = cugraph.louvain(g, resolution=resolution)
-        else:
-            louvain_parts, _ = cugraph.louvain(g)
-        groups = (
-            louvain_parts
-            .to_pandas()
-            .sort_values("vertex")[["partition"]]
-            .to_numpy()
-            .ravel()
-        )
     elif flavor == "taynaud":
         # this is deprecated
         import community
@@ -245,22 +219,23 @@ def louvain(  # noqa: PLR0912, PLR0913, PLR0915
         msg = '`flavor` needs to be "vtraag" or "igraph" or "taynaud".'
         raise ValueError(msg)
     if restrict_to is not None:
-        if key_added == "louvain":
-            key_added += "_R"
         groups = rename_groups(
             adata,
-            key_added=key_added,
             restrict_key=restrict_key,
             restrict_categories=restrict_categories,
             restrict_indices=restrict_indices,
             groups=groups,
         )
-    adata.obs[key_added] = pd.Categorical(
+    labels = pd.Categorical(
         values=groups.astype("U"),
         categories=natsorted(map(str, np.unique(groups))),
     )
-    adata.uns[key_added] = {}
-    adata.uns[key_added]["params"] = dict(
+    if key is True:
+        logg.info("    finished", time=start)
+        return labels
+    adata.obs[key] = labels
+    adata.uns[key] = {}
+    adata.uns[key]["params"] = dict(
         resolution=resolution,
         random_state=random_state,
     )
@@ -269,7 +244,7 @@ def louvain(  # noqa: PLR0912, PLR0913, PLR0915
         time=start,
         deep=(
             f"found {len(np.unique(groups))} clusters and added\n"
-            f"    {key_added!r}, the cluster labels (adata.obs, categorical)"
+            f"    {key!r}, the cluster labels (adata.obs, categorical)"
         ),
     )
-    return adata if copy else None
+    return None

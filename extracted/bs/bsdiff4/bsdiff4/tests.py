@@ -14,7 +14,8 @@ from threading import Barrier
 import bsdiff4.core as core  # type: ignore
 from bsdiff4.format import (pack_header, unpack_header,
                             pack_control_block, unpack_control_block,
-                            write_patch, read_patch)
+                            NonCanonicalError, validate_canonical,
+                            read_patch, write_patch)
 from bsdiff4 import diff, patch, file_diff, file_patch, file_patch_inplace
 
 
@@ -46,7 +47,7 @@ class TestCoreInt64(unittest.TestCase):
             self.assertEqual(core.encode_int64(n), b)
             self.assertEqual(core.decode_int64(b), n)
 
-        self.assertEqual(  # noncanonical "negative zero"
+        self.assertEqual(  # non-canonical "negative zero"
             core.decode_int64(bytes.fromhex('00 00 00 00 00 00 00 80')), 0)
 
     def test_errors(self):
@@ -69,54 +70,78 @@ class TestCoreInt64(unittest.TestCase):
             self.assertEqual(core.decode_int64(b), n)
 
 
+RND_200 = os.urandom(200)
+
+BYTES_CASES = [b'', b'a', b'abc', 50 * b'A', 50 * b'A' + 50 * b'B', RND_200]
+
+
 class TestSuffixArray(unittest.TestCase):
 
-    def test_basic(self):
+    def test_examples(self):
         SA = core.suffix_array
         self.assertEqual(SA(b''), [0])
         self.assertEqual(SA(b'banana'), [6, 5, 3, 1, 0, 4, 2])
 
-    def test_equal_bytes(self):
-        n = 10_000
-        self.assertEqual(core.suffix_array(n * b'a'),
-                         list(range(n, -1, -1)))
-
-    def check_data(self, data):
-        self.assertEqual(
-            core.suffix_array(data),
-            sorted(range(len(data) + 1), key=lambda i: data[i:]))
-
-    def test_repeated_groups(self):
-        self.check_data(32 * b'a')
-        self.check_data(100 * b'a' + 100 * b'b')
-
-    def test_two_element_group(self):
-        # A two-element group must not be mistaken for a singleton.
-        self.check_data(b'CCBBCCCACCCCBCACBCCCCC')
-
-    def test_random(self):
-        # randomized comparison
-        self.check_data(os.urandom(1000))
+    def test_cases(self):
+        for data in BYTES_CASES:
+            self.assertEqual(
+                core.suffix_array(data),
+                sorted(range(len(data) + 1), key=lambda i: data[i:]))
 
 
-RND_200 = os.urandom(200)
+# Although non-canonical, each control sequence is valid and transforms
+# b'Banana' into b'bandana' with diff b'\x20\x00\x00' and extra b'dana'.
+NON_CANONICAL_CONTROLS = [
+    # Control tuples not merged.
+    ([(3, 0, 0), (0, 4, 0)], "adjacent"),
+    # Consecutive diffs.
+    ([(2, 0, 0), (1, 4, 0)], "adjacent"),
+    ([(1, 0, 0), (2, 0, 0), (0, 4, 0)], "adjacent"),
+    # Consecutive extras.
+    ([(3, 2, 0), (0, 2, 0)], "empty diff range"),
+    ([(3, 0, 0), (0, 2, 0), (0, 2, 0)], "adjacent"),
+    # Consecutive z values.
+    ([(0, 0, 11), (0, 0, -4), (0, 0, -7), (3, 4, 0)], "^source position"),
+    # Final z value.
+    ([(3, 4, 2)], "final z not zero"),
+    # No-op control tuple.
+    ([(0, 0, 0), (3, 4, 0)], "no-op"),
+]
+
 
 ROUND_TRIP_CASES = [
     (b'', b''),
     (b'', b'x'),
     (b'abc', b'abc'),
     (b'abc', b'abx'),
+    (b'abc', b'axc'),
     (b'abc', b'abxy'),
     (b'abc', b'xbc'),
     (b'abc', b'xybc'),
+    (b'Banana', b'bandana'),
+    (b'ccccdabcadcb', b'ccccdcdabcadcb'),
     (b'123456789 987654321', b'123456789000987654321'),  # issue #14
+    # These inputs cause control tuples to be merged during diff generation.
+    (b'ababababcdababababc', b'&ababababcdabababab'),
+    (b'aaaaaaaaaaaaaaaaaaaabxtrabytes',
+     b'ccaaaaaaaaaaaaaaaaaabexbytesbextrabytes'),
+    (b'gaiififkegaiififkegaiififkejcdldhialkegaiifif',
+     b'kaiififkegaiififkedmcfajfbbkegaiififkegaiifif'),
+    (b'srfljlkeoxqdhiusrfljlkeoxqdhiusrfljcadrfljlkeoxqdhius',
+     b'irfljlkeoxqdhiusrfljtwyvgpnbmeoxqdhiusrfljlkeox'),
+    # swap repeated blocks
+    (50 * b'a' + 50 * b'b', 50 * b'b' + 50 * b'a'),
+    # swap random blocks
+    (RND_200, RND_200[100:] + RND_200[:100]),
     (b'', RND_200),
     (RND_200, RND_200),
     (RND_200, os.urandom(20) + RND_200),
     (RND_200, RND_200 + os.urandom(20)),
+    # Three bytes in the middle replaced.
+    (RND_200, RND_200[:98] + os.urandom(3) + RND_200[101:]),
+    # 10 bytes replaced by 15 new bytes
+    (RND_200, RND_200[:95] + os.urandom(15) + RND_200[105:]),
 ]
-
-BYTES_CASES = [b'', b'a', b'abc', 100 * b'a', RND_200]
 
 
 class TestCoreDiffPatch(unittest.TestCase):
@@ -125,6 +150,7 @@ class TestCoreDiffPatch(unittest.TestCase):
         blocks = core.diff(src, dst)
         for block in blocks:
             self.assertIs(type(block), bytes)
+        validate_canonical(blocks[0], len(src))
         dst2 = core.patch(src, *blocks)
         self.assertIs(type(dst2), bytes)
         self.assertEqual(dst2, dst)
@@ -143,35 +169,74 @@ class TestCoreDiffPatch(unittest.TestCase):
         self.assertEqual(core.patch(src, *blocks), dst)
 
     def test_diff_simple_example(self):
-        self.check_diff_blocks(b'banana', b'bandana',
-                               [(3, 4, 2)], 3 * b'\x00', b'dana')
+        self.check_diff_blocks(b'Banana', b'bandana',
+                               [(3, 4, 0)], b'\x20\x00\x00', b'dana')
 
     def test_nonzero_diff(self):
         src = b"The quick brown fox jumps over the lazy dog."
-        dst = b"The quick brown fox jumps over the hazy dog."
-        n = len(src)
+        dst = b"the quick brown fox jumps over the hazy dog."
+        n = len(dst)
         diff = bytearray(n)
+        diff[0] = 32
         diff[35] = (ord(b'h') - ord(b'l')) & 0xff
-        self.check_diff_blocks(src, dst, [(n, 0, -8)], bytes(diff), b'')
+        self.check_diff_blocks(src, dst, [(n, 0, 0)], bytes(diff), b'')
+
+    def test_merge_rules(self):
+        #                       ...................
+        src = b'SRFLJLKEOXQDHIUSRFLJLKEOXQDHIUSRFLJCADRFLJLKEOXQDHIUS'
+        dst = b'IRFLJLKEOXQDHIUSRFLJTWYVGPNBMEOXQDHIUSRFLJLKEOX'
+        #        ^^^^^^^^^^^^^^^^^^^
+        # dst[1:20] occurs in src at offsets 1 and 16.  The matcher first
+        # selects the latter occurrence, then returns to the former.
+        self.assertTrue(src[1:20] == src[16:35] == dst[1:20])
+        # Without merging, controls would be:
+        #     [(1, 0, 15), (0, 0, -15), (19, 27, 0)]
+        # Branch 1 merges the first two tuples:
+        #     [(1, 0, 0), (19, 27, 0)]
+        # Branch 2 can then see that the two diff ranges access consecutive
+        # source positions and merge them:
+        #     [(20, 27, 0)]
+        self.check_diff_blocks(src, dst,
+                               controls=[(20, 27, 0)],
+                               diff=b'\xf6' + 19 * b'\x00',
+                               extra=b'TWYVGPNBMEOXQDHIUSRFLJLKEOX')
+
+    def test_merge_rules_diff_only(self):
+        A = b'RCdrQsXKTOo1N5Ml7Xa'
+        B = b'332230220'
+        C = b'cGIm8gt4E'
+        D = b'ZHDSOJjqK'
+        src = A + A + B + C + A + B + B
+        dst = A + A + D + B + A + B + B
+        # Without merging, controls would be:
+        #     [(19, 0, 37), (0, 0, -37), (74, 0, 0)]
+        # The first merge rule gives:
+        #     [(19, 0, 0), (74, 0, 0)]
+        # The second gives the canonical result:
+        #     [(93, 0, 0)]
+        # The seeks cancel, so the diff block is simply the bytewise
+        # difference between dst and src.
+        bdiff = bytes((b - a) & 0xff for a, b in zip(src, dst))
+        self.check_diff_blocks(src, dst, [(93, 0, 0)], bdiff, b'')
 
     def test_diff_insert_byte(self):
         src = 32 * b'a'
         dst = src[:16] + b'b' + src[16:]
-        self.check_diff_blocks(src, dst, [(32, 1, -1)],
+        self.check_diff_blocks(src, dst, [(32, 1, 0)],
                                diff=16 * b'\x00' + b'\x01' + 15 * b'\x00',
                                extra=b'a')
 
     def test_diff_swap_repeated_blocks(self):
         A, B = 100 * b'A', 100 * b'B'
         self.check_diff_blocks(A + B, B + A,
-                               [(0, 100, 0), (100, 0, -100)],
+                               [(0, 100, 0), (100, 0, 0)],
                                diff=100 * b'\x00', extra=B)
 
     def test_diff_swap_blocks(self):
         src = bytes(range(200))
         dst = src[100:] + src[:100]
         self.check_diff_blocks(src, dst,
-                               [(0, 0, 100), (100, 0, -200), (100, 0, -100)],
+                               [(0, 0, 100), (100, 0, -200), (100, 0, 0)],
                                diff=200 * b'\x00', extra=b'')
 
     def test_diff_adjust_overlap(self):
@@ -179,7 +244,7 @@ class TestCoreDiffPatch(unittest.TestCase):
         # matching block.
         self.check_diff_blocks(b'ccccdabcadcb',
                                b'ccccdcdabcadcb',
-                               [(5, 0, -2), (9, 0, -9)],
+                               [(5, 0, -2), (9, 0, 0)],
                                14 * b'\x00', b'')
 
     def test_empty_dst(self):
@@ -217,7 +282,42 @@ class TestCoreDiffPatch(unittest.TestCase):
         blocks = bcontrol, len(src) * b'\x01', b''
         self.assertEqual(core.patch(src, *blocks), dst)
 
-    def test_patch(self):
+    def check_banana_patch(self, controls,
+                           diff=b'\x20\x00\x00', extra=b'dana', msg=None):
+        src = b'Banana'
+        dst = b'bandana'
+        bcontrol = pack_control_block(*controls)
+        self.assertEqual(core.patch(src, bcontrol, diff, extra), dst)
+        if msg is None:
+            validate_canonical(bcontrol, len(src))
+        else:
+            with self.assertRaisesRegex(NonCanonicalError, msg):
+                validate_canonical(bcontrol, len(src))
+
+    def test_patch_non_canonical(self):
+        dst = b'bandana'
+        check = self.check_banana_patch
+
+        # canonical patch
+        check([(3, 4, 0)])
+        # Also canonical, but not returned by core.diff().
+        check([(6, 1, 0)], b'\x20\x00\x00\x03\xf3\x0d', b'a')
+        check([(4, 3, 0)], b'\x20\x00\x00\x03', b'ana')
+        check([(0, 7, 0)], b'', dst)
+
+        for controls, msg in NON_CANONICAL_CONTROLS:
+            check(controls, msg=msg)
+
+        # Negative source position.
+        check([(0, 0, -7), (7, 0, 0)], dst, b'', msg="negative source")
+        # Diff range extends one byte beyond the source.
+        check([(7, 0, 0)], b'\x20\x00\x00\x03\xf3\x0da', b'',
+              msg="diff range not in source range")
+        # Source position starts beyond the end of the source.
+        check([(0, 0, 7), (1, 6, 0)], diff=b'b', extra=b'andana',
+              msg="source position not in source range")
+
+    def test_patch_noop(self):
         noop = pack_control_block((0, 0, 0))  # no-op control tuple
         noop2 = 3 * (7 * b'\x00' + b'\x80')   # negative zero no-op
         operation = pack_control_block((3, 4, 2))
@@ -315,6 +415,47 @@ class TestHelpers(unittest.TestCase):
             bcontrol = unpack_control_block(n * b'\x00')
             self.assertRaisesRegex(ValueError, "invalid control block",
                                    list, bcontrol)  # force iteration
+
+
+class TestValidateCanonical(unittest.TestCase):
+
+    # Additional tests for validate_canonical() beyond those in
+    # test_patch_non_canonical.
+
+    def test_error_type(self):
+        msg = "invalid control block"
+        with self.assertRaisesRegex(ValueError, msg) as cm:
+            validate_canonical(30 * b'\x00')
+        self.assertIs(type(cm.exception), ValueError)
+
+        with self.assertRaisesRegex(NonCanonicalError, "no-op"):
+            validate_canonical(24 * b'\x00')
+
+    def test_negative_zero(self):
+        zero = 8 * b'\x00'
+        negzero = 7 * b'\x00' + b'\x80'
+
+        for i in range(6):
+            values = 6 * [zero]
+            values[i] = negzero
+            with self.assertRaisesRegex(NonCanonicalError, "negative zero"):
+                validate_canonical(b''.join(values))
+
+    def test_source_independent(self):
+        bcontrol = pack_control_block((0, 0, 7), (1, 6, 0))
+        # Without a source length, the control structure is canonical.
+        validate_canonical(bcontrol)
+
+        # With a source length of 6, the source position starts beyond
+        # the end of the source.
+        self.assertRaisesRegex(NonCanonicalError,
+                               "source position not in source range",
+                               validate_canonical, bcontrol, 6)
+
+    def test_empty(self):
+        # An empty control block is always canonical.
+        for src_len in None, 0, 1, 123:
+            validate_canonical(b'', src_len)
 
 
 class Example:
@@ -668,6 +809,7 @@ def run(verbosity=1):
     print('bsdiff4 version: %s' % __version__)
     print('UNDER_QEMU: %s' % UNDER_QEMU)
     print('GIL_DISABLED: %s' % GIL_DISABLED)
+    print('DEBUG: %s' % getattr(core, "DEBUG", 0))
 
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()

@@ -10,7 +10,7 @@ class ModifyActiveOperationTasksResponseBody(DaraModel):
         ids: str = None,
         request_id: str = None,
     ):
-        # The O&M task IDs. Multiple IDs are separated with commas (,).
+        # The IDs of the O&M tasks. Separate multiple IDs with commas (,).
         self.ids = ids
         # The request ID.
         self.request_id = request_id

@@ -1,1 +1,0 @@
-import{b as t,r as a}from"./index-B4TYyLv3.js";function i({embedded:r=!1}){const e=t();return a.useEffect(()=>{e({to:r?"/plugins/embed":"/plugins",replace:!0})},[r,e]),null}export{i as PluginMirrorsPage};

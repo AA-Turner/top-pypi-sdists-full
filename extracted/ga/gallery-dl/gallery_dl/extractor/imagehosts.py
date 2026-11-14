@@ -104,13 +104,19 @@ class ImxtoImageExtractor(ImagehostImageExtractor):
             self.page_url = self.page_url.replace("img.yt", "imx.to")
 
     def get_info(self, page):
-        url, pos = text.extract(
-            page, '<div style="text-align:center;"><a href="', '"')
-        if url:
-            self.file_url = url
+        for needle in (
+            '<div style="text-align:center;"><a href="',
+            'class="img-center"><a href="',
+            'class="centred img-full" src="',
+        ):
+            if img := text.extr(page, needle, '>'):
+                break
         else:
             self.not_found()
-        filename, pos = text.extract(page, ' title="', '"', pos)
+
+        self.file_url = url = img[:img.find('"')]
+        filename = (text.extr(img, ' title="', '"') or
+                    text.extr(img, ' alt="', '"'))
         return url, filename or None
 
     def metadata(self, page):

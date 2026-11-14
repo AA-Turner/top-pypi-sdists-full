@@ -13,13 +13,13 @@ class CreateReadOnlyDBInstanceResponseBody(DaraModel):
         port: str = None,
         request_id: str = None,
     ):
-        # The internal database connection address of the read-only instance.
+        # The internal database endpoint of the created read-only instance.
         self.connection_string = connection_string
-        # The read-only instance ID.
+        # The instance ID of the created read-only instance.
         self.dbinstance_id = dbinstance_id
         # The order ID.
         self.order_id = order_id
-        # The internal database connection port of the read-only instance.
+        # The internal database port of the created read-only instance.
         self.port = port
         # The request ID.
         self.request_id = request_id

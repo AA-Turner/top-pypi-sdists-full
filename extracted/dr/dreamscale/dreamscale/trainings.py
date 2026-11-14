@@ -197,7 +197,11 @@ def default_name(source: DatasetSource) -> str:
 
 
 IMAGE_PREFIX = "observation.images."
-_SLOTS = ("base", "left_wrist", "right_wrist")
+# The camera roles a mapping may name: the shared vocabulary (dreamscale_transport.training_data
+# role_kind: three roles, then extra scene and wrist roles numbered from 1; test_trainings keeps
+# the two equal), here so the SDK needs no newer transport release. The server checks which of
+# them the run's base takes.
+_ROLE = re.compile(r"base|left_wrist|right_wrist|extra_(scene|wrist)_[1-9][0-9]*")
 
 
 def parse_inputs(specs: list[str]) -> dict[str, dict[str, Any]]:
@@ -253,13 +257,14 @@ def parse_mapping(
     picked = []
     for spec in cameras or []:
         feature, _, slot = spec.rpartition("=")
-        if not feature or slot not in _SLOTS:
+        if not feature or not _ROLE.fullmatch(slot):
             raise errors.DreamscaleError(
                 errors.ErrorInfo(
                     code="invalid_camera",
                     problem=f"--camera {spec} isn't camera=slot",
                     cause="each --camera names one recorded camera and its camera role",
-                    fix=f"pass e.g. --camera top=base (slots: {', '.join(_SLOTS)})",
+                    fix="pass e.g. --camera top=base (slots: base, left_wrist, right_wrist, or "
+                    "extra_scene_<n> and extra_wrist_<n> for a base that takes more cameras)",
                 )
             )
         picked.append({"feature": feature, "slot": slot})
@@ -1057,12 +1062,15 @@ class Training:
         completed. Deployments made from its checkpoints keep running."""
         call(self._client_factory, "delete_training", self.id)
 
-    def deploy(self, step: int | None = None, *, region: str | None = "auto") -> dict:
+    def deploy(self, step: int | None = None, *, region: str | None = "auto",
+               executed: int | None = None, engine: str | None = None) -> dict:
         """A Deployment of a checkpoint (1-based ``step``; default the latest). It validates
         on a GPU first; pass its ``model`` and ``id`` to ``dreamscale.connect``. ``region``: a
         region id such as ``"japan"``, or ``"auto"`` (the default), the nearest region its base
         serves, measured from here as ``dreamscale train deploy`` does (the server's default
-        when nothing could be measured)."""
+        when nothing could be measured). ``executed``: the rows the robot executes per chunk
+        (default: the run's own). ``engine``: where its base offers a choice (Praxis-1),
+        ``"standard"`` (the default) or ``"lightning"`` (experimental: the same actions, sooner)."""
         from dreamscale.checkpoints_cmd import AUTO_REGION, _check_region, parse_region
 
         region = parse_region(region)
@@ -1074,7 +1082,9 @@ class Training:
                                     print_fn=lambda _: None)
                       if isinstance(base, str) else None)
         result = call(
-            self._client_factory, "deploy_training", self.id, step=step, region=region
+            self._client_factory, "deploy_training", self.id, step=step, region=region,
+            **({"executed_actions": executed} if executed is not None else {}),
+            **({"engine": engine} if engine is not None else {}),
         )
         return result.get("deployment") or result
 

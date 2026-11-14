@@ -22,6 +22,15 @@ CLI = Base({"bimanual_yam": "Bimanual YAM", "custom": "Custom"}, (
 ), None)
 
 
+def _actions(spec: dict) -> str:
+    """`20 of 30 actions at 30 Hz`; a checkpoint that records no rate (a custom robot's, before
+    its create names one) says so."""
+    executed = f"{spec.get('executed_actions')} of {spec['action_horizon']} actions"
+    rate = spec.get("action_hz")
+    return f"{executed} at {cmd._hz(rate)} Hz" if rate is not None else (
+        f"{executed}, rate not recorded")
+
+
 def abc_vla_robot_line(checkpoint: dict) -> str:
     """One line for an ABC-VLA deployment: robot, widths, geometry, rate and RTC. Before its
     build reads the checkpoint, a row holds only what its create sent."""
@@ -32,8 +41,7 @@ def abc_vla_robot_line(checkpoint: dict) -> str:
     if spec.get("state_dim") is not None:
         parts.append(cmd._widths(spec))
     if spec.get("action_horizon") is not None:
-        parts.append(f"{spec.get('executed_actions')} of {spec['action_horizon']} actions at "
-                     f"{cmd._hz(spec.get('action_hz'))} Hz")
+        parts.append(_actions(spec))
     # The build settles RTC (the checkpoint's default unless the create named one).
     if checkpoint.get("rtc_method") and checkpoint.get("status") != "building":
         parts.append(f"RTC {cmd.prefix_rtc(checkpoint)}")
@@ -50,8 +58,7 @@ def _describe_abc_vla(checkpoint: dict) -> list[str]:
         where = f"local checkpoint (upload {source.get('repo')})"
     where += f" · {path}" if path else ""
     cameras = ", ".join(f"{c.get('key')} → {c.get('feature')}" for c in spec.get("cameras") or [])
-    geometry = (f"executes {spec.get('executed_actions')} of {spec.get('action_horizon')} "
-                f"actions at {cmd._hz(spec.get('action_hz'))} Hz")
+    geometry = f"executes {_actions(spec)}" if spec.get("action_horizon") is not None else ""
     if spec.get("denoising_steps"):
         geometry += f" · {spec['denoising_steps']} denoising steps"
     lines = [
@@ -143,6 +150,16 @@ def run_add_abc_vla(*, repo: str, revision=None, name=None, hf_token=None, path=
         raise cmd._invalid(
             "this checkpoint records no prefix training, so it can't run trained RTC",
             "omit --rtc (it runs RTC off)",
+        )
+    # A custom robot's rate: the one named, else the one its checkpoint records (a Dreamscale
+    # training export's); with neither, the build would refuse it, so refuse before uploading.
+    detected = found.get("detected") or {}
+    robot = preset or ("custom" if cameras is not None else detected.get("preset"))
+    if robot == "custom" and hz is None and detected.get("action_hz") is None:
+        raise cmd._invalid(
+            "a custom ABC-VLA robot names its control rate",
+            "pass --hz, the rate its dataset was recorded at",
+            cause="the checkpoint doesn't record it",
         )
     embodiment: dict = {}
     if preset is not None:
@@ -253,7 +270,7 @@ EXPORTED = ExportedBase(
 )
 BASE = DeployBase(
     family="abc_vla", name=NAME, label="ABC-VLA", cli=CLI, aliases=("abc-vla",),
-    creates_as="abc-vla",
+    listed_as=NAME,
     robot_line=abc_vla_robot_line, describe=_describe_abc_vla, shows_rtc=True, runner=runner,
     set_rtc=set_rtc, detects_as_base=True, found_lines=abc_vla_found_lines,
     local_archive=True, create=_create_abc_vla, exported=EXPORTED,

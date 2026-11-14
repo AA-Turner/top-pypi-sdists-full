@@ -38,9 +38,9 @@ class StartDBInstanceRequest(DaraModel):
         self.dedicated_host_group_id = dedicated_host_group_id
         # The effective period. This parameter is only supported for instances in a dedicated cluster. Valid values:
         # 
-        # * **Immediate**: The changes take effect immediately.
-        # * **MaintainTime**: The changes take effect within the maintenance window. For more information, see ModifyDBInstanceMaintainTime.
-        # * **SpecificTime**: The changes take effect at a specified time.
+        # * **Immediate**: The operation takes effect immediately.
+        # * **MaintainTime**: The operation takes effect within the maintenance window. For more information, see ModifyDBInstanceMaintainTime.
+        # * **SpecificTime**: The operation takes effect at a specified time.
         # 
         # Default value: MaintainTime.
         self.effective_time = effective_time
@@ -51,7 +51,7 @@ class StartDBInstanceRequest(DaraModel):
         self.region_id = region_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The specified time when the changes take effect. This parameter is only supported for instances in a dedicated cluster. Specify the time in the ISO 8601 standard in the yyyy-MM-ddTHH:mm:ssZ format. The time must be in UTC.
+        # The specified time when the switchover is performed. This parameter is only supported for instances in a dedicated cluster. Specify the time in the ISO 8601 standard in the yyyy-MM-ddTHH:mm:ssZ format. The time must be in UTC.
         # 
         # > You must specify this parameter when **EffectiveTime** is set to **Specified**.
         self.specified_time = specified_time
@@ -59,7 +59,7 @@ class StartDBInstanceRequest(DaraModel):
         self.storage = storage
         # The instance type of the target instance. This parameter is only supported for instances in a dedicated cluster.
         self.target_dbinstance_class = target_dbinstance_class
-        # **[Deprecated]** This parameter is deprecated and does not need to be specified.
+        # **[Deprecated]** This parameter is deprecated and does not need to be configured.
         self.target_dedicated_host_id_for_log = target_dedicated_host_id_for_log
         # The ID of the destination host for the primary node. This parameter is only supported for instances in a dedicated cluster.
         # 

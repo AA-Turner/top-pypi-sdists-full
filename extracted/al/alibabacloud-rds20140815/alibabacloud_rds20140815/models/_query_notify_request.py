@@ -17,7 +17,7 @@ class QueryNotifyRequest(DaraModel):
         # 
         # This parameter is required.
         self.from_ = from_
-        # The page number. Valid values: integers greater than **0** and less than or equal to the maximum value of the Integer type.
+        # The page number. Valid values: integers greater than **0** and less than or equal to the maximum value of the Integer data type.
         # 
         # Default value: **1**.
         self.page_number = page_number
@@ -33,9 +33,9 @@ class QueryNotifyRequest(DaraModel):
         # This parameter is required.
         self.to = to
         # Specifies whether the query results include confirmed notifications. Valid values:
-        # - **true**: Includes confirmed notifications.
-        # - **false**: Does not include confirmed notifications.
-        # > Confirmed notifications are those that have been marked as confirmed by calling the ConfirmNotify operation.
+        # - **true**: The query results include confirmed notifications.
+        # - **false**: The query results do not include confirmed notifications.
+        # > Confirmed notifications are notifications that have been marked as confirmed by calling the ConfirmNotify operation.
         # 
         # This parameter is required.
         self.with_confirmed = with_confirmed

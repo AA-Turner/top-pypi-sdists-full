@@ -1,5 +1,8 @@
 use super::*;
 use crate::interned_string::InternedString;
+use crate::specs_response::proto_specs::{
+    ProtobufStoreParseBase, VerifiedRemoteConfigValues, prepare_protobuf_store_update,
+};
 use crate::specs_response::{
     parse_options::SpecsResponseParseOptions, proto_specs::deserialize_protobuf_with_options,
     spec_types::Spec, specs_hash_map::SpecDecodeStats,
@@ -649,4 +652,128 @@ async fn inline_full_reuse_mixed_delta_keeps_inline_pointer_and_applies_removal(
         serde_json::json!({"old": true})
     );
     assert_blob_requests(&server, 1).await;
+}
+
+fn remote_rule(id: &str, spec: pb::Spec) -> pb::Rule {
+    pb::Rule {
+        id: id.to_owned(),
+        return_value: spec.default_value,
+        remote_config_metadata: spec.remote_config_metadata,
+        ..Default::default()
+    }
+}
+
+#[tokio::test]
+async fn partial_protobuf_retries_only_unverified_slots_and_skips_the_sidecar() {
+    let server = MockServer::start().await;
+    let hydrator = test_hydrator("partial-protobuf");
+    let (mut config, checksum_mismatch) = remote_spec(b"{}");
+    let (valid_rule, healthy) = remote_spec(br#"{"healthy":true}"#);
+    let (invalid_rule, invalid_json) = remote_spec(b"{");
+    for (sha, body, gets) in [
+        (&checksum_mismatch, &b"[]"[..], 2),
+        (&invalid_json, &b"{"[..], 2),
+        (&healthy, &br#"{"healthy":true}"#[..], 1),
+    ] {
+        mount_json_blob(&server, &format!("{DOWNLOAD_PATH_PREFIX}{sha}"), body, gets).await;
+    }
+    config.rules = vec![
+        remote_rule("valid", valid_rule),
+        remote_rule("invalid", invalid_rule),
+    ];
+    let envelope = config_envelope("mixed", "11", config);
+    let wire = full_response(true, &[envelope]);
+    let name = InternedString::from_str_ref("mixed");
+    let mut current = SpecsResponseFull::default();
+    let mut proofs = VerifiedRemoteConfigValues::new();
+    let mut unavailable = None;
+    for _ in 0..2 {
+        let mut next = SpecsResponseFull::default();
+        let checksums = SpecsFieldChecksums::from_specs(&current);
+        let mut base =
+            ProtobufStoreParseBase::new(&current, Default::default(), &checksums, &proofs);
+        base.unavailable = unavailable.as_ref();
+        let update = prepare_protobuf_store_update(
+            OPS_STATS.get_for_instance("partial-protobuf").as_ref(),
+            base,
+            &mut next,
+            &mut protobuf_response_data(wire.clone()),
+            &hydrator,
+            StoreHydrationOptions::new(
+                &server.uri(),
+                MmapProjectId::for_sdk_key("partial-protobuf"),
+            )
+            .with_data_store_capture(true)
+            .with_partial_full_response(true),
+        )
+        .await
+        .unwrap();
+
+        let configs = serde_json::to_value(&next.dynamic_configs).unwrap();
+        assert_eq!(
+            configs["mixed"]["rules"][0]["returnValue"],
+            serde_json::json!({"healthy":true})
+        );
+        let partial = update.partial_hydration.unwrap();
+        assert_eq!(
+            partial.unavailable[&name],
+            std::collections::HashSet::from([None, Some(1)])
+        );
+        assert_eq!(
+            partial.failed_blobs[&invalid_json],
+            HydrationFailureReason::InvalidJson
+        );
+        assert_eq!(
+            partial.failed_blobs[&checksum_mismatch],
+            HydrationFailureReason::ChecksumMismatch
+        );
+        assert!(update.hydrated_data_store_bytes.is_none());
+        unavailable = Some(partial.unavailable);
+        current = next;
+        proofs = update.verified_remote_values;
+        assert_eq!(proofs[&name].len(), 1);
+        assert!(proofs[&name].contains_key(&healthy));
+    }
+    server.verify().await;
+}
+
+#[tokio::test]
+async fn superseded_blob_failure_only_retries_a_discarded_sidecar() {
+    let server = MockServer::start().await;
+    let wire = full_response(
+        true,
+        &[
+            remote_config("config", "1", b"{}"),
+            inline_config("config", "2", serde_json::json!({"latest":true})),
+        ],
+    );
+    let hydrator = test_hydrator("overwritten-failure");
+    for capture in [false, true] {
+        let mut next = SpecsResponseFull::default();
+        let update = deserialize_protobuf_for_store_with_hydration(
+            OPS_STATS.get_for_instance("overwritten-failure").as_ref(),
+            &SpecsResponseFull::default(),
+            Default::default(),
+            &mut next,
+            &mut protobuf_response_data(wire.clone()),
+            &hydrator,
+            StoreHydrationOptions::new(
+                &server.uri(),
+                MmapProjectId::for_sdk_key("overwritten-failure"),
+            )
+            .with_data_store_capture(capture)
+            .with_partial_full_response(true),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            serde_json::to_value(next.dynamic_configs).unwrap()["config"]["defaultValue"],
+            serde_json::json!({"latest": true})
+        );
+        assert!(update.hydrated_data_store_bytes.is_none());
+        assert_eq!(update.partial_hydration.is_some(), capture);
+        if let Some(repair) = update.partial_hydration {
+            assert!(repair.failed_blobs.is_empty() && repair.unavailable.is_empty());
+        }
+    }
 }

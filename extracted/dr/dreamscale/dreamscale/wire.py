@@ -37,7 +37,6 @@ from dreamscale.constants import (
     CAMERA_KEY_DROID_WRIST,
     CAMERA_KEY_LIBERO_AGENT,
     CAMERA_KEY_LIBERO_WRIST,
-    CAMERA_KEY_SO101,
     CAMERA_KEY_SO101_SIDE,
     CAMERA_KEY_SO101_WRIST,
     OBS_JPEG_QUALITY,
@@ -180,6 +179,8 @@ def build_so101_observation(
     wrist_frame: np.ndarray | None = None,
     frame: np.ndarray | None = None,
     now_ns: int | None = None,
+    views: int = 2,
+    gripper_range: tuple[float, float] | None = None,
 ) -> Observation:
     now = time.time_ns() if now_ns is None else now_ns
     gripper = min(1.0, max(0.0, float(joint_positions[5]) / 100.0))
@@ -187,16 +188,25 @@ def build_so101_observation(
         side_frame = frame
     if side_frame is None:
         raise TypeError("side_frame is required")
-    if wrist_frame is None:
+    if isinstance(views, bool) or views not in (1, 2):
+        raise ValueError("views must be 1 (side) or 2 (side and wrist)")
+    if views == 1 and wrist_frame is not None:
+        raise ValueError("views=1 omits the wrist; do not pass wrist_frame")
+    if wrist_frame is None and views == 2:
         wrist_frame = frame if frame is not None else side_frame
     side_camera, side_payload = _camera_frame(CAMERA_KEY_SO101_SIDE, side_frame)
-    wrist_camera, wrist_payload = _camera_frame(CAMERA_KEY_SO101_WRIST, wrist_frame)
+    cameras = [side_camera]
+    payloads = {CAMERA_KEY_SO101_SIDE: side_payload}
+    if views == 2:
+        wrist_camera, wrist_payload = _camera_frame(CAMERA_KEY_SO101_WRIST, wrist_frame)
+        cameras.append(wrist_camera)
+        payloads[CAMERA_KEY_SO101_WRIST] = wrist_payload
     obs_frame = ObservationFrame(
         session_id=session_id,
         observation_id=observation_id,
         capture_time_ns=now,
         send_time_ns=now,
-        cameras=[side_camera, wrist_camera],
+        cameras=cameras,
         robot_state=RobotState(
             joint_positions=[float(v) for v in joint_positions],
             joint_velocities=[0.0] * 6,  # not read from the bus; policy ignores velocities
@@ -204,13 +214,12 @@ def build_so101_observation(
         ),
         actions_remaining=actions_remaining,
         instruction=instruction,
+        runtime_context=(RuntimeRequestContext(calibration={
+            "so101_gripper_range": list(gripper_range)}) if gripper_range is not None else None),
     )
     return Observation(
         frame=obs_frame,
-        camera_payloads={
-            CAMERA_KEY_SO101: side_payload,
-            CAMERA_KEY_SO101_WRIST: wrist_payload,
-        },
+        camera_payloads=payloads,
     )
 
 

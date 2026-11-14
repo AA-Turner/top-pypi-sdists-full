@@ -129,6 +129,12 @@ class RedditExtractor(Extractor):
                         if not parentdir:
                             yield Message.Directory, "", submission
 
+                    if embeds:
+                        vembed = text.re(r"https://reddit\.com/link/([^/]+)"
+                                         r"/video/([^/]+)/player").match
+                    else:
+                        vembed = util.false
+
                     for comment in comments:
                         media = (embeds and "media_metadata" in comment)
                         html = (comment.get("body_html") or
@@ -152,7 +158,13 @@ class RedditExtractor(Extractor):
 
                         if href:
                             for url in text.extract_iter(html, ' href="', '"'):
-                                urls.append((url, data))
+                                if match := vembed(url):
+                                    data["num"] += 1
+                                    yield self._extract_vembed(
+                                        data, comment, match)
+                                else:
+                                    urls.append((url, data))
+                            submission["num"] = data["num"]
 
                 for url, data in urls:
                     if not url or url[0] == "#":
@@ -243,6 +255,14 @@ class RedditExtractor(Extractor):
             elif url := data.get("hlsUrl"):
                 submission["_ytdl_manifest"] = "hls"
                 yield "ytdl:" + url
+
+    def _extract_vembed(self, data, comment, match):
+        url = (f"ytdl:https://v.redd.it/link/{comment['link_id'][3:]}"
+               f"/asset/{match[2]}/HLSPlaylist.m3u8")
+        data["_ytdl_manifest"] = "hls"
+        data["filename"] = match[2]
+        data["extension"] = "mp4"
+        return Message.Url, url, data
 
     def _extract_video_ytdl(self, submission):
         return "https://www.reddit.com" + submission["permalink"]

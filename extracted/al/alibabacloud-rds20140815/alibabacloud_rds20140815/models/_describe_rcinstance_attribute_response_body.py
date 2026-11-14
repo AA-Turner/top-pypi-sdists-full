@@ -62,24 +62,24 @@ class DescribeRCInstanceAttributeResponseBody(DaraModel):
         vpc_attributes: main_models.DescribeRCInstanceAttributeResponseBodyVpcAttributes = None,
         zone_id: str = None,
     ):
-        # Indicates whether auto-renewal is enabled for the instance. Valid values:
+        # Specifies whether auto-renewal is enabled for the instance. Valid values:
         # 
         # * **true**: Yes.
         # * **false**: No.
         self.auto_renew = auto_renew
         # The ID of the cluster to which the instance belongs.
-        # > This parameter will be deprecated. To ensure compatibility, use other parameters instead.
+        # > This parameter will be deprecated soon. To improve compatibility, use other parameters instead.
         self.cluster_id = cluster_id
         # The number of vCPUs.
         self.cpu = cpu
-        # Indicates whether the instance is added to an ACK cluster. Valid values:
+        # Specifies whether the instance is added to an ACK cluster. Valid values:
         # 
         # - **1**: Yes.
         # - **0**: No.
         self.create_mode = create_mode
         # The time when the instance was created. The time is displayed in UTC and follows the ISO 8601 standard in the yyyy-MM-ddTHH:mmZ format.
         self.creation_time = creation_time
-        # The performance mode of the burstable instance.
+        # The running mode of the burstable instance.
         self.credit_specification = credit_specification
         self.data_disks = data_disks
         # The database engine type. Valid values:
@@ -89,7 +89,7 @@ class DescribeRCInstanceAttributeResponseBody(DaraModel):
         self.db_type = db_type
         # The dedicated host attributes.
         self.dedicated_host_attribute = dedicated_host_attribute
-        # Indicates whether release protection is enabled. Valid values:
+        # Specifies whether release protection is enabled. Valid values:
         # * **true**: Enabled.
         # * **false**: Disabled.
         self.deletion_protection = deletion_protection
@@ -101,9 +101,9 @@ class DescribeRCInstanceAttributeResponseBody(DaraModel):
         self.disk_type = disk_type
         # The corresponding ECS instance family.
         self.ecs_instance_type = ecs_instance_type
-        # The information about the associated elastic IP address (EIP).
+        # The elastic IP address (EIP) association information.
         self.eip_address = eip_address
-        # Indicates whether the jumbo frame feature is enabled for the instance. Valid values:
+        # Specifies whether the jumbo frame feature is enabled for the instance. Valid values:
         # 
         # - **true**: Enabled.
         # 
@@ -113,20 +113,20 @@ class DescribeRCInstanceAttributeResponseBody(DaraModel):
         self.expired_time = expired_time
         # The number of GPUs.
         self.gpu = gpu
-        # The GPU type.
+        # The GPU types.
         self.gpu_types = gpu_types
         # The hostname of the instance.
         self.host_name = host_name
         # The host storage type. Valid values:
-        # * **dhg_cloud_ssd**: standard SSD.
-        # * **dhg_local_ssd**: local SSD.
+        # * **dhg_cloud_ssd**: Standard SSD.
+        # * **dhg_local_ssd**: Local SSD.
         self.host_type = host_type
         # The ID of the image that the instance runs.
         self.image_id = image_id
         self.inner_ip_address = inner_ip_address
-        # The billing method of the instance. Valid values:
-        # * **PrePaid**: subscription.
-        # * **PostPaid**: pay-as-you-go.
+        # The billing method. Valid values:
+        # * **PrePaid**: Subscription.
+        # * **PostPaid**: Pay-as-you-go.
         self.instance_charge_type = instance_charge_type
         # The instance ID.
         self.instance_id = instance_id
@@ -134,26 +134,26 @@ class DescribeRCInstanceAttributeResponseBody(DaraModel):
         self.instance_name = instance_name
         # The network type. Valid values: 
         #          
-        # - **classic**: classic network.
-        # - **vpc**: virtual private cloud (VPC).
+        # - **classic**: Classic network.
+        # - **vpc**: Virtual private cloud (VPC).
         self.instance_network_type = instance_network_type
         # The instance type.
         self.instance_type = instance_type
         # The billing method for Internet bandwidth. Valid values:
         # 
-        # - **PayByBandwidth**: pay-by-bandwidth.
-        # - **PayByTraffic**: pay-by-traffic.
+        # - **PayByBandwidth**: Pay-by-bandwidth.
+        # - **PayByTraffic**: Pay-by-traffic.
         # 
-        # > In the **pay-by-traffic** pattern, the peak inbound and outbound bandwidth values are upper limits and are not guaranteed. During resource contention, the peak bandwidth may be limited. If your business requires guaranteed bandwidth, use the **pay-by-bandwidth** pattern.
+        # > In **pay-by-traffic** mode, the peak inbound and outbound bandwidth values are upper limits and are not guaranteed. During resource contention, the peak bandwidth may be limited. If your business requires guaranteed Internet bandwidth, use the **pay-by-bandwidth** mode.
         self.internet_charge_type = internet_charge_type
         # The maximum inbound public bandwidth. Unit: Mbit/s.
         self.internet_max_bandwidth_in = internet_max_bandwidth_in
         # The maximum outbound public bandwidth. Unit: Mbit/s.
         self.internet_max_bandwidth_out = internet_max_bandwidth_out
-        # Indicates whether the instance is an I/O optimized instance. Valid values:
+        # Specifies whether the instance is I/O optimized. Valid values:
         # 
-        # - **optimized**: I/O optimization.
-        # - **none**: No I/O optimization.
+        # - **optimized**: I/O optimized.
+        # - **none**: Not I/O optimized.
         self.io_optimized = io_optimized
         # The name of the key pair.
         self.key_pair_name = key_pair_name
@@ -174,24 +174,24 @@ class DescribeRCInstanceAttributeResponseBody(DaraModel):
         self.serial_number = serial_number
         # The bidding policy for the pay-as-you-go instance. Valid values:
         # 
-        # - **NoSpot**: The instance is a regular pay-as-you-go instance.
-        # - **SpotAsPriceGo**: The system automatically bids based on the current market price.
+        # - **NoSpot**: Regular pay-as-you-go instance.
+        # - **SpotAsPriceGo**: The system automatically places a bid based on the current market price.
         self.spot_strategy = spot_strategy
         # The instance status. Valid values:
         # 
-        # - **Pending**: The instance is being created.
-        # - **Running**: The instance is running.
-        # - **Starting**: The instance is starting.
-        # - **Stopping**: The instance is pausing.
-        # - **Stopped**: The instance is in a pause state.
+        # - **Pending**: Creating.
+        # - **Running**: Running.
+        # - **Starting**: Starting.
+        # - **Stopping**: Stopping.
+        # - **Stopped**: Stopped.
         self.status = status
-        # Indicates whether the instance continues to be billed after it is stopped. Valid values:
+        # Specifies whether the instance continues to be billed after it is stopped. Valid values:
         # 
         # - **KeepCharging**: The instance continues to be billed after it is stopped, and resources are reserved.
-        # - **StopCharging**: The instance is not billed after it is stopped. After the instance is stopped, resources such as vCPUs, memory, and public IP addresses are released. Whether the instance can be successfully restarted depends on resource availability in the current region.
-        # - **Not-applicable**: The instance does not support the no fees for stopped instances feature.
+        # - **StopCharging**: The instance is not billed after it is stopped. After the instance is stopped, resources such as vCPUs, memory, and public IP addresses are released. A successful restart depends on resource availability in the current region.
+        # - **Not-applicable**: The no fees for stopped instances feature is not supported for this instance.
         self.stopped_mode = stopped_mode
-        # The specifications of the system cloud disk.
+        # The system cloud disk specifications.
         self.system_disk = system_disk
         self.tags = tags
         # The custom data of the instance, which is a Base64-encoded string.
@@ -199,7 +199,7 @@ class DescribeRCInstanceAttributeResponseBody(DaraModel):
         # > If the instance does not have custom data, an empty string is returned.
         self.user_data = user_data
         # The VLAN ID of the instance.
-        # > This parameter will be deprecated soon. To improve compatibility, use other parameters instead.
+        # > This parameter is being deprecated. To improve compatibility, use other parameters instead.
         self.vlan_id = vlan_id
         # The VPC attributes.
         self.vpc_attributes = vpc_attributes
@@ -735,19 +735,19 @@ class DescribeRCInstanceAttributeResponseBodySystemDisk(DaraModel):
     ):
         # A reserved parameter.
         self.delete_with_instance = delete_with_instance
-        # Indicates whether the cloud disk is encrypted. Valid values:
+        # Specifies whether the cloud disk is encrypted. Valid values:
         # 
         # - **true**: Yes.
         # - **false**: No.
         self.encrypted = encrypted
-        # The category of the system cloud disk. Valid values:
+        # The system cloud disk type. Valid values:
         # 
-        # - **cloud_efficiency**: ultra disk.
-        # - **cloud_ssd**: standard SSD.
+        # - **cloud_efficiency**: Ultra disk.
+        # - **cloud_ssd**: Standard SSD.
         # - **cloud_essd**: ESSD.
-        # - **cloud_auto**: premium performance disk.
+        # - **cloud_auto**: Premium performance disk.
         self.system_disk_category = system_disk_category
-        # The performance level of the system cloud disk when it is an ESSD. Valid values:
+        # The performance level of the ESSD. Valid values:
         # 
         # - **PL0**
         # - **PL1**
@@ -956,13 +956,13 @@ class DescribeRCInstanceAttributeResponseBodyEipAddress(DaraModel):
         self.allocation_id = allocation_id
         # The Internet bandwidth throttling of the EIP. Unit: Mbit/s.
         self.bandwidth = bandwidth
-        # The billing method for network usage of the instance. Valid values:
+        # The billing method for network usage of the Internet-facing instance. Valid values:
         # 
-        # - **paybytraffic**: pay-by-traffic.
-        # - **paybybandwidth**: pay-by-bandwidth.
+        # - **paybytraffic**: Pay-by-traffic.
+        # - **paybybandwidth**: Pay-by-bandwidth.
         # > In **pay-by-traffic** mode, the peak inbound and outbound bandwidth values are upper limits and are not guaranteed. During resource contention, the peak bandwidth may be limited. If your business requires guaranteed bandwidth, use the **pay-by-bandwidth** mode.
         self.internet_charge_type = internet_charge_type
-        # The EIP address.
+        # The elastic IP address.
         self.ip_address = ip_address
 
     def validate(self):

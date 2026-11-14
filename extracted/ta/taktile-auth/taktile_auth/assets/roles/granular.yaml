@@ -154,8 +154,10 @@ data_viewer/org_id,ws_id:
     # leftover event/feature instance reads used r:workspace_data (live included)
     - r:workspace_record/org_id,ws_id,{env=*,type=event}
     - r:workspace_record/org_id,ws_id,{env=*,type=feature}
+    - r:workspace_graph_config/org_id,ws_id
 data_editor/org_id,ws_id:
     - data_viewer/org_id,ws_id
+    - execute:workspace_graph_config/org_id,ws_id
     - w+d:workspace_feature_query/org_id,ws_id,{env=*,component=definition,current_status_live=inactive}
     - w:workspace_feature_query/org_id,ws_id,{env=sandbox,component=status,current_status_live=*}
     - r:workspace_record/org_id,ws_id,{env=live,type=entity}
@@ -165,7 +167,9 @@ data_admin/org_id,ws_id:
     - data_editor/org_id,ws_id
     - w+d:workspace_management/org_id,ws_id,{env=*,type=feature}
     - w+d:workspace_management/org_id,ws_id,{env=*,type=event}
-    - w+d:workspace_management/org_id,ws_id,{env=*,type=entity}
+    # entity field deletes are staff-only
+    - w:workspace_management/org_id,ws_id,{env=*,type=entity}
+    - w:workspace_graph_config/org_id,ws_id
     - r:workspace_sensitive_field/org_id,ws_id,{env=*,type=*}
     - w:workspace_feature_query/org_id,ws_id,{env=live,component=status,current_status_live=*}
     - w:workspace_record/org_id,ws_id,{env=live,type=entity}

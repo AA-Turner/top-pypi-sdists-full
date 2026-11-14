@@ -481,6 +481,7 @@ fn spec_store_data_reuses_gcir_evaluation_plan_cache_across_clones() {
         spec_decode_stats: SpecDecodeStats::default(),
         field_checksums: Default::default(),
         verified_remote_values: Arc::new(Default::default()),
+        blob_repair: None,
     };
     let hashing = HashUtil::new();
 

@@ -66,7 +66,7 @@ class FwFM(BaseFM):
 
     @classmethod
     def _unit_test_params(cls):
-        yield {"seed": 42}
+        yield {"sample_normalization": True, "seed": 42}
 
     def _unit_test_skips(self):
         # Latent factors are initialised lazily, the first time each feature is encountered. Their
@@ -137,14 +137,14 @@ class FwFM(BaseFM):
 
 
 class FwFMRegressor(FwFM, base.Regressor):
-    """Field-weighted Factorization Machine for regression.
+    r"""Field-weighted Factorization Machine for regression.
 
     The model equation is defined as:
 
-    $$\\hat{y}(x) = w_{0} + \\sum_{j=1}^{p} w_{j} x_{j}  + \\sum_{j=1}^{p} \\sum_{j'=j+1}^{p} r_{f_j, f_{j'}} \\langle \\mathbf{v}_j, \\mathbf{v}_{j'} \\rangle x_{j} x_{j'}$$
+    $$\hat{y}(x) = w_{0} + \sum_{j=1}^{p} w_{j} x_{j}  + \sum_{j=1}^{p} \sum_{j'=j+1}^{p} r_{f_j, f_{j'}} \langle \mathbf{v}_j, \mathbf{v}_{j'} \rangle x_{j} x_{j'}$$
 
-    Where $f_j$ and $f_{j'}$ are $j$ and $j'$ fields, respectively, and $\\mathbf{v}_j$ and
-    $\\mathbf{v}_{j'}$ are $j$ and $j'$ latent vectors, respectively.
+    Where $f_j$ and $f_{j'}$ are $j$ and $j'$ fields, respectively, and $\mathbf{v}_j$ and
+    $\mathbf{v}_{j'}$ are $j$ and $j'$ latent vectors, respectively.
 
     For more efficiency, this model automatically one-hot encodes strings features considering them
     as categorical variables. Field names are inferred from feature names by taking everything
@@ -200,7 +200,6 @@ class FwFMRegressor(FwFM, base.Regressor):
 
     Examples
     --------
-
     >>> from river import facto
 
     >>> dataset = (
@@ -238,7 +237,7 @@ class FwFMRegressor(FwFM, base.Regressor):
 
     References
     ----------
-    [^1]: [Junwei Pan, Jian Xu, Alfonso Lobos Ruiz, Wenliang Zhao, Shengjun Pan, Yu Sun, and Quan Lu, 2018, April. Field-weighted Factorization Machines for Click-Through Rate Prediction in Display Advertising. In Proceedings of the 2018 World Wide Web Conference on World Wide Web. International World Wide Web Conferences Steering Committee, (pp. 1349–1357).](https://arxiv.org/abs/1806.03514)
+    [^1]: [Junwei Pan, Jian Xu, Alfonso Lobos Ruiz, Wenliang Zhao, Shengjun Pan, Yu Sun, and Quan Lu, 2018, April. Field-weighted Factorization Machines for Click-Through Rate Prediction in Display Advertising. In Proceedings of the 2018 World Wide Web Conference on World Wide Web. International World Wide Web Conferences Steering Committee, (pp. 1349–1357).](https://doi.org/10.1145/3178876.3186040)
 
     """
 
@@ -282,18 +281,18 @@ class FwFMRegressor(FwFM, base.Regressor):
 
     def predict_one(self, x):
         x = self._ohe_cat_features(x)
-        return self._raw_dot(x).item()
+        return float(self._raw_dot(x))
 
 
 class FwFMClassifier(FwFM, base.Classifier):
-    """Field-weighted Factorization Machine for binary classification.
+    r"""Field-weighted Factorization Machine for binary classification.
 
     The model equation is defined as:
 
-    $$\\hat{y}(x) = w_{0} + \\sum_{j=1}^{p} w_{j} x_{j}  + \\sum_{j=1}^{p} \\sum_{j'=j+1}^{p} r_{f_j, f_{j'}} \\langle \\mathbf{v}_j, \\mathbf{v}_{j'} \\rangle x_{j} x_{j'}$$
+    $$\hat{y}(x) = w_{0} + \sum_{j=1}^{p} w_{j} x_{j}  + \sum_{j=1}^{p} \sum_{j'=j+1}^{p} r_{f_j, f_{j'}} \langle \mathbf{v}_j, \mathbf{v}_{j'} \rangle x_{j} x_{j'}$$
 
-    Where $f_j$ and $f_{j'}$ are $j$ and $j'$ fields, respectively, and $\\mathbf{v}_j$ and
-    $\\mathbf{v}_{j'}$ are $j$ and $j'$ latent vectors, respectively.
+    Where $f_j$ and $f_{j'}$ are $j$ and $j'$ fields, respectively, and $\mathbf{v}_j$ and
+    $\mathbf{v}_{j'}$ are $j$ and $j'$ latent vectors, respectively.
 
     For more efficiency, this model automatically one-hot encodes strings features considering them
     as categorical variables. Field names are inferred from feature names by taking everything
@@ -349,7 +348,6 @@ class FwFMClassifier(FwFM, base.Classifier):
 
     Examples
     --------
-
     >>> from river import facto
 
     >>> dataset = (
@@ -377,7 +375,7 @@ class FwFMClassifier(FwFM, base.Classifier):
 
     References
     ----------
-    [^1]: [Junwei Pan, Jian Xu, Alfonso Lobos Ruiz, Wenliang Zhao, Shengjun Pan, Yu Sun, and Quan Lu, 2018, April. Field-weighted Factorization Machines for Click-Through Rate Prediction in Display Advertising. In Proceedings of the 2018 World Wide Web Conference on World Wide Web. International World Wide Web Conferences Steering Committee, (pp. 1349–1357).](https://arxiv.org/abs/1806.03514)
+    [^1]: [Junwei Pan, Jian Xu, Alfonso Lobos Ruiz, Wenliang Zhao, Shengjun Pan, Yu Sun, and Quan Lu, 2018, April. Field-weighted Factorization Machines for Click-Through Rate Prediction in Display Advertising. In Proceedings of the 2018 World Wide Web Conference on World Wide Web. International World Wide Web Conferences Steering Committee, (pp. 1349–1357).](https://doi.org/10.1145/3178876.3186040)
 
     """
 

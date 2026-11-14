@@ -226,6 +226,19 @@ pub trait SpecsUpdateListener: Send + Sync {
     }
 
     fn get_current_specs_info(&self) -> SpecsInfo;
+
+    /// Metadata of the accepted payload, which may differ from the request
+    /// cursor while missing remote values are being repaired.
+    fn get_published_specs_info(&self) -> SpecsInfo {
+        self.get_current_specs_info()
+    }
+
+    /// True while the store needs full specs to repair a partial snapshot.
+    /// A validated delta with its own pending definitions keeps its producer cursor.
+    #[doc(hidden)]
+    fn needs_blob_hydration_repair(&self) -> bool {
+        false
+    }
 }
 
 impl fmt::Debug for dyn SpecsAdapter {

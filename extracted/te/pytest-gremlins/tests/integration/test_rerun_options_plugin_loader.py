@@ -18,7 +18,7 @@ the baseline (#679).
 from __future__ import annotations
 
 import pytest
-from rerun_samples import (
+from rerun_samples import (  # type: ignore[import-not-found]
     FLAKY_WEAK_TEST,
     SAMPLE,
     survivor_count,
@@ -73,7 +73,7 @@ class DescribeRerunfailuresLoaderKeptInAnArgumentFileWithAutoload:
             '@args.txt',
         )
 
-        assert survivor_count(result.stdout.str()) > 0
+        assert survivor_count(result.stdout.str()) == 1
 
 
 @pytest.mark.medium
@@ -101,4 +101,4 @@ class DescribeRerunfailuresLoaderWithAutoloadDisabledByFlag:
             'no:cacheprovider',
         )
 
-        assert survivor_count(result.stdout.str()) > 0
+        assert survivor_count(result.stdout.str()) == 1

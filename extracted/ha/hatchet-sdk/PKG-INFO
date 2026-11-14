@@ -1,13 +1,12 @@
 Metadata-Version: 2.5
 Name: hatchet-sdk
-Version: 1.45.1
+Version: 1.46.0
 Summary: This is the official Python SDK for Hatchet, a distributed, fault-tolerant task queue. The SDK allows you to easily integrate Hatchet's task scheduling and workflow orchestration capabilities into your Python applications.
 Author-email: Alexander Belanger <alexander@hatchet.run>, Matt Kaye <matt@hatchet.run>, Gabe Ruttner <gabe@hatchet.run>, Mohammed Nafees <nafees@hatchet.run>
 License: MIT
 Requires-Python: <4,>=3.10
 Requires-Dist: aiohttp<4,>=3.10.5
 Requires-Dist: grpcio-status<2,>=1.76.0
-Requires-Dist: grpcio-tools<2,>=1.76.0
 Requires-Dist: grpcio<2,>=1.76.0
 Requires-Dist: prometheus-client>=0.21.1
 Requires-Dist: protobuf<7,>=6.30.2
@@ -20,6 +19,8 @@ Requires-Dist: urllib3<3,>=2.6.0
 Provides-Extra: claude
 Requires-Dist: claude-agent-sdk; extra == 'claude'
 Requires-Dist: mcp; extra == 'claude'
+Provides-Extra: codegen
+Requires-Dist: grpcio-tools<2,>=1.76.0; extra == 'codegen'
 Provides-Extra: docs
 Requires-Dist: bs4>=0.0.2; extra == 'docs'
 Requires-Dist: fastapi<1,>=0.141.1; extra == 'docs'

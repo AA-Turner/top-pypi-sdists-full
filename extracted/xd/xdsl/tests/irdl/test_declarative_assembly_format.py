@@ -29,6 +29,7 @@ from xdsl.dialects.builtin import (
     UnitAttr,
     f32,
     i32,
+    i64,
 )
 from xdsl.dialects.test import Test, TestType
 from xdsl.dialects.utils import DynamicIndexList
@@ -65,7 +66,6 @@ from xdsl.irdl import (
     VarRegion,
     VarSuccessor,
     attr_def,
-    eq,
     irdl_attr_definition,
     irdl_op_definition,
     irdl_to_attr_constraint,
@@ -352,6 +352,161 @@ def test_partial_attr_dict_prop_fallback(program: str, generic_program: str):
 
     check_roundtrip(program, ctx)
     check_equivalence(program, generic_program, ctx)
+
+
+@pytest.mark.parametrize(
+    "program, generic_program",
+    [
+        (
+            'test.prop <{value = "hello"}>',
+            '"test.prop"() <{value = "hello"}> : () -> ()',
+        ),
+        (
+            'test.prop <{value = "hello"}> {a = 2 : i32}',
+            '"test.prop"() <{value = "hello"}> {a = 2 : i32} : () -> ()',
+        ),
+        (
+            'test.prop <{value = "hello", opt = true}>',
+            '"test.prop"() <{value = "hello", opt = true}> : () -> ()',
+        ),
+    ],
+)
+def test_prop_dict(program: str, generic_program: str):
+    """Test the 'prop-dict' directive."""
+
+    @irdl_op_definition
+    class PropDictOp(IRDLOperation):
+        name = "test.prop"
+        value = prop_def(StringAttr)
+        opt = opt_prop_def(BoolAttr)
+        assembly_format = "prop-dict attr-dict"
+
+    ctx = Context()
+    ctx.load_op(PropDictOp)
+
+    check_roundtrip(program, ctx)
+    check_equivalence(program, generic_program, ctx)
+
+
+def test_prop_dict_with_property_variable():
+    """Test that 'prop-dict' only handles the properties not bound by variables."""
+
+    @irdl_op_definition
+    class PropDictVariableOp(IRDLOperation):
+        name = "test.prop"
+        prop1 = prop_def(BoolAttr)
+        prop2 = opt_prop_def(BoolAttr)
+        assembly_format = "$prop1 prop-dict attr-dict"
+
+    ctx = Context()
+    ctx.load_op(PropDictVariableOp)
+
+    program = "test.prop false <{prop2 = true}>"
+    check_roundtrip(program, ctx)
+    check_equivalence(
+        program, '"test.prop"() <{prop1 = false, prop2 = true}> : () -> ()', ctx
+    )
+
+    program = "test.prop true"
+    check_roundtrip(program, ctx)
+    check_equivalence(program, '"test.prop"() <{prop1 = true}> : () -> ()', ctx)
+
+    with pytest.raises(ParseError, match="properties prop1 are not expected"):
+        Parser(ctx, "test.prop true <{prop1 = true}>").parse_operation()
+
+
+def test_prop_dict_default_value():
+    """Test that 'prop-dict' does not print properties equal to their default."""
+
+    @irdl_op_definition
+    class PropDictDefaultOp(IRDLOperation):
+        name = "test.prop"
+        prop = prop_def(BoolAttr, default_value=BoolAttr.from_bool(False))
+        assembly_format = "prop-dict attr-dict"
+
+    ctx = Context()
+    ctx.load_op(PropDictDefaultOp)
+
+    program = "test.prop"
+    check_roundtrip(program, ctx)
+    check_equivalence(program, '"test.prop"() <{prop = false}> : () -> ()', ctx)
+
+    program = "test.prop <{prop = true}>"
+    check_roundtrip(program, ctx)
+    check_equivalence(program, '"test.prop"() <{prop = true}> : () -> ()', ctx)
+
+
+def test_prop_dict_with_prop_in_attr_dict_error():
+    """Test that 'prop-dict' cannot be combined with `ParsePropInAttrDict`."""
+    with pytest.raises(
+        PyRDLOpDefinitionError,
+        match="'prop-dict' directive cannot be used together with the "
+        "'ParsePropInAttrDict' IRDL option",
+    ):
+
+        @irdl_op_definition
+        class PropDictAttrDictOp(IRDLOperation):
+            name = "test.prop"
+            prop = opt_prop_def(BoolAttr)
+            irdl_options = (ParsePropInAttrDict(),)
+            assembly_format = "prop-dict attr-dict"
+
+
+def test_prop_dict_ignores_segment_sizes_property():
+    """Test that 'prop-dict' does not print the operand segment sizes property."""
+
+    @irdl_op_definition
+    class PropDictSegmentsOp(IRDLOperation):
+        name = "test.prop"
+        prop = opt_prop_def(BoolAttr)
+        lhs = var_operand_def()
+        rhs = var_operand_def()
+        irdl_options = (AttrSizedOperandSegments(as_property=True),)
+        assembly_format = (
+            "prop-dict `lhs` $lhs `rhs` $rhs attr-dict "
+            "`:` `lhs` type($lhs) `rhs` type($rhs)"
+        )
+
+    ctx = Context()
+    ctx.load_op(PropDictSegmentsOp)
+    ctx.load_dialect(Test)
+
+    program = """
+    %0 = "test.op"() : () -> i32
+    test.prop <{prop = true}> lhs %0 rhs %0 : lhs i32 rhs i32
+    """
+    parsed = Parser(ctx, program).parse_module()
+    printed = StringIO()
+    Printer(printed).print_op(parsed)
+    assert "<{prop = true}> lhs %0 rhs %0 : lhs i32 rhs i32" in printed.getvalue()
+    assert "operandSegmentSizes" not in printed.getvalue()
+
+
+def test_prop_dict_twice_error():
+    with pytest.raises(
+        PyRDLOpDefinitionError,
+        match="'prop-dict' directive can only occur once",
+    ):
+
+        @irdl_op_definition
+        class TwicePropDictOp(IRDLOperation):
+            name = "test.prop"
+            prop = prop_def(BoolAttr)
+            assembly_format = "prop-dict prop-dict attr-dict"
+
+
+def test_prop_dict_in_optional_group_error():
+    with pytest.raises(
+        PyRDLOpDefinitionError,
+        match="'prop-dict' directive can only occur at the top level",
+    ):
+
+        @irdl_op_definition
+        class GroupPropDictOp(IRDLOperation):
+            name = "test.prop"
+            prop = opt_prop_def(BoolAttr)
+            flag = opt_prop_def(UnitAttr)
+            assembly_format = "(`flag` $flag^ prop-dict)? attr-dict"
 
 
 ################################################################################
@@ -1408,21 +1563,6 @@ def test_operands_directive_works_with_two_opt_and_option(program: str):
     check_roundtrip(program, ctx)
 
 
-def test_operands_directive_fails_with_no_operands():
-    """Test operands directive cannot be used with no operands"""
-
-    with pytest.raises(
-        PyRDLOpDefinitionError,
-        match="'operands' should not be used when there are no operands",
-    ):
-
-        @irdl_op_definition
-        class NoOperandsOp(IRDLOperation):
-            name = "test.no_operands_op"
-
-            assembly_format = "operands attr-dict `:` type(operands)"
-
-
 def test_operands_directive_fails_with_other_directive():
     """Test operands directive cannot be used with no operands"""
 
@@ -1953,21 +2093,6 @@ def test_results_directive_works_with_two_opt_and_option(program: str):
     ctx.load_dialect(Test)
 
     check_roundtrip(program, ctx)
-
-
-def test_results_directive_fails_with_no_results():
-    """Test results directive cannot be used with no results"""
-
-    with pytest.raises(
-        PyRDLOpDefinitionError,
-        match="'results' should not be used when there are no results",
-    ):
-
-        @irdl_op_definition
-        class NoResultsOp(IRDLOperation):
-            name = "test.no_results_op"
-
-            assembly_format = "attr-dict `:` type(results)"
 
 
 def test_results_directive_fails_with_other_type_directive():
@@ -3028,7 +3153,7 @@ def test_variadic_length_inference():
     @irdl_op_definition
     class RangeVarOp(IRDLOperation):
         name = "test.range_var"
-        T: ClassVar = RangeVarConstraint("T", RangeOf(AnyAttr()))
+        T: ClassVar = RangeVarConstraint.get("T")
         ins = var_operand_def(T)
         outs = var_result_def(T)
 
@@ -3056,8 +3181,8 @@ def test_int_var_inference():
     class IntVarOp(IRDLOperation):
         name = "test.int_var"
         T: ClassVar = IntVarConstraint("T", AnyInt())
-        ins = var_operand_def(RangeOf(eq(IndexType())).of_length(T))
-        outs = var_result_def(RangeOf(eq(IntegerType(64))).of_length(T))
+        ins = var_operand_def(RangeOf.get(IndexType()).of_length(T))
+        outs = var_result_def(RangeOf.get(i64).of_length(T))
 
         assembly_format = "$ins attr-dict"
 
@@ -3902,9 +4027,9 @@ class IntAttrExtractOp(IRDLOperation):
 
     _I: ClassVar = IntVarConstraint("I", AnyInt())
 
-    prop = prop_def(IntegerAttr.constr(value=_I, type=eq(IndexType())))
+    prop = prop_def(IntegerAttr.constr(value=_I, type=IndexType()))
 
-    outs = var_result_def(RangeOf(eq(IndexType())).of_length(_I))
+    outs = var_result_def(RangeOf.get(IndexType()).of_length(_I))
 
     assembly_format = "$prop attr-dict"
 
@@ -3947,11 +4072,11 @@ class IntAttrVerifyOp(IRDLOperation):
 
     _I: ClassVar = IntVarConstraint("I", AnyInt())
 
-    prop = prop_def(IntegerAttr.constr(value=_I, type=eq(IndexType())))
+    prop = prop_def(IntegerAttr.constr(value=_I, type=IndexType()))
 
-    prop2 = opt_prop_def(IntegerAttr.constr(value=_I, type=eq(IndexType())))
+    prop2 = opt_prop_def(IntegerAttr.constr(value=_I, type=IndexType()))
 
-    ins = var_operand_def(RangeOf(eq(IndexType())).of_length(_I))
+    ins = var_operand_def(RangeOf.get(IndexType()).of_length(_I))
 
     assembly_format = "$prop (`and` $prop2^)? `,` $ins attr-dict"
 

@@ -4,31 +4,57 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .doc_ai_page_range import DocAiPageRange
+from .doc_ai_processor import DocAiProcessor
 from .doc_ai_split_config import DocAiSplitConfig
 from .doc_ai_split_job_request_reasoning_input import DocAiSplitJobRequestReasoningInput
 
 
 class DocAiSplitJobRequest(UniversalBaseModel):
+    config: typing.Optional[DocAiSplitConfig] = None
+    config_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The JSON `request` part of a Split submission.
+    Saved configuration ID. Exactly one of `config`, `config_id` and `processor`.
     """
 
-    config: typing.Optional[DocAiSplitConfig] = None
+    processor: typing.Optional[DocAiProcessor] = None
     language: typing.Optional[str] = pydantic.Field(default=None)
     """
     Language of the document in BCP-47 format, e.g. `en-IN`.
     """
 
-    reasoning_input: typing.Optional[DocAiSplitJobRequestReasoningInput] = None
-    execution: typing.Optional[typing.Literal["auto"]] = pydantic.Field(default=None)
+    context: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Set `auto` to wait briefly for a single document and receive the finished result with HTTP 200.
+    Background text for the model.
     """
 
-    pages: typing.Optional[typing.List[DocAiPageRange]] = pydantic.Field(default=None)
+    reasoning_input: typing.Optional[DocAiSplitJobRequestReasoningInput] = pydantic.Field(default=None)
     """
-    Restrict the job to these page ranges.
+    `auto` or `text_only` only.
+    """
+
+    read_ref: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Reuse an earlier reading of the same document.
+    """
+
+    metadata: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    """
+    Any object; returned with the result.
+    """
+
+    webhook_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    HTTPS URL, 9-2,048 characters.
+    """
+
+    webhook_secret: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    32-512 characters.
+    """
+
+    webhook_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    A saved webhook, instead of `webhook_url` + `webhook_secret`.
     """
 
     if IS_PYDANTIC_V2:

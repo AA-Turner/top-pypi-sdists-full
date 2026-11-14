@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hyperlight-sandbox
-Version: 0.9.0
+Version: 0.10.0
 Summary: Python API for running code in isolated Hyperlight sandboxes with swappable backends
 License-Expression: Apache-2.0
 Project-URL: Repository, https://github.com/hyperlight-dev/hyperlight-wasm
@@ -20,13 +20,13 @@ Classifier: Operating System :: Microsoft :: Windows
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Provides-Extra: wasm
-Requires-Dist: hyperlight-sandbox-backend-wasm>=0.9.0; extra == "wasm"
+Requires-Dist: hyperlight-sandbox-backend-wasm>=0.10.0; extra == "wasm"
 Provides-Extra: hyperlight-js
-Requires-Dist: hyperlight-sandbox-backend-hyperlight-js>=0.9.0; extra == "hyperlight-js"
+Requires-Dist: hyperlight-sandbox-backend-hyperlight-js>=0.10.0; extra == "hyperlight-js"
 Provides-Extra: python-guest
-Requires-Dist: hyperlight-sandbox-python-guest>=0.9.0; extra == "python-guest"
+Requires-Dist: hyperlight-sandbox-python-guest>=0.10.0; extra == "python-guest"
 Provides-Extra: javascript-guest
-Requires-Dist: hyperlight-sandbox-javascript-guest>=0.9.0; extra == "javascript-guest"
+Requires-Dist: hyperlight-sandbox-javascript-guest>=0.10.0; extra == "javascript-guest"
 Provides-Extra: dev
 Requires-Dist: atheris>=2.3.0; python_version < "3.13" and extra == "dev"
 
@@ -72,6 +72,12 @@ packaged JavaScript Wasm guest package.
 
 Use `Sandbox(backend="hyperlight-js")` to run the separate HyperlightJS
 backend package.
+
+## macOS
+
+Apple Silicon wheels provide developer-only support for macOS 13 and newer.
+The backend wheels include a signed Rust helper with the
+`com.apple.security.hypervisor` entitlement. This path is experimental, not for production.
 
 ## Snapshot Semantics
 

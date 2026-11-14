@@ -16,11 +16,11 @@ DISTRIBUTION = "probe-research"
 
 
 
-def read_installed_version() -> str | None:
-    """The first `probe_research-<v>.dist-info` on sys.path says the version, as
+def read_installed_version(distribution: str = DISTRIBUTION, paths: list[str] | None = None) -> str | None:
+    """The first `<distribution>-<v>.dist-info` on `paths` (sys.path) says the version, as
     `importlib.metadata.version` finds it, without importing that (~40 ms of every `probe`)."""
-    prefix = DISTRIBUTION.replace("-", "_") + "-"
-    for entry in sys.path:
+    prefix = distribution.replace("-", "_") + "-"
+    for entry in sys.path if paths is None else paths:
         try:
             names = os.listdir(entry or ".")
         except OSError:

@@ -1,3 +1,5 @@
+#[path = "utils/partial_blob_publication.rs"]
+mod partial_blob_publication;
 mod utils;
 
 use std::collections::{HashMap, HashSet};
@@ -207,30 +209,53 @@ async fn initialize_hydrates_zstd_remote_dynamic_config_with_identity_http_body(
 }
 
 #[tokio::test]
-async fn initialize_rejects_zstd_remote_value_that_exceeds_declared_length() {
-    let server = MockServer::start().await;
-    let declared_value = br#"{"large":"short"}"#;
-    let expanded_value = format!(r#"{{"large":"{}"}}"#, "x".repeat(64 * 1024));
-    let sha = lowercase_hex(&Sha256::digest(declared_value));
-    let download_path = format!("{DOWNLOAD_PATH_PREFIX}{sha}");
+async fn cold_start_withholds_oversized_zstd_experiment_value() {
+    let valid = br#"{"large":"short"}"#;
+    let oversized = format!(r#"{{"large":"{}"}}"#, "x".repeat(64 * 1024));
+    let sha = lowercase_hex(&Sha256::digest(valid));
+    let path = format!("{DOWNLOAD_PATH_PREFIX}{sha}");
+    for (body, verified) in [(valid.as_slice(), true), (oversized.as_bytes(), false)] {
+        let server = MockServer::start().await;
+        mount_zstd_remote_value(&server, &path, body).await;
+        let mut dcs = remote_dcs(&server, &path, &sha, valid.len());
+        let experiment = &mut dcs["dynamic_configs"]["large_config"];
+        let mut metadata = experiment
+            .as_object_mut()
+            .unwrap()
+            .remove("remoteConfigMetadata")
+            .unwrap();
+        metadata["compression"] = json!("zstd");
+        experiment["entity"] = json!("experiment");
+        experiment["isActive"] = json!(true);
+        experiment["rules"] = json!([{
+            "name":"assigned", "id":"assigned", "salt":"assigned", "idType":"userID",
+            "passPercentage":100, "conditions":[], "isExperimentGroup":true, "groupName":"Treatment",
+            "returnValue":experiment["defaultValue"].take(), "remoteConfigMetadata":metadata
+        }]);
+        experiment["defaultValue"] = json!({});
+        dcs["condition_map"]["in-treatment"] = json!({
+            "type":"experiment_group", "field":"large_config", "operator":"any",
+            "targetValue":["Treatment"], "idType":"userID"
+        });
+        dcs["feature_gates"]["uses-treatment"] = json!({
+            "type":"feature_gate", "entity":"feature_gate", "salt":"gate", "enabled":true,
+            "defaultValue":false, "idType":"userID", "rules":[{
+                "name":"gate-rule", "id":"gate-rule", "salt":"gate-rule", "idType":"userID",
+                "passPercentage":100, "conditions":["in-treatment"], "returnValue":true
+            }]
+        });
+        mount_dcs(&server, dcs).await;
 
-    mount_zstd_remote_value(&server, &download_path, expanded_value.as_bytes()).await;
-    let mut dcs = remote_dcs(&server, &download_path, &sha, declared_value.len());
-    dcs["dynamic_configs"]["large_config"]["remoteConfigMetadata"]["compression"] = json!("zstd");
-    mount_dcs(&server, dcs).await;
-
-    let statsig = Statsig::new(SDK_KEY, Some(options_for(&server)));
-    let error = statsig.initialize().await.unwrap_err();
-
-    assert!(matches!(
-        error,
-        StatsigErr::CustomError(message)
-            if message.starts_with("Dynamic config hydration failure: download_failed:")
-                && message.contains("Response exceeded maximum allowed bytes")
-    ));
-
-    statsig.shutdown().await.unwrap();
-    server.verify().await;
+        let sdk = Statsig::new(SDK_KEY, Some(options_for(&server)));
+        sdk.initialize().await.unwrap();
+        let user = StatsigUser::with_user_id("test");
+        let result = sdk.get_experiment(&user, "large_config");
+        assert_eq!(result.details.is_blob_unavailable(), !verified);
+        assert_eq!(result.value.is_empty(), !verified);
+        assert_eq!(sdk.check_gate(&user, "uses-treatment"), verified);
+        sdk.shutdown().await.unwrap();
+        server.verify().await;
+    }
 }
 
 #[tokio::test]
@@ -316,29 +341,28 @@ async fn initialize_uses_configured_source_for_relative_remote_value_paths() {
 }
 
 #[tokio::test]
-async fn initialize_fails_when_remote_value_integrity_check_fails() {
-    let server = MockServer::start().await;
-    let remote_value = br#"{"large":"value"}"#;
-    let incorrect_sha = "a".repeat(64);
-    let download_path = format!("{DOWNLOAD_PATH_PREFIX}{incorrect_sha}");
+async fn cold_start_withholds_remote_value_with_wrong_digest_in_both_formats() {
+    for protobuf in [false, true] {
+        let server = MockServer::start().await;
+        let body = br#"{"large":"value"}"#;
+        let sha = "a".repeat(64);
+        let path = format!("{DOWNLOAD_PATH_PREFIX}{sha}");
+        mount_remote_value(&server, &path, body).await;
+        if protobuf {
+            mount_protobuf_dcs(
+                &server,
+                remote_protobuf_dcs(&server, &path, &sha, body.len()),
+            )
+            .await;
+        } else {
+            mount_dcs(&server, remote_dcs(&server, &path, &sha, body.len())).await;
+        }
 
-    mount_remote_value(&server, &download_path, remote_value).await;
-    mount_dcs(
-        &server,
-        remote_dcs(&server, &download_path, &incorrect_sha, remote_value.len()),
-    )
-    .await;
-
-    let statsig = Statsig::new(SDK_KEY, Some(options_for(&server)));
-    let error = statsig.initialize().await.unwrap_err();
-
-    assert!(matches!(
-        error,
-        StatsigErr::CustomError(message)
-            if message.starts_with("Dynamic config hydration failure: checksum_mismatch:")
-    ));
-
-    statsig.shutdown().await.unwrap();
+        let sdk = Statsig::new(SDK_KEY, Some(options_for(&server)));
+        sdk.initialize().await.unwrap();
+        assert_unavailable_initial_config(&sdk);
+        sdk.shutdown().await.unwrap();
+    }
 }
 
 #[tokio::test]
@@ -458,32 +482,6 @@ async fn initialize_hydrates_zstd_remote_value_from_zstd_protobuf_snapshot() {
 
     statsig.shutdown().await.unwrap();
     server.verify().await;
-}
-
-#[tokio::test]
-async fn initialize_rejects_remote_protobuf_value_when_hydration_fails() {
-    let server = MockServer::start().await;
-    let remote_value = br#"{"large":"protobuf"}"#;
-    let incorrect_sha = "a".repeat(64);
-    let download_path = format!("{DOWNLOAD_PATH_PREFIX}{incorrect_sha}");
-
-    mount_remote_value(&server, &download_path, remote_value).await;
-    mount_protobuf_dcs(
-        &server,
-        remote_protobuf_dcs(&server, &download_path, &incorrect_sha, remote_value.len()),
-    )
-    .await;
-
-    let statsig = Statsig::new(SDK_KEY, Some(options_for(&server)));
-    let error = statsig.initialize().await.unwrap_err();
-
-    assert!(matches!(
-        error,
-        StatsigErr::CustomError(message)
-            if message.starts_with("Dynamic config hydration failure: checksum_mismatch:")
-    ));
-
-    statsig.shutdown().await.unwrap();
 }
 
 #[tokio::test]
@@ -1263,6 +1261,21 @@ async fn data_store_hydration_uses_configured_http_adapter_source() {
     );
 
     statsig.shutdown().await.unwrap();
+}
+
+fn assert_unavailable_initial_config(sdk: &Statsig) {
+    assert!(!sdk.is_config_spec_ready());
+    let snapshot = sdk.specs_snapshot();
+    assert!(snapshot.time > 0);
+    assert_eq!(sdk.get_dynamic_config_list(), ["large_config"]);
+
+    let config = sdk.get_dynamic_config(&StatsigUser::with_user_id("test"), "large_config");
+    assert_eq!(config.details.reason, "Network:Unavailable");
+    assert!(config.value.is_empty());
+    assert_eq!(
+        config.get_typed_opt("timeout_ms", Some(json!(1000))),
+        Some(json!(1000))
+    );
 }
 
 fn options_for(server: &MockServer) -> Arc<StatsigOptions> {

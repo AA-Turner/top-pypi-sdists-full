@@ -28,6 +28,7 @@ use crate::{
         parse_options::SpecsResponseParseOptions,
         proto_compression::ProtoCompression,
         proto_stream_reader::{BUFFER_SIZE, ProtoStreamReader},
+        spec_types::UnavailableValues,
         spec_types::{
             Condition, ConditionOperator, ConditionType, Rule, SharedControlExperiment, Spec,
             SpecsResponseFull, SpecsResponsePartial,
@@ -38,7 +39,8 @@ use crate::{
 };
 
 use crate::specs_adapter::remote_config_value_hydrator::{
-    HydrationPhase, ProtobufHydrationSession, RemoteConfigValueHydrator, StoreHydrationOptions,
+    HydrationFailureReason, HydrationPhase, PartialBlobRefresh, PartialHydration,
+    ProtobufHydrationSession, RemoteConfigValueHydrator, ResolvedSpecValues, StoreHydrationOptions,
     VerifiedRemoteValues, protobuf_spec_bytes_have_remote_metadata,
     protobuf_top_level_has_hydrated_sidecar_provenance,
     remote_metadata_marker_without_metadata_error, rewrite_decoded_dynamic_config_envelope,
@@ -46,6 +48,10 @@ use crate::specs_adapter::remote_config_value_hydrator::{
 };
 
 mod parser;
+mod pending_configs;
+
+use pending_configs::repair_carried_configs;
+pub(crate) use pending_configs::repair_pending_blob_configs;
 
 use parser::ProtobufParser;
 
@@ -59,8 +65,8 @@ const UNHYDRATED_REMOTE_CONFIG_METADATA_MESSAGE: &str =
 const MAX_PENDING_HYDRATION_ENVELOPES: usize = 128;
 const MAX_PENDING_HYDRATION_BYTES: usize = 8 * 1024 * 1024;
 
-// Only remote values referenced by the published snapshot retain verification
-// provenance. Entries share immutable parsed values, not original blob bytes.
+// Keep verified SHAs from the current payload, including healthy siblings of a
+// withheld config. Entries share parsed values without retaining original blob bytes.
 pub(crate) type VerifiedRemoteConfigValues = HashMap<InternedString, Arc<VerifiedRemoteValues>>;
 
 /// Immutable parse inputs from the same published snapshot.
@@ -69,6 +75,9 @@ pub(crate) struct ProtobufStoreParseBase<'a> {
     decode_stats: SpecDecodeStats,
     field_checksums: &'a SpecsFieldChecksums,
     verified_remote_values: &'a VerifiedRemoteConfigValues,
+    pub(crate) partial_delta: Option<&'a PartialBlobRefresh<'a>>,
+    pub(crate) pending_producer_configs: Option<&'a HashMap<InternedString, SpecPointer>>,
+    pub(crate) unavailable: Option<&'a UnavailableValues>,
 }
 
 impl<'a> ProtobufStoreParseBase<'a> {
@@ -83,7 +92,17 @@ impl<'a> ProtobufStoreParseBase<'a> {
             decode_stats,
             field_checksums,
             verified_remote_values,
+            partial_delta: None,
+            pending_producer_configs: None,
+            unavailable: None,
         }
+    }
+    fn is_incomplete(&self, name: &InternedString) -> bool {
+        self.unavailable
+            .is_some_and(|slots| slots.contains_key(name))
+            || self
+                .pending_producer_configs
+                .is_some_and(|pending| pending.contains_key(name))
     }
 }
 
@@ -92,6 +111,7 @@ pub(crate) struct HydratedProtobufStoreUpdate {
     pub(crate) spec_decode_stats: SpecDecodeStats,
     pub(crate) hydrated_data_store_bytes: Option<Vec<u8>>,
     pub(crate) verified_remote_values: VerifiedRemoteConfigValues,
+    pub(crate) partial_hydration: Option<PartialHydration>,
 }
 
 #[derive(Clone, PartialEq, Message)]
@@ -257,9 +277,33 @@ struct PendingEntityParserContext<'a, 'h> {
     mmap_project_id: MmapProjectId,
     preserve_session_update_mode: bool,
     spec_decode_stats: SpecDecodeStats,
-    current_verified_values: &'a VerifiedRemoteConfigValues,
+    pending_base: Option<&'a PartialBlobRefresh<'a>>,
+    parse_base: ProtobufStoreParseBase<'a>,
     previous_values_initialized: bool,
     next_verified_values: VerifiedRemoteConfigValues,
+    unavailable_values: UnavailableValues,
+    failed_by_config: HashMap<InternedString, HashMap<String, HydrationFailureReason>>,
+}
+
+impl PendingEntityParserContext<'_, '_> {
+    fn record_remote_values(&mut self, name: &InternedString, values: Option<ResolvedSpecValues>) {
+        if !self.unavailable_values.is_empty() {
+            self.unavailable_values.remove(name);
+            self.failed_by_config.remove(name);
+        }
+        if let Some(values) = values {
+            if !values.unavailable_slots.is_empty() {
+                self.failed_by_config
+                    .insert(name.clone(), values.failed_blobs);
+                self.unavailable_values
+                    .insert(name.clone(), values.unavailable_slots);
+            }
+            self.next_verified_values
+                .insert(name.clone(), Arc::new(values.provenance));
+        } else {
+            self.next_verified_values.remove(name);
+        }
+    }
 }
 
 /// Bounded, ordered entity work waiting for the next shared hydration batch.
@@ -330,9 +374,12 @@ pub fn deserialize_protobuf_from_reader(
     if matches!(
         deserialize_protobuf_from_stream(
             ops_stats,
-            current_specs,
-            SpecDecodeStats::default(),
-            &current_field_checksums,
+            ProtobufStoreParseBase::new(
+                current_specs,
+                SpecDecodeStats::default(),
+                &current_field_checksums,
+                &Default::default()
+            ),
             next_specs,
             ProtoStreamReader::from_reader(reader),
             SpecsResponseParseOptions::default(),
@@ -356,9 +403,12 @@ pub fn deserialize_protobuf_with_options(
     if matches!(
         deserialize_protobuf_from_stream(
             ops_stats,
-            current_specs,
-            SpecDecodeStats::default(),
-            &current_field_checksums,
+            ProtobufStoreParseBase::new(
+                current_specs,
+                SpecDecodeStats::default(),
+                &current_field_checksums,
+                &Default::default()
+            ),
             next_specs,
             ProtoStreamReader::new_for_response(data)?,
             options,
@@ -414,26 +464,50 @@ pub(crate) async fn prepare_protobuf_store_update(
     let mut hydration =
         hydrator.begin_protobuf_hydration_with_trigger(options.source_url, options.sync_trigger);
     let started_at = Instant::now();
-    let result = deserialize_protobuf_for_store_with_hydration_inner(
-        ops_stats,
-        base,
-        next_specs,
-        data,
-        &mut hydration,
-        options,
-    )
+    let partial = base.partial_delta;
+    let result = async {
+        let mut result = deserialize_protobuf_for_store_with_hydration_inner(
+            ops_stats,
+            base,
+            next_specs,
+            data,
+            &mut hydration,
+            options,
+        )
+        .await?;
+        if let (Some(refresh), ProtobufUpdate::Materialized { is_delta: true, .. }) =
+            (partial, &result.update)
+        {
+            let repaired = repair_carried_configs(
+                &mut hydration,
+                options,
+                refresh,
+                &result.verified_remote_values,
+            )
+            .await?;
+            result
+                .spec_decode_stats
+                .with_mmap_project(options.mmap_project_id, || {
+                    for (name, spec) in repaired.configs {
+                        next_specs.dynamic_configs.insert(name, spec);
+                    }
+                });
+            result.verified_remote_values.extend(repaired.verified);
+        }
+        Ok(result)
+    }
     .await;
     hydrator.log_phase_latency(started_at.elapsed(), HydrationPhase::ProtobufResponse);
     hydration.finish(result.as_ref().map(|_| ()));
     result
 }
 
-async fn deserialize_protobuf_for_store_with_hydration_inner(
+async fn deserialize_protobuf_for_store_with_hydration_inner<'a>(
     ops_stats: &OpsStatsForInstance,
-    base: ProtobufStoreParseBase<'_>,
+    base: ProtobufStoreParseBase<'a>,
     next_specs: &mut SpecsResponseFull,
     data: &mut ResponseData,
-    hydration: &mut ProtobufHydrationSession<'_>,
+    hydration: &mut ProtobufHydrationSession<'a>,
     options: StoreHydrationOptions<'_>,
 ) -> Result<HydratedProtobufStoreUpdate, StatsigErr> {
     let ProtobufStoreParseBase {
@@ -441,11 +515,15 @@ async fn deserialize_protobuf_for_store_with_hydration_inner(
         decode_stats: previous_spec_decode_stats,
         field_checksums: current_field_checksums,
         verified_remote_values: current_verified_values,
+        partial_delta,
+        pending_producer_configs,
+        ..
     } = base;
     let StoreHydrationOptions {
         mmap_project_id,
         capture_data_store_bytes,
         preserve_session_update_mode,
+        allow_partial_full_response,
         ..
     } = options;
     let mut data_store_capture: Option<HydratedProtobufDataStoreCapture> = None;
@@ -466,9 +544,12 @@ async fn deserialize_protobuf_for_store_with_hydration_inner(
         mmap_project_id,
         preserve_session_update_mode,
         spec_decode_stats: SpecDecodeStats::default(),
-        current_verified_values,
+        pending_base: partial_delta,
+        parse_base: base,
         previous_values_initialized: false,
         next_verified_values: VerifiedRemoteConfigValues::new(),
+        unavailable_values: UnavailableValues::new(),
+        failed_by_config: HashMap::new(),
     };
 
     data.rewind()?;
@@ -525,6 +606,10 @@ async fn deserialize_protobuf_for_store_with_hydration_inner(
                 {
                     return Err(remote_metadata_marker_without_metadata_error());
                 }
+                // An overwritten failure can still have discarded the offline writer's frames.
+                let needs_sidecar_retry = capture_data_store_bytes
+                    && !parser_context.parser.is_delta()
+                    && parser_context.hydration.is_degraded();
                 let update = parser_context
                     .spec_decode_stats
                     .with_mmap_project(parser_context.mmap_project_id, || {
@@ -542,6 +627,15 @@ async fn deserialize_protobuf_for_store_with_hydration_inner(
                     spec_decode_stats: parser_context.spec_decode_stats,
                     hydrated_data_store_bytes,
                     verified_remote_values: parser_context.next_verified_values,
+                    partial_hydration: PartialHydration::from_failures(
+                        parser_context.unavailable_values,
+                        parser_context
+                            .failed_by_config
+                            .into_values()
+                            .flatten()
+                            .collect(),
+                        needs_sidecar_retry,
+                    ),
                 });
             }
             pb::SpecsEnvelopeKind::TopLevel => {
@@ -564,6 +658,9 @@ async fn deserialize_protobuf_for_store_with_hydration_inner(
                     parser_context
                         .hydration
                         .set_response_type(parser_context.parser.is_delta());
+                    if allow_partial_full_response && !parser_context.parser.is_delta() {
+                        parser_context.hydration.enable_partial_hydration();
+                    }
                     parser_context.next_verified_values = if parser_context.parser.is_delta() {
                         current_verified_values.clone()
                     } else {
@@ -573,6 +670,7 @@ async fn deserialize_protobuf_for_store_with_hydration_inner(
                         top_level_hydrated_sidecar_provenance;
                     if capture_data_store_bytes
                         && !parser_context.parser.is_delta()
+                        && !parser_context.hydration.is_degraded()
                         && parser_context.parser.remote_metadata_hint() == Some(true)
                     {
                         if data_store_capture.is_none() {
@@ -639,9 +737,9 @@ async fn deserialize_protobuf_for_store_with_hydration_inner(
                         parser_context.parser.handle_deletions(env, true)
                     })?;
                 for name in deleted.into_iter().flatten() {
-                    parser_context
-                        .next_verified_values
-                        .remove(&InternedString::from_string(name));
+                    let name = InternedString::from_string(name);
+                    parser_context.hydration.clear_pending_config(&name);
+                    parser_context.record_remote_values(&name, None);
                 }
             }
             pb::SpecsEnvelopeKind::Checksums => {
@@ -653,6 +751,11 @@ async fn deserialize_protobuf_for_store_with_hydration_inner(
             }
             pb::SpecsEnvelopeKind::CopyPrev => {
                 parser_context.parser.handle_copy_prev()?;
+                // A poll can receive a full fallback. Only CopyPrev identifies a wire delta.
+                if let Some(refresh) = partial_delta {
+                    parser_context.parser.pending_producer_configs = pending_producer_configs;
+                    parser_context.hydration.retain_previous_configs(refresh);
+                }
             }
             pb::SpecsEnvelopeKind::Unknown => {
                 return make_proto_parse_error("SpecsEnvelope", "Unknown envelope kind");
@@ -697,6 +800,7 @@ fn prepare_pending_entity_update(
         }));
     }
 
+    let complete = |name: &InternedString| !context.parse_base.is_incomplete(name);
     let reused = context
         .spec_decode_stats
         .with_mmap_project(context.mmap_project_id, || {
@@ -704,7 +808,8 @@ fn prepare_pending_entity_update(
                 .parser
                 .next_specs
                 .find_reusable_dynamic_config_update(&envelope, context.parser.current_specs)
-        });
+        })
+        .filter(|(name, _)| complete(name));
     // Hydrated sidecars decode as marker=false after their metadata is
     // stripped, but retain a true-then-false marker history. Their envelope
     // checksum is still the producer checksum, so checksum alone cannot prove
@@ -712,6 +817,11 @@ fn prepare_pending_entity_update(
     // A response marker can coexist with unchanged inline configs. Probe only
     // reuse candidates so their rules and inline values can skip full decoding;
     // metadata-bearing candidates and probe failures keep the validation path.
+    let reused = reused.filter(|(name, _)| {
+        !context
+            .pending_base
+            .is_some_and(|base| base.was_pending(name))
+    });
     let reused = match reused {
         Some((name, spec_pointer))
             if !capture_hydrated_frame
@@ -798,7 +908,8 @@ fn prepare_pending_entity_update(
         }
         if !context.previous_values_initialized {
             let previous_values = context
-                .current_verified_values
+                .parse_base
+                .verified_remote_values
                 .values()
                 .flat_map(|values| {
                     values
@@ -814,8 +925,10 @@ fn prepare_pending_entity_update(
                 ));
             context.previous_values_initialized = true;
         }
-        let remote_values_ready = context.hydration.register_spec_references(&spec)?;
         let name = InternedString::from_str_ref(&envelope.name);
+        let mut remote_values_ready = context
+            .hydration
+            .register_config_references(&name, &spec, None)?;
         if let (Some((_, candidate)), Some(values)) = (
             reused.as_ref(),
             InternedStore::mmap_verified_remote_values(context.mmap_project_id),
@@ -829,7 +942,12 @@ fn prepare_pending_entity_update(
                     existing_verified_values_match(candidate, &spec, values)
                 });
         }
-        if let Some(values) = context.current_verified_values.get(&name) {
+        if let Some(values) = context
+            .parse_base
+            .verified_remote_values
+            .get(&name)
+            .filter(|_| complete(&name))
+        {
             let candidate =
                 context
                     .spec_decode_stats
@@ -837,9 +955,18 @@ fn prepare_pending_entity_update(
                         let current = context.parser.current_specs.dynamic_configs.get(&name)?;
                         if current.view().checksum().map(|value| value.as_str())
                             != Some(envelope.checksum.as_str())
-                            || !existing_verified_values_match(current, &spec, values)
                         {
                             return None;
+                        }
+                        if !existing_verified_values_match(current, &spec, values) {
+                            if remote_values_ready {
+                                return None;
+                            }
+                            let bodies = existing_hydrated_values(current, &spec, Some(values))?;
+                            if !context.hydration.seed_verified_values(bodies) {
+                                return None;
+                            }
+                            remote_values_ready = true;
                         }
                         if context.preserve_session_update_mode {
                             current.with_session_update_mode(spec.session_update_mode.as_deref())
@@ -857,7 +984,7 @@ fn prepare_pending_entity_update(
                 context
                     .spec_decode_stats
                     .with_mmap_project(context.mmap_project_id, || {
-                        existing_hydrated_values(spec_pointer, &spec)
+                        existing_hydrated_values(spec_pointer, &spec, None)
                     })
             }) {
                 // A snapshot loaded before this SDK verified the blob has no
@@ -925,6 +1052,7 @@ fn existing_verified_values_match(
 fn existing_hydrated_values(
     existing: &SpecPointer,
     incoming: &pb::Spec,
+    proofs: Option<&VerifiedRemoteValues>,
 ) -> Option<HashMap<String, Arc<Vec<u8>>>> {
     let existing = existing.view();
     if existing.rules_len() != incoming.rules.len() {
@@ -933,7 +1061,7 @@ fn existing_hydrated_values(
 
     let mut verified = HashMap::new();
     if let Some(metadata) = incoming.remote_config_metadata.as_ref() {
-        insert_existing_hydrated_value(&mut verified, existing.default_value(), metadata)?;
+        insert_existing_hydrated_value(&mut verified, existing.default_value(), metadata, proofs)?;
     }
 
     for (index, rule) in incoming.rules.iter().enumerate() {
@@ -942,7 +1070,12 @@ fn existing_hydrated_values(
             return None;
         }
         if let Some(metadata) = rule.remote_config_metadata.as_ref() {
-            insert_existing_hydrated_value(&mut verified, existing_rule.return_value(), metadata)?;
+            insert_existing_hydrated_value(
+                &mut verified,
+                existing_rule.return_value(),
+                metadata,
+                proofs,
+            )?;
         }
     }
 
@@ -953,7 +1086,14 @@ fn insert_existing_hydrated_value(
     verified: &mut HashMap<String, Arc<Vec<u8>>>,
     value: ReturnableRef<'_>,
     metadata: &pb::RemoteConfigValueMetadata,
+    proofs: Option<&VerifiedRemoteValues>,
 ) -> Option<()> {
+    if proofs
+        .and_then(|p| p.get(&metadata.sha256))
+        .is_some_and(|proof| proof.matches_value(metadata, &value.to_owned()))
+    {
+        return Some(());
+    }
     // Archived returnables retain parsed JSON, not its original wire bytes.
     // Reuse only when serialization exactly reconstructs the producer's
     // authenticated bytes; whitespace, key-order, or numeric-lexeme changes
@@ -981,6 +1121,9 @@ async fn flush_pending_entity_updates(
     }
 
     context.hydration.download_registered_references().await?;
+    if context.hydration.is_degraded() {
+        *data_store_capture = None;
+    }
 
     for pending in batch.updates.drain(..) {
         match pending {
@@ -1018,7 +1161,8 @@ async fn flush_pending_entity_updates(
             }
             PendingEntityUpdate::Dynamic(pending) => match *pending {
                 PendingDynamicConfigUpdate::Reused { name, spec_pointer } => {
-                    context.next_verified_values.remove(&name);
+                    context.hydration.clear_pending_config(&name);
+                    context.record_remote_values(&name, None);
                     let checksum_name = name.clone();
                     let old_checksum = entity_checksum(
                         pb::SpecsEnvelopeKind::DynamicConfig,
@@ -1043,18 +1187,22 @@ async fn flush_pending_entity_updates(
                 }
                 PendingDynamicConfigUpdate::Decoded(decoded) => {
                     let PendingDecodedDynamicConfigUpdate {
-                        envelope,
+                        mut envelope,
                         mut spec,
-                        reused,
+                        mut reused,
                         verify_reused_against_decoded,
                         tolerates_malformed_entity,
                         has_remote_metadata,
                         raw_frame,
                     } = *decoded;
+                    let mut deferred = false;
                     let mut hydrated_frame = None;
                     let mut remote_values = None;
                     if has_remote_metadata {
-                        if let Some(raw_frame) = raw_frame.as_deref() {
+                        if let Some(raw_frame) = raw_frame
+                            .as_deref()
+                            .filter(|_| data_store_capture.is_some())
+                        {
                             let sidecar_values = context.hydration.data_store_values(&spec)?;
                             hydrated_frame = Some(rewrite_decoded_dynamic_config_envelope(
                                 raw_frame,
@@ -1066,13 +1214,29 @@ async fn flush_pending_entity_updates(
                                 &sidecar_values,
                             )?);
                         }
-                        remote_values = Some(
-                            context
-                                .spec_decode_stats
-                                .with_mmap_project(context.mmap_project_id, || {
-                                    context.hydration.take_verified_spec_values(&mut spec)
-                                })?,
-                        );
+                        let values = context
+                            .spec_decode_stats
+                            .with_mmap_project(context.mmap_project_id, || {
+                                context.hydration.take_resolved_spec_values(&mut spec)
+                            })?;
+                        if context.hydration.is_degraded() {
+                            *data_store_capture = None;
+                        }
+                        if context.hydration.retains_previous_configs()
+                            && !values.unavailable_slots.is_empty()
+                        {
+                            // Keep the producer's checksum-bearing entity for the delta chain.
+                            // The store will serve its prior complete definition, if compatible.
+                            context.hydration.defer_config(
+                                &InternedString::from_str_ref(&envelope.name),
+                                &mut envelope,
+                                values,
+                            );
+                            deferred = true;
+                            reused = None;
+                        } else {
+                            remote_values = Some(values);
+                        }
                     }
 
                     // A hydrated sidecar may share an envelope checksum with
@@ -1080,16 +1244,7 @@ async fn flush_pending_entity_updates(
                     // decoded content before reusing that pointer; untouched
                     // configs still keep their mmap sharing when they match.
                     if let Some((name, spec_pointer)) = reused {
-                        match remote_values {
-                            Some(values) => {
-                                context
-                                    .next_verified_values
-                                    .insert(name.clone(), Arc::new(values.provenance));
-                            }
-                            None => {
-                                context.next_verified_values.remove(&name);
-                            }
-                        }
+                        context.record_remote_values(&name, remote_values);
                         let checksum_name = name.clone();
                         let old_checksum = entity_checksum(
                             pb::SpecsEnvelopeKind::DynamicConfig,
@@ -1133,6 +1288,7 @@ async fn flush_pending_entity_updates(
                                 },
                             );
                         }
+                        context.hydration.clear_pending_config(&checksum_name);
                         record_entity_checksum_update(
                             pb::SpecsEnvelopeKind::DynamicConfig,
                             context.parser.next_specs,
@@ -1150,19 +1306,11 @@ async fn flush_pending_entity_updates(
                         let result = context.spec_decode_stats.with_mmap_project(
                             context.mmap_project_id,
                             || {
-                                let mut decoded = spec_from_pb(envelope.checksum, spec)?;
-                                if let Some(values) = remote_values.as_ref() {
-                                    if let Some(value) = &values.default_value {
-                                        decoded.default_value = value.clone();
-                                    }
-                                    for (rule, value) in
-                                        decoded.rules.iter_mut().zip(&values.rule_values)
-                                    {
-                                        if let Some(value) = value {
-                                            rule.return_value = value.clone();
-                                        }
-                                    }
-                                }
+                                let decoded = spec_with_remote_values(
+                                    envelope.checksum,
+                                    spec,
+                                    remote_values.as_ref(),
+                                )?;
                                 context
                                     .parser
                                     .next_specs
@@ -1180,16 +1328,10 @@ async fn flush_pending_entity_updates(
                             tolerates_malformed_entity,
                         )?;
                         if updated {
-                            match remote_values {
-                                Some(values) => {
-                                    context
-                                        .next_verified_values
-                                        .insert(checksum_name.clone(), Arc::new(values.provenance));
-                                }
-                                None => {
-                                    context.next_verified_values.remove(&checksum_name);
-                                }
+                            if !deferred {
+                                context.hydration.clear_pending_config(&checksum_name);
                             }
+                            context.record_remote_values(&checksum_name, remote_values);
                             record_entity_checksum_update(
                                 pb::SpecsEnvelopeKind::DynamicConfig,
                                 context.parser.next_specs,
@@ -1248,18 +1390,14 @@ fn protobuf_spec_has_remote_metadata(spec: &pb::Spec) -> bool {
 
 pub(crate) fn deserialize_protobuf_for_store_with_options(
     ops_stats: &OpsStatsForInstance,
-    current_specs: &SpecsResponseFull, /* Intentionally immutable so we can continue using it if parsing fails */
-    previous_spec_decode_stats: SpecDecodeStats,
-    current_field_checksums: &SpecsFieldChecksums,
+    base: ProtobufStoreParseBase<'_>,
     next_specs: &mut SpecsResponseFull,
     data: &mut ResponseData,
     options: SpecsResponseParseOptions,
 ) -> Result<ProtobufUpdate, StatsigErr> {
     deserialize_protobuf_from_stream(
         ops_stats,
-        current_specs,
-        previous_spec_decode_stats,
-        current_field_checksums,
+        base,
         next_specs,
         ProtoStreamReader::new_for_response(data)?,
         options,
@@ -1268,18 +1406,16 @@ pub(crate) fn deserialize_protobuf_for_store_with_options(
 
 fn deserialize_protobuf_from_stream<R: Read>(
     ops_stats: &OpsStatsForInstance,
-    current_specs: &SpecsResponseFull,
-    previous_spec_decode_stats: SpecDecodeStats,
-    current_field_checksums: &SpecsFieldChecksums,
+    base: ProtobufStoreParseBase<'_>,
     next_specs: &mut SpecsResponseFull,
     mut reader: ProtoStreamReader<'_, R>,
     options: SpecsResponseParseOptions,
 ) -> Result<ProtobufUpdate, StatsigErr> {
     let mut parser = ProtobufParser::new(
         ops_stats,
-        current_specs,
-        previous_spec_decode_stats,
-        current_field_checksums,
+        base.specs,
+        base.decode_stats,
+        base.field_checksums,
         next_specs,
     )?;
 
@@ -1304,16 +1440,19 @@ fn deserialize_protobuf_from_stream<R: Read>(
             | pb::SpecsEnvelopeKind::ParamStore
             | pb::SpecsEnvelopeKind::Condition => {
                 let tolerates_malformed_entity = parser.prepare_entity_update()?;
-                let result = if options.should_skip_unhydrated_dynamic_configs_for_preload()
-                    && kind == pb::SpecsEnvelopeKind::DynamicConfig
+                let skip_unhydrated = options.should_skip_unhydrated_dynamic_configs_for_preload();
+                let result = if kind == pb::SpecsEnvelopeKind::DynamicConfig
+                    && (skip_unhydrated
+                        || base.is_incomplete(&InternedString::from_str_ref(&envelope.name)))
                 {
-                    let remote_metadata_hint = parser.remote_metadata_hint();
-                    apply_dynamic_config_update_skipping_unhydrated(
+                    let skip_remote =
+                        skip_unhydrated && parser.remote_metadata_hint() == Some(true);
+                    apply_dynamic_config_update_without_reuse(
                         envelope,
                         parser.next_specs,
                         &mut parser.next_field_checksums,
                         &mut skipped_remote_checksums,
-                        remote_metadata_hint,
+                        skip_remote,
                     )
                 } else {
                     apply_entity_update(
@@ -1353,12 +1492,12 @@ fn deserialize_protobuf_from_stream<R: Read>(
     }
 }
 
-fn apply_dynamic_config_update_skipping_unhydrated(
+fn apply_dynamic_config_update_without_reuse(
     envelope: pb::SpecsEnvelope,
     next_specs: &mut SpecsResponseFull,
     field_checksums: &mut SpecsFieldChecksums,
     skipped_remote_checksums: &mut HashMap<InternedString, u32>,
-    remote_metadata_hint: Option<bool>,
+    skip_remote: bool,
 ) -> Result<(), StatsigErr> {
     let name = InternedString::from_str_ref(&envelope.name);
     let old_checksum = next_specs
@@ -1373,7 +1512,7 @@ fn apply_dynamic_config_update_skipping_unhydrated(
     if protobuf_spec_has_remote_metadata(&pb_spec) {
         // Only a producer-declared remote response is eligible for this
         // shared-cache omission. The worker hydrator also requires true.
-        if remote_metadata_hint != Some(true) {
+        if !skip_remote {
             return Err(unhydrated_remote_config_metadata_error());
         }
         // The full payload, including this omitted shared-cache entry, is
@@ -1772,6 +1911,35 @@ impl SpecsResponseFull {
             && self.response_format == existing.response_format
     }
 
+    pub(crate) fn with_cursor(
+        &self,
+        time: u64,
+        checksum: Option<String>,
+    ) -> serde_json::Result<Self> {
+        let mut projected = Self {
+            time,
+            checksum,
+            company_id: self.company_id.clone(),
+            response_format: self.response_format.clone(),
+            has_updates: self.has_updates,
+            ..Default::default()
+        };
+        projected.copy_common_fields_from(self)?;
+        // Keep the verified SpecPointers, including their mmap and blob backing.
+        projected.copy_previous_values_from(self);
+        Ok(projected)
+    }
+
+    pub(crate) fn restore_producer_configs(
+        &mut self,
+        pending: &HashMap<InternedString, SpecPointer>,
+    ) {
+        // CopyPrev already seeded decode counts for these producer entries.
+        for (name, spec) in pending {
+            self.dynamic_configs.0.insert(name.clone(), spec.clone());
+        }
+    }
+
     fn copy_previous_values_from(&mut self, existing: &SpecsResponseFull) {
         self.dynamic_configs = SpecsHashMap(existing.dynamic_configs.0.clone());
         self.feature_gates = SpecsHashMap(existing.feature_gates.0.clone());
@@ -2153,6 +2321,25 @@ fn condition_type_from_pb(condition_type: pb::ConditionType) -> Result<InternedS
         pb::ConditionType::TargetApp => Ok(interned_str!("target_app")),
         pb::ConditionType::UnitId => Ok(interned_str!("unit_id")),
     }
+}
+
+fn spec_with_remote_values(
+    checksum: String,
+    spec: pb::Spec,
+    values: Option<&ResolvedSpecValues>,
+) -> Result<Spec, StatsigErr> {
+    let mut decoded = spec_from_pb(checksum, spec)?;
+    if let Some(values) = values {
+        if let Some(value) = &values.default_value {
+            decoded.default_value = value.clone();
+        }
+        for (rule, value) in decoded.rules.iter_mut().zip(&values.rule_values) {
+            if let Some(value) = value {
+                rule.return_value = value.clone();
+            }
+        }
+    }
+    Ok(decoded)
 }
 
 fn spec_from_pb(checksum: String, spec: pb::Spec) -> Result<Spec, StatsigErr> {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: casacure
-Version: 3.8.41
+Version: 3.8.44
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
@@ -25,6 +25,8 @@ Requires-Dist: skyfield ; extra == 'dev'
 Requires-Dist: pytest ; extra == 'dev'
 Requires-Dist: pyyaml ; extra == 'dev'
 Provides-Extra: dev
+License-File: COPYING
+License-File: COPYING.LESSER
 Summary: A Rust replacement for the casacore table system, pip installable on any machine
 Keywords: casacore,measurement-set,radio-astronomy,CASA,AIPS,taql,fits,scientific-data
 Author-email: Tim Molteno <tim@elec.ac.nz>

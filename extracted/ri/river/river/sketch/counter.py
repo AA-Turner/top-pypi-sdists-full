@@ -10,19 +10,19 @@ from river import base
 
 
 class Counter(base.Base):
-    """Counting using the Count-Min Sketch (CMS) algorithm.
+    r"""Counting using the Count-Min Sketch (CMS) algorithm.
 
     Contrary to an exhaustive approach, e.g., using a `collections.Counter`, CMS uses a
     limited and fixed amount of memory. The CMS algorithm uses a sketch structure consisting of a
-    matrix $w \\times d$.
+    matrix $w \times d$.
 
     These dimensions are obtained via:
 
-    - $w = \\lceil \\frac{e}{\\epsilon} \\rceil$, where $e$ is the Euler number.
+    - $w = \lceil \frac{e}{\epsilon} \rceil$, where $e$ is the Euler number.
 
-    - $d = \\lceil \\ln\\left(\\frac{1}{\\delta} \\right) \\rceil$.
+    - $d = \lceil \ln\left(\frac{1}{\delta} \right) \rceil$.
 
-    Decreasing the values of $\\epsilon$ (`epsilon`) and $\\delta$ (`delta`) increase the accuracy of the
+    Decreasing the values of $\epsilon$ (`epsilon`) and $\delta$ (`delta`) increase the accuracy of the
     algorithm, at the cost of increased memory usage. The values of `w` and `d` control the hash tables' capability
     and the amount of hash collisions, respectively.
 
@@ -30,10 +30,10 @@ class Counter(base.Base):
     These tables store the counting estimates. This implementation assumes the turnstile case described in the paper,
     i.e., count values and updates can be negative.
 
-    The count values obtained by CMS are always overestimates. Suppose $c_i$ and $\\hat{c}_i$ are the ground truth and
-    estimated count values, respectively, for a given element $i$. CMS guarantees that $c_i \\le \\hat{c}_i$ and,
-    with probability $1 - \\delta$, $\\hat{c}_i \\le c_i + \\epsilon||\\mathbf{c}||_1$. In the expression,
-    $||\\mathbf{c}||_1 = \\sum_i |c_i|$.
+    The count values obtained by CMS are always overestimates. Suppose $c_i$ and $\hat{c}_i$ are the ground truth and
+    estimated count values, respectively, for a given element $i$. CMS guarantees that $c_i \le \hat{c}_i$ and,
+    with probability $1 - \delta$, $\hat{c}_i \le c_i + \epsilon||\mathbf{c}||_1$. In the expression,
+    $||\mathbf{c}||_1 = \sum_i |c_i|$.
 
     Parameters
     ----------
@@ -48,7 +48,6 @@ class Counter(base.Base):
 
     Examples
     --------
-
     >>> import collections
     >>> from river import sketch
 
@@ -130,7 +129,7 @@ class Counter(base.Base):
     >>> def cosine_dist(cms_a, cms_b):
     ...     num = cms_a @ cms_b
     ...     den = math.sqrt(cms_a @ cms_a) * math.sqrt(cms_b @ cms_b)
-    ...     return (num / den).item()
+    ...     return num / den
 
     And use it to calculate the cosine distance between the elements monitored in `cms_a` and `cms_b`:
 
@@ -157,12 +156,15 @@ class Counter(base.Base):
         self._masks = [self._rng.getrandbits(64) for _ in range(self._d)]
         self._cms = np.zeros((self._d, self._w), dtype=np.int32)
 
-    def _hash(self, x):
-        return tuple(zip(*((i, (hash(x) ^ self._masks[i]) % self._w) for i in range(self._d))))
+    def _hash(self, x: typing.Hashable) -> tuple[tuple[int, ...], tuple[int, ...]]:
+        return typing.cast(
+            tuple[tuple[int, ...], tuple[int, ...]],
+            tuple(zip(*((i, (hash(x) ^ self._masks[i]) % self._w) for i in range(self._d)))),
+        )
 
-    def __getitem__(self, x) -> int:
+    def __getitem__(self, x: typing.Hashable) -> int:
         # Point query
-        return min(self._cms[self._hash(x)]).item()
+        return typing.cast(int, min(self._cms[self._hash(x)]).item())
 
     def __matmul__(self, other: Counter) -> int:
         # Dot product
@@ -172,18 +174,18 @@ class Counter(base.Base):
             )
             raise ValueError(f"The number of slots and hash tables do not match: {unmatched_dims}.")
 
-        return min(np.einsum("ij,ij->i", self._cms, other._cms))
+        return typing.cast(int, min(np.einsum("ij,ij->i", self._cms, other._cms)).item())
 
-    def __len__(self):
+    def __len__(self) -> int:
         # Return the total number of stored elements in the sketch
         return self._w * self._d
 
-    def update(self, x: typing.Hashable, w: int = 1):
+    def update(self, x: typing.Hashable, w: int = 1) -> None:
         self._cms[self._hash(x)] += w
 
     def total(self) -> int:
         """Return the total count."""
-        return sum(self._cms[0, :]).item()  # type: ignore[attr-defined] # The resulting type is a numpy integer, but the type checkers think it's a regular int.
+        return typing.cast(int, sum(self._cms[0, :]).item())  # type: ignore[attr-defined] # The resulting type is a numpy integer, but the type checkers think it's a regular int.
 
     @property
     def n_slots(self) -> int:

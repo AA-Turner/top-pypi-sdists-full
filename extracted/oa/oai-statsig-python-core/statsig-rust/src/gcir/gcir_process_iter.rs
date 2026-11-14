@@ -67,6 +67,10 @@ pub(crate) fn gcir_process_iter<T: GCIRHashable>(
         let spec_type = get_spec_type(spec);
         Evaluator::evaluate(context, name.as_str(), &spec_type)?;
 
+        if context.result.blob_unavailable {
+            continue;
+        }
+
         if remove_default_value_gates
             && entity.as_str() == "feature_gate"
             && context.result.rule_id.as_deref() == Some("default")
@@ -218,6 +222,10 @@ fn gcir_process_plan_impl<T: GCIRHashable, const WITH_CHECKSUM: bool, const WITH
         gcir_time!("plan.evaluate", {
             Evaluator::evaluate_with_name(context, &planned.name, &planned.spec_type)
         })?;
+
+        if context.result.blob_unavailable {
+            continue;
+        }
 
         if WITH_FILTERS && should_filter_default_gate(context, plan_options, planned) {
             continue;

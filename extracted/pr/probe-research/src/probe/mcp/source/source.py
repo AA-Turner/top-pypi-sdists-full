@@ -132,6 +132,7 @@ class ResearchOSSource(
         continuation_handles: bool | None = None,
         exclude_origin_session: str | None = None,
         filters: PeopleFilters = PeopleFilters(),
+        query: str | None = None,
     ) -> dict:
         """GET /v1/browse, raising CapabilityUnavailable on a backend without it.
 
@@ -153,6 +154,7 @@ class ResearchOSSource(
                 continuation_handles=continuation_handles,
                 exclude_origin_session=exclude_origin_session,
                 **filters.to_query(),
+                **({"query": query} if query else {}),
             )
         except errors.NotFoundError:
             # A scoped 404 means the SCOPE was not found on a backend that has

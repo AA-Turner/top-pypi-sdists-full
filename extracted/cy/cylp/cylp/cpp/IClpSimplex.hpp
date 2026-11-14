@@ -71,7 +71,6 @@ public:
 	PyObject * getPivotVariable();
 	PyObject * getPrimalRowSolution();
 	PyObject * getPrimalColumnSolution();
-    PyObject * getPrimalColumnSolutionAll();
     PyObject * getSolutionRegion();
     PyObject * getCostRegion();
 	PyObject * getDualRowSolution();
@@ -127,6 +126,9 @@ public:
                    ClpSimplex::loadProblem(*matrix, collb, colub, obj, rowlb, rowub, rowObjective);}
 
 	int primal(int ifValuesPass=0, int startFinishOptions=0);
+	bool hasQuadraticObjective();
+	bool isQPWithoutBoundedRows();
+	bool hasFactorization();
 
 	IClpSimplex (ClpSimplex * wholeModel,
 	      int numberColumns, const int * whichColumns);

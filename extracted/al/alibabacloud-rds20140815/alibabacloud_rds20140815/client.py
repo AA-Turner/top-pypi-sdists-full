@@ -39641,6 +39641,84 @@ class Client(OpenApiClient):
         runtime = RuntimeOptions()
         return await self.switch_replication_link_with_options_async(request, runtime)
 
+    def switch_to_primary_instance_with_options(
+        self,
+        request: main_models.SwitchToPrimaryInstanceRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.SwitchToPrimaryInstanceResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbinstance_id):
+            query['DBInstanceId'] = request.dbinstance_id
+        if not DaraCore.is_null(request.effective_time):
+            query['EffectiveTime'] = request.effective_time
+        if not DaraCore.is_null(request.force_switch):
+            query['ForceSwitch'] = request.force_switch
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'SwitchToPrimaryInstance',
+            version = '2014-08-15',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.SwitchToPrimaryInstanceResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def switch_to_primary_instance_with_options_async(
+        self,
+        request: main_models.SwitchToPrimaryInstanceRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.SwitchToPrimaryInstanceResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbinstance_id):
+            query['DBInstanceId'] = request.dbinstance_id
+        if not DaraCore.is_null(request.effective_time):
+            query['EffectiveTime'] = request.effective_time
+        if not DaraCore.is_null(request.force_switch):
+            query['ForceSwitch'] = request.force_switch
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'SwitchToPrimaryInstance',
+            version = '2014-08-15',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.SwitchToPrimaryInstanceResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def switch_to_primary_instance(
+        self,
+        request: main_models.SwitchToPrimaryInstanceRequest,
+    ) -> main_models.SwitchToPrimaryInstanceResponse:
+        runtime = RuntimeOptions()
+        return self.switch_to_primary_instance_with_options(request, runtime)
+
+    async def switch_to_primary_instance_async(
+        self,
+        request: main_models.SwitchToPrimaryInstanceRequest,
+    ) -> main_models.SwitchToPrimaryInstanceResponse:
+        runtime = RuntimeOptions()
+        return await self.switch_to_primary_instance_with_options_async(request, runtime)
+
     def sync_rckey_pair_with_options(
         self,
         request: main_models.SyncRCKeyPairRequest,

@@ -324,6 +324,7 @@ class Stack(ServiceResource):
     deletion_mode: DeletionModeType
     detailed_status: DetailedStatusType
     last_operations: list[OperationEntryTypeDef]
+    alias_name: str
     meta: CloudFormationResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

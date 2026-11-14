@@ -128,6 +128,10 @@ class DeployBase:
     # (None: no RTC setting; ``rtc_refusal_fix`` says what to do instead).
     set_rtc: Callable[..., dict] | None = None
     rtc_refusal_fix: str = "nothing to change: its base fixes RTC"
+    # The engines its deployments choose between, the default first (the API's ``engine``:
+    # what its units serve; `deployments create --engine`, `deployments engine`); every other
+    # is experimental. Empty: one engine, no setting.
+    engines: tuple[str, ...] = ()
     # Detect reads it as this base (``model=<name>``); what `deployments inspect` prints of it
     # (None: its robot line).
     detects_as_base: bool = False

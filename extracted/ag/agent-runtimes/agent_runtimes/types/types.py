@@ -2061,6 +2061,10 @@ class AppVoiceSpec(BaseModel):
         return self.enabled and self.output != "off"
 
 
+#: What runs and hosts an agent (``runtime_engine``), the default first.
+RUNTIME_ENGINES: tuple[str, ...] = ("datalayer", "kagent", "agentcore")
+
+
 class Agentspec(BaseModel):
     """
     Specification for an AI agent.
@@ -2082,6 +2086,14 @@ class Agentspec(BaseModel):
         validation_alias=AliasChoices("domain", "vertical"),
     )
     enabled: bool = Field(default=True, description="Whether the agent is enabled")
+    listed: bool = Field(
+        default=True,
+        description=(
+            "Whether the pickers offer the agent (the new agent page, the chats, "
+            "the assign menu, loop's pickers): an enabled agent that is not "
+            "listed runs by id and as a default, without being offered"
+        ),
+    )
     model: Optional[str] = Field(
         default=None,
         description="AI model identifier to use for this agent (e.g., 'bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0')",
@@ -2147,6 +2159,11 @@ class Agentspec(BaseModel):
         if value is None or value == "":
             return "local"
         return value
+
+    @property
+    def offered(self) -> bool:
+        """Whether the pickers offer it: the catalogue enables it and lists it."""
+        return self.enabled and self.listed
 
     @model_validator(mode="after")
     def _decisions_bring_decide(self) -> "Agentspec":
@@ -2261,7 +2278,7 @@ class Agentspec(BaseModel):
         ),
         alias="harness",
     )
-    runtime_engine: Literal["datalayer", "kagent"] = Field(
+    runtime_engine: Literal["datalayer", "kagent", "agentcore"] = Field(
         default="datalayer",
         description=(
             "What runs and hosts this agent. 'datalayer' (default): a Datalayer "
@@ -2271,8 +2288,13 @@ class Agentspec(BaseModel):
             "`agent-runtimes serve --target kagent`), reached through kagent's "
             "A2A gateway at /agents/{namespace}/{name}, each conversation a "
             "session actor of Agent Substrate, suspended when idle and resumed "
-            "on the next message. Distinct from `harness`, which says which "
-            "agent program turns the loop; 'kagent' runs 'pydantic-ai' only."
+            "on the next message. 'agentcore': Amazon Bedrock AgentCore Runtime "
+            "in the AWS account of the organization that launches it, the "
+            "agent-runtimes image serving the spec "
+            "(`agent-runtimes serve --target agentcore`). The spec's engine is "
+            "the default a launch may override. Distinct from `harness`, which "
+            "says which agent program turns the loop; 'kagent' and 'agentcore' "
+            "run 'pydantic-ai' only."
         ),
         alias="runtimeEngine",
     )

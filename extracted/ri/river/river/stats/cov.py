@@ -8,7 +8,7 @@ from river import stats
 
 
 class Cov(stats.base.Bivariate):
-    """Covariance.
+    r"""Covariance.
 
     Parameters
     ----------
@@ -17,7 +17,6 @@ class Cov(stats.base.Bivariate):
 
     Examples
     --------
-
     >>> from river import stats
 
     >>> x = [-2.1,  -1,  4.3]
@@ -55,11 +54,11 @@ class Cov(stats.base.Bivariate):
     Notes
     -----
     The outcomes of the incremental and parallel updates are consistent with numpy's
-    batch processing when $\\text{ddof} \\le 1$.
+    batch processing when $\text{ddof} \le 1$.
 
     References
     ----------
-    [^1]: [Wikipedia article on algorithms for calculating variance](https://www.wikiwand.com/en/Algorithms_for_calculating_variance#/Covariance)
+    [^1]: [Wikipedia article on algorithms for calculating variance](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Covariance)
     [^2]: Schubert, E. and Gertz, M., 2018, July. Numerically stable parallel computation of
     (co-) variance. In Proceedings of the 30th International Conference on Scientific and
     Statistical Database Management (pp. 1-12).

@@ -19,6 +19,8 @@ from pytest_gremlins.reporting.results import (
     GremlinResultStatus,
 )
 
+pytestmark = pytest.mark.usefixtures('hooks_read_global_session')
+
 
 def _make_pardoned_gremlin() -> Gremlin:
     node = ast.parse('a // b', mode='eval').body
@@ -149,7 +151,7 @@ class DescribeStrictPardonsCIFailure:
 
         exit_calls: list[tuple[str, int]] = []
 
-        def fake_exit(msg: str, returncode: int = 1) -> None:  # type: ignore[misc]
+        def fake_exit(msg: str, returncode: int = 1) -> None:
             exit_calls.append((msg, returncode))
 
         monkeypatch.setattr(pytest, 'exit', fake_exit)
@@ -172,7 +174,7 @@ class DescribeStrictPardonsCIFailure:
 
         exit_calls: list[tuple[str, int]] = []
 
-        def fake_exit(msg: str, returncode: int = 1) -> None:  # type: ignore[misc]
+        def fake_exit(msg: str, returncode: int = 1) -> None:
             exit_calls.append((msg, returncode))
 
         monkeypatch.setattr(pytest, 'exit', fake_exit)
@@ -195,7 +197,7 @@ class DescribeStrictPardonsCIFailure:
 
         exit_calls: list[tuple[str, int]] = []
 
-        def fake_exit(msg: str, returncode: int = 1) -> None:  # type: ignore[misc]
+        def fake_exit(msg: str, returncode: int = 1) -> None:
             exit_calls.append((msg, returncode))
 
         monkeypatch.setattr(pytest, 'exit', fake_exit)

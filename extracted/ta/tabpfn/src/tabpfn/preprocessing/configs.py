@@ -60,6 +60,10 @@ class PreprocessorConfig:
             can have to be one-hot encoded. Features with higher cardinality are passed
             through unchanged to ordinal encoding. If None, all categorical features
             are one-hot encoded.
+        random_sign_flip_numericals: Randomly negate each numerical output column
+            with probability 0.5 after preprocessing. Each ensemble member reuses
+            its signs for all rows and predictions. Includes generated numerical
+            features and categorical features treated as numeric. Disabled by default.
     """
 
     name: Literal[
@@ -131,6 +135,7 @@ class PreprocessorConfig:
     ) = None
     max_onehot_cardinality: int | None = None
     differentiable: bool = False
+    random_sign_flip_numericals: bool = False
 
     @override
     def __str__(self) -> str:
@@ -138,6 +143,11 @@ class PreprocessorConfig:
             f"{self.name}_cat:{self.categorical_name}"
             + ("_and_none" if self.append_original else "")
             + (f"_max_feats_per_est_{self.max_features_per_estimator}")
+            + (
+                "_random_sign_flip_numericals"
+                if self.random_sign_flip_numericals
+                else ""
+            )
             + (
                 f"_global_transformer_{self.global_transformer_name}"
                 if self.global_transformer_name is not None
@@ -185,9 +195,17 @@ class ClassifierEnsembleConfig(EnsembleConfig):
 
 @dataclass
 class RegressorEnsembleConfig(EnsembleConfig):
-    """Configuration for a regression ensemble member."""
+    """Configuration for a regression ensemble member.
+
+    Attributes:
+        target_transform: Pipeline from raw targets to the standardized targets
+            the model sees, or None where the targets come standardized.
+        flip_target: Whether the member sees the negated output of
+            ``target_transform``. Its buckets are mirrored back at prediction.
+    """
 
     target_transform: TransformerMixin | Pipeline | None
+    flip_target: bool = False
 
 
 __all__ = [

@@ -402,12 +402,6 @@ PyObject* IClpSimplex::getPrimalColumnSolution(){
     return Arr;
 }
 
-PyObject* IClpSimplex::getPrimalColumnSolutionAll(){
-    npy_intp dims = getNumCols() + getNumRows();
-    PyObject *Arr = PyArray_SimpleNewFromData(1, &dims, NPY_DOUBLE, this->primalColumnSolution() );
-    return Arr;
-}
-
 PyObject* IClpSimplex::getSolutionRegion(){
     npy_intp dims = getNumCols() + getNumRows();
     PyObject *Arr = PyArray_SimpleNewFromData(1, &dims, NPY_DOUBLE, this->solutionRegion() );
@@ -617,6 +611,13 @@ IClpSimplex::IClpSimplex(PyObject *obj_arg, runIsPivotAcceptable_t runIsPivotAcc
     runIsPivotAcceptable = runIsPivotAcceptable_arg;
     varSelCriteria = runVarSelCriteria;
     customPrimal = 0;
+    // ClpSimplex() leaves the matrix and the objective NULL until a problem
+    // is loaded, and writeMps, presolve and OsiClpSolverInterface, among
+    // others, dereference them. Make the empty ones that loading an empty
+    // problem would give, as Clp's addColumns and resize do when there are
+    // none.
+    createEmptyMatrix();
+    objective_ = new ClpLinearObjective(NULL, 0);
     createStatus();
     pinfo = ClpPresolve();
 
@@ -869,9 +870,12 @@ void IClpSimplex::getRightHandSide(double* righthandside)
     int* basis_index = pivotVariable();
 
 
-    //FIXME: change these lines to be like getColSoution and getRowActivity in OsiClp
+    // Clp's work regions hold the solution of the problem as Clp scaled it.
+    // Unscale it as ClpSimplex::deleteRim does, to go with the unscaled
+    // bounds from extractSenseRhsRange and with getBInvACol's results.
     const double *solution = solutionRegion(1);
     const double *row_act = solutionRegion(0);
+    const double scaleR = 1.0 / rhsScale_;
 
     //FIXME: This must be fixed. The first line causes seg fault
     //So I'm allocating and deleting in this function
@@ -879,13 +883,18 @@ void IClpSimplex::getRightHandSide(double* righthandside)
     double *slack_val = new double[nr];
 
     for(int i=0; i<nr; i++) {
-        slack_val[i] = righthandside[i] - row_act[i];
+        double activity = row_act[i] * scaleR;
+        if (rowScale_)
+            activity /= rowScale_[i];
+        slack_val[i] = righthandside[i] - activity;
     }
 
     int ncol = numberColumns();
     for (int i = 0 ; i < nr; i++) {
         if (basis_index[i] < ncol){
-            righthandside[i] = solution[basis_index[i]];
+            righthandside[i] = solution[basis_index[i]] * scaleR;
+            if (rowScale_)
+                righthandside[i] *= columnScale_[basis_index[i]];
             //std::cout << "sim: rhs " << i << " = " << solution[basis_index[i]] << "\n";
         }else {
             righthandside[i] = slack_val[basis_index[i]-ncol];
@@ -894,7 +903,7 @@ void IClpSimplex::getRightHandSide(double* righthandside)
 
     }
 
-    delete slack_val;
+    delete[] slack_val;
 
     //return righthandside;
 }
@@ -1000,6 +1009,11 @@ IClpSimplex::IClpSimplex(const ClpSimplex &rhs,PyObject *obj,
     QP_BanList(NULL),
     QP_ComplementarityList(NULL)
 {
+    // See the other constructor
+    if (!matrix_)
+        createEmptyMatrix();
+    if (!objective_)
+        objective_ = new ClpLinearObjective(NULL, numberColumns_);
 }
 
 
@@ -1083,8 +1097,59 @@ int IClpSimplex::initialSolve(int preSolveType){
 }
 
 
+// Whether Clp's factorization of the basis and the work areas that go with
+// it exist and have as many rows as the model, as getBasics, getBInvCol,
+// getBInvACol and getRightHandSide need. Clp keeps them during a solve, and
+// after one with startFinishOptions 1 until the model changes. Without them,
+// Clp's getBasics and getBInvCol abort, and getRightHandSide segfaults.
+bool IClpSimplex::hasFactorization()
+{
+    return rowArray_[0] && factorization_ &&
+        factorization_->numberRows() == numberRows_;
+}
+
+bool IClpSimplex::hasQuadraticObjective()
+{
+    return objective_ && objective_->type() > 1 && objective_->activated();
+}
+
+// Whether the objective is quadratic and no row with a finite bound has an
+// element. Clp can't solve such a QP: ClpSimplexNonlinear::primal gives up
+// with status 10 (try another algorithm), and ClpSimplex::initialSolve
+// throws std::bad_alloc.
+bool IClpSimplex::isQPWithoutBoundedRows()
+{
+    if (!hasQuadraticObjective())
+        return false;
+    const CoinPackedMatrix* m = matrix();
+    if (!m)
+        return true;
+    const bool colOrdered = m->isColOrdered();
+    const int* indices = m->getIndices();
+    const CoinBigIndex* starts = m->getVectorStarts();
+    const int* lengths = m->getVectorLengths();
+    const double* elements = m->getElements();
+    for (int i = 0; i < m->getMajorDim(); i++) {
+        for (CoinBigIndex k = starts[i]; k < starts[i] + lengths[i]; k++) {
+            int row = colOrdered ? indices[k] : i;
+            if (elements[k] && (rowLower_[row] > -COIN_DBL_MAX ||
+                                rowUpper_[row] < COIN_DBL_MAX))
+                return false;
+        }
+    }
+    return true;
+}
+
 int IClpSimplex::primal (int ifValuesPass , int startFinishOptions)
 {
+    // A model that was never loaded (e.g. because readMps failed) has no
+    // objective or matrix, and ClpSimplexPrimal would dereference them.
+    // Do what ClpSimplex::dual does.
+    if (!objective_) {
+        if (!numberRows_)
+            problemStatus_ = 0; // say optimal
+        return 0;
+    }
     // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     if (tempRow == NULL)
         tempRow = new double[numberRows()];

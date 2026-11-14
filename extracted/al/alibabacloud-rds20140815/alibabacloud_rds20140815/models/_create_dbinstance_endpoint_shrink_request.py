@@ -22,15 +22,13 @@ class CreateDBInstanceEndpointShrinkRequest(DaraModel):
     ):
         # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the value, and you must ensure that the value is unique among different requests. The value can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # The prefix of the internal endpoint.
-        # 
-        # When you create an endpoint, an internal endpoint is automatically created. This parameter specifies the prefix of the internal endpoint.
+        # The prefix of the internal endpoint. Creating an endpoint automatically creates an internal endpoint. This parameter specifies the prefix of the internal endpoint.
         # 
         # This parameter is required.
         self.connection_string_prefix = connection_string_prefix
         # The custom description of the endpoint.
         self.dbinstance_endpoint_description = dbinstance_endpoint_description
-        # The endpoint type. Valid values:
+        # The type of the endpoint. Valid values:
         # 
         # - Primary: the read/write endpoint of the instance.
         # 
@@ -38,30 +36,28 @@ class CreateDBInstanceEndpointShrinkRequest(DaraModel):
         # 
         # This parameter is required.
         self.dbinstance_endpoint_type = dbinstance_endpoint_type
-        # The instance ID. You can call the DescribeDBInstances operation to query the instance ID.
+        # Instance ID of the instance. You can call the DescribeDBInstances operation to query instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The list of nodes associated with the endpoint.
+        # The list of node information for the endpoint.
         # 
         # This parameter is required.
         self.node_items_shrink = node_items_shrink
-        # The port number for the internal network connection. You can specify a custom port number when you create an internal network connection.
-        # 
-        # Valid values: 3000 to 5999.
+        # The port number for the internal connection. You can specify a custom port number when you create an internal connection. Valid values: 3000 to 5999.
         # 
         # This parameter is required.
         self.port = port
-        # The IP address for the internal network connection.
+        # The IP address for the internal connection.
         self.private_ip_address = private_ip_address
-        # The resource group ID. You can call the DescribeDBInstanceAttribute operation to query the resource group ID.
+        # The ID of the resource group. You can call the DescribeDBInstanceAttribute operation to query the ID.
         self.resource_group_id = resource_group_id
         self.resource_owner_id = resource_owner_id
-        # The ID of the vSwitch for the internal network connection.
+        # The vSwitch ID for the internal connection.
         # 
         # This parameter is required.
         self.v_switch_id = v_switch_id
-        # The ID of the VPC for the internal network connection.
+        # The VPC ID for the internal connection.
         # 
         # This parameter is required.
         self.vpc_id = vpc_id

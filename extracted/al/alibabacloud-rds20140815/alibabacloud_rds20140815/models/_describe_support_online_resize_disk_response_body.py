@@ -15,13 +15,13 @@ class DescribeSupportOnlineResizeDiskResponseBody(DaraModel):
     ):
         # The response code.
         self.code = code
-        # The response dataset.
+        # The response result set.
         self.data = data
         # The response message.
         self.message = message
         # The request ID.
         self.request_id = request_id
-        # Indicates whether the request is successful.
+        # Indicates whether the request was successful.
         self.success = success
 
     def validate(self):

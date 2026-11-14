@@ -6,5 +6,5 @@ import typing_extensions
 class DocAiClassifyOutputParams(typing_extensions.TypedDict):
     include_evidence: typing_extensions.NotRequired[bool]
     """
-    Include supporting evidence (pages, blocks and a region) for each decision.
+    Add supporting evidence to the result.
     """

@@ -227,6 +227,7 @@ PublishedVersionActiveWaiterName = Literal["published_version_active"]
 RecursiveLoopType = Literal["Allow", "Terminate"]
 ResponseStreamingInvocationTypeType = Literal["DryRun", "RequestResponse"]
 RuntimeType = Literal[
+    "custom",
     "dotnet10",
     "dotnet6",
     "dotnet8",

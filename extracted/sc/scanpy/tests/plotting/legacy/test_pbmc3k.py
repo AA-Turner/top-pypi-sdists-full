@@ -35,7 +35,7 @@ def image_dir() -> Path:
 def test_pbmc3k(subtests: pytest.Subtests, plot_cmp) -> None:  # noqa: PLR0915
     # ensure violin plots and other non-determinstic plots have deterministic behavior
     # TODO: rework this test for scanpy 2.0 so this is no longer necessary
-    np.random.seed(0)
+    np.random.seed(0)  # noqa: NPY002
     plot_cmp = partial(plot_cmp, tol=20)
     adata = sc.datasets.pbmc3k()
 
@@ -76,26 +76,22 @@ def test_pbmc3k(subtests: pytest.Subtests, plot_cmp) -> None:  # noqa: PLR0915
     adata = adata[adata.obs["n_genes"] < 2500, :]
     adata = adata[adata.obs["percent_mito"] < 0.05, :]
 
-    adata.raw = sc.pp.log1p(adata, copy=True)
+    logged = adata.copy()
+    sc.pp.log1p(logged)
+    adata.raw = logged
 
-    with pytest.warns(FutureWarning, match=r"sc.*\.pp\.normalize_total"):
-        sc.pp.normalize_per_cell(adata, counts_per_cell_after=1e4)
-
-    with pytest.warns(FutureWarning, match=r"pp\.highly_variable_genes"):
-        filter_result = sc.pp.filter_genes_dispersion(
-            adata.X,
-            min_mean=0.0125,
-            max_mean=3,
-            min_disp=0.5,
-        )
-
-    with subtests.test("filter_genes_dispersion"):
-        with pytest.warns(FutureWarning, match=r"pl\.highly_variable_genes"):
-            sc.pl.filter_genes_dispersion(filter_result, show=False)
-        plot_cmp("filter_genes_dispersion")
-
-    adata = adata[:, filter_result.gene_subset].copy()
+    sc.pp.normalize_total(adata, target_sum=1e4)
     sc.pp.log1p(adata)
+    filter_result = sc.pp.highly_variable_genes(
+        adata, min_mean=0.0125, max_mean=3, min_disp=0.5, out=True
+    )
+    assert filter_result is not None
+
+    with subtests.test("highly_variable_genes"):
+        sc.pl.highly_variable_genes(filter_result, show=False)
+        plot_cmp("highly_variable_genes")
+
+    adata = adata[:, filter_result["highly_variable"]].copy()
     sc.pp.regress_out(adata, ["n_counts", "percent_mito"])
     sc.pp.scale(adata, max_value=10)
 
@@ -169,19 +165,25 @@ def test_pbmc3k(subtests: pytest.Subtests, plot_cmp) -> None:  # noqa: PLR0915
 
     sc.tl.rank_genes_groups(adata, "leiden", groups=["0"], reference="1")
     with subtests.test("rank_genes_groups_3"):
-        # This pairwise comparison is between two small clusters (~300 cells).
-        # Past rank 2, scores cluster within ~0.1-0.2 of each other (mostly
-        # ribosomal genes), so their order isn't stable across environments;
-        # only ranks 1-2 have a clear (~1+ point) margin.
-        top_genes = list(adata.uns["rank_genes_groups"]["names"]["0"][:2])
-        assert top_genes == ["CCR7", "RPL32"]
+        # 0 and 1 are separated too little and flip based on platform differences,
+        # so we don’t do image comparison, only labels
+        axs = sc.pl.rank_genes_groups(adata, groups="0", n_genes=20, show=False)
+        assert axs is not None
+        assert len(axs) == 1
+        assert axs[0].get_title() == "0 vs. 1"
+        assert [t.get_text() for t in axs[0].texts] == list(
+            adata.uns["rank_genes_groups"]["names"]["0"][:20]
+        )
 
     with subtests.test("rank_genes_groups_4"):
-        sc.pl.rank_genes_groups_violin(adata, groups="0", n_genes=8, show=False)
-        try:
-            plot_cmp("rank_genes_groups_4")
-        except AssertionError:
-            pytest.xfail("rank_genes_groups_violin not reproducible (jitter?)")
+        # Same as above, plus the strip plot’s jitter is random.
+        axs = sc.pl.rank_genes_groups_violin(adata, groups="0", n_genes=8, show=False)
+        assert axs is not None
+        assert len(axs) == 1
+        assert axs[0].get_title() == "0 vs. 1"
+        assert [t.get_text() for t in axs[0].get_xticklabels()] == list(
+            adata.uns["rank_genes_groups"]["names"]["0"][:8]
+        )
 
     new_cluster_names = [
         *["CD4 T cells", "CD8 T cells", "B cells", "NK cells"],

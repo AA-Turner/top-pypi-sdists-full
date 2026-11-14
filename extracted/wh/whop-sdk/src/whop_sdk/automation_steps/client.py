@@ -93,7 +93,7 @@ class AutomationStepsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -144,7 +144,7 @@ class AutomationStepsClient:
             ID of the draft step the new one runs after, prefixed `atos_`. Leave it out to make the new step run first.
 
         source_code : typing.Optional[str]
-            An `email` or `message` step's code: a TSX module whose default export gets the member and returns `message.send()`, `message.skip()` or `message.exit()` from `whop:message`. An `email` step sends its `subject`, its `react` element as the body and its `text` as the plain-text part; a `message` step sends its `text`. The code can import `react` and `@react-email/components`, and reads the account through the `whop` client from `whop:message`, which can only read: it holds every account-level `:read` permission that both the admin role and Whop AI hold except `payout:account:read`, as listed for previewing a step. Setting it, or previewing the step, needs every one of those permissions. Up to 64,000 characters. `null` on a `wait`, and until it is written.
+            An `email` or `message` step's code: a TSX module whose default export gets the member and returns `message.send()`, `message.skip()` or `message.exit()` from `whop:message`. An `email` step sends its `subject`, its `react` element as the body and its `text` as the plain-text part. A `message` step sends its `text`. The code can import `react` and `@react-email/components`. It reads the account through the `whop` client from `whop:message`, which can only read. That client holds every account-level `:read` permission that both the admin role and Whop AI hold, except `payout:account:read`, as listed for previewing a step. Setting it, or previewing the step, needs every one of those permissions. Up to 64,000 characters. `null` on a `wait`, and until it is written.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -159,7 +159,7 @@ class AutomationStepsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -200,7 +200,7 @@ class AutomationStepsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -233,7 +233,7 @@ class AutomationStepsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -267,7 +267,7 @@ class AutomationStepsClient:
         config : typing.Optional[AutomationStepConfig]
 
         source_code : typing.Optional[str]
-            An `email` or `message` step's code: a TSX module whose default export gets the member and returns `message.send()`, `message.skip()` or `message.exit()` from `whop:message`. An `email` step sends its `subject`, its `react` element as the body and its `text` as the plain-text part; a `message` step sends its `text`. The code can import `react` and `@react-email/components`, and reads the account through the `whop` client from `whop:message`, which can only read: it holds every account-level `:read` permission that both the admin role and Whop AI hold except `payout:account:read`, as listed for previewing a step. Setting it, or previewing the step, needs every one of those permissions. Up to 64,000 characters. `null` on a `wait`, and until it is written.
+            An `email` or `message` step's code: a TSX module whose default export gets the member and returns `message.send()`, `message.skip()` or `message.exit()` from `whop:message`. An `email` step sends its `subject`, its `react` element as the body and its `text` as the plain-text part. A `message` step sends its `text`. The code can import `react` and `@react-email/components`. It reads the account through the `whop` client from `whop:message`, which can only read. That client holds every account-level `:read` permission that both the admin role and Whop AI hold, except `payout:account:read`, as listed for previewing a step. Setting it, or previewing the step, needs every one of those permissions. Up to 64,000 characters. `null` on a `wait`, and until it is written.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -282,7 +282,7 @@ class AutomationStepsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -330,7 +330,7 @@ class AutomationStepsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -421,7 +421,7 @@ class AsyncAutomationStepsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -479,7 +479,7 @@ class AsyncAutomationStepsClient:
             ID of the draft step the new one runs after, prefixed `atos_`. Leave it out to make the new step run first.
 
         source_code : typing.Optional[str]
-            An `email` or `message` step's code: a TSX module whose default export gets the member and returns `message.send()`, `message.skip()` or `message.exit()` from `whop:message`. An `email` step sends its `subject`, its `react` element as the body and its `text` as the plain-text part; a `message` step sends its `text`. The code can import `react` and `@react-email/components`, and reads the account through the `whop` client from `whop:message`, which can only read: it holds every account-level `:read` permission that both the admin role and Whop AI hold except `payout:account:read`, as listed for previewing a step. Setting it, or previewing the step, needs every one of those permissions. Up to 64,000 characters. `null` on a `wait`, and until it is written.
+            An `email` or `message` step's code: a TSX module whose default export gets the member and returns `message.send()`, `message.skip()` or `message.exit()` from `whop:message`. An `email` step sends its `subject`, its `react` element as the body and its `text` as the plain-text part. A `message` step sends its `text`. The code can import `react` and `@react-email/components`. It reads the account through the `whop` client from `whop:message`, which can only read. That client holds every account-level `:read` permission that both the admin role and Whop AI hold, except `payout:account:read`, as listed for previewing a step. Setting it, or previewing the step, needs every one of those permissions. Up to 64,000 characters. `null` on a `wait`, and until it is written.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -496,7 +496,7 @@ class AsyncAutomationStepsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -545,7 +545,7 @@ class AsyncAutomationStepsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -586,7 +586,7 @@ class AsyncAutomationStepsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -626,7 +626,7 @@ class AsyncAutomationStepsClient:
         config : typing.Optional[AutomationStepConfig]
 
         source_code : typing.Optional[str]
-            An `email` or `message` step's code: a TSX module whose default export gets the member and returns `message.send()`, `message.skip()` or `message.exit()` from `whop:message`. An `email` step sends its `subject`, its `react` element as the body and its `text` as the plain-text part; a `message` step sends its `text`. The code can import `react` and `@react-email/components`, and reads the account through the `whop` client from `whop:message`, which can only read: it holds every account-level `:read` permission that both the admin role and Whop AI hold except `payout:account:read`, as listed for previewing a step. Setting it, or previewing the step, needs every one of those permissions. Up to 64,000 characters. `null` on a `wait`, and until it is written.
+            An `email` or `message` step's code: a TSX module whose default export gets the member and returns `message.send()`, `message.skip()` or `message.exit()` from `whop:message`. An `email` step sends its `subject`, its `react` element as the body and its `text` as the plain-text part. A `message` step sends its `text`. The code can import `react` and `@react-email/components`. It reads the account through the `whop` client from `whop:message`, which can only read. That client holds every account-level `:read` permission that both the admin role and Whop AI hold, except `payout:account:read`, as listed for previewing a step. Setting it, or previewing the step, needs every one of those permissions. Up to 64,000 characters. `null` on a `wait`, and until it is written.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -643,7 +643,7 @@ class AsyncAutomationStepsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -699,7 +699,7 @@ class AsyncAutomationStepsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-11-10-1",
+            "2026-11-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

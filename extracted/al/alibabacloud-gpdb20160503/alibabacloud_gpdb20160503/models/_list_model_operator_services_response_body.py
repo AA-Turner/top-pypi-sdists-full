@@ -16,7 +16,7 @@ class ListModelOperatorServicesResponseBody(DaraModel):
         services: List[main_models.ListModelOperatorServicesResponseBodyServices] = None,
         total_record_count: int = None,
     ):
-        # The page number.
+        # The current page number.
         self.page_number = page_number
         # The number of entries on the current page.
         self.page_record_count = page_record_count
@@ -87,14 +87,15 @@ class ListModelOperatorServicesResponseBodyServices(DaraModel):
     ):
         # The service ID.
         self.service_id = service_id
-        # The status of the model operator service. Valid values:
-        # - active: Normal.
+        # The lifecycle status of the model operator service. The return value from the server is retained. Valid values:
+        # 
+        # - active: Running.
         # - locking: Locking.
         # - locked: Locked.
         # - unlocking: Unlocking.
-        # - deleting: Releasing.
+        # - deleting: Deleting. The underlying resources are still being asynchronously cleaned up.
         # 
-        # This status indicates the processing status of the control plane and does not mean that data plane propagation of the MO gateway is complete.
+        # This field indicates the service status, which differs from the Creating, Running, Locked, and Deleting statuses of an API key. A transitional status does not indicate that the operation is complete. After a service is deleted, it no longer appears in the list.
         self.status = status
 
     def validate(self):

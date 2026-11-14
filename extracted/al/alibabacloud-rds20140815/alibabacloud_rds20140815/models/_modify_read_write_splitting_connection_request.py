@@ -18,7 +18,7 @@ class ModifyReadWriteSplittingConnectionRequest(DaraModel):
         resource_owner_id: int = None,
         weight: str = None,
     ):
-        # The prefix of the read/write splitting endpoint. The prefix must be unique and can contain only lowercase letters and hyphens. It must start with a letter and be up to 30 characters in length.
+        # The prefix of the read/write splitting endpoint. The prefix must be unique and can contain only lowercase letters and hyphens. It must start with a letter and cannot exceed 30 characters in length.
         # > By default, the prefix consists of the instance name and the "rw" string.
         self.connection_string_prefix = connection_string_prefix
         # Instance ID of the primary instance. You can call the DescribeDBInstances operation to query instance ID.
@@ -26,14 +26,14 @@ class ModifyReadWriteSplittingConnectionRequest(DaraModel):
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         # The read weight distribution mode. Valid values:
-        # * **Standard**: automatically distributes weights based on instance specifications.
-        # * **Custom**: uses custom weights.
+        # * **Standard**: The system automatically assigns weights based on instance specifications.
+        # * **Custom**: You manually assign weights.
         # 
         # > You must specify at least one of the **MaxDelayTime** and **DistributionType** parameters.
         self.distribution_type = distribution_type
         # The latency threshold, in seconds. If the latency of a read-only instance exceeds this threshold, read traffic is not routed to the instance. If you do not specify this parameter, the original value is retained.
         # 
-        # > * The **MaxDelayTime** parameter does not apply to SQL Server 2017 Cluster Edition instances.
+        # > * The **MaxDelayTime** parameter does not apply to ApsaraDB RDS for SQL Server 2017 Cluster Edition instances.
         # > * You must specify at least one of the **MaxDelayTime** and **DistributionType** parameters.
         self.max_delay_time = max_delay_time
         self.owner_account = owner_account

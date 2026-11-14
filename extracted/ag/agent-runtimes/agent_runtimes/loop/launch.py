@@ -170,43 +170,80 @@ def start_choices(
     ], last_where(preferences)
 
 
-def _select(question: str, choices: list[tuple], default: str) -> Optional[str]:
-    """Ask for one of ``choices``: ``(title, value)``, or ``(title, value, why_not)``.
+#: What cannot be picked — a group's title, a choice with a reason why not — is drawn grey.
+UNPICKABLE_STYLE = [("separator", "fg:#808080")]
 
-    A choice with a reason why not is shown, greyed with that reason, and
-    cannot be picked.
+
+def select_choices(choices: list[tuple]) -> list[Any]:
+    """The questionary rows of ``choices``: ``(title, value)``, or ``(title, value, why_not)``.
+
+    A choice with a reason why not is drawn grey with that reason, and
+    cannot be picked: a separator row, since questionary prefixes its
+    disabled choices with ``- `` (the user, 13 November 2026: grey, no ``-``).
     """
     import questionary
 
     from agent_runtimes.loop.paused import SEPARATOR
 
-    return questionary.select(
-        question,
-        choices=[
+    rows: list[Any] = []
+    for choice in choices:
+        why_not = choice[2] if len(choice) > 2 and choice[2] else ""
+        if choice[1] == SEPARATOR:
             # A group's title: drawn, never picked.
-            questionary.Separator(f"  {choice[0]}")
-            if choice[1] == SEPARATOR
-            else questionary.Choice(
-                title=choice[0],
-                value=choice[1],
-                disabled=choice[2] if len(choice) > 2 and choice[2] else None,
-            )
-            for choice in choices
-        ],
-        default=default,
-    ).ask()
+            rows.append(questionary.Separator(f"  {choice[0]}"))
+        elif why_not:
+            rows.append(questionary.Separator(f"{choice[0]} ({why_not})"))
+        else:
+            rows.append(questionary.Choice(title=choice[0], value=choice[1]))
+    return rows
+
+
+def _asked(question: Any) -> Any:
+    """The answer to a questionary ``question``; Ctrl-C and Ctrl-Z leave ``loop``.
+
+    Both raise a KeyboardInterrupt, which ``loop`` answers with its goodbye:
+    ``unsafe_ask`` does not swallow Ctrl-C as "Cancelled by user", and in the
+    prompt's raw mode Ctrl-Z is a key, bound here, not SIGTSTP.
+    """
+    from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
+
+    leave = KeyBindings()
+
+    @leave.add("c-z", eager=True)
+    def _(event: Any) -> None:
+        event.app.exit(exception=KeyboardInterrupt())
+
+    application = question.application
+    application.key_bindings = merge_key_bindings(
+        [application.key_bindings or KeyBindings(), leave]
+    )
+    return question.unsafe_ask()
+
+
+def _select(question: str, choices: list[tuple], default: str) -> Optional[str]:
+    """Ask for one of ``choices`` (`select_choices`); what cannot be picked is grey."""
+    import questionary
+
+    return _asked(
+        questionary.select(
+            question,
+            choices=select_choices(choices),
+            default=default,
+            style=questionary.Style(UNPICKABLE_STYLE),
+        )
+    )
 
 
 def _text(question: str, default: str, validate: Callable[[str], Any]) -> Optional[str]:
     import questionary
 
-    return questionary.text(question, default=default, validate=validate).ask()
+    return _asked(questionary.text(question, default=default, validate=validate))
 
 
 def _confirm(question: str, default: bool) -> Optional[bool]:
     import questionary
 
-    return questionary.confirm(question, default=default).ask()
+    return _asked(questionary.confirm(question, default=default))
 
 
 def minutes_problem(text: str) -> Optional[str]:
@@ -590,10 +627,7 @@ def offer_lines(offer: CloudOffer) -> list[str]:
             )
     else:
         lines.append("Running agent runtimes: none.")
-    lines.append(
-        "Models: the runtime's own, through Datalayer — not this machine's keys; "
-        "/models lists them once connected."
-    )
+    lines.append("Models: /models lists them once connected.")
     return lines
 
 
@@ -703,6 +737,66 @@ def choose_environment(
     if answer is None:
         raise KeyboardInterrupt
     return by_name[answer]
+
+
+#: The question of the agent a new runtime is configured from.
+AGENTSPEC_QUESTION = (
+    "Which agent? (its agentspec configures the runtime; -a <agentspec> to name one)"
+)
+
+
+def _offered(spec: Any) -> bool:
+    """Whether the pickers offer an agentspec: enabled, and not kept out (``listed``)."""
+    return (
+        bool(getattr(spec, "enabled", False))
+        and getattr(spec, "listed", True) is not False
+    )
+
+
+def agentspec_choices(specs: list[Any]) -> list[tuple[str, str]]:
+    """The agentspecs offered on Datalayer, by id, each with its description.
+
+    Those the catalogue enables and lists: an enabled agent kept out of the
+    pickers (``listed: false``, agentspecs 0.0.187), as ``example-simple``,
+    runs by id without being offered. The runtime reaches the models through
+    Datalayer: none is held back for this machine's keys, as the local picker
+    does.
+    """
+    choices = []
+    for spec in sorted((s for s in specs if _offered(s)), key=lambda s: s.id):
+        about = " ".join(str(getattr(spec, "description", "") or "").split())
+        about = about if len(about) <= 50 else about[:47].rstrip() + "..."
+        engine = str(getattr(spec, "runtime_engine", "") or "datalayer")
+        on = "" if engine == "datalayer" else f" (runs on {engine})"
+        choices.append(
+            (f"{spec.id} — {about}{on}" if about else f"{spec.id}{on}", spec.id)
+        )
+    return choices
+
+
+def choose_agentspec(
+    specs: list[Any],
+    *,
+    can_ask: bool,
+    ask: Optional[Callable[..., Optional[str]]] = None,
+) -> str:
+    """The agentspec of a new cloud runtime: the person's pick among the offered ones.
+
+    The catalogue's enabled and listed agents are offered (the home page's
+    five), ``example-simple`` proposed when it is one of them, the first
+    otherwise. Without somebody to ask, or with no agentspec to offer, it is
+    ``example-simple``, the neutral default: enabled, not listed (agentspecs
+    0.0.187), so it runs though it is not offered.
+    """
+    choices = agentspec_choices(specs)
+    if not can_ask or not choices:
+        return DEFAULT_CLOUD_AGENTSPEC
+    ids = [value for _, value in choices]
+    default = DEFAULT_CLOUD_AGENTSPEC if DEFAULT_CLOUD_AGENTSPEC in ids else ids[0]
+    answer = (ask or _select)(AGENTSPEC_QUESTION, choices, default)
+    if answer is None:
+        raise KeyboardInterrupt
+    return answer
 
 
 def credits_for(environment: Any, minutes: int) -> float:
@@ -1121,11 +1215,18 @@ def launch_cloud(
         offer.environments, environment=environment, can_ask=asking
     )
     if not agent_id:
-        agent_id = DEFAULT_CLOUD_AGENTSPEC
-        note(
-            f"The runtime's agent is {agent_id}, the agent loop starts with: "
-            "a runtime is configured from an agentspec. -a <agentspec> for another."
-        )
+        if asking:
+            # The person picks the agent its runtime is configured from (the
+            # user, 13 November 2026), among the agents the catalogue enables.
+            from agent_runtimes.specs.agents import list_agentspecs
+
+            agent_id = choose_agentspec(list_agentspecs(), can_ask=True)
+        else:
+            agent_id = DEFAULT_CLOUD_AGENTSPEC
+            note(
+                f"The runtime's agent is {agent_id}, the agent loop starts with: "
+                "a runtime is configured from an agentspec. -a <agentspec> for another."
+            )
     unmetered = unmetered_launch()
     if unmetered:
         # DATALAYER_MAGIC_API_KEY is set: the runtime is sent it, consumes no
@@ -1134,8 +1235,8 @@ def launch_cloud(
         # platform ignores it for an unmetered runtime.
         reserved = choose_minutes(chosen, minutes=minutes, can_ask=False)
         status(
-            f"Launching {label or agent_id} on Datalayer ({chosen.name}, unmetered: "
-            "no credits, never expires)…"
+            f"Launching {label or agent_id} on Datalayer ({chosen.name}, billed: "
+            "it runs until its reservation ends)…"
         )
     else:
         reserved = choose_minutes(chosen, minutes=minutes, can_ask=asking)
@@ -1258,7 +1359,7 @@ def finish_cloud(
         answer = (ask or _confirm)(
             f"Stop the {launch.said} {launch.runtime_name}? "
             + (
-                "It is not billed: it runs until its reservation ends."
+                "It is billed and runs until its reservation ends."
                 if launch.unmetered
                 else "It is billed until you do."
             ),

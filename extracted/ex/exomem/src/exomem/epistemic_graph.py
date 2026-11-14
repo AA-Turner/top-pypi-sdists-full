@@ -19,7 +19,6 @@ import stat
 import threading
 import time
 import weakref
-from collections import OrderedDict
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping
 from contextlib import ExitStack, contextmanager, nullcontext
 from contextvars import ContextVar
@@ -8981,9 +8980,20 @@ class EpistemicGraphIndex:
         def _path_allowed(rel_path: str) -> bool:
             allowed = allowed_paths.get(rel_path)
             if allowed is None:
-                allowed = _recall_path_allowed(self.vault_root, rel_path) and (
-                    keep is None or keep(rel_path)
-                )
+                from .published_admission import admission_of
+                from .vault_store import read as store_read
+
+                allowed = _recall_path_allowed(self.vault_root, rel_path)
+                if allowed and keep is not None:
+                    offered = admission_of(keep)
+                    allowed = (
+                        offered.decide_many([rel_path])[rel_path][0]
+                        if (
+                            offered is not None
+                            and store_read.request_memo(self.vault_root) is not None
+                        )
+                        else keep(rel_path)
+                    )
                 allowed_paths[rel_path] = allowed
             return allowed
 
@@ -10899,7 +10909,15 @@ def graph_context(
             unavailable["warnings"] = [_drift_warning({"graph_sidecar_unavailable": 1})]
         return unavailable
     try:
-        view = GraphView(vault_root, conn, keep=keep, seed_keep=seed_keep)
+        from .vault_store import mode as store_mode
+
+        parent_records = (
+            semantic_index.StoredParentRecords(vault_root)
+            if store_mode.store_mode_for_reads(Path(vault_root)) else None
+        )
+        view = GraphView(
+            vault_root, conn, keep=keep, seed_keep=seed_keep, parent_records=parent_records,
+        )
         query_instance, query_definitions = _query_meaning(
             view, registry_scope=registry_scope, path=path, unit_ref=unit_ref
         )
@@ -10949,8 +10967,13 @@ def graph_context(
                 return False
             accepted = freshness_cache.get(stamp)
             if accepted is None:
-                freshness = semantic_index.validate_parent_record(
-                    vault_root,
+                validate = (
+                    parent_records.validate if parent_records is not None
+                    else lambda **arguments: semantic_index.validate_parent_record(
+                        vault_root, **arguments
+                    )
+                )
+                freshness = validate(
                     parent_path=stamp[0],
                     parent_generation_value=stamp[1],
                     parent_source_hash=stamp[2],
@@ -10990,6 +11013,8 @@ def graph_context(
                 seed for seed in view.indexed_units(unit_ref)
                 if not _records_suppressed_path(vault_root, str(seed.get("path") or ""))
             ]
+            if parent_records is not None:
+                parent_records.prefetch(str(seed.get("path") or "") for seed in indexed)
             current = [
                 seed
                 for seed in indexed
@@ -11144,6 +11169,21 @@ def graph_context(
                 frontier,
                 limit=max(0, edge_inspection_budget - inspected_edges),
             )
+            if parent_records is not None and rows:
+                # These two fields are the graph edge protocol's fixed endpoint keys.
+                endpoints = {edge[key] for edge in rows for key in ("src_key", "dst_key")}
+                endpoint_paths = [
+                    str(path) for path, in conn.execute(
+                        "SELECT DISTINCT path FROM graph_nodes "
+                        "WHERE node_key IN (SELECT value FROM json_each(?)) AND kind = ?",
+                        (json.dumps(sorted(endpoints)), CANDIDATE_KIND),
+                    )
+                ]
+                view.prefetch([
+                    *endpoint_paths,
+                    *(str(edge.get("source_path") or "") for edge in rows
+                      if (edge.get("metadata") or {}).get("record_type") == "semantic_unit"),
+                ])
             inspected_edges += len(rows)
             edge_inspection_cap_hit = edge_inspection_cap_hit or inspection_overflow
             rows.sort(
@@ -11445,6 +11485,14 @@ def suggest_relations(
     # plain link, so the agent chooses one instead of taking the generic as the answer.
     fit = relation_queue.RelationFit(vault_root)
     proposed = _dedupe_candidates(candidates)[: max(0, limit)]
+    from .vault_store import read as store_read
+
+    store_read.prefetch_pages(vault_root, (
+        _page_rel(str(candidate.get(endpoint) or ""))
+        for candidate in proposed
+        if registry.is_generic(str(candidate.get("relation_type") or ""))
+        for endpoint in ("from", "to")  # fixed candidate protocol fields
+    ))
     # A candidate the relation queue holds open carries the fields that accept it, so the agent
     # needs no queue read first. The others carry none, and a failed lookup says so.
     reviews: dict[str, dict[str, str]] = {}
@@ -12677,15 +12725,19 @@ def graph_drift(vault_root: Path) -> list[dict[str, Any]]:
         }
     finally:
         conn.close()
+    from . import find_corpus
+
     drift: list[dict[str, Any]] = []
     kb = vault_root / kb_dirname()
-    if not kb.is_dir():
+    if not kb.is_dir() and not find_corpus.store_serves(vault_root):
         return drift
     disk_paths: set[str] = set()
-    for md in find_module._walk_md(kb):
+    for source in find_corpus.corpus_sources(
+        vault_root, "kb", lambda **walk: find_module._walk_md(kb, **walk)
+    ):
         try:
-            rel = md.resolve().relative_to(vault_root.resolve()).as_posix()
-            raw = vault_module.read_bytes_without_pinning(md, vault_root=vault_root).decode("utf-8")
+            rel = find_corpus.page_relative_path(source.path, vault_root)
+            raw = source.read_bytes().decode("utf-8")
         except (OSError, ValueError, UnicodeDecodeError):
             continue
         disk_paths.add(rel)
@@ -14024,6 +14076,11 @@ def _link_candidates(resolver: vault_module.WikilinkResolver, raw_target: str) -
     cleaned = vault_module._strip_wikilink_brackets(raw_target)
     cleaned = cleaned.split("|", 1)[0].split("#", 1)[0].strip()
     cleaned = cleaned.removesuffix(".md").strip().strip("/")
+    return _link_candidates_for_key(resolver, cleaned)
+
+
+def _link_candidates_for_key(resolver: vault_module.WikilinkResolver, cleaned: str) -> set[str]:
+    """Read a normalized resolver key without consuming its extension or link syntax again."""
     if not cleaned:
         return set()
     found = {
@@ -14037,21 +14094,6 @@ def _link_candidates(resolver: vault_module.WikilinkResolver, raw_target: str) -
     return {f"{candidate}.md" for candidate in found}
 
 
-@dataclass(frozen=True)
-class _WithheldNames:
-    """Stable store-page verdicts and the names their withheld pages can resolve through."""
-
-    verdicts: Mapping[str, bool]
-    keys: frozenset[str]
-    live: tuple[str, ...]
-
-
-# Bound retained caller views; a revision change naturally retires every verdict it changes.
-_WITHHELD_NAMES: OrderedDict[tuple, _WithheldNames] = OrderedDict()
-_WITHHELD_NAMES_LOCK = threading.Lock()
-_WITHHELD_NAMES_MAX = 8
-
-
 class GraphView:
     """One graph operation's admitted reading of the shared neutral rows.
 
@@ -14061,7 +14103,7 @@ class GraphView:
     the meaning its authoring page selects. For a reader other than the owner
     it also re-resolves exactly the links whose candidate set includes a page
     that reader may not see, as the vault without those pages would resolve
-    them. Only stable admission verdicts share the same store revision and caller identity.
+    them. Store-mode selection reads byte-bound facts through the current caller's admission kernel.
     """
 
     def __init__(
@@ -14080,9 +14122,11 @@ class GraphView:
         source_limit: int | None = None,
         summary_limit: int | None = None,
         preparation_limit: int | None = None,
+        parent_records: semantic_index.StoredParentRecords | None = None,
     ) -> None:
         self.vault_root = Path(vault_root)
         self.conn = conn
+        self.parent_records = parent_records
         self.keep = keep
         self.seed_keep = seed_keep if seed_keep is not None else keep
         self._unit_parents: dict[str, tuple[list[str], bool]] = {}
@@ -14095,11 +14139,8 @@ class GraphView:
             batched = store_read.request_memo(self.vault_root) is not None
             with deciding(rel_paths) if batched else nullcontext():
                 admitted_paths = recall_policy.admitted_among(self.vault_root, rel_paths)
-                return {
-                    rel_path: rel_path in admitted_paths
-                    and (self.keep is None or self.keep(rel_path))
-                    for rel_path in rel_paths
-                }
+                kept = self._kept_many([path for path in rel_paths if path in admitted_paths])
+                return {path: path in admitted_paths and kept[path] for path in rel_paths}
 
         self.parents = semantic_index.AdmittedParents(
             self._summaries,
@@ -14147,27 +14188,47 @@ class GraphView:
         self.interrupted[path] = reason
 
     def _bounded_summaries(self, paths: list[str]) -> dict[str, Mapping[str, Any]]:
-        """Use live point signatures and resident parser facts before any source work."""
+        """Bound source bytes from canonical metadata before loading resident parser facts."""
         result: dict[str, Mapping[str, Any]] = {}
         try:
             self._check()
-            signatures = freshness.live_signatures(
-                self.vault_root, "vault", (self.vault_root / path for path in paths),
-            )
-            if signatures is None or self.checkpoint is None or (
-                freshness.live_recall_checkpoint(self.vault_root, "vault") != self.checkpoint
-            ):
+            from .vault_store import mode as store_mode
+            from .vault_store import read as store_read
+
+            if store_mode.store_mode_for_reads(self.vault_root):
+                with store_read.snapshot(self.vault_root) as snapshot:
+                    metadata = snapshot.page_metas(paths)
+                sizes = {}
+                for path in paths:
+                    if (meta := metadata.get(path)) is not None:
+                        sizes[path] = meta.size
+                    elif not store_read.serves(self.vault_root, path):
+                        try:
+                            sizes[path] = (self.vault_root / path).stat().st_size
+                        except OSError:
+                            self._interrupt(path, "live_signature_unavailable")
+                    else:
+                        self._interrupt(path, "live_signature_unavailable")
+                current = store_read.recall_checkpoint(self.vault_root, "vault")
+            else:
+                signatures = freshness.live_signatures(
+                    self.vault_root, "vault", (self.vault_root / path for path in paths),
+                )
+                sizes = {}
+                for path, signature in zip(paths, signatures or [None] * len(paths), strict=True):
+                    if signature is None:
+                        self._interrupt(path, "live_signature_unavailable")
+                    else:
+                        sizes[path] = signature[2]
+                current = freshness.live_recall_checkpoint(self.vault_root, "vault")
+            if self.checkpoint is None or current != self.checkpoint:
                 for path in paths:
                     self._interrupt(path, "live_signature_unavailable")
                 return result
-            sizes = {}
-            for path, signature in zip(paths, signatures, strict=True):
-                if signature is None:
-                    self._interrupt(path, "live_signature_unavailable")
-                elif signature[2] > self.source_limit:
+            for path, size in list(sizes.items()):
+                if size > self.source_limit:
                     self._interrupt(path, "source_work_limit")
-                else:
-                    sizes[path] = signature[2]
+                    del sizes[path]
             # SQLite returns a scalar byte count before it can deliver oversized JSON to Python.
             for path, size, metadata in self.conn.execute(
                 "SELECT path, length(CAST(metadata AS BLOB)), "
@@ -14266,7 +14327,10 @@ class GraphView:
 
     def prefetch(self, paths: Iterable[str]) -> None:
         """Read many admitted pages' stored summaries in one query before serving."""
+        paths = list(paths)
         self.parents.prefetch(paths)
+        if self.parent_records is not None:
+            self.parent_records.prefetch(path for path in paths if self.parents.allowed(path))
 
     def registry_for(self, rel_path: str) -> relation_registry.RelationRegistry:
         parent = self.parent(rel_path)
@@ -14562,7 +14626,16 @@ class GraphView:
         changed = self._changes.get(raw_target)
         if changed is None:
             candidates = sorted(_link_candidates(self._shared_resolver(), raw_target))
-            if self.check is None:
+            from .vault_store import read as store_read
+
+            if store_read.request_memo(self.vault_root) is not None:
+                verdicts = self._kept_many(candidates)
+                seen_count = sum(verdicts.values())
+                changed = (
+                    seen_count < len(candidates)
+                    if self.reads_placeholders else 0 < seen_count < len(candidates)
+                )
+            elif self.check is None:
                 if self.reads_placeholders:
                     changed = any(not self.keep(candidate) for candidate in candidates)
                 else:
@@ -14673,7 +14746,7 @@ class GraphView:
                     else None
                 )
                 if prepared is not None:
-                    raw, mtime = prepared.source, path.stat().st_mtime
+                    raw, mtime = prepared.source, prepared.mtime
                 elif in_store:
                     if source is None:
                         raise FileNotFoundError(rel_path)
@@ -14757,73 +14830,56 @@ class GraphView:
             self._node_paths[key] = str(row[0]) if row is not None else None
         return self._node_paths[key]
 
-    def _withheld_name_keys(self) -> set[str]:
-        """Reuse only page-local verdicts proved by this store snapshot and admission identity.
-
-        File-mode graph publications can lag the files, so they keep the live path. Unowned
-        pages and decisions that depend on live state are always rechecked, even in store mode.
-        """
+    def _kept_many(self, paths: Iterable[str]) -> dict[str, bool]:
+        """Apply caller admission in bounded batches, with the graph's own deadline between them."""
         from .published_admission import admission_of, deciding
-        from .vault_store import mode as store_mode
         from .vault_store import read as store_read
 
-        resolver = self._shared_resolver()
-        keep = self.keep
-        if keep is None:
-            return set()
-        offered = admission_of(keep)
-        identity = offered.identity() if offered is not None else None
-        if identity is None or not store_mode.store_mode_for_reads(self.vault_root):
-            return _dependency_changed_keys({
-                f"{path}.md" for path in resolver.full_paths if not keep(f"{path}.md")
-            }, resolver)
-        # Read the revision from the connection that holds the graph rows, never a newer snapshot.
-        revision = self.conn.execute("SELECT revision FROM store_mode WHERE id = 1").fetchone()[0]
-        policy = recall_policy.recall_policy_identity(self.vault_root)
-        key = (self.vault_root, revision, policy, identity)
-        with _WITHHELD_NAMES_LOCK:
-            names = _WITHHELD_NAMES.get(key)
-            if names is not None:
-                _WITHHELD_NAMES.move_to_end(key)
-        if names is None:
-            paths = [f"{path}.md" for path in resolver.full_paths]
-            held = store_read.held_lookup(self.vault_root, paths)
-            verdicts, live = {}, []
-            batched = store_read.request_memo(self.vault_root) is not None
-            with deciding(paths) if batched else nullcontext():
-                for path in paths:
+        wanted = list(dict.fromkeys(paths))
+        offered = admission_of(self.keep)
+        batched = store_read.request_memo(self.vault_root) is not None
+        result = {}
+        with deciding(wanted) if batched else nullcontext():
+            if batched and offered is not None:
+                for start in range(0, len(wanted), store_read.KEYS_PER_QUERY):
                     self._check()
-                    if held(path):
-                        allowed, local = offered.decide(path, True)
-                        if local:
-                            verdicts[path] = allowed
-                            continue
-                    live.append(path)
-            names = _WithheldNames(
-                verdicts,
-                frozenset(_dependency_changed_keys({
-                    path for path, allowed in verdicts.items() if not allowed
-                }, resolver)),
-                tuple(live),
-            )
-            # Only a request-pinned snapshot proves one revision; a direct call is never kept.
-            if (batched and store_read.current_revision(self.vault_root) == revision
-                    and offered.identity() == identity
-                    and recall_policy.recall_policy_identity(self.vault_root) == key[2]):
-                with _WITHHELD_NAMES_LOCK:
-                    _WITHHELD_NAMES[key] = names
-                    _WITHHELD_NAMES.move_to_end(key)
-                    while len(_WITHHELD_NAMES) > _WITHHELD_NAMES_MAX:
-                        _WITHHELD_NAMES.popitem(last=False)
+                    result.update({path: verdict[0] for path, verdict in offered.decide_many(
+                        wanted[start:start + store_read.KEYS_PER_QUERY]
+                    ).items()})
+            else:
+                for path in wanted:
+                    self._check()
+                    result[path] = self.keep is None or self.keep(path)
+        return result
 
-        def visible(path):
-            known = names.verdicts.get(path)
-            return keep(path) if known is None else known
+    def _withheld_name_keys(self) -> set[str]:
+        """Decide only names that can change this reader's link resolution.
 
-        self.keep = visible
-        return set(names.keys) | _dependency_changed_keys({
-            path for path in names.live if not keep(path)
-        }, resolver)
+        A reader that drops placeholders needs a mixed visible/withheld group; a unique page
+        cannot change a link. File mode and readers of placeholders retain the whole-corpus rule.
+        """
+        from .vault_store import mode as store_mode
+
+        resolver = self._shared_resolver()
+        if self.keep is None:
+            return set()
+        paths = set()
+        if not store_mode.store_mode_for_reads(self.vault_root) or self.reads_placeholders:
+            paths = {f"{path}.md" for path in resolver.full_paths}
+        else:
+            names = resolver.full_paths | resolver.stems.keys() | resolver.titles.keys()
+            for name in names:
+                self._check()
+                candidates = _link_candidates_for_key(resolver, name)
+                if len(candidates) > 1:
+                    paths.update(candidates)
+        verdicts = self._kept_many(paths)
+        withheld = set()
+        for path, allowed in verdicts.items():
+            self._check()
+            if not allowed:
+                withheld.add(path)
+        return _dependency_changed_keys(withheld, resolver)
 
     def changed_sources(self) -> set[str]:
         """Every visible page whose links can resolve differently because of a withheld name."""

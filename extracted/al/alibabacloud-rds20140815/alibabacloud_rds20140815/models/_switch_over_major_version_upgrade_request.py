@@ -18,7 +18,7 @@ class SwitchOverMajorVersionUpgradeRequest(DaraModel):
         switchover_timeout: int = None,
         type: str = None,
     ):
-        # The client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the token, but you must ensure that it is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # Specifies the client token that is used to ensure the idempotence of the request and prevent duplicate submissions. You can use the client to generate the value, but you must ensure that it is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
         # The name of the instance.
         self.dbinstance_name = dbinstance_name
@@ -33,9 +33,9 @@ class SwitchOverMajorVersionUpgradeRequest(DaraModel):
         # Specifies the maximum tolerance time for the switchover. If the switchover exceeds this time, it is canceled. Unit: seconds. Valid values: 10 to 3600.
         self.switchover_timeout = switchover_timeout
         # Specifies the operation type for the switchover. Valid values:
-        # * switch: Switchover.
-        # * cancel: Cancel.
-        # * interrupt: Interrupt.
+        # * switch: switches the traffic.
+        # * cancel: cancels the switchover.
+        # * interrupt: interrupts the switchover.
         self.type = type
 
     def validate(self):

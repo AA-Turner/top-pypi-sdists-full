@@ -45,6 +45,92 @@ pub struct JobDefinition {
     pub targets: BTreeSet<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub declared_at: Option<DeclaredAt>,
+    /// Who answers for the job, as written.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<String>,
+    #[serde(default, skip_serializing_if = "Overlap::is_queue")]
+    pub overlap: Overlap,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_failure: Option<OnFailure>,
+    /// The worker container's limits for this job; the launcher's `max_memory` caps memory.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resources: Option<RunResources>,
+}
+
+/// Container limits a job asks for; each unset limit falls back to the launcher's.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RunResources {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory: Option<MemorySize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cpus: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pids: Option<u64>,
+}
+
+/// Bytes, written as an integer or with a `k`, `m` or `g` suffix (powers of 1024), as Docker's `--memory` reads it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(transparent)]
+pub struct MemorySize(pub u64);
+
+impl MemorySize {
+    /// `"512m"`, `"2g"` or `"1073741824"`; the size must be at least one byte.
+    pub fn parse(text: &str) -> Result<Self, String> {
+        let text = text.trim().to_ascii_lowercase();
+        let (digits, scale) = match text.strip_suffix('b').unwrap_or(&text) {
+            value if value.ends_with('k') => (&value[..value.len() - 1], 1u64 << 10),
+            value if value.ends_with('m') => (&value[..value.len() - 1], 1u64 << 20),
+            value if value.ends_with('g') => (&value[..value.len() - 1], 1u64 << 30),
+            value => (value, 1),
+        };
+        match digits.parse::<u64>().map(|count| count.checked_mul(scale)) {
+            Ok(Some(bytes)) if bytes > 0 => Ok(Self(bytes)),
+            _ => Err(format!(
+                "memory must be a positive size such as \"512m\" or \"2g\", not {text:?}"
+            )),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for MemorySize {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Written {
+            Bytes(u64),
+            Text(String),
+        }
+        match Written::deserialize(deserializer)? {
+            Written::Bytes(0) => Err(serde::de::Error::custom("memory must be at least one byte")),
+            Written::Bytes(bytes) => Ok(Self(bytes)),
+            Written::Text(text) => Self::parse(&text).map_err(serde::de::Error::custom),
+        }
+    }
+}
+
+/// What a schedule tick or sensor request does while a run of the same job is active; people's requests always queue.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Overlap {
+    #[default]
+    Queue,
+    Skip,
+}
+
+impl Overlap {
+    #[must_use]
+    pub const fn is_queue(&self) -> bool {
+        matches!(self, Self::Queue)
+    }
+}
+
+/// A failed or partial run reruns from failure up to `retries` times, each `retry_delay_seconds` after the last ended.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OnFailure {
+    pub retries: u8,
+    pub retry_delay_seconds: u32,
 }
 
 /// Where a declaration was written, relative to the project root.
@@ -123,6 +209,9 @@ pub struct JobRecord {
     /// A job's selectors as written; absent for a group and for snapshots published before they were recorded.
     pub select: Option<String>,
     pub declared_at: Option<DeclaredAt>,
+    pub owner: Option<String>,
+    pub overlap: Overlap,
+    pub on_failure: Option<OnFailure>,
 }
 
 /// A `sqb_jobs` row as stored.
@@ -158,6 +247,10 @@ pub struct JobDetailRecord {
     pub declared_at: Option<DeclaredAt>,
     /// The cursor type every selected cursor node shares; absent when none has a cursor or types differ.
     pub cursor_type: Option<String>,
+    pub owner: Option<String>,
+    pub overlap: Overlap,
+    /// A member job's own policy applies only when it runs alone; inside a group run the group's applies.
+    pub on_failure: Option<OnFailure>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
@@ -248,4 +341,61 @@ pub(crate) struct PreviousTriggerState {
     pub(crate) started_at: DateTime<Utc>,
     pub(crate) last_tick_for: Option<DateTime<Utc>>,
     pub(crate) status_override: Option<TriggerStatus>,
+}
+
+/// Each member job's waits, and why it waits: an explicit `after`, or the first lineage edge found.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct GroupWaits {
+    pub(crate) edges: BTreeMap<String, BTreeSet<String>>,
+    pub(crate) reasons: BTreeMap<(String, String), String>,
+}
+
+/// Providers the current snapshot declares; empty before a publish or when the project has none.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ProvidersRead {
+    pub snapshot_id: Option<uuid::Uuid>,
+    pub providers: Vec<ProviderRecord>,
+}
+
+/// A provider as its location published it, from the class alone: never a setting value.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ProviderRecord {
+    pub name: String,
+    /// The class as `module.qualname`.
+    pub class: String,
+    /// The class docstring.
+    pub description: String,
+    /// The file declaring the class, relative to the project.
+    pub path: String,
+    pub settings: Vec<ProviderSetting>,
+    /// Code that injects the provider, in discovery order.
+    pub used_by: Vec<ProviderConsumer>,
+    /// Snapshot nodes that run that code: Python nodes, models calling a hook or using a materialization, and sources a loader fills.
+    #[serde(default)]
+    pub nodes: Vec<String>,
+    /// Jobs whose selection includes one of those nodes.
+    #[serde(default)]
+    pub jobs: Vec<String>,
+}
+
+/// One declared setting field; its value stays in the location's environment.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ProviderSetting {
+    pub name: String,
+    /// The annotation as written, such as `str` or `SecretStr | None`.
+    #[serde(rename = "type")]
+    pub type_name: String,
+    pub required: bool,
+    /// Whether the annotation is a pydantic secret type.
+    pub secret: bool,
+    /// The environment variable the setting is read from.
+    pub env: String,
+    pub description: Option<String>,
+}
+
+/// Code that injects a provider: a node (`loader`, `task`, `asset`, `check`, `hook` or `materialization`, keyed `kind:name`), an `event_exporter` or a `sink`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ProviderConsumer {
+    pub kind: String,
+    pub name: String,
 }

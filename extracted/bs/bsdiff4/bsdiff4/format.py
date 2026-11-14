@@ -37,6 +37,47 @@ def unpack_control_block(control_block):
                     for j in range(i, i + 24, 8))
 
 
+class NonCanonicalError(ValueError):
+    "Raised when a valid control block is not canonical."
+
+
+def validate_canonical(control_block, src_len=None):
+    "Raise NonCanonicalError unless a valid control block is canonical."
+    controls = list(unpack_control_block(control_block))
+
+    negative_zero = 7 * b'\x00' + b'\x80'
+    for j in range(0, len(control_block), 8):
+        if control_block[j:j + 8] == negative_zero:
+            raise NonCanonicalError("negative zero found")
+
+    src_pos = 0
+    for i, (x, y, z) in enumerate(controls):
+        if src_pos < 0:
+            raise NonCanonicalError("negative source position")
+
+        if src_len is not None:
+            if src_pos > src_len:
+                raise NonCanonicalError("source position not in source range")
+
+            if src_pos + x > src_len:
+                raise NonCanonicalError("diff range not in source range")
+
+        if x == y == z == 0:
+            raise NonCanonicalError("no-op tuple found")
+
+        if i and x == 0:
+            raise NonCanonicalError("empty diff range")
+
+        if i == len(controls) - 1:
+            if z:
+                raise NonCanonicalError("final z not zero")
+        else:
+            if y == z == 0:
+                raise NonCanonicalError("adjacent diff ranges not merged")
+
+        src_pos += x + z
+
+
 def check_size(size):
     if size < 0:
         raise ValueError("negative size in bsdiff4 patch")
